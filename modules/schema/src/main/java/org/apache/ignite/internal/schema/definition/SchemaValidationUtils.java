@@ -49,29 +49,27 @@ public class SchemaValidationUtils {
     /**
      * Validate indices.
      *
-     * @param indices Table indices.
+     * @param index Table index.
      * @param cols Table columns.
      * @param colocationColNames Colocation columns names.
      */
     public static void validateIndices(
-            Collection<IndexDefinition> indices,
+            IndexDefinition index,
             Collection<ColumnDefinition> cols,
             List<String> colocationColNames) {
         Set<String> colNames = cols.stream().map(ColumnDefinition::name).collect(Collectors.toSet());
 
-        for (IndexDefinition idx : indices) {
-            assert idx instanceof ColumnarIndexDefinition : "Only columnar indices are supported.";
-            // Note: E.g. functional index is not columnar index as it index an expression result only.
+        assert index instanceof ColumnarIndexDefinition : "Only columnar indices are supported.";
+        // Note: E.g. functional index is not columnar index as it index an expression result only.
 
-            ColumnarIndexDefinition idx0 = (ColumnarIndexDefinition) idx;
+        ColumnarIndexDefinition idx0 = (ColumnarIndexDefinition) index;
 
-            if (!idx0.columns().stream().map(IndexColumnDefinition::name).allMatch(colNames::contains)) {
-                throw new IllegalStateException("Index column must exist in the schema.");
-            }
+        if (!idx0.columns().stream().map(IndexColumnDefinition::name).allMatch(colNames::contains)) {
+            throw new IllegalStateException("Index column must exist in the schema.");
+        }
 
-            if (idx0.unique() && !(idx0.columns().stream().map(IndexColumnDefinition::name).allMatch(colocationColNames::contains))) {
-                throw new IllegalStateException("Unique index must contains all colocation columns.");
-            }
+        if (idx0.unique() && !(idx0.columns().stream().map(IndexColumnDefinition::name).allMatch(colocationColNames::contains))) {
+            throw new IllegalStateException("Unique index must contains all colocation columns.");
         }
     }
 }

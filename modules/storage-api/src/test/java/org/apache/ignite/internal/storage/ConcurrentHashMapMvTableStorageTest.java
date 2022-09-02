@@ -21,6 +21,8 @@ import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchem
 import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
+import org.apache.ignite.configuration.schemas.table.TableIndexView;
+import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -48,7 +50,7 @@ public class ConcurrentHashMapMvTableStorageTest extends AbstractMvTableStorageT
     private TableConfiguration tableConfig;
 
     @Override
-    protected MvTableStorage tableStorage() {
-        return new TestConcurrentHashMapMvTableStorage(tableConfig);
+    protected MvTableStorage tableStorage(TableIndexView sortedIdx, TableIndexView hashIdx, TablesConfiguration tablesCfg) {
+        return new TestConcurrentHashMapMvTableStorage(tableConfig.value(), tablesCfg);
     }
 }

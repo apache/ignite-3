@@ -83,8 +83,11 @@ public class ItIndexManagerTest extends AbstractBasicIntegrationTest {
             return CompletableFuture.completedFuture(true);
         });
 
-        Index<?> index = indexManager.createIndexAsync("PUBLIC", "INAME", "TNAME", true, tableIndexChange ->
-                tableIndexChange.convert(HashIndexChange.class).changeColumnNames("c3", "c2")).join();
+        indexManager.createIndexAsync("PUBLIC", "INAME", "TNAME", true, tableIndexChange ->
+                tableIndexChange.convert(HashIndexChange.class).changeColumnNames("c3", "c2"))
+                .join();
+
+        Index<?> index = createEventParamHolder.get().index();
 
         assertThat(index, notNullValue());
         assertThat(index.tableId(), equalTo(table.tableId()));

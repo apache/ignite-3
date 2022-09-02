@@ -84,7 +84,7 @@ class VolatilePageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvParti
                 ((VolatilePageMemoryDataStorageView) tableCfg.dataStorage().value()).dataRegion()
         );
 
-        table = engine.createMvTable(tableCfg);
+        table = engine.createMvTable(tableCfg.value(), null);
         table.start();
 
         storage = table.createMvPartitionStorage(PARTITION_ID);

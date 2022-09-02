@@ -27,6 +27,7 @@ import org.apache.ignite.configuration.schemas.table.IndexColumnView;
 import org.apache.ignite.configuration.schemas.table.SortedIndexView;
 import org.apache.ignite.configuration.schemas.table.TableIndexView;
 import org.apache.ignite.configuration.schemas.table.TableView;
+import org.apache.ignite.configuration.schemas.table.TablesView;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
@@ -103,10 +104,8 @@ public class SortedIndexDescriptor {
      * @param indexId index ID.
      * @param tableConfig table configuration.
      */
-    public SortedIndexDescriptor(UUID indexId, TableView tableConfig) {
-        this.id = indexId;
-
-        TableIndexView indexConfig = ConfigurationUtil.getByInternalId(tableConfig.indices(), indexId);
+    public SortedIndexDescriptor(UUID indexId, TableView tableConfig, TablesView tablesConfig) {
+        TableIndexView indexConfig = ConfigurationUtil.getByInternalId(tablesConfig.indexes(), indexId);
 
         if (indexConfig == null) {
             throw new StorageException(String.format("Index configuration for \"%s\" could not be found", indexId));
@@ -118,6 +117,8 @@ public class SortedIndexDescriptor {
                     indexId, indexConfig.type()
             ));
         }
+
+        this.id = indexId;
 
         NamedListView<? extends IndexColumnView> indexColumns = ((SortedIndexView) indexConfig).columns();
 

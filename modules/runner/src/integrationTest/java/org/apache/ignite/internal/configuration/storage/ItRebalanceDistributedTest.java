@@ -37,7 +37,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorConfiguration;
 import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
 import org.apache.ignite.configuration.schemas.rest.RestConfiguration;
@@ -413,9 +412,6 @@ public class ItRebalanceDistributedTest {
             raftManager = new Loza(clusterService, dir);
 
             txManager = new TableTxManagerImpl(clusterService, lockManager);
-
-            List<RootKey<?, ?>> rootKeys = List.of(
-                    TablesConfiguration.KEY);
 
             cmgManager = new ClusterManagementGroupManager(
                     vaultManager,

@@ -31,8 +31,9 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.configuration.schemas.table.TableConfiguration;
-import org.apache.ignite.configuration.schemas.table.TableIndexView;
+import org.apache.ignite.configuration.schemas.table.TableIndexConfiguration;
+import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
+import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
@@ -63,20 +64,20 @@ public abstract class AbstractHashIndexStorageTest {
 
     private BinaryTupleRowSerializer serializer;
 
-    protected void initialize(MvTableStorage tableStorage) {
+    protected void initialize(MvTableStorage tableStorage, TablesConfiguration tablesCfg) {
         this.tableStorage = tableStorage;
 
-        createTestTable(tableStorage.configuration());
+        createTestTable(tablesCfg);
 
         this.partitionStorage = tableStorage.getOrCreateMvPartition(TEST_PARTITION);
-        this.indexStorage = createIndex(tableStorage);
+        this.indexStorage = createIndex(tableStorage, tablesCfg);
         this.serializer = new BinaryTupleRowSerializer(indexStorage.indexDescriptor());
     }
 
     /**
      * Configures a test table with some indexed columns.
      */
-    private static void createTestTable(TableConfiguration tableCfg) {
+    private static void createTestTable(TablesConfiguration tablesCfg) {
         ColumnDefinition pkColumn = column("pk", ColumnType.INT32).asNullable(false).build();
 
         ColumnDefinition[] allColumns = {
@@ -90,7 +91,9 @@ public abstract class AbstractHashIndexStorageTest {
                 .withPrimaryKey(pkColumn.name())
                 .build();
 
-        CompletableFuture<Void> createTableFuture = tableCfg.change(cfg -> convert(tableDefinition, cfg));
+        CompletableFuture<Void> createTableFuture = tablesCfg.tables()
+                .change(chg -> chg.create(tableDefinition.canonicalName(),
+                        tblChg -> SchemaConfigurationConverter.convert(tableDefinition, tblChg)));
 
         assertThat(createTableFuture, willCompleteSuccessfully());
     }
@@ -98,20 +101,20 @@ public abstract class AbstractHashIndexStorageTest {
     /**
      * Configures and creates a storage instance for testing.
      */
-    private static HashIndexStorage createIndex(MvTableStorage tableStorage) {
+    private static HashIndexStorage createIndex(MvTableStorage tableStorage, TablesConfiguration tablesConf) {
         HashIndexDefinition indexDefinition = SchemaBuilders.hashIndex("hashIndex")
                 .withColumns(INT_COLUMN_NAME, STR_COLUMN_NAME)
                 .build();
 
-        CompletableFuture<Void> createIndexFuture = tableStorage.configuration()
-                .change(cfg -> cfg.changeIndices(idxList ->
-                        idxList.create(indexDefinition.name(), idx -> convert(indexDefinition, idx))));
+        CompletableFuture<Void> createIndexFuture =
+                tablesConf.indexes().change(chg -> chg.create(indexDefinition.name(),
+                        idx -> convert(indexDefinition, idx)));
 
         assertThat(createIndexFuture, willCompleteSuccessfully());
 
-        TableIndexView indexConfig = tableStorage.configuration().indices().get(indexDefinition.name()).value();
+        TableIndexConfiguration indexConfig = tablesConf.indexes().get(indexDefinition.name());
 
-        return tableStorage.getOrCreateHashIndex(TEST_PARTITION, indexConfig.id());
+        return tableStorage.getOrCreateHashIndex(TEST_PARTITION, indexConfig.id().value());
     }
 
     /**
@@ -205,7 +208,7 @@ public abstract class AbstractHashIndexStorageTest {
     }
 
     @Test
-    public void testDestroy() throws Exception {
+    public void testDestroy() {
         IndexRow row1 = serializer.serializeRow(new Object[]{ 1, "foo" }, new RowId(TEST_PARTITION));
         IndexRow row2 = serializer.serializeRow(new Object[]{ 1, "foo" }, new RowId(TEST_PARTITION));
         IndexRow row3 = serializer.serializeRow(new Object[]{ 2, "bar" }, new RowId(TEST_PARTITION));

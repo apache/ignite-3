@@ -22,8 +22,8 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReferenceArray;
-import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableView;
+import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -41,7 +41,9 @@ import org.jetbrains.annotations.Nullable;
  */
 // TODO: IGNITE-16642 Support indexes.
 public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
-    protected final TableConfiguration tableCfg;
+    protected final TableView tableView;
+
+    protected TablesConfiguration tablesConfiguration;
 
     protected volatile boolean started;
 
@@ -52,14 +54,15 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
      *
      * @param tableCfg Table configuration.
      */
-    protected AbstractPageMemoryTableStorage(TableConfiguration tableCfg) {
-        this.tableCfg = tableCfg;
+    protected AbstractPageMemoryTableStorage(TableView tableCfg, TablesConfiguration tablesCfg) {
+        this.tableView = tableCfg;
+        tablesConfiguration = tablesCfg;
     }
 
     /** {@inheritDoc} */
     @Override
-    public TableConfiguration configuration() {
-        return tableCfg;
+    public TableView configuration() {
+        return tableView;
     }
 
     /**
@@ -70,8 +73,6 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
     /** {@inheritDoc} */
     @Override
     public void start() throws StorageException {
-        TableView tableView = tableCfg.value();
-
         mvPartitions = new AtomicReferenceArray<>(tableView.partitions());
 
         started = true;
@@ -117,7 +118,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
         if (partitionId < 0 || partitionId >= mvPartitions.length()) {
             throw new IllegalArgumentException(S.toString(
                     "Unable to access partition with id outside of configured range",
-                    "table", tableCfg.name().value(), false,
+                    "table", tableView.name(), false,
                     "partitionId", partitionId, false,
                     "partitions", mvPartitions.length(), false
             ));

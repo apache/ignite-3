@@ -19,16 +19,13 @@ package org.apache.ignite.internal.index;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.schema.SchemaUtils.canonicalName;
+import static org.apache.ignite.internal.util.IgniteObjectName.parseCanonicalName;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
@@ -37,8 +34,9 @@ import org.apache.ignite.configuration.schemas.table.HashIndexView;
 import org.apache.ignite.configuration.schemas.table.IndexColumnView;
 import org.apache.ignite.configuration.schemas.table.SortedIndexView;
 import org.apache.ignite.configuration.schemas.table.TableIndexChange;
+import org.apache.ignite.configuration.schemas.table.TableIndexConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableIndexView;
-import org.apache.ignite.internal.configuration.schema.ExtendedTableConfiguration;
+import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.index.event.IndexEvent;
 import org.apache.ignite.internal.index.event.IndexEventParameters;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -46,13 +44,10 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.manager.Producer;
 import org.apache.ignite.internal.table.distributed.TableManager;
-import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.lang.ErrorGroups.Common;
-import org.apache.ignite.lang.ErrorGroups.Table;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IndexAlreadyExistsException;
 import org.apache.ignite.lang.IndexNotFoundException;
@@ -69,10 +64,8 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
 
     private final TableManager tableManager;
 
-    private final Consumer<ConfigurationNamedListListener<TableIndexView>> indicesConfigurationChangeSubscription;
-
-    private final Map<UUID, Index<?>> indexById = new ConcurrentHashMap<>();
-    private final Map<String, Index<?>> indexByName = new ConcurrentHashMap<>();
+    /** Indexes configuration. */
+    private final TablesConfiguration tablesCfg;
 
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -87,10 +80,10 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
      */
     public IndexManager(
             TableManager tableManager,
-            Consumer<ConfigurationNamedListListener<TableIndexView>> indicesConfigurationChangeSubscription
+            TablesConfiguration tablesCfg
     ) {
         this.tableManager = Objects.requireNonNull(tableManager, "tableManager");
-        this.indicesConfigurationChangeSubscription = Objects.requireNonNull(indicesConfigurationChangeSubscription, "tablesConfiguration");
+        this.tablesCfg = Objects.requireNonNull(tablesCfg, "tablesCfg");
     }
 
     /** {@inheritDoc} */
@@ -98,7 +91,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
     public void start() {
         LOG.debug("Index manager is about to start");
 
-        indicesConfigurationChangeSubscription.accept(new ConfigurationListener());
+        tablesCfg.indexes().any().listen(new ConfigurationListener());
 
         LOG.info("Index manager started");
     }
@@ -116,9 +109,6 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
 
         busyLock.block();
 
-        indexById.clear();
-        indexByName.clear();
-
         LOG.info("Index manager stopped");
     }
 
@@ -132,12 +122,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
      * @param indexChange A consumer that suppose to change the configuration in order to provide description of an index.
      * @return A future represented the result of creation.
      */
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-17474
-    // Validation of the index name uniqueness is not implemented, because with given
-    // configuration hierarchy this is a bit tricky exercise. Given that this hierarchy
-    // is subject to change in the future, seems to be more rational just to omit this
-    // part for now
-    public CompletableFuture<Index<?>> createIndexAsync(
+    public CompletableFuture<Boolean> createIndexAsync(
             String schemaName,
             String indexName,
             String tableName,
@@ -153,9 +138,11 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         try {
             validateName(indexName);
 
-            CompletableFuture<Index<?>> future = new CompletableFuture<>();
+            String canonicalIndexName = parseCanonicalName(canonicalName(schemaName, indexName));
 
-            var canonicalName = canonicalName(schemaName, tableName);
+            CompletableFuture<Boolean> future = new CompletableFuture<>();
+
+            var canonicalName = parseCanonicalName(canonicalName(schemaName, tableName));
 
             tableManager.tableAsyncInternal(canonicalName).thenAccept((table) -> {
                 if (table == null) {
@@ -169,46 +156,32 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                     return;
                 }
 
-                tableManager.alterTableAsync(table.name(), tableChange -> tableChange.changeIndices(indexListChange -> {
-                    if (indexListChange.get(indexName) != null) {
-                        if (!failIfExists) {
-                            future.complete(null);
+                Consumer<TableIndexChange> chg = indexChange.andThen(c -> c.changeTableId(table.tableId()));
 
-                            return;
-                        }
-                        var exception = new IndexAlreadyExistsException(indexName);
-
-                        LOG.info("Unable to create index [schema={}, table={}, index={}]",
-                                exception, schemaName, tableName, indexName);
-
-                        future.completeExceptionally(exception);
-
-                        return;
+                tablesCfg.indexes().change(indexListChange -> {
+                    if (indexListChange.get(canonicalIndexName) != null) {
+                        throw new IndexAlreadyExistsException(canonicalIndexName);
                     }
 
-                    indexListChange.create(indexName, indexChange);
-
-                    TableIndexView indexView = indexListChange.get(indexName);
-
-                    Set<String> columnNames = Set.copyOf(tableChange.columns().namedListKeys());
-
-                    validateColumns(indexView, columnNames);
-                })).whenComplete((index, th) -> {
+                    indexListChange.create(canonicalIndexName, chg);
+                }).whenComplete((index, th) -> {
                     if (th != null) {
                         LOG.info("Unable to create index [schema={}, table={}, index={}]",
                                 th, schemaName, tableName, indexName);
 
-                        future.completeExceptionally(th);
+                        if (!failIfExists) {
+                            future.complete(false);
+                        } else {
+                            future.completeExceptionally(th);
+                        }
                     } else if (!future.isDone()) {
-                        String canonicalIndexName = canonicalName(schemaName, indexName);
+                        TableIndexConfiguration idxCfg = tablesCfg.indexes().get(canonicalIndexName);
 
-                        Index<?> createdIndex = indexByName.get(canonicalIndexName);
-
-                        if (createdIndex != null) {
+                        if (idxCfg != null && idxCfg.value() != null) {
                             LOG.info("Index created [schema={}, table={}, index={}, indexId={}]",
-                                    schemaName, tableName, indexName, createdIndex.id());
+                                    schemaName, tableName, indexName, idxCfg.id().value());
 
-                            future.complete(createdIndex);
+                            future.complete(true);
                         } else {
                             var exception = new IgniteInternalException(
                                     Common.UNEXPECTED_ERR, "Looks like the index was concurrently deleted");
@@ -238,8 +211,6 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
      * @param failIfNotExists Flag, which force failure, when {@code trues} if index doen't not exists.
      * @return A future representing the result of the operation.
      */
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-17474
-    // For now it is impossible to locate the index neither by id nor name.
     public CompletableFuture<Boolean> dropIndexAsync(
             String schemaName,
             String indexName,
@@ -254,11 +225,11 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         try {
             validateName(indexName);
 
-            String canonicalName = canonicalName(schemaName, indexName);
+            String canonicalName = parseCanonicalName(canonicalName(schemaName, indexName));
 
-            Index<?> index = indexByName.get(canonicalName);
+            TableIndexConfiguration idxCfg = tablesCfg.indexes().get(canonicalName);
 
-            if (index == null) {
+            if (idxCfg == null) {
                 return  failIfNotExists
                         ? CompletableFuture.failedFuture(new IndexNotFoundException(canonicalName))
                         : CompletableFuture.completedFuture(false);
@@ -266,7 +237,9 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
 
             CompletableFuture<Boolean> future = new CompletableFuture<>();
 
-            tableManager.tableAsyncInternal(index.tableId(), false).thenAccept((table) -> {
+            UUID tableId = idxCfg.tableId().value();
+
+            tableManager.tableAsyncInternal(tableId, false).thenAccept((table) -> {
                 if (table == null) {
                     var exception = new IndexNotFoundException(canonicalName);
 
@@ -278,8 +251,8 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                     return;
                 }
 
-                tableManager.alterTableAsync(table.name(), tableChange -> tableChange.changeIndices(indexListChange -> {
-                    if (indexListChange.get(indexName) == null) {
+                tablesCfg.indexes().change(indexListChange -> {
+                    if (indexListChange.get(canonicalName) == null) {
                         var exception = new IndexNotFoundException(canonicalName);
 
                         LOG.info("Unable to drop index [schema={}, index={}]",
@@ -290,8 +263,8 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                         return;
                     }
 
-                    indexListChange.delete(indexName);
-                })).whenComplete((ignored, th) -> {
+                    indexListChange.delete(canonicalName);
+                }).whenComplete((ignored, th) -> {
                     if (th != null) {
                         LOG.info("Unable to drop index [schema={}, index={}]",
                                 th, schemaName, indexName);
@@ -320,36 +293,6 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         }
     }
 
-    private void validateColumns(TableIndexView indexView, Set<String> tableColumns) {
-        if (indexView instanceof SortedIndexView) {
-            var sortedIndexView = (SortedIndexView) indexView;
-
-            validateColumns(sortedIndexView.columns().namedListKeys(), tableColumns);
-        } else if (indexView instanceof HashIndexView) {
-            validateColumns(Arrays.asList(((HashIndexView) indexView).columnNames()), tableColumns);
-        } else {
-            throw new AssertionError("Unknown index type [type=" + (indexView != null ? indexView.getClass() : null) + ']');
-        }
-    }
-
-    private void validateColumns(Iterable<String> indexedColumns, Set<String> tableColumns) {
-        if (CollectionUtils.nullOrEmpty(indexedColumns)) {
-            throw new IgniteInternalException(
-                    ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
-                    "At least one column should be specified by index definition"
-            );
-        }
-
-        for (var columnName : indexedColumns) {
-            if (!tableColumns.contains(columnName)) {
-                throw new IgniteInternalException(
-                        Table.COLUMN_NOT_FOUND_ERR,
-                        "Column not found [name=" + columnName + ']'
-                );
-            }
-        }
-    }
-
     /**
      * Callback method is called when index configuration changed and an index was dropped.
      *
@@ -357,9 +300,9 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
      * @return A future.
      */
     private CompletableFuture<?> onIndexDrop(ConfigurationNotificationEvent<TableIndexView> evt) {
-        if (!busyLock.enterBusy()) {
-            UUID idxId = evt.oldValue().id();
+        UUID idxId = evt.oldValue().id();
 
+        if (!busyLock.enterBusy()) {
             fireEvent(IndexEvent.DROP,
                     new IndexEventParameters(evt.storageRevision(), idxId),
                     new NodeStoppingException()
@@ -369,11 +312,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         }
 
         try {
-            Index<?> index = indexById.remove(evt.oldValue().id());
-
-            indexByName.remove(index.name(), index);
-
-            fireEvent(IndexEvent.DROP, new IndexEventParameters(evt.storageRevision(), index.id()), null);
+            fireEvent(IndexEvent.DROP, new IndexEventParameters(evt.storageRevision(), idxId), null);
         } finally {
             busyLock.leaveBusy();
         }
@@ -387,7 +326,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
      * @param evt Index configuration changed event.
      * @return A future.
      */
-    private CompletableFuture<?> onIndexCreate(ConfigurationNotificationEvent<TableIndexView> evt) {
+    CompletableFuture<?> onIndexCreate(ConfigurationNotificationEvent<TableIndexView> evt) {
         if (!busyLock.enterBusy()) {
             UUID idxId = evt.newValue().id();
 
@@ -400,17 +339,17 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         }
 
         try {
+            UUID tableId = evt.newValue().tableId();
+
             return createIndexLocally(
                     evt.storageRevision(),
-                    //TODO: https://issues.apache.org/jira/browse/IGNITE-17474 Add tableID to index config instead of lookup to parent.
-                    evt.config(ExtendedTableConfiguration.class).id().value(), // Parent element is table.
+                    tableId,
                     evt.newValue());
         } finally {
             busyLock.leaveBusy();
         }
     }
 
-    @NotNull
     private CompletableFuture<?> createIndexLocally(long causalityToken, UUID tableId, TableIndexView tableIndexView) {
         assert tableIndexView != null;
 
@@ -418,14 +357,6 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                 tableIndexView.name(), tableIndexView.id(), tableId, causalityToken);
 
         Index<?> index = newIndex(tableId, tableIndexView);
-
-        Index<?> prev = indexById.putIfAbsent(index.id(), index);
-
-        assert prev == null;
-
-        prev = indexByName.putIfAbsent(index.name(), index);
-
-        assert prev == null;
 
         fireEvent(IndexEvent.CREATE, new IndexEventParameters(causalityToken, index), null);
 
@@ -452,14 +383,15 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
 
     private IndexDescriptor convert(HashIndexView indexView) {
         return new IndexDescriptor(
-                canonicalName("PUBLIC", indexView.name()),
+                indexView.name(),
                 Arrays.asList(indexView.columnNames())
         );
     }
 
     private SortedIndexDescriptor convert(SortedIndexView indexView) {
-        var indexedColumns = new ArrayList<String>();
-        var collations = new ArrayList<ColumnCollation>();
+        int colsCount = indexView.columns().size();
+        var indexedColumns = new ArrayList<String>(colsCount);
+        var collations = new ArrayList<ColumnCollation>(colsCount);
 
         for (var columnName : indexView.columns().namedListKeys()) {
             IndexColumnView columnView = indexView.columns().get(columnName);
@@ -469,30 +401,10 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         }
 
         return new SortedIndexDescriptor(
-                canonicalName("PUBLIC", indexView.name()),
+                indexView.name(),
                 indexedColumns,
                 collations
         );
-    }
-
-    /**
-     * Waits for future result and return, or unwraps {@link CompletionException} to {@link IgniteException} if failed.
-     *
-     * @param future Completable future.
-     * @return Future result.
-     */
-    private <T> T join(CompletableFuture<T> future) {
-        if (!busyLock.enterBusy()) {
-            throw new IgniteInternalException(Common.NODE_STOPPING_ERR, new NodeStoppingException());
-        }
-
-        try {
-            return future.join();
-        } catch (CompletionException ex) {
-            throw IgniteException.wrap(ex.getCause());
-        } finally {
-            busyLock.leaveBusy();
-        }
     }
 
     private class ConfigurationListener implements ConfigurationNamedListListener<TableIndexView> {

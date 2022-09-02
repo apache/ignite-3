@@ -49,6 +49,20 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableIndexView;
+import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.EntryCountBudgetConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.TableConfiguration;
+import org.apache.ignite.configuration.schemas.table.TableIndexView;
+import org.apache.ignite.configuration.schemas.table.TableView;
+import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
+import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -58,6 +72,7 @@ import org.apache.ignite.internal.schema.testutils.builder.SortedIndexDefinition
 import org.apache.ignite.internal.schema.testutils.builder.SortedIndexDefinitionBuilder.SortedIndexColumnBuilder;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapStorageEngine;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor.ColumnDescriptor;
 import org.apache.ignite.internal.storage.index.impl.BinaryTupleRowSerializer;
@@ -73,11 +88,13 @@ import org.intellij.lang.annotations.MagicConstant;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 
 /**
  * Base class for Sorted Index storage tests.
  */
+@ExtendWith(ConfigurationExtension.class)
 public abstract class AbstractSortedIndexStorageTest {
     private static final IgniteLogger log = Loggers.forClass(AbstractSortedIndexStorageTest.class);
 
@@ -85,6 +102,8 @@ public abstract class AbstractSortedIndexStorageTest {
     public static final List<ColumnDefinition> ALL_TYPES_COLUMN_DEFINITIONS = allTypesColumnDefinitions();
 
     private static final int TEST_PARTITION = 0;
+
+    private Random random;
 
     private static List<ColumnDefinition> allTypesColumnDefinitions() {
         Stream<ColumnType> allColumnTypes = Stream.of(
@@ -111,13 +130,39 @@ public abstract class AbstractSortedIndexStorageTest {
                 .collect(toUnmodifiableList());
     }
 
-    private final Random random;
-
     private MvTableStorage tableStorage;
 
     private MvPartitionStorage partitionStorage;
 
+    @InjectConfiguration(
+            polymorphicExtensions = {
+                    SortedIndexConfigurationSchema.class,
+                    ConstantValueDefaultConfigurationSchema.class,
+                    FunctionCallDefaultConfigurationSchema.class,
+                    NullValueDefaultConfigurationSchema.class,
+                    UnlimitedBudgetConfigurationSchema.class,
+                    EntryCountBudgetConfigurationSchema.class
+            },
+            // This value only required for configuration validity, it's not used otherwise.
+            value = "mock.dataStorage.name = " + TestConcurrentHashMapStorageEngine.ENGINE_NAME
+    )
+    TableConfiguration tableCfg;
+
+    @InjectConfiguration(polymorphicExtensions = {
+            HashIndexConfigurationSchema.class,
+            SortedIndexConfigurationSchema.class,
+            UnknownDataStorageConfigurationSchema.class,
+            ConstantValueDefaultConfigurationSchema.class,
+            FunctionCallDefaultConfigurationSchema.class,
+            NullValueDefaultConfigurationSchema.class,
+            UnlimitedBudgetConfigurationSchema.class,
+            EntryCountBudgetConfigurationSchema.class
+    })
+    TablesConfiguration tablesCfg;
+
     protected AbstractSortedIndexStorageTest() {
+        createTestTable(tableCfg);
+
         long seed = System.currentTimeMillis();
 
         log.info("Using random seed: " + seed);
@@ -135,7 +180,7 @@ public abstract class AbstractSortedIndexStorageTest {
 
         this.partitionStorage = tableStorage.getOrCreateMvPartition(TEST_PARTITION);
 
-        createTestTable(tableStorage.configuration());
+        createTestTable(tableCfg);
     }
 
     /**
@@ -184,15 +229,12 @@ public abstract class AbstractSortedIndexStorageTest {
      * Creates a Sorted Index using the given index definition.
      */
     private SortedIndexStorage createIndexStorage(ColumnarIndexDefinition indexDefinition) {
-        TableConfiguration tableCfg = tableStorage.configuration();
-
-        CompletableFuture<Void> createIndexFuture = tableCfg.change(cfg ->
-                cfg.changeIndices(idxList ->
-                        idxList.create(indexDefinition.name(), idx -> convert(indexDefinition, idx))));
+        CompletableFuture<Void> createIndexFuture =
+                tablesCfg.indexes().change(chg -> chg.create(indexDefinition.name(), idx -> convert(indexDefinition, idx)));
 
         assertThat(createIndexFuture, willBe(nullValue(Void.class)));
 
-        TableIndexView indexConfig = tableCfg.value().indices().get(indexDefinition.name());
+        TableIndexView indexConfig = tablesCfg.indexes().get(indexDefinition.name()).value();
 
         return tableStorage.getOrCreateSortedIndex(0, indexConfig.id());
     }
@@ -235,7 +277,7 @@ public abstract class AbstractSortedIndexStorageTest {
     }
 
     /**
-     * Tests that it adding a row that already exists does not do anything.
+     * Tests that appending an already existing row does no harm.
      */
     @Test
     void testPutIdempotence() throws Exception {

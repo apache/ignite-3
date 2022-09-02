@@ -29,8 +29,8 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
-import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableView;
+import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.storage.StorageException;
@@ -148,9 +148,7 @@ public class RocksDbStorageEngine implements StorageEngine {
 
     /** {@inheritDoc} */
     @Override
-    public RocksDbTableStorage createMvTable(TableConfiguration tableCfg) throws StorageException {
-        TableView tableView = tableCfg.value();
-
+    public RocksDbTableStorage createMvTable(TableView tableView, TablesConfiguration tablesCfg) throws StorageException {
         assert tableView.dataStorage().name().equals(ENGINE_NAME) : tableView.dataStorage().name();
 
         RocksDbDataStorageView dataStorageView = (RocksDbDataStorageView) tableView.dataStorage();
@@ -165,6 +163,6 @@ public class RocksDbStorageEngine implements StorageEngine {
             throw new StorageException("Failed to create table store directory for " + tableView.name() + ": " + e.getMessage(), e);
         }
 
-        return new RocksDbTableStorage(this, tablePath, tableCfg, dataRegion);
+        return new RocksDbTableStorage(this, tablePath, tableView, dataRegion, tablesCfg);
     }
 }

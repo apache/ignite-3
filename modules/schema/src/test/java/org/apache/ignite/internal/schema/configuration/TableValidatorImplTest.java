@@ -19,7 +19,9 @@ package org.apache.ignite.internal.schema.configuration;
 
 import static org.apache.ignite.internal.configuration.validation.TestValidationUtil.mockValidationContext;
 import static org.apache.ignite.internal.configuration.validation.TestValidationUtil.validate;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
@@ -27,11 +29,14 @@ import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigu
 import org.apache.ignite.configuration.schemas.table.EntryCountBudgetConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.IndexValidator;
 import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.TableIndexView;
 import org.apache.ignite.configuration.schemas.table.TableValidator;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
+import org.apache.ignite.configuration.schemas.table.TablesView;
 import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
 import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -48,12 +53,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class TableValidatorImplTest {
     /** Basic table configuration to mutate and then validate. */
     @InjectConfiguration(
-            value = "mock.tables = [{\n"
+            value = "mock {tables = [{\n"
                     + "    name = schema.table,\n"
                     + "    columns.id {type.type = STRING, nullable = true},\n"
                     + "    primaryKey {columns = [id], colocationColumns = [id]},\n"
-                    + "    indices.foo {type = HASH, columnNames = [id]}\n"
-                    + "}]",
+                    + "}], indexes = [{name = idx_name, type = HASH, tableId = 123e4567-e89b-12d3-a456-426655440000, columnNames = [id]}] }",
             polymorphicExtensions = {
                     HashIndexConfigurationSchema.class,
                     SortedIndexConfigurationSchema.class,
@@ -74,5 +78,13 @@ public class TableValidatorImplTest {
         ValidationContext<NamedListView<TableView>> ctx = mockValidationContext(null, tablesCfg.tables().value());
 
         validate(TableValidatorImpl.INSTANCE, mock(TableValidator.class), ctx, null);
+
+        ValidationContext<NamedListView<TableIndexView>> ctxIdx = mock(ValidationContext.class);
+
+        TablesView view = tablesCfg.value();
+
+        when(ctxIdx.getNewRoot(any())).thenReturn(view);
+
+        validate(IndexValidatorImpl.INSTANCE, mock(IndexValidator.class), ctxIdx, null);
     }
 }

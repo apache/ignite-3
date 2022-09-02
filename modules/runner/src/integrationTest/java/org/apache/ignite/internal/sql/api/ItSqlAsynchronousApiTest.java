@@ -151,11 +151,14 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         checkDdl(true, ses, "CREATE INDEX TEST_IDX ON TEST(VAL0)");
         checkError(
                 IndexAlreadyExistsException.class,
-                "Index already exists [name=TEST_IDX]",
+                "Index already exists [name=PUBLIC.TEST_IDX]",
                 ses,
                 "CREATE INDEX TEST_IDX ON TEST(VAL1)"
         );
         checkDdl(false, ses, "CREATE INDEX IF NOT EXISTS TEST_IDX ON TEST(VAL1)");
+
+        checkDdl(true, ses, "DROP INDEX TESt_iDX");
+        checkDdl(true, ses, "CREATE INDEX TEST_IDX ON TEST(VAL0)");
 
         // DROP COLUMNS
         checkDdl(true, ses, "ALTER TABLE TEST DROP COLUMN VAL1");

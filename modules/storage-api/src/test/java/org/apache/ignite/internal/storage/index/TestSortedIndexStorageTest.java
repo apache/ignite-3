@@ -46,6 +46,6 @@ public class TestSortedIndexStorageTest extends AbstractSortedIndexStorageTest {
             // This value only required for configuration validity, it's not used otherwise.
             value = "mock.dataStorage.name = " + TestConcurrentHashMapStorageEngine.ENGINE_NAME
     ) TableConfiguration tableCfg) {
-        initialize(new TestConcurrentHashMapMvTableStorage(tableCfg));
+        initialize(new TestConcurrentHashMapMvTableStorage(tableCfg.value(), tablesCfg));
     }
 }

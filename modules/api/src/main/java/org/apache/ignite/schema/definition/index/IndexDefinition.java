@@ -20,7 +20,7 @@ package org.apache.ignite.schema.definition.index;
 import org.apache.ignite.schema.definition.SchemaObject;
 
 /**
- * Table index base interface.
+ * Index base interface.
  */
 public interface IndexDefinition extends SchemaObject {
     /**

@@ -35,8 +35,8 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.stream.Collectors;
-import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableView;
+import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
@@ -77,7 +77,10 @@ public class RocksDbTableStorage implements MvTableStorage {
     private final Path tablePath;
 
     /** Table configuration. */
-    private final TableConfiguration tableCfg;
+    private final TableView tableView;
+
+    /** Indexes configuration. */
+    private final TablesConfiguration tablesCfg;
 
     /** Data region for the table. */
     private final RocksDbDataRegion dataRegion;
@@ -117,19 +120,21 @@ public class RocksDbTableStorage implements MvTableStorage {
      *
      * @param engine RocksDB storage engine instance.
      * @param tablePath Path for the directory that stores table data.
-     * @param tableCfg Table configuration.
+     * @param tableView Table configuration view.
      * @param dataRegion Data region for the table.
      */
     RocksDbTableStorage(
             RocksDbStorageEngine engine,
             Path tablePath,
-            TableConfiguration tableCfg,
-            RocksDbDataRegion dataRegion
+            TableView tableView,
+            RocksDbDataRegion dataRegion,
+            TablesConfiguration tablesCfg
     ) {
         this.engine = engine;
         this.tablePath = tablePath;
-        this.tableCfg = tableCfg;
+        this.tableView = tableView;
         this.dataRegion = dataRegion;
+        this.tablesCfg = tablesCfg;
     }
 
     /**
@@ -162,8 +167,8 @@ public class RocksDbTableStorage implements MvTableStorage {
 
     /** {@inheritDoc} */
     @Override
-    public TableConfiguration configuration() {
-        return tableCfg;
+    public TableView configuration() {
+        return tableView;
     }
 
     /** {@inheritDoc} */
@@ -219,7 +224,7 @@ public class RocksDbTableStorage implements MvTableStorage {
                         break;
 
                     default:
-                        throw new StorageException("Unidentified column family [name=" + cf.name() + ", table=" + tableCfg.name() + ']');
+                        throw new StorageException("Unidentified column family [name=" + cf.name() + ", table=" + tableView.name() + ']');
                 }
             }
 
@@ -232,7 +237,7 @@ public class RocksDbTableStorage implements MvTableStorage {
             throw new StorageException("Failed to initialize RocksDB instance", e);
         }
 
-        partitions = new AtomicReferenceArray<>(tableCfg.value().partitions());
+        partitions = new AtomicReferenceArray<>(tableView.partitions());
 
         for (int partId : meta.getPartitionIds()) {
             partitions.set(partId, new RocksDbMvPartitionStorage(this, partId));
@@ -255,7 +260,7 @@ public class RocksDbTableStorage implements MvTableStorage {
         }
 
         try {
-            TableView tableCfgView = configuration().value();
+            TableView tableCfgView = configuration();
 
             for (int partitionId = 0; partitionId < tableCfgView.partitions(); partitionId++) {
                 RocksDbMvPartitionStorage partition = getMvPartition(partitionId);
@@ -267,7 +272,7 @@ public class RocksDbTableStorage implements MvTableStorage {
                         LOG.error(
                                 "Filed to refresh persisted applied index value for table {} partition {}",
                                 storageException,
-                                configuration().name().value(),
+                                tableCfgView.name(),
                                 partitionId
                         );
                     }
@@ -384,7 +389,7 @@ public class RocksDbTableStorage implements MvTableStorage {
     @Override
     public HashIndexStorage getOrCreateHashIndex(int partitionId, UUID indexId) {
         HashIndices storages = hashIndices.computeIfAbsent(indexId, id -> {
-            var indexDescriptor = new HashIndexDescriptor(indexId, tableCfg.value());
+            var indexDescriptor = new HashIndexDescriptor(id, tableView, tablesCfg.value());
 
             return new HashIndices(indexDescriptor);
         });
@@ -427,7 +432,7 @@ public class RocksDbTableStorage implements MvTableStorage {
         if (partId < 0 || partId >= partitions.length()) {
             throw new IllegalArgumentException(S.toString(
                     "Unable to access partition with id outside of configured range",
-                    "table", tableCfg.name().value(), false,
+                    "table", tableView.name(), false,
                     "partitionId", partId, false,
                     "partitions", partitions.length(), false
             ));
@@ -489,7 +494,7 @@ public class RocksDbTableStorage implements MvTableStorage {
                 );
 
             default:
-                throw new StorageException("Unidentified column family [name=" + cfName + ", table=" + tableCfg.name() + ']');
+                throw new StorageException("Unidentified column family [name=" + cfName + ", table=" + tableView.name() + ']');
         }
     }
 }

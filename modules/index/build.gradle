@@ -26,6 +26,7 @@ dependencies {
     implementation project(':ignite-configuration')
     implementation project(':ignite-extended-api')
     implementation libs.jetbrains.annotations
+    testImplementation(testFixtures(project(':ignite-configuration')))
     testImplementation libs.mockito.core
     testImplementation libs.mockito.inline
     testImplementation libs.mockito.junit

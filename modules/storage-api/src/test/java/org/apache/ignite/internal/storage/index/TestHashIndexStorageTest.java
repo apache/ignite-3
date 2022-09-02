@@ -17,9 +17,14 @@
 
 package org.apache.ignite.internal.storage.index;
 
+import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.EntryCountBudgetConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
+import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -45,8 +50,19 @@ public class TestHashIndexStorageTest extends AbstractHashIndexStorageTest {
                     },
                     value = "mock.dataStorage.name = " + TestConcurrentHashMapStorageEngine.ENGINE_NAME
             )
-            TableConfiguration tableCfg
+            TableConfiguration tableCfg,
+
+            @InjectConfiguration(polymorphicExtensions = {
+                    HashIndexConfigurationSchema.class,
+                    UnknownDataStorageConfigurationSchema.class,
+                    ConstantValueDefaultConfigurationSchema.class,
+                    FunctionCallDefaultConfigurationSchema.class,
+                    NullValueDefaultConfigurationSchema.class,
+                    UnlimitedBudgetConfigurationSchema.class,
+                    EntryCountBudgetConfigurationSchema.class
+            })
+            TablesConfiguration tablesConfig
     ) {
-        initialize(new TestConcurrentHashMapMvTableStorage(tableCfg));
+        initialize(new TestConcurrentHashMapMvTableStorage(tableCfg.value(), tablesConfig), tablesConfig);
     }
 }

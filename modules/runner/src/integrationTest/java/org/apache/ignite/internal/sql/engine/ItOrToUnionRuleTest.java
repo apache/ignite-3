@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsUn
 import static org.hamcrest.CoreMatchers.not;
 
 import java.util.List;
+import java.util.Map;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnType;
@@ -69,19 +70,22 @@ public class ItOrToUnionRuleTest extends AbstractBasicIntegrationTest {
                 .withPrimaryKey("ID")
                 .build();
 
-        Table tbl = CLUSTER_NODES.get(0).tables().createTable(schTbl1.canonicalName(), tblCh ->
+        String tbl1CanonicalName = schTbl1.canonicalName();
+
+        Table tbl = CLUSTER_NODES.get(0).tables().createTable(tbl1CanonicalName, tblCh ->
                 SchemaConfigurationConverter.convert(schTbl1, tblCh)
                         .changeReplicas(1)
                         .changePartitions(10)
         );
 
-        CLUSTER_NODES.get(0).tables().alterTable(schTbl1.canonicalName(), tblCh ->
-                List.of(SchemaBuilders.sortedIndex(IDX_CATEGORY).addIndexColumn("CATEGORY").done().build(),
-                        SchemaBuilders.sortedIndex(IDX_CAT_ID).addIndexColumn("CAT_ID").done().build(),
-                        SchemaBuilders.sortedIndex(IDX_SUBCATEGORY).addIndexColumn("SUBCATEGORY").done().build(),
-                        SchemaBuilders.sortedIndex(IDX_SUBCAT_ID).addIndexColumn("SUBCAT_ID").done().build()
-                ).forEach(idxDef -> SchemaConfigurationConverter.addIndex(idxDef, tblCh))
+        Map<String, List<String>> idxs = Map.of(
+                IDX_CATEGORY, List.of("CATEGORY"),
+                IDX_CAT_ID, List.of("CAT_ID"),
+                IDX_SUBCATEGORY, List.of("SUBCATEGORY"),
+                IDX_SUBCAT_ID, List.of("SUBCAT_ID")
         );
+
+        addIndexes(CLUSTER_NODES.get(0), idxs, tbl1CanonicalName);
 
         insertData(tbl, new String[]{"ID", "CATEGORY", "CAT_ID", "SUBCATEGORY", "SUBCAT_ID", "NAME"}, new Object[][]{
                 {1, "Photo", 1, "Camera Media", 11, "Media 1"},

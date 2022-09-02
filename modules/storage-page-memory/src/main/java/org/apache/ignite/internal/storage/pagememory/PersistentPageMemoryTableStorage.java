@@ -21,8 +21,8 @@ import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
-import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableView;
+import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTrackerNoOp;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
@@ -57,15 +57,16 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
      * Constructor.
      *
      * @param engine Storage engine instance.
-     * @param tableCfg Table configuration.
+     * @param tableView Table configuration.
      * @param dataRegion Data region for the table.
      */
     public PersistentPageMemoryTableStorage(
             PersistentPageMemoryStorageEngine engine,
-            TableConfiguration tableCfg,
-            PersistentPageMemoryDataRegion dataRegion
+            TableView tableView,
+            PersistentPageMemoryDataRegion dataRegion,
+            TablesConfiguration tablesCfg
     ) {
-        super(tableCfg);
+        super(tableView, tablesCfg);
 
         this.engine = engine;
         this.dataRegion = dataRegion;
@@ -94,8 +95,6 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
     public void start() throws StorageException {
         super.start();
 
-        TableView tableView = tableCfg.value();
-
         try {
             dataRegion.filePageStoreManager().initialize(tableView.name(), tableView.tableId(), tableView.partitions());
 
@@ -118,8 +117,6 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
     /** {@inheritDoc} */
     @Override
     public PersistentPageMemoryMvPartitionStorage createMvPartitionStorage(int partitionId) {
-        TableView tableView = tableCfg.value();
-
         FilePageStore filePageStore = ensurePartitionFilePageStore(tableView, partitionId);
 
         CheckpointManager checkpointManager = dataRegion.checkpointManager();
@@ -165,7 +162,8 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
                     rowVersionFreeList,
                     indexColumnsFreeList,
                     versionChainTree,
-                    indexMetaTree
+                    indexMetaTree,
+                    tablesConfiguration
             );
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException(

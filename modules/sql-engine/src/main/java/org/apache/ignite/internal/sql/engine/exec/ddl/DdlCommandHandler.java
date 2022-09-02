@@ -250,8 +250,7 @@ public class DdlCommandHandler {
                         cmd.indexName(),
                         cmd.tableName(),
                         !cmd.ifNotExists(),
-                        indexChanger)
-                .thenApply(Objects::nonNull);
+                        indexChanger);
     }
 
     /** Handles drop index command. */

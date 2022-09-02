@@ -402,12 +402,6 @@ public class SchemaConfigurationConverter {
      * @return TableChange to get result from.
      */
     public static TableChange convert(TableDefinition tbl, TableChange tblChg) {
-        tblChg.changeIndices(idxsChg -> {
-            for (IndexDefinition idx : tbl.indices()) {
-                idxsChg.create(idx.name(), idxInit -> convert(idx, idxInit));
-            }
-        });
-
         tblChg.changeColumns(colsChg -> {
             for (ColumnDefinition col : tbl.columns()) {
                 colsChg.create(col.name(), colChg -> convert(col, colChg));
@@ -456,25 +450,9 @@ public class SchemaConfigurationConverter {
             }
         }
 
-        NamedListView<? extends TableIndexView> idxsView = tblView.indices();
-
-        var indices = new HashMap<String, IndexDefinition>(capacity(idxsView.size()));
-
-        for (String key : idxsView.namedListKeys()) {
-            TableIndexView indexView = idxsView.get(key);
-
-            if (indexView == null) { // skip just deleted indices
-                continue;
-            }
-
-            IndexDefinition definition = convert(indexView);
-
-            indices.put(definition.name(), definition);
-        }
-
         PrimaryKeyDefinition primaryKey = convert(tblView.primaryKey());
 
-        return new TableDefinitionImpl(schemaName, tableName, columns, primaryKey, indices);
+        return new TableDefinitionImpl(schemaName, tableName, columns, primaryKey);
     }
 
     /**
@@ -503,22 +481,12 @@ public class SchemaConfigurationConverter {
      * Add index.
      *
      * @param idx       Index to add.
-     * @param tblChange TableChange to fulfill.
+     * @param tableId Table id.
+     * @param change Indexes change to fulfill.
      * @return TableChange to get result from.
      */
-    public static TableChange addIndex(IndexDefinition idx, TableChange tblChange) {
-        return tblChange.changeIndices(idxsChg -> idxsChg.create(idx.name(), idxChg -> convert(idx, idxChg)));
-    }
-
-    /**
-     * Drop index.
-     *
-     * @param indexName Index name to drop.
-     * @param tblChange Table change to fulfill.
-     * @return TableChange to get result from.
-     */
-    public static TableChange dropIndex(String indexName, TableChange tblChange) {
-        return tblChange.changeIndices(idxChg -> idxChg.delete(indexName));
+    public static TableIndexChange addIndex(IndexDefinition idx, UUID tableId, TableIndexChange change) {
+        return convert(idx, change).changeTableId(tableId);
     }
 
     /**

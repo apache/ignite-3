@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.storage.engine;
 
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
+import org.apache.ignite.configuration.schemas.table.TableView;
+import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.storage.StorageException;
 
 /**
@@ -54,8 +56,9 @@ public interface StorageEngine {
     /**
      * Creates new table storage.
      *
-     * @param tableCfg Table configuration.
+     * @param tableView Table id.
+     * @param tablesCfg Tables configuration.
      * @throws StorageException If an error has occurs while creating the table.
      */
-    MvTableStorage createMvTable(TableConfiguration tableCfg) throws StorageException;
+    MvTableStorage createMvTable(TableView tableView, TablesConfiguration tablesCfg) throws StorageException;
 }
