@@ -42,11 +42,7 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
         [Test]
         public void TestGetValueThrowsOnNull()
         {
-            using var builder = new BinaryTupleBuilder(numElements: 1);
-            builder.AppendNull();
-            var bytes = builder.Build().ToArray();
-
-            var reader = new BinaryTupleReader(bytes, 1);
+            var reader = BuildAndRead(b => b.AppendNull());
 
             var getters = new Action<BinaryTupleReader>[]
             {
@@ -70,11 +66,7 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
         [Test]
         public void TestAppendNull()
         {
-            using var builder = new BinaryTupleBuilder(numElements: 1);
-            builder.AppendNull();
-            var bytes = builder.Build().ToArray();
-
-            var reader = new BinaryTupleReader(bytes, 1);
+            var reader = BuildAndRead(b => b.AppendNull());
 
             Assert.IsTrue(reader.HasNullMap);
             Assert.IsTrue(reader.IsNull(0));
@@ -381,6 +373,16 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
 
             Assert.AreEqual(Guid.Empty, reader.GetGuid(0));
             Assert.AreEqual(guid, reader.GetGuid(1));
+        }
+
+        private static BinaryTupleReader BuildAndRead(Action<BinaryTupleBuilder> build, int numElements = 1)
+        {
+            using var builder = new BinaryTupleBuilder(numElements);
+
+            build(builder);
+            var bytes = builder.Build().ToArray();
+
+            return new BinaryTupleReader(bytes, numElements);
         }
     }
 }
