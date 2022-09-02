@@ -28,7 +28,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
     internal sealed class BinaryTupleReader // TODO: Support all types (IGNITE-15431).
     {
         /** Buffer. */
-        private readonly Memory<byte> _buffer;
+        private readonly ReadOnlyMemory<byte> _buffer;
 
         /** Number of elements in the tuple. */
         private readonly int _numElements;
@@ -47,7 +47,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// </summary>
         /// <param name="buffer">Buffer.</param>
         /// <param name="numElements">Number of elements in the tuple.</param>
-        public BinaryTupleReader(Memory<byte> buffer, int numElements)
+        public BinaryTupleReader(ReadOnlyMemory<byte> buffer, int numElements)
         {
             _buffer = buffer;
             _numElements = numElements;
@@ -170,7 +170,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             }
         }
 
-        private Span<byte> Seek(int index)
+        private ReadOnlySpan<byte> Seek(int index)
         {
             Debug.Assert(index >= 0, "index >= 0");
             Debug.Assert(index < _numElements, "index < numElements");
