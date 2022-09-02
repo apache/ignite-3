@@ -233,6 +233,38 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
         }
 
         [Test]
+        public void TestFloat()
+        {
+            {
+                float value = 0.0F;
+
+                var builder = new BinaryTupleBuilder(1, false, 0);
+                builder.AppendFloat(value);
+                var bytes = builder.Build();
+
+                Assert.AreEqual(0, bytes.Span[1]);
+                Assert.AreEqual(2, bytes.Length);
+
+                var reader = new BinaryTupleReader(bytes, 1);
+                Assert.AreEqual(value, reader.GetFloat(0));
+            }
+
+            {
+                float value = 0.5F;
+
+                var builder = new BinaryTupleBuilder(1, false, 0);
+                builder.AppendFloat(value);
+                var bytes = builder.Build();
+
+                Assert.AreEqual(4, bytes.Span[1]);
+                Assert.AreEqual(6, bytes.Length);
+
+                var reader = new BinaryTupleReader(bytes, 1);
+                Assert.AreEqual(value, reader.GetFloat(0));
+            }
+        }
+
+        [Test]
         public void TestString()
         {
             var values = new[] {"ascii", "我愛Java", string.Empty, "a string with a bit more characters"};
