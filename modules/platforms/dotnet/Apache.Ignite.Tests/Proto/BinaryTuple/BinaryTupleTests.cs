@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Tests.Proto.BinaryTuple
 {
+    using System;
     using Internal.Proto.BinaryTuple;
     using NUnit.Framework;
 
@@ -26,7 +27,7 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
     public class BinaryTupleTests
     {
         [Test]
-        public void ByteTest([Values(0, 1, sbyte.MaxValue, sbyte.MinValue)] sbyte value)
+        public void TestByte([Values(0, 1, sbyte.MaxValue, sbyte.MinValue)] sbyte value)
         {
             using var builder = new BinaryTupleBuilder(numElements: 1, allowNulls: false, totalValueSize: 1);
             builder.AppendByte(value);
@@ -39,7 +40,7 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
         }
 
         [Test]
-        public void StringTest()
+        public void TestString()
         {
             var values = new[] {"ascii", "我愛Java", string.Empty, "a string with a bit more characters"};
 
@@ -56,6 +57,21 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
             {
                Assert.AreEqual(values[i], reader.GetString(i));
             }
+        }
+
+        [Test]
+        public void TestGuid()
+        {
+            var guid = Guid.NewGuid();
+
+            using var builder = new BinaryTupleBuilder(2);
+            builder.AppendGuid(Guid.Empty);
+            builder.AppendGuid(guid);
+
+            var reader = new BinaryTupleReader(builder.Build(), 2);
+
+            Assert.AreEqual(Guid.Empty, reader.GetGuid(0));
+            Assert.AreEqual(guid, reader.GetGuid(1));
         }
     }
 }
