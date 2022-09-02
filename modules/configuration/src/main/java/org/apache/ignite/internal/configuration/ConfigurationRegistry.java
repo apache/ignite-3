@@ -422,10 +422,14 @@ public class ConfigurationRegistry implements IgniteComponent, ConfigurationStor
 
         for (Map.Entry<Class<?>, Set<Class<?>>> e : polymorphicExtensionsByParent.entrySet()) {
             Class<?> schemaClass = e.getKey();
-
-            Field typeIdField = schemaFields(schemaClass).get(0);
-
-            if (!isPolymorphicId(typeIdField)) {
+            boolean havePolymorphicId = false;
+            for (Field typeIdField : schemaFields(schemaClass)) {
+                if (isPolymorphicId(typeIdField)) {
+                    havePolymorphicId = true;
+                    break;
+                }
+            }
+            if (!havePolymorphicId) {
                 throw new IllegalArgumentException(String.format(
                         "First field in a polymorphic configuration schema must contain @%s: %s",
                         PolymorphicId.class,
