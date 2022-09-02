@@ -94,6 +94,39 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
         }
 
         [Test]
+        public void TestShort()
+        {
+            short[] values = {sbyte.MinValue, -1, 0, 1, sbyte.MaxValue};
+
+            foreach (var value in values)
+            {
+                using var builder = new BinaryTupleBuilder(1, false, 1);
+                builder.AppendShort(value);
+                var bytes = builder.Build();
+
+                Assert.AreEqual(value != 0 ? 1 : 0, bytes.Span[1]);
+                Assert.AreEqual(value != 0 ? 3 : 2, bytes.Length);
+
+                var reader = new BinaryTupleReader(bytes, 1);
+                Assert.AreEqual(value, reader.GetShort(0));
+            }
+
+            values = new short[] { short.MinValue, sbyte.MinValue - 1, sbyte.MaxValue + 1, short.MaxValue };
+
+            foreach (var value in values)
+            {
+                using var builder = new BinaryTupleBuilder(1, false, 2);
+                builder.AppendShort(value);
+                var bytes = builder.Build();
+                Assert.AreEqual(2, bytes.Span[1]);
+                Assert.AreEqual(4, bytes.Length);
+
+                var reader = new BinaryTupleReader(bytes, 1);
+                Assert.AreEqual(value, reader.GetShort(0));
+            }
+        }
+
+        [Test]
         public void TestString()
         {
             var values = new[] {"ascii", "我愛Java", string.Empty, "a string with a bit more characters"};
