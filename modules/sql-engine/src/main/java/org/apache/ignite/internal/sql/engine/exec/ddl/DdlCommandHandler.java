@@ -257,7 +257,7 @@ public class DdlCommandHandler {
         indexChange.changeColumns(colsInit -> {
             for (Pair<String, Boolean> col : cmd.columns()) {
                 //TODO: https://issues.apache.org/jira/browse/IGNITE-17563 Pass null ordering for columns.
-                colsInit.create(col.getFirst(), colInit -> colInit.changeAsc(col.getSecond()));
+                colsInit.create(col.getFirst(), colInit -> colInit.changeAsc(!col.getSecond()));
             }
         });
     }

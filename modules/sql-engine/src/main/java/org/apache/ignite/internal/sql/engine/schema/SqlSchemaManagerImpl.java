@@ -229,7 +229,14 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
                                     return igniteTableFuture
                                             .thenApply(igniteTable -> inBusyLock(busyLock, () -> {
-                                                resTbls.put(igniteTable.id(), igniteTable);
+                                                InternalIgniteTable oldTable = resTbls.put(igniteTable.id(), igniteTable);
+
+                                                // looks like this is UPDATE operation
+                                                if (oldTable != null) {
+                                                    for (var index : oldTable.indexes().values()) {
+                                                        igniteTable.addIndex(index);
+                                                    }
+                                                }
 
                                                 return resTbls;
                                             }));
@@ -482,16 +489,14 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         }
     }
 
-    @NotNull
     private static String tableNameById(IgniteSchema schema, UUID tableId) {
-        String tblName = schema.getTableMap()
+        return schema.getTableMap()
                 .entrySet()
                 .stream()
                 .filter(entry -> tableId
                         .equals(((InternalIgniteTable) entry.getValue()).id()))
                 .map(Entry::getKey)
                 .findFirst().get();
-        return tblName;
     }
 
     /**

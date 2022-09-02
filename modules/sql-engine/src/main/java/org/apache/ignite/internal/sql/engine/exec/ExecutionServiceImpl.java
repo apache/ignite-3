@@ -253,18 +253,12 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
     private AsyncCursor<List<Object>> executeDdl(DdlPlan plan) {
         CompletableFuture<Iterator<List<Object>>> ret = ddlCmdHnd.handle(plan.command())
-                .thenApply(v -> Collections.singletonList(Collections.<Object>singletonList(v)).iterator())
-                .handle((v, th) -> {
-                    if (th == null) {
-                        return v;
-                    }
-
+                .thenApply(applied -> List.of(List.<Object>of(applied)).iterator())
+                .exceptionally(th -> {
                     throw convertDdlException(th);
                 });
 
-        ret.join();
-
-        return new AsyncWrapper<>(ret, ForkJoinPool.commonPool());
+        return new AsyncWrapper<>(ret, Runnable::run);
     }
 
     private static RuntimeException convertDdlException(Throwable e) {
