@@ -98,8 +98,6 @@ public class ReplicaService {
             if (throwable != null) {
                 if (throwable instanceof TimeoutException) {
                     throw new ReplicationTimeoutException(req.groupId());
-                } else if (throwable instanceof PrimaryReplicaMissException) {
-                    throw (PrimaryReplicaMissException) throwable;
                 }
 
                 throw new ReplicationException(req.groupId(), throwable);

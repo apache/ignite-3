@@ -212,34 +212,7 @@ public class ReplicaManager implements IgniteComponent {
                     Replica replica = replicas.get(request.groupId());
 
                     if (replica == null) {
-                        var traceId = UUID.randomUUID();
-
-                        String errorMessage = IgniteStringFormatter.format("Replica is not ready "
-                                        + "[replicationGroupId={}, node={}]",
-                                request.groupId(), clusterNetSvc.topologyService().localMember());
-
-                        if (requestTimestamp != null) {
-                            clusterNetSvc.messagingService().respond(
-                                    senderAddr,
-                                    REPLICA_MESSAGES_FACTORY
-                                            .errorTimestampAwareReplicaResponse()
-                                            .errorMessage(errorMessage)
-                                            .errorCode(Replicator.REPLICA_UNAVAILABLE_ERR)
-                                            .errorTraceId(traceId)
-                                            .timestamp(clock.update(requestTimestamp))
-                                            .build(),
-                                    correlationId);
-                        } else {
-                            clusterNetSvc.messagingService().respond(
-                                    senderAddr,
-                                    REPLICA_MESSAGES_FACTORY
-                                            .errorReplicaResponse()
-                                            .errorMessage(errorMessage)
-                                            .errorCode(Replicator.REPLICA_UNAVAILABLE_ERR)
-                                            .errorTraceId(traceId)
-                                            .build(),
-                                    correlationId);
-                        }
+                        sendReplicaUnavailableErrorResponse(senderAddr, correlationId, request, requestTimestamp);
                     }
 
                     CompletableFuture<Object> result = replica.processRequest(request);
@@ -248,58 +221,9 @@ public class ReplicaManager implements IgniteComponent {
                         NetworkMessage msg;
 
                         if (ex == null) {
-                            if (requestTimestamp != null) {
-                                msg = REPLICA_MESSAGES_FACTORY
-                                        .timestampAwareReplicaResponse()
-                                        .result(res)
-                                        .timestamp(clock.update(requestTimestamp))
-                                        .build();
-                            } else {
-                                msg = REPLICA_MESSAGES_FACTORY
-                                        .replicaResponse()
-                                        .result(res)
-                                        .build();
-                            }
+                            msg = prepareReplicaResponse(requestTimestamp, res);
                         } else {
-                            var traceId = UUID.randomUUID();
-
-                            LOG.warn("Exception was thrown [traceId={}]", ex, traceId);
-
-                            String errorMessage = IgniteStringFormatter.format("Process replication response finished with "
-                                    + "exception [replicaGrpId={}, msg={}]", request.groupId(), ex.getMessage());
-
-                            if (requestTimestamp != null) {
-                                ErrorTimestampAwareReplicaResponseBuilder errorBuilder = REPLICA_MESSAGES_FACTORY
-                                        .errorTimestampAwareReplicaResponse()
-                                        .errorClassName(ex.getClass().getName())
-                                        .errorTraceId(traceId)
-                                        .timestamp(clock.update(requestTimestamp));
-
-                                if (ex instanceof IgniteInternalException) {
-                                    msg = errorBuilder.errorMessage(ex.getMessage())
-                                            .errorCode(((IgniteInternalException) ex).code())
-                                            .build();
-                                } else {
-                                    msg = errorBuilder.errorMessage(errorMessage)
-                                            .errorCode(Replicator.REPLICA_COMMON_ERR)
-                                            .build();
-                                }
-                            } else {
-                                ErrorReplicaResponseBuilder errorBuilder = REPLICA_MESSAGES_FACTORY
-                                        .errorReplicaResponse()
-                                        .errorClassName(ex.getClass().getName())
-                                        .errorTraceId(traceId);
-
-                                if (ex instanceof IgniteInternalException) {
-                                    msg = errorBuilder.errorMessage(ex.getMessage())
-                                            .errorCode(((IgniteInternalException) ex).code())
-                                            .build();
-                                } else {
-                                    msg = errorBuilder.errorMessage(errorMessage)
-                                            .errorCode(Replicator.REPLICA_COMMON_ERR)
-                                            .build();
-                                }
-                            }
+                            msg = prepareReplicaErrorResponse(request, requestTimestamp, ex);
                         }
 
                         clusterNetSvc.messagingService().respond(senderAddr, msg, correlationId);
@@ -333,5 +257,107 @@ public class ReplicaManager implements IgniteComponent {
         String locNodeName = clusterNetSvc.topologyService().localMember().name();
 
         return replicas.stream().anyMatch(r -> locNodeName.equals(r.name()));
+    }
+
+    /**
+     * Sends replica unavailable error response.
+     */
+    private void sendReplicaUnavailableErrorResponse(
+            NetworkAddress senderAddr,
+            @Nullable Long correlationId,
+            ReplicaRequest request,
+            HybridTimestamp requestTimestamp) {
+        var traceId = UUID.randomUUID();
+
+        String errorMessage = IgniteStringFormatter.format("Replica is not ready "
+                        + "[replicationGroupId={}, node={}]",
+                request.groupId(), clusterNetSvc.topologyService().localMember());
+
+        if (requestTimestamp != null) {
+            clusterNetSvc.messagingService().respond(
+                    senderAddr,
+                    REPLICA_MESSAGES_FACTORY
+                            .errorTimestampAwareReplicaResponse()
+                            .errorMessage(errorMessage)
+                            .errorCode(Replicator.REPLICA_UNAVAILABLE_ERR)
+                            .errorTraceId(traceId)
+                            .timestamp(clock.update(requestTimestamp))
+                            .build(),
+                    correlationId);
+        } else {
+            clusterNetSvc.messagingService().respond(
+                    senderAddr,
+                    REPLICA_MESSAGES_FACTORY
+                            .errorReplicaResponse()
+                            .errorMessage(errorMessage)
+                            .errorCode(Replicator.REPLICA_UNAVAILABLE_ERR)
+                            .errorTraceId(traceId)
+                            .build(),
+                    correlationId);
+        }
+
+    }
+
+    /**
+     * Prepares replica response.
+     */
+    private NetworkMessage prepareReplicaResponse(HybridTimestamp requestTimestamp, Object result) {
+        if (requestTimestamp != null) {
+            return REPLICA_MESSAGES_FACTORY
+                    .timestampAwareReplicaResponse()
+                    .result(result)
+                    .timestamp(clock.update(requestTimestamp))
+                    .build();
+        } else {
+            return REPLICA_MESSAGES_FACTORY
+                    .replicaResponse()
+                    .result(result)
+                    .build();
+        }
+    }
+
+    /**
+     * Prepares replica error response.
+     */
+    private NetworkMessage prepareReplicaErrorResponse(ReplicaRequest request, HybridTimestamp requestTimestamp, Throwable ex) {
+        var traceId = UUID.randomUUID();
+
+        LOG.warn("Exception was thrown [traceId={}]", ex, traceId);
+
+        String errorMessage = IgniteStringFormatter.format("Process replication response finished with "
+                + "exception [replicaGrpId={}, msg={}]", request.groupId(), ex.getMessage());
+
+        if (requestTimestamp != null) {
+            ErrorTimestampAwareReplicaResponseBuilder errorBuilder = REPLICA_MESSAGES_FACTORY
+                    .errorTimestampAwareReplicaResponse()
+                    .errorClassName(ex.getClass().getName())
+                    .errorTraceId(traceId)
+                    .timestamp(clock.update(requestTimestamp));
+
+            if (ex instanceof IgniteInternalException) {
+                return errorBuilder.errorMessage(ex.getMessage())
+                        .errorCode(((IgniteInternalException) ex).code())
+                        .build();
+            } else {
+                return errorBuilder.errorMessage(errorMessage)
+                        .errorCode(Replicator.REPLICA_COMMON_ERR)
+                        .build();
+            }
+        } else {
+            ErrorReplicaResponseBuilder errorBuilder = REPLICA_MESSAGES_FACTORY
+                    .errorReplicaResponse()
+                    .errorClassName(ex.getClass().getName())
+                    .errorTraceId(traceId);
+
+            if (ex instanceof IgniteInternalException) {
+                return errorBuilder.errorMessage(ex.getMessage())
+                        .errorCode(((IgniteInternalException) ex).code())
+                        .build();
+            } else {
+                return errorBuilder.errorMessage(errorMessage)
+                        .errorCode(Replicator.REPLICA_COMMON_ERR)
+                        .build();
+            }
+        }
     }
 }
