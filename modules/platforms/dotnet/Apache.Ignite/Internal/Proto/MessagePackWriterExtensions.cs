@@ -39,33 +39,9 @@ namespace Apache.Ignite.Internal.Proto
         {
             writer.WriteExtensionFormatHeader(new ExtensionHeader((sbyte)ClientMessagePackType.Uuid, 16));
 
-            Span<byte> jBytes = writer.GetSpan(16);
+            var jBytes = writer.GetSpan(16);
 
-            var written = guid.TryWriteBytes(jBytes);
-            Debug.Assert(written, "written");
-
-            if (BitConverter.IsLittleEndian)
-            {
-                var c1 = jBytes[7];
-                var c2 = jBytes[6];
-
-                var b1 = jBytes[5];
-                var b2 = jBytes[4];
-
-                var a1 = jBytes[3];
-                var a2 = jBytes[2];
-                var a3 = jBytes[1];
-                var a4 = jBytes[0];
-
-                jBytes[0] = a1;
-                jBytes[1] = a2;
-                jBytes[2] = a3;
-                jBytes[3] = a4;
-                jBytes[4] = b1;
-                jBytes[5] = b2;
-                jBytes[6] = c1;
-                jBytes[7] = c2;
-            }
+            UuidSerializer.Write(guid, jBytes);
 
             writer.Advance(16);
         }
