@@ -24,6 +24,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
@@ -135,17 +136,23 @@ public interface TxManager extends IgniteComponent {
      * Finishes a dependant transactions.
      *
      * @param recipientNode Recipient node.
+     * @param term Raft term.
      * @param commit {@code True} if a commit requested.
-     * @param groups Enlisted partition groups.
+     * @param groups Enlisted partition groups with raft terms.
      * @param txId Transaction id.
      */
-    CompletableFuture<Void> finish(ClusterNode recipientNode, boolean commit, TreeMap<ClusterNode, List<String>> groups, UUID txId);
+    CompletableFuture<Void> finish(
+            ClusterNode recipientNode,
+            Long term,
+            boolean commit,
+            TreeMap<ClusterNode, List<IgniteBiTuple<String, Long>>> groups,
+            UUID txId);
 
     /**
      * Sends cleanup request to the specified primary replica.
      *
      * @param recipientNode Primary replica to process given cleanup request.
-     * @param replicationGroupIds Replication group id.
+     * @param replicationGroupIds Replication group id with raft term.
      * @param txId Transaction id.
      * @param commit {@code True} if a commit requested.
      * @param commitTimestamp Commit timestamp.
@@ -153,11 +160,11 @@ public interface TxManager extends IgniteComponent {
      */
     CompletableFuture<Void> cleanup(
             ClusterNode recipientNode,
-            List<String> replicationGroupIds,
+            List<IgniteBiTuple<String, Long>> replicationGroupIds,
             UUID txId,
             boolean commit,
             HybridTimestamp commitTimestamp
-    );
+            );
 
     /**
      * Checks if a passed address belongs to a local node.

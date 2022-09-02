@@ -146,16 +146,16 @@ public class TransactionImpl implements InternalTransaction {
      * @return The future.
      */
     private CompletableFuture<Void> finish(boolean commit) {
-        TreeMap<ClusterNode, List<String>> groups = new TreeMap<>();
+        TreeMap<ClusterNode, List<IgniteBiTuple<String, Long>>> groups = new TreeMap<>();
 
         // TODO: sanpwc better conversion required.
         enlisted.forEach((groupId, groupMeta) -> {
             ClusterNode recipientNode = groupMeta.get1();
 
             if (groups.containsKey(recipientNode)) {
-                groups.get(recipientNode).add(groupId);
+                groups.get(recipientNode).add(new IgniteBiTuple<>(groupId, groupMeta.get2()));
             } else {
-                groups.put(recipientNode, new ArrayList<>()).add(groupId);
+                groups.put(recipientNode, new ArrayList<>()).add(new IgniteBiTuple<>(groupId, groupMeta.get2()));
             }
         });
 
@@ -167,6 +167,7 @@ public class TransactionImpl implements InternalTransaction {
                         if (!enlisted.isEmpty()) {
                             txManager.finish(
                                     enlisted.entrySet().iterator().next().getValue().get1(),
+                                    enlisted.entrySet().iterator().next().getValue().get2(),
                                     commit,
                                     groups,
                                     id

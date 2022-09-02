@@ -32,6 +32,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.hlc.HybridTimestamp;
+import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
 import org.apache.ignite.internal.replicator.exception.UnsupportedReplicaRequestException;
@@ -49,6 +50,7 @@ import org.apache.ignite.internal.table.distributed.command.InsertCommand;
 import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteMultiRowReplicaRequest;
+import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteScanCloseReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteScanRetrieveBatchReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest;
@@ -63,6 +65,7 @@ import org.apache.ignite.internal.tx.message.TxCleanupReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.ErrorGroups.Replicator;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.IgniteUuid;
@@ -162,25 +165,28 @@ public class PartitionReplicaListener implements ReplicaListener {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Object> invoke(ReplicaRequest request) {
-        if (request instanceof ReadWriteSingleRowReplicaRequest) {
-            return processSingleEntryAction((ReadWriteSingleRowReplicaRequest) request);
-        } else if (request instanceof ReadWriteMultiRowReplicaRequest) {
-            return processMultiEntryAction((ReadWriteMultiRowReplicaRequest) request);
-        } else if (request instanceof ReadWriteSwapRowReplicaRequest) {
-            return processTwoEntriesAction((ReadWriteSwapRowReplicaRequest) request);
-        } else if (request instanceof ReadWriteScanRetrieveBatchReplicaRequest) {
-            return processScanRetrieveBatchAction((ReadWriteScanRetrieveBatchReplicaRequest) request);
-        } else if (request instanceof ReadWriteScanCloseReplicaRequest) {
-            processScanCloseAction((ReadWriteScanCloseReplicaRequest) request);
+        return ensureReplicaIsPrimary(request)
+                .thenCompose((ignore) -> {
+                    if (request instanceof ReadWriteSingleRowReplicaRequest) {
+                        return processSingleEntryAction((ReadWriteSingleRowReplicaRequest) request);
+                    } else if (request instanceof ReadWriteMultiRowReplicaRequest) {
+                        return processMultiEntryAction((ReadWriteMultiRowReplicaRequest) request);
+                    } else if (request instanceof ReadWriteSwapRowReplicaRequest) {
+                        return processTwoEntriesAction((ReadWriteSwapRowReplicaRequest) request);
+                    } else if (request instanceof ReadWriteScanRetrieveBatchReplicaRequest) {
+                        return processScanRetrieveBatchAction((ReadWriteScanRetrieveBatchReplicaRequest) request);
+                    } else if (request instanceof ReadWriteScanCloseReplicaRequest) {
+                        processScanCloseAction((ReadWriteScanCloseReplicaRequest) request);
 
-            return CompletableFuture.completedFuture(null);
-        } else if (request instanceof TxFinishReplicaRequest) {
-            return processTxFinishAction((TxFinishReplicaRequest) request);
-        } else if (request instanceof TxCleanupReplicaRequest) {
-            return processTxCleanupAction((TxCleanupReplicaRequest) request);
-        } else {
-            throw new UnsupportedReplicaRequestException(request.getClass());
-        }
+                        return CompletableFuture.completedFuture(null);
+                    } else if (request instanceof TxFinishReplicaRequest) {
+                        return processTxFinishAction((TxFinishReplicaRequest) request);
+                    } else if (request instanceof TxCleanupReplicaRequest) {
+                        return processTxCleanupAction((TxCleanupReplicaRequest) request);
+                    } else {
+                        throw new UnsupportedReplicaRequestException(request.getClass());
+                    }
+                });
     }
 
     /**
@@ -279,10 +285,12 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param request Transaction finish request.
      * @return future result of the operation.
      */
+    // TODO: need to properly handle primary replica changes https://issues.apache.org/jira/browse/IGNITE-17615
     private CompletableFuture<Object> processTxFinishAction(TxFinishReplicaRequest request) {
         HybridTimestamp commitTimestamp = hybridClock.now();
 
-        List<String> aggregatedGroupIds = request.groups().values().stream().flatMap(List::stream).collect(Collectors.toList());
+        List<String> aggregatedGroupIds = request.groups().values().stream()
+                .flatMap(List::stream).map(IgniteBiTuple::get1).collect(Collectors.toList());
 
         UUID txId = request.txId();
 
@@ -326,6 +334,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param request Transaction cleanup request.
      * @return CompletableFuture of void.
      */
+    // TODO: need to properly handle primary replica changes https://issues.apache.org/jira/browse/IGNITE-17615
     private CompletableFuture processTxCleanupAction(TxCleanupReplicaRequest request) {
         return raftClient.run(new TxCleanupCommand(request.txId(), request.commit(), request.commitTimestamp())).thenApply(ignored -> {
             lockManager.locks(request.txId()).forEachRemaining(lock -> {
@@ -991,5 +1000,47 @@ public class PartitionReplicaListener implements ReplicaListener {
                         return rowLockFut;
                     }));
         });
+    }
+
+    /**
+     * Ensure that the primary replica was not changed.
+     *
+     * @param request Replica request.
+     * @return Future.
+     */
+    private CompletableFuture<Void> ensureReplicaIsPrimary(ReplicaRequest request) {
+        Long expectedTerm;
+
+        if (request instanceof ReadWriteReplicaRequest) {
+            expectedTerm = ((ReadWriteReplicaRequest) request).term();
+
+            assert expectedTerm != null;
+        } else if (request instanceof TxFinishReplicaRequest) {
+            expectedTerm = ((TxFinishReplicaRequest) request).term();
+
+            assert expectedTerm != null;
+        } else if (request instanceof TxCleanupReplicaRequest) {
+            expectedTerm = ((TxCleanupReplicaRequest) request).term();
+
+            assert expectedTerm != null;
+        } else {
+            expectedTerm = null;
+        }
+
+        if (expectedTerm != null) {
+            return raftClient.refreshAndGetLeaderWithTerm()
+                    .thenCompose(replicaAndTerm -> {
+                                Long currentTerm = replicaAndTerm.get2();
+
+                                if (expectedTerm.equals(currentTerm)) {
+                                    return CompletableFuture.completedFuture(null);
+                                } else {
+                                    return CompletableFuture.failedFuture(new PrimaryReplicaMissException(expectedTerm, currentTerm));
+                                }
+                            }
+                    );
+        } else {
+            return CompletableFuture.completedFuture(null);
+        }
     }
 }

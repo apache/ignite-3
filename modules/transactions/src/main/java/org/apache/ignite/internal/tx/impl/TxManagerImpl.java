@@ -41,6 +41,7 @@ import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxFinishResponse;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
@@ -190,16 +191,18 @@ public class TxManagerImpl implements TxManager {
     @Override
     public CompletableFuture<Void> finish(
             ClusterNode recipientNode,
+            Long term,
             boolean commit,
-            TreeMap<ClusterNode, List<String>> groups,
+            TreeMap<ClusterNode, List<IgniteBiTuple<String, Long>>> groups,
             UUID txId
     ) {
         assert groups != null && !groups.isEmpty();
 
         TxFinishReplicaRequest req = FACTORY.txFinishReplicaRequest()
-                .groupId(groups.firstEntry().getValue().get(0))
+                .groupId(groups.firstEntry().getValue().get(0).get1())
                 .groups(groups)
                 .commit(commit)
+                .term(term)
                 .build();
 
         CompletableFuture<NetworkMessage> fut;
@@ -220,7 +223,7 @@ public class TxManagerImpl implements TxManager {
     @Override
     public CompletableFuture<Void> cleanup(
             ClusterNode recipientNode,
-            List<String> replicationGroupIds,
+            List<IgniteBiTuple<String, Long>> replicationGroupIds,
             UUID txId,
             boolean commit,
             HybridTimestamp commitTimestamp
@@ -231,10 +234,11 @@ public class TxManagerImpl implements TxManager {
                 replicaService.invoke(
                         recipientNode,
                         FACTORY.txCleanupReplicaRequest()
-                                .groupId(groupId)
+                                .groupId(groupId.get1())
                                 .txId(txId)
                                 .commit(commit)
                                 .commitTimestamp(commitTimestamp)
+                                .term(groupId.get2())
                                 .build()
                 );
             } catch (NodeStoppingException e) {

@@ -55,4 +55,14 @@ public interface TxCleanupReplicaRequest extends ReplicaRequest {
      */
     @Marshallable
     HybridTimestamp commitTimestamp();
+
+    /**
+     * Gets a raft term.
+     * TODO: A temp solution until lease-based engine will be implemented (IGNITE-17256, IGNITE-15083)
+     *
+     * @return Gets a raft term.
+     */
+    @Deprecated
+    @Marshallable
+    Long term();
 }

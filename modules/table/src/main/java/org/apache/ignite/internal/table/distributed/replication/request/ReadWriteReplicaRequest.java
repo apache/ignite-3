@@ -28,4 +28,14 @@ import org.apache.ignite.network.annotations.Marshallable;
 public interface ReadWriteReplicaRequest extends NetworkMessage { //extends ReplicaRequest {
     @Marshallable
     UUID transactionId();
+
+    /**
+     * Gets a raft term.
+     * TODO: A temp solution until lease-based engine will be implemented (IGNITE-17256, IGNITE-15083)
+     *
+     * @return Gets a raft term.
+     */
+    @Deprecated
+    @Marshallable
+    Long term();
 }

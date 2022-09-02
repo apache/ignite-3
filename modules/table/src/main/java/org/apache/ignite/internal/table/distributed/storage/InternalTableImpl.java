@@ -48,11 +48,12 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteScanRetrieveBatchReplicaRequest;
-import org.apache.ignite.internal.table.distributed.replication.request.ReplicaRequestParameters;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.lang.Function3;
+import org.apache.ignite.lang.Function4;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
@@ -179,7 +180,7 @@ public class InternalTableImpl implements InternalTable {
     private <R> CompletableFuture<R> enlistInTx(
             BinaryRowEx row,
             InternalTransaction tx,
-            Function<ReplicaRequestParameters, ReplicaRequest> op
+            Function3<InternalTransaction, String, Long, ReplicaRequest> op
     ) {
         final boolean implicit = tx == null;
 
@@ -193,10 +194,7 @@ public class InternalTableImpl implements InternalTable {
 
         CompletableFuture<R> fut;
 
-        ReplicaRequest request = op.apply(
-                new ReplicaRequestParameters(tx0, partGroupId, primaryReplicaAndTerm.get1(),
-                primaryReplicaAndTerm.get2())
-        );
+        ReplicaRequest request = op.apply(tx0, partGroupId, primaryReplicaAndTerm.get2());
 
         if (primaryReplicaAndTerm != null) {
             try {
@@ -225,7 +223,7 @@ public class InternalTableImpl implements InternalTable {
     private <T> CompletableFuture<T> enlistInTx(
             Collection<BinaryRowEx> keyRows,
             InternalTransaction tx,
-            Function<ReplicaRequestParameters, ReplicaRequest> op,
+            Function4<Collection<BinaryRow>, InternalTransaction, String, Long, ReplicaRequest> op,
             Function<CompletableFuture<Object>[], CompletableFuture<T>> reducer
     ) {
         final boolean implicit = tx == null;
@@ -250,10 +248,7 @@ public class InternalTableImpl implements InternalTable {
 
             CompletableFuture<Object> fut;
 
-            ReplicaRequest request = op.apply(
-                    new ReplicaRequestParameters(tx0, partToRows.getValue(), partGroupId,
-                    primaryReplicaAndTerm.get1(), primaryReplicaAndTerm.get2())
-            );
+            ReplicaRequest request = op.apply(partToRows.getValue(), tx0, partGroupId, primaryReplicaAndTerm.get2());
 
             if (primaryReplicaAndTerm != null) {
                 try {
@@ -412,12 +407,11 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 keyRow,
                 tx,
-                (params) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
-                        .groupId(params.groupId())
+                (txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
+                        .groupId(groupId)
                         .binaryRow(keyRow)
-                        .transactionId(params.tx().id())
-                        .primaryReplica(params.replica())
-                        .term(params.term())
+                        .transactionId(txo.id())
+                        .term(term)
                         .requestType(RequestType.RW_GET)
                         .build()
         );
@@ -429,12 +423,11 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 keyRows,
                 tx,
-                (params) -> tableMessagesFactory.readWriteMultiRowReplicaRequest()
-                        .groupId(params.groupId())
-                        .binaryRows(params.binaryRows())
-                        .transactionId(params.tx().id())
-                        .primaryReplica(params.replica())
-                        .term(params.term())
+                (keyRows0, txo, groupId, term) -> tableMessagesFactory.readWriteMultiRowReplicaRequest()
+                        .groupId(groupId)
+                        .binaryRows(keyRows0)
+                        .transactionId(txo.id())
+                        .term(term)
                         .requestType(RequestType.RW_GET_ALL)
                         .build(),
                 this::collectMultiRowsResponses);
@@ -446,12 +439,11 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 row,
                 tx,
-                (params) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
-                        .groupId(params.groupId())
+                (txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
+                        .groupId(groupId)
                         .binaryRow(row)
-                        .transactionId(params.tx().id())
-                        .primaryReplica(params.replica())
-                        .term(params.term())
+                        .transactionId(txo.id())
+                        .term(term)
                         .requestType(RequestType.RW_UPSERT)
                         .build());
     }
@@ -462,12 +454,11 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 rows,
                 tx,
-                (params) -> tableMessagesFactory.readWriteMultiRowReplicaRequest()
-                        .groupId(params.groupId())
-                        .binaryRows(params.binaryRows())
-                        .transactionId(params.tx().id())
-                        .primaryReplica(params.replica())
-                        .term(params.term())
+                (keyRows0, txo, groupId, term) -> tableMessagesFactory.readWriteMultiRowReplicaRequest()
+                        .groupId(groupId)
+                        .binaryRows(keyRows0)
+                        .transactionId(txo.id())
+                        .term(term)
                         .requestType(RequestType.RW_UPSERT_ALL)
                         .build(),
                 CompletableFuture::allOf);
@@ -479,12 +470,11 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 row,
                 tx,
-                (params) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
-                        .groupId(params.groupId())
+                (txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
+                        .groupId(groupId)
                         .binaryRow(row)
-                        .transactionId(params.tx().id())
-                        .primaryReplica(params.replica())
-                        .term(params.term())
+                        .transactionId(txo.id())
+                        .term(term)
                         .requestType(RequestType.RW_GET_AND_UPSERT)
                         .build()
         );
@@ -496,12 +486,11 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 row,
                 tx,
-                (params) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
-                        .groupId(params.groupId())
+                (txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
+                        .groupId(groupId)
                         .binaryRow(row)
-                        .transactionId(params.tx().id())
-                        .primaryReplica(params.replica())
-                        .term(params.term())
+                        .transactionId(txo.id())
+                        .term(term)
                         .requestType(RequestType.RW_INSERT)
                         .build()
         );
@@ -513,12 +502,11 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 rows,
                 tx,
-                (params) -> tableMessagesFactory.readWriteMultiRowReplicaRequest()
-                        .groupId(params.groupId())
-                        .binaryRows(params.binaryRows())
-                        .transactionId(params.tx().id())
-                        .primaryReplica(params.replica())
-                        .term(params.term())
+                (keyRows0, txo, groupId, term) -> tableMessagesFactory.readWriteMultiRowReplicaRequest()
+                        .groupId(groupId)
+                        .binaryRows(keyRows0)
+                        .transactionId(txo.id())
+                        .term(term)
                         .requestType(RequestType.RW_INSERT_ALL)
                         .build(),
                 this::collectMultiRowsResponses);
@@ -530,12 +518,11 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 row,
                 tx,
-                (params) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
-                        .groupId(params.groupId())
+                (txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
+                        .groupId(groupId)
                         .binaryRow(row)
-                        .transactionId(params.tx().id())
-                        .primaryReplica(params.replica())
-                        .term(params.term())
+                        .transactionId(txo.id())
+                        .term(term)
                         .requestType(RequestType.RW_REPLACE)
                         .build()
         );
@@ -547,13 +534,12 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 newRow,
                 tx,
-                (params) -> tableMessagesFactory.readWriteSwapRowReplicaRequest()
-                        .groupId(params.groupId())
+                (txo, groupId, term) -> tableMessagesFactory.readWriteSwapRowReplicaRequest()
+                        .groupId(groupId)
                         .oldBinaryRow(oldRow)
                         .binaryRow(newRow)
-                        .transactionId(params.tx().id())
-                        .primaryReplica(params.replica())
-                        .term(params.term())
+                        .transactionId(txo.id())
+                        .term(term)
                         .requestType(RequestType.RW_REPLACE_IF_EXIST)
                         .build()
         );
@@ -565,12 +551,11 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 row,
                 tx,
-                (params) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
-                        .groupId(params.groupId())
+                (txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
+                        .groupId(groupId)
                         .binaryRow(row)
-                        .transactionId(params.tx().id())
-                        .primaryReplica(params.replica())
-                        .term(params.term())
+                        .transactionId(txo.id())
+                        .term(term)
                         .requestType(RequestType.RW_GET_AND_REPLACE)
                         .build()
         );
@@ -582,12 +567,11 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 keyRow,
                 tx,
-                (params) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
-                        .groupId(params.groupId())
+                (txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
+                        .groupId(groupId)
                         .binaryRow(keyRow)
-                        .transactionId(params.tx().id())
-                        .primaryReplica(params.replica())
-                        .term(params.term())
+                        .transactionId(txo.id())
+                        .term(term)
                         .requestType(RequestType.RW_DELETE)
                         .build()
         );
@@ -599,12 +583,11 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 oldRow,
                 tx,
-                (params) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
-                        .groupId(params.groupId())
+                (txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
+                        .groupId(groupId)
                         .binaryRow(oldRow)
-                        .transactionId(params.tx().id())
-                        .primaryReplica(params.replica())
-                        .term(params.term())
+                        .transactionId(txo.id())
+                        .term(term)
                         .requestType(RequestType.RW_DELETE_EXACT)
                         .build()
         );
@@ -616,12 +599,11 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 row,
                 tx,
-                (params) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
-                        .groupId(params.groupId())
+                (txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
+                        .groupId(groupId)
                         .binaryRow(row)
-                        .transactionId(params.tx().id())
-                        .primaryReplica(params.replica())
-                        .term(params.term())
+                        .transactionId(txo.id())
+                        .term(term)
                         .requestType(RequestType.RW_GET_AND_DELETE)
                         .build()
         );
@@ -633,12 +615,11 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 rows,
                 tx,
-                (params) -> tableMessagesFactory.readWriteMultiRowReplicaRequest()
-                        .groupId(params.groupId())
-                        .binaryRows(params.binaryRows())
-                        .transactionId(params.tx().id())
-                        .primaryReplica(params.replica())
-                        .term(params.term())
+                (keyRows0, txo, groupId, term) -> tableMessagesFactory.readWriteMultiRowReplicaRequest()
+                        .groupId(groupId)
+                        .binaryRows(keyRows0)
+                        .transactionId(txo.id())
+                        .term(term)
                         .requestType(RequestType.RW_DELETE_ALL)
                         .build(),
                 this::collectMultiRowsResponses);
@@ -653,12 +634,11 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 rows,
                 tx,
-                (params) -> tableMessagesFactory.readWriteMultiRowReplicaRequest()
-                        .groupId(params.groupId())
-                        .binaryRows(params.binaryRows())
-                        .transactionId(params.tx().id())
-                        .primaryReplica(params.replica())
-                        .term(params.term())
+                (keyRows0, txo, groupId, term) -> tableMessagesFactory.readWriteMultiRowReplicaRequest()
+                        .groupId(groupId)
+                        .binaryRows(keyRows0)
+                        .transactionId(txo.id())
+                        .term(term)
                         .requestType(RequestType.RW_DELETE_EXACT_ALL)
                         .build(),
                 this::collectMultiRowsResponses);
