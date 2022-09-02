@@ -1,6 +1,6 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
@@ -57,11 +57,11 @@ public abstract class BaseMvStoragesTest {
         marshallerFactory = new ReflectionMarshallerFactory();
 
         schemaDescriptor = new SchemaDescriptor(1, new Column[]{
-            new Column("intKey".toUpperCase(Locale.ROOT), NativeTypes.INT32, false),
-            new Column("strKey".toUpperCase(Locale.ROOT), NativeTypes.STRING, false),
+                new Column("intKey".toUpperCase(Locale.ROOT), NativeTypes.INT32, false),
+                new Column("strKey".toUpperCase(Locale.ROOT), NativeTypes.STRING, false),
         }, new Column[]{
-            new Column("intVal".toUpperCase(Locale.ROOT), NativeTypes.INT32, false),
-            new Column("strVal".toUpperCase(Locale.ROOT), NativeTypes.STRING, false),
+                new Column("intVal".toUpperCase(Locale.ROOT), NativeTypes.INT32, false),
+                new Column("strVal".toUpperCase(Locale.ROOT), NativeTypes.STRING, false),
         });
 
         kvMarshaller = marshallerFactory.create(schemaDescriptor, TestKey.class, TestValue.class);

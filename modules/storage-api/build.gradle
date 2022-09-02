@@ -43,6 +43,7 @@ dependencies {
     testFixturesImplementation(testFixtures(project(':ignite-core')))
     testFixturesImplementation project(':ignite-configuration')
     testFixturesImplementation project(':ignite-schema')
+    testFixturesImplementation(testFixtures(project(':ignite-schema')))
     testFixturesImplementation project(':ignite-transactions')
     testFixturesImplementation project(':ignite-api')
     testFixturesImplementation libs.jetbrains.annotations

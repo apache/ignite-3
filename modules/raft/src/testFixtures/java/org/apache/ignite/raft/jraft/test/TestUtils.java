@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,12 +15,6 @@
  * limitations under the License.
  */
 package org.apache.ignite.raft.jraft.test;
-
-import static java.lang.Thread.sleep;
-import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.Comparator.comparing;
-import static java.util.stream.Collectors.toList;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadInfo;
@@ -50,6 +44,12 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 import org.apache.ignite.raft.jraft.rpc.impl.core.DefaultRaftClientService;
 import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.mockito.ArgumentCaptor;
+
+import static java.lang.Thread.sleep;
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Comparator.comparing;
+import static java.util.stream.Collectors.toList;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Test helper
@@ -115,9 +115,9 @@ public class TestUtils {
 
     public static RpcRequests.PingRequest createPingRequest() {
         return new RaftMessagesFactory()
-            .pingRequest()
-            .sendTimestamp(System.currentTimeMillis())
-            .build();
+                .pingRequest()
+                .sendTimestamp(System.currentTimeMillis())
+                .build();
     }
 
     public static final int INIT_PORT = 5003;
@@ -199,9 +199,9 @@ public class TestUtils {
      */
     public static void assertAllJraftThreadsStopped() {
         assertTrue(waitForCondition(() -> Thread.getAllStackTraces().keySet().stream().
-                noneMatch(t -> t.getName().contains("JRaft")), 5_000),
-            Thread.getAllStackTraces().keySet().stream().filter(t -> t.getName().contains("JRaft")).
-                sorted(comparing(Thread::getName)).collect(toList()).toString());
+                        noneMatch(t -> t.getName().contains("JRaft")), 5_000),
+                Thread.getAllStackTraces().keySet().stream().filter(t -> t.getName().contains("JRaft")).
+                        sorted(comparing(Thread::getName)).collect(toList()).toString());
     }
 
     /**

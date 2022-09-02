@@ -19,7 +19,6 @@ package org.apache.ignite.network.scalecube;
 
 import io.scalecube.cluster.ClusterConfig;
 import org.apache.ignite.configuration.schemas.network.ClusterMembershipView;
-import org.apache.ignite.network.scalecube.ScaleCubeClusterServiceFactory;
 
 /**
  * Scalecube test factory. Provides fast detection time.

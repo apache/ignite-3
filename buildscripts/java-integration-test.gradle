@@ -21,6 +21,10 @@ sourceSets {
         compileClasspath += sourceSets.test.output
         runtimeClasspath += sourceSets.main.output
         runtimeClasspath += sourceSets.test.output
+        if (sourceSets.hasProperty("testFixtures")) {
+            compileClasspath += sourceSets.testFixtures.output
+            runtimeClasspath += sourceSets.testFixtures.output
+        }
     }
 }
 

@@ -1,6 +1,6 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
@@ -19,9 +19,9 @@ package org.apache.ignite.internal.storage.index;
 
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter.convert;
+import static org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders.column;
+import static org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders.tableBuilder;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.schema.SchemaBuilders.column;
-import static org.apache.ignite.schema.SchemaBuilders.tableBuilder;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
@@ -33,12 +33,12 @@ import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableIndexView;
+import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.impl.BinaryTupleRowSerializer;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnDefinition;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.TableDefinition;
@@ -76,15 +76,15 @@ public abstract class AbstractHashIndexStorageTest {
         ColumnDefinition pkColumn = column("pk", ColumnType.INT32).asNullable(false).build();
 
         ColumnDefinition[] allColumns = {
-            pkColumn,
-            column(INT_COLUMN_NAME, ColumnType.INT32).asNullable(true).build(),
-            column(STR_COLUMN_NAME, ColumnType.string()).asNullable(true).build()
+                pkColumn,
+                column(INT_COLUMN_NAME, ColumnType.INT32).asNullable(true).build(),
+                column(STR_COLUMN_NAME, ColumnType.string()).asNullable(true).build()
         };
 
         TableDefinition tableDefinition = tableBuilder("test", "foo")
-            .columns(allColumns)
-            .withPrimaryKey(pkColumn.name())
-            .build();
+                .columns(allColumns)
+                .withPrimaryKey(pkColumn.name())
+                .build();
 
         CompletableFuture<Void> createTableFuture = tableCfg.change(cfg -> convert(tableDefinition, cfg));
 
@@ -96,12 +96,12 @@ public abstract class AbstractHashIndexStorageTest {
      */
     private static HashIndexStorage createIndex(MvTableStorage tableStorage) {
         HashIndexDefinition indexDefinition = SchemaBuilders.hashIndex("hashIndex")
-            .withColumns(INT_COLUMN_NAME, STR_COLUMN_NAME)
-            .build();
+                .withColumns(INT_COLUMN_NAME, STR_COLUMN_NAME)
+                .build();
 
         CompletableFuture<Void> createIndexFuture = tableStorage.configuration()
-            .change(cfg -> cfg.changeIndices(idxList ->
-                idxList.create(indexDefinition.name(), idx -> convert(indexDefinition, idx))));
+                .change(cfg -> cfg.changeIndices(idxList ->
+                        idxList.create(indexDefinition.name(), idx -> convert(indexDefinition, idx))));
 
         assertThat(createIndexFuture, willCompleteSuccessfully());
 

@@ -28,7 +28,6 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeType;
-import org.apache.ignite.internal.schema.RowTest;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
@@ -57,7 +56,7 @@ public class ColocationHashCalculationTest {
     public void initRandom() {
         long seed = System.currentTimeMillis();
 
-        Loggers.forClass(RowTest.class).info("Using seed: " + seed + "L; //");
+        Loggers.forClass(ColocationHashCalculationTest.class).info("Using seed: " + seed + "L; //");
 
         rnd = new Random(seed);
     }

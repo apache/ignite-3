@@ -80,6 +80,7 @@ dependencies {
     integrationTestImplementation project(':ignite-raft-client')
     integrationTestImplementation project(':ignite-client')
     integrationTestImplementation(testFixtures(project(':ignite-core')))
+    integrationTestImplementation(testFixtures(project(':ignite-schema')))
     integrationTestImplementation(testFixtures(project(':ignite-cluster-management')))
     integrationTestImplementation(testFixtures(project(':ignite-metastorage-server')))
     integrationTestImplementation(testFixtures(project(':ignite-network')))

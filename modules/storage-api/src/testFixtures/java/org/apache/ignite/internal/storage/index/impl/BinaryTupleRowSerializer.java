@@ -1,6 +1,6 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
@@ -63,8 +63,8 @@ public class BinaryTupleRowSerializer {
      */
     public BinaryTupleRowSerializer(SortedIndexDescriptor descriptor) {
         this.schema = descriptor.indexColumns().stream()
-            .map(colDesc -> new ColumnDescriptor(colDesc.type(), colDesc.nullable()))
-            .collect(toUnmodifiableList());
+                .map(colDesc -> new ColumnDescriptor(colDesc.type(), colDesc.nullable()))
+                .collect(toUnmodifiableList());
     }
 
     /**
@@ -72,8 +72,8 @@ public class BinaryTupleRowSerializer {
      */
     public BinaryTupleRowSerializer(HashIndexDescriptor descriptor) {
         this.schema = descriptor.indexColumns().stream()
-            .map(colDesc -> new ColumnDescriptor(colDesc.type(), colDesc.nullable()))
-            .collect(toUnmodifiableList());
+                .map(colDesc -> new ColumnDescriptor(colDesc.type(), colDesc.nullable()))
+                .collect(toUnmodifiableList());
     }
 
     /**
@@ -82,9 +82,9 @@ public class BinaryTupleRowSerializer {
     public IndexRow serializeRow(Object[] columnValues, RowId rowId) {
         if (columnValues.length != schema.size()) {
             throw new IllegalArgumentException(String.format(
-                "Incorrect number of column values passed. Expected %d, got %d",
-                schema.size(),
-                columnValues.length
+                    "Incorrect number of column values passed. Expected %d, got %d",
+                    schema.size(),
+                    columnValues.length
             ));
         }
 
@@ -97,21 +97,21 @@ public class BinaryTupleRowSerializer {
     public BinaryTuple serializeRowPrefix(Object[] prefixColumnValues) {
         if (prefixColumnValues.length > schema.size()) {
             throw new IllegalArgumentException(String.format(
-                "Incorrect number of column values passed. Expected not more than %d, got %d",
-                schema.size(),
-                prefixColumnValues.length
+                    "Incorrect number of column values passed. Expected not more than %d, got %d",
+                    schema.size(),
+                    prefixColumnValues.length
             ));
         }
 
         Element[] prefixElements = schema.stream()
-            .limit(prefixColumnValues.length)
-            .map(columnDescriptor -> new Element(columnDescriptor.type, columnDescriptor.nullable))
-            .toArray(Element[]::new);
+                .limit(prefixColumnValues.length)
+                .map(columnDescriptor -> new Element(columnDescriptor.type, columnDescriptor.nullable))
+                .toArray(Element[]::new);
 
         BinaryTupleSchema prefixSchema = BinaryTupleSchema.create(prefixElements);
 
         BinaryTupleBuilder builder = BinaryTupleBuilder.create(
-            prefixSchema.elementCount(), prefixSchema.hasNullableElements());
+                prefixSchema.elementCount(), prefixSchema.hasNullableElements());
 
         for (Object value : prefixColumnValues) {
             appendValue(builder, prefixSchema, value);
@@ -148,7 +148,7 @@ public class BinaryTupleRowSerializer {
      * @return Builder for chaining.
      */
     private static BinaryTupleBuilder appendValue(BinaryTupleBuilder builder, BinaryTupleSchema schema, Object value) {
-        BinaryTupleSchema.Element element = schema.element(builder.elementIndex());
+        Element element = schema.element(builder.elementIndex());
 
         if (value == null) {
             if (!element.nullable()) {

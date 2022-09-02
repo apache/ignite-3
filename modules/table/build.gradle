@@ -19,6 +19,8 @@ apply from: "$rootDir/buildscripts/java-library.gradle"
 apply from: "$rootDir/buildscripts/java-junit5.gradle"
 
 dependencies {
+    annotationProcessor project(':ignite-configuration-annotation-processor')
+    annotationProcessor project(':ignite-network-annotation-processor')
     implementation project(':ignite-api')
     implementation project(':ignite-schema')
     implementation project(':ignite-core')

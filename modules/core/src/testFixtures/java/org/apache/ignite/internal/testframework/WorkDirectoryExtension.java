@@ -75,7 +75,7 @@ public class WorkDirectoryExtension
     public static final String KEEP_WORK_DIR_PROPERTY = "KEEP_WORK_DIR";
 
     /** Base path for all temporary folders in a module. */
-    private static final Path BASE_PATH = Path.of("build", "work");
+    private static final Path BASE_PATH = Path.of("target", "work");
 
     /** Name of the work directory that will be injected into {@link BeforeAll} methods or static members. */
     private static final String STATIC_FOLDER_NAME = "static";
