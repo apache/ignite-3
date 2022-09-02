@@ -190,7 +190,8 @@ public class TxManagerImpl implements TxManager {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> finish(
-            IgniteBiTuple<ClusterNode, Long> recipientNode,
+            ClusterNode recipientNode,
+            Long term,
             boolean commit,
             TreeMap<ClusterNode, List<IgniteBiTuple<String, Long>>> groups,
             UUID txId
@@ -201,12 +202,12 @@ public class TxManagerImpl implements TxManager {
                 .groupId(groups.firstEntry().getValue().get(0).get1())
                 .groups(groups)
                 .commit(commit)
-                .term(recipientNode.get2())
+                .term(term)
                 .build();
 
         CompletableFuture<NetworkMessage> fut;
         try {
-            fut = replicaService.invoke(recipientNode.get1(), req);
+            fut = replicaService.invoke(recipientNode, req);
         } catch (NodeStoppingException e) {
             throw new TransactionException("Failed to finish transaction. Node is stopping.");
         } catch (Throwable t) {

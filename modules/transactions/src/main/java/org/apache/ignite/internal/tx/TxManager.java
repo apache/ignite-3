@@ -141,7 +141,8 @@ public interface TxManager extends IgniteComponent {
      * @param txId Transaction id.
      */
     CompletableFuture<Void> finish(
-            IgniteBiTuple<ClusterNode, Long> recipientNode,
+            ClusterNode recipientNode,
+            Long term,
             boolean commit,
             TreeMap<ClusterNode, List<IgniteBiTuple<String, Long>>> groups,
             UUID txId);

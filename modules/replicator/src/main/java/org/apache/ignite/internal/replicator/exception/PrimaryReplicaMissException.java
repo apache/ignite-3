@@ -46,7 +46,7 @@ public class PrimaryReplicaMissException extends IgniteInternalException {
     public PrimaryReplicaMissException(Long expectedPrimaryReplicaTerm, Long currentPrimaryReplicaTerm, Throwable cause) {
         super(Replicator.REPLICA_MISS_ERR,
                 IgniteStringFormatter.format(
-                        "Maybe the primary replica has changed because the term has been changed "
+                        "The primary replica has changed because the term has been changed "
                                 + "[expectedPrimaryReplicaTerm={}, currentPrimaryReplicaTerm={}]",
                         expectedPrimaryReplicaTerm, currentPrimaryReplicaTerm
                 ),

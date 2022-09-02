@@ -166,7 +166,8 @@ public class TransactionImpl implements InternalTransaction {
                     } else {
                         if (!enlisted.isEmpty()) {
                             txManager.finish(
-                                    enlisted.entrySet().iterator().next().getValue(),
+                                    enlisted.entrySet().iterator().next().getValue().get1(),
+                                    enlisted.entrySet().iterator().next().getValue().get2(),
                                     commit,
                                     groups,
                                     id

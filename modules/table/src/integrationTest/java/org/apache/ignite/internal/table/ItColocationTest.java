@@ -117,7 +117,8 @@ public class ItColocationTest {
         TxManager txManager = new TxManagerImpl(clusterService, replicaService,  new HeapLockManager()) {
             @Override
             public CompletableFuture<Void> finish(
-                    IgniteBiTuple<ClusterNode, Long> recipientNode,
+                    ClusterNode recipientNode,
+                    Long term,
                     boolean commit,
                     TreeMap<ClusterNode, List<IgniteBiTuple<String, Long>>> groups,
                     UUID txId) {
