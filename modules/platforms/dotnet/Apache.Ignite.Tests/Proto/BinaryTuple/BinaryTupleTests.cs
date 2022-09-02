@@ -217,7 +217,7 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
                 Assert.AreEqual(value, reader.GetLong(0));
             }
 
-            values = new long[] { long.MinValue, int.MinValue - 1L, int.MaxValue + 1L, long.MaxValue };
+            values = new[] { long.MinValue, int.MinValue - 1L, int.MaxValue + 1L, long.MaxValue };
             foreach (var value in values)
             {
                 var builder = new BinaryTupleBuilder(1, false, 8);
