@@ -19,7 +19,8 @@ namespace Apache.Ignite.Internal.Proto
 {
     using System;
     using System.Buffers.Binary;
-    using System.Xml;
+    using System.Diagnostics;
+    using System.Runtime.InteropServices;
 
     /// <summary>
     /// Serializes and deserializes Guids in Java-specific UUID format.
@@ -33,8 +34,18 @@ namespace Apache.Ignite.Internal.Proto
         /// <param name="span">Target span.</param>
         public static void Write(Guid guid, Span<byte> span)
         {
-            var bytes = guid.ToByteArray();
-            bytes.CopyTo(span);
+            var written = guid.TryWriteBytes(span);
+            Debug.Assert(written, "written");
+
+            // Reverse endianness of the first part.
+            var a = BinaryPrimitives.ReverseEndianness(MemoryMarshal.Read<int>(span));
+            MemoryMarshal.Write(span, ref a);
+
+            var b = BinaryPrimitives.ReverseEndianness(MemoryMarshal.Read<short>(span[4..]));
+            MemoryMarshal.Write(span[4..], ref b);
+
+            var c = BinaryPrimitives.ReverseEndianness(MemoryMarshal.Read<short>(span[6..]));
+            MemoryMarshal.Write(span[6..], ref c);
         }
 
         /// <summary>
@@ -46,9 +57,9 @@ namespace Apache.Ignite.Internal.Proto
         {
             // Hoist bounds checks.
             var k = span[15];
-            var a = BinaryPrimitives.ReadInt32BigEndian(span);
-            var b = BinaryPrimitives.ReadInt16BigEndian(span[4..]);
-            var c = BinaryPrimitives.ReadInt16BigEndian(span[6..]);
+            var a = BinaryPrimitives.ReverseEndianness(MemoryMarshal.Read<int>(span));
+            var b = BinaryPrimitives.ReverseEndianness(MemoryMarshal.Read<short>(span[4..]));
+            var c = BinaryPrimitives.ReverseEndianness(MemoryMarshal.Read<short>(span[6..]));
             var d = span[8];
             var e = span[9];
             var f = span[10];
