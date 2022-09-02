@@ -66,7 +66,10 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             _valueBase = @base + _entrySize * numElements;
         }
 
-        private bool HasNullMap => _entryBase > BinaryTupleCommon.HeaderSize;
+        /// <summary>
+        /// Gets a value indicating whether this reader has a null map.
+        /// </summary>
+        public bool HasNullMap => _entryBase > BinaryTupleCommon.HeaderSize;
 
         /// <summary>
         /// Gets a value indicating whether the element at specified index is null.

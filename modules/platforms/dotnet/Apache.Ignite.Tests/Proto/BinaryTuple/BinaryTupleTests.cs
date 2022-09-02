@@ -27,6 +27,23 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
     public class BinaryTupleTests
     {
         [Test]
+        public void TestNullValue()
+        {
+            // Header: 1 byte with null map flag.
+            // NullMap: 1 byte with first bit set.
+            // Offset table: 1 zero byte
+            byte[] bytes = { BinaryTupleCommon.NullmapFlag, 1, 0 };
+
+            var reader = new BinaryTupleReader(bytes, 1);
+            Assert.IsTrue(reader.HasNullMap);
+
+            Assert.IsTrue(reader.IsNull(0));
+
+            var ex = Assert.Throws<InvalidOperationException>(() => reader.GetString(0));
+            Assert.AreEqual("Binary tuple element with index 0 is null.", ex!.Message);
+        }
+
+        [Test]
         public void TestByte([Values(0, 1, sbyte.MaxValue, sbyte.MinValue)] sbyte value)
         {
             using var builder = new BinaryTupleBuilder(numElements: 1, allowNulls: false, totalValueSize: 1);
