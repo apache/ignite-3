@@ -390,8 +390,8 @@ public class BinaryTupleBuilder {
         long lsb = value.getLeastSignificantBits();
         long msb = value.getMostSignificantBits();
         if ((lsb | msb) != 0L) {
-            putLong(lsb);
             putLong(msb);
+            putLong(lsb);
         }
         return proceed();
     }
