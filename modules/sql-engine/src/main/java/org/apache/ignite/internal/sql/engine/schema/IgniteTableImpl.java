@@ -22,11 +22,11 @@ import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import org.apache.calcite.plan.Convention;
@@ -81,7 +81,7 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
 
     private final Statistic statistic;
 
-    private final Map<String, IgniteIndex> indexes = new ConcurrentHashMap<>();
+    private Map<String, IgniteIndex> indexes = new HashMap<>();
 
     private final List<ColumnDescriptor> columnsOrderedByPhysSchema;
 
@@ -113,6 +113,21 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
 
         columnsOrderedByPhysSchema = tmp;
         statistic = new StatisticsImpl();
+    }
+
+    private IgniteTableImpl(IgniteTableImpl t) {
+        this.desc = t.desc;
+        this.ver = t.ver;
+        this.table = t.table;
+        this.schemaRegistry = t.schemaRegistry;
+        this.schemaDescriptor = t.schemaDescriptor;
+        this.statistic = t.statistic;
+        this.columnsOrderedByPhysSchema = t.columnsOrderedByPhysSchema;
+        this.indexes.putAll(t.indexes);
+    }
+
+    public static IgniteTableImpl copyOf(IgniteTableImpl v) {
+        return new IgniteTableImpl(v);
     }
 
     /** {@inheritDoc} */
