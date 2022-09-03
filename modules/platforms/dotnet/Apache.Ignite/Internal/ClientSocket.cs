@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Internal
 {
     using System;
+    using System.Buffers.Binary;
     using System.Collections.Concurrent;
     using System.Diagnostics;
     using System.Diagnostics.CodeAnalysis;
@@ -339,7 +340,7 @@ namespace Apache.Ignite.Internal
 
             await ReceiveBytesAsync(stream, buffer, messageSizeByteCount, cancellationToken).ConfigureAwait(false);
 
-            return GetMessageSize(buffer);
+            return ReadMessageSize(buffer);
         }
 
         private static async Task ReceiveBytesAsync(
@@ -363,16 +364,6 @@ namespace Apache.Ignite.Internal
                 }
 
                 received += res;
-            }
-        }
-
-        private static unsafe int GetMessageSize(byte[] responseLenBytes)
-        {
-            fixed (byte* len = &responseLenBytes[0])
-            {
-                var messageSize = *(int*)len;
-
-                return IPAddress.NetworkToHostOrder(messageSize);
             }
         }
 
@@ -405,13 +396,10 @@ namespace Apache.Ignite.Internal
             w.Flush();
         }
 
-        private static unsafe void WriteMessageSize(Memory<byte> target, int size)
-        {
-            fixed (byte* bufPtr = target.Span)
-            {
-                *(int*)bufPtr = IPAddress.HostToNetworkOrder(size);
-            }
-        }
+        private static void WriteMessageSize(Memory<byte> target, int size) =>
+            BinaryPrimitives.WriteInt32BigEndian(target.Span, size);
+
+        private static int ReadMessageSize(Span<byte> responseLenBytes) => BinaryPrimitives.ReadInt32BigEndian(responseLenBytes);
 
         private static TimeSpan GetHeartbeatInterval(TimeSpan configuredInterval, TimeSpan serverIdleTimeout, IIgniteLogger? logger)
         {
