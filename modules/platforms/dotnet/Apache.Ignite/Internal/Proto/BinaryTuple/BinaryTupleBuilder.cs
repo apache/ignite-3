@@ -344,9 +344,9 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
         private void PutLong(long value) => _buffer.WriteLong(value);
 
-        private unsafe void PutFloat(float value) => PutInt(*(int*)&value);
+        private void PutFloat(float value) => PutInt(BitConverter.SingleToInt32Bits(value));
 
-        private unsafe void PutDouble(double value) => PutLong(*(long*)&value);
+        private void PutDouble(double value) => PutLong(BitConverter.DoubleToInt64Bits(value));
 
         private void PutBytes(Span<byte> bytes) => bytes.CopyTo(GetSpan(bytes.Length));
 
