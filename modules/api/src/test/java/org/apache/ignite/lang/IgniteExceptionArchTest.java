@@ -18,24 +18,37 @@
 package org.apache.ignite.lang;
 
 import com.tngtech.archunit.core.domain.JavaClass;
-import com.tngtech.archunit.core.domain.JavaClasses;
-import com.tngtech.archunit.core.importer.ClassFileImporter;
+import com.tngtech.archunit.core.importer.Location;
 import com.tngtech.archunit.junit.AnalyzeClasses;
 import com.tngtech.archunit.junit.ArchTest;
+import com.tngtech.archunit.junit.LocationProvider;
 import com.tngtech.archunit.lang.ArchCondition;
 import com.tngtech.archunit.lang.ArchRule;
 import com.tngtech.archunit.lang.ConditionEvents;
 import com.tngtech.archunit.lang.SimpleConditionEvent;
 import com.tngtech.archunit.lang.syntax.ArchRuleDefinition;
-import org.junit.jupiter.api.Test;
 
+import java.nio.file.Path;
+import java.util.Set;
 import java.util.UUID;
 
 /**
  * Tests that all public Ignite exceptions have correct definitions.
  */
-@AnalyzeClasses(packages = "org.apache.ignite")
+@AnalyzeClasses(
+        packages = "org.apache.ignite",
+        locations = IgniteExceptionArchTest.RootLocationProvider.class)
 public class IgniteExceptionArchTest {
+    static class RootLocationProvider implements LocationProvider {
+        @Override
+        public Set<Location> get(Class<?> testClass) {
+            // ignite-3/modules
+            var modulesRoot = Path.of("").toAbsolutePath().getParent();
+
+            return Set.of(Location.of(modulesRoot));
+        }
+    }
+
     @SuppressWarnings("unused")
     @ArchTest
     public static final ArchRule IGNITE_EXCEPTIONS_HAVE_REQUIRED_CONSTRUCTORS = ArchRuleDefinition.classes()
@@ -43,6 +56,7 @@ public class IgniteExceptionArchTest {
             .should(new ArchCondition<>("have standard IgniteException constructor") {
                 @Override
                 public void check(JavaClass javaClass, ConditionEvents conditionEvents) {
+                    System.out.println("Checking class: " + javaClass.getName());
                     var ctor = javaClass.tryGetConstructor(UUID.class, int.class, String.class, Throwable.class);
 
                     if (!ctor.isPresent()) {
@@ -54,9 +68,6 @@ public class IgniteExceptionArchTest {
 
                         conditionEvents.add(event);
                     }
-
-                    System.out.println(javaClass.getName());
-                    throw new RuntimeException("TODO: Some classes are not detected - e.g. QueryCancelledException");
                 }
             });
 }
