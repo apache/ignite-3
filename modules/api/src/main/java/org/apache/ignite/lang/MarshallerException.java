@@ -17,6 +17,8 @@
 
 package org.apache.ignite.lang;
 
+import java.util.UUID;
+
 /**
  * Exception is thrown when failed to marshall or unmarshall value.
  * E.g. due to a value mismatch a schema or any other reason.
@@ -29,5 +31,17 @@ public class MarshallerException extends IgniteException {
      */
     public MarshallerException(Throwable cause) {
         super(cause);
+    }
+
+    /**
+     * Creates a new exception with the given trace id, error code, detail message and cause.
+     *
+     * @param traceId Unique identifier of this exception.
+     * @param code Full error code.
+     * @param message Detail message.
+     * @param cause Optional nested exception (can be {@code null}).
+     */
+    public MarshallerException(UUID traceId, int code, String message, Throwable cause) {
+        super(traceId, code, message, cause);
     }
 }
