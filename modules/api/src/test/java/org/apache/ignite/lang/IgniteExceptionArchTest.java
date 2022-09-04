@@ -51,6 +51,8 @@ public class IgniteExceptionArchTest {
 
                         conditionEvents.add(event);
                     }
+
+                    throw new RuntimeException("TODO: Some classes are not detected - e.g. QueryCancelledException");
                 }
             });
 }
