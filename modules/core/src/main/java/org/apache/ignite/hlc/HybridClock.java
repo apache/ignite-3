@@ -17,6 +17,8 @@
 
 package org.apache.ignite.hlc;
 
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
 import java.time.Clock;
 import org.apache.ignite.internal.tostring.S;
 
@@ -24,8 +26,21 @@ import org.apache.ignite.internal.tostring.S;
  * A Hybrid Logical Clock.
  */
 public class HybridClock {
+    /**
+     * Var handle for {@link #latestTime}.
+     */
+    private static final VarHandle LATEST_TIME;
+
+    static {
+        try {
+            LATEST_TIME = MethodHandles.lookup().findVarHandle(HybridClock.class, "latestTime", HybridTimestamp.class);
+        } catch (NoSuchFieldException | IllegalAccessException e) {
+            throw new ExceptionInInitializerError(e);
+        }
+    }
+
     /** Latest timestamp. */
-    private HybridTimestamp latestTime;
+    private volatile HybridTimestamp latestTime;
 
     /**
      * The constructor which initializes the latest time to current time by system clock.
@@ -39,16 +54,25 @@ public class HybridClock {
      *
      * @return The hybrid timestamp.
      */
-    public synchronized HybridTimestamp now() {
-        long currentTimeMillis = Clock.systemUTC().instant().toEpochMilli();
+    public HybridTimestamp now() {
+        while (true) {
+            long currentTimeMillis = Clock.systemUTC().instant().toEpochMilli();
 
-        if (latestTime.getPhysical() >= currentTimeMillis) {
-            latestTime = latestTime.addTicks(1);
-        } else {
-            latestTime = new HybridTimestamp(currentTimeMillis, 0);
+            // Read the latest time after accessing UTC time to reduce contention.
+            HybridTimestamp latestTime = this.latestTime;
+
+            HybridTimestamp newLatestTime;
+
+            if (latestTime.getPhysical() >= currentTimeMillis) {
+                newLatestTime = latestTime.addTicks(1);
+            } else {
+                newLatestTime = new HybridTimestamp(currentTimeMillis, 0);
+            }
+
+            if (LATEST_TIME.compareAndSet(this, latestTime, newLatestTime)) {
+                return newLatestTime;
+            }
         }
-
-        return latestTime;
     }
 
     /**
@@ -57,14 +81,19 @@ public class HybridClock {
      * @param requestTime Timestamp from request.
      * @return The hybrid timestamp.
      */
-    public synchronized HybridTimestamp update(HybridTimestamp requestTime) {
-        HybridTimestamp now = new HybridTimestamp(Clock.systemUTC().instant().toEpochMilli(), -1);
+    public HybridTimestamp update(HybridTimestamp requestTime) {
+        while (true) {
+            HybridTimestamp now = new HybridTimestamp(Clock.systemUTC().instant().toEpochMilli(), -1);
 
-        latestTime = HybridTimestamp.max(now, requestTime, latestTime);
+            // Read the latest time after accessing UTC time to reduce contention.
+            HybridTimestamp latestTime = this.latestTime;
 
-        latestTime = latestTime.addTicks(1);
+            HybridTimestamp newLatestTime = HybridTimestamp.max(now, requestTime, latestTime).addTicks(1);
 
-        return latestTime;
+            if (LATEST_TIME.compareAndSet(this, latestTime, newLatestTime)) {
+                return newLatestTime;
+            }
+        }
     }
 
     /** {@inheritDoc} */

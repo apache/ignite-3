@@ -91,16 +91,21 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     /** Local node id. */
     private final String localNodeId;
 
+    /** Local node name. */
+    private final String localNodeName;
+
     /**
      * Constructor.
      *
      * @param metaStorageRaftGrpSvc Meta storage raft group service.
      * @param localNodeId           Local node id.
+     * @param localNodeName         Local node name.
      */
-    public MetaStorageServiceImpl(RaftGroupService metaStorageRaftGrpSvc, String localNodeId) {
+    public MetaStorageServiceImpl(RaftGroupService metaStorageRaftGrpSvc, String localNodeId, String localNodeName) {
         this.metaStorageRaftGrpSvc = metaStorageRaftGrpSvc;
         this.watchProcessor = new WatchProcessor();
         this.localNodeId = localNodeId;
+        this.localNodeName = localNodeName;
     }
 
     /** {@inheritDoc} */
@@ -533,6 +538,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
              * @param lsnr   The listener which receives and handles watch updates.
              */
             Watcher(Cursor<WatchEvent> cursor, WatchListener lsnr) {
+                setName("ms-watcher-" + localNodeName);
                 this.cursor = cursor;
                 this.lsnr = lsnr;
             }
@@ -554,6 +560,8 @@ public class MetaStorageServiceImpl implements MetaStorageService {
                                 watchEvt = watchEvtsIter.next();
                             } catch (Throwable e) {
                                 lsnr.onError(e);
+
+                                throw e;
                             }
 
                             assert watchEvt != null;

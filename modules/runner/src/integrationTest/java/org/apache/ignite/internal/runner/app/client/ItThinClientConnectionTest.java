@@ -68,7 +68,7 @@ public class ItThinClientConnectionTest extends ItAbstractThinClientTest {
 
                 List<ClusterNode> nodes = client.connections();
                 assertEquals(1, nodes.size());
-                assertThat(nodes.get(0).name(), startsWith("ItThinClientConnectionTest_null_"));
+                assertThat(nodes.get(0).name(), startsWith("itcct_n_"));
             }
         }
     }

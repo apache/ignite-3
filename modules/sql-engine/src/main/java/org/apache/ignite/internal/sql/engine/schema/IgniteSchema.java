@@ -54,6 +54,10 @@ public class IgniteSchema extends AbstractSchema {
         this(schemaName, null, null);
     }
 
+    public static IgniteSchema copy(IgniteSchema old) {
+        return new IgniteSchema(old.schemaName, old.tblMap, old.idxMap);
+    }
+
     /**
      * Get schema name.
      *
@@ -99,10 +103,6 @@ public class IgniteSchema extends AbstractSchema {
      * @param index Index.
      */
     public void addIndex(UUID indexId, IgniteIndex index) {
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-17474
-        // Decouple tables and indices.
-        index.table().addIndex(index);
-
         idxMap.put(indexId, index);
     }
 
@@ -110,20 +110,10 @@ public class IgniteSchema extends AbstractSchema {
      * Remove index.
      *
      * @param indexId Index id.
-     * @return {@code True} if index was removed or {@code false} otherwise.
+     * @return Removed index.
      */
-    public boolean removeIndex(UUID indexId) {
-        IgniteIndex rmv = idxMap.remove(indexId);
-
-        if (rmv == null) {
-            return false;
-        }
-
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-17474
-        // Decouple tables and indices.
-        rmv.table().removeIndex(rmv.name());
-
-        return true;
+    public IgniteIndex removeIndex(UUID indexId) {
+        return idxMap.remove(indexId);
     }
 
     /**

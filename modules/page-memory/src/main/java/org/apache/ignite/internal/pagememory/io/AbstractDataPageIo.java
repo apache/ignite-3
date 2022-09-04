@@ -1235,99 +1235,32 @@ public abstract class AbstractDataPageIo<T extends Storable> extends PageIo {
     ) throws IgniteInternalCheckedException {
         assertPageType(pageAddr);
 
-        return addRowFragment(pageMem, pageId, pageAddr, written, rowSize, row.link(), row, null, pageSize);
-    }
+        assert row != null;
 
-    /**
-     * Adds this payload as a fragment to this data page.
-     *
-     * @param pageId Page ID to use to construct a link.
-     * @param pageAddr Page address.
-     * @param payload Payload bytes.
-     * @param lastLink Link to the previous written fragment (link to the tail).
-     * @param pageSize Page size.
-     * @throws IgniteInternalCheckedException If failed.
-     */
-    public void addRowFragment(
-            long pageId,
-            long pageAddr,
-            byte[] payload,
-            long lastLink,
-            int pageSize
-    ) throws IgniteInternalCheckedException {
-        assertPageType(pageAddr);
-
-        addRowFragment(null, pageId, pageAddr, 0, 0, lastLink, null, payload, pageSize);
-    }
-
-    /**
-     * Adds maximum possible fragment of the given row to this data page and sets respective link to the row.
-     *
-     * @param pageMem Page memory.
-     * @param pageId Page ID to use to construct a link.
-     * @param pageAddr Page address.
-     * @param written Number of bytes of row size that was already written.
-     * @param rowSize Row size.
-     * @param lastLink Link to the previous written fragment (link to the tail).
-     * @param row Row.
-     * @param payload Payload bytes.
-     * @param pageSize Page size.
-     * @return Written payload size.
-     * @throws IgniteInternalCheckedException If failed.
-     */
-    private int addRowFragment(
-            PageMemory pageMem,
-            long pageId,
-            long pageAddr,
-            int written,
-            int rowSize,
-            long lastLink,
-            T row,
-            byte[] payload,
-            int pageSize
-    ) throws IgniteInternalCheckedException {
-        assert payload == null ^ row == null;
+        long lastLink = row.link();
 
         int directCnt = getDirectCount(pageAddr);
         int indirectCnt = getIndirectCount(pageAddr);
 
-        int payloadSize = payload != null ? payload.length :
-                Math.min(rowSize - written, getFreeSpace(pageAddr));
+        int payloadSize = Math.min(rowSize - written, getFreeSpace(pageAddr));
 
-        if (row != null) {
-            int remain = rowSize - written - payloadSize;
-            int hdrSize = row.headerSize();
-
-            // We need page header (i.e. MVCC info) is located entirely on the very first page in chain.
-            // So we force moving it to the next page if it could not fit entirely on this page.
-            if (remain > 0 && remain < hdrSize) {
-                payloadSize -= hdrSize - remain;
-            }
-        }
+        assert payloadSize >= row.headerSize() || written >= row.headerSize();
 
         int fullEntrySize = getPageEntrySize(payloadSize, SHOW_PAYLOAD_LEN | SHOW_LINK | SHOW_ITEM);
         int dataOff = getDataOffsetForWrite(pageAddr, fullEntrySize, directCnt, indirectCnt, pageSize);
 
-        if (payload == null) {
-            ByteBuffer buf = pageMem.pageBuffer(pageAddr);
+        ByteBuffer buf = pageMem.pageBuffer(pageAddr);
 
-            buf.position(dataOff);
+        buf.position(dataOff);
 
-            short p = (short) (payloadSize | FRAGMENTED_FLAG);
+        short fragmentSize = (short) (payloadSize | FRAGMENTED_FLAG);
 
-            buf.putShort(p);
-            buf.putLong(lastLink);
+        buf.putShort(fragmentSize);
+        buf.putLong(lastLink);
 
-            int rowOff = rowSize - written - payloadSize;
+        int rowOff = rowSize - written - payloadSize;
 
-            writeFragmentData(row, buf, rowOff, payloadSize);
-        } else {
-            PageUtils.putShort(pageAddr, dataOff, (short) (payloadSize | FRAGMENTED_FLAG));
-
-            PageUtils.putLong(pageAddr, dataOff + 2, lastLink);
-
-            PageUtils.putBytes(pageAddr, dataOff + 10, payload);
-        }
+        writeFragmentData(row, buf, rowOff, payloadSize);
 
         int itemId = addItem(pageAddr, fullEntrySize, directCnt, indirectCnt, dataOff, pageSize);
 
@@ -1353,17 +1286,38 @@ public abstract class AbstractDataPageIo<T extends Storable> extends PageIo {
      * Writes row data fragment.
      *
      * @param row Row.
-     * @param buf Byte buffer.
+     * @param pageBuf Byte buffer.
      * @param rowOff Offset in row data bytes.
      * @param payloadSize Data length that should be written in a fragment.
      * @throws IgniteInternalCheckedException If failed.
      */
     protected abstract void writeFragmentData(
             final T row,
-            final ByteBuffer buf,
+            final ByteBuffer pageBuf,
             final int rowOff,
             final int payloadSize
     ) throws IgniteInternalCheckedException;
+
+    /**
+     * Writes a content of a byte buffer into a page.
+     *
+     * @param pageBuffer Direct page buffer.
+     * @param valueBuffer Byte buffer with value bytes.
+     * @param offset Offset within the value buffer.
+     * @param payloadSize Number of bytes to write.
+     */
+    protected void putValueBufferIntoPage(ByteBuffer pageBuffer, ByteBuffer valueBuffer, int offset, int payloadSize) {
+        int oldPosition = valueBuffer.position();
+        int oldLimit = valueBuffer.limit();
+
+        valueBuffer.position(offset);
+        valueBuffer.limit(offset + payloadSize);
+
+        pageBuffer.put(valueBuffer);
+
+        valueBuffer.position(oldPosition);
+        valueBuffer.limit(oldLimit);
+    }
 
     /**
      * Inserts an item.

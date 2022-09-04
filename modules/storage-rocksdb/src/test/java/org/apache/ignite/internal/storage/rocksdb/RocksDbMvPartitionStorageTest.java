@@ -86,11 +86,11 @@ public class RocksDbMvPartitionStorageTest extends AbstractMvPartitionStorageTes
 
         engine.start();
 
-        table = (RocksDbTableStorage) engine.createMvTable(tableCfg);
+        table = engine.createMvTable(tableCfg);
 
         table.start();
 
-        storage = table.getOrCreateMvPartition(0);
+        storage = table.getOrCreateMvPartition(PARTITION_ID);
     }
 
     @AfterEach

@@ -28,7 +28,7 @@ import static org.hamcrest.Matchers.not;
 
 import java.util.List;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
-import org.apache.ignite.schema.SchemaBuilders;
+import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.TableDefinition;
 import org.apache.ignite.table.Table;

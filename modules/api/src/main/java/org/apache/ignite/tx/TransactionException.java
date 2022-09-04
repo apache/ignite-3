@@ -17,6 +17,7 @@
 
 package org.apache.ignite.tx;
 
+import java.util.UUID;
 import org.apache.ignite.lang.IgniteException;
 
 /** This exception is thrown if a transaction can't be finished by some reasons. */
@@ -37,5 +38,17 @@ public class TransactionException extends IgniteException {
      */
     public TransactionException(Throwable cause) {
         super(cause);
+    }
+
+    /**
+     * Creates a new transaction exception with the given trace id, error code, detail message and cause.
+     *
+     * @param traceId Unique identifier of this exception.
+     * @param code Full error code.
+     * @param message Detail message.
+     * @param cause Optional nested exception (can be {@code null}).
+     */
+    public TransactionException(UUID traceId, int code, String message, Throwable cause) {
+        super(traceId, code, message, cause);
     }
 }

@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.ge
 import static org.apache.ignite.internal.schema.SchemaManager.INITIAL_SCHEMA_VERSION;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
+import static org.apache.ignite.internal.utils.RebalanceUtil.ASSIGNMENTS_SWITCH_REDUCE_PREFIX;
 import static org.apache.ignite.internal.utils.RebalanceUtil.PENDING_ASSIGNMENTS_PREFIX;
 import static org.apache.ignite.internal.utils.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
 import static org.apache.ignite.internal.utils.RebalanceUtil.extractPartitionNumber;
@@ -36,8 +37,10 @@ import static org.apache.ignite.internal.utils.RebalanceUtil.updatePendingAssign
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -106,11 +109,17 @@ import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.table.event.TableEventParameters;
+import org.apache.ignite.internal.table.message.HasDataRequest;
+import org.apache.ignite.internal.table.message.HasDataRequestBuilder;
+import org.apache.ignite.internal.table.message.HasDataResponse;
+import org.apache.ignite.internal.table.message.TableMessageGroup;
+import org.apache.ignite.internal.table.message.TableMessagesFactory;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteObjectName;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.internal.utils.RebalanceUtil;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteException;
@@ -122,6 +131,7 @@ import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.client.Peer;
@@ -145,6 +155,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     // TODO get rid of this in future? IGNITE-17307
     /** Timeout to complete the tablesByIdVv on revision update. */
     private static final long TABLES_COMPLETE_TIMEOUT = 120;
+
+    private static final long QUERY_DATA_NODES_COUNT_TIMEOUT = TimeUnit.SECONDS.toMillis(3);
 
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(TableManager.class);
@@ -218,9 +230,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** Rebalance scheduler pool size. */
     private static final int REBALANCE_SCHEDULER_POOL_SIZE = Math.min(Utils.cpus() * 3, 20);
 
+    private static final TableMessagesFactory TABLE_MESSAGES_FACTORY = new TableMessagesFactory();
+
     /**
      * Creates a new table manager.
      *
+     * @param nodeName Node name.
      * @param registry Registry for versioned values.
      * @param tablesCfg Tables configuration.
      * @param raftMgr Raft manager.
@@ -232,6 +247,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      *                                         tables.
      */
     public TableManager(
+            String nodeName,
             Consumer<Function<Long, CompletableFuture<?>>> registry,
             TablesConfiguration tablesCfg,
             Loza raftMgr,
@@ -312,7 +328,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         });
 
         rebalanceScheduler = new ScheduledThreadPoolExecutor(REBALANCE_SCHEDULER_POOL_SIZE,
-                new NamedThreadFactory("rebalance-scheduler", LOG));
+                NamedThreadFactory.create(nodeName, "rebalance-scheduler", LOG));
 
         ioExecutor = new ThreadPoolExecutor(
                 Math.min(Utils.cpus() * 3, 25),
@@ -320,7 +336,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 100,
                 TimeUnit.MILLISECONDS,
                 new LinkedBlockingQueue<>(),
-                new NamedThreadFactory("tableManager-io", LOG));
+                NamedThreadFactory.create(nodeName, "tableManager-io", LOG));
     }
 
     /** {@inheritDoc} */
@@ -363,6 +379,47 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 }
 
                 return completedFuture(false);
+            }
+        });
+
+        addMessageHandler(raftMgr.messagingService());
+    }
+
+    /**
+     * Adds a table manager message handler.
+     *
+     * @param messagingService Messaging service.
+     */
+    private void addMessageHandler(MessagingService messagingService) {
+        messagingService.addMessageHandler(TableMessageGroup.class, (message, senderAddr, correlationId) -> {
+            if (message instanceof HasDataRequest) {
+                // This message queries if a node has any data for a specific partition of a table
+                assert correlationId != null;
+
+                HasDataRequest msg = (HasDataRequest) message;
+
+                UUID tableId = msg.tableId();
+                int partitionId = msg.partitionId();
+
+                boolean contains = false;
+
+                TableImpl table = tablesByIdVv.latest().get(tableId);
+
+                if (table != null) {
+                    MvTableStorage storage = table.internalTable().storage();
+
+                    MvPartitionStorage mvPartition = storage.getMvPartition(partitionId);
+
+                    // If node's recovery process is incomplete (no partition storage), then we consider this node's
+                    // partition storage empty.
+                    if (mvPartition != null) {
+                        // If applied index of a storage is greater than 0,
+                        // then there is data.
+                        contains = mvPartition.lastAppliedIndex() > 0;
+                    }
+                }
+
+                messagingService.respond(senderAddr, TABLE_MESSAGES_FACTORY.hasDataResponse().result(contains).build(), correlationId);
             }
         });
     }
@@ -423,7 +480,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     ctx.storageRevision(),
                     ctx.oldValue().name(),
                     ((ExtendedTableView) ctx.oldValue()).id(),
-                    (List<List<ClusterNode>>) ByteUtils.fromBytes(((ExtendedTableView) ctx.oldValue()).assignments())
+                    ByteUtils.fromBytes(((ExtendedTableView) ctx.oldValue()).assignments())
             );
         } finally {
             busyLock.leaveBusy();
@@ -459,9 +516,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 for (int i = 0; i < partCnt; i++) {
                     String partId = partitionRaftGroupName(((ExtendedTableConfiguration) tblCfg).id().value(), i);
 
-                    futures[i] = updatePendingAssignmentsKeys(
-                            tblCfg.name().value(), partId, baselineMgr.nodes(),
-                            partCnt, newReplicas,
+                    futures[i] = updatePendingAssignmentsKeys(tblCfg.name().value(), partId, baselineMgr.nodes(), newReplicas,
                             replicasCtx.storageRevision(), metaStorageMgr, i);
                 }
 
@@ -506,10 +561,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         long causalityToken = assignmentsCtx.storageRevision();
 
-        List<List<ClusterNode>> oldAssignments = assignmentsCtx.oldValue() == null ? null :
-                (List<List<ClusterNode>>) ByteUtils.fromBytes(assignmentsCtx.oldValue());
+        List<Set<ClusterNode>> oldAssignments = assignmentsCtx.oldValue() == null ? null : ByteUtils.fromBytes(assignmentsCtx.oldValue());
 
-        List<List<ClusterNode>> newAssignments = (List<List<ClusterNode>>) ByteUtils.fromBytes(assignmentsCtx.newValue());
+        List<Set<ClusterNode>> newAssignments = ByteUtils.fromBytes(assignmentsCtx.newValue());
 
         // Empty assignments might be a valid case if tables are created from within cluster init HOCON
         // configuration, which is not supported now.
@@ -519,16 +573,21 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         CompletableFuture<?>[] futures = new CompletableFuture<?>[partitions];
 
+        List<Set<ClusterNode>> assignmentsLatest = ByteUtils.fromBytes(directProxy(tblCfg.assignments()).value());
+
+        TopologyService topologyService = raftMgr.topologyService();
+        ClusterNode localMember = topologyService.localMember();
+
         // TODO: IGNITE-15554 Add logic for assignment recalculation in case of partitions or replicas changes
         // TODO: Until IGNITE-15554 is implemented it's safe to iterate over partitions and replicas cause there will
         // TODO: be exact same amount of partitions and replicas for both old and new assignments
         for (int i = 0; i < partitions; i++) {
             int partId = i;
 
-            List<ClusterNode> oldPartAssignment = oldAssignments == null ? Collections.emptyList() :
+            Set<ClusterNode> oldPartAssignment = oldAssignments == null ? Collections.emptySet() :
                     oldAssignments.get(partId);
 
-            List<ClusterNode> newPartAssignment = newAssignments.get(partId);
+            Set<ClusterNode> newPartAssignment = newAssignments.get(partId);
 
             // Create new raft nodes according to new assignments.
             tablesByIdVv.update(causalityToken, (tablesById, e) -> {
@@ -538,13 +597,16 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 InternalTable internalTbl = tablesById.get(tblId).internalTable();
 
+                MvTableStorage storage = internalTbl.storage();
+                boolean isInMemory = storage.isVolatile();
+
                 // TODO: IGNITE-17197 Remove assert after the ticket is resolved.
                 assert internalTbl.storage() instanceof MvTableStorage :
                         "Only multi version storages are supported. Current storage is a " + internalTbl.storage().getClass().getName();
 
                 // start new nodes, only if it is table creation
                 // other cases will be covered by rebalance logic
-                List<ClusterNode> nodes = (oldPartAssignment.isEmpty()) ? newPartAssignment : Collections.emptyList();
+                Set<ClusterNode> nodes = (oldPartAssignment.isEmpty()) ? newPartAssignment : Collections.emptySet();
 
                 String grpId = partitionRaftGroupName(tblId, partId);
 
@@ -552,33 +614,72 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 if (raftMgr.shouldHaveRaftGroupLocally(nodes)) {
                     startGroupFut = CompletableFuture
-                            .supplyAsync(
-                                    () -> internalTbl.storage().getOrCreateMvPartition(partId), ioExecutor)
+                            .supplyAsync(() -> internalTbl.storage().getOrCreateMvPartition(partId), ioExecutor)
                             .thenComposeAsync((partitionStorage) -> {
-                                RaftGroupOptions groupOptions = groupOptionsForPartition(internalTbl, tblCfg, partitionStorage,
-                                        newPartAssignment);
+                                boolean hasData = partitionStorage.lastAppliedIndex() > 0;
 
-                                try {
-                                    raftMgr.startRaftGroupNode(
-                                            grpId,
-                                            newPartAssignment,
-                                            new PartitionListener(tblId, new VersionedRowStore(partitionStorage, txManager)),
-                                            new RebalanceRaftGroupEventsListener(
-                                                    metaStorageMgr,
-                                                    tablesCfg.tables().get(tablesById.get(tblId).name()),
-                                                    grpId,
-                                                    partId,
-                                                    busyLock,
-                                                    movePartition(() -> internalTbl.partitionRaftGroupService(partId)),
-                                                    rebalanceScheduler
-                                            ),
-                                            groupOptions
-                                    );
+                                CompletableFuture<Boolean> fut;
 
-                                    return CompletableFuture.completedFuture(null);
-                                } catch (NodeStoppingException ex) {
-                                    return CompletableFuture.failedFuture(ex);
+                                if (isInMemory || !hasData) {
+                                    Set<ClusterNode> partAssignments = assignmentsLatest.get(partId);
+
+                                    fut = queryDataNodesCount(tblId, partId, partAssignments).thenApply(dataNodesCount -> {
+                                        boolean fullPartitionRestart = dataNodesCount == 0;
+
+                                        if (fullPartitionRestart) {
+                                            return true;
+                                        }
+
+                                        boolean majorityAvailable = dataNodesCount >= (partAssignments.size() / 2) + 1;
+
+                                        if (majorityAvailable) {
+                                            RebalanceUtil.startPeerRemoval(partitionRaftGroupName(tblId, partId), localMember,
+                                                    metaStorageMgr);
+
+                                            return false;
+                                        } else {
+                                            // No majority and not a full partition restart - need to restart nodes
+                                            // with current partition.
+                                            String msg = "Unable to start partition " + partId + ". Majority not available.";
+
+                                            throw new IgniteInternalException(msg);
+                                        }
+                                    });
+                                } else {
+                                    fut = CompletableFuture.completedFuture(true);
                                 }
+
+                                return fut.thenComposeAsync(startGroup -> {
+                                    if (!startGroup) {
+                                        return CompletableFuture.completedFuture(null);
+                                    }
+
+                                    RaftGroupOptions groupOptions = groupOptionsForPartition(internalTbl, tblCfg, partitionStorage,
+                                            newPartAssignment);
+
+                                    try {
+                                        raftMgr.startRaftGroupNode(
+                                                grpId,
+                                                newPartAssignment,
+                                                new PartitionListener(tblId, new VersionedRowStore(partitionStorage, txManager)),
+                                                new RebalanceRaftGroupEventsListener(
+                                                        metaStorageMgr,
+                                                        tablesCfg.tables().get(tablesById.get(tblId).name()),
+                                                        grpId,
+                                                        partId,
+                                                        busyLock,
+                                                        movePartition(() -> internalTbl.partitionRaftGroupService(partId)),
+                                                        this::calculateAssignments,
+                                                        rebalanceScheduler
+                                                ),
+                                                groupOptions
+                                        );
+
+                                        return CompletableFuture.completedFuture(null);
+                                    } catch (NodeStoppingException ex) {
+                                        return CompletableFuture.failedFuture(ex);
+                                    }
+                                }, ioExecutor);
                             }, ioExecutor);
                 }
 
@@ -606,11 +707,37 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         CompletableFuture.allOf(futures).join();
     }
 
+    /**
+     * Calculates the quantity of the data nodes for the partition of the table.
+     *
+     * @param tblId Table id.
+     * @param partId Partition id.
+     * @param partAssignments Partition assignments.
+     * @return A future that will hold the quantity of data nodes.
+     */
+    private CompletableFuture<Long> queryDataNodesCount(UUID tblId, int partId, Set<ClusterNode> partAssignments) {
+        HasDataRequestBuilder requestBuilder = TABLE_MESSAGES_FACTORY.hasDataRequest().tableId(tblId).partitionId(partId);
+
+        //noinspection unchecked
+        CompletableFuture<Boolean>[] requestFutures = partAssignments.stream().map(node -> {
+            HasDataRequest request = requestBuilder.build();
+
+            return raftMgr.messagingService().invoke(node, request, QUERY_DATA_NODES_COUNT_TIMEOUT).thenApply(response -> {
+                assert response instanceof HasDataResponse : response;
+
+                return ((HasDataResponse) response).result();
+            }).exceptionally(unused -> false);
+        }).toArray(CompletableFuture[]::new);
+
+        return CompletableFuture.allOf(requestFutures)
+                .thenApply(unused -> Arrays.stream(requestFutures).filter(CompletableFuture::join).count());
+    }
+
     private RaftGroupOptions groupOptionsForPartition(
             InternalTable internalTbl,
             ExtendedTableConfiguration tableConfig,
             MvPartitionStorage partitionStorage,
-            List<ClusterNode> peers
+            Set<ClusterNode> peers
     ) {
         RaftGroupOptions raftGroupOptions;
 
@@ -767,7 +894,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param tblId          Table id.
      * @param assignment     Affinity assignment.
      */
-    private void dropTableLocally(long causalityToken, String name, UUID tblId, List<List<ClusterNode>> assignment) {
+    private void dropTableLocally(long causalityToken, String name, UUID tblId, List<Set<ClusterNode>> assignment) {
         try {
             int partitions = assignment.size();
 
@@ -803,6 +930,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         } catch (Exception e) {
             fireEvent(TableEvent.DROP, new TableEventParameters(causalityToken, tblId, name), e);
         }
+    }
+
+    private Set<ClusterNode> calculateAssignments(TableConfiguration tableCfg, int partNum) {
+        return AffinityUtils.calculateAssignmentForPartition(baselineMgr.nodes(), partNum, tableCfg.value().replicas());
     }
 
     /**
@@ -881,7 +1012,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         extConfCh.changeAssignments(ByteUtils.toBytes(AffinityUtils.calculateAssignments(
                                         baselineMgr.nodes(),
                                         tableChange.partitions(),
-                                        tableChange.replicas())))
+                                        tableChange.replicas(),
+                                        HashSet::new)))
                                 // Table schema preparation.
                                 .changeSchemas(schemasCh -> schemasCh.create(
                                         String.valueOf(INITIAL_SCHEMA_VERSION),
@@ -1024,6 +1156,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     }
                 });
             }
+        }).exceptionally(th -> {
+            tblFut.completeExceptionally(th);
+
+            return null;
         });
 
         return tblFut;
@@ -1173,16 +1309,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     return allOf(tableFuts).thenApply(unused -> inBusyLock(busyLock, () -> {
                         var tables = new ArrayList<Table>(tableIds.size());
 
-                        try {
-                            for (var fut : tableFuts) {
-                                var table = fut.get();
+                        for (var fut : tableFuts) {
+                            var table = fut.join();
 
-                                if (table != null) {
-                                    tables.add((Table) table);
-                                }
+                            if (table != null) {
+                                tables.add((Table) table);
                             }
-                        } catch (Throwable t) {
-                            throw new CompletionException(t);
                         }
 
                         return tables;
@@ -1420,7 +1552,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     String partId = partitionRaftGroupName(tblId, part);
 
                     // Assignments of the pending rebalance that we received through the meta storage watch mechanism.
-                    List<ClusterNode> newPeers = ((List<ClusterNode>) ByteUtils.fromBytes(pendingAssignmentsWatchEvent.value()));
+                    Set<ClusterNode> newPeers = ByteUtils.fromBytes(pendingAssignmentsWatchEvent.value());
 
                     var pendingAssignments = metaStorageMgr.get(pendingPartAssignmentsKey(partId)).join();
 
@@ -1440,12 +1572,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     byte[] stableAssignments = metaStorageMgr.get(stablePartAssignmentsKey(partId),
                             pendingAssignmentsWatchEvent.revision()).join().value();
 
-                    List<ClusterNode> assignments = stableAssignments == null
+                    Set<ClusterNode> assignments = stableAssignments == null
                             // This is for the case when the first rebalance occurs.
-                            ? ((List<List<ClusterNode>>) ByteUtils.fromBytes(tblCfg.assignments().value())).get(part)
-                            : (List<ClusterNode>) ByteUtils.fromBytes(stableAssignments);
+                            ? ((List<Set<ClusterNode>>) ByteUtils.fromBytes(tblCfg.assignments().value())).get(part)
+                            : ByteUtils.fromBytes(stableAssignments);
 
-                    ClusterNode localMember = raftMgr.server().clusterService().topologyService().localMember();
+                    ClusterNode localMember = raftMgr.topologyService().localMember();
 
                     var deltaPeers = newPeers.stream()
                             .filter(p -> !assignments.contains(p))
@@ -1478,6 +1610,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                     part,
                                     busyLock,
                                     movePartition(() -> tbl.internalTable().partitionRaftGroupService(part)),
+                                    TableManager.this::calculateAssignments,
                                     rebalanceScheduler
                             );
 
@@ -1547,17 +1680,17 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                     String partId = partitionRaftGroupName(tblId, part);
 
-                    var stableAssignments = (List<ClusterNode>) ByteUtils.fromBytes(stableAssignmentsWatchEvent.value());
+                    Set<ClusterNode> stableAssignments = ByteUtils.fromBytes(stableAssignmentsWatchEvent.value());
 
                     byte[] pendingFromMetastorage = metaStorageMgr.get(pendingPartAssignmentsKey(partId),
                             stableAssignmentsWatchEvent.revision()).join().value();
 
-                    List<ClusterNode> pendingAssignments = pendingFromMetastorage == null
-                            ? Collections.emptyList()
-                            : (List<ClusterNode>) ByteUtils.fromBytes(pendingFromMetastorage);
+                    Set<ClusterNode> pendingAssignments = pendingFromMetastorage == null
+                            ? Collections.emptySet()
+                            : ByteUtils.fromBytes(pendingFromMetastorage);
 
                     try {
-                        ClusterNode localMember = raftMgr.server().clusterService().topologyService().localMember();
+                        ClusterNode localMember = raftMgr.topologyService().localMember();
 
                         if (!stableAssignments.contains(localMember) && !pendingAssignments.contains(localMember)) {
                             raftMgr.stopRaftGroup(partId);
@@ -1575,6 +1708,38 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             @Override
             public void onError(@NotNull Throwable e) {
                 LOG.warn("Unable to process stable assignments event", e);
+            }
+        });
+
+        metaStorageMgr.registerWatchByPrefix(ByteArray.fromString(ASSIGNMENTS_SWITCH_REDUCE_PREFIX), new WatchListener() {
+            @Override
+            public boolean onUpdate(@NotNull WatchEvent evt) {
+                ByteArray key = evt.entryEvent().newEntry().key();
+
+                int partitionNumber = extractPartitionNumber(key);
+                UUID tblId = extractTableId(key, ASSIGNMENTS_SWITCH_REDUCE_PREFIX);
+
+                String partitionId = partitionRaftGroupName(tblId, partitionNumber);
+
+                TableImpl tbl = tablesByIdVv.latest().get(tblId);
+
+                TableConfiguration tblCfg = tablesCfg.tables().get(tbl.name());
+
+                RebalanceUtil.handleReduceChanged(
+                        metaStorageMgr,
+                        baselineMgr.nodes(),
+                        tblCfg.value().replicas(),
+                        partitionNumber,
+                        partitionId,
+                        evt
+                );
+
+                return true;
+            }
+
+            @Override
+            public void onError(@NotNull Throwable e) {
+                LOG.warn("Unable to process switch reduce event", e);
             }
         });
     }

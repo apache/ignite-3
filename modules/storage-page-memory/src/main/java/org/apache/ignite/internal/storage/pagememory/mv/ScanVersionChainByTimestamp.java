@@ -17,12 +17,13 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
-import static org.apache.ignite.internal.storage.pagememory.mv.PartitionlessLinks.readPartitionlessLink;
+import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
+import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.readPartitionlessLink;
 
+import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.pagememory.datapage.PageMemoryTraversal;
 import org.apache.ignite.internal.pagememory.io.DataPagePayload;
 import org.apache.ignite.internal.schema.ByteBufferRow;
-import org.apache.ignite.internal.tx.Timestamp;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -32,7 +33,7 @@ import org.jetbrains.annotations.Nullable;
  * <p>NB: this traversal first traverses starting data slots of the Version Chain one after another; when it finds the
  * version it needs, it switches to traversing the slots comprising the version (because it might be fragmented).
  */
-class ScanVersionChainByTimestamp implements PageMemoryTraversal<Timestamp> {
+class ScanVersionChainByTimestamp implements PageMemoryTraversal<HybridTimestamp> {
     private final int partitionId;
 
     /** Contains the result when the traversal ends. */
@@ -52,9 +53,9 @@ class ScanVersionChainByTimestamp implements PageMemoryTraversal<Timestamp> {
 
     /** {@inheritDoc} */
     @Override
-    public long consumePagePayload(long link, long pageAddr, DataPagePayload payload, Timestamp timestamp) {
+    public long consumePagePayload(long link, long pageAddr, DataPagePayload payload, HybridTimestamp timestamp) {
         if (lookingForVersion) {
-            Timestamp rowVersionTs = Timestamps.readTimestamp(pageAddr, payload.offset() + RowVersion.TIMESTAMP_OFFSET);
+            HybridTimestamp rowVersionTs = HybridTimestamps.readTimestamp(pageAddr, payload.offset() + RowVersion.TIMESTAMP_OFFSET);
 
             if (rowTimestampMatches(rowVersionTs, timestamp)) {
                 return readFullyOrStartReadingFragmented(link, pageAddr, payload);
@@ -67,8 +68,8 @@ class ScanVersionChainByTimestamp implements PageMemoryTraversal<Timestamp> {
         }
     }
 
-    private boolean rowTimestampMatches(Timestamp rowVersionTs, Timestamp timestamp) {
-        return rowVersionTs != null && rowVersionTs.beforeOrEquals(timestamp);
+    private boolean rowTimestampMatches(HybridTimestamp rowVersionTs, HybridTimestamp timestamp) {
+        return rowVersionTs != null && rowVersionTs.compareTo(timestamp) <= 0;
     }
 
     private long readFullyOrStartReadingFragmented(long link, long pageAddr, DataPagePayload payload) {
@@ -80,7 +81,7 @@ class ScanVersionChainByTimestamp implements PageMemoryTraversal<Timestamp> {
     private long advanceToNextVersion(long pageAddr, DataPagePayload payload) {
         long nextLink = readPartitionlessLink(partitionId, pageAddr, payload.offset() + RowVersion.NEXT_LINK_OFFSET);
 
-        if (nextLink == RowVersion.NULL_LINK) {
+        if (nextLink == NULL_LINK) {
             return STOP_TRAVERSAL;
         }
 

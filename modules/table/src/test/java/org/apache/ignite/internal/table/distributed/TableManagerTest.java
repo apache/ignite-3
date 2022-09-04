@@ -46,7 +46,9 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -94,6 +96,7 @@ import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.schema.marshaller.schema.SchemaSerializerImpl;
+import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbDataStorageModule;
@@ -122,7 +125,6 @@ import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.rpc.CliRequests;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupServiceImpl;
-import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.TableDefinition;
 import org.apache.ignite.table.Table;
@@ -248,6 +250,9 @@ public class TableManagerTest extends IgniteAbstractTest {
     /** Before all test scenarios. */
     @BeforeEach
     void before() {
+        when(rm.messagingService()).thenReturn(mock(MessagingService.class));
+        when(rm.topologyService()).thenReturn(mock(TopologyService.class));
+
         revisionUpdater = (Function<Long, CompletableFuture<?>> function) -> {
             function.apply(0L).join();
 
@@ -305,10 +310,10 @@ public class TableManagerTest extends IgniteAbstractTest {
 
                 var extConfCh = ((ExtendedTableChange) tableChange);
 
-                ArrayList<List<ClusterNode>> assignment = new ArrayList<>(PARTITIONS);
+                ArrayList<Set<ClusterNode>> assignment = new ArrayList<>(PARTITIONS);
 
                 for (int part = 0; part < PARTITIONS; part++) {
-                    assignment.add(new ArrayList<>(Collections.singleton(node)));
+                    assignment.add(new HashSet<>(Collections.singleton(node)));
                 }
 
                 extConfCh.changeAssignments(ByteUtils.toBytes(assignment))
@@ -761,6 +766,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      */
     private TableManager createTableManager(CompletableFuture<TableManager> tblManagerFut, boolean waitingSqlSchema) {
         TableManager tableManager = new TableManager(
+                "test",
                 revisionUpdater,
                 tblsCfg,
                 rm,
