@@ -37,18 +37,20 @@ public class IgniteExceptionArchTest {
     @ArchTest
     public static final ArchRule IGNITE_EXCEPTIONS_HAVE_REQUIRED_CONSTRUCTORS = ArchRuleDefinition.classes()
             .that().areAssignableTo(IgniteException.class)
-            .should(new ArchCondition<>("Have standard IgniteException constructor") {
+            .should(new ArchCondition<>("have standard IgniteException constructor") {
                 @Override
                 public void check(JavaClass javaClass, ConditionEvents conditionEvents) {
                     var ctor = javaClass.tryGetConstructor(UUID.class, int.class, String.class, Throwable.class);
 
-                    SimpleConditionEvent event = new SimpleConditionEvent(
-                            javaClass,
-                            ctor != null,
-                            javaClass.getName() + " has a standard constructor with " +
-                                    "(UUID traceId, int code, String message, Throwable cause) signature.");
+                    if (!ctor.isPresent()) {
+                        var event = SimpleConditionEvent.violated(
+                                javaClass,
+                                javaClass.getName() + " does not have a standard constructor with " +
+                                        "(UUID traceId, int code, String message, Throwable cause) signature.");
 
-                    conditionEvents.add(event);
+
+                        conditionEvents.add(event);
+                    }
                 }
             });
 }
