@@ -27,7 +27,6 @@ import com.tngtech.archunit.lang.ArchRule;
 import com.tngtech.archunit.lang.ConditionEvents;
 import com.tngtech.archunit.lang.SimpleConditionEvent;
 import com.tngtech.archunit.lang.syntax.ArchRuleDefinition;
-
 import java.nio.file.Path;
 import java.util.Set;
 import java.util.UUID;
@@ -62,8 +61,8 @@ public class IgniteExceptionArchTest {
                     if (!ctor.isPresent()) {
                         var event = SimpleConditionEvent.violated(
                                 javaClass,
-                                javaClass.getName() + " does not have a standard constructor with " +
-                                        "(UUID traceId, int code, String message, Throwable cause) signature.");
+                                javaClass.getName() + " does not have a standard constructor with "
+                                        + "(UUID traceId, int code, String message, Throwable cause) signature.");
 
 
                         conditionEvents.add(event);

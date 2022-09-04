@@ -17,9 +17,8 @@
 
 package org.apache.ignite.table;
 
-import org.apache.ignite.lang.IgniteException;
-
 import java.util.UUID;
+import org.apache.ignite.lang.IgniteException;
 
 /**
  * InvokeProcessor invocation exception.
