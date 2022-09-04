@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import java.util.UUID;
 import org.apache.ignite.lang.IgniteException;
 
 /**
@@ -32,5 +33,17 @@ public class QueryCancelledException extends IgniteException {
      */
     public QueryCancelledException() {
         super(ERR_MSG);
+    }
+
+    /**
+     * Creates a new exception with the given trace id, error code, detail message and cause.
+     *
+     * @param traceId Unique identifier of this exception.
+     * @param code Full error code.
+     * @param message Detail message.
+     * @param cause Optional nested exception (can be {@code null}).
+     */
+    public QueryCancelledException(UUID traceId, int code, String message, Throwable cause) {
+        super(traceId, code, message, cause);
     }
 }
