@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.network.serialization.marshal;
 
+import java.util.UUID;
 import org.apache.ignite.lang.IgniteException;
 
 /**
@@ -25,5 +26,17 @@ import org.apache.ignite.lang.IgniteException;
 class MarshallingNotSupportedException extends IgniteException {
     public MarshallingNotSupportedException(String msg) {
         super(msg);
+    }
+
+    /**
+     * Creates a new exception with the given trace id, error code, detail message and cause.
+     *
+     * @param traceId Unique identifier of this exception.
+     * @param code Full error code.
+     * @param message Detail message.
+     * @param cause Optional nested exception (can be {@code null}).
+     */
+    public MarshallingNotSupportedException(UUID traceId, int code, String message, Throwable cause) {
+        super(traceId, code, message, cause);
     }
 }
