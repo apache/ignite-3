@@ -18,6 +18,8 @@
 package org.apache.ignite.lang;
 
 import com.tngtech.archunit.core.domain.JavaClass;
+import com.tngtech.archunit.core.domain.JavaClasses;
+import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.junit.AnalyzeClasses;
 import com.tngtech.archunit.junit.ArchTest;
 import com.tngtech.archunit.lang.ArchCondition;
@@ -25,13 +27,14 @@ import com.tngtech.archunit.lang.ArchRule;
 import com.tngtech.archunit.lang.ConditionEvents;
 import com.tngtech.archunit.lang.SimpleConditionEvent;
 import com.tngtech.archunit.lang.syntax.ArchRuleDefinition;
+import org.junit.jupiter.api.Test;
 
 import java.util.UUID;
 
 /**
  * Tests that all public Ignite exceptions have correct definitions.
  */
-@AnalyzeClasses
+@AnalyzeClasses(packages = "org.apache.ignite")
 public class IgniteExceptionArchTest {
     @SuppressWarnings("unused")
     @ArchTest
@@ -52,6 +55,7 @@ public class IgniteExceptionArchTest {
                         conditionEvents.add(event);
                     }
 
+                    System.out.println(javaClass.getName());
                     throw new RuntimeException("TODO: Some classes are not detected - e.g. QueryCancelledException");
                 }
             });
