@@ -17,18 +17,38 @@
 
 package org.apache.ignite.lang;
 
+import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.junit.AnalyzeClasses;
 import com.tngtech.archunit.junit.ArchTest;
+import com.tngtech.archunit.lang.ArchCondition;
 import com.tngtech.archunit.lang.ArchRule;
+import com.tngtech.archunit.lang.ConditionEvents;
+import com.tngtech.archunit.lang.SimpleConditionEvent;
 import com.tngtech.archunit.lang.syntax.ArchRuleDefinition;
+
+import java.util.UUID;
 
 /**
  * Tests that all public Ignite exceptions have correct definitions.
  */
 @AnalyzeClasses
 public class IgniteExceptionArchTest {
+    @SuppressWarnings("unused")
     @ArchTest
     public static final ArchRule IGNITE_EXCEPTIONS_HAVE_REQUIRED_CONSTRUCTORS = ArchRuleDefinition.classes()
             .that().areAssignableTo(IgniteException.class)
-            .should().haveOnlyPrivateConstructors();
+            .should(new ArchCondition<>("Have standard IgniteException constructor") {
+                @Override
+                public void check(JavaClass javaClass, ConditionEvents conditionEvents) {
+                    var ctor = javaClass.tryGetConstructor(UUID.class, int.class, String.class, Throwable.class);
+
+                    SimpleConditionEvent event = new SimpleConditionEvent(
+                            javaClass,
+                            ctor != null,
+                            javaClass.getName() + " has a standard constructor with " +
+                                    "(UUID traceId, int code, String message, Throwable cause) signature.");
+
+                    conditionEvents.add(event);
+                }
+            });
 }
