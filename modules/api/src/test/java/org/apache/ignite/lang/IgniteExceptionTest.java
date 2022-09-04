@@ -56,6 +56,11 @@ public class IgniteExceptionTest {
         assertSame(originalEx, res.getCause());
     }
 
+    @Test
+    public void testRequiredConstructors() {
+
+    }
+
     /**
      * Custom exception for tests.
      */
