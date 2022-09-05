@@ -17,10 +17,15 @@
 
 package org.apache.ignite.internal.tx.storage.state.test;
 
+import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorageAbstractTest;
 
+/**
+ * Tx storage test for test implementation based on {@link ConcurrentHashMap}.
+ */
 public class TestConcurrentHashMapTxStateStorageTest extends TxStateStorageAbstractTest {
+    /** {@inheritDoc} */
     @Override protected TxStateStorage createStorage() {
         return new TestConcurrentHashMapTxStateStorage();
     }

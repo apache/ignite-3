@@ -20,7 +20,11 @@ package org.apache.ignite.internal.tx.storage.state.rocksdb;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorageAbstractTest;
 
+/**
+ * Tx storage test for RocksDB implementation.
+ */
 public class TxStateRocksDbStorageTest extends TxStateStorageAbstractTest {
+    /** {@inheritDoc} */
     @Override protected TxStateStorage createStorage() {
         return new TxStateRocksDbStorage(workDir);
     }

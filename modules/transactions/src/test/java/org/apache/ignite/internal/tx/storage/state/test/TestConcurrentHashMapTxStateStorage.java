@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.tx.storage.state.test;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_DESTROY_ERR;
+
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -31,9 +34,6 @@ import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.NotNull;
-
-import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_DESTROY_ERR;
 
 /**
  * Test implementation of {@link TxStateStorage} based on {@link ConcurrentHashMap}.
