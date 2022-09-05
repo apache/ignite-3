@@ -94,7 +94,7 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
         KeyValueView<Tuple, Tuple> kvView = table.keyValueView();
         KeyValueView<IncompletePojo, IncompletePojo> pojoView = table.keyValueView(IncompletePojo.class, IncompletePojo.class);
 
-        kvView.put(null, allClumnsTableKey(1), allColumnsTableVal("x"));
+        kvView.put(null, allColumnsTableKey(1), allColumnsTableVal("x"));
 
         var key = new IncompletePojo();
         key.id = "1";

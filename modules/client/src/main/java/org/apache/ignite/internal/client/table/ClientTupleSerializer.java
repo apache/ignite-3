@@ -396,7 +396,7 @@ public class ClientTupleSerializer {
 
             default:
                 // TODO IGNITE-17297 support all types.
-                throw new UnsupportedOperationException("TODO");
+                throw new UnsupportedOperationException("TODO:" + col.type());
         }
     }
 }
