@@ -35,7 +35,7 @@ namespace Apache.Ignite.Tests.Buffers
             writer.Write("A");
             writer.Flush();
 
-            var res = bufferWriter.GetWrittenMemory()[PooledArrayBufferWriter.ReservedPrefixSize..].ToArray();
+            var res = bufferWriter.GetWrittenMemory().ToArray();
 
             CollectionAssert.AreEqual(new byte[] { 1, 0xa1, (byte)'A' }, res);
         }
