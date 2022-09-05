@@ -295,7 +295,7 @@ public class AbstractBasicIntegrationTest extends BaseIgniteAbstractTest {
         }
     }
 
-    protected static  List<List<Object>> sql(String sql, Object... args) {
+    protected static List<List<Object>> sql(String sql, Object... args) {
         return sql(null, sql, args);
     }
 

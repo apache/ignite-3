@@ -355,7 +355,7 @@ public class ItDmlTest extends AbstractBasicIntegrationTest {
      * Test verifies that scan is executed within provided transaction.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17309")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15081")
     public void scanExecutedWithinGivenTransaction() {
         sql("CREATE TABLE test (id int primary key, val int)");
 

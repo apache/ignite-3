@@ -372,7 +372,6 @@ public class SqlQueryProcessor implements QueryProcessor {
                 })
                 .thenCompose(sqlNode -> {
                     BaseQueryContext ctx = BaseQueryContext.builder()
-                            .cancel(new QueryCancel())
                             .frameworkConfig(
                                     Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
                                             .defaultSchema(schema)
