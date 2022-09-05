@@ -129,7 +129,9 @@ public class ClientRecordSerializer<R> {
         out.out().packInt(schema.version());
 
         Marshaller marshaller = schema.getMarshaller(mapper, part);
-        ClientMarshallerWriter writer = new ClientMarshallerWriter(out.out());
+        var builder = BinaryTupleBuilder.create(schema.columns().length, true);
+        var noValueSet = new BitSet();
+        ClientMarshallerWriter writer = new ClientMarshallerWriter(builder, noValueSet);
 
         try {
             marshaller.writeObject(rec, writer);
@@ -137,6 +139,8 @@ public class ClientRecordSerializer<R> {
         } catch (MarshallerException e) {
             throw new IgniteException(UNKNOWN_ERR, e.getMessage(), e);
         }
+
+        out.out().packBinaryTuple(builder, noValueSet);
     }
 
     void writeRecs(
@@ -152,7 +156,9 @@ public class ClientRecordSerializer<R> {
         out.out().packInt(recs.size());
 
         Marshaller marshaller = schema.getMarshaller(mapper, part);
-        ClientMarshallerWriter writer = new ClientMarshallerWriter(out.out());
+        var builder = BinaryTupleBuilder.create(schema.columns().length, true);
+        var noValueSet = new BitSet();
+        ClientMarshallerWriter writer = new ClientMarshallerWriter(builder, noValueSet);
 
         try {
             for (R rec : recs) {
@@ -161,6 +167,8 @@ public class ClientRecordSerializer<R> {
         } catch (MarshallerException e) {
             throw new IgniteException(UNKNOWN_ERR, e.getMessage(), e);
         }
+
+        out.out().packBinaryTuple(builder, noValueSet);
     }
 
     Collection<R> readRecs(ClientSchema schema, ClientMessageUnpacker in, boolean nullable, TuplePart part) {
