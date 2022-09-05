@@ -23,6 +23,8 @@ import static org.msgpack.core.MessagePack.Code;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufUtil;
+import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
+
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
@@ -900,6 +902,20 @@ public class ClientMessagePacker implements AutoCloseable {
         for (Object arg : args) {
             packObjectWithType(arg);
         }
+    }
+
+    /**
+     * Packs binary tuple with no-value set.
+     *
+     * @param builder Builder.
+     * @param noValueSet No-value bit set.
+     */
+    public void packBinaryTuple(BinaryTupleBuilder builder, BitSet noValueSet) {
+        packBitSet(noValueSet);
+
+        var buf = builder.build();
+        packBinaryHeader(buf.limit() - buf.position());
+        writePayload(buf);
     }
 
     /**

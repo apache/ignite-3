@@ -21,9 +21,12 @@ import static org.apache.ignite.internal.client.table.ClientTable.writeTx;
 import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
 
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.UUID;
+
+import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
@@ -88,14 +91,17 @@ public class ClientRecordSerializer<R> {
      * @param <R> Record type.
      */
     public static <R> void writeRecRaw(@Nullable R rec, Mapper<R> mapper, ClientSchema schema, ClientMessagePacker out, TuplePart part) {
-        Marshaller marshaller = schema.getMarshaller(mapper, part);
-        ClientMarshallerWriter writer = new ClientMarshallerWriter(out);
+        var builder = BinaryTupleBuilder.create(schema.columns().length, true);
+        var noValueSet = new BitSet();
+        ClientMarshallerWriter writer = new ClientMarshallerWriter(builder, noValueSet);
 
         try {
-            marshaller.writeObject(rec, writer);
+            schema.getMarshaller(mapper, part).writeObject(rec, writer);
         } catch (MarshallerException e) {
             throw new IgniteException(UNKNOWN_ERR, e.getMessage(), e);
         }
+
+        out.packBinaryTuple(builder, noValueSet);
     }
 
     void writeRecRaw(@Nullable R rec, ClientSchema schema, ClientMessagePacker out, TuplePart part) {

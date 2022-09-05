@@ -717,7 +717,7 @@ public class ClientTableCommon {
     }
 
     private static void packBinary(ClientMessagePacker packer, ByteBuffer buf) {
-        packer.packBinaryHeader(buf.limit() - buf.position()); // TODO IGNITE-17297: ???
+        packer.packBinaryHeader(buf.limit() - buf.position());
         packer.writePayload(buf);
     }
 }

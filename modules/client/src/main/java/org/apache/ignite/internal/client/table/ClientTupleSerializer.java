@@ -137,11 +137,7 @@ public class ClientTupleSerializer {
             appendValue(builder, noValueSet, col, v);
         }
 
-        var buf = builder.build();
-
-        out.out().packBitSet(noValueSet);
-        out.out().packBinaryHeader(buf.limit() - buf.position());
-        out.out().writePayload(buf);
+        out.out().packBinaryTuple(builder, noValueSet);
     }
 
     /**
@@ -183,11 +179,7 @@ public class ClientTupleSerializer {
             appendValue(builder, noValueSet, col,  v);
         }
 
-        var buf = builder.build();
-
-        out.out().packBitSet(noValueSet);
-        out.out().packBinaryHeader(buf.limit() - buf.position());
-        out.out().writePayload(buf);
+        out.out().packBinaryTuple(builder, noValueSet);
     }
 
     /**
