@@ -92,7 +92,7 @@ public class ClientRecordSerializer<R> {
      * @param <R> Record type.
      */
     public static <R> void writeRecRaw(@Nullable R rec, Mapper<R> mapper, ClientSchema schema, ClientMessagePacker out, TuplePart part) {
-        var builder = BinaryTupleBuilder.create(schema.columns().length, true);
+        var builder = BinaryTupleBuilder.create(columnCount(schema, part), true);
         var noValueSet = new BitSet();
         ClientMarshallerWriter writer = new ClientMarshallerWriter(builder, noValueSet);
 
@@ -130,7 +130,7 @@ public class ClientRecordSerializer<R> {
         out.out().packInt(schema.version());
 
         Marshaller marshaller = schema.getMarshaller(mapper, part);
-        var builder = BinaryTupleBuilder.create(schema.columns().length, true);
+        var builder = BinaryTupleBuilder.create(columnCount(schema, part), true);
         var noValueSet = new BitSet();
         ClientMarshallerWriter writer = new ClientMarshallerWriter(builder, noValueSet);
 
@@ -157,7 +157,7 @@ public class ClientRecordSerializer<R> {
         out.out().packInt(recs.size());
 
         Marshaller marshaller = schema.getMarshaller(mapper, part);
-        var builder = BinaryTupleBuilder.create(schema.columns().length, true);
+        var builder = BinaryTupleBuilder.create(columnCount(schema, part), true);
         var noValueSet = new BitSet();
         ClientMarshallerWriter writer = new ClientMarshallerWriter(builder, noValueSet);
 
@@ -237,6 +237,22 @@ public class ClientRecordSerializer<R> {
             return res;
         } catch (MarshallerException e) {
             throw new IgniteException(UNKNOWN_ERR, e.getMessage(), e);
+        }
+    }
+
+    private static int columnCount(ClientSchema schema, TuplePart part) {
+        switch (part) {
+            case KEY:
+                return schema.keyColumnCount();
+
+            case VAL:
+                return schema.columns().length - schema.keyColumnCount();
+
+            case KEY_AND_VAL:
+                return schema.columns().length;
+
+            default:
+                throw new IllegalArgumentException();
         }
     }
 }
