@@ -24,7 +24,6 @@ import java.util.UUID;
 import org.apache.ignite.internal.pagememory.tree.io.BplusIo;
 import org.apache.ignite.internal.pagememory.util.PageUtils;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMeta;
-import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 
 /**
  * Interface for {@link IndexMeta} B+Tree-related IO.
@@ -56,7 +55,7 @@ public interface IndexMetaIo {
     int offset(int idx);
 
     /**
-     * Compare the index meta from the page with passed index meta, thus defining the order of element in the {@link IndexMetaTree}.
+     * Compare the {@link IndexMeta} from the page with passed {@link IndexMeta}.
      *
      * @param pageAddr Page address.
      * @param idx Element's index.

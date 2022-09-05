@@ -123,12 +123,12 @@ public class ByteUtils {
      * @param bytes Byte array.
      * @return Object.
      */
-    public static Object fromBytes(byte[] bytes) {
+    public static <T> T fromBytes(byte[] bytes) {
         try (
                 var bis = new ByteArrayInputStream(bytes);
                 var in = new ObjectInputStream(bis)
         ) {
-            return in.readObject();
+            return (T) in.readObject();
         } catch (IOException | ClassNotFoundException e) {
             throw new IgniteInternalException("Could not deserialize an object", e);
         }

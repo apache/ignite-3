@@ -21,7 +21,6 @@ namespace Apache.Ignite.Internal.Table
     using System.Collections.Concurrent;
     using System.Collections.Generic;
     using System.Threading.Tasks;
-    using Buffers;
     using Common;
     using Ignite.Table;
     using MessagePack;
@@ -92,7 +91,7 @@ namespace Apache.Ignite.Internal.Table
         {
             IgniteArgumentCheck.NotNull(name, nameof(name));
 
-            using var writer = new PooledArrayBufferWriter();
+            using var writer = ProtoCommon.GetMessageWriter();
             Write(writer.GetMessageWriter());
 
             using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TableGet, writer).ConfigureAwait(false);

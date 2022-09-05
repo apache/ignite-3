@@ -94,7 +94,7 @@ public class ItIndexManagerTest extends AbstractBasicIntegrationTest {
         assertThat(createEventParamHolder.get(), notNullValue());
         assertThat(index, sameInstance(createEventParamHolder.get().index()));
 
-        indexManager.dropIndex("PUBLIC", "INAME", true);
+        indexManager.dropIndexAsync("PUBLIC", "INAME", true).join();
 
         assertThat(dropEventParamHolder.get(), notNullValue());
         assertThat(index.id(), sameInstance(dropEventParamHolder.get().indexId()));

@@ -21,8 +21,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.Collections;
-import org.apache.ignite.schema.SchemaBuilders;
-import org.apache.ignite.schema.definition.builder.HashIndexDefinitionBuilder;
+import org.apache.ignite.internal.schema.testutils.builder.HashIndexDefinitionBuilder;
+import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.schema.definition.index.HashIndexDefinition;
 import org.junit.jupiter.api.Test;
 

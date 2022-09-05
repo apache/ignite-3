@@ -19,7 +19,6 @@ namespace Apache.Ignite.Internal.Proto
 {
     using System;
     using System.Buffers;
-    using System.Buffers.Binary;
     using System.Diagnostics;
     using System.Runtime.CompilerServices;
     using MessagePack;
@@ -126,20 +125,7 @@ namespace Apache.Ignite.Internal.Proto
 
             Debug.Assert(jBytes.Length == guidSize, "jBytes.Length == 16");
 
-            // Hoist bounds checks.
-            var k = jBytes[15];
-            var a = BinaryPrimitives.ReadInt32BigEndian(jBytes);
-            var b = BinaryPrimitives.ReadInt16BigEndian(jBytes[4..]);
-            var c = BinaryPrimitives.ReadInt16BigEndian(jBytes[6..]);
-            var d = jBytes[8];
-            var e = jBytes[9];
-            var f = jBytes[10];
-            var g = jBytes[11];
-            var h = jBytes[12];
-            var i = jBytes[13];
-            var j = jBytes[14];
-
-            return new Guid(a, b, c, d, e, f, g, h, i, j, k);
+            return UuidSerializer.Read(jBytes);
         }
 
         /// <summary>

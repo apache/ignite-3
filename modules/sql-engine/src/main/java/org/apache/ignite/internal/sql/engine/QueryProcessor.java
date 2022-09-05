@@ -22,6 +22,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
+import org.apache.ignite.internal.sql.engine.session.SessionInfo;
 import org.apache.ignite.lang.IgniteException;
 
 /**
@@ -46,6 +47,15 @@ public interface QueryProcessor extends IgniteComponent {
      * @return A future representing result of an operation.
      */
     CompletableFuture<Void> closeSession(SessionId sessionId);
+
+    /**
+     * Provide list of live sessions.
+     *
+     * <p>This method return the information is actual only on method invocation time.
+     *
+     * @return List of active sessions.
+     */
+    List<SessionInfo> liveSessions();
 
     /**
      * Execute the query with given schema name and parameters.

@@ -18,7 +18,6 @@
 package org.apache.ignite.network;
 
 import java.io.Serializable;
-import java.util.Objects;
 import org.apache.ignite.internal.tostring.S;
 
 /**
@@ -90,7 +89,9 @@ public class ClusterNode implements Serializable {
     /** {@inheritDoc} */
     @Override
     public int hashCode() {
-        return Objects.hash(name, address);
+        int result = name.hashCode();
+        result = 31 * result + address.hashCode();
+        return result;
     }
 
     /** {@inheritDoc} */

@@ -22,11 +22,10 @@ import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.Map;
-import org.apache.ignite.schema.SchemaBuilders;
+import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
+import org.apache.ignite.internal.schema.testutils.builder.TableDefinitionBuilder;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.SchemaObject;
-import org.apache.ignite.schema.definition.TableDefinition;
-import org.apache.ignite.schema.definition.builder.TableDefinitionBuilder;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -77,52 +76,6 @@ public class SchemaConfigurationTest {
                 )
 
                 .build();
-    }
-
-    /**
-     * TestSchemaModification.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    @Test
-    public void testSchemaModification() {
-        final TableDefinition table = SchemaBuilders.tableBuilder("PUBLIC", "table1")
-                .columns(
-                        // Declaring columns in user order.
-                        SchemaBuilders.column("id", ColumnType.INT64).build(),
-                        SchemaBuilders.column("name", ColumnType.string()).build()
-                )
-                .withPrimaryKey("id")
-                .build();
-
-        table.toBuilder()
-                .addColumn(
-                        SchemaBuilders.column("firstName", ColumnType.string())
-                                .build()
-                )
-                .addKeyColumn(
-                        // It looks safe to add non-affinity column to key.
-                        SchemaBuilders.column("subId", ColumnType.string())
-                                .build()
-                )
-
-                .alterColumn("firstName")
-                .withNewName("lastName")
-                .withNewDefault("ivanov")
-                .asNullable()
-                .convertTo(ColumnType.stringOf(100))
-                .done()
-
-                .dropColumn("name") // Key column can't be dropped.
-
-                .addIndex(
-                        SchemaBuilders.sortedIndex("sortedIdx")
-                                .addIndexColumn("subId").done()
-                                .withHints(Map.of("INLINE_SIZE", "73"))
-                                .build()
-                )
-
-                .dropIndex("hash_idx")
-                .apply();
     }
 
     /**
