@@ -20,7 +20,6 @@ namespace Apache.Ignite.Internal.Transactions
     using System.Threading;
     using System.Threading.Tasks;
     using System.Transactions;
-    using Buffers;
     using Ignite.Transactions;
     using MessagePack;
     using Proto;
@@ -75,7 +74,7 @@ namespace Apache.Ignite.Internal.Transactions
         {
             SetState(StateCommitted);
 
-            using var writer = new PooledArrayBufferWriter();
+            using var writer = ProtoCommon.GetMessageWriter();
             Write(writer.GetMessageWriter());
 
             await Socket.DoOutInOpAsync(ClientOp.TxCommit, writer).ConfigureAwait(false);
@@ -104,7 +103,7 @@ namespace Apache.Ignite.Internal.Transactions
         /// </summary>
         private async Task RollbackAsyncInternal()
         {
-            using var writer = new PooledArrayBufferWriter();
+            using var writer = ProtoCommon.GetMessageWriter();
             Write(writer.GetMessageWriter());
 
             await Socket.DoOutInOpAsync(ClientOp.TxRollback, writer).ConfigureAwait(false);

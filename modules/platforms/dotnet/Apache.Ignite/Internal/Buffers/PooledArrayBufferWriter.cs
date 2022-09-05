@@ -19,8 +19,8 @@ namespace Apache.Ignite.Internal.Buffers
 {
     using System;
     using System.Buffers;
+    using System.Buffers.Binary;
     using System.Diagnostics;
-    using System.Net;
     using MessagePack;
 
     /// <summary>
@@ -40,10 +40,8 @@ namespace Apache.Ignite.Internal.Buffers
     /// </summary>
     internal sealed class PooledArrayBufferWriter : IBufferWriter<byte>, IDisposable
     {
-        /// <summary>
-        /// Reserved prefix size.
-        /// </summary>
-        public const int ReservedPrefixSize = 4 + 5 + 9; // Size (4 bytes) + OpCode (5 bytes) + RequestId (9 bytes)/
+        /** Prefix size. */
+        private readonly int _prefixSize;
 
         /** Underlying pooled array. */
         private byte[] _buffer;
@@ -58,13 +56,20 @@ namespace Apache.Ignite.Internal.Buffers
         /// Initializes a new instance of the <see cref="PooledArrayBufferWriter"/> class.
         /// </summary>
         /// <param name="initialCapacity">Initial capacity.</param>
-        public PooledArrayBufferWriter(int initialCapacity = PooledBuffer.DefaultCapacity)
+        /// <param name="prefixSize">Size of the reserved space at the start of the buffer.</param>
+        public PooledArrayBufferWriter(int initialCapacity = PooledBuffer.DefaultCapacity, int prefixSize = 0)
         {
             // NOTE: Shared pool has 1M elements limit before .NET 6.
             // https://devblogs.microsoft.com/dotnet/performance-improvements-in-net-6/#buffering
             _buffer = ByteArrayPool.Rent(initialCapacity);
-            _index = ReservedPrefixSize;
+            _prefixSize = prefixSize;
+            _index = prefixSize;
         }
+
+        /// <summary>
+        /// Gets the current position.
+        /// </summary>
+        public int Position => _index - _prefixSize;
 
         /// <summary>
         /// Gets the free capacity.
@@ -72,7 +77,7 @@ namespace Apache.Ignite.Internal.Buffers
         private int FreeCapacity => _buffer.Length - _index;
 
         /// <summary>
-        /// Gets the written memory, including reserved prefix (see <see cref="ReservedPrefixSize"/>).
+        /// Gets the written memory, including prefix, if any.
         /// </summary>
         /// <returns>Written array.</returns>
         public Memory<byte> GetWrittenMemory()
@@ -85,10 +90,7 @@ namespace Apache.Ignite.Internal.Buffers
         /// <inheritdoc />
         public void Advance(int count)
         {
-            if (count < 0)
-            {
-                throw new ArgumentException(null, nameof(count));
-            }
+            Debug.Assert(count >= 0, "count >= 0");
 
             if (_index > _buffer.Length - count)
             {
@@ -113,38 +115,28 @@ namespace Apache.Ignite.Internal.Buffers
         }
 
         /// <summary>
+        /// Gets a span for writing at the specified position.
+        /// </summary>
+        /// <param name="position">Position.</param>
+        /// <param name="size">Size.</param>
+        /// <returns>Span for writing.</returns>
+        public Span<byte> GetSpan(int position, int size)
+        {
+            var overflow = _prefixSize + position + size - _index;
+
+            if (overflow > 0)
+            {
+                CheckAndResizeBuffer(overflow);
+            }
+
+            return _buffer.AsSpan(_prefixSize + position, size);
+        }
+
+        /// <summary>
         /// Gets the <see cref="MessagePackWriter"/> for this buffer.
         /// </summary>
         /// <returns><see cref="MessagePackWriter"/> for this buffer.</returns>
         public MessagePackWriter GetMessageWriter() => new(this);
-
-        /// <summary>
-        /// Reserves space for an int32 value and returns its position.
-        /// </summary>
-        /// <returns>Reserved int position. To be used with <see cref="WriteInt32"/>.</returns>
-        public int ReserveInt32()
-        {
-            var pos = _index;
-
-            Advance(5);
-
-            return pos;
-        }
-
-        /// <summary>
-        /// Writes an int32 value at the given position. Intended to be used with <see cref="ReserveInt32"/>.
-        /// </summary>
-        /// <param name="position">Position.</param>
-        /// <param name="value">Value.</param>
-        public unsafe void WriteInt32(int position, int value)
-        {
-            fixed (byte* ptr = &_buffer[position + 1])
-            {
-                 *(int*)ptr = IPAddress.HostToNetworkOrder(value);
-            }
-
-            _buffer[position] = MessagePackCode.Int32;
-        }
 
         /// <inheritdoc />
         public void Dispose()
@@ -157,15 +149,106 @@ namespace Apache.Ignite.Internal.Buffers
         }
 
         /// <summary>
+        /// Writes a byte at current position.
+        /// </summary>
+        /// <param name="val">Value.</param>
+        public void WriteByte(byte val)
+        {
+            CheckAndResizeBuffer(1);
+            _buffer[_index++] = val;
+        }
+
+        /// <summary>
+        /// Writes a byte at specified position.
+        /// </summary>
+        /// <param name="val">Value.</param>
+        /// <param name="pos">Position.</param>
+        public void WriteByte(byte val, int pos)
+        {
+            _buffer[pos + _prefixSize] = val;
+        }
+
+        /// <summary>
+        /// Writes a short at current position.
+        /// </summary>
+        /// <param name="val">Value.</param>
+        public void WriteShort(short val)
+        {
+            CheckAndResizeBuffer(2);
+            BinaryPrimitives.WriteInt16LittleEndian(_buffer.AsSpan(_index), val);
+            _index += 2;
+        }
+
+        /// <summary>
+        /// Writes a short at specified position.
+        /// </summary>
+        /// <param name="val">Value.</param>
+        /// <param name="pos">Position.</param>
+        public void WriteShort(short val, int pos)
+        {
+            BinaryPrimitives.WriteInt16LittleEndian(_buffer.AsSpan(pos + _prefixSize), val);
+        }
+
+        /// <summary>
+        /// Writes an int at current position.
+        /// </summary>
+        /// <param name="val">Value.</param>
+        public void WriteInt(int val)
+        {
+            CheckAndResizeBuffer(4);
+            BinaryPrimitives.WriteInt32LittleEndian(_buffer.AsSpan(_index), val);
+            _index += 4;
+        }
+
+        /// <summary>
+        /// Writes an int at specified position.
+        /// </summary>
+        /// <param name="val">Value.</param>
+        /// <param name="pos">Position.</param>
+        public void WriteInt(int val, int pos)
+        {
+            BinaryPrimitives.WriteInt32LittleEndian(_buffer.AsSpan(pos + _prefixSize), val);
+        }
+
+        /// <summary>
+        /// Writes a long at current position.
+        /// </summary>
+        /// <param name="val">Value.</param>
+        public void WriteLong(long val)
+        {
+            CheckAndResizeBuffer(8);
+            BinaryPrimitives.WriteInt64LittleEndian(_buffer.AsSpan(_index), val);
+            _index += 8;
+        }
+
+        /// <summary>
+        /// Reads a byte at specified position.
+        /// </summary>
+        /// <param name="pos">Position.</param>
+        /// <returns>Result.</returns>
+        public byte ReadByte(int pos) => _buffer[pos + _prefixSize];
+
+        /// <summary>
+        /// Reads a short at specified position.
+        /// </summary>
+        /// <param name="pos">Position.</param>
+        /// <returns>Result.</returns>
+        public short ReadShort(int pos) => BinaryPrimitives.ReadInt16LittleEndian(_buffer.AsSpan(pos + _prefixSize));
+
+        /// <summary>
+        /// Reads an int at specified position.
+        /// </summary>
+        /// <param name="pos">Position.</param>
+        /// <returns>Result.</returns>
+        public int ReadInt(int pos) => BinaryPrimitives.ReadInt32LittleEndian(_buffer.AsSpan(pos + _prefixSize));
+
+        /// <summary>
         /// Checks underlying buffer and resizes if necessary.
         /// </summary>
         /// <param name="sizeHint">Size hint.</param>
         private void CheckAndResizeBuffer(int sizeHint)
         {
-            if (sizeHint < 0)
-            {
-                throw new ArgumentException(null, nameof(sizeHint));
-            }
+            Debug.Assert(sizeHint >= 0, "sizeHint >= 0");
 
             if (sizeHint == 0)
             {
