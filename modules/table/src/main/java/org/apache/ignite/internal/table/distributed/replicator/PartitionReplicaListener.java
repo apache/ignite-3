@@ -51,12 +51,16 @@ import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
 import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
+import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlyMultiRowReplicaRequest;
+import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlyScanRetrieveBatchReplicaRequest;
+import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlySingleRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteMultiRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteScanCloseReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteScanRetrieveBatchReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSwapRowReplicaRequest;
+import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
@@ -184,10 +188,98 @@ public class PartitionReplicaListener implements ReplicaListener {
                         return processTxFinishAction((TxFinishReplicaRequest) request);
                     } else if (request instanceof TxCleanupReplicaRequest) {
                         return processTxCleanupAction((TxCleanupReplicaRequest) request);
+                    } else if (request instanceof ReadOnlySingleRowReplicaRequest) {
+                        return processReadOnlySingleEntryAction((ReadOnlySingleRowReplicaRequest) request);
+                    } else if (request instanceof ReadOnlyMultiRowReplicaRequest) {
+                        return processReadOnlyMultiEntryAction((ReadOnlyMultiRowReplicaRequest) request);
+                    } else if (request instanceof ReadOnlyScanRetrieveBatchReplicaRequest) {
+                        return processReadOnlyScanRetrieveBatchAction((ReadOnlyScanRetrieveBatchReplicaRequest) request);
                     } else {
                         throw new UnsupportedReplicaRequestException(request.getClass());
                     }
                 });
+    }
+
+    /**
+     * Processes retrieve batch for read only transaction.
+     *
+     * @param request Read only retrieve batch request.
+     * @return Result future.
+     */
+    private CompletableFuture<Object> processReadOnlyScanRetrieveBatchAction(ReadOnlyScanRetrieveBatchReplicaRequest request) {
+        UUID txId = request.transactionId();
+        int batchCount = request.batchSize();
+
+        IgniteUuid cursorId = new IgniteUuid(txId, request.scanId());
+
+        ArrayList<BinaryRow> batchRows = new ArrayList<>(batchCount);
+
+        //TODO: IGNITE-17849 Remove this always true filter after the storage API will be changed.
+        PartitionTimestampCursor cursor = cursors.computeIfAbsent(cursorId,
+                id -> mvDataStorage.scan(row -> true, HybridTimestamp.MAX_VALUE));
+
+        while (batchRows.size() < batchCount && cursor.hasNext()) {
+            BinaryRow resolvedReadResult = resolveReadResult(cursor.next(), null);
+
+            if (resolvedReadResult != null) {
+                batchRows.add(resolvedReadResult);
+            }
+        }
+
+        return CompletableFuture.completedFuture(batchRows);
+    }
+
+    /**
+     * Processes single entry request for read only transaction.
+     *
+     * @param request Read only single entry request.
+     * @return Result future.
+     */
+    private CompletableFuture<Object> processReadOnlySingleEntryAction(ReadOnlySingleRowReplicaRequest request) {
+        ByteBuffer searchKey = request.binaryRow().keySlice();
+
+        UUID indexId = indexIdOrDefault(indexScanId/*request.indexToUse()*/);
+
+        if (request.requestType() !=  RequestType.RO_GET) {
+            throw new IgniteInternalException(Replicator.REPLICA_COMMON_ERR,
+                    IgniteStringFormatter.format("Unknown single request [actionType={}]", request.requestType()));
+        }
+
+        //TODO: IGNITE-17868 Integrate indexes into rowIds resolution along with proper lock management on search rows.
+        RowId rowId = rowIdByKey(indexId, searchKey);
+
+        BinaryRow result = rowId != null ? resolveReadResult(mvDataStorage.read(rowId, request.timestamp()), null) : null;
+
+        return CompletableFuture.completedFuture(result);
+    }
+
+    /**
+     * Processes multiple entries request for read only transaction.
+     *
+     * @param request Read only multiple entries request.
+     * @return Result future.
+     */
+    private CompletableFuture<Object> processReadOnlyMultiEntryAction(ReadOnlyMultiRowReplicaRequest request) {
+        Collection<ByteBuffer> keyRows = request.binaryRows().stream().map(br -> br.keySlice()).collect(
+                Collectors.toList());
+
+        UUID indexId = indexIdOrDefault(indexScanId/*request.indexToUse()*/);
+
+        if (request.requestType() !=  RequestType.RO_GET_ALL) {
+            throw new IgniteInternalException(Replicator.REPLICA_COMMON_ERR,
+                    IgniteStringFormatter.format("Unknown single request [actionType={}]", request.requestType()));
+        }
+
+        ArrayList<BinaryRow> result = new ArrayList<>(keyRows.size());
+
+        for (ByteBuffer searchKey : keyRows) {
+            //TODO: IGNITE-17868 Integrate indexes into rowIds resolution along with proper lock management on search rows.
+            RowId rowId = rowIdByKey(indexId, searchKey);
+
+            result.add(rowId != null ? resolveReadResult(mvDataStorage.read(rowId, request.timestamp()), null) : null);
+        }
+
+        return CompletableFuture.completedFuture(result);
     }
 
     /**
@@ -264,11 +356,13 @@ public class PartitionReplicaListener implements ReplicaListener {
         return lockManager.acquire(txId, new LockKey(tableId), LockMode.S).thenCompose(tblLock -> {
             ArrayList<BinaryRow> batchRows = new ArrayList<>(batchCount);
 
-            PartitionTimestampCursor cursor = cursors.computeIfAbsent(cursorId, id -> mvDataStorage.scan(request.rowFilter(),
-                    HybridTimestamp.MAX_VALUE));
+            //TODO: IGNITE-17849 Remove this always true filter after the storage API will be changed.
+            PartitionTimestampCursor cursor = cursors.computeIfAbsent(cursorId,
+                    id -> mvDataStorage.scan(row -> true, HybridTimestamp.MAX_VALUE));
 
-            for (int i = 0; i < batchCount && cursor.hasNext(); i++) {
+            while (batchRows.size() < batchCount && cursor.hasNext()) {
                 BinaryRow resolvedReadResult = resolveReadResult(cursor.next(), txId);
+
                 if (resolvedReadResult != null) {
                     batchRows.add(resolvedReadResult);
                 }
