@@ -55,6 +55,10 @@ public class IgniteExceptionArchTest {
             .should(new ArchCondition<>("have standard IgniteException constructor") {
                 @Override
                 public void check(JavaClass javaClass, ConditionEvents conditionEvents) {
+                    if (javaClass.getName().contains(".internal.")) {
+                        return;
+                    }
+
                     System.out.println("Checking class: " + javaClass.getName());
                     var ctor = javaClass.tryGetConstructor(UUID.class, int.class, String.class, Throwable.class);
 
