@@ -20,6 +20,7 @@ package org.apache.ignite.cli.core.exception.handler;
 import org.apache.ignite.cli.config.ConfigStoringException;
 import org.apache.ignite.cli.core.exception.ExceptionHandler;
 import org.apache.ignite.cli.core.exception.ExceptionWriter;
+import org.apache.ignite.cli.core.style.component.ErrorUiComponent;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 
@@ -31,8 +32,13 @@ public class ConfigStoringExceptionHandler implements ExceptionHandler<ConfigSto
 
     @Override
     public int handle(ExceptionWriter err, ConfigStoringException e) {
-        log.error("CLI config storing error: ", e);
-        err.write("Error happened while saving CLI config " + e.getMessage());
+        ErrorUiComponent errorComponent = ErrorUiComponent.builder()
+                .header("Could not save CLI config")
+                .details(e.getMessage())
+                .build();
+
+        log.error(errorComponent.header(), e);
+        err.write(errorComponent.render());
         return 1;
     }
 

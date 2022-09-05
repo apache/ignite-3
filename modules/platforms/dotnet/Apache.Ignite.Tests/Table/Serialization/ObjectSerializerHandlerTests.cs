@@ -51,9 +51,7 @@ namespace Apache.Ignite.Tests.Table.Serialization
         public void TestWriteUnsigned()
         {
             var bytes = Write(new UnsignedPoco(ulong.MaxValue, "foo"));
-
-            var resMem = bytes[PooledArrayBufferWriter.ReservedPrefixSize..]; // Skip length header.
-            var reader = new MessagePackReader(resMem);
+            var reader = new MessagePackReader(bytes);
 
             Assert.AreEqual(ulong.MaxValue, reader.ReadUInt64());
             Assert.AreEqual("foo", reader.ReadString());
@@ -130,8 +128,7 @@ namespace Apache.Ignite.Tests.Table.Serialization
         {
             var bytes = Write(new Poco { Key = 1234, Val = "foo" }, keyOnly);
 
-            var resMem = bytes[PooledArrayBufferWriter.ReservedPrefixSize..]; // Skip length header.
-            return new MessagePackReader(resMem);
+            return new MessagePackReader(bytes);
         }
 
         private static byte[] Write<T>(T obj, bool keyOnly = false)

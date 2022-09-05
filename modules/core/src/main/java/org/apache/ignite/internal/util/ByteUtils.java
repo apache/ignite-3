@@ -29,16 +29,16 @@ import org.apache.ignite.lang.IgniteInternalException;
  */
 public class ByteUtils {
     /**
-     * Constructs {@code long} from byte array.
+     * Constructs {@code long} from byte array in Big Endian order.
      *
      * @param bytes Array of bytes.
-     * @param off   Offset in {@code bytes} array.
+     * @param off Offset in {@code bytes} array.
      * @return Long value.
      */
     public static long bytesToLong(byte[] bytes, int off) {
         assert bytes != null;
 
-        int bytesCnt = Long.SIZE >> 3;
+        int bytesCnt = Long.BYTES;
 
         if (off + bytesCnt > bytes.length) {
             bytesCnt = bytes.length - off;
@@ -56,7 +56,7 @@ public class ByteUtils {
     }
 
     /**
-     * Constructs {@code long} from byte array with offset equals 0.
+     * Constructs {@code long} from byte array in Big Endian order with offset equal to 0.
      *
      * @param bytes Array of bytes.
      * @return Long value.
@@ -67,31 +67,28 @@ public class ByteUtils {
     }
 
     /**
-     * Converts a primitive {@code long} value to a byte array.
+     * Converts a primitive {@code long} value to a byte array in Big Endian order.
      *
      * @param l Long value.
      * @return Array of bytes.
      */
     public static byte[] longToBytes(long l) {
-        return longToBytes(l, new byte[8], 0, 8);
+        return longToBytes(l, new byte[8], 0);
     }
 
     /**
-     * Converts a primitive {@code long} value to a byte array and stores it in the specified byte array.
-     * The highest byte in the value will be the first byte in the result array.
+     * Converts a primitive {@code long} value to a byte array in Big Endian order and stores it in the specified byte array.
      *
-     * @param l     Unsigned long value.
+     * @param l Unsigned long value.
      * @param bytes Bytes array to write result to.
-     * @param off   Offset in the target array to write result to.
-     * @param limit Limit of bytes to write into output.
+     * @param off Offset in the target array to write result to.
      * @return Number of bytes overwritten in {@code bytes} array.
      */
-    private static byte[] longToBytes(long l, byte[] bytes, int off, int limit) {
+    public static byte[] longToBytes(long l, byte[] bytes, int off) {
         assert bytes != null;
-        assert limit <= Long.BYTES;
-        assert bytes.length >= off + limit;
+        assert bytes.length >= off + Long.BYTES;
 
-        for (int i = limit - 1; i >= 0; i--) {
+        for (int i = Long.BYTES - 1; i >= 0; i--) {
             bytes[off + i] = (byte) l;
             l >>>= 8;
         }
@@ -126,12 +123,12 @@ public class ByteUtils {
      * @param bytes Byte array.
      * @return Object.
      */
-    public static Object fromBytes(byte[] bytes) {
+    public static <T> T fromBytes(byte[] bytes) {
         try (
                 var bis = new ByteArrayInputStream(bytes);
                 var in = new ObjectInputStream(bis)
         ) {
-            return in.readObject();
+            return (T) in.readObject();
         } catch (IOException | ClassNotFoundException e) {
             throw new IgniteInternalException("Could not deserialize an object", e);
         }

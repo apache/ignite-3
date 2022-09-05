@@ -19,6 +19,7 @@ package org.apache.ignite.cli.commands;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 import io.micronaut.configuration.picocli.MicronautFactory;
 import io.micronaut.context.ApplicationContext;
@@ -30,20 +31,24 @@ import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.cli.commands.cliconfig.TestConfigManagerHelper;
 import org.apache.ignite.cli.commands.cliconfig.TestConfigManagerProvider;
-import org.apache.ignite.cli.commands.cluster.config.ClusterConfigShowReplSubCommand;
-import org.apache.ignite.cli.commands.cluster.config.ClusterConfigShowSubCommand;
-import org.apache.ignite.cli.commands.cluster.config.ClusterConfigUpdateReplSubCommand;
-import org.apache.ignite.cli.commands.cluster.config.ClusterConfigUpdateSubCommand;
-import org.apache.ignite.cli.commands.cluster.status.ClusterStatusReplSubCommand;
-import org.apache.ignite.cli.commands.cluster.status.ClusterStatusSubCommand;
+import org.apache.ignite.cli.commands.cluster.config.ClusterConfigShowCommand;
+import org.apache.ignite.cli.commands.cluster.config.ClusterConfigShowReplCommand;
+import org.apache.ignite.cli.commands.cluster.config.ClusterConfigUpdateCommand;
+import org.apache.ignite.cli.commands.cluster.config.ClusterConfigUpdateReplCommand;
+import org.apache.ignite.cli.commands.cluster.init.ClusterInitCommand;
+import org.apache.ignite.cli.commands.cluster.init.ClusterInitReplCommand;
+import org.apache.ignite.cli.commands.cluster.status.ClusterStatusCommand;
+import org.apache.ignite.cli.commands.cluster.status.ClusterStatusReplCommand;
 import org.apache.ignite.cli.commands.connect.ConnectCommand;
-import org.apache.ignite.cli.commands.node.config.NodeConfigShowReplSubCommand;
-import org.apache.ignite.cli.commands.node.config.NodeConfigShowSubCommand;
-import org.apache.ignite.cli.commands.node.config.NodeConfigUpdateReplSubCommand;
-import org.apache.ignite.cli.commands.node.config.NodeConfigUpdateSubCommand;
-import org.apache.ignite.cli.commands.node.status.NodeStatusReplSubCommand;
-import org.apache.ignite.cli.commands.topology.LogicalTopologyReplSubCommand;
-import org.apache.ignite.cli.commands.topology.PhysicalTopologyReplSubCommand;
+import org.apache.ignite.cli.commands.node.config.NodeConfigShowCommand;
+import org.apache.ignite.cli.commands.node.config.NodeConfigShowReplCommand;
+import org.apache.ignite.cli.commands.node.config.NodeConfigUpdateCommand;
+import org.apache.ignite.cli.commands.node.config.NodeConfigUpdateReplCommand;
+import org.apache.ignite.cli.commands.node.status.NodeStatusReplCommand;
+import org.apache.ignite.cli.commands.topology.LogicalTopologyCommand;
+import org.apache.ignite.cli.commands.topology.LogicalTopologyReplCommand;
+import org.apache.ignite.cli.commands.topology.PhysicalTopologyCommand;
+import org.apache.ignite.cli.commands.topology.PhysicalTopologyReplCommand;
 import org.apache.ignite.cli.config.ini.IniConfigManager;
 import org.apache.ignite.cli.core.repl.context.CommandLineContextProvider;
 import org.junit.jupiter.api.DisplayName;
@@ -58,6 +63,9 @@ import picocli.CommandLine;
 @MicronautTest
 public class UrlOptionsNegativeTest {
     private static final String NODE_URL = "http://localhost:10300";
+
+    private static final String CLUSTER_URL_OPTION = "--cluster-endpoint-url=";
+    private static final String NODE_URL_OPTION = "--node-url=";
 
     @Inject
     private ApplicationContext context;
@@ -74,7 +82,7 @@ public class UrlOptionsNegativeTest {
     TestConfigManagerProvider configManagerProvider;
 
     private void setUp(Class<?> cmdClass) {
-        configManagerProvider.configManager = new IniConfigManager(TestConfigManagerHelper.createSectionWithInternalPart());
+        configManagerProvider.configManager = new IniConfigManager(TestConfigManagerHelper.createSectionWithDefaultProfile());
         MicronautFactory factory = new MicronautFactory(context);
         cmd = new CommandLine(cmdClass, factory);
         CommandLineContextProvider.setCmd(cmd);
@@ -94,37 +102,33 @@ public class UrlOptionsNegativeTest {
 
     static List<Arguments> cmdClassAndOptionsProvider() {
         return List.of(
-                Arguments.arguments(NodeConfigShowSubCommand.class, "--node-url=", List.of()),
-                Arguments.arguments(NodeConfigUpdateSubCommand.class, "--node-url=", List.of("{key: value}")),
-                Arguments.arguments(ClusterConfigShowSubCommand.class, "--cluster-endpoint-url=", List.of()),
-                Arguments.arguments(ClusterConfigUpdateSubCommand.class, "--cluster-endpoint-url=", List.of("{key: value}")),
-                Arguments.arguments(ClusterStatusSubCommand.class, "--cluster-endpoint-url=", List.of()),
-                Arguments.arguments(LogicalTopologyReplSubCommand.class, "--cluster-endpoint-url=", List.of()),
-                Arguments.arguments(PhysicalTopologyReplSubCommand.class, "--cluster-endpoint-url=", List.of())
+                arguments(NodeConfigShowCommand.class, NODE_URL_OPTION, List.of()),
+                arguments(NodeConfigUpdateCommand.class, NODE_URL_OPTION, List.of("{key: value}")),
+                arguments(ClusterConfigShowCommand.class, CLUSTER_URL_OPTION, List.of()),
+                arguments(ClusterConfigUpdateCommand.class, CLUSTER_URL_OPTION, List.of("{key: value}")),
+                arguments(ClusterStatusCommand.class, CLUSTER_URL_OPTION, List.of()),
+                arguments(LogicalTopologyCommand.class, CLUSTER_URL_OPTION, List.of()),
+                arguments(PhysicalTopologyCommand.class, CLUSTER_URL_OPTION, List.of()),
+                arguments(ClusterInitCommand.class, CLUSTER_URL_OPTION, List.of("--cluster-name=cluster", "--meta-storage-node=test"))
         // TODO https://issues.apache.org/jira/browse/IGNITE-17102
-        //                Arguments.arguments(ClusterShowCommand.class, "--cluster-endpoint-url=", List.of()),
-        // TODO https://issues.apache.org/jira/browse/IGNITE-17162
-        //                Arguments.arguments(ClusterCommandSpec.InitClusterCommandSpec.class, "---cluster-endpoint-url=",
-        //                        List.of("--cluster-name=cluster", "--meta-storage-node=test"))
+        //                Arguments.arguments(ClusterShowCommand.class, CLUSTER_URL_OPTION, List.of()),
         );
     }
 
     static List<Arguments> cmdReplClassAndOptionsProvider() {
         return List.of(
-                Arguments.arguments(NodeConfigShowReplSubCommand.class, "--node-url=", List.of()),
-                Arguments.arguments(NodeConfigUpdateReplSubCommand.class, "--node-url=", List.of("{key: value}")),
-                Arguments.arguments(NodeStatusReplSubCommand.class, "--node-url=", List.of()),
-                Arguments.arguments(ClusterConfigShowReplSubCommand.class, "--cluster-endpoint-url=", List.of()),
-                Arguments.arguments(ClusterConfigUpdateReplSubCommand.class, "--cluster-endpoint-url=", List.of("{key: value}")),
-                Arguments.arguments(ConnectCommand.class, "", List.of()),
-                Arguments.arguments(ClusterStatusReplSubCommand.class, "--cluster-endpoint-url=", List.of()),
-                Arguments.arguments(LogicalTopologyReplSubCommand.class, "--cluster-endpoint-url=", List.of()),
-                Arguments.arguments(PhysicalTopologyReplSubCommand.class, "--cluster-endpoint-url=", List.of())
+                arguments(NodeConfigShowReplCommand.class, NODE_URL_OPTION, List.of()),
+                arguments(NodeConfigUpdateReplCommand.class, NODE_URL_OPTION, List.of("{key: value}")),
+                arguments(NodeStatusReplCommand.class, NODE_URL_OPTION, List.of()),
+                arguments(ClusterConfigShowReplCommand.class, CLUSTER_URL_OPTION, List.of()),
+                arguments(ClusterConfigUpdateReplCommand.class, CLUSTER_URL_OPTION, List.of("{key: value}")),
+                arguments(ConnectCommand.class, "", List.of()),
+                arguments(ClusterStatusReplCommand.class, CLUSTER_URL_OPTION, List.of()),
+                arguments(LogicalTopologyReplCommand.class, CLUSTER_URL_OPTION, List.of()),
+                arguments(PhysicalTopologyReplCommand.class, CLUSTER_URL_OPTION, List.of()),
+                arguments(ClusterInitReplCommand.class, CLUSTER_URL_OPTION, List.of("--cluster-name=cluster", "--meta-storage-node=test"))
         // TODO https://issues.apache.org/jira/browse/IGNITE-17102
-        //                Arguments.arguments(ClusterShowReplCommand.class, "--cluster-endpoint-url=", List.of()),
-        // TODO https://issues.apache.org/jira/browse/IGNITE-17162
-        //                Arguments.arguments(ClusterReplCommandSpec.InitClusterCommandSpec.class, "---cluster-endpoint-url=",
-        //                        List.of("--cluster-name=cluster", "--meta-storage-node=test"))
+        //                Arguments.arguments(ClusterShowReplCommand.class, CLUSTER_URL_OPTION, List.of()),
         );
     }
 
@@ -164,7 +168,7 @@ public class UrlOptionsNegativeTest {
                 this::assertExitCodeIsFailure,
                 this::assertOutputIsEmpty,
                 () -> assertErrOutputIs(
-                        "Could not determine IP address when connecting to URL [url=http://no-such-host.com]" + System.lineSeparator())
+                        "Unknown host: http://no-such-host.com" + System.lineSeparator())
         );
     }
 
@@ -177,7 +181,8 @@ public class UrlOptionsNegativeTest {
         assertAll(
                 this::assertExitCodeIsFailure,
                 this::assertOutputIsEmpty,
-                () -> assertErrOutputIs("Could not connect to URL [url=" + NODE_URL + "]" + System.lineSeparator())
+                () -> assertErrOutputIs("Node unavailable" + System.lineSeparator()
+                        + "Could not connect to node with URL " + NODE_URL + System.lineSeparator())
         );
     }
 
@@ -213,8 +218,7 @@ public class UrlOptionsNegativeTest {
 
         assertAll(
                 this::assertOutputIsEmpty,
-                () -> assertErrOutputIs(
-                        "Could not determine IP address when connecting to URL [url=http://no-such-host.com]" + System.lineSeparator())
+                () -> assertErrOutputIs("Unknown host: http://no-such-host.com" + System.lineSeparator())
         );
     }
 
@@ -226,7 +230,8 @@ public class UrlOptionsNegativeTest {
 
         assertAll(
                 this::assertOutputIsEmpty,
-                () -> assertErrOutputIs("Could not connect to URL [url=" + NODE_URL + "]" + System.lineSeparator())
+                () -> assertErrOutputIs("Node unavailable" + System.lineSeparator()
+                        + "Could not connect to node with URL " + NODE_URL + System.lineSeparator())
         );
     }
 

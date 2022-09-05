@@ -106,7 +106,7 @@ public class ExecutionServiceImplTest {
     private final TestTable table = createTable("TEST_TBL", 1_000_000, IgniteDistributions.random(),
             "ID", Integer.class, "VAL", Integer.class);
 
-    private final IgniteSchema schema = new IgniteSchema("PUBLIC", Map.of(table.name(), table));
+    private final IgniteSchema schema = new IgniteSchema("PUBLIC", Map.of(table.name(), table), null);
 
     private TestCluster testCluster;
     private List<ExecutionServiceImpl<?>> executionServices;

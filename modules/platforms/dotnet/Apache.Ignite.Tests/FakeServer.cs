@@ -122,7 +122,7 @@ namespace Apache.Ignite.Tests
         }
 
         private static void Send(Socket socket, long requestId, PooledArrayBufferWriter writer, bool isError = false)
-            => Send(socket, requestId, writer.GetWrittenMemory().Slice(PooledArrayBufferWriter.ReservedPrefixSize), isError);
+            => Send(socket, requestId, writer.GetWrittenMemory(), isError);
 
         private static void Send(Socket socket, long requestId, ReadOnlyMemory<byte> payload, bool isError = false)
         {
@@ -139,7 +139,7 @@ namespace Apache.Ignite.Tests
 
             writer.Flush();
 
-            var headerMem = header.GetWrittenMemory().Slice(PooledArrayBufferWriter.ReservedPrefixSize);
+            var headerMem = header.GetWrittenMemory();
             var size = BitConverter.GetBytes(IPAddress.HostToNetworkOrder(headerMem.Length + payload.Length));
             socket.Send(size);
 
@@ -177,6 +177,7 @@ namespace Apache.Ignite.Tests
             props["schema"] = reader.TryReadNil() ? null : reader.ReadString();
             props["pageSize"] = reader.TryReadNil() ? (int?)null : reader.ReadInt32();
             props["timeoutMs"] = reader.TryReadNil() ? (long?)null : reader.ReadInt64();
+            props["sessionTimeoutMs"] = reader.TryReadNil() ? (long?)null : reader.ReadInt64();
 
             // ReSharper restore RedundantCast
             var propCount = reader.ReadMapHeader();
@@ -285,7 +286,7 @@ namespace Apache.Ignite.Tests
                 handshakeWriter.WriteMapHeader(0); // Extensions.
                 handshakeWriter.Flush();
 
-                var handshakeMem = handshakeBufferWriter.GetWrittenMemory().Slice(PooledArrayBufferWriter.ReservedPrefixSize);
+                var handshakeMem = handshakeBufferWriter.GetWrittenMemory();
                 handler.Send(new byte[] { 0, 0, 0, (byte)handshakeMem.Length }); // Size.
 
                 handler.Send(handshakeMem.Span);

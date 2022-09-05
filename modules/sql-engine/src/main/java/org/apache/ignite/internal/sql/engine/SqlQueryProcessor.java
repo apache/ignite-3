@@ -40,8 +40,12 @@ import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.util.Pair;
+import org.apache.ignite.internal.index.IndexManager;
+import org.apache.ignite.internal.index.event.IndexEvent;
+import org.apache.ignite.internal.index.event.IndexEventParameters;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.Event;
 import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.sql.engine.exec.ArrayRowHandler;
@@ -55,10 +59,12 @@ import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
 import org.apache.ignite.internal.sql.engine.message.MessageServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
+import org.apache.ignite.internal.sql.engine.prepare.QueryPlan.Type;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManagerImpl;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
+import org.apache.ignite.internal.sql.engine.session.SessionInfo;
 import org.apache.ignite.internal.sql.engine.session.SessionManager;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -67,6 +73,7 @@ import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.table.event.TableEventParameters;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -86,9 +93,16 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** Size of the cache for query plans. */
     public static final int PLAN_CACHE_SIZE = 1024;
 
+    /** Session expiration check period in milliseconds. */
+    public static final long SESSION_EXPIRE_CHECK_PERIOD = TimeUnit.SECONDS.toMillis(1);
+
+    private final List<LifecycleAware> services = new ArrayList<>();
+
     private final ClusterService clusterSrvc;
 
     private final TableManager tableManager;
+
+    private final IndexManager indexManager;
 
     private final SchemaManager schemaManager;
 
@@ -96,17 +110,15 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private final DataStorageManager dataStorageManager;
 
-    private final SessionManager sessionManager = new SessionManager(System::currentTimeMillis);
-
     private final Supplier<Map<String, Map<String, Class<?>>>> dataStorageFieldsSupplier;
 
     /** Busy lock for stop synchronisation. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     /** Event listeners to close. */
-    private final List<Pair<TableEvent, EventListener<TableEventParameters>>> evtLsnrs = new ArrayList<>();
+    private final List<Pair<Event, EventListener>> evtLsnrs = new ArrayList<>();
 
-    private final List<LifecycleAware> services = new ArrayList<>();
+    private volatile SessionManager sessionManager;
 
     private volatile QueryTaskExecutor taskExecutor;
 
@@ -116,20 +128,27 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private volatile SqlSchemaManager sqlSchemaManager;
 
+    /** Transaction manager. */
+    private final TxManager txManager;
+
     /** Constructor. */
     public SqlQueryProcessor(
             Consumer<Function<Long, CompletableFuture<?>>> registry,
             ClusterService clusterSrvc,
             TableManager tableManager,
+            IndexManager indexManager,
             SchemaManager schemaManager,
             DataStorageManager dataStorageManager,
+            TxManager txManager,
             Supplier<Map<String, Map<String, Class<?>>>> dataStorageFieldsSupplier
     ) {
         this.registry = registry;
         this.clusterSrvc = clusterSrvc;
         this.tableManager = tableManager;
+        this.indexManager = indexManager;
         this.schemaManager = schemaManager;
         this.dataStorageManager = dataStorageManager;
+        this.txManager = txManager;
         this.dataStorageFieldsSupplier = dataStorageFieldsSupplier;
     }
 
@@ -137,6 +156,8 @@ public class SqlQueryProcessor implements QueryProcessor {
     @Override
     public synchronized void start() {
         var nodeName = clusterSrvc.topologyService().localMember().name();
+
+        sessionManager = registerService(new SessionManager(nodeName, SESSION_EXPIRE_CHECK_PERIOD, System::currentTimeMillis));
 
         taskExecutor = registerService(new QueryTaskExecutorImpl(nodeName));
         var mailboxRegistry = registerService(new MailboxRegistryImpl());
@@ -173,6 +194,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                 msgSrvc,
                 sqlSchemaManager,
                 tableManager,
+                indexManager,
                 taskExecutor,
                 ArrayRowHandler.INSTANCE,
                 mailboxRegistry,
@@ -189,6 +211,9 @@ public class SqlQueryProcessor implements QueryProcessor {
         registerTableListener(TableEvent.ALTER, new TableUpdatedListener(sqlSchemaManager));
         registerTableListener(TableEvent.DROP, new TableDroppedListener(sqlSchemaManager));
 
+        registerIndexListener(IndexEvent.CREATE, new IndexCreatedListener(sqlSchemaManager));
+        registerIndexListener(IndexEvent.DROP, new IndexDroppedListener(sqlSchemaManager));
+
         this.sqlSchemaManager = sqlSchemaManager;
 
         services.forEach(LifecycleAware::start);
@@ -196,9 +221,9 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     /** {@inheritDoc} */
     @Override
-    public SessionId createSession(PropertiesHolder queryProperties) {
+    public SessionId createSession(long sessionTimeoutMs, PropertiesHolder queryProperties) {
         return sessionManager.createSession(
-                TimeUnit.MINUTES.toMillis(5),
+                sessionTimeoutMs,
                 queryProperties
         );
     }
@@ -217,6 +242,12 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     /** {@inheritDoc} */
     @Override
+    public List<SessionInfo> liveSessions() {
+        return sessionManager.liveSessions();
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public synchronized void stop() throws Exception {
         busyLock.block();
 
@@ -229,7 +260,13 @@ public class SqlQueryProcessor implements QueryProcessor {
         Stream<AutoCloseable> closableComponents = services.stream().map(s -> s::stop);
 
         Stream<AutoCloseable> closableListeners = evtLsnrs.stream()
-                .map((p) -> () -> tableManager.removeListener(p.left, p.right));
+                .map((p) -> () -> {
+                    if (p.left instanceof TableEvent) {
+                        tableManager.removeListener((TableEvent) p.left, p.right);
+                    } else {
+                        indexManager.removeListener((IndexEvent) p.left, p.right);
+                    }
+                });
 
         IgniteUtils.closeAll(Stream.concat(closableComponents, closableListeners).collect(Collectors.toList()));
     }
@@ -283,6 +320,12 @@ public class SqlQueryProcessor implements QueryProcessor {
         tableManager.listen(evt, lsnr);
     }
 
+    private void registerIndexListener(IndexEvent evt, AbstractIndexEventListener lsnr) {
+        evtLsnrs.add(Pair.of(evt, lsnr));
+
+        indexManager.listen(evt, lsnr);
+    }
+
     private CompletableFuture<AsyncSqlCursor<List<Object>>> querySingle0(
             SessionId sessionId,
             QueryContext context,
@@ -306,7 +349,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         InternalTransaction outerTx = context.unwrap(InternalTransaction.class);
 
-        final BaseQueryContext ctx = BaseQueryContext.builder()
+        BaseQueryContext ctx = BaseQueryContext.builder()
                 .cancel(new QueryCancel())
                 .frameworkConfig(
                         Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
@@ -349,11 +392,19 @@ public class SqlQueryProcessor implements QueryProcessor {
                     context.maybeUnwrap(QueryValidator.class)
                             .ifPresent(queryValidator -> queryValidator.validatePlan(plan));
 
-                    var dataCursor = executionSrvc.executePlan(plan, ctx);
+                    // Transactional DDL is not supported as well as RO transactions, hence
+                    // only DML requiring RW transaction is covered
+                    boolean implicitTxRequired = plan.type() == Type.DML && outerTx == null;
+                    InternalTransaction implicitTx = implicitTxRequired ? txManager.begin() : null;
+
+                    BaseQueryContext enrichedContext = implicitTxRequired ? ctx.toBuilder().transaction(implicitTx).build() : ctx;
+
+                    var dataCursor = executionSrvc.executePlan(plan, enrichedContext);
 
                     return new AsyncSqlCursorImpl<>(
                             SqlQueryType.mapPlanTypeToSqlType(plan.type()),
                             plan.metadata(),
+                            implicitTx,
                             new AsyncCursor<List<Object>>() {
                                 @Override
                                 public CompletionStage<BatchedResult<List<Object>>> requestNextAsync(int rows) {
@@ -421,6 +472,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                         return new AsyncSqlCursorImpl<>(
                                 SqlQueryType.mapPlanTypeToSqlType(plan.type()),
                                 plan.metadata(),
+                                null,
                                 executionSrvc.executePlan(plan, ctx)
                         );
                     });
@@ -445,6 +497,14 @@ public class SqlQueryProcessor implements QueryProcessor {
         private AbstractTableEventListener(
                 SqlSchemaManagerImpl schemaHolder
         ) {
+            this.schemaHolder = schemaHolder;
+        }
+    }
+
+    private abstract static class AbstractIndexEventListener implements EventListener<IndexEventParameters> {
+        protected final SqlSchemaManagerImpl schemaHolder;
+
+        private AbstractIndexEventListener(SqlSchemaManagerImpl schemaHolder) {
             this.schemaHolder = schemaHolder;
         }
     }
@@ -503,6 +563,40 @@ public class SqlQueryProcessor implements QueryProcessor {
                     parameters.causalityToken()
                 )
                 .thenApply(v -> false);
+        }
+    }
+
+    private static class IndexDroppedListener extends AbstractIndexEventListener {
+        private IndexDroppedListener(SqlSchemaManagerImpl schemaHolder) {
+            super(schemaHolder);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public CompletableFuture<Boolean> notify(@NotNull IndexEventParameters parameters, @Nullable Throwable exception) {
+            return schemaHolder.onIndexDropped(
+                            "PUBLIC",
+                            parameters.indexId(),
+                            parameters.causalityToken()
+                    )
+                    .thenApply(v -> false);
+        }
+    }
+
+    private static class IndexCreatedListener extends AbstractIndexEventListener {
+        private IndexCreatedListener(SqlSchemaManagerImpl schemaHolder) {
+            super(schemaHolder);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public CompletableFuture<Boolean> notify(@NotNull IndexEventParameters parameters, @Nullable Throwable exception) {
+            return schemaHolder.onIndexCreated(
+                            "PUBLIC",
+                            parameters.index(),
+                            parameters.causalityToken()
+                    )
+                    .thenApply(v -> false);
         }
     }
 }

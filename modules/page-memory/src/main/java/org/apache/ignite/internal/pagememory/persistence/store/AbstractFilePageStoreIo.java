@@ -54,7 +54,7 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
     private final ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
 
     /** Skip CRC calculation flag. */
-    // TODO: IGNITE-17011 Move to config
+    // TODO: IGNITE-16350 Move to config
     private final boolean skipCrc = getBoolean("IGNITE_PDS_SKIP_CRC");
 
     private volatile Path filePath;

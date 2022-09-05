@@ -18,6 +18,7 @@
 package org.apache.ignite.cli.deprecated.builtins.init;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.ignite.cli.core.style.AnsiStringSupport.ansi;
 
 import jakarta.inject.Inject;
 import java.io.File;
@@ -31,14 +32,14 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Optional;
 import java.util.Properties;
+import org.apache.ignite.cli.core.style.component.MessageUiComponent;
+import org.apache.ignite.cli.core.style.element.UiElements;
 import org.apache.ignite.cli.deprecated.CliPathsConfigLoader;
 import org.apache.ignite.cli.deprecated.IgniteCliException;
 import org.apache.ignite.cli.deprecated.IgnitePaths;
-import org.apache.ignite.cli.deprecated.Table;
 import org.apache.ignite.cli.deprecated.builtins.SystemPathResolver;
 import org.apache.ignite.cli.deprecated.builtins.module.ModuleManager;
 import org.jetbrains.annotations.NotNull;
-import picocli.CommandLine.Help.Ansi;
 import picocli.CommandLine.Help.ColorScheme;
 
 /**
@@ -62,8 +63,8 @@ public class InitIgniteCommand {
     /**
      * Creates init command instance.
      *
-     * @param pathRslvr      Resolver of paths like home directory and etc.
-     * @param moduleMgr      Manager of Ignite server and CLI modules.
+     * @param pathRslvr Resolver of paths like home directory and etc.
+     * @param moduleMgr Manager of Ignite server and CLI modules.
      * @param cliPathsCfgLdr Loader of current Ignite distro dirs configuration.
      */
     @Inject
@@ -81,8 +82,8 @@ public class InitIgniteCommand {
      * to recover after corruption of node directories structure.
      *
      * @param urls Urls with custom maven repositories for Ignite download.
-     * @param out  PrintWriter for output user message.
-     * @param cs   ColorScheme for enriching user outputs with colors.
+     * @param out PrintWriter for output user message.
+     * @param cs ColorScheme for enriching user outputs with colors.
      */
     public void init(URL[] urls, PrintWriter out, ColorScheme cs) {
         moduleMgr.setOut(out);
@@ -95,21 +96,13 @@ public class InitIgniteCommand {
 
         IgnitePaths cfg = cliPathsCfgLdr.loadIgnitePathsConfig().get();
 
-        out.print("Creating directories... ");
-
         cfg.initOrRecover();
 
-        out.println(Ansi.AUTO.string("@|green,bold Done!|@"));
-
-        Table tbl = new Table(0, cs);
-
-        tbl.addRow("@|bold Binaries Directory|@", cfg.binDir);
-        tbl.addRow("@|bold Work Directory|@", cfg.workDir);
-        tbl.addRow("@|bold Config Directory|@", cfg.cfgDir);
-        tbl.addRow("@|bold Log Directory|@", cfg.logDir);
-
-        out.println(tbl);
-        out.println();
+        out.println(cfg.binDir);
+        out.println(cfg.workDir);
+        out.println(cfg.cfgDir);
+        out.println(cfg.logDir);
+        out.println(ansi(UiElements.done().represent()));
 
         installIgnite(cfg, urls);
 
@@ -118,8 +111,13 @@ public class InitIgniteCommand {
         initJavaUtilLoggingPros(cfg.serverJavaUtilLoggingPros());
 
         out.println();
-        out.println("Apache Ignite is successfully initialized. Use the "
-                + cs.commandText("ignite node start") + " command to start a new local node.");
+        out.println(
+                MessageUiComponent.builder()
+                        .message("Apache Ignite is successfully initialized")
+                        .hint("Run the " + cs.commandText("ignite node start") + " command to start a new local node")
+                        .build()
+                        .render()
+        );
     }
 
     /**
@@ -160,7 +158,7 @@ public class InitIgniteCommand {
      * Downloads ignite node distro with all needed dependencies.
      *
      * @param ignitePaths Ignite distributive paths (bin, config, etc.).
-     * @param urls        Urls for custom maven repositories.
+     * @param urls Urls for custom maven repositories.
      */
     private void installIgnite(IgnitePaths ignitePaths, URL[] urls) {
         moduleMgr.addModule("_server", ignitePaths,
@@ -195,8 +193,8 @@ public class InitIgniteCommand {
     /**
      * Fills config file with bin and work directories paths.
      *
-     * @param f       Config file.
-     * @param binDir  Path for bin dir.
+     * @param f Config file.
+     * @param binDir Path for bin dir.
      * @param workDir Path for work dir.
      */
     private void fillNewConfigFile(File f,

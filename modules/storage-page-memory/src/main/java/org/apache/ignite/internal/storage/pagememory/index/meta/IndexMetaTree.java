@@ -31,7 +31,7 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Tree for storing index meta-information, such as the root of an index tree.
+ * {@link BplusTree} implementation for storing {@link IndexMeta}.
  */
 public class IndexMetaTree extends BplusTree<IndexMeta, IndexMeta> {
     /**
@@ -59,24 +59,13 @@ public class IndexMetaTree extends BplusTree<IndexMeta, IndexMeta> {
             @Nullable ReuseList reuseList,
             boolean initNew
     ) throws IgniteInternalCheckedException {
-        super(
-                "IndexMetaTree_" + grpId,
-                grpId,
-                grpName,
-                partId,
-                pageMem,
-                lockLsnr,
-                globalRmvId,
-                metaPageId,
-                reuseList
-        );
+        super("IndexMetaTree_" + grpId, grpId, grpName, partId, pageMem, lockLsnr, globalRmvId, metaPageId, reuseList);
 
         setIos(IndexMetaInnerIo.VERSIONS, IndexMetaLeafIo.VERSIONS, IndexMetaTreeMetaIo.VERSIONS);
 
         initTree(initNew);
     }
 
-    /** {@inheritDoc} */
     @Override
     protected int compare(BplusIo<IndexMeta> io, long pageAddr, int idx, IndexMeta row) {
         IndexMetaIo indexMetaIo = (IndexMetaIo) io;
@@ -84,7 +73,6 @@ public class IndexMetaTree extends BplusTree<IndexMeta, IndexMeta> {
         return indexMetaIo.compare(pageAddr, idx, row);
     }
 
-    /** {@inheritDoc} */
     @Override
     public IndexMeta getRow(BplusIo<IndexMeta> io, long pageAddr, int idx, Object x) {
         IndexMetaIo indexMetaIo = (IndexMetaIo) io;

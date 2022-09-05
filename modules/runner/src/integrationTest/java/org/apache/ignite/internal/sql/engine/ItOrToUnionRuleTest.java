@@ -22,8 +22,9 @@ import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsTa
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsUnion;
 import static org.hamcrest.CoreMatchers.not;
 
+import java.util.List;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
-import org.apache.ignite.schema.SchemaBuilders;
+import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.TableDefinition;
 import org.apache.ignite.table.Table;
@@ -66,16 +67,20 @@ public class ItOrToUnionRuleTest extends AbstractBasicIntegrationTest {
                         SchemaBuilders.column("NAME", ColumnType.string()).asNullable(true).build()
                 )
                 .withPrimaryKey("ID")
-                .withIndex(SchemaBuilders.sortedIndex(IDX_CATEGORY).addIndexColumn("CATEGORY").done().build())
-                .withIndex(SchemaBuilders.sortedIndex(IDX_CAT_ID).addIndexColumn("CAT_ID").done().build())
-                .withIndex(SchemaBuilders.sortedIndex(IDX_SUBCATEGORY).addIndexColumn("SUBCATEGORY").done().build())
-                .withIndex(SchemaBuilders.sortedIndex(IDX_SUBCAT_ID).addIndexColumn("SUBCAT_ID").done().build())
                 .build();
 
         Table tbl = CLUSTER_NODES.get(0).tables().createTable(schTbl1.canonicalName(), tblCh ->
                 SchemaConfigurationConverter.convert(schTbl1, tblCh)
                         .changeReplicas(1)
                         .changePartitions(10)
+        );
+
+        CLUSTER_NODES.get(0).tables().alterTable(schTbl1.canonicalName(), tblCh ->
+                List.of(SchemaBuilders.sortedIndex(IDX_CATEGORY).addIndexColumn("CATEGORY").done().build(),
+                        SchemaBuilders.sortedIndex(IDX_CAT_ID).addIndexColumn("CAT_ID").done().build(),
+                        SchemaBuilders.sortedIndex(IDX_SUBCATEGORY).addIndexColumn("SUBCATEGORY").done().build(),
+                        SchemaBuilders.sortedIndex(IDX_SUBCAT_ID).addIndexColumn("SUBCAT_ID").done().build()
+                ).forEach(idxDef -> SchemaConfigurationConverter.addIndex(idxDef, tblCh))
         );
 
         insertData(tbl, new String[]{"ID", "CATEGORY", "CAT_ID", "SUBCATEGORY", "SUBCAT_ID", "NAME"}, new Object[][]{

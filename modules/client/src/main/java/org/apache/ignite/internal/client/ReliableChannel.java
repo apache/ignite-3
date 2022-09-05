@@ -131,7 +131,7 @@ public final class ReliableChannel implements AutoCloseable {
     public List<ClusterNode> connections() {
         List<ClusterNode> res = new ArrayList<>(channels.size());
 
-        for (var holder : channels) {
+        for (var holder : nodeChannels.values()) {
             var ch = holder.ch;
 
             if (ch != null) {
@@ -718,6 +718,10 @@ public final class ReliableChannel implements AutoCloseable {
                     ch.close();
                 } catch (Exception ignored) {
                     // No op.
+                }
+
+                if (serverNodeId != null) {
+                    nodeChannels.remove(serverNodeId, this);
                 }
 
                 ch = null;

@@ -165,7 +165,7 @@ namespace Apache.Ignite.Internal.Sql
 
             if (_resourceId != null && !_resourceClosed)
             {
-                using var writer = new PooledArrayBufferWriter();
+                using var writer = ProtoCommon.GetMessageWriter();
                 WriteId(writer.GetMessageWriter());
 
                 await _socket.DoOutInOpAsync(ClientOp.SqlCursorClose, writer).ConfigureAwait(false);
@@ -339,7 +339,7 @@ namespace Apache.Ignite.Internal.Sql
 
         private async Task<PooledBuffer> FetchNextPage()
         {
-            using var writer = new PooledArrayBufferWriter();
+            using var writer = ProtoCommon.GetMessageWriter();
             WriteId(writer.GetMessageWriter());
 
             return await _socket.DoOutInOpAsync(ClientOp.SqlCursorNextPage, writer).ConfigureAwait(false);

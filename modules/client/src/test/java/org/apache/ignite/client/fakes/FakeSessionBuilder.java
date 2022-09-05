@@ -33,24 +33,42 @@ public class FakeSessionBuilder implements SessionBuilder {
 
     private String defaultSchema;
 
-    private Long defaultTimeoutMs;
+    private Long defaultQueryTimeoutMs;
+
+    private Long defaultSessionTimeoutMs;
 
     private Integer pageSize;
 
     /** {@inheritDoc} */
     @Override
-    public long defaultTimeout(TimeUnit timeUnit) {
+    public long defaultQueryTimeout(TimeUnit timeUnit) {
         Objects.requireNonNull(timeUnit);
 
-        return timeUnit.convert(defaultTimeoutMs == null ? 0 : defaultTimeoutMs, TimeUnit.MILLISECONDS);
+        return timeUnit.convert(defaultQueryTimeoutMs == null ? 0 : defaultQueryTimeoutMs, TimeUnit.MILLISECONDS);
     }
 
     /** {@inheritDoc} */
     @Override
-    public SessionBuilder defaultTimeout(long timeout, TimeUnit timeUnit) {
+    public SessionBuilder defaultQueryTimeout(long timeout, TimeUnit timeUnit) {
         Objects.requireNonNull(timeUnit);
 
-        defaultTimeoutMs = TimeUnit.MILLISECONDS.convert(timeout, timeUnit);
+        defaultQueryTimeoutMs = TimeUnit.MILLISECONDS.convert(timeout, timeUnit);
+
+        return this;
+    }
+
+    @Override
+    public long idleTimeout(TimeUnit timeUnit) {
+        Objects.requireNonNull(timeUnit);
+
+        return timeUnit.convert(defaultSessionTimeoutMs == null ? 0 : defaultSessionTimeoutMs, TimeUnit.MILLISECONDS);
+    }
+
+    @Override
+    public SessionBuilder idleTimeout(long timeout, TimeUnit timeUnit) {
+        Objects.requireNonNull(timeUnit);
+
+        defaultSessionTimeoutMs = TimeUnit.MILLISECONDS.convert(timeout, timeUnit);
 
         return this;
     }
@@ -100,6 +118,6 @@ public class FakeSessionBuilder implements SessionBuilder {
     /** {@inheritDoc} */
     @Override
     public Session build() {
-        return new FakeSession(pageSize, defaultSchema, defaultTimeoutMs, new HashMap<>(properties));
+        return new FakeSession(pageSize, defaultSchema, defaultQueryTimeoutMs, defaultSessionTimeoutMs, new HashMap<>(properties));
     }
 }

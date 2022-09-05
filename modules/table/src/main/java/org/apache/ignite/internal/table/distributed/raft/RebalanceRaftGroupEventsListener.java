@@ -17,17 +17,25 @@
 
 package org.apache.ignite.internal.table.distributed.raft;
 
+import static org.apache.ignite.internal.metastorage.client.CompoundCondition.and;
 import static org.apache.ignite.internal.metastorage.client.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.client.Conditions.revision;
 import static org.apache.ignite.internal.metastorage.client.Operations.ops;
 import static org.apache.ignite.internal.metastorage.client.Operations.put;
 import static org.apache.ignite.internal.metastorage.client.Operations.remove;
+import static org.apache.ignite.internal.utils.RebalanceUtil.intersect;
 import static org.apache.ignite.internal.utils.RebalanceUtil.pendingPartAssignmentsKey;
 import static org.apache.ignite.internal.utils.RebalanceUtil.plannedPartAssignmentsKey;
+import static org.apache.ignite.internal.utils.RebalanceUtil.readClusterNodes;
+import static org.apache.ignite.internal.utils.RebalanceUtil.resolveClusterNodes;
 import static org.apache.ignite.internal.utils.RebalanceUtil.stablePartAssignmentsKey;
+import static org.apache.ignite.internal.utils.RebalanceUtil.subtract;
+import static org.apache.ignite.internal.utils.RebalanceUtil.switchAppendKey;
+import static org.apache.ignite.internal.utils.RebalanceUtil.switchReduceKey;
+import static org.apache.ignite.internal.utils.RebalanceUtil.union;
+import static org.apache.ignite.raft.jraft.core.NodeImpl.LEADER_STEPPED_DOWN;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -35,6 +43,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
@@ -42,13 +51,15 @@ import org.apache.ignite.internal.configuration.schema.ExtendedTableChange;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.client.Condition;
 import org.apache.ignite.internal.metastorage.client.Entry;
 import org.apache.ignite.internal.metastorage.client.If;
+import org.apache.ignite.internal.metastorage.client.SimpleCondition;
+import org.apache.ignite.internal.metastorage.client.Update;
 import org.apache.ignite.internal.raft.server.RaftGroupEventsListener;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.ByteArray;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.Peer;
@@ -63,6 +74,36 @@ import org.apache.ignite.raft.jraft.error.RaftError;
 public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener {
     /** Ignite logger. */
     private static final IgniteLogger LOG = Loggers.forClass(RebalanceRaftGroupEventsListener.class);
+
+    /** Number of retrying of the current rebalance in case of errors. */
+    private static final int REBALANCE_RETRY_THRESHOLD = 10;
+
+    /** Delay between unsuccessful trial of a rebalance and a new trial, ms. */
+    public static final int REBALANCE_RETRY_DELAY_MS = 200;
+
+    /** Success code for the MetaStorage switch append assignments change. */
+    private static final int SWITCH_APPEND_SUCCESS = 1;
+
+    /** Success code for the MetaStorage switch reduce assignments change. */
+    private static final int SWITCH_REDUCE_SUCCESS = 2;
+
+    /** Success code for the MetaStorage pending rebalance change. */
+    private static final int SCHEDULE_PENDING_REBALANCE_SUCCESS = 3;
+
+    /** Success code for the MetaStorage stable assignments change. */
+    private static final int FINISH_REBALANCE_SUCCESS = 4;
+
+    /** Failure code for the MetaStorage switch append assignments change. */
+    private static final int SWITCH_APPEND_FAIL = -SWITCH_APPEND_SUCCESS;
+
+    /** Failure code for the MetaStorage switch reduce assignments change. */
+    private static final int SWITCH_REDUCE_FAIL = -SWITCH_REDUCE_SUCCESS;
+
+    /** Failure code for the MetaStorage pending rebalance change. */
+    private static final int SCHEDULE_PENDING_REBALANCE_FAIL = -SCHEDULE_PENDING_REBALANCE_SUCCESS;
+
+    /** Failure code for the MetaStorage stable assignments change. */
+    private static final int FINISH_REBALANCE_FAIL = -FINISH_REBALANCE_SUCCESS;
 
     /** Meta storage manager. */
     private final MetaStorageManager metaStorageMgr;
@@ -88,11 +129,8 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
     /** Attempts to retry the current rebalance in case of errors. */
     private final AtomicInteger rebalanceAttempts =  new AtomicInteger(0);
 
-    /** Number of retrying of the current rebalance in case of errors. */
-    private static final int REBALANCE_RETRY_THRESHOLD = 10;
-
-    /** Delay between unsuccessful trial of a rebalance and a new trial, ms. */
-    public static final int REBALANCE_RETRY_DELAY_MS = 200;
+    /** Function that calculates assignments for table's partition. */
+    private final BiFunction<TableConfiguration, Integer, Set<ClusterNode>> calculateAssignmentsFn;
 
     /**
      * Constructs new listener.
@@ -101,6 +139,9 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
      * @param tblConfiguration Table configuration.
      * @param partId Partition id.
      * @param partNum Partition number.
+     * @param busyLock Busy lock.
+     * @param movePartitionFn Function that moves partition between nodes.
+     * @param calculateAssignmentsFn Function that calculates assignments for table's partition.
      * @param rebalanceScheduler Executor for scheduling rebalance retries.
      */
     public RebalanceRaftGroupEventsListener(
@@ -110,6 +151,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             int partNum,
             IgniteSpinBusyLock busyLock,
             BiFunction<List<Peer>, Long, CompletableFuture<Void>> movePartitionFn,
+            BiFunction<TableConfiguration, Integer, Set<ClusterNode>> calculateAssignmentsFn,
             ScheduledExecutorService rebalanceScheduler) {
         this.metaStorageMgr = metaStorageMgr;
         this.tblConfiguration = tblConfiguration;
@@ -117,6 +159,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
         this.partNum = partNum;
         this.busyLock = busyLock;
         this.movePartitionFn = movePartitionFn;
+        this.calculateAssignmentsFn = calculateAssignmentsFn;
         this.rebalanceScheduler = rebalanceScheduler;
     }
 
@@ -139,7 +182,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                     Entry pendingEntry = metaStorageMgr.get(pendingPartAssignmentsKey(partId)).get();
 
                     if (!pendingEntry.empty()) {
-                        List<ClusterNode> pendingNodes = (List<ClusterNode>) ByteUtils.fromBytes(pendingEntry.value());
+                        Set<ClusterNode> pendingNodes = ByteUtils.fromBytes(pendingEntry.value());
 
                         LOG.info("New leader elected. Going to reconfigure peers [group={}, partition={}, table={}, peers={}]",
                                 partId, partNum, tblConfiguration.name().value(), pendingNodes);
@@ -191,14 +234,19 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
         }
 
         try {
-            if (status == null) {
-                // leader stepped down, so we are expecting RebalanceRaftGroupEventsListener.onLeaderElected to be called on a new leader.
+            assert status != null;
+
+            if (status.equals(LEADER_STEPPED_DOWN)) {
+                // Leader stepped down, so we are expecting RebalanceRaftGroupEventsListener.onLeaderElected to be called on a new leader.
                 LOG.info("Leader stepped down during rebalance [partId={}]", partId);
 
                 return;
             }
 
-            assert status.getRaftError() == RaftError.ECATCHUP : "According to the JRaft protocol, RaftError.ECATCHUP is expected.";
+            RaftError raftError = status.getRaftError();
+
+            assert raftError == RaftError.ECATCHUP : "According to the JRaft protocol, " + RaftError.ECATCHUP
+                    + " is expected, got " + raftError;
 
             LOG.debug("Error occurred during rebalance [partId={}]", partId);
 
@@ -246,92 +294,193 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
      */
     private void doOnNewPeersConfigurationApplied(List<PeerId> peers) {
         try {
-            Map<ByteArray, Entry> keys = metaStorageMgr.getAll(
+            ByteArray pendingPartAssignmentsKey = pendingPartAssignmentsKey(partId);
+            ByteArray stablePartAssignmentsKey = stablePartAssignmentsKey(partId);
+            ByteArray plannedPartAssignmentsKey = plannedPartAssignmentsKey(partId);
+            ByteArray switchReduceKey = switchReduceKey(partId);
+            ByteArray switchAppendKey = switchAppendKey(partId);
+
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-17592 Remove synchronous wait
+            Map<ByteArray, Entry> values = metaStorageMgr.getAll(
                     Set.of(
-                            plannedPartAssignmentsKey(partId),
-                            pendingPartAssignmentsKey(partId),
-                            stablePartAssignmentsKey(partId))).get();
+                            plannedPartAssignmentsKey,
+                            pendingPartAssignmentsKey,
+                            stablePartAssignmentsKey,
+                            switchReduceKey,
+                            switchAppendKey
+                    )
+            ).get();
 
-            Entry plannedEntry = keys.get(plannedPartAssignmentsKey(partId));
+            Entry stableEntry = values.get(stablePartAssignmentsKey);
+            Entry pendingEntry = values.get(pendingPartAssignmentsKey);
+            Entry plannedEntry = values.get(plannedPartAssignmentsKey);
+            Entry switchReduceEntry = values.get(switchReduceKey);
+            Entry switchAppendEntry = values.get(switchAppendKey);
 
-            List<ClusterNode> appliedPeers = resolveClusterNodes(peers,
-                    keys.get(pendingPartAssignmentsKey(partId)).value(), keys.get(stablePartAssignmentsKey(partId)).value());
+            Set<ClusterNode> calculatedAssignments = calculateAssignmentsFn.apply(tblConfiguration, partNum);
 
+            Set<ClusterNode> stable = resolveClusterNodes(peers, pendingEntry.value(), stableEntry.value());
+
+            Set<ClusterNode> retrievedSwitchReduce = readClusterNodes(switchReduceEntry);
+            Set<ClusterNode> retrievedSwitchAppend = readClusterNodes(switchAppendEntry);
+            Set<ClusterNode> retrievedStable = readClusterNodes(stableEntry);
+
+            // Were reduced
+            Set<ClusterNode> reducedNodes = subtract(retrievedSwitchReduce, stable);
+
+            // Were added
+            Set<ClusterNode> addedNodes = subtract(stable, retrievedStable);
+
+            // For further reduction
+            Set<ClusterNode> calculatedSwitchReduce = subtract(retrievedSwitchReduce, reducedNodes);
+
+            // For further addition
+            Set<ClusterNode> calculatedSwitchAppend = union(retrievedSwitchAppend, reducedNodes);
+            calculatedSwitchAppend = subtract(calculatedSwitchAppend, addedNodes);
+            calculatedSwitchAppend = intersect(calculatedAssignments, calculatedSwitchAppend);
+
+            Set<ClusterNode> calculatedPendingReduction = subtract(stable, retrievedSwitchReduce);
+
+            Set<ClusterNode> calculatedPendingAddition = union(stable, reducedNodes);
+            calculatedPendingAddition = intersect(calculatedAssignments, calculatedPendingAddition);
+
+            // eq(revision(assignments.stable), retrievedAssignmentsStable.revision)
+            SimpleCondition con1 = stableEntry.empty()
+                    ? notExists(stablePartAssignmentsKey) :
+                    revision(stablePartAssignmentsKey).eq(stableEntry.revision());
+
+            // eq(revision(assignments.pending), retrievedAssignmentsPending.revision)
+            SimpleCondition con2 = revision(pendingPartAssignmentsKey).eq(pendingEntry.revision());
+
+            // eq(revision(assignments.switch.reduce), retrievedAssignmentsSwitchReduce.revision)
+            SimpleCondition con3 = switchReduceEntry.empty()
+                    ? notExists(switchReduceKey) : revision(switchReduceKey).eq(switchReduceEntry.revision());
+
+            // eq(revision(assignments.switch.append), retrievedAssignmentsSwitchAppend.revision)
+            SimpleCondition con4 = switchAppendEntry.empty()
+                    ? notExists(switchAppendKey) : revision(switchAppendKey).eq(switchAppendEntry.revision());
+
+            // All conditions combined with AND operator.
+            Condition retryPreconditions = and(con1, and(con2, and(con3, con4)));
+
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-17592 Remove synchronous wait
             tblConfiguration.change(ch -> {
-                List<List<ClusterNode>> assignments =
-                        (List<List<ClusterNode>>) ByteUtils.fromBytes(((ExtendedTableChange) ch).assignments());
-                assignments.set(partNum, appliedPeers);
+                List<Set<ClusterNode>> assignments = ByteUtils.fromBytes(((ExtendedTableChange) ch).assignments());
+                assignments.set(partNum, stable);
                 ((ExtendedTableChange) ch).changeAssignments(ByteUtils.toBytes(assignments));
-            }).get();
+            }).get(10, TimeUnit.SECONDS);
 
-            if (plannedEntry.value() != null) {
-                if (!metaStorageMgr.invoke(If.iif(
-                        revision(plannedPartAssignmentsKey(partId)).eq(plannedEntry.revision()),
-                        ops(
-                                put(stablePartAssignmentsKey(partId), ByteUtils.toBytes(appliedPeers)),
-                                put(pendingPartAssignmentsKey(partId), plannedEntry.value()),
-                                remove(plannedPartAssignmentsKey(partId)))
-                                .yield(true),
-                        ops().yield(false))).get().getAsBoolean()) {
-                    LOG.info("Planned key changed while trying to update rebalance information. Going to retry"
-                                    + " [key={}, partition={}, table={}, appliedPeers={}]",
-                            plannedPartAssignmentsKey(partId), partNum, tblConfiguration.name(), appliedPeers);
+            Update successCase;
+            Update failCase;
 
-                    doOnNewPeersConfigurationApplied(peers);
-                }
+            byte[] stableByteArray = ByteUtils.toBytes(stable);
+            byte[] additionByteArray = ByteUtils.toBytes(calculatedPendingAddition);
+            byte[] reductionByteArray = ByteUtils.toBytes(calculatedPendingReduction);
+            byte[] switchReduceByteArray = ByteUtils.toBytes(calculatedSwitchReduce);
+            byte[] switchAppendByteArray = ByteUtils.toBytes(calculatedSwitchAppend);
 
-                LOG.info("Rebalance finished. Going to schedule next rebalance [partition={}, table={}, appliedPeers={}, plannedPeers={}]",
-                        partNum, tblConfiguration.name().value(), appliedPeers, ByteUtils.fromBytes(plannedEntry.value()));
+            if (!calculatedSwitchAppend.isEmpty()) {
+                successCase = ops(
+                        put(stablePartAssignmentsKey, stableByteArray),
+                        put(pendingPartAssignmentsKey, additionByteArray),
+                        put(switchReduceKey, switchReduceByteArray),
+                        put(switchAppendKey, switchAppendByteArray)
+                ).yield(SWITCH_APPEND_SUCCESS);
+                failCase = ops().yield(SWITCH_APPEND_FAIL);
+            } else if (!calculatedSwitchReduce.isEmpty()) {
+                successCase = ops(
+                        put(stablePartAssignmentsKey, stableByteArray),
+                        put(pendingPartAssignmentsKey, reductionByteArray),
+                        put(switchReduceKey, switchReduceByteArray),
+                        put(switchAppendKey, switchAppendByteArray)
+                ).yield(SWITCH_REDUCE_SUCCESS);
+                failCase = ops().yield(SWITCH_REDUCE_FAIL);
             } else {
-                if (!metaStorageMgr.invoke(If.iif(
-                        notExists(plannedPartAssignmentsKey(partId)),
-                        ops(put(stablePartAssignmentsKey(partId), ByteUtils.toBytes(appliedPeers)),
-                                remove(pendingPartAssignmentsKey(partId))).yield(true),
-                        ops().yield(false))).get().getAsBoolean()) {
-                    LOG.info("Planned key changed while trying to update rebalance information. Going to retry"
-                                    + " [key={}, partition={}, table={}, appliedPeers={}]",
-                            plannedPartAssignmentsKey(partId), partNum, tblConfiguration.name(), appliedPeers);
+                Condition con5;
+                if (plannedEntry.value() != null) {
+                    // eq(revision(partition.assignments.planned), plannedEntry.revision)
+                    con5 = revision(plannedPartAssignmentsKey).eq(plannedEntry.revision());
 
-                    doOnNewPeersConfigurationApplied(peers);
+                    successCase = ops(
+                            put(stablePartAssignmentsKey, ByteUtils.toBytes(stable)),
+                            put(pendingPartAssignmentsKey, plannedEntry.value()),
+                            remove(plannedPartAssignmentsKey)
+                    ).yield(SCHEDULE_PENDING_REBALANCE_SUCCESS);
+
+                    failCase = ops().yield(SCHEDULE_PENDING_REBALANCE_FAIL);
+                } else {
+                    // notExists(partition.assignments.planned)
+                    con5 = notExists(plannedPartAssignmentsKey);
+
+                    successCase = ops(
+                            put(stablePartAssignmentsKey, ByteUtils.toBytes(stable)),
+                            remove(pendingPartAssignmentsKey)
+                    ).yield(FINISH_REBALANCE_SUCCESS);
+
+                    failCase = ops().yield(FINISH_REBALANCE_FAIL);
                 }
 
-                LOG.info("Rebalance finished [partition={}, table={}, appliedPeers={}]",
-                        partNum, tblConfiguration.name().value(), appliedPeers);
+                retryPreconditions = and(retryPreconditions, con5);
+            }
+
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-17592 Remove synchronous wait
+            int res = metaStorageMgr.invoke(If.iif(retryPreconditions, successCase, failCase)).get().getAsInt();
+
+            if (res < 0) {
+                switch (res) {
+                    case SWITCH_APPEND_FAIL:
+                        LOG.info("Rebalance keys changed while trying to update rebalance pending addition information. Going to retry"
+                                + " [partition={}, table={}, appliedPeers={}]", partNum, tblConfiguration.name(), stable);
+                        break;
+                    case SWITCH_REDUCE_FAIL:
+                        LOG.info("Rebalance keys changed while trying to update rebalance pending reduce information. Going to retry"
+                                + " [partition={}, table={}, appliedPeers={}]", partNum, tblConfiguration.name(), stable);
+                        break;
+                    case SCHEDULE_PENDING_REBALANCE_FAIL:
+                    case FINISH_REBALANCE_FAIL:
+                        LOG.info("Rebalance keys changed while trying to update rebalance information. Going to retry"
+                                + " [partition={}, table={}, appliedPeers={}]", partNum, tblConfiguration.name(), stable);
+                        break;
+                    default:
+                        assert false : res;
+                        break;
+                }
+
+                doOnNewPeersConfigurationApplied(peers);
+                return;
+            }
+
+            switch (res) {
+                case SWITCH_APPEND_SUCCESS:
+                    LOG.info("Rebalance finished. Going to schedule next rebalance with addition"
+                            + " [partition={}, table={}, appliedPeers={}, plannedPeers={}]",
+                            partNum, tblConfiguration.name().value(), stable, calculatedPendingAddition);
+                    break;
+                case SWITCH_REDUCE_SUCCESS:
+                    LOG.info("Rebalance finished. Going to schedule next rebalance with reduction"
+                            + " [partition={}, table={}, appliedPeers={}, plannedPeers={}]",
+                            partNum, tblConfiguration.name().value(), stable, calculatedPendingReduction);
+                    break;
+                case SCHEDULE_PENDING_REBALANCE_SUCCESS:
+                    LOG.info("Rebalance finished. Going to schedule next rebalance [partition={}, table={}, appliedPeers={}, "
+                            + "plannedPeers={}]",
+                            partNum, tblConfiguration.name().value(), stable, ByteUtils.fromBytes(plannedEntry.value()));
+                    break;
+                case FINISH_REBALANCE_SUCCESS:
+                    LOG.info("Rebalance finished [partition={}, table={}, appliedPeers={}]",
+                            partNum, tblConfiguration.name().value(), stable);
+                    break;
+                default:
+                    assert false : res;
+                    break;
             }
 
             rebalanceAttempts.set(0);
-        } catch (InterruptedException | ExecutionException e) {
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
             // TODO: IGNITE-14693
             LOG.warn("Unable to commit partition configuration to metastore [table = {}, partition = {}]",
                     e, tblConfiguration.name(), partNum);
         }
-    }
-
-    private static List<ClusterNode> resolveClusterNodes(
-            List<PeerId> peers, byte[] pendingAssignments, byte[] stableAssignments) {
-        Map<NetworkAddress, ClusterNode> resolveRegistry = new HashMap<>();
-
-        if (pendingAssignments != null) {
-            ((List<ClusterNode>) ByteUtils.fromBytes(pendingAssignments)).forEach(n -> resolveRegistry.put(n.address(), n));
-        }
-
-        if (stableAssignments != null) {
-            ((List<ClusterNode>) ByteUtils.fromBytes(stableAssignments)).forEach(n -> resolveRegistry.put(n.address(), n));
-        }
-
-        List<ClusterNode> resolvedNodes = new ArrayList<>(peers.size());
-
-        for (PeerId p : peers) {
-            var addr = NetworkAddress.from(p.getEndpoint().getIp() + ":" + p.getEndpoint().getPort());
-
-            if (resolveRegistry.containsKey(addr)) {
-                resolvedNodes.add(resolveRegistry.get(addr));
-            } else {
-                throw new IgniteInternalException("Can't find appropriate cluster node for raft group peer: " + p);
-            }
-        }
-
-        return resolvedNodes;
     }
 
     /**
@@ -340,7 +489,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
      * @param nodes List of cluster nodes to transform.
      * @return List of transformed peers.
      */
-    private static List<Peer> clusterNodesToPeers(List<ClusterNode> nodes) {
+    private static List<Peer> clusterNodesToPeers(Set<ClusterNode> nodes) {
         List<Peer> peers = new ArrayList<>(nodes.size());
 
         for (ClusterNode node : nodes) {

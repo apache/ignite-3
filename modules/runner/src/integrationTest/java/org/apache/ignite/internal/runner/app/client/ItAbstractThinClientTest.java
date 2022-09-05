@@ -33,11 +33,12 @@ import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
+import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.TableDefinition;
 import org.junit.jupiter.api.AfterAll;
@@ -71,7 +72,7 @@ public abstract class ItAbstractThinClientTest extends IgniteAbstractTest {
      * Before each.
      */
     @BeforeAll
-    void beforeAll(TestInfo testInfo, @WorkDirectory Path workDir) {
+    void beforeAll(TestInfo testInfo, @WorkDirectory Path workDir) throws InterruptedException {
         this.workDir = workDir;
 
         String node0Name = testNodeName(testInfo, 3344);
@@ -120,6 +121,7 @@ public abstract class ItAbstractThinClientTest extends IgniteAbstractTest {
         );
 
         client = IgniteClient.builder().addresses(getClientAddresses().toArray(new String[0])).build();
+        IgniteTestUtils.waitForCondition(() -> client.connections().size() == 2, 3000);
     }
 
     /**

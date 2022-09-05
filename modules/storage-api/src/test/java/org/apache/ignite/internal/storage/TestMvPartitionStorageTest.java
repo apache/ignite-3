@@ -27,6 +27,6 @@ public class TestMvPartitionStorageTest extends AbstractMvPartitionStorageTest {
      * Creates new instance.
      */
     public TestMvPartitionStorageTest() {
-        storage = new TestConcurrentHashMapMvPartitionStorage(0);
+        storage = new TestConcurrentHashMapMvPartitionStorage(PARTITION_ID);
     }
 }

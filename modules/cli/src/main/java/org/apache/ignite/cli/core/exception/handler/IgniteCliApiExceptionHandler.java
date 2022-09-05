@@ -17,14 +17,22 @@
 
 package org.apache.ignite.cli.core.exception.handler;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.net.ConnectException;
 import java.net.UnknownHostException;
+import java.util.stream.Collectors;
 import org.apache.ignite.cli.core.exception.ExceptionHandler;
 import org.apache.ignite.cli.core.exception.ExceptionWriter;
 import org.apache.ignite.cli.core.exception.IgniteCliApiException;
+import org.apache.ignite.cli.core.style.component.ErrorUiComponent;
+import org.apache.ignite.cli.core.style.component.ErrorUiComponent.ErrorComponentBuilder;
+import org.apache.ignite.cli.core.style.element.UiElements;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.rest.client.invoker.ApiException;
+import org.apache.ignite.rest.client.model.Problem;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Exception handler for {@link IgniteCliApiException}.
@@ -32,31 +40,60 @@ import org.apache.ignite.rest.client.invoker.ApiException;
 public class IgniteCliApiExceptionHandler implements ExceptionHandler<IgniteCliApiException> {
     private static final IgniteLogger LOG = Loggers.forClass(IgniteCliApiExceptionHandler.class);
 
+    private static final ObjectMapper objectMapper = new ObjectMapper();
+
     @Override
     public int handle(ExceptionWriter err, IgniteCliApiException e) {
-        String message;
+        ErrorUiComponent.ErrorComponentBuilder errorComponentBuilder = ErrorUiComponent.builder();
 
         if (e.getCause() instanceof ApiException) {
             ApiException cause = (ApiException) e.getCause();
             Throwable apiCause = cause.getCause();
             if (apiCause instanceof UnknownHostException) {
-                message = "Could not determine IP address when connecting to URL [url=" + e.getUrl() + ']';
+                errorComponentBuilder
+                        .header("Unknown host: %s", UiElements.url(e.getUrl()));
             } else if (apiCause instanceof ConnectException) {
-                message = "Could not connect to URL [url=" + e.getUrl() + ']';
+                errorComponentBuilder
+                        .header("Node unavailable")
+                        .details("Could not connect to node with URL %s", UiElements.url(e.getUrl()));
             } else if (apiCause != null) {
-                message = apiCause.getMessage();
+                errorComponentBuilder.header(apiCause.getMessage());
             } else {
-                message = "An error occurred [errorCode=" + cause.getCode() + ", response=" + cause.getResponseBody() + ']';
+                tryToExtractProblem(errorComponentBuilder, cause);
             }
         } else {
-            message = e.getCause() != e ? e.getCause().getMessage() : e.getMessage();
+            errorComponentBuilder.header(e.getCause() != e ? e.getCause().getMessage() : e.getMessage());
         }
 
-        LOG.error(message, e);
+        ErrorUiComponent errorComponent = errorComponentBuilder.build();
 
-        err.write(message);
+        LOG.error(errorComponent.header(), e);
+
+        err.write(errorComponent.render());
 
         return 1;
+    }
+
+    private static void tryToExtractProblem(ErrorComponentBuilder errorComponentBuilder, ApiException cause) {
+        try {
+            Problem problem = objectMapper.readValue(cause.getResponseBody(), Problem.class);
+            if (!problem.getInvalidParams().isEmpty()) {
+                errorComponentBuilder.details(extractInvalidParams(problem));
+            }
+            errorComponentBuilder
+                    .header(problem.getDetail())
+                    .errorCode(problem.getCode())
+                    .traceId(problem.getTraceId());
+        } catch (JsonProcessingException ex) {
+            throw new RuntimeException(ex);
+        }
+    }
+
+    @NotNull
+    private static String extractInvalidParams(Problem problem) {
+        return problem.getInvalidParams().stream()
+                .map(invalidParam -> "" + invalidParam.getName() + ": " + invalidParam.getReason())
+                .collect(Collectors.joining(System.lineSeparator()));
     }
 
     @Override

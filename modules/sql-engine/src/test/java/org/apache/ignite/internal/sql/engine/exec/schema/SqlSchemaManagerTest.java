@@ -24,28 +24,39 @@ import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.Table;
+import org.apache.ignite.internal.index.Index;
+import org.apache.ignite.internal.index.IndexDescriptor;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
+import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTableImpl;
+import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManagerImpl;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
@@ -67,13 +78,15 @@ import org.mockito.junit.jupiter.MockitoExtension;
 public class SqlSchemaManagerTest {
     private final UUID tableId = UUID.randomUUID();
 
+    private final UUID indexId = UUID.randomUUID();
+
     private final int tableVer = 1;
 
     private final SchemaDescriptor schemaDescriptor = new SchemaDescriptor(
             tableVer,
             new Column[]{new Column(0, "ID", NativeTypes.INT64, false)},
             new Column[]{new Column(1, "VAL", NativeTypes.INT64, false)}
-        );
+    );
 
     @Mock
     private TableManager tableManager;
@@ -83,6 +96,9 @@ public class SqlSchemaManagerTest {
 
     @Mock
     private TableImpl table;
+
+    @Mock
+    private Index<IndexDescriptor> index;
 
     @Mock
     SchemaRegistryImpl schemaRegistry;
@@ -119,7 +135,7 @@ public class SqlSchemaManagerTest {
 
         Mockito.verify(tableManager).table(eq(tblId));
 
-        Mockito.verifyNoMoreInteractions(tableManager);
+        verifyNoMoreInteractions(tableManager);
     }
 
     @Test
@@ -142,7 +158,7 @@ public class SqlSchemaManagerTest {
 
         Mockito.verify(tableManager).table(eq(tableId));
 
-        Mockito.verifyNoMoreInteractions(tableManager);
+        verifyNoMoreInteractions(tableManager);
     }
 
     @Test
@@ -165,7 +181,7 @@ public class SqlSchemaManagerTest {
 
         assertEquals(tableId, actTable.id());
 
-        Mockito.verifyNoMoreInteractions(tableManager);
+        verifyNoMoreInteractions(tableManager);
     }
 
     @Test
@@ -188,7 +204,7 @@ public class SqlSchemaManagerTest {
 
         assertEquals(tableId, actTable.id());
 
-        Mockito.verifyNoMoreInteractions(tableManager);
+        verifyNoMoreInteractions(tableManager);
     }
 
     @Test
@@ -219,7 +235,7 @@ public class SqlSchemaManagerTest {
 
         Mockito.verify(tableManager, times(2)).table(eq(tableId));
 
-        Mockito.verifyNoMoreInteractions(tableManager);
+        verifyNoMoreInteractions(tableManager);
     }
 
     @Test
@@ -248,6 +264,117 @@ public class SqlSchemaManagerTest {
         testRevisionRegister.moveForward();
 
         assertNull(sqlSchemaManager.schema("TEST_SCHEMA").getTable("T"));
+    }
+
+    @Test
+    public void testIndexEventHandler() {
+        InternalTable mock = mock(InternalTable.class);
+        when(mock.tableId()).thenReturn(tableId);
+
+        when(table.name()).thenReturn("TEST_SCHEMA.T");
+        when(table.internalTable()).thenReturn(mock);
+        when(schemaRegistry.schema()).thenReturn(schemaDescriptor);
+        when(schemaRegistry.lastSchemaVersion()).thenReturn(schemaDescriptor.version());
+        when(schemaManager.schemaRegistry(anyLong(), any())).thenReturn(completedFuture(schemaRegistry));
+
+        sqlSchemaManager.onTableCreated("TEST_SCHEMA", table, testRevisionRegister.actualToken() + 1);
+        testRevisionRegister.moveForward();
+
+        assertTrue(((IgniteTableImpl) sqlSchemaManager.schema("TEST_SCHEMA").getTable("T")).indexes().isEmpty());
+
+        IndexDescriptor descMock = mock(IndexDescriptor.class);
+        when(descMock.columns()).thenReturn(List.of());
+
+        when(index.name()).thenReturn("I");
+        when(index.id()).thenReturn(indexId);
+        when(index.tableId()).thenReturn(tableId);
+        when(index.descriptor()).thenReturn(descMock);
+
+        sqlSchemaManager.onIndexCreated("TEST_SCHEMA", index, testRevisionRegister.actualToken() + 1);
+        testRevisionRegister.moveForward();
+
+        IgniteSchema schema = sqlSchemaManager.schema("TEST_SCHEMA").unwrap(IgniteSchema.class);
+        Table schemaTable = schema.getTable("T");
+        IgniteIndex schemaIndex = schema.index(indexId);
+
+        assertNotNull(schemaIndex);
+
+        IgniteIndex igniteIndex = assertInstanceOf(IgniteIndex.class, schemaIndex);
+        IgniteTableImpl igniteTable = assertInstanceOf(IgniteTableImpl.class, schemaTable);
+
+        assertEquals(igniteTable.id(), igniteIndex.table().id());
+        assertSame(igniteTable, schemaIndex.table());
+        assertSame(((IgniteTableImpl) igniteTable), schemaIndex.table());
+        assertSame(schemaIndex, igniteTable.indexes().get("I"));
+
+        sqlSchemaManager.onIndexDropped("TEST_SCHEMA", indexId, testRevisionRegister.actualToken() + 1);
+        testRevisionRegister.moveForward();
+
+        assertNull(sqlSchemaManager.schema("TEST_SCHEMA").unwrap(IgniteSchema.class).index(indexId));
+
+        verifyNoMoreInteractions(tableManager);
+    }
+
+
+    @Test
+    public void testIndexEventsProcessed() {
+        InternalTable mock = mock(InternalTable.class);
+        when(mock.tableId()).thenReturn(tableId);
+
+        when(table.name()).thenReturn("TEST_SCHEMA.T");
+        when(table.internalTable()).thenReturn(mock);
+        when(schemaRegistry.schema()).thenReturn(schemaDescriptor);
+        when(schemaRegistry.lastSchemaVersion()).thenReturn(schemaDescriptor.version());
+        when(schemaManager.schemaRegistry(anyLong(), any())).thenReturn(completedFuture(schemaRegistry));
+
+        sqlSchemaManager.onTableCreated("TEST_SCHEMA", table, testRevisionRegister.actualToken() + 1);
+        testRevisionRegister.moveForward();
+
+        IndexDescriptor descMock = mock(IndexDescriptor.class);
+        when(descMock.columns()).thenReturn(List.of());
+
+        when(index.name()).thenReturn("I");
+        when(index.id()).thenReturn(indexId);
+        when(index.tableId()).thenReturn(tableId);
+        when(index.descriptor()).thenReturn(descMock);
+
+        {
+            SchemaPlus schema1 = sqlSchemaManager.schema("TEST_SCHEMA");
+
+            sqlSchemaManager.onIndexCreated("TEST_SCHEMA", index, testRevisionRegister.actualToken() + 1);
+            testRevisionRegister.moveForward();
+
+            SchemaPlus schema2 = sqlSchemaManager.schema("TEST_SCHEMA");
+
+            // Validate schema snapshot.
+            assertNotSame(schema1, schema2);
+            assertNotSame(schema1.getTable("T"), schema2.getTable("T"));
+
+            assertNull(schema1.unwrap(IgniteSchema.class).index(indexId));
+            assertNotNull(schema2.unwrap(IgniteSchema.class).index(indexId));
+
+            assertNull(((InternalIgniteTable) schema1.getTable("T")).getIndex("I"));
+            assertNotNull(((InternalIgniteTable) schema2.getTable("T")).getIndex("I"));
+        }
+        {
+            sqlSchemaManager.onIndexDropped("TEST_SCHEMA", indexId, testRevisionRegister.actualToken() + 1);
+            SchemaPlus schema1 = sqlSchemaManager.schema("TEST_SCHEMA");
+            testRevisionRegister.moveForward();
+
+            SchemaPlus schema2 = sqlSchemaManager.schema("TEST_SCHEMA");
+
+            // Validate schema snapshot.
+            assertNotSame(schema1, schema2);
+            assertNotSame(schema1.getTable("T"), schema2.getTable("T"));
+
+            assertNotNull(schema1.unwrap(IgniteSchema.class).index(indexId));
+            assertNull(schema2.unwrap(IgniteSchema.class).index(indexId));
+
+            assertNull(((InternalIgniteTable) schema2.getTable("T")).getIndex("I"));
+            assertNotNull(((InternalIgniteTable) schema1.getTable("T")).getIndex("I"));
+        }
+
+        verifyNoMoreInteractions(tableManager);
     }
 
     /**
@@ -284,8 +411,8 @@ public class SqlSchemaManagerTest {
                 Function<Long, CompletableFuture<?>> old = moveRevision;
 
                 moveRevision = rev -> allOf(
-                    old.apply(rev),
-                    function.apply(rev)
+                        old.apply(rev),
+                        function.apply(rev)
                 );
             }
         }

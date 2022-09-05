@@ -243,6 +243,18 @@ public class ItGeneratedRestClientTest {
     }
 
     @Test
+    void updateNodeConfigurationWithInvalidParam() throws JsonProcessingException {
+        ApiException thrown = assertThrows(
+                ApiException.class,
+                () -> clusterConfigurationApi.updateClusterConfiguration("rocksDb.defaultRegion.cache=invalid")
+        );
+
+        Problem problem = objectMapper.readValue(thrown.getResponseBody(), Problem.class);
+        assertThat(problem.getStatus(), equalTo(400));
+        assertThat(problem.getInvalidParams(), hasSize(1));
+    }
+
+    @Test
     void initCluster() {
         assertDoesNotThrow(() -> {
             // in fact, this is the second init that means nothing but just testing that the second init does not throw and exception

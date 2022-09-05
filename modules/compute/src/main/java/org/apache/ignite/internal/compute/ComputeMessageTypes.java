@@ -24,7 +24,7 @@ import org.apache.ignite.network.annotations.MessageGroup;
 /**
  * Message types for the Compute module.
  */
-@MessageGroup(groupName = "ComputeMessages", groupType = 6)
+@MessageGroup(groupType = 6, groupName = "ComputeMessages")
 public class ComputeMessageTypes {
     /**
      * Type for {@link ExecuteRequest}.

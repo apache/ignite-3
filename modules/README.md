@@ -19,7 +19,9 @@ Module Name | Description
 [core: causality tokens](core/src/main/java/org/apache/ignite/internal/causality/README.md)|Causality tokens
 [core: local state recovery](core/src/main/java/org/apache/ignite/internal/manager/RECOVERY.md)|Local state recovery
 [network](network/README.md)|Networking module: group membership and message passi
-[rest](rest/README.md)|REST management endpoint bindings and command handlers
+[rest](rest/README.md)|REST server and Open API spec generation
+[rest-api](rest-api/README.md)|REST API interfaces
 [runner](runner/README.md)|Ignite server node runner. The module that wires up the Ignite components and handles node lifecycle.
 [schema](schema/README.md)|Ignite schema API implementation and schema management classes.
 [table](table/README.md)|Ignite table API implementation.
+[vault](vault/README.md)|Ignite local persistent key-value storage.

@@ -59,13 +59,14 @@ namespace Apache.Ignite.Internal.Sql
 
             PooledArrayBufferWriter Write()
             {
-                var writer = new PooledArrayBufferWriter();
+                var writer = ProtoCommon.GetMessageWriter();
                 var w = writer.GetMessageWriter();
 
                 w.WriteTx(tx);
                 w.Write(statement.Schema);
                 w.Write(statement.PageSize);
                 w.Write((long)statement.Timeout.TotalMilliseconds);
+                w.WriteNil(); // Session timeout (unused, session is closed by the server immediately).
 
                 w.WriteMapHeader(statement.Properties.Count);
 

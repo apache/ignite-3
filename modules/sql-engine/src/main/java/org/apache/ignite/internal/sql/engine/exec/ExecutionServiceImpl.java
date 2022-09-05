@@ -22,20 +22,22 @@ import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFI
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Queue;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import org.apache.calcite.tools.Frameworks;
+import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.AsyncCursor;
@@ -68,6 +70,7 @@ import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
@@ -109,11 +112,13 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
      * @param topSrvc Topology service.
      * @param msgSrvc Message service.
      * @param sqlSchemaManager Schema manager.
+     * @param indexManager Index manager.
      * @param tblManager Table manager.
      * @param taskExecutor Task executor.
      * @param handler Row handler.
      * @param mailboxRegistry Mailbox registry.
      * @param exchangeSrvc Exchange service.
+     * @param dataStorageManager Storage manager.
      * @param <RowT> Type of the sql row.
      * @return An execution service.
      */
@@ -122,19 +127,19 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             MessageService msgSrvc,
             SqlSchemaManager sqlSchemaManager,
             TableManager tblManager,
+            IndexManager indexManager,
             QueryTaskExecutor taskExecutor,
             RowHandler<RowT> handler,
             MailboxRegistry mailboxRegistry,
             ExchangeService exchangeSrvc,
             DataStorageManager dataStorageManager
-
     ) {
         return new ExecutionServiceImpl<>(
                 topSrvc.localMember().id(),
                 msgSrvc,
                 new MappingServiceImpl(topSrvc),
                 sqlSchemaManager,
-                new DdlCommandHandler(tblManager, dataStorageManager),
+                new DdlCommandHandler(tblManager, indexManager, dataStorageManager),
                 taskExecutor,
                 handler,
                 exchangeSrvc,
@@ -145,7 +150,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     /**
      * Constructor. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public ExecutionServiceImpl(
+    ExecutionServiceImpl(
             String localNodeId,
             MessageService msgSrvc,
             MappingService mappingSrvc,
@@ -245,14 +250,26 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     }
 
     private AsyncCursor<List<Object>> executeDdl(DdlPlan plan) {
-        try {
-            boolean ret = ddlCmdHnd.handle(plan.command());
+        CompletableFuture<Iterator<List<Object>>> ret = ddlCmdHnd.handle(plan.command())
+                .thenApply(applied -> List.of(List.<Object>of(applied)).iterator())
+                .exceptionally(th -> {
+                    throw convertDdlException(th);
+                });
 
-            return new AsyncWrapper<>(Collections.singletonList(Collections.<Object>singletonList(ret)).iterator());
-        } catch (IgniteInternalCheckedException e) {
-            throw new IgniteInternalException("Failed to execute DDL statement [stmt=" /*+ qry.sql()*/
+        return new AsyncWrapper<>(ret, Runnable::run);
+    }
+
+    private static RuntimeException convertDdlException(Throwable e) {
+        if (e instanceof CompletionException) {
+            e = e.getCause();
+        }
+
+        if (e instanceof IgniteInternalCheckedException) {
+            return new IgniteInternalException("Failed to execute DDL statement [stmt=" /*+ qry.sql()*/
                     + ", err=" + e.getMessage() + ']', e);
         }
+
+        return (e instanceof RuntimeException) ? (RuntimeException) e : new IgniteException(e);
     }
 
     private AsyncCursor<List<Object>> executeExplain(ExplainPlan plan) {
@@ -356,9 +373,12 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         private volatile Long rootFragmentId = null;
 
-        private InternalTransaction transaction;
+        private @Nullable InternalTransaction transaction;
 
-        private DistributedQueryManager(BaseQueryContext ctx, InternalTransaction transaction) {
+        private DistributedQueryManager(
+                BaseQueryContext ctx,
+                @Nullable InternalTransaction transaction
+        ) {
             this(ctx);
 
             this.transaction = transaction;

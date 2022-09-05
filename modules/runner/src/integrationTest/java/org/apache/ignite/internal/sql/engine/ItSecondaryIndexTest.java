@@ -26,8 +26,9 @@ import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsUn
 import static org.hamcrest.CoreMatchers.anyOf;
 import static org.hamcrest.Matchers.not;
 
+import java.util.List;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
-import org.apache.ignite.schema.SchemaBuilders;
+import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.TableDefinition;
 import org.apache.ignite.table.Table;
@@ -53,7 +54,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
      */
     @BeforeAll
     static void initTestData() {
-        TableDefinition schema0 = SchemaBuilders.tableBuilder("PUBLIC", "DEVELOPER")
+        TableDefinition tlbDef = SchemaBuilders.tableBuilder("PUBLIC", "DEVELOPER")
                 .columns(
                         SchemaBuilders.column("ID", ColumnType.INT32).build(),
                         SchemaBuilders.column("NAME", ColumnType.string()).asNullable(true).build(),
@@ -62,28 +63,26 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                         SchemaBuilders.column("AGE", ColumnType.INT32).asNullable(true).build()
                 )
                 .withPrimaryKey("ID")
-                .withIndex(
-                        SchemaBuilders.sortedIndex(DEPID_IDX).addIndexColumn("DEPID").done().build()
-                )
-                .withIndex(
+                .build();
+
+        Table dev0 = CLUSTER_NODES.get(0).tables().createTable(tlbDef.canonicalName(), tblCh ->
+                SchemaConfigurationConverter.convert(tlbDef, tblCh)
+                        .changeReplicas(2)
+                        .changePartitions(10)
+        );
+
+        CLUSTER_NODES.get(0).tables().alterTable(tlbDef.canonicalName(), tblCh ->
+                List.of(SchemaBuilders.sortedIndex(DEPID_IDX).addIndexColumn("DEPID").done().build(),
                         SchemaBuilders.sortedIndex(NAME_CITY_IDX)
                                 .addIndexColumn("DEPID").desc().done()
                                 .addIndexColumn("CITY").desc().done()
-                                .build()
-                )
-                .withIndex(
+                                .build(),
                         SchemaBuilders.sortedIndex(NAME_DEPID_CITY_IDX)
                                 .addIndexColumn("NAME").done()
                                 .addIndexColumn("DEPID").desc().done()
                                 .addIndexColumn("CITY").desc().done()
                                 .build()
-                )
-                .build();
-
-        Table dev0 = CLUSTER_NODES.get(0).tables().createTable(schema0.canonicalName(), tblCh ->
-                SchemaConfigurationConverter.convert(schema0, tblCh)
-                        .changeReplicas(2)
-                        .changePartitions(10)
+                ).forEach(idxDef -> SchemaConfigurationConverter.addIndex(idxDef, tblCh))
         );
 
         insertData(dev0, new String[]{"ID", "NAME", "DEPID", "CITY", "AGE"}, new Object[][]{
@@ -122,18 +121,19 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .withPrimaryKey(
                         SchemaBuilders.primaryKey().withColumns("F2", "F1").build()
                 )
-                .withIndex(
-                        SchemaBuilders.sortedIndex(PK_IDX)
-                                .addIndexColumn("F2").done()
-                                .addIndexColumn("F1").done()
-                                .build()
-                )
                 .build();
 
         Table dev1 = CLUSTER_NODES.get(0).tables().createTable(schema1.canonicalName(), tblCh ->
                 SchemaConfigurationConverter.convert(schema1, tblCh)
                         .changeReplicas(2)
                         .changePartitions(10)
+        );
+
+        CLUSTER_NODES.get(0).tables().alterTable(tlbDef.canonicalName(), tblCh ->
+                SchemaConfigurationConverter.addIndex(SchemaBuilders.sortedIndex(PK_IDX)
+                        .addIndexColumn("F2").done()
+                        .addIndexColumn("F1").done()
+                        .build(), tblCh)
         );
 
         insertData(dev1, new String[]{"F1", "F2", "F3", "F4"}, new Object[][]{

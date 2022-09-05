@@ -49,6 +49,8 @@ import javax.tools.Diagnostic;
 import org.apache.ignite.internal.network.processor.MessageClass;
 import org.apache.ignite.internal.network.processor.MessageGroupWrapper;
 import org.apache.ignite.internal.network.processor.TypeUtils;
+import org.apache.ignite.internal.tostring.IgniteToStringInclude;
+import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Marshallable;
 
@@ -105,6 +107,7 @@ public class MessageImplGenerator {
             String getterName = getter.getSimpleName().toString();
 
             FieldSpec.Builder fieldBuilder = FieldSpec.builder(getterReturnType, getterName)
+                    .addAnnotation(IgniteToStringInclude.class)
                     .addModifiers(Modifier.PRIVATE);
 
             boolean isMarshallable = getter.getAnnotation(Marshallable.class) != null;
@@ -162,6 +165,16 @@ public class MessageImplGenerator {
                 .build();
 
         messageImpl.addMethod(groupTypeMethod);
+
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-17591
+        MethodSpec toStringMethod = MethodSpec.methodBuilder("toString")
+                .addAnnotation(Override.class)
+                .addModifiers(Modifier.PUBLIC)
+                .returns(String.class)
+                .addStatement("return $T.toString($T.class, this)", S.class, messageImplClassName)
+                .build();
+
+        messageImpl.addMethod(toStringMethod);
 
         // message type constant and getter
         FieldSpec messageTypeField = FieldSpec.builder(short.class, "TYPE")

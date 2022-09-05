@@ -32,7 +32,6 @@ import org.apache.ignite.rest.client.model.InitCommand;
  */
 @Singleton
 public class ClusterInitCall implements Call<ClusterInitCallInput, String> {
-
     /** {@inheritDoc} */
     @Override
     public DefaultCallOutput<String> execute(ClusterInitCallInput input) {
@@ -44,7 +43,7 @@ public class ClusterInitCall implements Call<ClusterInitCallInput, String> {
                     .cmgNodes(input.getCmgNodes())
                     .clusterName(input.getClusterName())
             );
-            return DefaultCallOutput.success("Cluster was initialized successfully.");
+            return DefaultCallOutput.success("Cluster was initialized successfully");
         } catch (ApiException | IllegalArgumentException e) {
             return DefaultCallOutput.failure(new IgniteCliApiException(e, input.getClusterUrl()));
         }

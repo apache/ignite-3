@@ -20,6 +20,8 @@ package org.apache.ignite.internal.storage.index;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter.convert;
+import static org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders.column;
+import static org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders.tableBuilder;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.BACKWARDS;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.FORWARD;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.GREATER;
@@ -29,8 +31,6 @@ import static org.apache.ignite.internal.storage.index.SortedIndexStorage.LESS_O
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.randomString;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.schema.SchemaBuilders.column;
-import static org.apache.ignite.schema.SchemaBuilders.tableBuilder;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.nullValue;
@@ -45,6 +45,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
 import java.util.stream.IntStream;
@@ -55,6 +56,7 @@ import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigur
 import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
+import org.apache.ignite.configuration.schemas.table.TableIndexView;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -63,6 +65,9 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
+import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
+import org.apache.ignite.internal.schema.testutils.builder.SortedIndexDefinitionBuilder;
+import org.apache.ignite.internal.schema.testutils.builder.SortedIndexDefinitionBuilder.SortedIndexColumnBuilder;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapStorageEngine;
 import org.apache.ignite.internal.storage.chm.schema.TestConcurrentHashMapDataStorageConfigurationSchema;
@@ -71,12 +76,9 @@ import org.apache.ignite.internal.storage.index.impl.BinaryTupleRowSerializer;
 import org.apache.ignite.internal.storage.index.impl.TestIndexRow;
 import org.apache.ignite.internal.testframework.VariableSource;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnDefinition;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.TableDefinition;
-import org.apache.ignite.schema.definition.builder.SortedIndexDefinitionBuilder;
-import org.apache.ignite.schema.definition.builder.SortedIndexDefinitionBuilder.SortedIndexColumnBuilder;
 import org.apache.ignite.schema.definition.index.ColumnarIndexDefinition;
 import org.apache.ignite.schema.definition.index.SortedIndexDefinition;
 import org.intellij.lang.annotations.MagicConstant;
@@ -173,7 +175,7 @@ public abstract class AbstractSortedIndexStorageTest {
     /**
      * Creates a storage instance for testing.
      */
-    protected abstract SortedIndexStorage createIndexStorage(String name, TableView tableCfg);
+    protected abstract SortedIndexStorage createIndexStorage(UUID id, TableView tableCfg);
 
     /**
      * Creates a Sorted Index using the given columns.
@@ -208,7 +210,9 @@ public abstract class AbstractSortedIndexStorageTest {
 
         assertThat(createIndexFuture, willBe(nullValue(Void.class)));
 
-        return createIndexStorage(indexDefinition.name(), tableCfg.value());
+        TableIndexView indexConfig = tableCfg.value().indices().get(indexDefinition.name());
+
+        return createIndexStorage(indexConfig.id(), tableCfg.value());
     }
 
     /**

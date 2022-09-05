@@ -185,6 +185,10 @@ public class ClientCompute implements IgniteCompute {
     }
 
     private ClusterNode randomNode(Set<ClusterNode> nodes) {
+        if (nodes.size() == 1) {
+            return nodes.iterator().next();
+        }
+
         int nodesToSkip = ThreadLocalRandom.current().nextInt(nodes.size());
 
         Iterator<ClusterNode> iterator = nodes.iterator();

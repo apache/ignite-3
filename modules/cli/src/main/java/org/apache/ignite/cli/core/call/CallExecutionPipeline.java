@@ -21,13 +21,13 @@ import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.nio.charset.Charset;
 import java.util.function.Supplier;
-import org.apache.ignite.cli.commands.decorators.DefaultDecorator;
 import org.apache.ignite.cli.core.decorator.Decorator;
 import org.apache.ignite.cli.core.decorator.TerminalOutput;
 import org.apache.ignite.cli.core.exception.ExceptionHandler;
 import org.apache.ignite.cli.core.exception.ExceptionHandlers;
 import org.apache.ignite.cli.core.exception.ExceptionWriter;
 import org.apache.ignite.cli.core.exception.handler.DefaultExceptionHandlers;
+import org.apache.ignite.cli.decorators.DefaultDecorator;
 
 /**
  * Call execution pipeline.
@@ -36,34 +36,22 @@ import org.apache.ignite.cli.core.exception.handler.DefaultExceptionHandlers;
  * @param <T> Call output's body type.
  */
 public class CallExecutionPipeline<I extends CallInput, T> {
-    /**
-     * Call to execute.
-     */
+    /** Call to execute. */
     private final Call<I, T> call;
 
-    /**
-     * Writer for execution output.
-     */
+    /** Writer for execution output. */
     private final PrintWriter output;
 
-    /**
-     * Writer for error execution output.
-     */
+    /** Writer for error execution output. */
     private final PrintWriter errOutput;
 
-    /**
-     * Decorator that decorates call's output.
-     */
+    /** Decorator that decorates call's output. */
     private final Decorator<T, TerminalOutput> decorator;
 
-    /**
-     * Handlers for any exceptions.
-     */
+    /** Handlers for any exceptions. */
     private final ExceptionHandlers exceptionHandlers;
 
-    /**
-     * Provider for call's input.
-     */
+    /** Provider for call's input. */
     private final Supplier<I> inputProvider;
 
     private CallExecutionPipeline(Call<I, T> call,
@@ -85,8 +73,7 @@ public class CallExecutionPipeline<I extends CallInput, T> {
      *
      * @return builder for {@link CallExecutionPipeline}.
      */
-    public static <I extends CallInput, T> CallExecutionPipelineBuilder<I, T> builder(
-            Call<I, T> call) {
+    public static <I extends CallInput, T> CallExecutionPipelineBuilder<I, T> builder(Call<I, T> call) {
         return new CallExecutionPipelineBuilder<>(call);
     }
 

@@ -22,6 +22,6 @@ package org.apache.ignite.cli.config.ini;
  */
 public class SectionAlreadyExistsException extends RuntimeException {
     public SectionAlreadyExistsException(String name) {
-        super("Section " + name + " already exists.");
+        super("Section " + name + " already exists");
     }
 }

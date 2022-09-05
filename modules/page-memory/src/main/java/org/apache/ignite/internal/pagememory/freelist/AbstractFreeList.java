@@ -81,7 +81,7 @@ public abstract class AbstractFreeList<T extends Storable> extends PagesList imp
     private final @Nullable AtomicLong pageListCacheLimit;
 
     /** Page eviction tracker. */
-    private final PageEvictionTracker evictionTracker;
+    protected final PageEvictionTracker evictionTracker;
 
     private final PageHandler<T, Boolean> updateRow = new UpdateRowHandler();
 

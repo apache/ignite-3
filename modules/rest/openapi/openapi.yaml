@@ -372,6 +372,16 @@ components:
             type: string
         clusterName:
           type: string
+    InvalidParam:
+      required:
+      - name
+      - reason
+      type: object
+      properties:
+        name:
+          type: string
+        reason:
+          type: string
     NetworkAddress:
       required:
       - consistentId
@@ -401,6 +411,7 @@ components:
       required:
       - code
       - detail
+      - invalidParams
       - node
       - status
       - title
@@ -424,6 +435,10 @@ components:
         traceId:
           type: string
           format: uuid
+        invalidParams:
+          type: array
+          items:
+            $ref: '#/components/schemas/InvalidParam'
     State:
       type: string
       enum:

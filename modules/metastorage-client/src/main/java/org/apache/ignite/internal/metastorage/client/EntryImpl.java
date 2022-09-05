@@ -31,8 +31,7 @@ public final class EntryImpl implements Entry {
     private final ByteArray key;
 
     /** Value. */
-    @Nullable
-    private final byte[] val;
+    private final byte @Nullable [] val;
 
     /** Revision. */
     private final long rev;
@@ -48,7 +47,7 @@ public final class EntryImpl implements Entry {
      * @param rev     Revision.
      * @param updCntr Update counter.
      */
-    EntryImpl(@NotNull ByteArray key, @Nullable byte[] val, long rev, long updCntr) {
+    public EntryImpl(@NotNull ByteArray key, byte @Nullable [] val, long rev, long updCntr) {
         this.key = key;
         this.val = val;
         this.rev = rev;
@@ -63,9 +62,8 @@ public final class EntryImpl implements Entry {
     }
 
     /** {@inheritDoc} */
-    @Nullable
     @Override
-    public byte[] value() {
+    public byte @Nullable [] value() {
         return val;
     }
 
