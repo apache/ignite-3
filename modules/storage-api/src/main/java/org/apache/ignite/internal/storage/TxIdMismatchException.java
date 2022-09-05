@@ -49,21 +49,6 @@ public class TxIdMismatchException extends IgniteException {
     }
 
     /**
-     * Creates a new exception with the given trace id, error code, detail message and cause.
-     *
-     * @param traceId Unique identifier of this exception.
-     * @param code Full error code.
-     * @param message Detail message.
-     * @param cause Optional nested exception (can be {@code null}).
-     */
-    public TxIdMismatchException(UUID traceId, int code, String message, Throwable cause) {
-        super(traceId, code, message, cause);
-
-        expectedTransactionId = null;
-        conflictingTransactionId = null;
-    }
-
-    /**
      * Returns an expected transaction id.
      */
     public UUID expectedTransactionId() {
