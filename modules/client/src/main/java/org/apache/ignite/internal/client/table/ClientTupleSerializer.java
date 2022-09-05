@@ -308,7 +308,7 @@ public class ClientTupleSerializer {
             if (i < keyColCnt) {
                 ClientBinaryTupleUtils.readAndSetColumnValue(binTuple, i, keyTuple, col.name(), col.type());
             } else {
-                ClientBinaryTupleUtils.readAndSetColumnValue(binTuple, i - keyColCnt, valTuple, col.name(), col.type());
+                ClientBinaryTupleUtils.readAndSetColumnValue(binTuple, i, valTuple, col.name(), col.type());
             }
         }
 
