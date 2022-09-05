@@ -40,12 +40,12 @@ public class TableMessageGroup {
     public static final short RW_DUAL_ROW_REPLICA_REQUEST = 2;
 
     /**
-     * Message type for {@link org.apache.ignite.internal.table.distributed.replication.request.ScanRetrieveBatchReplicaRequest}.
+     * Message type for {@link org.apache.ignite.internal.table.distributed.replication.request.ReadWriteScanRetrieveBatchReplicaRequest}.
      */
     public static final short RW_SCAN_RETRIEVE_BATCH_REPLICA_REQUEST = 3;
 
     /**
-     * Message type for {@link org.apache.ignite.internal.table.distributed.replication.request.ScanCloseReplicaRequest}.
+     * Message type for {@link org.apache.ignite.internal.table.distributed.replication.request.ReadWriteScanCloseReplicaRequest}.
      */
     public static final short RW_SCAN_CLOSE_REPLICA_REQUEST = 4;
 
@@ -58,4 +58,19 @@ public class TableMessageGroup {
      * Message type for {@link org.apache.ignite.internal.table.distributed.message.HasDataResponse}.
      */
     public static final int HAS_DATA_RESPONSE = 6;
+
+    /**
+     * Message type for {@link org.apache.ignite.internal.table.distributed.replication.request.ReadOnlySingleRowReplicaRequest}.
+     */
+    public static final short RO_SINGLE_ROW_REPLICA_REQUEST = 7;
+
+    /**
+     * Message type for {@link org.apache.ignite.internal.table.distributed.replication.request.ReadOnlyMultiRowReplicaRequest}.
+     */
+    public static final short RO_MULTI_ROW_REPLICA_REQUEST = 8;
+
+    /**
+     * Message type for {@link org.apache.ignite.internal.table.distributed.replication.request.ReadOnlyScanRetrieveBatchReplicaRequest}.
+     */
+    public static final short RO_SCAN_RETRIEVE_BATCH_REPLICA_REQUEST = 9;
 }

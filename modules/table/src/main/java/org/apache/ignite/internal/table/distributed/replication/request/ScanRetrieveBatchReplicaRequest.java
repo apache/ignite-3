@@ -17,9 +17,10 @@
 
 package org.apache.ignite.internal.table.distributed.replication.request;
 
-import java.util.function.Predicate;
+import java.util.BitSet;
+import java.util.UUID;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
-import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.network.annotations.Marshallable;
 
 /**
@@ -33,11 +34,52 @@ public interface ScanRetrieveBatchReplicaRequest extends ReplicaRequest {
     long scanId();
 
     /**
-     * Gets a scan row filter. The filter has a sense only for the first request, for the second one and the followings the field is
-     * ignored.
+     * Gets an index to use fot the retrieve request.
      *
-     * @return Row filter predicate.
+     * @return Index id.
      */
     @Marshallable
-    Predicate<BinaryRow> rowFilter();
+    UUID indexToUse();
+
+    /**
+     * Gets a key which is used for exact comparison in the index.
+     *
+     * @return Key to search.
+     */
+    @Marshallable
+    BinaryTuple exactKey();
+
+    /**
+     * Gets a left bound for scan through the sorted index.
+     * The field is used only when {@link this#exactKey()} is {@code null}.
+     *
+     * @return left bound.
+     */
+    @Marshallable
+    BinaryTuple leftBound();
+
+    /**
+     * Gets a right bound for scan through the sorted index.
+     * The field is used only when {@link this#exactKey()} is {@code null}.
+     *
+     * @return left bound.
+     */
+    @Marshallable
+    BinaryTuple rightBound();
+
+    /**
+     * Gets flags.
+     * The field is used only when {@link this#exactKey()} is {@code null}.
+     *
+     * @return Flags to determine a scan order.
+     */
+    int flags();
+
+    /**
+     * Gets bitset to include columns.
+     *
+     * @return Bitset to include columns.
+     */
+    @Marshallable
+    BitSet columnsToInclude();
 }
