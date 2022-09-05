@@ -57,7 +57,7 @@ public class TestPullMetricExporter extends BasicMetricExporter {
 
                 var report = new StringBuilder();
 
-                for (MetricSet metricSet : metrics().values()) {
+                for (MetricSet metricSet : metrics().get1().values()) {
                     report.append(metricSet.name()).append(":\n");
 
                     for (Metric metric : metricSet) {

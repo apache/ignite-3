@@ -97,6 +97,11 @@ public abstract class PushMetricExporter extends BasicMetricExporter {
     /**
      * A heart of the push exporter.
      * Inside this method all needed operations to send the metrics outside must be implemented.
+     *
+     * <p>This method will be executed periodically by internal exporter's scheduler.
+     *
+     * <p>In case of any exceptions exporter's internal scheduler will be stopped
+     * and no new {@link #report()} will be executed.
      */
     public abstract void report();
 }

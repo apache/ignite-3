@@ -20,6 +20,7 @@ package org.apache.ignite.internal.metrics.exporters;
 import java.util.Map;
 import org.apache.ignite.internal.metrics.MetricProvider;
 import org.apache.ignite.internal.metrics.MetricSet;
+import org.apache.ignite.lang.IgniteBiTuple;
 
 /**
  * Base class for new metrics exporters implementations.
@@ -45,7 +46,7 @@ public abstract class BasicMetricExporter implements MetricExporter {
      *
      * @return map of metrics
      */
-    protected final Map<String, MetricSet> metrics() {
+    protected final IgniteBiTuple<Map<String, MetricSet>, Long> metrics() {
         return metricsProvider.metrics();
     }
 }

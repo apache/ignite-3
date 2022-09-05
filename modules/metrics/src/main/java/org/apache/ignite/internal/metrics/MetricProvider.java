@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.metrics;
 
 import java.util.Map;
+import org.apache.ignite.lang.IgniteBiTuple;
 
 /**
  * Read-only metrics registry.
@@ -40,7 +41,7 @@ public class MetricProvider {
      *
      * @return map of metrics
      */
-    public Map<String, MetricSet> metrics() {
-        return metricRegistry.metricSnapshot().get1();
+    public IgniteBiTuple<Map<String, MetricSet>, Long> metrics() {
+        return metricRegistry.metricSnapshot();
     }
 }
