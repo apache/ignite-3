@@ -293,6 +293,10 @@ public class ClientTupleSerializer {
 
         var valTuple = new ClientTuple(schema, keyColCnt, schema.columns().length - 1);
 
+        // TODO IGNITE-17297: Read from Netty buf directly (easier) OR wrap netty buf in a Tuple impl (may be hard with multiple tuples)
+        var binTupleBuf = in.readPayload(in.unpackBinaryHeader());
+        var binTuple = new BinaryTupleReader(colCnt - keyColCnt, binTupleBuf);
+
         for (var i = keyColCnt; i < colCnt; i++) {
             ClientColumn col = schema.columns()[i];
             Object val = in.unpackObject(col.type());

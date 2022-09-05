@@ -38,6 +38,7 @@ import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleContainer;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
+import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
 import org.apache.ignite.internal.client.proto.ClientDataType;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
@@ -344,7 +345,7 @@ public class ClientTableCommon {
 
         var noValueMask = unpacker.unpackBitSet();
 
-        // TODO IGNITE-17297: Avoid array allocation? But we need to release netty buf anyway.
+        // TODO IGNITE-17297: Read from Netty buf directly (easier) OR wrap netty buf in a Tuple impl (may be hard with multiple tuples)
         var binaryTupleBuf = unpacker.readPayload(unpacker.unpackBinaryHeader());
         var binaryTupleReader = new BinaryTupleReader(cnt, binaryTupleBuf);
 
@@ -356,7 +357,9 @@ public class ClientTableCommon {
                 continue;
             }
 
-            readAndSetColumnValue(binaryTupleReader, tuple, schema.column(i), i);
+            Column column = schema.column(i);
+            ClientBinaryTupleUtils.readAndSetColumnValue(
+                    binaryTupleReader, i, tuple, column.name(), getClientDataType(column.type().spec()));
         }
 
         return tuple;
@@ -450,78 +453,6 @@ public class ClientTableCommon {
             tuple.set(col.name(), val);
         } catch (MessageTypeException e) {
             throw new IgniteException(PROTOCOL_ERR, "Incorrect value type for column '" + col.name() + "': " + e.getMessage(), e);
-        }
-    }
-
-    private static void readAndSetColumnValue(BinaryTupleReader reader, Tuple tuple, Column col, int idx) {
-        switch (col.type().spec()) {
-            case INT8:
-                tuple.set(col.name(), reader.byteValue(idx));
-                break;
-
-            case INT16:
-                tuple.set(col.name(), reader.shortValue(idx));
-                break;
-
-            case INT32:
-                tuple.set(col.name(), reader.intValue(idx));
-                break;
-
-            case INT64:
-                tuple.set(col.name(), reader.longValue(idx));
-                break;
-
-            case FLOAT:
-                tuple.set(col.name(), reader.floatValue(idx));
-                break;
-
-            case DOUBLE:
-                tuple.set(col.name(), reader.doubleValue(idx));
-                break;
-
-            case DECIMAL:
-                // TODO IGNITE-17297 - ???
-                tuple.set(col.name(), reader.decimalValue(idx, 0));
-                break;
-
-            case UUID:
-                tuple.set(col.name(), reader.uuidValue(idx));
-                break;
-
-            case STRING:
-                tuple.set(col.name(), reader.stringValue(idx));
-                break;
-
-            case BYTES:
-                tuple.set(col.name(), reader.bytesValue(idx));
-                break;
-
-            case BITMASK:
-                tuple.set(col.name(), reader.bitmaskValue(idx));
-                break;
-
-            case NUMBER:
-                tuple.set(col.name(), reader.numberValue(idx));
-                break;
-
-            case DATE:
-                tuple.set(col.name(), reader.dateValue(idx));
-                break;
-
-            case TIME:
-                tuple.set(col.name(), reader.timeValue(idx));
-                break;
-
-            case DATETIME:
-                tuple.set(col.name(), reader.dateTimeValue(idx));
-                break;
-
-            case TIMESTAMP:
-                tuple.set(col.name(), reader.timestampValue(idx));
-                break;
-
-            default:
-                throw new IgniteException(PROTOCOL_ERR, "Unsupported native type: " + col.type());
         }
     }
 
