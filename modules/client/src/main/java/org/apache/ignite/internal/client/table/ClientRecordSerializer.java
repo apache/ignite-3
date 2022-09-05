@@ -192,7 +192,7 @@ public class ClientRecordSerializer<R> {
                     res.add(null);
                 } else {
                     // TODO IGNITE-17297 Do not allocate array, read from Netty buf directly.
-                    var tupleReader = new BinaryTupleReader(schema.columns().length, in.readPayload(in.unpackBinaryHeader()));
+                    var tupleReader = new BinaryTupleReader(columnCount(schema, part), in.readPayload(in.unpackBinaryHeader()));
                     var reader = new ClientMarshallerReader(tupleReader);
                     res.add((R) marshaller.readObject(reader, null));
                 }
@@ -208,7 +208,7 @@ public class ClientRecordSerializer<R> {
         Marshaller marshaller = schema.getMarshaller(mapper, part);
 
         // TODO IGNITE-17297 Do not allocate array, read from Netty buf directly.
-        var tupleReader = new BinaryTupleReader(schema.columns().length, in.readPayload(in.unpackBinaryHeader()));
+        var tupleReader = new BinaryTupleReader(columnCount(schema, part), in.readPayload(in.unpackBinaryHeader()));
         ClientMarshallerReader reader = new ClientMarshallerReader(tupleReader);
 
         try {
