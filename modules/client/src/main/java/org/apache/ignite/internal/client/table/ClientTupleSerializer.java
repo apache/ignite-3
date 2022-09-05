@@ -20,6 +20,12 @@ package org.apache.ignite.internal.client.table;
 import static org.apache.ignite.internal.client.proto.ClientMessageCommon.NO_VALUE;
 import static org.apache.ignite.internal.client.table.ClientTable.writeTx;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
@@ -390,13 +396,57 @@ public class ClientTupleSerializer {
                 builder.appendLong((long) v);
                 return;
 
+            case ClientDataType.FLOAT:
+                builder.appendFloat((float) v);
+                return;
+
+            case ClientDataType.DOUBLE:
+                builder.appendDouble((double) v);
+                return;
+
+            case ClientDataType.DECIMAL:
+                builder.appendDecimal((BigDecimal) v);
+                return;
+
+            case ClientDataType.UUID:
+                builder.appendUuid((UUID) v);
+                return;
+
             case ClientDataType.STRING:
                 builder.appendString((String) v);
                 return;
 
+            case ClientDataType.BYTES:
+                builder.appendBytes((byte[]) v);
+                return;
+
+            case ClientDataType.BITMASK:
+                builder.appendBitmask((BitSet) v);
+                return;
+
+            case ClientDataType.DATE:
+                builder.appendDate((LocalDate) v);
+                return;
+
+            case ClientDataType.TIME:
+                builder.appendTime((LocalTime) v);
+                return;
+
+            case ClientDataType.DATETIME:
+                builder.appendDateTime((LocalDateTime) v);
+                return;
+
+            case ClientDataType.TIMESTAMP:
+                builder.appendTimestamp((Instant) v);
+                return;
+
+            case ClientDataType.NUMBER:
+            case ClientDataType.BIGINTEGER:
+                builder.appendNumber((BigInteger) v);
+                return;
+
             default:
-                // TODO IGNITE-17297 support all types.
-                throw new UnsupportedOperationException("TODO:" + col.type());
+                throw new IllegalArgumentException("Unsupported type: " + col.type());
         }
     }
 }
