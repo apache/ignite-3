@@ -148,7 +148,6 @@ public class ClientRecordSerializer<R> {
         } catch (MarshallerException e) {
             throw new IgniteException(UNKNOWN_ERR, e.getMessage(), e);
         }
-
     }
 
     void writeRecs(

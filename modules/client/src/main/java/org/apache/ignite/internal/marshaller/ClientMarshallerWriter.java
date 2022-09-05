@@ -58,8 +58,8 @@ public class ClientMarshallerWriter implements MarshallerWriter {
     /** {@inheritDoc} */
     @Override
     public void writeAbsentValue() {
-        // TODO IGNITE-17297 update noValueSet - how do we get index?
-        packer.appendNull();
+        noValueSet.set(packer.elementIndex());
+        packer.appendDefault();
     }
 
     /** {@inheritDoc} */
