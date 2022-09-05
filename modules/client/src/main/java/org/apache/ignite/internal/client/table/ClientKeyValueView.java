@@ -30,6 +30,9 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+
+import org.apache.ignite.internal.binarytuple.BinaryTupleParser;
+import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
@@ -466,7 +469,9 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
         Marshaller keyMarsh = schema.getMarshaller(keySer.mapper(), TuplePart.KEY);
         Marshaller valMarsh = schema.getMarshaller(valSer.mapper(), TuplePart.VAL);
 
-        var reader = new ClientMarshallerReader(in);
+        // TODO IGNITE-17297 Do not allocate array, read from Netty buf directly.
+        var tupleReader = new BinaryTupleReader(schema.columns().length, in.readPayload(in.unpackBinaryHeader()));
+        var reader = new ClientMarshallerReader(tupleReader);
 
         try {
             for (int i = 0; i < cnt; i++) {

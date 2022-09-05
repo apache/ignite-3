@@ -246,8 +246,8 @@ public class ClientTupleSerializer {
     static Tuple readValueTuple(ClientSchema schema, ClientMessageUnpacker in, Tuple keyTuple) {
         var tuple = new ClientTuple(schema);
 
-        var bufSize = in.unpackBinaryHeader();
-        var buf = in.readPayload(bufSize);
+        // TODO IGNITE-17297 Do not allocate array, read from Netty buf directly.
+        var buf = in.readPayload(in.unpackBinaryHeader());
         var binTuple = new BinaryTupleReader(schema.columns().length - schema.keyColumnCount(), buf);
 
         for (var i = 0; i < schema.columns().length; i++) {

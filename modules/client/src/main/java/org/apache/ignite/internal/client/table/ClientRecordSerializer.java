@@ -27,6 +27,7 @@ import java.util.Collections;
 import java.util.UUID;
 
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
+import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
@@ -181,7 +182,10 @@ public class ClientRecordSerializer<R> {
         var res = new ArrayList<R>(cnt);
 
         Marshaller marshaller = schema.getMarshaller(mapper, part);
-        var reader = new ClientMarshallerReader(in);
+
+        // TODO IGNITE-17297 Do not allocate array, read from Netty buf directly.
+        var tupleReader = new BinaryTupleReader(schema.columns().length, in.readPayload(in.unpackBinaryHeader()));
+        var reader = new ClientMarshallerReader(tupleReader);
 
         try {
             for (int i = 0; i < cnt; i++) {
@@ -200,7 +204,10 @@ public class ClientRecordSerializer<R> {
 
     R readRec(ClientSchema schema, ClientMessageUnpacker in, TuplePart part) {
         Marshaller marshaller = schema.getMarshaller(mapper, part);
-        ClientMarshallerReader reader = new ClientMarshallerReader(in);
+
+        // TODO IGNITE-17297 Do not allocate array, read from Netty buf directly.
+        var tupleReader = new BinaryTupleReader(schema.columns().length, in.readPayload(in.unpackBinaryHeader()));
+        ClientMarshallerReader reader = new ClientMarshallerReader(tupleReader);
 
         try {
             return (R) marshaller.readObject(reader, null);
@@ -217,7 +224,9 @@ public class ClientRecordSerializer<R> {
         Marshaller keyMarshaller = schema.getMarshaller(mapper, TuplePart.KEY);
         Marshaller valMarshaller = schema.getMarshaller(mapper, TuplePart.VAL);
 
-        ClientMarshallerReader reader = new ClientMarshallerReader(in);
+        // TODO IGNITE-17297 Do not allocate array, read from Netty buf directly.
+        var tupleReader = new BinaryTupleReader(schema.columns().length, in.readPayload(in.unpackBinaryHeader()));
+        ClientMarshallerReader reader = new ClientMarshallerReader(tupleReader);
 
         try {
             var res = (R) valMarshaller.readObject(reader, null);
