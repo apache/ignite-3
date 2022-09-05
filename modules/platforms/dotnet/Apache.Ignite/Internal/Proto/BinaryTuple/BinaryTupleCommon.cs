@@ -17,6 +17,8 @@
 
 namespace Apache.Ignite.Internal.Proto.BinaryTuple
 {
+    using System.Diagnostics;
+
     /// <summary>
     /// Common binary tuple constants and utils.
     /// </summary>
@@ -54,12 +56,9 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                 return 0b01;
             }
 
-            if (size <= int.MaxValue)
-            {
-                return 0b10;
-            }
+            Debug.Assert(size <= int.MaxValue, "size <= int.MaxValue");
 
-            throw new IgniteClientException("Too big binary tuple size");
+            return 0b10;
         }
 
         /// <summary>
