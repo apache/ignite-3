@@ -606,7 +606,8 @@ public class ClientTableCommon {
 
         if (val == NO_VALUE) {
             // TODO IGNITE-17297: Handle missing (not set) value differently.
-            builder.appendNull();
+            // TODO: This should not be the case for server -> client!
+            builder.appendDefault();
             return;
         }
 

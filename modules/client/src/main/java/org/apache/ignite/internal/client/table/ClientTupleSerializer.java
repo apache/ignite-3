@@ -369,7 +369,7 @@ public class ClientTupleSerializer {
 
         if (v == NO_VALUE) {
             noValueSet.set(col.schemaIndex());
-            builder.appendNull();
+            builder.appendDefault();
             return;
         }
 
