@@ -133,7 +133,7 @@ public class ClientRecordSerializer<R> {
         int columnCount = columnCount(schema, part);
 
         try {
-            // TODO: Extract this repeating logic
+            // TODO 17297: Extract this repeating logic
             var builder = BinaryTupleBuilder.create(columnCount, true);
             var noValueSet = new BitSet();
             ClientMarshallerWriter writer = new ClientMarshallerWriter(builder, noValueSet);
