@@ -128,25 +128,19 @@ public class ClientTupleSerializer {
         var count = keyOnly ? schema.keyColumnCount() : columns.length;
 
         var builder = BinaryTupleBuilder.create(count, true);
-        var noValueMask = new BitSet(count);
+        var noValueSet = new BitSet(count);
 
         for (var i = 0; i < count; i++) {
             var col = columns[i];
             Object v = tuple.valueOrDefault(col.name(), NO_VALUE);
 
-            if (v == NO_VALUE) {
-                builder.appendNull();
-                noValueMask.set(i);
-                continue;
-            }
-
-            appendValue(builder, col, v);
+            appendValue(builder, noValueSet, col, v);
         }
 
         var buf = builder.build();
 
-        out.out().packBitSet(noValueMask);
-        out.out().packBinaryHeader(buf.limit() - buf.position()); // TODO IGNITE-17297: ???
+        out.out().packBitSet(noValueSet);
+        out.out().packBinaryHeader(buf.limit() - buf.position());
         out.out().writePayload(buf);
     }
 
@@ -175,7 +169,7 @@ public class ClientTupleSerializer {
 
         var columns = schema.columns();
         var noValueSet = new BitSet(columns.length);
-        out.out().packBitSet(noValueSet);
+        var builder = BinaryTupleBuilder.create(columns.length, true);
 
         for (var i = 0; i < columns.length; i++) {
             var col = columns[i];
@@ -186,8 +180,14 @@ public class ClientTupleSerializer {
                             ? val.valueOrDefault(col.name(), NO_VALUE)
                             : NO_VALUE;
 
-            out.out().packObject(v);
+            appendValue(builder, noValueSet, col,  v);
         }
+
+        var buf = builder.build();
+
+        out.out().packBitSet(noValueSet);
+        out.out().packBinaryHeader(buf.limit() - buf.position());
+        out.out().writePayload(buf);
     }
 
     /**
@@ -365,8 +365,14 @@ public class ClientTupleSerializer {
         return res;
     }
 
-    private static void appendValue(BinaryTupleBuilder builder, ClientColumn col, Object v) {
+    private static void appendValue(BinaryTupleBuilder builder, BitSet noValueSet, ClientColumn col, Object v) {
         if (v == null) {
+            builder.appendNull();
+            return;
+        }
+
+        if (v == NO_VALUE) {
+            noValueSet.set(col.schemaIndex());
             builder.appendNull();
             return;
         }
