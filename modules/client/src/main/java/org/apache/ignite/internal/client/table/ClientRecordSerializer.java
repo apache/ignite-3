@@ -157,19 +157,22 @@ public class ClientRecordSerializer<R> {
         out.out().packInt(recs.size());
 
         Marshaller marshaller = schema.getMarshaller(mapper, part);
-        var builder = BinaryTupleBuilder.create(columnCount(schema, part), true);
-        var noValueSet = new BitSet();
-        ClientMarshallerWriter writer = new ClientMarshallerWriter(builder, noValueSet);
+        int columnCount = columnCount(schema, part);
 
         try {
             for (R rec : recs) {
+                var builder = BinaryTupleBuilder.create(columnCount, true);
+                var noValueSet = new BitSet();
+                ClientMarshallerWriter writer = new ClientMarshallerWriter(builder, noValueSet);
+
                 marshaller.writeObject(rec, writer);
+
+                out.out().packBinaryTuple(builder, noValueSet);
             }
         } catch (MarshallerException e) {
             throw new IgniteException(UNKNOWN_ERR, e.getMessage(), e);
         }
 
-        out.out().packBinaryTuple(builder, noValueSet);
     }
 
     Collection<R> readRecs(ClientSchema schema, ClientMessageUnpacker in, boolean nullable, TuplePart part) {
@@ -183,15 +186,14 @@ public class ClientRecordSerializer<R> {
 
         Marshaller marshaller = schema.getMarshaller(mapper, part);
 
-        // TODO IGNITE-17297 Do not allocate array, read from Netty buf directly.
-        var tupleReader = new BinaryTupleReader(schema.columns().length, in.readPayload(in.unpackBinaryHeader()));
-        var reader = new ClientMarshallerReader(tupleReader);
-
         try {
             for (int i = 0; i < cnt; i++) {
                 if (nullable && !in.unpackBoolean()) {
                     res.add(null);
                 } else {
+                    // TODO IGNITE-17297 Do not allocate array, read from Netty buf directly.
+                    var tupleReader = new BinaryTupleReader(schema.columns().length, in.readPayload(in.unpackBinaryHeader()));
+                    var reader = new ClientMarshallerReader(tupleReader);
                     res.add((R) marshaller.readObject(reader, null));
                 }
             }
