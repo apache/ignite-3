@@ -47,6 +47,7 @@ import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
+import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
 import org.apache.ignite.internal.client.proto.ClientDataType;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.lang.IgniteBiTuple;
@@ -295,13 +296,12 @@ public class ClientTupleSerializer {
 
         // TODO IGNITE-17297: Read from Netty buf directly (easier) OR wrap netty buf in a Tuple impl (may be hard with multiple tuples)
         var binTupleBuf = in.readPayload(in.unpackBinaryHeader());
-        var binTuple = new BinaryTupleReader(colCnt - keyColCnt, binTupleBuf);
+        var binTupleReader = new BinaryTupleReader(colCnt - keyColCnt, binTupleBuf);
 
         for (var i = keyColCnt; i < colCnt; i++) {
             ClientColumn col = schema.columns()[i];
-            Object val = in.unpackObject(col.type());
-
-            valTuple.setInternal(i - keyColCnt, val);
+            ClientBinaryTupleUtils.readAndSetColumnValue(
+                    binTupleReader, i - keyColCnt, valTuple, col.name(), col.type());
         }
 
         return valTuple;
