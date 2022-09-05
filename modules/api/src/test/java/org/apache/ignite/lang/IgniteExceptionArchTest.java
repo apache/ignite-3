@@ -17,13 +17,16 @@
 
 package org.apache.ignite.lang;
 
+import com.tngtech.archunit.base.Optional;
 import com.tngtech.archunit.core.domain.JavaClass;
+import com.tngtech.archunit.core.domain.JavaConstructor;
 import com.tngtech.archunit.core.importer.Location;
 import com.tngtech.archunit.junit.AnalyzeClasses;
 import com.tngtech.archunit.junit.ArchTest;
 import com.tngtech.archunit.junit.LocationProvider;
 import com.tngtech.archunit.lang.ArchCondition;
 import com.tngtech.archunit.lang.ArchRule;
+import com.tngtech.archunit.lang.ConditionEvent;
 import com.tngtech.archunit.lang.ConditionEvents;
 import com.tngtech.archunit.lang.SimpleConditionEvent;
 import com.tngtech.archunit.lang.syntax.ArchRuleDefinition;
@@ -42,7 +45,7 @@ public class IgniteExceptionArchTest {
         @Override
         public Set<Location> get(Class<?> testClass) {
             // ignite-3/modules
-            var modulesRoot = Path.of("").toAbsolutePath().getParent();
+            Path modulesRoot = Path.of("").toAbsolutePath().getParent();
 
             return Set.of(Location.of(modulesRoot));
         }
@@ -52,6 +55,7 @@ public class IgniteExceptionArchTest {
     @ArchTest
     public static final ArchRule IGNITE_EXCEPTIONS_HAVE_REQUIRED_CONSTRUCTORS = ArchRuleDefinition.classes()
             .that().areAssignableTo(IgniteException.class)
+            .or().areAssignableTo(IgniteCheckedException.class)
             .should(new ArchCondition<>("have standard IgniteException constructor") {
                 @Override
                 public void check(JavaClass javaClass, ConditionEvents conditionEvents) {
@@ -60,10 +64,10 @@ public class IgniteExceptionArchTest {
                     }
 
                     System.out.println("Checking class: " + javaClass.getName());
-                    var ctor = javaClass.tryGetConstructor(UUID.class, int.class, String.class, Throwable.class);
+                    Optional<JavaConstructor> ctor = javaClass.tryGetConstructor(UUID.class, int.class, String.class, Throwable.class);
 
                     if (!ctor.isPresent()) {
-                        var event = SimpleConditionEvent.violated(
+                        ConditionEvent event = SimpleConditionEvent.violated(
                                 javaClass,
                                 javaClass.getName() + " does not have a standard constructor with "
                                         + "(UUID traceId, int code, String message, Throwable cause) signature.");
