@@ -225,7 +225,8 @@ public class ClientRecordSerializer<R> {
         Marshaller valMarshaller = schema.getMarshaller(mapper, TuplePart.VAL);
 
         // TODO IGNITE-17297 Do not allocate array, read from Netty buf directly.
-        var tupleReader = new BinaryTupleReader(schema.columns().length, in.readPayload(in.unpackBinaryHeader()));
+        var tupleReader = new BinaryTupleReader(
+                schema.columns().length - schema.keyColumnCount(), in.readPayload(in.unpackBinaryHeader()));
         ClientMarshallerReader reader = new ClientMarshallerReader(tupleReader);
 
         try {
