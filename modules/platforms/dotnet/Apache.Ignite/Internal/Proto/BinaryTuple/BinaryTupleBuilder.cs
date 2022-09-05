@@ -103,9 +103,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             int nullIndex = BinaryTupleCommon.NullOffset(_elementIndex);
             byte nullMask = BinaryTupleCommon.NullMask(_elementIndex);
 
-            var span = _buffer.GetSpan(nullIndex, 1);
-
-            span[0] |= nullMask;
+            _buffer[nullIndex] |= nullMask;
 
             OnWrite();
         }
