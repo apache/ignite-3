@@ -815,10 +815,7 @@ public class ClientMessagePacker implements AutoCloseable {
 
         Class<?> cls = obj.getClass();
 
-        if (cls == Boolean.class) {
-            packInt(ClientDataType.BOOLEAN);
-            packBoolean((Boolean) obj);
-        } else if (cls == Byte.class) {
+        if (cls == Byte.class) {
             packInt(ClientDataType.INT8);
             packByte((Byte) obj);
         } else if (cls == Short.class) {
@@ -871,9 +868,6 @@ public class ClientMessagePacker implements AutoCloseable {
         } else if (cls == BigDecimal.class) {
             packInt(ClientDataType.DECIMAL);
             packDecimal(((BigDecimal) obj));
-        } else if (cls == BigInteger.class) {
-            packInt(ClientDataType.BIGINTEGER);
-            packBigInteger(((BigInteger) obj));
         } else if (cls == BitSet.class) {
             packInt(ClientDataType.BITMASK);
             packBitSet((BitSet) obj);
