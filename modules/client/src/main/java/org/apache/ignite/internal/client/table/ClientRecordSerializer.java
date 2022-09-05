@@ -130,18 +130,25 @@ public class ClientRecordSerializer<R> {
         out.out().packInt(schema.version());
 
         Marshaller marshaller = schema.getMarshaller(mapper, part);
-        var builder = BinaryTupleBuilder.create(columnCount(schema, part), true);
-        var noValueSet = new BitSet();
-        ClientMarshallerWriter writer = new ClientMarshallerWriter(builder, noValueSet);
+        int columnCount = columnCount(schema, part);
 
         try {
+            // TODO: Extract this repeating logic
+            var builder = BinaryTupleBuilder.create(columnCount, true);
+            var noValueSet = new BitSet();
+            ClientMarshallerWriter writer = new ClientMarshallerWriter(builder, noValueSet);
             marshaller.writeObject(rec, writer);
+            out.out().packBinaryTuple(builder, noValueSet);
+
+            builder = BinaryTupleBuilder.create(columnCount, true);
+            noValueSet = new BitSet();
+            writer = new ClientMarshallerWriter(builder, noValueSet);
             marshaller.writeObject(rec2, writer);
+            out.out().packBinaryTuple(builder, noValueSet);
         } catch (MarshallerException e) {
             throw new IgniteException(UNKNOWN_ERR, e.getMessage(), e);
         }
 
-        out.out().packBinaryTuple(builder, noValueSet);
     }
 
     void writeRecs(
