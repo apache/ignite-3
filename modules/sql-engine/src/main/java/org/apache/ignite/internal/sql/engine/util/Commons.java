@@ -124,6 +124,28 @@ public final class Commons {
 
     public static final int IN_BUFFER_SIZE = 512;
 
+    public static final SqlParser.Config PARSER_CONFIG = SqlParser.config()
+            .withParserFactory(IgniteSqlParserImpl.FACTORY)
+            .withLex(Lex.ORACLE)
+            .withConformance(IgniteSqlConformance.INSTANCE);
+
+    @SuppressWarnings("rawtypes")
+    public static final List<RelTraitDef> DISTRIBUTED_TRAITS_SET = List.of(
+            ConventionTraitDef.INSTANCE,
+            RelCollationTraitDef.INSTANCE,
+            DistributionTraitDef.INSTANCE,
+            RewindabilityTraitDef.INSTANCE,
+            CorrelationTraitDef.INSTANCE
+    );
+
+    @SuppressWarnings("rawtypes")
+    public static final List<RelTraitDef> LOCAL_TRAITS_SET = List.of(
+            ConventionTraitDef.INSTANCE,
+            RelCollationTraitDef.INSTANCE,
+            RewindabilityTraitDef.INSTANCE,
+            CorrelationTraitDef.INSTANCE
+    );
+
     public static final FrameworkConfig FRAMEWORK_CONFIG = Frameworks.newConfigBuilder()
             .executor(new RexExecutorImpl(DataContexts.EMPTY))
             .sqlToRelConverterConfig(SqlToRelConverter.config()
@@ -142,11 +164,7 @@ public final class Commons {
                     )
             )
             .convertletTable(IgniteConvertletTable.INSTANCE)
-            .parserConfig(
-                    SqlParser.config()
-                            .withParserFactory(IgniteSqlParserImpl.FACTORY)
-                            .withLex(Lex.ORACLE)
-                            .withConformance(IgniteSqlConformance.INSTANCE))
+            .parserConfig(PARSER_CONFIG)
             .sqlValidatorConfig(SqlValidator.Config.DEFAULT
                     .withIdentifierExpansion(true)
                     .withDefaultNullCollation(NullCollation.LOW)
@@ -159,13 +177,7 @@ public final class Commons {
             // Custom cost factory to use during optimization
             .costFactory(new IgniteCostFactory())
             .typeSystem(IgniteTypeSystem.INSTANCE)
-            .traitDefs(new RelTraitDef<?>[] {
-                    ConventionTraitDef.INSTANCE,
-                    RelCollationTraitDef.INSTANCE,
-                    DistributionTraitDef.INSTANCE,
-                    RewindabilityTraitDef.INSTANCE,
-                    CorrelationTraitDef.INSTANCE,
-            })
+            .traitDefs(DISTRIBUTED_TRAITS_SET)
             .build();
 
     private static Boolean implicitPkEnabled;
