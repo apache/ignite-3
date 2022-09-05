@@ -182,7 +182,7 @@ public class ClientTupleSerializer {
                             ? val.valueOrDefault(col.name(), NO_VALUE)
                             : NO_VALUE;
 
-            appendValue(builder, noValueSet, col,  v);
+            appendValue(builder, noValueSet, col, v);
         }
 
         out.out().packBinaryTuple(builder, noValueSet);
@@ -441,7 +441,6 @@ public class ClientTupleSerializer {
                 return;
 
             case ClientDataType.NUMBER:
-            case ClientDataType.BIGINTEGER:
                 builder.appendNumber((BigInteger) v);
                 return;
 
