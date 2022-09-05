@@ -21,11 +21,47 @@ package org.apache.ignite.internal.tx;
  * Lock mode.
  */
 public enum LockMode {
-    INTENTION_SHARED,
-    INTENTION_EXCLUSIVE,
-    SHARED,
-    SHARED_AND_INTENTION_EXCLUSIVE,
-    EXCLUSIVE;
+    /** Intention shared. */
+    IS,
+
+    /** Intention exclusive. */
+    IX,
+
+    /** Shared. */
+    S,
+
+    /** Shared intention exclusive. */
+    SIX,
+
+    /** Exclusive. */
+    X;
+
+    /** Lock mode compatibility matrix. */
+    protected static final boolean[][] COMPAT_MATRIX = {
+            {true, true, true, true, false},
+            {true, true, false, false, false},
+            {true, false, true, false, false},
+            {true, false, false, false, false},
+            {false, false, false, false, false},
+    };
+
+    /** Lock mode reenter matrix. */
+    protected static final boolean[][] REENTER_MATRIX = {
+            {true, false, false, false, false},
+            {true, true, false, false, false},
+            {true, false, true, false, false},
+            {true, true, true, true, false},
+            {true, true, true, true, true},
+    };
+
+    /** Lock mode upgrade matrix. */
+    protected static final LockMode[][] UPGRADE_MATRIX = {
+            {IS, IX, S, SIX, X},
+            {IX, IX, SIX, SIX, X},
+            {S, SIX, S, SIX, X},
+            {SIX, SIX, SIX, SIX, X},
+            {X, X, X, X, X},
+    };
 
     /**
      * Is this lock mode compatible with the specified lock mode.
@@ -34,47 +70,7 @@ public enum LockMode {
      * @return Is this lock mode compatible with the specified lock mode.
      */
     public boolean isCompatible(LockMode lockMode) {
-        switch (this) {
-            case INTENTION_SHARED:
-                switch (lockMode) {
-                    case INTENTION_SHARED:
-                    case INTENTION_EXCLUSIVE:
-                    case SHARED:
-                    case SHARED_AND_INTENTION_EXCLUSIVE:
-                        return true;
-                    default:
-                        return false;
-
-                }
-            case INTENTION_EXCLUSIVE:
-                switch (lockMode) {
-                    case INTENTION_SHARED:
-                    case INTENTION_EXCLUSIVE:
-                        return true;
-                    default:
-                        return false;
-
-                }
-            case SHARED:
-                switch (lockMode) {
-                    case INTENTION_SHARED:
-                    case SHARED:
-                        return true;
-                    default:
-                        return false;
-
-                }
-            case SHARED_AND_INTENTION_EXCLUSIVE:
-                switch (lockMode) {
-                    case INTENTION_SHARED:
-                        return true;
-                    default:
-                        return false;
-
-                }
-            default:
-                return false;
-        }
+        return COMPAT_MATRIX[ordinal()][lockMode.ordinal()];
     }
 
     /**
@@ -84,58 +80,17 @@ public enum LockMode {
      * @return Is this lock mode can be reentered.
      */
     public boolean allowReenter(LockMode lockMode) {
-        switch (this) {
-            case INTENTION_SHARED:
-                switch (lockMode) {
-                    case INTENTION_SHARED:
-                        return true;
-                    default:
-                        return false;
+        return REENTER_MATRIX[ordinal()][lockMode.ordinal()];
+    }
 
-                }
-            case INTENTION_EXCLUSIVE:
-                switch (lockMode) {
-                    case INTENTION_SHARED:
-                    case INTENTION_EXCLUSIVE:
-                        return true;
-                    default:
-                        return false;
-
-                }
-            case SHARED:
-                switch (lockMode) {
-                    case INTENTION_SHARED:
-                    case SHARED:
-                        return true;
-                    default:
-                        return false;
-
-                }
-            case SHARED_AND_INTENTION_EXCLUSIVE:
-                switch (lockMode) {
-                    case INTENTION_SHARED:
-                    case INTENTION_EXCLUSIVE:
-                    case SHARED:
-                    case SHARED_AND_INTENTION_EXCLUSIVE:
-                        return true;
-                    default:
-                        return false;
-
-                }
-            case EXCLUSIVE:
-                switch (lockMode) {
-                    case INTENTION_SHARED:
-                    case INTENTION_EXCLUSIVE:
-                    case SHARED:
-                    case SHARED_AND_INTENTION_EXCLUSIVE:
-                    case EXCLUSIVE:
-                        return true;
-                    default:
-                        return false;
-
-                }
-            default:
-                return false;
-        }
+    /**
+     * Return the lock mode that is a supremum of the two given lock modes.
+     *
+     * @param lockMode1 Lock mode.
+     * @param lockMode2 Lock mode.
+     * @return The lock mode that is a supremum of the two given lock modes.
+     */
+    public static LockMode supremum(LockMode lockMode1, LockMode lockMode2) {
+        return UPGRADE_MATRIX[lockMode1.ordinal()][lockMode2.ordinal()];
     }
 }

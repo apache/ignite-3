@@ -155,7 +155,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         // Should rollback tx on lock error.
         LockKey lockKey = new LockKey(lockId, keyData);
 
-        return lockManager.acquire(txId, lockKey, LockMode.EXCLUSIVE);
+        return lockManager.acquire(txId, lockKey, LockMode.X);
     }
 
     /** {@inheritDoc} */
@@ -170,7 +170,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
         LockKey lockKey = new LockKey(lockId, keyData);
 
-        return lockManager.acquire(txId, lockKey, LockMode.SHARED);
+        return lockManager.acquire(txId, lockKey, LockMode.S);
     }
 
     /** {@inheritDoc} */

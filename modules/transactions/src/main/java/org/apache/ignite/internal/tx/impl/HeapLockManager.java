@@ -18,9 +18,6 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.internal.tx.LockMode.INTENTION_EXCLUSIVE;
-import static org.apache.ignite.internal.tx.LockMode.SHARED;
-import static org.apache.ignite.internal.tx.LockMode.SHARED_AND_INTENTION_EXCLUSIVE;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -187,10 +184,7 @@ public class HeapLockManager implements LockManager {
                     } else {
                         waiter.upgraded = true;
 
-                        if (prev.lockMode == INTENTION_EXCLUSIVE && lockMode == SHARED
-                                || prev.lockMode == SHARED && lockMode == INTENTION_EXCLUSIVE) {
-                            lockMode = SHARED_AND_INTENTION_EXCLUSIVE;
-                        }
+                        lockMode = LockMode.supremum(prev.lockMode, lockMode);
 
                         waiter.prevLockMode = prev.lockMode;
 
@@ -332,10 +326,10 @@ public class HeapLockManager implements LockManager {
                 WaiterImpl prev = waiters.remove(lock.txId());
 
                 if (prev != null) {
-                    if (prev.lockMode == INTENTION_EXCLUSIVE && lockMode == SHARED
-                            || prev.lockMode == SHARED && lockMode == INTENTION_EXCLUSIVE
+                    if (prev.lockMode == LockMode.IX && lockMode == LockMode.S
+                            || prev.lockMode == LockMode.S && lockMode == LockMode.IX
                             || prev.lockMode.compareTo(lockMode) < 0) {
-                        waiters.put(lock.txId(), waiter);
+                        waiters.put(lock.txId(), prev);
 
                         throw new LockException("Cannot change lock mode from "
                                 + prev.lockMode + " to " + lockMode);
