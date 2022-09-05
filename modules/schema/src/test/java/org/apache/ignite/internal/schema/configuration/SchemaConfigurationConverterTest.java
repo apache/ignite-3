@@ -36,6 +36,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.EntryCountBudgetConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
@@ -43,19 +44,20 @@ import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSch
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableValidator;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
+import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.schema.definition.ColumnDefinitionImpl;
-import org.apache.ignite.schema.SchemaBuilders;
+import org.apache.ignite.internal.schema.testutils.builder.HashIndexDefinitionBuilder;
+import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
+import org.apache.ignite.internal.schema.testutils.builder.SortedIndexDefinitionBuilder;
+import org.apache.ignite.internal.schema.testutils.builder.TableDefinitionBuilder;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.DefaultValueDefinition;
 import org.apache.ignite.schema.definition.DefaultValueDefinition.ConstantValue;
 import org.apache.ignite.schema.definition.DefaultValueDefinition.FunctionCall;
 import org.apache.ignite.schema.definition.DefaultValueGenerators;
 import org.apache.ignite.schema.definition.TableDefinition;
-import org.apache.ignite.schema.definition.builder.HashIndexDefinitionBuilder;
-import org.apache.ignite.schema.definition.builder.SortedIndexDefinitionBuilder;
-import org.apache.ignite.schema.definition.builder.TableDefinitionBuilder;
 import org.apache.ignite.schema.definition.index.HashIndexDefinition;
 import org.apache.ignite.schema.definition.index.IndexColumnDefinition;
 import org.apache.ignite.schema.definition.index.IndexDefinition;
@@ -98,7 +100,9 @@ public class SchemaConfigurationConverterTest extends AbstractSchemaConverterTes
                         UnknownDataStorageConfigurationSchema.class,
                         ConstantValueDefaultConfigurationSchema.class,
                         FunctionCallDefaultConfigurationSchema.class,
-                        NullValueDefaultConfigurationSchema.class
+                        NullValueDefaultConfigurationSchema.class,
+                        UnlimitedBudgetConfigurationSchema.class,
+                        EntryCountBudgetConfigurationSchema.class
                 )
         );
 

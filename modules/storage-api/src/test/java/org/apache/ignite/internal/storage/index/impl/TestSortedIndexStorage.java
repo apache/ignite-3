@@ -29,8 +29,6 @@ import java.util.function.ToIntFunction;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.index.IndexRow;
-import org.apache.ignite.internal.storage.index.IndexRowDeserializer;
-import org.apache.ignite.internal.storage.index.IndexRowSerializer;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.util.Cursor;
@@ -58,20 +56,12 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
     }
 
     @Override
-    public IndexRowSerializer indexRowSerializer() {
-        return new BinaryTupleRowSerializer(descriptor);
-    }
-
-    @Override
-    public IndexRowDeserializer indexRowDeserializer() {
-        return new BinaryTupleRowDeserializer(descriptor);
-    }
-
-    @Override
     public void put(IndexRow row) {
         index.compute(row.indexColumns(), (k, v) -> {
             if (v == null) {
                 return Set.of(row.rowId());
+            } else if (v.contains(row.rowId())) {
+                return v;
             } else {
                 var result = new HashSet<RowId>(capacity(v.size() + 1));
 

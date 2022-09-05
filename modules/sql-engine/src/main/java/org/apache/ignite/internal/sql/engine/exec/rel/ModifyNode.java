@@ -27,6 +27,8 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import org.apache.calcite.rel.core.TableModify;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
@@ -36,14 +38,16 @@ import org.apache.ignite.internal.sql.engine.schema.ModifyRow;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteStringFormatter;
+import org.apache.ignite.lang.ErrorGroups;
+import org.apache.ignite.sql.SqlException;
 
 /**
  * ModifyNode.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<RowT>, Downstream<RowT> {
+    private static final IgniteLogger LOG = Loggers.forClass(ModifyNode.class);
+
     private final InternalIgniteTable table;
 
     private final TableModify.Operation modifyOp;
@@ -255,15 +259,10 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
     }
 
     /** Transforms keys list to appropriate exception. */
-    private IgniteInternalException conflictKeysException(List<String> conflictKeys) {
-        if (modifyOp == TableModify.Operation.INSERT) {
-            return new IgniteInternalException("Failed to INSERT some keys because they are already in cache. "
-                    + "[rows=" + conflictKeys + ']');
-        } else {
-            return new IgniteInternalException(
-                    IgniteStringFormatter.format("Failed to MERGE some keys due to keys conflict or concurrent updates, "
-                            + "clashed input rows: {}", conflictKeys));
-        }
+    private RuntimeException conflictKeysException(List<String> conflictKeys) {
+        LOG.debug("Unable to update some keys because of conflict [op={}, keys={}]", modifyOp, conflictKeys);
+
+        return new SqlException(ErrorGroups.Sql.DUPLICATE_KEYS_ERR, "PK unique constraint is violated");
     }
 
     private enum State {

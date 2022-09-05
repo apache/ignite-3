@@ -46,6 +46,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.BiConsumer;
@@ -582,7 +583,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                             LOG.warn("Recoverable error during the request type={} occurred (will be retried on the randomly selected node): ",
                                     err, req.getClass().getSimpleName());
 
-                            sendWithRetry(randomNode(), req, stopTime, fut);
+                            sendWithRetry(randomNode(peer), req, stopTime, fut);
 
                             return null;
                         }, retryDelay, TimeUnit.MILLISECONDS);
@@ -603,7 +604,17 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                         resp0.errorCode() == (RaftError.EAGAIN.getNumber()) ||
                         resp0.errorCode() == (RaftError.ENOENT.getNumber())) { // Possibly a node has not been started.
                         executor.schedule(() -> {
-                            sendWithRetry(peer, req, stopTime, fut);
+                            Peer targetPeer = peer;
+
+                            if (resp0.errorCode() == RaftError.ENOENT.getNumber()) {
+                                // If changing peers or requesting a leader and something is not found
+                                // probably target peer is doing rebalancing, try another peer.
+                                if (req instanceof GetLeaderRequest || req instanceof ChangePeersAsyncRequest) {
+                                    targetPeer = randomNode(peer);
+                                }
+                            }
+
+                            sendWithRetry(targetPeer, req, stopTime, fut);
 
                             return null;
                         }, retryDelay, TimeUnit.MILLISECONDS);
@@ -614,7 +625,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                         resp0.errorCode() == RaftError.EINTERNAL.getNumber()) {
                         if (resp0.leaderId() == null) {
                             executor.schedule(() -> {
-                                sendWithRetry(randomNode(), req, stopTime, fut);
+                                sendWithRetry(randomNode(peer), req, stopTime, fut);
 
                                 return null;
                             }, retryDelay, TimeUnit.MILLISECONDS);
@@ -679,15 +690,45 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         return t instanceof TimeoutException || t instanceof IOException;
     }
 
-    /**
-     * @return Random node.
-     */
     private Peer randomNode() {
+        return randomNode(null);
+    }
+
+    /**
+     * Returns a random peer. Tries 5 times finding a peer different from the excluded peer.
+     * If excluded peer is null, just returns a random peer.
+     *
+     * @param excludedPeer Excluded peer.
+     * @return Random peer.
+     */
+    private Peer randomNode(Peer excludedPeer) {
         List<Peer> peers0 = peers;
 
         assert peers0 != null && !peers0.isEmpty();
 
-        return peers0.get(current().nextInt(peers0.size()));
+        int lastPeerIndex = -1;
+
+        if (excludedPeer != null) {
+            lastPeerIndex = peers0.indexOf(excludedPeer);
+        }
+
+        int retries = 0;
+
+        ThreadLocalRandom random = current();
+
+        int newIdx = 0;
+
+        while (retries < 5) {
+            newIdx = random.nextInt(peers0.size());
+
+            if (newIdx != lastPeerIndex) {
+                break;
+            }
+
+            retries++;
+        }
+
+        return peers0.get(newIdx);
     }
 
     /**

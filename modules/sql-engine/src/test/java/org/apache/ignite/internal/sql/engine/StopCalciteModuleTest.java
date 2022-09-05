@@ -47,13 +47,16 @@ import java.util.function.Function;
 import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.EntryCountBudgetConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
+import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.EventListener;
@@ -74,6 +77,7 @@ import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.table.event.TableEventParameters;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.NodeStoppingException;
@@ -108,6 +112,9 @@ public class StopCalciteModuleTest {
     TableManager tableManager;
 
     @Mock
+    IndexManager indexManager;
+
+    @Mock
     SchemaManager schemaManager;
 
     @Mock
@@ -115,6 +122,9 @@ public class StopCalciteModuleTest {
 
     @Mock
     MessagingService msgSrvc;
+
+    @Mock
+    TxManager txManager;
 
     @Mock
     TopologyService topologySrvc;
@@ -131,7 +141,9 @@ public class StopCalciteModuleTest {
             UnknownDataStorageConfigurationSchema.class,
             ConstantValueDefaultConfigurationSchema.class,
             FunctionCallDefaultConfigurationSchema.class,
-            NullValueDefaultConfigurationSchema.class
+            NullValueDefaultConfigurationSchema.class,
+            UnlimitedBudgetConfigurationSchema.class,
+            EntryCountBudgetConfigurationSchema.class
     })
     TablesConfiguration tablesConfig;
 
@@ -213,8 +225,10 @@ public class StopCalciteModuleTest {
                 testRevisionRegister,
                 clusterSrvc,
                 tableManager,
+                indexManager,
                 schemaManager,
                 dataStorageManager,
+                txManager,
                 Map::of
         );
 

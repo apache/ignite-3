@@ -24,10 +24,6 @@ import static org.junit.jupiter.params.ParameterizedTest.ARGUMENTS_PLACEHOLDER;
 import java.util.List;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
-import org.apache.ignite.schema.SchemaBuilders;
-import org.apache.ignite.schema.definition.ColumnType;
-import org.apache.ignite.schema.definition.TableDefinition;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -47,6 +43,12 @@ public class ItIndexSpoolTest extends AbstractBasicIntegrationTest {
         if (LOG.isInfoEnabled()) {
             LOG.info("Start cleanUp()");
         }
+
+        //TODO: https://issues.apache.org/jira/browse/IGNITE-17562
+        // Remove this, indices must be dropped together with the table.
+        CLUSTER_NODES.get(0).tables().tables().stream()
+                .map(Table::name)
+                .forEach(name -> sql("DROP INDEX IF EXISTS " + name + "_JID_IDX"));
 
         CLUSTER_NODES.get(0).tables().tables().stream()
                 .map(Table::name)
@@ -75,26 +77,6 @@ public class ItIndexSpoolTest extends AbstractBasicIntegrationTest {
         res.forEach(r -> assertThat(r.get(0), is(r.get(1))));
     }
 
-    private Table createTable(String tableName) {
-        TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", tableName)
-                .columns(
-                        SchemaBuilders.column("ID", ColumnType.INT32).build(),
-                        SchemaBuilders.column("JID", ColumnType.INT32).asNullable(true).build(),
-                        SchemaBuilders.column("VAL", ColumnType.string()).asNullable(true).build()
-                )
-                .withPrimaryKey("ID")
-                .withIndex(
-                        SchemaBuilders.sortedIndex(tableName + "_JID_IDX").addIndexColumn("JID").done().build()
-                )
-                .build();
-
-        return CLUSTER_NODES.get(0).tables().createTable(schTbl1.canonicalName(), tblCh ->
-                SchemaConfigurationConverter.convert(schTbl1, tblCh)
-                        .changeReplicas(2)
-                        .changePartitions(10)
-        );
-    }
-
     private void prepareDataSet(int rowsCount) {
         Object[][] dataRows = new Object[rowsCount][];
 
@@ -103,9 +85,12 @@ public class ItIndexSpoolTest extends AbstractBasicIntegrationTest {
         }
 
         for (String name : List.of("TEST0", "TEST1")) {
-            Table tbl = createTable(name);
+            sql("CREATE TABLE " + name + "(id INT PRIMARY KEY, jid INT, val VARCHAR) WITH replicas=2,partitions=10");
 
-            insertData(tbl, new String[]{"ID", "JID", "VAL"}, dataRows);
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-17304 uncomment this
+            // sql("CREATE INDEX " + name + "_jid_idx ON " + name + "(jid)");
+
+            insertData("PUBLIC." + name, new String[]{"ID", "JID", "VAL"}, dataRows);
         }
     }
 }

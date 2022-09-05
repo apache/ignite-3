@@ -34,6 +34,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.Cursor;
@@ -185,9 +186,7 @@ public abstract class AbstractClusterStateStorageTest {
     @Test
     void testGetWithPrefixBorder() throws Exception {
         byte[] key1 = "key1".getBytes(UTF_8);
-        byte[] key2 = key1.clone();
-
-        key2[key2.length - 1] += 1;
+        byte[] key2 = RocksUtils.rangeEnd(key1);
 
         storage.put(key1, "value1".getBytes(UTF_8));
         storage.put(key2, "value2".getBytes(UTF_8));

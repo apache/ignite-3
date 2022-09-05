@@ -36,9 +36,9 @@ public class DynamicCompleterActivationPoint {
      * Registers all dynamic completers in given {@link DynamicCompleterRegistry}.
      */
     public void activateDynamicCompleter(DynamicCompleterRegistry registry) {
-        registry.register(new String[]{"cluster", "config", "show"}, factory.clusterConfigCompleter("--selector"));
+        registry.register(new String[]{"cluster", "config", "show"}, factory.clusterConfigCompleter(""));
         registry.register(new String[]{"cluster", "config", "update"}, factory.clusterConfigCompleter(""));
-        registry.register(new String[]{"node", "config", "show"}, factory.nodeConfigCompleter("--selector"));
+        registry.register(new String[]{"node", "config", "show"}, factory.nodeConfigCompleter(""));
         registry.register(new String[]{"node", "config", "update"}, factory.nodeConfigCompleter(""));
     }
 }

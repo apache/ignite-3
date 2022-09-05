@@ -311,7 +311,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
                 assertEquals(i + 1, updCnts[i], "Invalid update count: " + i);
             }
 
-            if (!e.getMessage().contains("Failed to INSERT some keys because they are already in cache")) {
+            if (!e.getMessage().contains("PK unique constraint is violated")) {
                 log.error("Invalid exception: ", e);
 
                 fail();

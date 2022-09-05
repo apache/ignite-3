@@ -130,6 +130,8 @@ import org.apache.ignite.raft.jraft.util.concurrent.LongHeldDetectingReadWriteLo
 public class NodeImpl implements Node, RaftServerService {
     private static final IgniteLogger LOG = Loggers.forClass(NodeImpl.class);
 
+    public static final Status LEADER_STEPPED_DOWN = new Status(RaftError.EPERM, "Leader stepped down.");
+
     // Max retry times when applying tasks.
     private static final int MAX_APPLY_RETRY_TIMES = 3;
 
@@ -461,8 +463,7 @@ public class NodeImpl implements Node, RaftServerService {
                 };
 
                 // TODO: in case of changePeerAsync this invocation is useless as far as we have already sent OK response in done closure.
-                Utils.runClosureInThread(this.node.getOptions().getCommonExecutor(), newDone, st != null ? st :
-                        new Status(RaftError.EPERM, "Leader stepped down."));
+                Utils.runClosureInThread(this.node.getOptions().getCommonExecutor(), newDone, st != null ? st : LEADER_STEPPED_DOWN);
                 this.done = null;
             }
         }

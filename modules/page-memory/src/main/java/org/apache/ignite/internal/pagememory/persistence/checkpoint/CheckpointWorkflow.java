@@ -28,7 +28,6 @@ import static org.apache.ignite.internal.pagememory.persistence.checkpoint.Check
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.FINISHED;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_RELEASED;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_TAKEN;
-import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.MARKER_STORED_TO_DISK;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.PAGES_SNAPSHOT_TAKEN;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.PAGES_SORTED;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
@@ -80,9 +79,6 @@ class CheckpointWorkflow {
 
     private static final IgniteLogger LOG = Loggers.forClass(CheckpointWorkflow.class);
 
-    /** Checkpoint marker storage. */
-    private final CheckpointMarkersStorage checkpointMarkersStorage;
-
     /** Checkpoint lock. */
     private final CheckpointReadWriteLock checkpointReadWriteLock;
 
@@ -105,19 +101,16 @@ class CheckpointWorkflow {
      * Constructor.
      *
      * @param igniteInstanceName Ignite instance name.
-     * @param checkpointMarkersStorage Checkpoint marker storage.
      * @param checkpointReadWriteLock Checkpoint read write lock.
      * @param dataRegions Persistent data regions for the checkpointing, doesn't copy.
      * @param checkpointThreads Number of checkpoint threads.
      */
     public CheckpointWorkflow(
             String igniteInstanceName,
-            CheckpointMarkersStorage checkpointMarkersStorage,
             CheckpointReadWriteLock checkpointReadWriteLock,
             Collection<? extends DataRegion<PersistentPageMemory>> dataRegions,
             int checkpointThreads
     ) {
-        this.checkpointMarkersStorage = checkpointMarkersStorage;
         this.checkpointReadWriteLock = checkpointReadWriteLock;
         this.dataRegions = dataRegions;
 
@@ -261,10 +254,6 @@ class CheckpointWorkflow {
         }
 
         if (dirtyPages.dirtyPageCount > 0) {
-            checkpointMarkersStorage.onCheckpointBegin(curr.id());
-
-            curr.transitTo(MARKER_STORED_TO_DISK);
-
             tracker.onSplitAndSortCheckpointPagesStart();
 
             updateHeartbeat.run();
@@ -299,8 +288,6 @@ class CheckpointWorkflow {
         }
 
         if (chp.hasDelta()) {
-            checkpointMarkersStorage.onCheckpointEnd(chp.progress.id());
-
             chp.progress.pagesToWrite(null);
 
             chp.progress.clearCounters();

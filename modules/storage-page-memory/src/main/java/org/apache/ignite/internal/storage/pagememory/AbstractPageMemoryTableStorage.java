@@ -20,6 +20,7 @@ package org.apache.ignite.internal.storage.pagememory;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicReferenceArray;
@@ -29,6 +30,7 @@ import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
+import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage;
 import org.apache.ignite.internal.tostring.S;
@@ -106,7 +108,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
 
     /** {@inheritDoc} */
     @Override
-    public AbstractPageMemoryMvPartitionStorage getMvPartition(int partitionId) {
+    public @Nullable AbstractPageMemoryMvPartitionStorage getMvPartition(int partitionId) {
         assert started : "Storage has not started yet";
 
         if (partitionId < 0 || partitionId >= mvPartitions.length()) {
@@ -141,19 +143,18 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
 
     /** {@inheritDoc} */
     @Override
-    public void createIndex(String indexName) {
+    public SortedIndexStorage getOrCreateSortedIndex(int partitionId, UUID indexId) {
+        throw new UnsupportedOperationException("Not implemented yet");
+    }
+
+    @Override
+    public HashIndexStorage getOrCreateHashIndex(int partitionId, UUID indexId) {
         throw new UnsupportedOperationException("Not implemented yet");
     }
 
     /** {@inheritDoc} */
     @Override
-    public @Nullable SortedIndexStorage getSortedIndex(int partitionId, String indexName) {
-        throw new UnsupportedOperationException("Not implemented yet");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<Void> destroyIndex(String indexName) {
+    public CompletableFuture<Void> destroyIndex(UUID indexId) {
         throw new UnsupportedOperationException("Not implemented yet");
     }
 

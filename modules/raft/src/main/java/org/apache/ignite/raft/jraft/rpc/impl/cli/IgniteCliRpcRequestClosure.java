@@ -74,9 +74,9 @@ public class IgniteCliRpcRequestClosure implements Closure {
             if (err.errorCode() == RaftError.EPERM.getNumber()) {
                 newLeader = node.getLeaderId();
 
-                delegate.sendResponse(
-                    RaftRpcFactory.DEFAULT
-                        .newResponse(newLeader.toString(), getMsgFactory(), RaftError.EPERM, err.errorMsg()));
+                String leaderId = newLeader != null ? newLeader.toString() : null;
+
+                delegate.sendResponse(RaftRpcFactory.DEFAULT.newResponse(leaderId, getMsgFactory(), RaftError.EPERM, err.errorMsg()));
                 return;
             }
         }

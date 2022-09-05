@@ -17,8 +17,7 @@
 
 package org.apache.ignite.cli.commands;
 
-import jakarta.inject.Singleton;
-import org.apache.ignite.cli.commands.cliconfig.CliCommand;
+import org.apache.ignite.cli.commands.cliconfig.CliReplCommand;
 import org.apache.ignite.cli.commands.cluster.ClusterReplCommand;
 import org.apache.ignite.cli.commands.connect.ConnectCommand;
 import org.apache.ignite.cli.commands.connect.DisconnectCommand;
@@ -39,13 +38,12 @@ import picocli.shell.jline3.PicocliCommands;
                 PicocliCommands.ClearScreen.class,
                 CommandLine.HelpCommand.class,
                 VersionCommand.class,
-                CliCommand.class,
+                CliReplCommand.class,
                 BootstrapIgniteCommandSpec.class,
                 ConnectCommand.class,
                 DisconnectCommand.class,
                 NodeReplCommand.class,
                 ClusterReplCommand.class
         })
-@Singleton
 public class TopLevelCliReplCommand {
 }

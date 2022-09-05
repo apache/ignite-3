@@ -22,6 +22,8 @@ import static org.apache.ignite.configuration.schemas.store.UnknownDataStorageCo
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine.ENGINE_NAME;
 import static org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
@@ -49,12 +51,14 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.EntryCountBudgetConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
+import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.notifications.ConfigurationStorageRevisionListenerHolder;
@@ -62,11 +66,15 @@ import org.apache.ignite.internal.configuration.schema.ExtendedTableConfiguratio
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.testframework.InjectRevisionListenerHolder;
+import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
+import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.SchemaUtils;
+import org.apache.ignite.internal.sql.engine.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
@@ -82,6 +90,7 @@ import org.apache.ignite.internal.storage.rocksdb.RocksDbDataStorageModule;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageView;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
+import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -169,12 +178,16 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                     TestConcurrentHashMapDataStorageConfigurationSchema.class,
                     ConstantValueDefaultConfigurationSchema.class,
                     FunctionCallDefaultConfigurationSchema.class,
-                    NullValueDefaultConfigurationSchema.class
+                    NullValueDefaultConfigurationSchema.class,
+                    UnlimitedBudgetConfigurationSchema.class,
+                    EntryCountBudgetConfigurationSchema.class
             }
     )
     private TablesConfiguration tblsCfg;
 
     TableManager tblManager;
+
+    IndexManager idxManager;
 
     SqlQueryProcessor queryProc;
 
@@ -224,6 +237,9 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     /** Inner initialisation. */
     @BeforeEach
     void before() throws Exception {
+        when(rm.messagingService()).thenReturn(mock(MessagingService.class));
+        when(rm.topologyService()).thenReturn(mock(TopologyService.class));
+
         revisionUpdater = (Function<Long, CompletableFuture<?>> function) -> {
             function.apply(0L).join();
 
@@ -254,12 +270,18 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         tblManager = mockManagers();
 
+        idxManager = new IndexManager(tblManager, (lsnr) -> {});
+
+        idxManager.start();
+
         queryProc = new SqlQueryProcessor(
                 revisionUpdater,
                 cs,
                 tblManager,
+                idxManager,
                 schemaManager,
                 dataStorageManager,
+                tm,
                 () -> dataStorageModules.collectSchemasFields(List.of(
                         RocksDbDataStorageConfigurationSchema.class,
                         TestConcurrentHashMapDataStorageConfigurationSchema.class
@@ -280,7 +302,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
      */
     @Test
     public void testInnerTxInitiated() throws Exception {
-        SessionId sesId = queryProc.createSession(PropertiesHolder.holderFor(Map.of()));
+        SessionId sesId = queryProc.createSession(1000, PropertiesHolder.fromMap(Map.of()));
 
         InternalTransaction tx = mock(InternalTransaction.class);
 
@@ -309,25 +331,25 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         String newTblSql = String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) "
                 + "with partitions=1,replicas=1", curMethodName);
 
-        awaitFirst(queryProc.queryAsync("PUBLIC", newTblSql));
+        readFirst(queryProc.queryAsync("PUBLIC", newTblSql));
 
         assertTrue(tblManager.tables().stream().anyMatch(t -> t.name()
                 .equalsIgnoreCase("PUBLIC." + curMethodName)));
 
         String finalNewTblSql1 = newTblSql;
 
-        assertThrows(TableAlreadyExistsException.class, () -> awaitFirst(finalQueryProc.queryAsync("PUBLIC", finalNewTblSql1)));
+        assertThrows(TableAlreadyExistsException.class, () -> readFirst(finalQueryProc.queryAsync("PUBLIC", finalNewTblSql1)));
 
         String finalNewTblSql2 = String.format("CREATE TABLE \"PUBLIC\".%s (c1 int PRIMARY KEY, c2 varbinary(255)) "
                 + "with partitions=1,replicas=1", curMethodName);
 
-        assertThrows(TableAlreadyExistsException.class, () -> awaitFirst(finalQueryProc.queryAsync("PUBLIC", finalNewTblSql2)));
+        assertThrows(TableAlreadyExistsException.class, () -> readFirst(finalQueryProc.queryAsync("PUBLIC", finalNewTblSql2)));
 
         // todo: correct exception need to be thrown https://issues.apache.org/jira/browse/IGNITE-16084
-        assertThrows(SqlException.class, () -> awaitFirst(finalQueryProc.queryAsync("PUBLIC",
+        assertThrows(SqlException.class, () -> readFirst(finalQueryProc.queryAsync("PUBLIC",
                 "CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with partitions__wrong=1,replicas=1")));
 
-        assertThrows(SqlException.class, () -> awaitFirst(finalQueryProc.queryAsync("PUBLIC",
+        assertThrows(SqlException.class, () -> readFirst(finalQueryProc.queryAsync("PUBLIC",
                 "CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with partitions=1,replicas__wrong=1")));
 
         newTblSql = String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varchar(255))",
@@ -347,7 +369,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         String newTblSql = String.format("CREATE TABLE %s (c1 int, c2 int NOT NULL DEFAULT 1, c3 int, primary key(c1, c2))", curMethodName);
 
-        awaitFirst(queryProc.queryAsync("PUBLIC", newTblSql));
+        readFirst(queryProc.queryAsync("PUBLIC", newTblSql));
 
         assertTrue(tblManager.tables().stream().anyMatch(t -> t.name()
                 .equalsIgnoreCase("PUBLIC." + curMethodName)));
@@ -362,24 +384,24 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         String newTblSql = String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varchar(255))", curMethodName);
 
-        awaitFirst(queryProc.queryAsync("PUBLIC", newTblSql));
+        readFirst(queryProc.queryAsync("PUBLIC", newTblSql));
 
-        awaitFirst(queryProc.queryAsync("PUBLIC", "DROP TABLE " + curMethodName));
+        readFirst(queryProc.queryAsync("PUBLIC", "DROP TABLE " + curMethodName));
 
         SqlQueryProcessor finalQueryProc = queryProc;
 
-        assertThrows(TableNotFoundException.class, () -> awaitFirst(finalQueryProc.queryAsync("PUBLIC",
+        assertThrows(TableNotFoundException.class, () -> readFirst(finalQueryProc.queryAsync("PUBLIC",
                 "DROP TABLE " + curMethodName + "_not_exist")));
 
-        assertThrows(TableNotFoundException.class, () -> awaitFirst(finalQueryProc.queryAsync("PUBLIC",
+        assertThrows(TableNotFoundException.class, () -> readFirst(finalQueryProc.queryAsync("PUBLIC",
                 "DROP TABLE " + curMethodName)));
 
-        assertThrows(TableNotFoundException.class, () -> awaitFirst(finalQueryProc.queryAsync("PUBLIC",
+        assertThrows(TableNotFoundException.class, () -> readFirst(finalQueryProc.queryAsync("PUBLIC",
                 "DROP TABLE PUBLIC." + curMethodName)));
 
-        awaitFirst(queryProc.queryAsync("PUBLIC", "DROP TABLE IF EXISTS PUBLIC." + curMethodName + "_not_exist"));
+        readFirst(queryProc.queryAsync("PUBLIC", "DROP TABLE IF EXISTS PUBLIC." + curMethodName + "_not_exist"));
 
-        awaitFirst(queryProc.queryAsync("PUBLIC", "DROP TABLE IF EXISTS PUBLIC." + curMethodName));
+        readFirst(queryProc.queryAsync("PUBLIC", "DROP TABLE IF EXISTS PUBLIC." + curMethodName));
 
         assertTrue(tblManager.tables().stream().noneMatch(t -> t.name()
                 .equalsIgnoreCase("PUBLIC." + curMethodName)));
@@ -396,40 +418,40 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         String newTblSql = String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varchar(255))", curMethodName);
 
-        awaitFirst(queryProc.queryAsync("PUBLIC", newTblSql));
+        readFirst(queryProc.queryAsync("PUBLIC", newTblSql));
 
         String alterCmd = String.format("ALTER TABLE %s ADD COLUMN (c3 varchar, c4 int)", curMethodName);
 
-        awaitFirst(queryProc.queryAsync("PUBLIC", alterCmd));
+        readFirst(queryProc.queryAsync("PUBLIC", alterCmd));
 
         String alterCmd1 = String.format("ALTER TABLE %s ADD COLUMN c5 int NOT NULL DEFAULT 1", curMethodName);
 
-        awaitFirst(queryProc.queryAsync("PUBLIC", alterCmd1));
+        readFirst(queryProc.queryAsync("PUBLIC", alterCmd1));
 
-        assertThrows(ColumnAlreadyExistsException.class, () -> awaitFirst(finalQueryProc.queryAsync("PUBLIC", alterCmd)));
+        assertThrows(ColumnAlreadyExistsException.class, () -> readFirst(finalQueryProc.queryAsync("PUBLIC", alterCmd)));
 
         String alterCmdNoTbl = String.format("ALTER TABLE %s ADD COLUMN (c3 varchar, c4 int)", curMethodName + "_notExist");
 
-        assertThrows(TableNotFoundException.class, () -> awaitFirst(queryProc.queryAsync("PUBLIC", alterCmdNoTbl)));
+        assertThrows(TableNotFoundException.class, () -> readFirst(queryProc.queryAsync("PUBLIC", alterCmdNoTbl)));
 
         String alterIfExistsCmd = String.format("ALTER TABLE IF EXISTS %s ADD COLUMN (c3 varchar, c4 int)", curMethodName + "NotExist");
 
-        awaitFirst(queryProc.queryAsync("PUBLIC", alterIfExistsCmd));
+        readFirst(queryProc.queryAsync("PUBLIC", alterIfExistsCmd));
 
-        assertThrows(ColumnAlreadyExistsException.class, () -> awaitFirst(finalQueryProc.queryAsync("PUBLIC", alterCmd)));
+        assertThrows(ColumnAlreadyExistsException.class, () -> readFirst(finalQueryProc.queryAsync("PUBLIC", alterCmd)));
 
-        awaitFirst(finalQueryProc.queryAsync("PUBLIC", String.format("ALTER TABLE %s DROP COLUMN c4", curMethodName)));
+        readFirst(finalQueryProc.queryAsync("PUBLIC", String.format("ALTER TABLE %s DROP COLUMN c4", curMethodName)));
 
-        awaitFirst(queryProc.queryAsync("PUBLIC", String.format("ALTER TABLE %s ADD COLUMN IF NOT EXISTS c3 varchar", curMethodName)));
+        readFirst(queryProc.queryAsync("PUBLIC", String.format("ALTER TABLE %s ADD COLUMN IF NOT EXISTS c3 varchar", curMethodName)));
 
-        awaitFirst(queryProc.queryAsync("PUBLIC", String.format("ALTER TABLE %s DROP COLUMN c3", curMethodName)));
+        readFirst(queryProc.queryAsync("PUBLIC", String.format("ALTER TABLE %s DROP COLUMN c3", curMethodName)));
 
-        awaitFirst(queryProc.queryAsync("PUBLIC", String.format("ALTER TABLE %s DROP COLUMN IF EXISTS c3", curMethodName)));
+        readFirst(queryProc.queryAsync("PUBLIC", String.format("ALTER TABLE %s DROP COLUMN IF EXISTS c3", curMethodName)));
 
-        assertThrows(ColumnNotFoundException.class, () -> awaitFirst(finalQueryProc.queryAsync("PUBLIC",
+        assertThrows(ColumnNotFoundException.class, () -> readFirst(finalQueryProc.queryAsync("PUBLIC",
                 String.format("ALTER TABLE %s DROP COLUMN (c3, c4)", curMethodName))));
 
-        assertThrows(IgniteException.class, () -> awaitFirst(finalQueryProc.queryAsync("PUBLIC",
+        assertThrows(IgniteException.class, () -> readFirst(finalQueryProc.queryAsync("PUBLIC",
                 String.format("ALTER TABLE %s DROP COLUMN c1", curMethodName))));
     }
 
@@ -440,20 +462,20 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     public void testAlterColumnsAddBatch() {
         String curMethodName = getCurrentMethodName();
 
-        awaitFirst(queryProc.queryAsync("PUBLIC", String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varchar(255))", curMethodName)));
+        readFirst(queryProc.queryAsync("PUBLIC", String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varchar(255))", curMethodName)));
 
-        awaitFirst(queryProc.queryAsync("PUBLIC", String.format("ALTER TABLE %s ADD COLUMN (c3 varchar, c4 varchar)", curMethodName)));
+        readFirst(queryProc.queryAsync("PUBLIC", String.format("ALTER TABLE %s ADD COLUMN (c3 varchar, c4 varchar)", curMethodName)));
 
-        awaitFirst(queryProc
+        readFirst(queryProc
                 .queryAsync("PUBLIC", String.format("ALTER TABLE %s ADD COLUMN IF NOT EXISTS (c3 varchar, c4 varchar)", curMethodName)));
 
-        awaitFirst(
+        readFirst(
                 queryProc.queryAsync("PUBLIC", String.format("ALTER TABLE %s ADD COLUMN IF NOT EXISTS (c3 varchar, c4 varchar, c5 varchar)",
                         curMethodName)));
 
         SqlQueryProcessor finalQueryProc = queryProc;
 
-        assertThrows(ColumnAlreadyExistsException.class, () -> awaitFirst(finalQueryProc.queryAsync("PUBLIC",
+        assertThrows(ColumnAlreadyExistsException.class, () -> readFirst(finalQueryProc.queryAsync("PUBLIC",
                 String.format("ALTER TABLE %s ADD COLUMN (c5 varchar)", curMethodName))));
     }
 
@@ -464,16 +486,16 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     public void testAlterColumnsDropBatch() {
         String curMethodName = getCurrentMethodName();
 
-        awaitFirst(queryProc.queryAsync("PUBLIC", String.format("CREATE TABLE %s "
+        readFirst(queryProc.queryAsync("PUBLIC", String.format("CREATE TABLE %s "
                 + "(c1 int PRIMARY KEY, c2 decimal(10), c3 varchar, c4 varchar, c5 varchar)", curMethodName)));
 
-        awaitFirst(queryProc.queryAsync("PUBLIC", String.format("ALTER TABLE %s DROP COLUMN c4", curMethodName)));
+        readFirst(queryProc.queryAsync("PUBLIC", String.format("ALTER TABLE %s DROP COLUMN c4", curMethodName)));
 
-        awaitFirst(queryProc.queryAsync("PUBLIC", String.format("ALTER TABLE %s DROP COLUMN IF EXISTS (c3, c4, c5)", curMethodName)));
+        readFirst(queryProc.queryAsync("PUBLIC", String.format("ALTER TABLE %s DROP COLUMN IF EXISTS (c3, c4, c5)", curMethodName)));
 
         SqlQueryProcessor finalQueryProc = queryProc;
 
-        assertThrows(ColumnNotFoundException.class, () -> awaitFirst(finalQueryProc.queryAsync("PUBLIC",
+        assertThrows(ColumnNotFoundException.class, () -> readFirst(finalQueryProc.queryAsync("PUBLIC",
                 String.format("ALTER TABLE %s DROP COLUMN c4", curMethodName))));
     }
 
@@ -489,35 +511,35 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         String newTblSql = String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with partitions=1", curMethodName);
 
-        awaitFirst(queryProc.queryAsync("PUBLIC", newTblSql));
+        readFirst(queryProc.queryAsync("PUBLIC", newTblSql));
 
         assertTrue(tblManager.tables().stream().anyMatch(t -> t.name()
                 .equalsIgnoreCase("PUBLIC." + curMethodName)));
 
-        awaitFirst(queryProc.queryAsync("PUBLIC", String.format("CREATE INDEX index1 ON %s (c1)", curMethodName)));
+        readFirst(queryProc.queryAsync("PUBLIC", String.format("CREATE INDEX index1 ON %s (c1)", curMethodName)));
 
-        awaitFirst(queryProc.queryAsync("PUBLIC", String.format("CREATE INDEX IF NOT EXISTS index1 ON %s (c1)", curMethodName)));
+        readFirst(queryProc.queryAsync("PUBLIC", String.format("CREATE INDEX IF NOT EXISTS index1 ON %s (c1)", curMethodName)));
 
-        awaitFirst(queryProc.queryAsync("PUBLIC", String.format("CREATE INDEX index2 ON %s (c1)", curMethodName)));
+        readFirst(queryProc.queryAsync("PUBLIC", String.format("CREATE INDEX index2 ON %s (c1)", curMethodName)));
 
-        awaitFirst(queryProc.queryAsync("PUBLIC", String.format("CREATE INDEX index3 ON %s (c2)", curMethodName)));
+        readFirst(queryProc.queryAsync("PUBLIC", String.format("CREATE INDEX index3 ON %s (c2)", curMethodName)));
 
         assertThrows(IndexAlreadyExistsException.class, () ->
-                awaitFirst(finalQueryProc.queryAsync("PUBLIC", String.format("CREATE INDEX index3 ON %s (c1)", curMethodName))));
+                readFirst(finalQueryProc.queryAsync("PUBLIC", String.format("CREATE INDEX index3 ON %s (c1)", curMethodName))));
 
         assertThrows(IgniteException.class, () ->
-                awaitFirst(finalQueryProc
+                readFirst(finalQueryProc
                         .queryAsync("PUBLIC", String.format("CREATE INDEX index_3 ON %s (c1)", curMethodName + "_nonExist"))));
 
-        awaitFirst(queryProc.queryAsync("PUBLIC", String.format("CREATE INDEX index4 ON %s (c2 desc, c1 asc)", curMethodName)));
+        readFirst(queryProc.queryAsync("PUBLIC", String.format("CREATE INDEX index4 ON %s (c2 desc, c1 asc)", curMethodName)));
 
-        awaitFirst(queryProc.queryAsync("PUBLIC", String.format("DROP INDEX index4 ON %s", curMethodName)));
+        readFirst(queryProc.queryAsync("PUBLIC", String.format("DROP INDEX index4 ON %s", curMethodName)));
 
-        awaitFirst(queryProc.queryAsync("PUBLIC", String.format("CREATE INDEX index4 ON %s (c2 desc, c1 asc)", curMethodName)));
+        readFirst(queryProc.queryAsync("PUBLIC", String.format("CREATE INDEX index4 ON %s (c2 desc, c1 asc)", curMethodName)));
 
-        awaitFirst(queryProc.queryAsync("PUBLIC", String.format("DROP INDEX index4 ON %s", curMethodName)));
+        readFirst(queryProc.queryAsync("PUBLIC", String.format("DROP INDEX index4 ON %s", curMethodName)));
 
-        awaitFirst(queryProc.queryAsync("PUBLIC", String.format("DROP INDEX IF EXISTS index4 ON %s", curMethodName)));
+        readFirst(queryProc.queryAsync("PUBLIC", String.format("DROP INDEX IF EXISTS index4 ON %s", curMethodName)));
     }
 
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-17197")
@@ -526,7 +548,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         String method = getCurrentMethodName();
 
         // Without engine.
-        assertDoesNotThrow(() -> awaitFirst(queryProc.queryAsync(
+        assertDoesNotThrow(() -> readFirst(queryProc.queryAsync(
                 "PUBLIC",
                 String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255))", method + 0)
         )));
@@ -534,7 +556,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         assertThat(tableView(method + 0).dataStorage(), instanceOf(RocksDbDataStorageView.class));
 
         // With existing engine.
-        assertDoesNotThrow(() -> awaitFirst(queryProc.queryAsync(
+        assertDoesNotThrow(() -> readFirst(queryProc.queryAsync(
                 "PUBLIC",
                 String.format(
                         "CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) engine %s",
@@ -546,7 +568,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         assertThat(tableView(method + 1).dataStorage(), instanceOf(TestConcurrentHashMapDataStorageView.class));
 
         // With existing engine in mixed case
-        assertDoesNotThrow(() -> awaitFirst(queryProc.queryAsync(
+        assertDoesNotThrow(() -> readFirst(queryProc.queryAsync(
                 "PUBLIC",
                 String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) engine %s", method + 2, "\"RocksDb\"")
         )));
@@ -555,7 +577,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         IgniteException exception = assertThrows(
                 IgniteException.class,
-                () -> awaitFirst(queryProc.queryAsync(
+                () -> readFirst(queryProc.queryAsync(
                         "PUBLIC",
                         String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) engine %s", method + 3, method)
                 ))
@@ -567,7 +589,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         exception = assertThrows(
                 IgniteException.class,
-                () -> awaitFirst(queryProc.queryAsync(
+                () -> readFirst(queryProc.queryAsync(
                         "PUBLIC",
                         String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255))", method + 4)
                 ))
@@ -580,34 +602,34 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     void createTableWithTableOptions() {
         String method = getCurrentMethodName();
 
-        assertDoesNotThrow(() -> awaitFirst(queryProc.queryAsync(
+        assertDoesNotThrow(() -> readFirst(queryProc.queryAsync(
                 "PUBLIC",
                 String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with replicas=1", method + 0)
         )));
 
-        assertDoesNotThrow(() -> awaitFirst(queryProc.queryAsync(
+        assertDoesNotThrow(() -> readFirst(queryProc.queryAsync(
                 "PUBLIC",
                 String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with REPLICAS=1", method + 1)
         )));
 
-        assertDoesNotThrow(() -> awaitFirst(queryProc.queryAsync(
+        assertDoesNotThrow(() -> readFirst(queryProc.queryAsync(
                 "PUBLIC",
                 String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with \"replicas\"=1", method + 2)
         )));
 
-        assertDoesNotThrow(() -> awaitFirst(queryProc.queryAsync(
+        assertDoesNotThrow(() -> readFirst(queryProc.queryAsync(
                 "PUBLIC",
                 String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with \"replICAS\"=1", method + 3)
         )));
 
-        assertDoesNotThrow(() -> awaitFirst(queryProc.queryAsync(
+        assertDoesNotThrow(() -> readFirst(queryProc.queryAsync(
                 "PUBLIC",
                 String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with replicas=1, partitions=1", method + 4)
         )));
 
         IgniteException exception = assertThrows(
                 IgniteException.class,
-                () -> awaitFirst(queryProc.queryAsync(
+                () -> readFirst(queryProc.queryAsync(
                         "PUBLIC",
                         String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with replicas='%s'", method + 5, method)
                 ))
@@ -617,7 +639,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         exception = assertThrows(
                 IgniteException.class,
-                () -> awaitFirst(queryProc.queryAsync(
+                () -> readFirst(queryProc.queryAsync(
                         "PUBLIC",
                         String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with %s='%s'", method + 6, method, method)
                 ))
@@ -627,7 +649,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         exception = assertThrows(
                 IgniteException.class,
-                () -> awaitFirst(queryProc.queryAsync(
+                () -> readFirst(queryProc.queryAsync(
                         "PUBLIC",
                         String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with replicas=-1", method + 7)
                 ))
@@ -640,7 +662,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     void createTableWithDataStorageOptions() {
         String method = getCurrentMethodName();
 
-        assertDoesNotThrow(() -> awaitFirst(queryProc.queryAsync(
+        assertDoesNotThrow(() -> readFirst(queryProc.queryAsync(
                 "PUBLIC",
                 String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with dataRegion='default'", method + 0)
         )));
@@ -650,7 +672,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 equalTo(DEFAULT_DATA_REGION_NAME)
         );
 
-        assertDoesNotThrow(() -> awaitFirst(queryProc.queryAsync(
+        assertDoesNotThrow(() -> readFirst(queryProc.queryAsync(
                 "PUBLIC",
                 String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with DATAREGION='test_region'", method + 1)
         )));
@@ -659,6 +681,34 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 ((RocksDbDataStorageView) tableView(method + 1).dataStorage()).dataRegion(),
                 equalTo("test_region")
         );
+    }
+
+    /**
+     * Tests that schema that is not applied yet is accessible after some time.
+     *
+     * @throws Exception If test has failed.
+     */
+    @Test
+    public void testSchemaForTheFutureUpdate() throws Exception {
+        String curMethodName = getCurrentMethodName();
+
+        readFirst(queryProc.queryAsync("PUBLIC", String.format("CREATE TABLE %s "
+                + "(c1 int PRIMARY KEY, c2 decimal(10), c3 varchar, c4 varchar, c5 varchar)", curMethodName)));
+
+        SchemaRegistry schemaRegistry = (((TableImpl) tblManager.tables().get(0)).schemaView());
+
+        runAsync(() -> {
+            Thread.sleep(3000);
+            readFirst(queryProc.queryAsync("PUBLIC", String.format("ALTER TABLE %s DROP COLUMN c4", curMethodName)));
+        });
+
+        int lastSchemaVersion = schemaRegistry.lastSchemaVersion();
+
+        //Ensure that we can get schema for the future update
+        assertTrue(waitForCondition(
+                () -> schemaRegistry.schema(lastSchemaVersion + 1).version() == lastSchemaVersion + 1,
+                5000
+        ));
     }
 
     // todo copy-paste from TableManagerTest will be removed after https://issues.apache.org/jira/browse/IGNITE-16050
@@ -727,6 +777,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
     private TableManager createTableManager() {
         TableManager tableManager = new TableManager(
+                "",
                 revisionUpdater,
                 tblsCfg,
                 rm,
@@ -739,6 +790,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 dataStorageManager,
                 msm,
                 schemaManager,
+                view -> new LocalLogStorageFactory(),
                 null
         );
 
@@ -747,8 +799,8 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         return tableManager;
     }
 
-    private <T> AsyncSqlCursor<T> awaitFirst(List<CompletableFuture<AsyncSqlCursor<T>>> cursors) {
-        return await(cursors.get(0));
+    private <T> BatchedResult<T> readFirst(List<CompletableFuture<AsyncSqlCursor<T>>> cursors) {
+        return await(await(cursors.get(0)).requestNextAsync(512));
     }
 
     private @Nullable TableView tableView(String tableName) {

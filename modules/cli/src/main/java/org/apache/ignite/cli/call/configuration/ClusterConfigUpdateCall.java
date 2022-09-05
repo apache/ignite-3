@@ -46,7 +46,7 @@ public class ClusterConfigUpdateCall implements Call<ClusterConfigUpdateCallInpu
     private DefaultCallOutput<String> updateClusterConfig(ClusterConfigurationApi api, ClusterConfigUpdateCallInput input)
             throws ApiException {
         api.updateClusterConfiguration(input.getConfig());
-        return DefaultCallOutput.success("Cluster configuration was updated successfully.");
+        return DefaultCallOutput.success("Cluster configuration was updated successfully");
     }
 
     private ClusterConfigurationApi createApiClient(ClusterConfigUpdateCallInput input) {

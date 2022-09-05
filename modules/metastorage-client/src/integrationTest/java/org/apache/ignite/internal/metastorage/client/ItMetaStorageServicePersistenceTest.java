@@ -65,7 +65,7 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
     /** {@inheritDoc} */
     @Override
     public void beforeFollowerStop(RaftGroupService service) throws Exception {
-        metaStorage = new MetaStorageServiceImpl(service, null);
+        metaStorage = new MetaStorageServiceImpl(service, null, null);
 
         // Put some data in the metastorage
         metaStorage.put(FIRST_KEY, FIRST_VALUE).get();

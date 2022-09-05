@@ -23,7 +23,7 @@ Creates a new table.
 [source,sql]
 ----
 CREATE TABLE [IF NOT EXISTS] [simpleName | schemaName.simpleName] (tableColumn [, tableColumn]...)
-[COLOCATE [BY] (tableColumn [, tableColumn]...)]
+[COLOCATE [BY] (columnName [, columnName]...)]
 [ENGINE engineName]
 [WITH paramName=paramValue [,paramName=paramValue]...]
 tableColumn = columnName columnType [[NOT] NULL] [DEFAULT defaultValue] [PRIMARY KEY]
@@ -33,7 +33,7 @@ Parameters:
 
 * `tableName` - name of the table.
 * `tableColumn` - name and type of a column to be created in the new table.
-* `DEFAULT` - specifies a default value for the column. Only constant values are accepted.
+* `DEFAULT` - specifies a default value for the column. You can specify a constant value, or use a link:sql-reference/ddl#system-functions[system function] to generate a value.
 * `IF NOT EXISTS` - create the table only if a table with the same name does not exist.
 * `ENGINE` - selects the storage engine to use. Currently `pagememory` and `rocksdb` are available.
 * `COLOCATED BY` - colocation key. The key can be composite. Primary key must include colocation key. Was `affinity_key` in Ignite 2.x.
@@ -288,3 +288,21 @@ Referenced by:
 * link:sql-reference/ddl#сreate-table[CREATE TABLE]
 * link:sql-reference/ddl#alter-table[ALTER TABLE]
 * link:sql-reference/ddl#drop-table[DROP TABLE]
+
+
+= System Functions
+
+== gen_random_uuid
+
+This function generates a random UUID value each time it is called.
+
+Example:
+
+[source,sql]
+----
+CREATE TABLE t (id varchar default gen_random_uuid primary key, val int)
+----
+
+Referenced by:
+
+* link:sql-reference/ddl#create-table[CREATE TABLE]

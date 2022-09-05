@@ -19,8 +19,8 @@ package org.apache.ignite.internal.sql.engine;
 
 import java.util.Arrays;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
-import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;

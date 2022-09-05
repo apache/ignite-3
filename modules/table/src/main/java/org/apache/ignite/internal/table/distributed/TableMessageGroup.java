@@ -48,4 +48,14 @@ public class TableMessageGroup {
      * Message type for {@link org.apache.ignite.internal.table.distributed.replication.request.ScanCloseReplicaRequest}.
      */
     public static final short RW_SCAN_CLOSE_REPLICA_REQUEST = 4;
+
+    /**
+     * Message type for {@link org.apache.ignite.internal.table.distributed.message.HasDataRequest}.
+     */
+    public static final int HAS_DATA_REQUEST = 5;
+
+    /**
+     * Message type for {@link org.apache.ignite.internal.table.distributed.message.HasDataResponse}.
+     */
+    public static final int HAS_DATA_RESPONSE = 6;
 }

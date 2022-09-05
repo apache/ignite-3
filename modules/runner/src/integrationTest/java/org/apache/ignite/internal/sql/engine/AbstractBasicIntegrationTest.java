@@ -33,7 +33,9 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
@@ -41,16 +43,18 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
+import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
+import org.apache.ignite.internal.schema.testutils.builder.TableDefinitionBuilder;
+import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
+import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteStringFormatter;
-import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.TableDefinition;
-import org.apache.ignite.schema.definition.builder.TableDefinitionBuilder;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
@@ -70,6 +74,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class AbstractBasicIntegrationTest extends BaseIgniteAbstractTest {
     private static final IgniteLogger LOG = Loggers.forClass(AbstractBasicIntegrationTest.class);
+
+    /** Timeout should be big enough to prevent premature session expiration. */
+    private static final long SESSION_IDLE_TIMEOUT = TimeUnit.SECONDS.toMillis(60);
 
     /** Base port number. */
     private static final int BASE_PORT = 3344;
@@ -287,9 +294,19 @@ public class AbstractBasicIntegrationTest extends BaseIgniteAbstractTest {
     }
 
     protected static List<List<Object>> sql(String sql, Object... args) {
-        return getAllFromCursor(
-                await(((IgniteImpl) CLUSTER_NODES.get(0)).queryEngine().queryAsync("PUBLIC", sql, args).get(0))
-        );
+        var queryEngine = ((IgniteImpl) CLUSTER_NODES.get(0)).queryEngine();
+
+        SessionId sessionId = queryEngine.createSession(SESSION_IDLE_TIMEOUT, PropertiesHolder.fromMap(
+                Map.of(QueryProperty.DEFAULT_SCHEMA, "PUBLIC")
+        ));
+
+        try {
+            return getAllFromCursor(
+                    await(queryEngine.querySingleAsync(sessionId, QueryContext.of(), sql, args))
+            );
+        } finally {
+            queryEngine.closeSession(sessionId);
+        }
     }
 
     protected static void checkMetadata(ColumnMetadata expectedMeta, ColumnMetadata actualMeta) {

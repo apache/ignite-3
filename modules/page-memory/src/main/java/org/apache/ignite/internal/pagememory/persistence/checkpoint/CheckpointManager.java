@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
 import java.nio.ByteBuffer;
-import java.nio.file.Path;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
@@ -65,9 +64,6 @@ public class CheckpointManager {
     /** Main checkpoint steps. */
     private final CheckpointWorkflow checkpointWorkflow;
 
-    /** Checkpoint markers storage which mark the start and end of each checkpoint. */
-    private final CheckpointMarkersStorage checkpointMarkersStorage;
-
     /** Timeout checkpoint lock which should be used while write to memory happened. */
     private final CheckpointTimeoutLock checkpointTimeoutLock;
 
@@ -90,7 +86,6 @@ public class CheckpointManager {
      * @param filePageStoreManager File page store manager.
      * @param partitionMetaManager Partition meta information manager.
      * @param dataRegions Data regions.
-     * @param storagePath Storage path.
      * @param ioRegistry Page IO registry.
      * @param pageSize Page size in bytes.
      * @throws IgniteInternalCheckedException If failed.
@@ -103,7 +98,6 @@ public class CheckpointManager {
             FilePageStoreManager filePageStoreManager,
             PartitionMetaManager partitionMetaManager,
             Collection<? extends DataRegion<PersistentPageMemory>> dataRegions,
-            Path storagePath,
             PageIoRegistry ioRegistry,
             // TODO: IGNITE-17017 Move to common config
             int pageSize
@@ -120,11 +114,8 @@ public class CheckpointManager {
 
         CheckpointReadWriteLock checkpointReadWriteLock = new CheckpointReadWriteLock(reentrantReadWriteLockWithTracking);
 
-        checkpointMarkersStorage = new CheckpointMarkersStorage(storagePath);
-
         checkpointWorkflow = new CheckpointWorkflow(
                 igniteInstanceName,
-                checkpointMarkersStorage,
                 checkpointReadWriteLock,
                 dataRegions,
                 checkpointConfigView.checkpointThreads()

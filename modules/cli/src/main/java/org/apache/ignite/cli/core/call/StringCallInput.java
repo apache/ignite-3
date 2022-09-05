@@ -23,6 +23,18 @@ package org.apache.ignite.cli.core.call;
 public class StringCallInput implements CallInput {
     private final String string;
 
+    /**
+     * Constructor with @{code null} string.
+     */
+    public StringCallInput() {
+        this(null);
+    }
+
+    /**
+     * Constructor with specified string.
+     *
+     * @param string string input
+     */
     public StringCallInput(String string) {
         this.string = string;
     }

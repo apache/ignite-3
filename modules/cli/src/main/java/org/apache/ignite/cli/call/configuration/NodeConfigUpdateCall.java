@@ -46,7 +46,7 @@ public class NodeConfigUpdateCall implements Call<NodeConfigUpdateCallInput, Str
     private DefaultCallOutput<String> updateNodeConfig(NodeConfigurationApi api, NodeConfigUpdateCallInput input)
             throws ApiException {
         api.updateNodeConfiguration(input.getConfig());
-        return DefaultCallOutput.success("Node configuration was updated successfully.");
+        return DefaultCallOutput.success("Node configuration was updated successfully");
     }
 
     private NodeConfigurationApi createApiClient(NodeConfigUpdateCallInput input) {

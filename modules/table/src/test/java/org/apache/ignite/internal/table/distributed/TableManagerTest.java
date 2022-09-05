@@ -46,7 +46,9 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -64,6 +66,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.EntryCountBudgetConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
@@ -71,6 +74,7 @@ import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSch
 import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
+import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
@@ -86,12 +90,14 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.schema.marshaller.schema.SchemaSerializerImpl;
+import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbDataStorageModule;
@@ -120,7 +126,6 @@ import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.rpc.CliRequests;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupServiceImpl;
-import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.TableDefinition;
 import org.apache.ignite.table.Table;
@@ -141,7 +146,7 @@ import org.mockito.quality.Strictness;
 @ExtendWith({MockitoExtension.class, ConfigurationExtension.class})
 @MockitoSettings(strictness = Strictness.LENIENT)
 public class TableManagerTest extends IgniteAbstractTest {
-    private static IgniteLogger LOG = Loggers.forClass(TableManagerTest.class);
+    private static final IgniteLogger LOG = Loggers.forClass(TableManagerTest.class);
 
     /** The name of the table which is preconfigured. */
     private static final String PRECONFIGURED_TABLE_NAME = "t1";
@@ -220,7 +225,9 @@ public class TableManagerTest extends IgniteAbstractTest {
                     RocksDbDataStorageConfigurationSchema.class,
                     ConstantValueDefaultConfigurationSchema.class,
                     FunctionCallDefaultConfigurationSchema.class,
-                    NullValueDefaultConfigurationSchema.class
+                    NullValueDefaultConfigurationSchema.class,
+                    UnlimitedBudgetConfigurationSchema.class,
+                    EntryCountBudgetConfigurationSchema.class
             }
     )
     private TablesConfiguration tblsCfg;
@@ -248,6 +255,9 @@ public class TableManagerTest extends IgniteAbstractTest {
     /** Before all test scenarios. */
     @BeforeEach
     void before() {
+        when(rm.messagingService()).thenReturn(mock(MessagingService.class));
+        when(rm.topologyService()).thenReturn(mock(TopologyService.class));
+
         revisionUpdater = (Function<Long, CompletableFuture<?>> function) -> {
             function.apply(0L).join();
 
@@ -305,10 +315,10 @@ public class TableManagerTest extends IgniteAbstractTest {
 
                 var extConfCh = ((ExtendedTableChange) tableChange);
 
-                ArrayList<List<ClusterNode>> assignment = new ArrayList<>(PARTITIONS);
+                ArrayList<Set<ClusterNode>> assignment = new ArrayList<>(PARTITIONS);
 
                 for (int part = 0; part < PARTITIONS; part++) {
-                    assignment.add(new ArrayList<>(Collections.singleton(node)));
+                    assignment.add(new HashSet<>(Collections.singleton(node)));
                 }
 
                 extConfCh.changeAssignments(ByteUtils.toBytes(assignment))
@@ -763,6 +773,7 @@ public class TableManagerTest extends IgniteAbstractTest {
     // TODO: https://issues.apache.org/jira/browse/IGNITE-17523
     private TableManager createTableManager(CompletableFuture<TableManager> tblManagerFut, boolean waitingSqlSchema) {
         TableManager tableManager = new TableManager(
+                "test",
                 revisionUpdater,
                 tblsCfg,
                 rm,
@@ -775,6 +786,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                 dsm = createDataStorageManager(configRegistry, workDir, rocksDbEngineConfig),
                 msm,
                 sm = new SchemaManager(revisionUpdater, tblsCfg),
+                budgetView -> new LocalLogStorageFactory(),
                 null
         );
 

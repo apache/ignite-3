@@ -60,7 +60,9 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageFactoryCreator;
 import org.apache.ignite.internal.recovery.ConfigurationCatchUpListener;
 import org.apache.ignite.internal.recovery.RecoveryCompletionFutureFactory;
 import org.apache.ignite.internal.replicator.ReplicaManager;
@@ -78,6 +80,7 @@ import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.table.distributed.TableManager;
+import org.apache.ignite.internal.table.distributed.TableMessagesSerializationRegistryInitializer;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
@@ -205,6 +208,12 @@ public class IgniteImpl implements Ignite {
     /** Schema manager. */
     private final SchemaManager schemaManager;
 
+    /** Metric manager. */
+    private final MetricManager metricManager;
+
+    /** Creator for volatile {@link org.apache.ignite.internal.raft.storage.LogStorageFactory} instances. */
+    private final VolatileLogStorageFactoryCreator volatileLogStorageFactoryCreator;
+
     /** A hybrid logical clock. */
     private final HybridClock clock;
 
@@ -225,6 +234,8 @@ public class IgniteImpl implements Ignite {
 
         vaultMgr = createVault(workDir);
 
+        metricManager = new MetricManager();
+
         ConfigurationModules modules = loadConfigurationModules(serviceProviderClassLoader);
 
         nodeCfgMgr = new ConfigurationManager(
@@ -244,6 +255,7 @@ public class IgniteImpl implements Ignite {
         SqlQueryMessagesSerializationRegistryInitializer.registerFactories(serializationRegistry);
         TxMessagesSerializationRegistryInitializer.registerFactories(serializationRegistry);
         ComputeMessagesSerializationRegistryInitializer.registerFactories(serializationRegistry);
+        TableMessagesSerializationRegistryInitializer.registerFactories(serializationRegistry);
 
         var clusterLocalConfiguration = new ClusterLocalConfiguration(name, serializationRegistry);
 
@@ -335,7 +347,10 @@ public class IgniteImpl implements Ignite {
             clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY)
         );
 
+        volatileLogStorageFactoryCreator = new VolatileLogStorageFactoryCreator(workDir.resolve("volatile-log-spillout"));
+
         distributedTblMgr = new TableManager(
+                name,
                 registry,
                 clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY),
                 raftMgr,
@@ -348,6 +363,7 @@ public class IgniteImpl implements Ignite {
                 dataStorageMgr,
                 metaStorageMgr,
                 schemaManager,
+                volatileLogStorageFactoryCreator,
                 clock
         );
 
@@ -365,8 +381,10 @@ public class IgniteImpl implements Ignite {
                 registry,
                 clusterSvc,
                 distributedTblMgr,
+                indexManager,
                 schemaManager,
                 dataStorageMgr,
+                txManager,
                 () -> dataStorageModules.collectSchemasFields(modules.distributed().polymorphicSchemaExtensions())
         );
 
@@ -450,6 +468,7 @@ public class IgniteImpl implements Ignite {
 
             // Start the components that are required to join the cluster.
             lifecycleManager.startComponents(
+                    metricManager,
                     nettyBootstrapFactory,
                     clusterSvc,
                     restComponent,
@@ -475,6 +494,7 @@ public class IgniteImpl implements Ignite {
                                     baselineMgr,
                                     dataStorageMgr,
                                     schemaManager,
+                                    volatileLogStorageFactoryCreator,
                                     distributedTblMgr,
                                     indexManager,
                                     qryEngine,
@@ -705,6 +725,11 @@ public class IgniteImpl implements Ignite {
         }
 
         return partitionsStore;
+    }
+
+    @TestOnly
+    public Loza raftManager() {
+        return raftMgr;
     }
 
     @TestOnly

@@ -47,10 +47,12 @@ import org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSch
 import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.ColumnDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.EntryCountBudgetConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexChange;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexView;
+import org.apache.ignite.configuration.schemas.table.LogStorageBudgetConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.SortedIndexChange;
 import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
@@ -59,6 +61,7 @@ import org.apache.ignite.configuration.schemas.table.TableConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableIndexView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
+import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
 import org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator;
 import org.apache.ignite.internal.configuration.schema.ExtendedTableConfiguration;
 import org.apache.ignite.internal.configuration.tree.ConverterToMapVisitor;
@@ -123,7 +126,7 @@ public class IndexManagerTest {
         var indexManager = new IndexManager(tableManagerMock, listener -> {});
 
         try {
-            indexManager.createIndexAsync("sName", "idx", "tName", indexChange -> {
+            indexManager.createIndexAsync("sName", "idx", "tName", true, indexChange -> {
                 var sortedIndexChange = indexChange.convert(SortedIndexChange.class);
 
                 sortedIndexChange.changeColumns(columns -> {
@@ -169,7 +172,7 @@ public class IndexManagerTest {
 
         CompletionException completionException = assertThrows(
                 CompletionException.class,
-                () -> indexManager.createIndexAsync("sName", "idx", "tName", indexChange -> {/* doesn't matter */}).join()
+                () -> indexManager.createIndexAsync("sName", "idx", "tName", true, indexChange -> {/* doesn't matter */}).join()
         );
 
         assertThat(completionException.getCause(), instanceOf(TableNotFoundException.class));
@@ -184,7 +187,7 @@ public class IndexManagerTest {
 
         CompletionException completionException = assertThrows(
                 CompletionException.class,
-                () -> indexManager.createIndexAsync("sName", "", "tName", indexChange -> {/* doesn't matter */}).join()
+                () -> indexManager.createIndexAsync("sName", "", "tName", true, indexChange -> {/* doesn't matter */}).join()
         );
 
         assertThat(completionException.getCause(), instanceOf(IgniteInternalException.class));
@@ -223,7 +226,7 @@ public class IndexManagerTest {
 
         CompletionException completionException = assertThrows(
                 CompletionException.class,
-                () -> indexManager.createIndexAsync("sName", "idx", "tName",
+                () -> indexManager.createIndexAsync("sName", "idx", "tName", true,
                         indexChange -> indexChange.convert(HashIndexChange.class).changeColumnNames()).join()
         );
 
@@ -264,7 +267,7 @@ public class IndexManagerTest {
 
         CompletionException completionException = assertThrows(
                 CompletionException.class,
-                () -> indexManager.createIndexAsync("sName", "idx", "tName",
+                () -> indexManager.createIndexAsync("sName", "idx", "tName", true,
                         indexChange -> indexChange.convert(HashIndexChange.class).changeColumnNames("nonExistingColumn")).join()
         );
 
@@ -283,7 +286,7 @@ public class IndexManagerTest {
 
         CompletionException completionException = assertThrows(
                 CompletionException.class,
-                () -> indexManager.dropIndexAsync("sName", "nonExisting").join()
+                () -> indexManager.dropIndexAsync("sName", "nonExisting", true).join()
         );
 
         assertThat(completionException.getCause(), instanceOf(IndexNotFoundException.class));
@@ -367,6 +370,11 @@ public class IndexManagerTest {
                         ConstantValueDefaultConfigurationSchema.class,
                         NullValueDefaultConfigurationSchema.class,
                         FunctionCallDefaultConfigurationSchema.class
+                ),
+                LogStorageBudgetConfigurationSchema.class,
+                Set.of(
+                        UnlimitedBudgetConfigurationSchema.class,
+                        EntryCountBudgetConfigurationSchema.class
                 )
         );
 

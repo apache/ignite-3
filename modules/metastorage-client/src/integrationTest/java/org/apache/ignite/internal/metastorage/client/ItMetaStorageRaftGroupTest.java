@@ -259,7 +259,7 @@ public class ItMetaStorageRaftGroupTest {
                 .findFirst().get().value;
 
         MetaStorageService metaStorageSvc = new MetaStorageServiceImpl(
-                raftGroupServiceOfLiveServer, "some_node");
+                raftGroupServiceOfLiveServer, "some_node", "some_node");
 
         Cursor<Entry> cursor = metaStorageSvc.range(EXPECTED_RESULT_ENTRY1.key(), new ByteArray(new byte[]{4}));
 

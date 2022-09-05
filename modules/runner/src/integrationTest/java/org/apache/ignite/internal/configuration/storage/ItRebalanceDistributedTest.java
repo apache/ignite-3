@@ -42,10 +42,12 @@ import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
 import org.apache.ignite.configuration.schemas.rest.RestConfiguration;
 import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.EntryCountBudgetConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
+import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
 import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
@@ -61,10 +63,12 @@ import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStora
 import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
+import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
+import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryDataStorageModule;
@@ -92,7 +96,6 @@ import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.StaticNodeFinder;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
-import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.TableDefinition;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
@@ -340,7 +343,7 @@ public class ItRebalanceDistributedTest {
         return nodes.stream().filter(n -> n.address().equals(addr)).findFirst().get();
     }
 
-    private List<ClusterNode> getPartitionClusterNodes(int nodeNum, int partNum) {
+    private Set<ClusterNode> getPartitionClusterNodes(int nodeNum, int partNum) {
         var table = ((ExtendedTableConfiguration) nodes.get(nodeNum).clusterCfgMgr.configurationRegistry()
                 .getConfiguration(TablesConfiguration.KEY).tables().get("PUBLIC.TBL1"));
 
@@ -348,11 +351,11 @@ public class ItRebalanceDistributedTest {
             var assignments = table.assignments().value();
 
             if (assignments != null) {
-                return ((List<List<ClusterNode>>) ByteUtils.fromBytes(assignments)).get(partNum);
+                return ((List<Set<ClusterNode>>) ByteUtils.fromBytes(assignments)).get(partNum);
             }
         }
 
-        return List.of();
+        return Set.of();
     }
 
     private static class Node {
@@ -466,7 +469,9 @@ public class ItRebalanceDistributedTest {
                             HashIndexConfigurationSchema.class,
                             ConstantValueDefaultConfigurationSchema.class,
                             FunctionCallDefaultConfigurationSchema.class,
-                            NullValueDefaultConfigurationSchema.class
+                            NullValueDefaultConfigurationSchema.class,
+                            UnlimitedBudgetConfigurationSchema.class,
+                            EntryCountBudgetConfigurationSchema.class
                     )
             );
 
@@ -496,6 +501,7 @@ public class ItRebalanceDistributedTest {
             schemaManager = new SchemaManager(registry, tablesCfg);
 
             tableManager = new TableManager(
+                    name,
                     registry,
                     tablesCfg,
                     raftManager,
@@ -508,7 +514,9 @@ public class ItRebalanceDistributedTest {
                     dataStorageMgr,
                     metaStorageManager,
                     schemaManager,
-                    new HybridClock());
+                    view -> new LocalLogStorageFactory(),
+                    new HybridClock()
+            );
         }
 
         /**

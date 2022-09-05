@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Internal.Table.Serialization
 {
     using System;
+    using System.Buffers.Binary;
     using System.Collections.Generic;
     using Buffers;
     using MessagePack;
@@ -206,7 +207,8 @@ namespace Apache.Ignite.Internal.Table.Serialization
             w.Flush();
 
             var count = 0;
-            var countPos = buf.ReserveInt32();
+            var countSpan = buf.GetSpan(5);
+            buf.Advance(5);
 
             do
             {
@@ -222,7 +224,8 @@ namespace Apache.Ignite.Internal.Table.Serialization
             }
             while (recs.MoveNext()); // First MoveNext is called outside to check for empty IEnumerable.
 
-            buf.WriteInt32(countPos, count);
+            countSpan[0] = MessagePackCode.Int32;
+            BinaryPrimitives.WriteInt32BigEndian(countSpan[1..], count);
 
             w.Flush();
         }

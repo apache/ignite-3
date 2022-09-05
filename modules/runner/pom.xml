@@ -118,6 +118,11 @@
             <artifactId>ignite-storage-page-memory</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>org.apache.ignite</groupId>
+            <artifactId>ignite-metrics</artifactId>
+        </dependency>
+
         <!-- 3rd party dependencies -->
         <dependency>
             <groupId>org.slf4j</groupId>
@@ -223,6 +228,13 @@
         <dependency>
             <groupId>org.apache.ignite</groupId>
             <artifactId>ignite-metastorage-server</artifactId>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.ignite</groupId>
+            <artifactId>ignite-schema</artifactId>
             <type>test-jar</type>
             <scope>test</scope>
         </dependency>

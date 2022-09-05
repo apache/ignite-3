@@ -38,6 +38,7 @@ import java.util.logging.Logger;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.testframework.jul.NoOpHandler;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -180,7 +181,7 @@ class ItClusterCommandTest extends AbstractCliIntegrationTest {
                 String.format("Wrong exit code; std is '%s', stderr is '%s'", out.toString(UTF_8), err.toString(UTF_8)),
                 exitCode, is(0)
         );
-        assertThat(out.toString(UTF_8), is("Cluster was initialized successfully." + NL));
+        assertThat(out.toString(UTF_8), is("Cluster was initialized successfully" + NL));
 
         // TODO: when IGNITE-16526 is implemented, also check that the logical topology contains all 4 nodes
     }

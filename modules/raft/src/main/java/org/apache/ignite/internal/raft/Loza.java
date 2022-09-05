@@ -44,6 +44,8 @@ import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.network.MessagingService;
+import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
 import org.apache.ignite.raft.client.service.RaftGroupService;
@@ -330,6 +332,24 @@ public class Loza implements IgniteComponent {
         } finally {
             busyLock.leaveBusy();
         }
+    }
+
+    /**
+     * Returns messaging service.
+     *
+     * @return Messaging service.
+     */
+    public MessagingService messagingService() {
+        return clusterNetSvc.messagingService();
+    }
+
+    /**
+     * Returns topology service.
+     *
+     * @return Topology service.
+     */
+    public TopologyService topologyService() {
+        return clusterNetSvc.topologyService();
     }
 
     /**

@@ -923,7 +923,7 @@ public class ItMetaStorageServiceTest {
         ).get(3, TimeUnit.SECONDS);
 
         try {
-            MetaStorageService metaStorageSvc2 = new MetaStorageServiceImpl(metaStorageRaftGrpSvc, NODE_ID_1);
+            MetaStorageService metaStorageSvc2 = new MetaStorageServiceImpl(metaStorageRaftGrpSvc, NODE_ID_1, NODE_ID_1);
 
             Cursor<Entry> cursorNode0 = metaStorageSvc.range(EXPECTED_RESULT_ENTRY.key(), null);
 
@@ -1078,6 +1078,6 @@ public class ItMetaStorageServiceTest {
                 executor
         ).get(3, TimeUnit.SECONDS);
 
-        return new MetaStorageServiceImpl(metaStorageRaftGrpSvc, NODE_ID_0);
+        return new MetaStorageServiceImpl(metaStorageRaftGrpSvc, NODE_ID_0, NODE_ID_0);
     }
 }

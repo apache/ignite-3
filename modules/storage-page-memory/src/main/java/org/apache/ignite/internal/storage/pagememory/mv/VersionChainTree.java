@@ -46,6 +46,7 @@ public class VersionChainTree extends BplusTree<VersionChainKey, VersionChain> {
      * @param metaPageId Meta page ID.
      * @param reuseList Reuse list.
      * @param initNew {@code True} if new tree should be created.
+     * @throws IgniteInternalCheckedException If failed.
      */
     public VersionChainTree(
             int grpId,

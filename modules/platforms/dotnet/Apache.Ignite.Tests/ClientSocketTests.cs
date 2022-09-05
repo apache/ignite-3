@@ -37,7 +37,7 @@ namespace Apache.Ignite.Tests
         {
             using var socket = await ClientSocket.ConnectAsync(new IPEndPoint(IPAddress.Loopback, ServerPort), new());
 
-            using var requestWriter = new PooledArrayBufferWriter();
+            using var requestWriter = ProtoCommon.GetMessageWriter();
 
             WriteString(requestWriter.GetMessageWriter(), "non-existent-table");
 
@@ -56,7 +56,7 @@ namespace Apache.Ignite.Tests
         {
             using var socket = await ClientSocket.ConnectAsync(new IPEndPoint(IPAddress.Loopback, ServerPort), new());
 
-            using var requestWriter = new PooledArrayBufferWriter();
+            using var requestWriter = ProtoCommon.GetMessageWriter();
             requestWriter.GetMessageWriter().Write(123);
 
             var ex = Assert.ThrowsAsync<IgniteClientException>(

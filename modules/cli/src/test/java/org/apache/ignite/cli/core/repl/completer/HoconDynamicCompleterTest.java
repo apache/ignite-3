@@ -24,13 +24,14 @@ import static org.hamcrest.Matchers.hasSize;
 import com.typesafe.config.ConfigFactory;
 import java.util.List;
 import java.util.Set;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 class HoconDynamicCompleterTest {
     HoconDynamicCompleter completer;
 
     private static HoconDynamicCompleter completerFrom(String configString) {
-        Set<String> activationPostfixes = Set.of("--selector");
+        Set<String> activationPostfixes = Set.of("");
         return new HoconDynamicCompleter(activationPostfixes, ConfigFactory.parseString(configString));
     }
 
@@ -39,7 +40,7 @@ class HoconDynamicCompleterTest {
         // Given
         completer = completerFrom("root: { subRoot: { subSubRoot: value } }");
         // And
-        String[] typedWords = {"cluster", "config", "show", "--selector"};
+        String[] typedWords = {"cluster", "config", "show", ""};
 
         // When
         List<String> completions = completer.complete(typedWords);
@@ -56,7 +57,7 @@ class HoconDynamicCompleterTest {
                         + "root2: { subRoot2: value2 }, "
                         + "root3: value3");
         // And
-        String[] typedWords = {"cluster", "config", "show", "--selector"};
+        String[] typedWords = {"cluster", "config", "show", ""};
 
         // When
         List<String> completions = completer.complete(typedWords);
@@ -73,7 +74,7 @@ class HoconDynamicCompleterTest {
                         + "root2: { subRoot2: value2 }, "
                         + "root3: value3");
         // And last word is "roo"
-        String[] typedWords = {"cluster", "config", "show", "--selector", "roo"};
+        String[] typedWords = {"cluster", "config", "show", "roo"};
 
         // When
         List<String> completions = completer.complete(typedWords);
@@ -88,7 +89,7 @@ class HoconDynamicCompleterTest {
         // Given
         completer = completerFrom("root: { subRoot: { subSubRoot: value } }");
         // And typed a part of the path
-        String[] typedWords = {"cluster", "config", "show", "--selector", "root."};
+        String[] typedWords = {"cluster", "config", "show", "root."};
 
         // When
         List<String> completions = completer.complete(typedWords);
@@ -102,7 +103,7 @@ class HoconDynamicCompleterTest {
         // Given
         completer = completerFrom("root: { subRoot: { subSubRoot1: value1, subSubRoot2: value2 } }");
         // And typed a part of the path but with "." at the end
-        String[] typedWords = {"cluster", "config", "show", "--selector", "root.subRoot."};
+        String[] typedWords = {"cluster", "config", "show", "root.subRoot."};
 
         // When
         List<String> completions = completer.complete(typedWords);
@@ -116,7 +117,7 @@ class HoconDynamicCompleterTest {
         // Given
         completer = completerFrom("");
         // And
-        String[] typedWords = {"cluster", "config", "show", "--selector"};
+        String[] typedWords = {"cluster", "config", "show"};
 
         // When
         List<String> completions = completer.complete(typedWords);
@@ -140,6 +141,7 @@ class HoconDynamicCompleterTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17418")
     void doesNotCompletesIfLastWordIsClusterUrlAndEmptyString() {
         // Given
         completer = completerFrom("root: { subRoot: value }");
@@ -155,9 +157,8 @@ class HoconDynamicCompleterTest {
 
     @Test
     void shouldAlwaysCompleteIfActivationPostfixIsEmptyString() {
-        // Given empty string activation profile
-        Set<String> activationPostfixes = Set.of("");
-        completer = new HoconDynamicCompleter(activationPostfixes, ConfigFactory.parseString("root: { subRoot: value }"));
+        // Given
+        completer = completerFrom("root: { subRoot: value }");
         // And
         String[] typedWords = {"cluster", "config", "update", ""};
 

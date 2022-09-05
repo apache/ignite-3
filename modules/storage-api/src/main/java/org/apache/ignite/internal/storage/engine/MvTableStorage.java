@@ -17,10 +17,12 @@
 
 package org.apache.ignite.internal.storage.engine;
 
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.jetbrains.annotations.Nullable;
 
@@ -45,8 +47,7 @@ public interface MvTableStorage {
      * @return Partition storage or {@code null} if it does not exist.
      * @throws IllegalArgumentException If partition id is out of configured bounds.
      */
-    @Nullable
-    MvPartitionStorage getMvPartition(int partitionId);
+    @Nullable MvPartitionStorage getMvPartition(int partitionId);
 
     /**
      * Destroys a partition and all associated indices.
@@ -58,34 +59,41 @@ public interface MvTableStorage {
     CompletableFuture<Void> destroyPartition(int partitionId) throws StorageException;
 
     /**
-     * Creates an index with the given name.
+     * Returns an already created Sorted Index with the given name or creates a new one if it does not exist.
      *
-     * <p>A prerequisite for calling this method is to have the index already configured under the same name in the Table Configuration
+     * <p>In order for an index to be created, it should be already configured under the same name in the Table Configuration
      * (see {@link #configuration()}).
      *
-     * @param indexName Index name.
-     * @throws StorageException if no index has been configured under the given name.
+     * @param partitionId Partition ID for which this index has been configured.
+     * @param indexId Index ID.
+     * @return Sorted Index storage.
+     * @throws StorageException If the given partition does not exist, or if the given index does not exist or is not configured as
+     *         a sorted index.
      */
-    void createIndex(String indexName);
+    SortedIndexStorage getOrCreateSortedIndex(int partitionId, UUID indexId);
 
     /**
-     * Returns an already created Sorted Index with the given name or {@code null} if it does not exist.
+     * Returns an already created Hash Index with the given name or creates a new one if it does not exist.
      *
-     * @param partitionId Partition ID for which this index has been built.
-     * @param indexName Index name.
-     * @return Sorted Index storage or {@code null} if it does not exist..
+     * <p>In order for an index to be created, it should be already configured under the same name in the Table Configuration
+     * (see {@link #configuration()}).
+     *
+     * @param partitionId Partition ID for which this index has been configured.
+     * @param indexId Index ID.
+     * @return Hash Index storage.
+     * @throws StorageException If the given partition does not exist, or the given index does not exist or is not configured as a
+     *         hash index.
      */
-    @Nullable
-    SortedIndexStorage getSortedIndex(int partitionId, String indexName);
+    HashIndexStorage getOrCreateHashIndex(int partitionId, UUID indexId);
 
     /**
      * Destroys the index under the given name and all data in it.
      *
      * <p>This method is a no-op if the index under the given name does not exist.
      *
-     * @param indexName Index name.
+     * @param indexId Index ID.
      */
-    CompletableFuture<Void> destroyIndex(String indexName);
+    CompletableFuture<Void> destroyIndex(UUID indexId);
 
     /**
      * Returns {@code true} if this storage is volatile (i.e. stores its data in memory), or {@code false} if it's persistent.

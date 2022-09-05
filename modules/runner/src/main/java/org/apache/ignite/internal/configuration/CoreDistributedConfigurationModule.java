@@ -26,9 +26,11 @@ import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.schemas.store.KnownDataStorage;
 import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.EntryCountBudgetConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
+import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
 import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.schema.configuration.KnownDataStorageValidator;
 
@@ -54,7 +56,9 @@ public class CoreDistributedConfigurationModule implements ConfigurationModule {
         return List.of(
                 HashIndexConfigurationSchema.class,
                 SortedIndexConfigurationSchema.class,
-                UnknownDataStorageConfigurationSchema.class
+                UnknownDataStorageConfigurationSchema.class,
+                UnlimitedBudgetConfigurationSchema.class,
+                EntryCountBudgetConfigurationSchema.class
         );
     }
 

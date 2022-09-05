@@ -114,6 +114,9 @@ public class ErrorGroups {
 
         /** Cursor is already closed error. */
         public static final int CURSOR_CLOSED_ERR = SQL_ERR_GROUP.registerErrorCode(9);
+
+        /** Some keys can't be inserted because they violates unique constraint PK. */
+        public static final int DUPLICATE_KEYS_ERR = SQL_ERR_GROUP.registerErrorCode(10);
     }
 
     /** Meta storage error group. */

@@ -19,7 +19,7 @@ package org.apache.ignite.internal.pagememory.datastructure;
 
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_DATA;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.MAX_PARTITION_ID;
-import static org.apache.ignite.internal.pagememory.util.PageIdUtils.MAX_ITEMID_NUM;
+import static org.apache.ignite.internal.pagememory.util.PageIdUtils.MAX_ITEM_ID_NUM;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.flag;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.itemId;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionId;
@@ -453,7 +453,7 @@ public abstract class DataStructure {
             recycled = PageIdUtils.rotatePageId(pageId);
         }
 
-        assert itemId(recycled) > 0 && itemId(recycled) <= MAX_ITEMID_NUM : IgniteUtils.hexLong(recycled);
+        assert itemId(recycled) > 0 && itemId(recycled) <= MAX_ITEM_ID_NUM : IgniteUtils.hexLong(recycled);
 
         PageIo.setPageId(pageAddr, recycled);
 

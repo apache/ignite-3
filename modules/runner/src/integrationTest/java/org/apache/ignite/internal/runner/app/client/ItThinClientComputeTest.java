@@ -69,11 +69,11 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         assertEquals(2, nodes.size());
 
-        assertEquals("ItThinClientComputeTest_null_3344", nodes.get(0).name());
+        assertEquals("itcct_n_3344", nodes.get(0).name());
         assertEquals(3344, nodes.get(0).address().port());
         assertTrue(nodes.get(0).id().length() > 10);
 
-        assertEquals("ItThinClientComputeTest_null_3345", nodes.get(1).name());
+        assertEquals("itcct_n_3345", nodes.get(1).name());
         assertEquals(3345, nodes.get(1).address().port());
         assertTrue(nodes.get(1).id().length() > 10);
     }
@@ -83,15 +83,15 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         String res1 = client().compute().execute(Set.of(node(0)), NodeNameJob.class).join();
         String res2 = client().compute().execute(Set.of(node(1)), NodeNameJob.class).join();
 
-        assertEquals("ItThinClientComputeTest_null_3344", res1);
-        assertEquals("ItThinClientComputeTest_null_3345", res2);
+        assertEquals("itcct_n_3344", res1);
+        assertEquals("itcct_n_3345", res2);
     }
 
     @Test
     void testExecuteOnRandomNode() {
         String res = client().compute().execute(new HashSet<>(sortedNodes()), NodeNameJob.class).join();
 
-        assertTrue(Set.of("ItThinClientComputeTest_null_3344", "ItThinClientComputeTest_null_3345").contains(res));
+        assertTrue(Set.of("itcct_n_3344", "itcct_n_3345").contains(res));
     }
 
     @Test
@@ -106,7 +106,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         String res = futuresPerNode.get(node(1)).join();
 
-        assertEquals("ItThinClientComputeTest_null_3345__123", res);
+        assertEquals("itcct_n_3345__123", res);
     }
 
     @Test
@@ -122,8 +122,8 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         String res1 = futuresPerNode.get(node(0)).join();
         String res2 = futuresPerNode.get(node(1)).join();
 
-        assertEquals("ItThinClientComputeTest_null_3344__123", res1);
-        assertEquals("ItThinClientComputeTest_null_3345__123", res2);
+        assertEquals("itcct_n_3344__123", res1);
+        assertEquals("itcct_n_3345__123", res2);
     }
 
     @Test
@@ -181,7 +181,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     }
 
     @ParameterizedTest
-    @CsvSource({"1,3345", "2,3345", "3,3344", "4,3344"})
+    @CsvSource({"1,3345", "2,3345", "3,3344", "4,3345"})
     void testExecuteColocatedRunsComputeJobOnKeyNode(int key, int port) {
         var table = String.format("%s.%s", SCHEMA_NAME, TABLE_NAME);
         var keyTuple = Tuple.create().set(COLUMN_KEY, key);
@@ -190,7 +190,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         String tupleRes = client().compute().executeColocated(table, keyTuple, NodeNameJob.class).join();
         String pojoRes = client().compute().executeColocated(table, keyPojo, Mapper.of(TestPojo.class), NodeNameJob.class).join();
 
-        String expectedNode = "ItThinClientComputeTest_null_" + port;
+        String expectedNode = "itcct_n_" + port;
         assertEquals(expectedNode, tupleRes);
         assertEquals(expectedNode, pojoRes);
     }

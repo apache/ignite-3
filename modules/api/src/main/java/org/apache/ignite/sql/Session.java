@@ -215,12 +215,23 @@ public interface Session extends AutoCloseable {
     CompletableFuture<Void> executeScriptAsync(String query, @Nullable Object... arguments);
 
     /**
-     * Return default query timeout.
+     * Return default query timeout which bound query execution time. In case a query take more time it's will be interrupted.
      *
      * @param timeUnit Timeunit to convert timeout to.
      * @return Default query timeout in the given timeunit.
      */
-    long defaultTimeout(TimeUnit timeUnit);
+    long defaultQueryTimeout(TimeUnit timeUnit);
+
+    /**
+     * Return default idle session timeout.
+     *
+     * <p>The maximum idle time (that is, time when no requests are performed on behalf the session) in milliseconds, after which this
+     * session will be considered expired.
+     *
+     * @param timeUnit Timeunit to convert timeout to.
+     * @return Session timeout in the given timeunit.
+     */
+    long idleTimeout(TimeUnit timeUnit);
 
     /**
      * Returns session default schema.
@@ -281,7 +292,7 @@ public interface Session extends AutoCloseable {
          * @param timeUnit Timeunit to convert timeout to.
          * @return Default query timeout in the given timeunit.
          */
-        long defaultTimeout(TimeUnit timeUnit);
+        long defaultQueryTimeout(TimeUnit timeUnit);
 
         /**
          * Sets default query timeout.
@@ -290,7 +301,30 @@ public interface Session extends AutoCloseable {
          * @param timeUnit Timeunit.
          * @return {@code this} for chaining.
          */
-        SessionBuilder defaultTimeout(long timeout, TimeUnit timeUnit);
+        SessionBuilder defaultQueryTimeout(long timeout, TimeUnit timeUnit);
+
+        /**
+         * Return the idle timeout.
+         *
+         * <p>The maximum idle time (that is, time when no requests are performed on behalf the session) in milliseconds, after which this
+         * session will be considered expired.
+         *
+         * @param timeUnit Timeunit to convert timeout to.
+         * @return Session timeout in the given timeunit.
+         */
+        long idleTimeout(TimeUnit timeUnit);
+
+        /**
+         * Sets idle timeout.
+         *
+         * <p>The maximum idle time (that is, time when no requests are performed on behalf the session) in milliseconds, after which this
+         * session will be considered expired.
+         *
+         * @param timeout Session timeout value.
+         * @param timeUnit Timeunit.
+         * @return {@code this} for chaining.
+         */
+        SessionBuilder idleTimeout(long timeout, TimeUnit timeUnit);
 
         /**
          * Returns session default schema.

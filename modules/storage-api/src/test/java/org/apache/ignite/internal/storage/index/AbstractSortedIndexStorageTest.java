@@ -20,6 +20,8 @@ package org.apache.ignite.internal.storage.index;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter.convert;
+import static org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders.column;
+import static org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders.tableBuilder;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.BACKWARDS;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.FORWARD;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.GREATER;
@@ -29,8 +31,6 @@ import static org.apache.ignite.internal.storage.index.SortedIndexStorage.LESS_O
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.randomString;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.schema.SchemaBuilders.column;
-import static org.apache.ignite.schema.SchemaBuilders.tableBuilder;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.nullValue;
@@ -45,35 +45,40 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.EntryCountBudgetConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
+import org.apache.ignite.configuration.schemas.table.TableIndexView;
 import org.apache.ignite.configuration.schemas.table.TableView;
+import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
+import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
+import org.apache.ignite.internal.schema.testutils.builder.SortedIndexDefinitionBuilder;
+import org.apache.ignite.internal.schema.testutils.builder.SortedIndexDefinitionBuilder.SortedIndexColumnBuilder;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapStorageEngine;
 import org.apache.ignite.internal.storage.chm.schema.TestConcurrentHashMapDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor.ColumnDescriptor;
+import org.apache.ignite.internal.storage.index.impl.BinaryTupleRowSerializer;
 import org.apache.ignite.internal.storage.index.impl.TestIndexRow;
 import org.apache.ignite.internal.testframework.VariableSource;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnDefinition;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.TableDefinition;
-import org.apache.ignite.schema.definition.builder.SortedIndexDefinitionBuilder;
-import org.apache.ignite.schema.definition.builder.SortedIndexDefinitionBuilder.SortedIndexColumnBuilder;
 import org.apache.ignite.schema.definition.index.ColumnarIndexDefinition;
 import org.apache.ignite.schema.definition.index.SortedIndexDefinition;
 import org.intellij.lang.annotations.MagicConstant;
@@ -85,7 +90,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 
 /**
- * Base test for MV index storages.
+ * Base class for Sorted Index storage tests.
  */
 @ExtendWith(ConfigurationExtension.class)
 public abstract class AbstractSortedIndexStorageTest {
@@ -94,7 +99,7 @@ public abstract class AbstractSortedIndexStorageTest {
     /** Definitions of all supported column types. */
     public static final List<ColumnDefinition> ALL_TYPES_COLUMN_DEFINITIONS = allTypesColumnDefinitions();
 
-    protected TableConfiguration tableCfg;
+    private TableConfiguration tableCfg;
 
     private Random random;
 
@@ -130,7 +135,9 @@ public abstract class AbstractSortedIndexStorageTest {
                     TestConcurrentHashMapDataStorageConfigurationSchema.class,
                     ConstantValueDefaultConfigurationSchema.class,
                     FunctionCallDefaultConfigurationSchema.class,
-                    NullValueDefaultConfigurationSchema.class
+                    NullValueDefaultConfigurationSchema.class,
+                    UnlimitedBudgetConfigurationSchema.class,
+                    EntryCountBudgetConfigurationSchema.class
             },
             // This value only required for configuration validity, it's not used otherwise.
             value = "mock.dataStorage.name = " + TestConcurrentHashMapStorageEngine.ENGINE_NAME
@@ -166,9 +173,9 @@ public abstract class AbstractSortedIndexStorageTest {
     }
 
     /**
-     * Creates a storage instanc efor testing.
+     * Creates a storage instance for testing.
      */
-    protected abstract SortedIndexStorage createIndexStorage(String name, TableView tableCfg);
+    protected abstract SortedIndexStorage createIndexStorage(UUID id, TableView tableCfg);
 
     /**
      * Creates a Sorted Index using the given columns.
@@ -203,7 +210,9 @@ public abstract class AbstractSortedIndexStorageTest {
 
         assertThat(createIndexFuture, willBe(nullValue(Void.class)));
 
-        return createIndexStorage(indexDefinition.name(), tableCfg.value());
+        TableIndexView indexConfig = tableCfg.value().indices().get(indexDefinition.name());
+
+        return createIndexStorage(indexConfig.id(), tableCfg.value());
     }
 
     /**
@@ -218,9 +227,11 @@ public abstract class AbstractSortedIndexStorageTest {
                 .map(type -> SchemaTestUtils.generateRandomValue(random, type))
                 .toArray();
 
-        IndexRow row = indexStorage.indexRowSerializer().createIndexRow(columns, new RowId(0));
+        var serializer = new BinaryTupleRowSerializer(indexStorage.indexDescriptor());
 
-        Object[] actual = indexStorage.indexRowDeserializer().deserializeColumns(row);
+        IndexRow row = serializer.serializeRow(columns, new RowId(0));
+
+        Object[] actual = serializer.deserializeColumns(row);
 
         assertThat(actual, is(equalTo(columns)));
     }
@@ -261,7 +272,9 @@ public abstract class AbstractSortedIndexStorageTest {
         var columnValues = new Object[] { "foo", 1 };
         var rowId = new RowId(0);
 
-        IndexRow row = index.indexRowSerializer().createIndexRow(columnValues, rowId);
+        var serializer = new BinaryTupleRowSerializer(index.indexDescriptor());
+
+        IndexRow row = serializer.serializeRow(columnValues, rowId);
 
         index.put(row);
         index.put(row);
@@ -294,9 +307,11 @@ public abstract class AbstractSortedIndexStorageTest {
         var rowId2 = new RowId(0);
         var rowId3 = new RowId(0);
 
-        IndexRow row1 = index.indexRowSerializer().createIndexRow(columnValues1, rowId1);
-        IndexRow row2 = index.indexRowSerializer().createIndexRow(columnValues1, rowId2);
-        IndexRow row3 = index.indexRowSerializer().createIndexRow(columnValues2, rowId3);
+        var serializer = new BinaryTupleRowSerializer(index.indexDescriptor());
+
+        IndexRow row1 = serializer.serializeRow(columnValues1, rowId1);
+        IndexRow row2 = serializer.serializeRow(columnValues1, rowId2);
+        IndexRow row3 = serializer.serializeRow(columnValues2, rowId3);
 
         index.put(row1);
         index.put(row2);
@@ -330,9 +345,11 @@ public abstract class AbstractSortedIndexStorageTest {
         var rowId2 = new RowId(0);
         var rowId3 = new RowId(0);
 
-        IndexRow row1 = index.indexRowSerializer().createIndexRow(columnValues1, rowId1);
-        IndexRow row2 = index.indexRowSerializer().createIndexRow(columnValues1, rowId2);
-        IndexRow row3 = index.indexRowSerializer().createIndexRow(columnValues2, rowId3);
+        var serializer = new BinaryTupleRowSerializer(index.indexDescriptor());
+
+        IndexRow row1 = serializer.serializeRow(columnValues1, rowId1);
+        IndexRow row2 = serializer.serializeRow(columnValues1, rowId2);
+        IndexRow row3 = serializer.serializeRow(columnValues2, rowId3);
 
         index.put(row1);
         index.put(row2);
@@ -438,12 +455,12 @@ public abstract class AbstractSortedIndexStorageTest {
         Object[] val8020 = { "20", 80 };
 
         for (SortedIndexStorage index : Arrays.asList(index1, index2)) {
-            IndexRowSerializer serializer = index.indexRowSerializer();
+            var serializer = new BinaryTupleRowSerializer(index.indexDescriptor());
 
-            index.put(serializer.createIndexRow(val9010, new RowId(0)));
-            index.put(serializer.createIndexRow(val8010, new RowId(0)));
-            index.put(serializer.createIndexRow(val9020, new RowId(0)));
-            index.put(serializer.createIndexRow(val8020, new RowId(0)));
+            index.put(serializer.serializeRow(val9010, new RowId(0)));
+            index.put(serializer.serializeRow(val8010, new RowId(0)));
+            index.put(serializer.serializeRow(val9020, new RowId(0)));
+            index.put(serializer.serializeRow(val8020, new RowId(0)));
         }
 
         // Test without bounds.
@@ -587,9 +604,11 @@ public abstract class AbstractSortedIndexStorageTest {
 
         Object[] nullArray = new Object[storage.indexDescriptor().indexColumns().size()];
 
-        IndexRow nullRow = storage.indexRowSerializer().createIndexRow(nullArray, new RowId(0));
+        var serializer = new BinaryTupleRowSerializer(storage.indexDescriptor());
 
-        TestIndexRow entry2 = new TestIndexRow(storage, nullRow, nullArray);
+        IndexRow nullRow = serializer.serializeRow(nullArray, new RowId(0));
+
+        var entry2 = new TestIndexRow(storage, serializer, nullRow, nullArray);
 
         storage.put(entry1);
         storage.put(entry2);
@@ -684,7 +703,9 @@ public abstract class AbstractSortedIndexStorageTest {
     }
 
     private static BinaryTuple prefix(SortedIndexStorage index, Object... vals) {
-        return index.indexRowSerializer().createIndexRowPrefix(vals);
+        var serializer = new BinaryTupleRowSerializer(index.indexDescriptor());
+
+        return serializer.serializeRowPrefix(vals);
     }
 
     private static List<Object[]> scan(
@@ -693,11 +714,11 @@ public abstract class AbstractSortedIndexStorageTest {
             @Nullable BinaryTuple upperBound,
             @MagicConstant(flagsFromClass = SortedIndexStorage.class) int flags
     ) throws Exception {
-        IndexRowDeserializer deserializer = index.indexRowDeserializer();
+        var serializer = new BinaryTupleRowSerializer(index.indexDescriptor());
 
         try (Cursor<IndexRow> cursor = index.scan(lowerBound, upperBound, flags)) {
             return cursor.stream()
-                    .map(deserializer::deserializeColumns)
+                    .map(serializer::deserializeColumns)
                     .collect(toUnmodifiableList());
         }
     }

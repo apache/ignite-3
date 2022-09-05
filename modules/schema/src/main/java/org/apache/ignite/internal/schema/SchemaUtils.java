@@ -20,7 +20,6 @@ package org.apache.ignite.internal.schema;
 import java.util.Optional;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.schemas.table.ColumnView;
-import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.schema.configuration.SchemaDescriptorConverter;
@@ -50,21 +49,18 @@ public class SchemaUtils {
      * Prepares column mapper.
      *
      * @param oldDesc Old schema descriptor.
-     * @param oldTbl  Old table configuration.
+     * @param oldTblColumns Old columns configuration.
      * @param newDesc New schema descriptor.
-     * @param newTbl  New table configuration.
+     * @param newTblColumns New columns configuration.
      * @return Column mapper.
      */
     public static ColumnMapper columnMapper(
             SchemaDescriptor oldDesc,
-            TableView oldTbl,
+            NamedListView<? extends ColumnView> oldTblColumns,
             SchemaDescriptor newDesc,
-            TableChange newTbl
+            NamedListView<? extends ColumnView> newTblColumns
     ) {
         ColumnMapper mapper = null;
-
-        NamedListView<? extends ColumnView> newTblColumns = newTbl.columns();
-        NamedListView<? extends ColumnView> oldTblColumns = oldTbl.columns();
 
         // since newTblColumns comes from a Change class, it can only be of the same size or larger than the previous configuration,
         // because removed keys are simply replaced with nulls
@@ -146,5 +142,14 @@ public class SchemaUtils {
         }
 
         return true;
+    }
+
+    /**
+     * Creates canonical table name.
+     *
+     * @return Table with schema canonical name.
+     */
+    public static String canonicalName(String schema, String name) {
+        return schema + '.' + name;
     }
 }

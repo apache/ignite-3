@@ -149,7 +149,10 @@ public class NetworkAddress implements Serializable {
     /** {@inheritDoc} */
     @Override
     public int hashCode() {
-        return Objects.hash(host, port, consistentId);
+        int result = host.hashCode();
+        result = 31 * result + port;
+        result = 31 * result + (consistentId != null ? consistentId.hashCode() : 0);
+        return result;
     }
 
     /** {@inheritDoc} */
