@@ -29,10 +29,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collection;
-import java.util.Iterator;
 import java.util.UUID;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
@@ -58,7 +56,6 @@ import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.msgpack.core.MessageTypeException;
 
 /**
  * Common table functionality.
@@ -100,24 +97,6 @@ public class ClientTableCommon {
      * @param packer Packer.
      * @param tuple  Tuple.
      */
-    public static void writeTupleOrNil(ClientMessagePacker packer, Tuple tuple) {
-        if (tuple == null) {
-            packer.packNil();
-
-            return;
-        }
-
-        var schema = ((SchemaAware) tuple).schema();
-
-        writeTuple(packer, tuple, schema);
-    }
-
-    /**
-     * Writes a tuple.
-     *
-     * @param packer Packer.
-     * @param tuple  Tuple.
-     */
     public static void writeTupleOrNil(ClientMessagePacker packer, Tuple tuple, TuplePart part) {
         if (tuple == null) {
             packer.packNil();
@@ -128,40 +107,6 @@ public class ClientTableCommon {
         var schema = ((SchemaAware) tuple).schema();
 
         writeTuple(packer, tuple, schema, false, part);
-    }
-
-    /**
-     * Writes a tuple.
-     *
-     * @param packer Packer.
-     * @param tuple  Tuple.
-     * @param schema Tuple schema.
-     * @throws IgniteException on failed serialization.
-     */
-    public static void writeTuple(
-            ClientMessagePacker packer,
-            Tuple tuple,
-            SchemaDescriptor schema
-    ) {
-        writeTuple(packer, tuple, schema, false, TuplePart.KEY_AND_VAL);
-    }
-
-    /**
-     * Writes a tuple.
-     *
-     * @param packer     Packer.
-     * @param tuple      Tuple.
-     * @param schema     Tuple schema.
-     * @param skipHeader Whether to skip the tuple header.
-     * @throws IgniteException on failed serialization.
-     */
-    public static void writeTuple(
-            ClientMessagePacker packer,
-            Tuple tuple,
-            SchemaDescriptor schema,
-            boolean skipHeader
-    ) {
-        writeTuple(packer, tuple, schema, skipHeader, TuplePart.KEY_AND_VAL);
     }
 
     /**
@@ -446,16 +391,6 @@ public class ClientTableCommon {
         }
     }
 
-    private static void readAndSetColumnValue(ClientMessageUnpacker unpacker, Tuple tuple, Column col) {
-        try {
-            int type = getClientDataType(col.type().spec());
-            Object val = unpacker.unpackObject(type);
-            tuple.set(col.name(), val);
-        } catch (MessageTypeException e) {
-            throw new IgniteException(PROTOCOL_ERR, "Incorrect value type for column '" + col.name() + "': " + e.getMessage(), e);
-        }
-    }
-
     private static int getClientDataType(NativeTypeSpec spec) {
         switch (spec) {
             case INT8:
@@ -508,91 +443,6 @@ public class ClientTableCommon {
 
             default:
                 throw new IgniteException(PROTOCOL_ERR, "Unsupported native type: " + spec);
-        }
-    }
-
-    private static void writeColumnValue(ClientMessagePacker packer, Tuple tuple, Column col) {
-        var val = tuple.valueOrDefault(col.name(), NO_VALUE);
-
-        if (val == null) {
-            packer.packNil();
-            return;
-        }
-
-        if (val == NO_VALUE) {
-            packer.packNoValue();
-            return;
-        }
-
-        switch (col.type().spec()) {
-            case INT8:
-                packer.packByte((byte) val);
-                break;
-
-            case INT16:
-                packer.packShort((short) val);
-                break;
-
-            case INT32:
-                packer.packInt((int) val);
-                break;
-
-            case INT64:
-                packer.packLong((long) val);
-                break;
-
-            case FLOAT:
-                packer.packFloat((float) val);
-                break;
-
-            case DOUBLE:
-                packer.packDouble((double) val);
-                break;
-
-            case DECIMAL:
-                packer.packDecimal((BigDecimal) val);
-                break;
-
-            case NUMBER:
-                packer.packNumber((BigInteger) val);
-                break;
-
-            case UUID:
-                packer.packUuid((UUID) val);
-                break;
-
-            case STRING:
-                packer.packString((String) val);
-                break;
-
-            case BYTES:
-                byte[] bytes = (byte[]) val;
-                packer.packBinaryHeader(bytes.length);
-                packer.writePayload(bytes);
-                break;
-
-            case BITMASK:
-                packer.packBitSet((BitSet) val);
-                break;
-
-            case DATE:
-                packer.packDate((LocalDate) val);
-                break;
-
-            case TIME:
-                packer.packTime((LocalTime) val);
-                break;
-
-            case DATETIME:
-                packer.packDateTime((LocalDateTime) val);
-                break;
-
-            case TIMESTAMP:
-                packer.packTimestamp((Instant) val);
-                break;
-
-            default:
-                throw new IgniteException(PROTOCOL_ERR, "Data type not supported: " + col.type());
         }
     }
 
@@ -687,34 +537,6 @@ public class ClientTableCommon {
             case VAL: return schema.valueColumns().length();
             default: return schema.length();
         }
-    }
-
-    private static Iterable<Column> columnIterable(SchemaDescriptor schema, TuplePart part) {
-        return () -> columnIterator(schema, part);
-    }
-
-    private static Iterator<Column> columnIterator(SchemaDescriptor schema, TuplePart part) {
-        if (part == TuplePart.KEY) {
-            return Arrays.stream(schema.keyColumns().columns()).iterator();
-        }
-
-        if (part == TuplePart.VAL) {
-            return Arrays.stream(schema.valueColumns().columns()).iterator();
-        }
-
-        return new Iterator<>() {
-            private int idx;
-
-            @Override
-            public boolean hasNext() {
-                return idx < schema.length();
-            }
-
-            @Override
-            public Column next() {
-                return schema.column(idx++);
-            }
-        };
     }
 
     private static void packBinary(ClientMessagePacker packer, ByteBuffer buf) {
