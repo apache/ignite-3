@@ -217,5 +217,10 @@ public abstract class TxStateStorageAbstractTest {
         assertEquals(txMeta0.enlistedPartitions(), txMeta1.enlistedPartitions());
     }
 
+    /**
+     * Creates {@link TxStateStorage} to test.
+     *
+     * @return Tx state storage.
+     */
     protected abstract TxStateStorage createStorage();
 }
