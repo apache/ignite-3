@@ -68,4 +68,10 @@ public class ClientDataType {
 
     /** Number. */
     public static final int NUMBER = 16;
+
+    /** Boolean. */
+    public static final int BOOLEAN = 17;
+
+    /** Big Integer. */
+    public static final int BIGINTEGER = 18;
 }
