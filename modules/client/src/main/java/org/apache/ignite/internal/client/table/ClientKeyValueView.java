@@ -457,6 +457,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
     }
 
     private void writeKeyValue(ClientSchema s, PayloadOutputChannel w, @Nullable Transaction tx, @NotNull K key, V val) {
+        // TODO IGNITE-17297L Use the same tuple for both parts
         keySer.writeRec(tx, key, s, w, TuplePart.KEY);
         valSer.writeRecRaw(val, s, w.out(), TuplePart.VAL);
     }
