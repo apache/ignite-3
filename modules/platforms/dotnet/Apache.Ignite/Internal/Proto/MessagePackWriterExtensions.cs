@@ -68,7 +68,7 @@ namespace Apache.Ignite.Internal.Proto
             var byteCount = bitCount / 8 + 1;
             writer.WriteExtensionFormatHeader(new ExtensionHeader((sbyte)ClientMessagePackType.Bitmask, byteCount));
 
-            var span = writer.GetSpan(byteCount);
+            var span = writer.GetSpan(byteCount)[..byteCount];
             span.Clear();
             writer.Advance(byteCount);
 
