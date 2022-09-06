@@ -872,7 +872,7 @@ public class ClientMessagePacker implements AutoCloseable {
             packInt(ClientDataType.BITMASK);
             packBitSet((BitSet) obj);
         } else {
-            throw new UnsupportedOperationException("Custom objects are not supported");
+            throw new UnsupportedOperationException("Custom objects are not supported: " + cls);
         }
     }
 
