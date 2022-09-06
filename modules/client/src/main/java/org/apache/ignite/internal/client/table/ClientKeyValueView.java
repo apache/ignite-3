@@ -375,6 +375,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_REPLACE_EXACT,
                 (s, w) -> {
+                    // TODO IGNITE-17297 how to combine key and val?
                     keySer.writeRec(tx, key, s, w, TuplePart.KEY);
                     valSer.writeRecRaw(oldVal, s, w.out(), TuplePart.VAL);
 
