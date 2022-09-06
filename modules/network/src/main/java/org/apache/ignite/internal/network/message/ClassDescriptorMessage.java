@@ -27,8 +27,7 @@ import org.jetbrains.annotations.Nullable;
 
 /** Message for the {@link ClassDescriptor}. */
 @Transferable(NetworkMessageTypes.CLASS_DESCRIPTOR_MESSAGE)
-public
-interface ClassDescriptorMessage extends NetworkMessage {
+public interface ClassDescriptorMessage extends NetworkMessage {
     int IS_PRIMITIVE_MASK = 1;
     int IS_ARRAY_MASK = 1 << 1;
     int IS_RUNTIME_ENUM_MASK = 1 << 2;
