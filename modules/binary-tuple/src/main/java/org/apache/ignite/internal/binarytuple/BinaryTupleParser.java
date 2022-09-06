@@ -372,8 +372,8 @@ public class BinaryTupleParser {
             }
             throw new BinaryTupleFormatException("Invalid length for a tuple element");
         }
-        long lsb = buffer.getLong(begin);
-        long msb = buffer.getLong(begin + 8);
+        long msb = buffer.getLong(begin);
+        long lsb = buffer.getLong(begin + 8);
         return new UUID(msb, lsb);
     }
 

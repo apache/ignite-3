@@ -83,7 +83,7 @@ namespace Apache.Ignite.Internal.Table
             var schema = await _table.GetLatestSchemaAsync().ConfigureAwait(false);
             var tx = transaction.ToInternal();
 
-            using var writer = new PooledArrayBufferWriter();
+            using var writer = ProtoCommon.GetMessageWriter();
             _ser.WriteMultiple(writer, tx, schema, iterator, keyOnly: true);
 
             using var resBuf = await DoOutInOpAsync(ClientOp.TupleGetAll, tx, writer).ConfigureAwait(false);
@@ -116,7 +116,7 @@ namespace Apache.Ignite.Internal.Table
             var schema = await _table.GetLatestSchemaAsync().ConfigureAwait(false);
             var tx = transaction.ToInternal();
 
-            using var writer = new PooledArrayBufferWriter();
+            using var writer = ProtoCommon.GetMessageWriter();
             _ser.WriteMultiple(writer, tx, schema, iterator);
 
             using var resBuf = await DoOutInOpAsync(ClientOp.TupleUpsertAll, tx, writer).ConfigureAwait(false);
@@ -157,7 +157,7 @@ namespace Apache.Ignite.Internal.Table
             var schema = await _table.GetLatestSchemaAsync().ConfigureAwait(false);
             var tx = transaction.ToInternal();
 
-            using var writer = new PooledArrayBufferWriter();
+            using var writer = ProtoCommon.GetMessageWriter();
             _ser.WriteMultiple(writer, tx, schema, iterator);
 
             using var resBuf = await DoOutInOpAsync(ClientOp.TupleInsertAll, tx, writer).ConfigureAwait(false);
@@ -184,7 +184,7 @@ namespace Apache.Ignite.Internal.Table
             var schema = await _table.GetLatestSchemaAsync().ConfigureAwait(false);
             var tx = transaction.ToInternal();
 
-            using var writer = new PooledArrayBufferWriter();
+            using var writer = ProtoCommon.GetMessageWriter();
             _ser.WriteTwo(writer, tx, schema, record, newRecord);
 
             using var resBuf = await DoOutInOpAsync(ClientOp.TupleReplaceExact, tx, writer).ConfigureAwait(false);
@@ -246,7 +246,7 @@ namespace Apache.Ignite.Internal.Table
             var schema = await _table.GetLatestSchemaAsync().ConfigureAwait(false);
             var tx = transaction.ToInternal();
 
-            using var writer = new PooledArrayBufferWriter();
+            using var writer = ProtoCommon.GetMessageWriter();
             _ser.WriteMultiple(writer, tx, schema, iterator, keyOnly: true);
 
             using var resBuf = await DoOutInOpAsync(ClientOp.TupleDeleteAll, tx, writer).ConfigureAwait(false);
@@ -271,7 +271,7 @@ namespace Apache.Ignite.Internal.Table
             var schema = await _table.GetLatestSchemaAsync().ConfigureAwait(false);
             var tx = transaction.ToInternal();
 
-            using var writer = new PooledArrayBufferWriter();
+            using var writer = ProtoCommon.GetMessageWriter();
             _ser.WriteMultiple(writer, tx, schema, iterator);
 
             using var resBuf = await DoOutInOpAsync(ClientOp.TupleDeleteAllExact, tx, writer).ConfigureAwait(false);
@@ -297,7 +297,7 @@ namespace Apache.Ignite.Internal.Table
             var schema = await _table.GetLatestSchemaAsync().ConfigureAwait(false);
             var tx = transaction.ToInternal();
 
-            using var writer = new PooledArrayBufferWriter();
+            using var writer = ProtoCommon.GetMessageWriter();
             _ser.Write(writer, tx, schema, record, keyOnly);
 
             return await DoOutInOpAsync(op, tx, writer).ConfigureAwait(false);

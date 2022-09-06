@@ -59,6 +59,8 @@ import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.tx.Transaction;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -294,6 +296,10 @@ public class AbstractBasicIntegrationTest extends BaseIgniteAbstractTest {
     }
 
     protected static List<List<Object>> sql(String sql, Object... args) {
+        return sql(null, sql, args);
+    }
+
+    protected static List<List<Object>> sql(@Nullable Transaction tx, String sql, Object... args) {
         var queryEngine = ((IgniteImpl) CLUSTER_NODES.get(0)).queryEngine();
 
         SessionId sessionId = queryEngine.createSession(SESSION_IDLE_TIMEOUT, PropertiesHolder.fromMap(
@@ -301,8 +307,10 @@ public class AbstractBasicIntegrationTest extends BaseIgniteAbstractTest {
         ));
 
         try {
+            var context = tx != null ? QueryContext.of(tx) : QueryContext.of();
+
             return getAllFromCursor(
-                    await(queryEngine.querySingleAsync(sessionId, QueryContext.of(), sql, args))
+                    await(queryEngine.querySingleAsync(sessionId, context, sql, args))
             );
         } finally {
             queryEngine.closeSession(sessionId);

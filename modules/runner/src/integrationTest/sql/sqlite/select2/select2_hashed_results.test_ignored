@@ -1,3 +1,5 @@
+# Ignore https://issues.apache.org/jira/browse/IGNITE-17612
+
 statement ok
 CREATE TABLE t1(a INTEGER, b INTEGER, c INTEGER, d INTEGER, e INTEGER)
 

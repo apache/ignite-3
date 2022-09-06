@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Internal
 {
     using System;
+    using System.Buffers.Binary;
     using System.Collections.Concurrent;
     using System.Diagnostics;
     using System.Diagnostics.CodeAnalysis;
@@ -80,7 +81,7 @@ namespace Apache.Ignite.Internal
         private readonly IIgniteLogger? _logger;
 
         /** Pre-allocated buffer for message size + op code + request id. To be used under <see cref="_sendLock"/>. */
-        private readonly byte[] _prefixBuffer = new byte[PooledArrayBufferWriter.ReservedPrefixSize];
+        private readonly byte[] _prefixBuffer = new byte[ProtoCommon.MessagePrefixSize];
 
         /** Request id generator. */
         private long _requestId;
@@ -339,7 +340,7 @@ namespace Apache.Ignite.Internal
 
             await ReceiveBytesAsync(stream, buffer, messageSizeByteCount, cancellationToken).ConfigureAwait(false);
 
-            return GetMessageSize(buffer);
+            return ReadMessageSize(buffer);
         }
 
         private static async Task ReceiveBytesAsync(
@@ -366,25 +367,15 @@ namespace Apache.Ignite.Internal
             }
         }
 
-        private static unsafe int GetMessageSize(byte[] responseLenBytes)
-        {
-            fixed (byte* len = &responseLenBytes[0])
-            {
-                var messageSize = *(int*)len;
-
-                return IPAddress.NetworkToHostOrder(messageSize);
-            }
-        }
-
         private static async ValueTask WriteHandshakeAsync(NetworkStream stream, ClientProtocolVersion version)
         {
-            using var bufferWriter = new PooledArrayBufferWriter();
+            using var bufferWriter = new PooledArrayBufferWriter(prefixSize: ProtoCommon.MessagePrefixSize);
             WriteHandshake(version, bufferWriter.GetMessageWriter());
 
             // Prepend size.
             var buf = bufferWriter.GetWrittenMemory();
-            var size = buf.Length - PooledArrayBufferWriter.ReservedPrefixSize;
-            var resBuf = buf.Slice(PooledArrayBufferWriter.ReservedPrefixSize - 4);
+            var size = buf.Length - ProtoCommon.MessagePrefixSize;
+            var resBuf = buf.Slice(ProtoCommon.MessagePrefixSize - 4);
             WriteMessageSize(resBuf, size);
 
             await stream.WriteAsync(resBuf).ConfigureAwait(false);
@@ -405,13 +396,10 @@ namespace Apache.Ignite.Internal
             w.Flush();
         }
 
-        private static unsafe void WriteMessageSize(Memory<byte> target, int size)
-        {
-            fixed (byte* bufPtr = target.Span)
-            {
-                *(int*)bufPtr = IPAddress.HostToNetworkOrder(size);
-            }
-        }
+        private static void WriteMessageSize(Memory<byte> target, int size) =>
+            BinaryPrimitives.WriteInt32BigEndian(target.Span, size);
+
+        private static int ReadMessageSize(Span<byte> responseLenBytes) => BinaryPrimitives.ReadInt32BigEndian(responseLenBytes);
 
         private static TimeSpan GetHeartbeatInterval(TimeSpan configuredInterval, TimeSpan serverIdleTimeout, IIgniteLogger? logger)
         {
@@ -475,10 +463,10 @@ namespace Apache.Ignite.Internal
                 {
                     var requestBuf = request.GetWrittenMemory();
 
-                    WriteMessageSize(_prefixBuffer, prefixSize + requestBuf.Length - PooledArrayBufferWriter.ReservedPrefixSize);
+                    WriteMessageSize(_prefixBuffer, prefixSize + requestBuf.Length - ProtoCommon.MessagePrefixSize);
                     var prefixBytes = _prefixBuffer.AsMemory()[..(prefixSize + 4)];
 
-                    var requestBufStart = PooledArrayBufferWriter.ReservedPrefixSize - prefixBytes.Length;
+                    var requestBufStart = ProtoCommon.MessagePrefixSize - prefixBytes.Length;
                     var requestBufWithPrefix = requestBuf.Slice(requestBufStart);
 
                     // Copy prefix to request buf to avoid extra WriteAsync call for the prefix.

@@ -22,8 +22,6 @@ import static java.util.Collections.singletonList;
 import static org.apache.calcite.plan.RelOptUtil.permutationPushDownProject;
 import static org.apache.calcite.rel.RelDistribution.Type.BROADCAST_DISTRIBUTED;
 import static org.apache.calcite.rel.RelDistribution.Type.HASH_DISTRIBUTED;
-import static org.apache.ignite.internal.sql.engine.trait.IgniteDistributions.any;
-import static org.apache.ignite.internal.sql.engine.trait.IgniteDistributions.single;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
@@ -242,15 +240,6 @@ public class TraitUtils {
         return converter.convert(planner, rel, toTrait, true);
     }
 
-    /** Change distribution and Convention. */
-    public static RelTraitSet fixTraits(RelTraitSet traits) {
-        if (distribution(traits) == any()) {
-            traits = traits.replace(single());
-        }
-
-        return traits.replace(IgniteConvention.INSTANCE);
-    }
-
     /**
      * Distribution. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
@@ -382,9 +371,14 @@ public class TraitUtils {
         List<RelTraitSet> inTraits = Collections.nCopies(rel.getInputs().size(),
                 rel.getCluster().traitSetOf(convention));
 
-        List<Pair<RelTraitSet, List<RelTraitSet>>> traits = new PropagationContext(Set.of(Pair.of(requiredTraits, inTraits)))
-                .propagate((in, outs) -> singletonListFromNullable(rel.passThroughCollation(in, outs)))
-                .propagate((in, outs) -> singletonListFromNullable(rel.passThroughDistribution(in, outs)))
+        var context = new PropagationContext(Set.of(Pair.of(requiredTraits, inTraits)))
+                .propagate((in, outs) -> singletonListFromNullable(rel.passThroughCollation(in, outs)));
+
+        if (distributionEnabled(rel)) {
+            context = context.propagate((in, outs) -> singletonListFromNullable(rel.passThroughDistribution(in, outs)));
+        }
+
+        List<Pair<RelTraitSet, List<RelTraitSet>>> traits = context
                 .propagate((in, outs) -> singletonListFromNullable(rel.passThroughRewindability(in, outs)))
                 .propagate((in, outs) -> singletonListFromNullable(rel.passThroughCorrelation(in, outs)))
                 .combinations();
@@ -418,9 +412,14 @@ public class TraitUtils {
             return List.of();
         }
 
-        return new PropagationContext(combinations)
-                .propagate(rel::deriveCollation)
-                .propagate(rel::deriveDistribution)
+        var context = new PropagationContext(combinations)
+                .propagate(rel::deriveCollation);
+
+        if (distributionEnabled(rel)) {
+            context = context.propagate(rel::deriveDistribution);
+        }
+
+        return context
                 .propagate(rel::deriveRewindability)
                 .propagate(rel::deriveCorrelation)
                 .nodes(rel::createNode);
@@ -500,6 +499,10 @@ public class TraitUtils {
                 : RelFieldCollation.NullDirection.LAST;
 
         return new RelFieldCollation(fieldIdx, direction, nullDirection);
+    }
+
+    public static boolean distributionEnabled(RelNode node) {
+        return distribution(node) != null;
     }
 
     /**
