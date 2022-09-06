@@ -67,7 +67,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
      * @param rowVersionFreeList Free list for {@link RowVersion}.
      * @param indexFreeList Free list fot {@link IndexColumns}.
      * @param versionChainTree Table tree for {@link VersionChain}.
-     * @param indexMetaTree Tree that contains SQL indexes.
+     * @param indexMetaTree Tree that contains SQL indexes' metadata.
      */
     public PersistentPageMemoryMvPartitionStorage(
             PersistentPageMemoryTableStorage tableStorage,
@@ -203,7 +203,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
                 try {
                     indexFreeList.saveMetadata();
                 } catch (IgniteInternalCheckedException e) {
-                    throw new IgniteInternalException("Failed to save RowVersionFreeList metadata", e);
+                    throw new IgniteInternalException("Failed to save IndexColumnsFreeList metadata", e);
                 }
             });
         }

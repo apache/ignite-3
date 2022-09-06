@@ -37,7 +37,7 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
      * @param tableStorage Table storage instance.
      * @param partitionId Partition id.
      * @param versionChainTree Table tree for {@link VersionChain}.
-     * @param indexMetaTree Tree that contains SQL indexes.
+     * @param indexMetaTree Tree that contains SQL indexes' metadata.
      */
     public VolatilePageMemoryMvPartitionStorage(
             VolatilePageMemoryTableStorage tableStorage,

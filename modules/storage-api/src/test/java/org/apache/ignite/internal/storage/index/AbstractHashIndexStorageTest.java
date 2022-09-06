@@ -216,7 +216,7 @@ public abstract class AbstractHashIndexStorageTest {
 
         CompletableFuture<Void> destroyFuture = tableStorage.destroyIndex(indexStorage.indexDescriptor().id());
 
-        waitForDurableCompletion(destroyFuture, 1L);
+        waitForDurableCompletion(destroyFuture);
 
         //TODO IGNITE-17626 Index must be invalid, we should assert that getIndex returns null and that in won't surface upon restart.
         // "destroy" is not "clear", you know. Maybe "getAndCreateIndex" will do it for the test, idk
@@ -225,18 +225,13 @@ public abstract class AbstractHashIndexStorageTest {
         assertThat(getAll(row3), is(empty()));
     }
 
-    @SuppressWarnings("BusyWait")
-    private void waitForDurableCompletion(CompletableFuture<?> future, long timeout) throws Exception {
+    private void waitForDurableCompletion(CompletableFuture<?> future) {
         while (true) {
             if (future.isDone()) {
                 return;
             }
 
-            CompletableFuture<Void> flushFuture = partitionStorage.flush();
-
-            Thread.sleep(timeout);
-
-            flushFuture.join();
+            partitionStorage.flush().join();
         }
     }
 

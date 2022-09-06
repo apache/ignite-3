@@ -73,6 +73,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     protected final int partitionId;
 
+    protected final int groupId;
+
     protected final AbstractPageMemoryTableStorage tableStorage;
 
     protected final VersionChainTree versionChainTree;
@@ -95,7 +97,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      * @param rowVersionFreeList Free list for {@link RowVersion}.
      * @param indexFreeList Free list fot {@link IndexColumns}.
      * @param versionChainTree Table tree for {@link VersionChain}.
-     * @param indexMetaTree Tree that contains SQL indexes.
+     * @param indexMetaTree Tree that contains SQL indexes' metadata.
      */
     protected AbstractPageMemoryMvPartitionStorage(
             int partitionId,
@@ -116,7 +118,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
         PageMemory pageMemory = tableStorage.dataRegion().pageMemory();
 
-        int groupId = tableStorage.configuration().value().tableId();
+        groupId = tableStorage.configuration().value().tableId();
 
         rowVersionDataPageReader = new DataPageReader(pageMemory, groupId, IoStatisticsHolderNoOp.INSTANCE);
     }
@@ -136,7 +138,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                 TableIndexView indexCfgView = getByInternalId(indicesCfgView, indexMeta.id());
 
                 if (indexCfgView instanceof HashIndexView) {
-                    createHashIndex(indexMeta);
+                    createOrRestoreHashIndex(indexMeta);
                 } else if (indexCfgView instanceof SortedIndexView) {
                     throw new UnsupportedOperationException("Not implemented yet");
                 } else {
@@ -146,7 +148,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                 }
             }
         } catch (IgniteInternalCheckedException e) {
-            throw new StorageException("", e);
+            throw new StorageException("Failed to process SQL indexes during the partition start", e);
         }
     }
 
@@ -156,18 +158,16 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      * @param indexId Index UUID.
      */
     public HashIndexStorage getOrCreateHashIndex(UUID indexId) {
-        return indexes.computeIfAbsent(indexId, uuid -> createHashIndex(new IndexMeta(indexId, 0L)));
+        return indexes.computeIfAbsent(indexId, uuid -> createOrRestoreHashIndex(new IndexMeta(indexId, 0L)));
     }
 
-    private PageMemoryHashIndexStorage createHashIndex(IndexMeta indexMeta) {
+    private PageMemoryHashIndexStorage createOrRestoreHashIndex(IndexMeta indexMeta) {
         TableView tableView = tableStorage.configuration().value();
 
         var indexDescriptor = new HashIndexDescriptor(indexMeta.id(), tableView);
 
         try {
             PageMemory pageMemory = tableStorage.dataRegion().pageMemory();
-
-            int groupId = tableView.tableId();
 
             boolean initNew = indexMeta.metaPageId() == 0L;
 

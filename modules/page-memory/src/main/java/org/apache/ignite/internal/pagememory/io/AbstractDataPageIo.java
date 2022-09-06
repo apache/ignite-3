@@ -907,39 +907,6 @@ public abstract class AbstractDataPageIo<T extends Storable> extends PageIo {
     }
 
     /**
-     * Updates a row.
-     *
-     * @param pageAddr Page address.
-     * @param itemId Item ID.
-     * @param pageSize Page size.
-     * @param row Row.
-     * @param rowSize Row size.
-     * @return {@code True} if entry is not fragmented.
-     * @throws IgniteInternalCheckedException If failed.
-     */
-    public boolean updateRow(
-            final long pageAddr,
-            int itemId,
-            int pageSize,
-            T row,
-            final int rowSize
-    ) throws IgniteInternalCheckedException {
-        assert checkIndex(itemId) : itemId;
-        assert row != null;
-        assertPageType(pageAddr);
-
-        final int dataOff = getDataOffset(pageAddr, itemId, pageSize);
-
-        if (isFragmented(pageAddr, dataOff)) {
-            return false;
-        }
-
-        writeRowData(pageAddr, dataOff, rowSize, row, false);
-
-        return true;
-    }
-
-    /**
      * Removes a row.
      *
      * @param pageAddr Page address.
@@ -1076,6 +1043,7 @@ public abstract class AbstractDataPageIo<T extends Storable> extends PageIo {
             final int pageSize
     ) throws IgniteInternalCheckedException {
         assert rowSize <= getFreeSpace(pageAddr) : "can't call addRow if not enough space for the whole row";
+        assert rowSize <= 0xFFFF : "Row size is too big: " + rowSize;
         assertPageType(pageAddr);
 
         int fullEntrySize = getPageEntrySize(rowSize, SHOW_PAYLOAD_LEN | SHOW_ITEM);
