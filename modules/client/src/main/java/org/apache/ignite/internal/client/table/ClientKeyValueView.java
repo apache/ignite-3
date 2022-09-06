@@ -201,8 +201,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
                     w.out().packInt(pairs.size());
 
                     for (Entry<K, V> e : pairs.entrySet()) {
-                        keySer.writeRecRaw(e.getKey(), s, w.out(), TuplePart.KEY);
-                        valSer.writeRecRaw(e.getValue(), s, w.out(), TuplePart.VAL);
+                        writeKeyValueRaw(s, w, e.getKey(), e.getValue());
                     }
                 },
                 r -> null);
