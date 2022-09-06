@@ -22,6 +22,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
     using System.Reflection.Emit;
     using MessagePack;
     using Proto;
+    using Proto.BinaryTuple;
 
     /// <summary>
     /// Object serializer handler.
@@ -73,7 +74,13 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 ? w
                 : _writers.GetOrAdd(cacheKey, EmitWriter(schema, keyOnly));
 
+            var count = keyOnly ? schema.KeyColumnCount : schema.Columns.Count;
+            using var tupleBuilder = new BinaryTupleBuilder(count);
+
             writeDelegate(ref writer, record);
+
+            var binaryTupleMemory = tupleBuilder.Build();
+            writer.Write(binaryTupleMemory.Span);
         }
 
         private static WriteDelegate<T> EmitWriter(Schema schema, bool keyOnly)

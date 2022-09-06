@@ -25,7 +25,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
     /// <summary>
     /// Binary tuple builder.
     /// </summary>
-    internal sealed class BinaryTupleBuilder : IDisposable // TODO: Support all types (IGNITE-15431).
+    internal ref struct BinaryTupleBuilder // TODO: Support all types (IGNITE-15431).
     {
         /** Number of elements in the tuple. */
         private readonly int _numElements;
@@ -40,7 +40,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         private readonly int _valueBase;
 
         /** Buffer for tuple content. */
-        private readonly PooledArrayBufferWriter _buffer = new();
+        private readonly PooledArrayBufferWriter _buffer;
 
         /** Flag indicating if any NULL values were really put here. */
         private bool _hasNullValues;
@@ -49,7 +49,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         private int _elementIndex;
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="BinaryTupleBuilder"/> class.
+        /// Initializes a new instance of the <see cref="BinaryTupleBuilder"/> struct.
         /// </summary>
         /// <param name="numElements">Capacity.</param>
         /// <param name="allowNulls">Whether nulls are allowed.</param>
@@ -59,6 +59,9 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             Debug.Assert(numElements > 0, "numElements > 0");
 
             _numElements = numElements;
+            _buffer = new();
+            _elementIndex = 0;
+            _hasNullValues = false;
 
             int baseOffset = BinaryTupleCommon.HeaderSize;
             if (allowNulls)
@@ -387,7 +390,9 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             return _buffer.GetWrittenMemory().Slice(offset);
         }
 
-        /// <inheritdoc/>
+        /// <summary>
+        /// Disposes this instance.
+        /// </summary>
         public void Dispose()
         {
             _buffer.Dispose();
