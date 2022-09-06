@@ -91,26 +91,32 @@ namespace Apache.Ignite.Internal.Table.Serialization
             var count = keyOnly ? schema.KeyColumnCount : columns.Count;
             var noValueSet = writer.WriteBitSet(count);
 
-            using var tupleBuilder = new BinaryTupleBuilder(count);
+            var tupleBuilder = new BinaryTupleBuilder(count);
 
-            for (var index = 0; index < count; index++)
+            try
             {
-                var col = columns[index];
-                var colIdx = record.GetOrdinal(col.Name);
+                for (var index = 0; index < count; index++)
+                {
+                    var col = columns[index];
+                    var colIdx = record.GetOrdinal(col.Name);
 
-                if (colIdx >= 0)
-                {
-                    tupleBuilder.AppendObject(record[colIdx], col.Type);
+                    if (colIdx >= 0)
+                    {
+                        tupleBuilder.AppendObject(record[colIdx], col.Type);
+                    }
+                    else
+                    {
+                        tupleBuilder.AppendNoValue(noValueSet);
+                    }
                 }
-                else
-                {
-                    tupleBuilder.AppendDefault();
-                    noValueSet.SetBit(index);
-                }
+
+                var binaryTupleMemory = tupleBuilder.Build();
+                writer.Write(binaryTupleMemory.Span);
             }
-
-            var binaryTupleMemory = tupleBuilder.Build();
-            writer.Write(binaryTupleMemory.Span);
+            finally
+            {
+                tupleBuilder.Dispose();
+            }
         }
 
         private static ReadOnlyMemory<byte> ReadBytes(ref MessagePackReader reader)

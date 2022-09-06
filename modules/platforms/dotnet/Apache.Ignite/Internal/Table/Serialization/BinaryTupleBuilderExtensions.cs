@@ -17,19 +17,23 @@
 
 namespace Apache.Ignite.Internal.Table.Serialization
 {
-    using System.Reflection;
-    using Proto;
+    using System;
     using Proto.BinaryTuple;
 
     /// <summary>
-    /// MethodInfos for <see cref="BinaryTupleBuilder"/> and <see cref="BinaryTupleReader"/>.
+    /// Extensions for <see cref="BinaryTupleBuilder"/>.
     /// </summary>
-    internal static class BinaryTupleMethods
+    internal static class BinaryTupleBuilderExtensions
     {
         /// <summary>
-        /// No-value writer.
+        /// Appends a no-value marker.
         /// </summary>
-        public static readonly MethodInfo WriteNoValue =
-            typeof(MessagePackWriterExtensions).GetMethod(nameof(MessagePackWriterExtensions.WriteNoValue))!;
+        /// <param name="builder">Builder.</param>
+        /// <param name="noValueSet">No-value bit set.</param>
+        public static void AppendNoValue(this ref BinaryTupleBuilder builder, Span<byte> noValueSet)
+        {
+            builder.AppendDefault();
+            noValueSet.SetBit(builder.ElementIndex);
+        }
     }
 }
