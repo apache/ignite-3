@@ -17,11 +17,11 @@
 
 package org.apache.ignite.internal.client.proto;
 
+import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
+
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.Tuple;
-
-import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
 
 /**
  * Client binary tuple utils.
