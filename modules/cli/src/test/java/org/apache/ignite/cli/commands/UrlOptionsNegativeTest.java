@@ -53,6 +53,7 @@ import org.apache.ignite.cli.commands.topology.PhysicalTopologyReplCommand;
 import org.apache.ignite.cli.config.ini.IniConfigManager;
 import org.apache.ignite.cli.core.repl.context.CommandLineContextProvider;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -242,6 +243,18 @@ public class UrlOptionsNegativeTest {
                 this::assertOutputIsEmpty,
                 () -> assertErrOutputIs("Node unavailable" + System.lineSeparator()
                         + "Could not connect to node with URL " + NODE_URL + System.lineSeparator())
+        );
+    }
+
+    @Test
+    void testConnectCommandWithoutParametersWithEmptyConfig() {
+        configManagerProvider.configManager = new IniConfigManager(TestConfigManagerHelper.createEmptyConfig());
+        setUp(ConnectCommand.class);
+        cmd.execute();
+
+        assertAll(
+                this::assertOutputIsEmpty,
+                () -> assertErrOutputContains("Missing required parameter: '<nodeUrl>'")
         );
     }
 
