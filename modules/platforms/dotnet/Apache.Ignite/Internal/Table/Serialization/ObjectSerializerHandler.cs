@@ -37,7 +37,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
         private readonly ConcurrentDictionary<int, ReadValuePartDelegate<T>> _valuePartReaders = new();
 
-        private delegate void WriteDelegate<in TV>(ref MessagePackWriter writer, TV value);
+        private delegate void WriteDelegate<in TV>(ref BinaryTupleBuilder writer, TV value);
 
         private delegate TV ReadDelegate<out TV>(ref MessagePackReader reader);
 
@@ -75,12 +75,19 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 : _writers.GetOrAdd(cacheKey, EmitWriter(schema, keyOnly));
 
             var count = keyOnly ? schema.KeyColumnCount : schema.Columns.Count;
-            using var tupleBuilder = new BinaryTupleBuilder(count);
+            var tupleBuilder = new BinaryTupleBuilder(count);
 
-            writeDelegate(ref writer, record);
+            try
+            {
+                writeDelegate(ref tupleBuilder, record);
 
-            var binaryTupleMemory = tupleBuilder.Build();
-            writer.Write(binaryTupleMemory.Span);
+                var binaryTupleMemory = tupleBuilder.Build();
+                writer.Write(binaryTupleMemory.Span);
+            }
+            finally
+            {
+                tupleBuilder.Dispose();
+            }
         }
 
         private static WriteDelegate<T> EmitWriter(Schema schema, bool keyOnly)
@@ -90,7 +97,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             var method = new DynamicMethod(
                 name: "Write" + type.Name,
                 returnType: typeof(void),
-                parameterTypes: new[] { typeof(MessagePackWriter).MakeByRefType(), type },
+                parameterTypes: new[] { typeof(BinaryTupleBuilder).MakeByRefType(), type },
                 m: typeof(IIgnite).Module,
                 skipVisibility: true);
 
