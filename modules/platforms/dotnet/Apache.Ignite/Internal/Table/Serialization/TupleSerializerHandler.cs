@@ -17,9 +17,6 @@
 
 namespace Apache.Ignite.Internal.Table.Serialization
 {
-    using System;
-    using System.Buffers;
-    using System.Diagnostics;
     using Ignite.Table;
     using MessagePack;
     using Proto;
