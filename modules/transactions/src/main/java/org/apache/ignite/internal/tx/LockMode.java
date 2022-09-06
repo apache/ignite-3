@@ -37,7 +37,7 @@ public enum LockMode {
     X;
 
     /** Lock mode compatibility matrix. */
-    protected static final boolean[][] COMPAT_MATRIX = {
+    private static final boolean[][] COMPAT_MATRIX = {
             {true, true, true, true, false},
             {true, true, false, false, false},
             {true, false, true, false, false},
@@ -46,7 +46,7 @@ public enum LockMode {
     };
 
     /** Lock mode reenter matrix. */
-    protected static final boolean[][] REENTER_MATRIX = {
+    private static final boolean[][] REENTER_MATRIX = {
             {true, false, false, false, false},
             {true, true, false, false, false},
             {true, false, true, false, false},
@@ -55,7 +55,7 @@ public enum LockMode {
     };
 
     /** Lock mode upgrade matrix. */
-    protected static final LockMode[][] UPGRADE_MATRIX = {
+    private static final LockMode[][] UPGRADE_MATRIX = {
             {IS, IX, S, SIX, X},
             {IX, IX, SIX, SIX, X},
             {S, SIX, S, SIX, X},
