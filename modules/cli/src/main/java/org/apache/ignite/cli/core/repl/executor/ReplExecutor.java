@@ -99,22 +99,9 @@ public class ReplExecutor {
             }
 
             RegistryCommandExecutor executor = new RegistryCommandExecutor(registry, parser);
-            if (repl.isTailTipWidgetsEnabled()) {
-                TailTipWidgets widgets = new TailTipWidgets(reader, registry::commandDescription, 5,
-                        TailTipWidgets.TipType.COMPLETER);
-                widgets.enable();
-                // Workaround for the https://issues.apache.org/jira/browse/IGNITE-17346
-                // Turn off tailtip widgets before printing to the output
-                CommandLineContextProvider.setPrintWrapper(printer -> {
-                    widgets.disable();
-                    printer.run();
-                    widgets.enable();
-                });
-                // Workaround for jline issue where TailTipWidgets will produce NPE when passed a bracket
-                registry.setScriptDescription(cmdLine -> null);
-            }
+            TailTipWidgets widgets = repl.isTailTipWidgetsEnabled() ? createWidgets(registry, reader) : null;
 
-            QuestionAskerFactory.setReadWriter(new JlineQuestionWriterReader(reader));
+            QuestionAskerFactory.setReadWriter(new JlineQuestionWriterReader(reader, widgets));
 
             repl.onStart();
 
@@ -136,6 +123,22 @@ public class ReplExecutor {
         } catch (Throwable t) {
             exceptionHandlers.handleException(System.err::println, t);
         }
+    }
+
+    private static TailTipWidgets createWidgets(SystemRegistryImpl registry, LineReader reader) {
+        TailTipWidgets widgets = new TailTipWidgets(reader, registry::commandDescription, 5,
+                TailTipWidgets.TipType.COMPLETER);
+        widgets.enable();
+        // Workaround for the https://issues.apache.org/jira/browse/IGNITE-17346
+        // Turn off tailtip widgets before printing to the output
+        CommandLineContextProvider.setPrintWrapper(printer -> {
+            widgets.disable();
+            printer.run();
+            widgets.enable();
+        });
+        // Workaround for jline issue where TailTipWidgets will produce NPE when passed a bracket
+        registry.setScriptDescription(cmdLine -> null);
+        return widgets;
     }
 
     private LineReader createReader(Completer completer) {

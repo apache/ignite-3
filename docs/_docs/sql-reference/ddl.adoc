@@ -245,6 +245,60 @@ Drop Person table if the one exists:
 DROP TABLE IF EXISTS "Person";
 ----
 
+== CREATE INDEX
+
+Creates a new index.
+
+[source,sql]
+----
+CREATE INDEX [IF NOT EXISTS] name ON tableName
+[USING { HASH | TREE }]
+(column_definition [, column_definition]...);
+----
+
+Parameters:
+
+
+* `name` - name of the index.
+* `tableName` - name of the table to create the index on.
+* `IF NOT EXISTS` - create the index only if an index with the same name does not exist.
+* `USING` - specifies whether the command creates a sorted index or a hash index. Possible values: `HASH`, `TREE`.
+
+
+//NOTE: Add image
+
+Examples:
+
+Create index Persons for Person table:
+
+[source,sql]
+----
+CREATE INDEX IF NOT EXISTS Persons ON Person (column1)
+----
+
+== DROP INDEX
+
+[source,sql]
+----
+DROP INDEX [IF EXISTS] indexName;
+----
+
+Parameters:
+
+- indexName - the name of the index.
+- `IF EXISTS` - do not throw an error if an index with the specified name does not exist.
+
+
+
+Examples:
+
+Drop index if the one exists:
+
+[source,sql]
+----
+DROP INDEX IF EXISTS Persons;
+----
+
 = Grammar Reference
 
 == column_definition_or_list
@@ -289,6 +343,21 @@ Referenced by:
 * link:sql-reference/ddl#alter-table[ALTER TABLE]
 * link:sql-reference/ddl#drop-table[DROP TABLE]
 
+== column_definition
+//NOTE: Replace code with image
+
+```
+column_name [ASC | DESC] [NULLS {FIRST | LAST}]
+```
+
+Parameters:
+
+* `ASC` or `DESC` - specifies that the column should be sorted in an ascending or descending order respectively.
+* `NULLS` - specifies whether null values will be at the start or at the end of the index. Possible values: `FIRST`, `LAST`.
+
+Referenced by:
+
+* link:sql-reference/ddl#сreate-index[CREATE INDEX]
 
 = System Functions
 

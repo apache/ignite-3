@@ -208,19 +208,6 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
         assertEquals(1, rows.size());
     }
 
-    @Test
-    public void testSequentialInserts() {
-        sql("CREATE TABLE t(x INTEGER PRIMARY KEY, y int)");
-
-        for (int i = 0; i < 10_000; i++) {
-            sql("INSERT INTO t VALUES (?,?)", i, i);
-        }
-
-        assertEquals(10_000L, sql("SELECT count(*) FROM t").get(0).get(0));
-
-        sql("DROP TABLE IF EXISTS t");
-    }
-
     /**
      * Verifies that table modification events are passed to a calcite schema modification listener.
      */
