@@ -22,34 +22,42 @@ import org.jline.reader.EndOfFileException;
 import org.jline.reader.LineReader;
 import org.jline.reader.MaskingCallback;
 import org.jline.reader.UserInterruptException;
+import org.jline.widget.TailTipWidgets;
 
 /**
  * Implementation of {@link QuestionWriterReader} based on {@link LineReader}.
  */
 public class JlineQuestionWriterReader implements QuestionWriterReader {
     private final LineReader reader;
+    private final TailTipWidgets widgets;
+
+    public JlineQuestionWriterReader(LineReader reader, TailTipWidgets widgets) {
+        this.reader = reader;
+        this.widgets = widgets;
+    }
 
     public JlineQuestionWriterReader(LineReader reader) {
-        this.reader = reader;
+        this(reader, null);
     }
 
+    /** {@inheritDoc} */
     @Override
-    public void write(String question) {
-        System.out.print(question);
-    }
-
-    @Override
-    public String readAnswer() {
-        LineReader.SuggestionType prev = reader.getAutosuggestion();
-        reader.setAutosuggestion(LineReader.SuggestionType.NONE);
-        String s = readLine(reader);
-        reader.setAutosuggestion(prev);
+    public String readAnswer(String question) {
+        if (widgets != null) {
+            widgets.disable();
+        }
+        reader.setVariable(LineReader.DISABLE_HISTORY, true);
+        String s = readLine(reader, question);
+        reader.setVariable(LineReader.DISABLE_HISTORY, false);
+        if (widgets != null) {
+            widgets.enable();
+        }
         return s;
     }
 
-    private String readLine(LineReader reader) {
+    private String readLine(LineReader reader, String question) {
         try {
-            return reader.readLine("", null, (MaskingCallback) null, null);
+            return reader.readLine(question, null, (MaskingCallback) null, null);
         } catch (UserInterruptException /* Ctrl-C pressed */ | EndOfFileException /* Ctrl-D pressed */ ignored) {
             throw new FlowInterruptException();
         }
