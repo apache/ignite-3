@@ -197,9 +197,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_UPSERT_ALL,
                 (s, w) -> {
-                    w.out().packUuid(tbl.tableId());
-                    writeTx(tx, w);
-                    w.out().packInt(s.version());
+                    writeSchemaAndTx(s, w, tx);
                     w.out().packInt(pairs.size());
 
                     for (Entry<K, V> e : pairs.entrySet()) {
@@ -375,12 +373,9 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_REPLACE_EXACT,
                 (s, w) -> {
-                    // TODO IGNITE-17297 how to combine key and val?
-                    keySer.writeRec(tx, key, s, w, TuplePart.KEY);
-                    valSer.writeRecRaw(oldVal, s, w.out(), TuplePart.VAL);
-
-                    keySer.writeRecRaw(key, s, w.out(), TuplePart.KEY);
-                    valSer.writeRecRaw(newVal, s, w.out(), TuplePart.VAL);
+                    writeSchemaAndTx(s, w, tx);
+                    writeKeyValueRaw(s, w, key, oldVal);
+                    writeKeyValueRaw(s, w, key, newVal);
                 },
                 ClientMessageUnpacker::unpackBoolean);
     }
@@ -460,10 +455,11 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
     }
 
     private void writeKeyValue(ClientSchema s, PayloadOutputChannel w, @Nullable Transaction tx, @NotNull K key, V val) {
-        w.out().packUuid(tbl.tableId());
-        writeTx(tx, w);
-        w.out().packInt(s.version());
+        writeSchemaAndTx(s, w, tx);
+        writeKeyValueRaw(s, w, key, val);
+    }
 
+    private void writeKeyValueRaw(ClientSchema s, PayloadOutputChannel w, @NotNull K key, V val) {
         var builder = BinaryTupleBuilder.create(s.columns().length, true);
         var noValueSet = new BitSet();
         ClientMarshallerWriter writer = new ClientMarshallerWriter(builder, noValueSet);
@@ -477,6 +473,12 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
         }
 
         w.out().packBinaryTuple(builder, noValueSet);
+    }
+
+    private void writeSchemaAndTx(ClientSchema s, PayloadOutputChannel w, @Nullable Transaction tx) {
+        w.out().packUuid(tbl.tableId());
+        writeTx(tx, w);
+        w.out().packInt(s.version());
     }
 
     private HashMap<K, V> readGetAllResponse(ClientSchema schema, ClientMessageUnpacker in) {
