@@ -254,6 +254,65 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         }
 
         /// <summary>
+        /// Appends an object.
+        /// </summary>
+        /// <param name="value">Value.</param>
+        /// <param name="colType">Column type.</param>
+        public void AppendObject(object? value, ClientDataType colType)
+        {
+            if (value == null)
+            {
+                AppendNull();
+                return;
+            }
+
+            switch (colType)
+            {
+                case ClientDataType.Int8:
+                    AppendByte((sbyte)value);
+                    break;
+
+                case ClientDataType.Int16:
+                    AppendShort((short)value);
+                    break;
+
+                case ClientDataType.Int32:
+                    AppendInt((int)value);
+                    break;
+
+                case ClientDataType.Int64:
+                    AppendLong((long)value);
+                    break;
+
+                case ClientDataType.Float:
+                    AppendFloat((float)value);
+                    break;
+
+                case ClientDataType.Double:
+                    AppendDouble((double)value);
+                    break;
+
+                case ClientDataType.Uuid:
+                    AppendGuid((Guid)value);
+                    break;
+
+                case ClientDataType.String:
+                    AppendString((string)value);
+                    break;
+
+                case ClientDataType.Bytes:
+                    AppendBytes((byte[])value);
+                    break;
+
+                case ClientDataType.BitMask:
+                case ClientDataType.Decimal:
+                default:
+                    // TODO: Support all types (IGNITE-15431).
+                    throw new IgniteClientException("Unsupported type: " + colType);
+            }
+        }
+
+        /// <summary>
         /// Builds the tuple.
         /// <para />
         /// NOTE: This should be called only once as it messes up with accumulated internal data.

@@ -17,9 +17,11 @@
 
 namespace Apache.Ignite.Internal.Table.Serialization
 {
+    using System;
     using Ignite.Table;
     using MessagePack;
     using Proto;
+    using Proto.BinaryTuple;
 
     /// <summary>
     /// Serializer handler for <see cref="IIgniteTuple"/>.
@@ -94,18 +96,25 @@ namespace Apache.Ignite.Internal.Table.Serialization
             var columns = schema.Columns;
             var count = keyOnly ? schema.KeyColumnCount : columns.Count;
 
+            // TODO IGNITE-17297 NoValueSet
+            writer.WriteExtensionFormatHeader(new ExtensionHeader((sbyte)ClientMessagePackType.Bitmask, 0));
+
+            using var tupleBuilder = new BinaryTupleBuilder(count);
+
             for (var index = 0; index < count; index++)
             {
                 var col = columns[index];
                 var colIdx = record.GetOrdinal(col.Name);
 
-                if (colIdx < 0)
+                if (colIdx >= 0)
                 {
-                    writer.WriteNoValue();
+                    writer.WriteObject(record[colIdx]);
+                    tupleBuilder.AppendObject(record[colIdx], col.Type);
                 }
                 else
                 {
-                    writer.WriteObject(record[colIdx]);
+                    // writer.WriteNoValue();
+                    throw new Exception("TODO IGNITE-17297 NoValueSet");
                 }
             }
         }
