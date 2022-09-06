@@ -170,11 +170,9 @@ public class ClientMarshallerReader implements MarshallerReader {
     /** {@inheritDoc} */
     @Override
     public BigDecimal readBigDecimal() {
-        // var idx = index++;
-        // return unpacker.hasNullValue(idx) ? null : unpacker.decimalValue(idx);
-
-        // TODO IGNITE-17297:
-        throw new UnsupportedOperationException("TODO: Scale?");
+        // TODO IGNITE-17632: Get scale from schema.
+        var idx = index++;
+        return unpacker.hasNullValue(idx) ? null : unpacker.decimalValue(idx, 100);
     }
 
     /** {@inheritDoc} */

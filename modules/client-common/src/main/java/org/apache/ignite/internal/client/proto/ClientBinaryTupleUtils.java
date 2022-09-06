@@ -73,8 +73,8 @@ public class ClientBinaryTupleUtils {
                 break;
 
             case ClientDataType.DECIMAL:
-                // TODO IGNITE-17297 - ???
-                tuple.set(columnName, reader.decimalValue(readerIndex, 0));
+                // TODO IGNITE-17632: Get scale from schema.
+                tuple.set(columnName, reader.decimalValue(readerIndex, 100));
                 break;
 
             case ClientDataType.UUID:
