@@ -24,7 +24,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
-import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -57,7 +56,7 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
-import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbStorage;
+import org.apache.ignite.internal.tx.storage.state.test.TestConcurrentHashMapTxStateStorage;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
@@ -295,8 +294,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                         partNodes,
                         () -> new PartitionListener(
                                 testMpPartStorage,
-                                // TODO: https://issues.apache.org/jira/browse/IGNITE-17581 Use TestConcurrentHashMapTxStateStrorage instead
-                                new TxStateRocksDbStorage(Paths.get("tx_state_storage" + tblId + partId)),
+                                new TestConcurrentHashMapTxStateStorage(),
                                 txManagers.get(node),
                                 new ConcurrentHashMap<>()),
                         RaftGroupOptions.defaults()

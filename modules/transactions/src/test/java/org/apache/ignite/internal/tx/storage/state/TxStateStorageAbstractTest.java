@@ -39,7 +39,6 @@ import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
-import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbStorage;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.junit.jupiter.api.Test;
@@ -49,7 +48,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Tx storage test.
  */
 @ExtendWith(WorkDirectoryExtension.class)
-public class TxStateStorageTest {
+public abstract class TxStateStorageAbstractTest {
     @WorkDirectory
     protected Path workDir;
 
@@ -218,7 +217,10 @@ public class TxStateStorageTest {
         assertEquals(txMeta0.enlistedPartitions(), txMeta1.enlistedPartitions());
     }
 
-    private TxStateStorage createStorage() {
-        return new TxStateRocksDbStorage(workDir);
-    }
+    /**
+     * Creates {@link TxStateStorage} to test.
+     *
+     * @return Tx state storage.
+     */
+    protected abstract TxStateStorage createStorage();
 }
