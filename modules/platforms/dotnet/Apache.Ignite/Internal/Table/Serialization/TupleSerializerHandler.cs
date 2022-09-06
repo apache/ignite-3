@@ -18,6 +18,8 @@
 namespace Apache.Ignite.Internal.Table.Serialization
 {
     using System;
+    using System.Buffers;
+    using System.Diagnostics;
     using Ignite.Table;
     using MessagePack;
     using Proto;
@@ -65,6 +67,12 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// <inheritdoc/>
         public IIgniteTuple ReadValuePart(ref MessagePackReader reader, Schema schema, IIgniteTuple key)
         {
+            ReadOnlySequence<byte> tupleSeq = reader.ReadBytes()!.Value;
+            Debug.Assert(tupleSeq.IsSingleSegment, "tupleSeq.IsSingleSegment");
+
+            var mem = tupleSeq.First;
+            var tupleReader = new BinaryTupleReader(mem, schema.Columns.Count - schema.KeyColumnCount);
+
             var columns = schema.Columns;
             var tuple = new IgniteTuple(columns.Count);
 
@@ -78,12 +86,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 }
                 else
                 {
-                    if (reader.TryReadNoValue())
-                    {
-                        continue;
-                    }
-
-                    tuple[column.Name] = reader.ReadObject(column.Type);
+                    tuple[column.Name] = tupleReader.GetObject(i - schema.KeyColumnCount, column.Type);
                 }
             }
 

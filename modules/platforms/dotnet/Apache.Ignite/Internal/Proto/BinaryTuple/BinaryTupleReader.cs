@@ -184,6 +184,36 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             var s => BitConverter.Int64BitsToDouble(BinaryPrimitives.ReadInt64LittleEndian(s))
         };
 
+        /// <summary>
+        /// Gets an object value according to the specified type.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <param name="columnType">Column type.</param>
+        /// <returns>Value.</returns>
+        public object? GetObject(int index, ClientDataType columnType)
+        {
+            // TODO IGNITE-17297 Seek only once.
+            if (IsNull(index))
+            {
+                return null;
+            }
+
+            return columnType switch
+            {
+                ClientDataType.Int8 => GetByte(index),
+                ClientDataType.Int16 => GetShort(index),
+                ClientDataType.Int32 => GetInt(index),
+                ClientDataType.Int64 => GetLong(index),
+                ClientDataType.Float => GetFloat(index),
+                ClientDataType.Double => GetDouble(index),
+                ClientDataType.Uuid => GetGuid(index),
+                ClientDataType.String => GetString(index),
+
+                // TODO: Support all types (IGNITE-15431).
+                _ => throw new IgniteClientException("Unsupported type: " + columnType)
+            };
+        }
+
         private int GetOffset(int position)
         {
             var span = _buffer.Span[position..];
