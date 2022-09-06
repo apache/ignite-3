@@ -33,13 +33,21 @@ namespace Apache.Ignite.Internal.Table.Serialization
         public static readonly MethodInfo WriteNoValue =
             typeof(BinaryTupleBuilderExtensions).GetMethod(nameof(BinaryTupleBuilderExtensions.AppendNoValue))!;
 
-        private static readonly MethodInfo AppendByte = typeof(BinaryTupleBuilder).GetMethod("AppendByte")!;
-        private static readonly MethodInfo AppendShort = typeof(BinaryTupleBuilder).GetMethod("AppendShort")!;
-        private static readonly MethodInfo AppendInt = typeof(BinaryTupleBuilder).GetMethod("AppendInt")!;
-        private static readonly MethodInfo AppendLong = typeof(BinaryTupleBuilder).GetMethod("AppendLong")!;
-        private static readonly MethodInfo AppendFloat = typeof(BinaryTupleBuilder).GetMethod("AppendFloat")!;
-        private static readonly MethodInfo AppendGuid = typeof(BinaryTupleBuilder).GetMethod("AppendGuid")!;
-        private static readonly MethodInfo AppendString = typeof(BinaryTupleBuilder).GetMethod("AppendStringNullable")!;
+        private static readonly MethodInfo AppendByte = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendByte))!;
+        private static readonly MethodInfo AppendShort = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendShort))!;
+        private static readonly MethodInfo AppendInt = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendInt))!;
+        private static readonly MethodInfo AppendLong = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendLong))!;
+        private static readonly MethodInfo AppendFloat = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendFloat))!;
+        private static readonly MethodInfo AppendGuid = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendGuid))!;
+        private static readonly MethodInfo AppendString = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendStringNullable))!;
+
+        private static readonly MethodInfo GetByte = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetByte))!;
+        private static readonly MethodInfo GetShort = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetShort))!;
+        private static readonly MethodInfo Getnt = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetInt))!;
+        private static readonly MethodInfo GetLong = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetLong))!;
+        private static readonly MethodInfo GetFloat = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetFloat))!;
+        private static readonly MethodInfo GetGuid = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetGuid))!;
+        private static readonly MethodInfo GetString = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetStringNullable))!;
 
         // TODO: Support all types (IGNITE-15431).
         private static readonly IReadOnlyDictionary<Type, MethodInfo> WriteMethods = new Dictionary<Type, MethodInfo>
@@ -53,6 +61,17 @@ namespace Apache.Ignite.Internal.Table.Serialization
             { typeof(Guid), AppendGuid }
         };
 
+        private static readonly IReadOnlyDictionary<Type, MethodInfo> ReadMethods = new Dictionary<Type, MethodInfo>
+        {
+            { typeof(string), GetString },
+            { typeof(sbyte), GetByte },
+            { typeof(short), GetShort },
+            { typeof(int), Getnt },
+            { typeof(long), GetLong },
+            { typeof(float), GetFloat },
+            { typeof(Guid), GetGuid }
+        };
+
         /// <summary>
         /// Gets the write method.
         /// </summary>
@@ -60,6 +79,16 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// <returns>Write method for the specified value type.</returns>
         public static MethodInfo GetWriteMethod(Type valueType) =>
             WriteMethods.TryGetValue(valueType, out var method)
+                ? method
+                : throw new IgniteClientException("Unsupported type: " + valueType);
+
+        /// <summary>
+        /// Gets the read method.
+        /// </summary>
+        /// <param name="valueType">Type of the value to read.</param>
+        /// <returns>Read method for the specified value type.</returns>
+        public static MethodInfo GetReadMethod(Type valueType) =>
+            ReadMethods.TryGetValue(valueType, out var method)
                 ? method
                 : throw new IgniteClientException("Unsupported type: " + valueType);
     }

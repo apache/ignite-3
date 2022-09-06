@@ -162,6 +162,13 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         };
 
         /// <summary>
+        /// Gets a string value.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <returns>Value.</returns>
+        public string? GetStringNullable(int index) => IsNull(index) ? null : GetString(index);
+
+        /// <summary>
         /// Gets a float value.
         /// </summary>
         /// <param name="index">Index.</param>
