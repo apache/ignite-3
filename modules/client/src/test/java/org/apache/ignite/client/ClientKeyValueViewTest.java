@@ -485,7 +485,7 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
 
         pojoView.put(null, 1, pojo);
 
-        var res = recordView.get(null, tupleKey(1));
+        var res = recordView.get(null, Tuple.create().set("id", 1));
 
         assertNull(res.stringValue("str"));
     }
