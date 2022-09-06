@@ -34,7 +34,6 @@ import java.util.Collection;
 import java.util.UUID;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
-import org.apache.ignite.internal.binarytuple.BinaryTupleContainer;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
 import org.apache.ignite.internal.client.proto.ClientDataType;
@@ -131,20 +130,6 @@ public class ClientTableCommon {
         if (!skipHeader) {
             packer.packInt(schema.version());
         }
-
-        if (tuple instanceof BinaryTupleContainer) {
-            var binTuple = ((BinaryTupleContainer) tuple).binaryTuple();
-
-            if (binTuple != null) {
-                // TODO IGNITE-17297: Write correct part of the tuple directly.
-                packBinary(packer, binTuple.byteBuffer());
-
-                return;
-            }
-        }
-
-        // TODO: IGNITE-17297 - use BinaryTupleBuilder.create().
-        // TODO: The given tuple may already have a BinaryTuple underneath - we should be able to do a simple copy.
 
         // TODO IGNITE-17297: BinaryTupleBuilder should write directly to the ByteBuf (separate ticket?).
         // TODO IGNITE-17297: Detect nulls efficiently - how? Probably don't bother here?
