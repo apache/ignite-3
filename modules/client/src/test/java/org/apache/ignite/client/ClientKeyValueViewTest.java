@@ -174,10 +174,10 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
 
         pojoView.put(null, val, val);
 
-        Tuple res = table.recordView().get(null, Tuple.create().set("id", "112").set("gid", 111));
+        Tuple res = table.recordView().get(null, Tuple.create().set("id", "112").set("gid", 111L));
 
         assertNotNull(res);
-        assertEquals(111, res.intValue("gid"));
+        assertEquals(111, res.longValue("gid"));
         assertEquals("112", res.stringValue("id"));
         assertEquals(113, res.byteValue("zbyte"));
         assertEquals(114, res.shortValue("zshort"));
@@ -191,7 +191,7 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
         assertEquals("119", res.stringValue("zstring"));
         assertEquals(120, ((byte[]) res.value("zbytes"))[0]);
         assertEquals(BitSet.valueOf(new byte[]{121}), res.bitmaskValue("zbitmask"));
-        assertEquals(122, ((Number) res.value("zdecimal")).longValue());
+        assertEquals(122, ((BigDecimal) res.value("zdecimal")).unscaledValue().longValue()); // TODO: IGNITE-17632 check correct round-trip
         assertEquals(BigInteger.valueOf(123), res.value("znumber"));
         assertEquals(uuid, res.uuidValue("zuuid"));
     }
