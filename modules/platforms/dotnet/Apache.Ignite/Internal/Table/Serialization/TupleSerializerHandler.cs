@@ -108,7 +108,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
                 if (colIdx >= 0)
                 {
-                    writer.WriteObject(record[colIdx]);
                     tupleBuilder.AppendObject(record[colIdx], col.Type);
                 }
                 else
@@ -117,6 +116,9 @@ namespace Apache.Ignite.Internal.Table.Serialization
                     throw new Exception("TODO IGNITE-17297 NoValueSet");
                 }
             }
+
+            var binaryTupleMemory = tupleBuilder.Build();
+            writer.Write(binaryTupleMemory.Span);
         }
     }
 }
