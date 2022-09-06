@@ -112,6 +112,14 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         }
 
         /// <summary>
+        /// Appends a default value.
+        /// </summary>
+        public void AppendDefault()
+        {
+            OnWrite();
+        }
+
+        /// <summary>
         /// Appends a byte.
         /// </summary>
         /// <param name="value">Value.</param>

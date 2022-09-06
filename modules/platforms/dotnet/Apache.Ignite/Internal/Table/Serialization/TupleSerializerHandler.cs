@@ -90,8 +90,10 @@ namespace Apache.Ignite.Internal.Table.Serialization
             var columns = schema.Columns;
             var count = keyOnly ? schema.KeyColumnCount : columns.Count;
 
-            // TODO IGNITE-17297 NoValueSet
-            writer.WriteExtensionFormatHeader(new ExtensionHeader((sbyte)ClientMessagePackType.Bitmask, 0));
+            var noValueSetLen = count / 8 + 1;
+            writer.WriteExtensionFormatHeader(new ExtensionHeader((sbyte)ClientMessagePackType.Bitmask, noValueSetLen));
+            var noValueSet = writer.GetSpan(noValueSetLen);
+            writer.Advance(noValueSetLen);
 
             using var tupleBuilder = new BinaryTupleBuilder(count);
 
@@ -106,8 +108,8 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 }
                 else
                 {
-                    // writer.WriteNoValue();
-                    throw new Exception("TODO IGNITE-17297 NoValueSet");
+                    tupleBuilder.AppendDefault();
+                    noValueSet[index / 8] |= (byte)(1 << (index % 8));
                 }
             }
 
