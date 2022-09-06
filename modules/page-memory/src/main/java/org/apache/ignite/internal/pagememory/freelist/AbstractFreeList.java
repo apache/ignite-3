@@ -110,7 +110,7 @@ public abstract class AbstractFreeList<T extends Storable> extends PagesList imp
 
             int rowSize = row.size();
 
-            boolean updated = io.updateRow(pageAddr, itemId, pageSize(), null, row, rowSize);
+            boolean updated = io.updateRow(pageAddr, itemId, pageSize(), row, rowSize);
 
             evictionTracker.touchPage(pageId);
 

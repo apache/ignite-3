@@ -26,6 +26,7 @@ import java.util.UUID;
 import org.apache.ignite.internal.pagememory.persistence.io.PartitionMetaIo;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Partition meta information.
@@ -47,9 +48,13 @@ public class PartitionMeta {
 
     private volatile long lastAppliedIndex;
 
+    private volatile long rowVersionFreeListRootPageId;
+
+    private volatile long indexColumnsFreeListRootPageId;
+
     private volatile long versionChainTreeRootPageId;
 
-    private volatile long rowVersionFreeListRootPageId;
+    private volatile long indexTreeMetaPageId;
 
     private volatile int pageCount;
 
@@ -58,6 +63,7 @@ public class PartitionMeta {
     /**
      * Default constructor.
      */
+    @TestOnly
     public PartitionMeta() {
         metaSnapshot = new PartitionMetaSnapshot(null, this);
     }
@@ -67,20 +73,24 @@ public class PartitionMeta {
      *
      * @param checkpointId Checkpoint ID.
      * @param lastAppliedIndex Last applied index value.
-     * @param versionChainTreeRootPageId Version chain tree root page ID.
      * @param rowVersionFreeListRootPageId Row version free list root page ID.
+     * @param versionChainTreeRootPageId Version chain tree root page ID.
      * @param pageCount Count of pages in the partition.
      */
     public PartitionMeta(
             @Nullable UUID checkpointId,
             long lastAppliedIndex,
-            long versionChainTreeRootPageId,
             long rowVersionFreeListRootPageId,
+            long indexColumnsFreeListRootPageId,
+            long versionChainTreeRootPageId,
+            long indexTreeMetaPageId,
             int pageCount
     ) {
         this.lastAppliedIndex = lastAppliedIndex;
-        this.versionChainTreeRootPageId = versionChainTreeRootPageId;
         this.rowVersionFreeListRootPageId = rowVersionFreeListRootPageId;
+        this.indexColumnsFreeListRootPageId = indexColumnsFreeListRootPageId;
+        this.versionChainTreeRootPageId = versionChainTreeRootPageId;
+        this.indexTreeMetaPageId = indexTreeMetaPageId;
         this.pageCount = pageCount;
 
         metaSnapshot = new PartitionMetaSnapshot(checkpointId, this);
@@ -97,8 +107,10 @@ public class PartitionMeta {
         this(
                 checkpointId,
                 metaIo.getLastAppliedIndex(pageAddr),
-                metaIo.getVersionChainTreeRootPageId(pageAddr),
                 metaIo.getRowVersionFreeListRootPageId(pageAddr),
+                metaIo.getIndexColumnsFreeListRootPageId(pageAddr),
+                metaIo.getVersionChainTreeRootPageId(pageAddr),
+                metaIo.getIndexTreeMetaPageId(pageAddr),
                 metaIo.getPageCount(pageAddr)
         );
     }
@@ -161,6 +173,44 @@ public class PartitionMeta {
     }
 
     /**
+     * Returns index columns free list root page id.
+     */
+    public long indexColumnsFreeListRootPageId() {
+        return indexColumnsFreeListRootPageId;
+    }
+
+    /**
+     * Sets an index columns free list root page id.
+     *
+     * @param checkpointId Checkpoint id.
+     * @param indexColumnsFreeListRootPageId Index columns free list root page id.
+     */
+    public void indexColumnsFreeListRootPageId(@Nullable UUID checkpointId, long indexColumnsFreeListRootPageId) {
+        updateSnapshot(checkpointId);
+
+        this.indexColumnsFreeListRootPageId = indexColumnsFreeListRootPageId;
+    }
+
+    /**
+     * Returns index meta tree meta page id.
+     */
+    public long indexTreeMetaPageId() {
+        return indexTreeMetaPageId;
+    }
+
+    /**
+     * Sets an index meta tree meta page id.
+     *
+     * @param checkpointId Checkpoint id.
+     * @param indexTreeMetaPageId Index meta tree meta page id.
+     */
+    public void indexTreeMetaPageId(@Nullable UUID checkpointId, long indexTreeMetaPageId) {
+        updateSnapshot(checkpointId);
+
+        this.indexTreeMetaPageId = indexTreeMetaPageId;
+    }
+
+    /**
      * Returns count of pages in the partition.
      */
     public int pageCount() {
@@ -219,6 +269,10 @@ public class PartitionMeta {
 
         private final long rowVersionFreeListRootPageId;
 
+        private final long indexColumnsFreeListRootPageId;
+
+        private final long indexTreeMetaPageId;
+
         private final int pageCount;
 
         /**
@@ -229,10 +283,12 @@ public class PartitionMeta {
          */
         private PartitionMetaSnapshot(@Nullable UUID checkpointId, PartitionMeta partitionMeta) {
             this.checkpointId = checkpointId;
-            this.lastAppliedIndex = partitionMeta.lastAppliedIndex;
-            this.versionChainTreeRootPageId = partitionMeta.versionChainTreeRootPageId;
-            this.rowVersionFreeListRootPageId = partitionMeta.rowVersionFreeListRootPageId;
-            this.pageCount = partitionMeta.pageCount;
+            lastAppliedIndex = partitionMeta.lastAppliedIndex;
+            versionChainTreeRootPageId = partitionMeta.versionChainTreeRootPageId;
+            rowVersionFreeListRootPageId = partitionMeta.rowVersionFreeListRootPageId;
+            indexColumnsFreeListRootPageId = partitionMeta.indexColumnsFreeListRootPageId;
+            indexTreeMetaPageId = partitionMeta.indexTreeMetaPageId;
+            pageCount = partitionMeta.pageCount;
         }
 
         /**
@@ -257,6 +313,20 @@ public class PartitionMeta {
         }
 
         /**
+         * Returns index columns free list root page ID.
+         */
+        public long indexColumnsFreeListRootPageId() {
+            return indexColumnsFreeListRootPageId;
+        }
+
+        /**
+         * Returns index meta tree meta page ID.
+         */
+        public long indexTreeMetaPageId() {
+            return indexTreeMetaPageId;
+        }
+
+        /**
          * Returns count of pages in the partition.
          */
         public int pageCount() {
@@ -272,8 +342,10 @@ public class PartitionMeta {
         void writeTo(PartitionMetaIo metaIo, long pageAddr) {
             metaIo.setLastAppliedIndex(pageAddr, lastAppliedIndex);
             metaIo.setVersionChainTreeRootPageId(pageAddr, versionChainTreeRootPageId);
+            metaIo.setIndexColumnsFreeListRootPageId(pageAddr, indexColumnsFreeListRootPageId);
             metaIo.setRowVersionFreeListRootPageId(pageAddr, rowVersionFreeListRootPageId);
             metaIo.setPageCount(pageAddr, pageCount);
+            metaIo.setIndexTreeMetaPageId(pageAddr, indexTreeMetaPageId);
         }
 
         /** {@inheritDoc} */

@@ -20,10 +20,7 @@ package org.apache.ignite.internal.storage.pagememory.mv;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
-import org.apache.ignite.configuration.schemas.table.TableView;
-import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
-import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointListener;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointProgress;
@@ -32,8 +29,12 @@ import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTi
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryTableStorage;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineView;
+import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
+import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumnsFreeList;
+import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
@@ -42,9 +43,6 @@ import org.jetbrains.annotations.Nullable;
  * Implementation of {@link MvPartitionStorage} based on a {@link BplusTree} for persistent case.
  */
 public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMvPartitionStorage {
-    /** Table storage instance. */
-    private final PersistentPageMemoryTableStorage tableStorage;
-
     /** Checkpoint manager instance. */
     private final CheckpointManager checkpointManager;
 
@@ -65,28 +63,24 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
      *
      * @param tableStorage Table storage.
      * @param partitionId Partition id.
-     * @param tableView Table configuration.
-     * @param dataRegion Data region.
-     * @param checkpointManager Checkpoint manager.
      * @param meta Partition meta.
      * @param rowVersionFreeList Free list for {@link RowVersion}.
+     * @param indexFreeList Free list fot {@link IndexColumns}.
      * @param versionChainTree Table tree for {@link VersionChain}.
+     * @param indexMetaTree Tree that contains SQL indexes.
      */
     public PersistentPageMemoryMvPartitionStorage(
             PersistentPageMemoryTableStorage tableStorage,
             int partitionId,
-            TableView tableView,
-            DataRegion<PersistentPageMemory> dataRegion,
-            CheckpointManager checkpointManager,
             PartitionMeta meta,
             RowVersionFreeList rowVersionFreeList,
-            VersionChainTree versionChainTree
+            IndexColumnsFreeList indexFreeList,
+            VersionChainTree versionChainTree,
+            IndexMetaTree indexMetaTree
     ) {
-        super(partitionId, tableView, dataRegion.pageMemory(), rowVersionFreeList, versionChainTree);
+        super(partitionId, tableStorage, rowVersionFreeList, indexFreeList, versionChainTree, indexMetaTree);
 
-        this.tableStorage = tableStorage;
-
-        this.checkpointManager = checkpointManager;
+        checkpointManager = tableStorage.engine().checkpointManager();
         checkpointTimeoutLock = checkpointManager.checkpointTimeoutLock();
 
         checkpointManager.addCheckpointListener(checkpointListener = new CheckpointListener() {
@@ -109,7 +103,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
             public void afterCheckpointEnd(CheckpointProgress progress) {
                 persistedIndex = meta.metaSnapshot(progress.id()).lastAppliedIndex();
             }
-        }, dataRegion);
+        }, tableStorage.dataRegion());
 
         this.meta = meta;
     }
@@ -136,7 +130,9 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         if (lastCheckpoint != null && meta.metaSnapshot(lastCheckpoint.id()).lastAppliedIndex() == meta.lastAppliedIndex()) {
             scheduledCheckpoint = lastCheckpoint;
         } else {
-            PersistentPageMemoryStorageEngineView engineCfg = tableStorage.engine().configuration().value();
+            var persistentTableStorage = (PersistentPageMemoryTableStorage) tableStorage;
+
+            PersistentPageMemoryStorageEngineView engineCfg = persistentTableStorage.engine().configuration().value();
 
             int checkpointDelayMillis = engineCfg.checkpoint().checkpointDelayMillis();
             scheduledCheckpoint = checkpointManager.scheduleCheckpoint(checkpointDelayMillis, "Triggered by replicator");
@@ -169,10 +165,18 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         return persistedIndex;
     }
 
+    @Override
+    public HashIndexStorage getOrCreateHashIndex(UUID indexId) {
+        return runConsistently(() -> super.getOrCreateHashIndex(indexId));
+    }
+
     /** {@inheritDoc} */
     @Override
     public void close() {
         checkpointManager.removeCheckpointListener(checkpointListener);
+
+        rowVersionFreeList.close();
+        indexFreeList.close();
     }
 
     /**
@@ -184,10 +188,20 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     private void syncMetadataOnCheckpoint(@Nullable Executor executor) throws IgniteInternalCheckedException {
         if (executor == null) {
             rowVersionFreeList.saveMetadata();
+
+            indexFreeList.saveMetadata();
         } else {
             executor.execute(() -> {
                 try {
                     rowVersionFreeList.saveMetadata();
+                } catch (IgniteInternalCheckedException e) {
+                    throw new IgniteInternalException("Failed to save RowVersionFreeList metadata", e);
+                }
+            });
+
+            executor.execute(() -> {
+                try {
+                    indexFreeList.saveMetadata();
                 } catch (IgniteInternalCheckedException e) {
                     throw new IgniteInternalException("Failed to save RowVersionFreeList metadata", e);
                 }

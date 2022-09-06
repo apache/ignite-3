@@ -18,27 +18,28 @@
 package org.apache.ignite.internal.storage.pagememory.index.meta;
 
 import java.util.UUID;
-import org.apache.ignite.internal.tostring.IgniteToStringInclude;
+import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.util.IgniteUtils;
 
 /**
  * Index tree meta information.
  */
 public class IndexMeta {
-    @IgniteToStringInclude
     private final UUID id;
 
-    private final long rootPageId;
+    @IgniteToStringExclude
+    private final long metaPageId;
 
     /**
      * Constructor.
      *
      * @param id Index ID.
-     * @param rootPageId Index root page ID.
+     * @param metaPageId Index tree meta page ID.
      */
-    public IndexMeta(UUID id, long rootPageId) {
+    public IndexMeta(UUID id, long metaPageId) {
         this.id = id;
-        this.rootPageId = rootPageId;
+        this.metaPageId = metaPageId;
     }
 
     /**
@@ -49,15 +50,15 @@ public class IndexMeta {
     }
 
     /**
-     * Returns the index root page ID.
+     * Returns page ID of the index tree meta page.
      */
-    public long rootPageId() {
-        return rootPageId;
+    public long metaPageId() {
+        return metaPageId;
     }
 
     /** {@inheritDoc} */
     @Override
     public String toString() {
-        return S.toString(IndexMeta.class, this);
+        return S.toString(IndexMeta.class, this, "metaPageId", IgniteUtils.hexLong(metaPageId));
     }
 }

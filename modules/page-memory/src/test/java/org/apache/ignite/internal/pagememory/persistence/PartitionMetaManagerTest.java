@@ -133,7 +133,7 @@ public class PartitionMetaManagerTest {
             try (FilePageStore filePageStore = createFilePageStore(testFilePath)) {
                 manager.writeMetaToBuffer(
                         partId,
-                        new PartitionMeta(UUID.randomUUID(), 100, 300, 900, 4).metaSnapshot(null),
+                        new PartitionMeta(UUID.randomUUID(), 100, 900, 500, 300, 200, 4).metaSnapshot(null),
                         buffer.rewind()
                 );
 
@@ -149,8 +149,10 @@ public class PartitionMetaManagerTest {
                 PartitionMeta meta = manager.readOrCreateMeta(null, partId, filePageStore);
 
                 assertEquals(100, meta.lastAppliedIndex());
-                assertEquals(300, meta.versionChainTreeRootPageId());
                 assertEquals(900, meta.rowVersionFreeListRootPageId());
+                assertEquals(500, meta.indexColumnsFreeListRootPageId());
+                assertEquals(300, meta.versionChainTreeRootPageId());
+                assertEquals(200, meta.indexTreeMetaPageId());
                 assertEquals(4, meta.pageCount());
             }
 

@@ -31,7 +31,6 @@ import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.pagememory.util.PageUtils;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteStringBuilder;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Data pages IO.
@@ -913,7 +912,6 @@ public abstract class AbstractDataPageIo<T extends Storable> extends PageIo {
      * @param pageAddr Page address.
      * @param itemId Item ID.
      * @param pageSize Page size.
-     * @param payload Row data.
      * @param row Row.
      * @param rowSize Row size.
      * @return {@code True} if entry is not fragmented.
@@ -923,12 +921,11 @@ public abstract class AbstractDataPageIo<T extends Storable> extends PageIo {
             final long pageAddr,
             int itemId,
             int pageSize,
-            @Nullable byte[] payload,
-            @Nullable T row,
+            T row,
             final int rowSize
     ) throws IgniteInternalCheckedException {
         assert checkIndex(itemId) : itemId;
-        assert row != null ^ payload != null;
+        assert row != null;
         assertPageType(pageAddr);
 
         final int dataOff = getDataOffset(pageAddr, itemId, pageSize);
@@ -937,11 +934,7 @@ public abstract class AbstractDataPageIo<T extends Storable> extends PageIo {
             return false;
         }
 
-        if (row != null) {
-            writeRowData(pageAddr, dataOff, rowSize, row, false);
-        } else {
-            writeRowData(pageAddr, dataOff, payload);
-        }
+        writeRowData(pageAddr, dataOff, rowSize, row, false);
 
         return true;
     }
@@ -1097,35 +1090,6 @@ public abstract class AbstractDataPageIo<T extends Storable> extends PageIo {
         int itemId = addItem(pageAddr, fullEntrySize, directCnt, indirectCnt, dataOff, pageSize);
 
         setLinkByPageId(row, pageId, itemId);
-    }
-
-    /**
-     * Adds row to this data page and sets respective link to the given row object.
-     *
-     * @param pageAddr Page address.
-     * @param payload Payload.
-     * @param pageSize Page size.
-     * @return Item ID.
-     * @throws IgniteInternalCheckedException If failed.
-     */
-    public int addRow(
-            long pageAddr,
-            byte[] payload,
-            int pageSize
-    ) throws IgniteInternalCheckedException {
-        assert payload.length <= getFreeSpace(pageAddr) : "can't call addRow if not enough space for the whole row";
-        assertPageType(pageAddr);
-
-        int fullEntrySize = getPageEntrySize(payload.length, SHOW_PAYLOAD_LEN | SHOW_ITEM);
-
-        int directCnt = getDirectCount(pageAddr);
-        int indirectCnt = getIndirectCount(pageAddr);
-
-        int dataOff = getDataOffsetForWrite(pageAddr, fullEntrySize, directCnt, indirectCnt, pageSize);
-
-        writeRowData(pageAddr, dataOff, payload);
-
-        return addItem(pageAddr, fullEntrySize, directCnt, indirectCnt, dataOff, pageSize);
     }
 
     /**
@@ -1505,26 +1469,6 @@ public abstract class AbstractDataPageIo<T extends Storable> extends PageIo {
             T row,
             boolean newRow
     ) throws IgniteInternalCheckedException;
-
-    /**
-     * Writes a row.
-     *
-     * @param pageAddr Page address.
-     * @param dataOff Data offset.
-     * @param payload Payload
-     */
-    protected void writeRowData(
-            long pageAddr,
-            int dataOff,
-            byte[] payload
-    ) {
-        assertPageType(pageAddr);
-
-        PageUtils.putShort(pageAddr, dataOff, (short) payload.length);
-        dataOff += 2;
-
-        PageUtils.putBytes(pageAddr, dataOff, payload);
-    }
 
     /**
      * Defines closure interface for applying computations to data page items.

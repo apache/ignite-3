@@ -112,6 +112,6 @@ public interface IndexMetaIo {
         putLong(pageAddr, off + INDEX_ID_MSB_OFFSET, row.id().getMostSignificantBits());
         putLong(pageAddr, off + INDEX_ID_LSB_OFFSET, row.id().getLeastSignificantBits());
 
-        putLong(pageAddr, off + INDEX_ROOT_PAGE_ID_OFFSET, row.rootPageId());
+        putLong(pageAddr, off + INDEX_ROOT_PAGE_ID_OFFSET, row.metaPageId());
     }
 }

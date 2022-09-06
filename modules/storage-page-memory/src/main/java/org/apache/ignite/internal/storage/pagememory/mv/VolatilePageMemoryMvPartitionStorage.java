@@ -18,11 +18,11 @@
 package org.apache.ignite.internal.storage.pagememory.mv;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.configuration.schemas.table.TableView;
-import org.apache.ignite.internal.pagememory.inmemory.VolatilePageMemory;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryTableStorage;
+import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 
 /**
  * Implementation of {@link MvPartitionStorage} based on a {@link BplusTree} for in-memory case.
@@ -34,20 +34,25 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
     /**
      * Constructor.
      *
-     * @param partId Partition id.
-     * @param tableView Table configuration.
-     * @param pageMemory Page memory.
-     * @param rowVersionFreeList Free list for {@link RowVersion}.
+     * @param tableStorage Table storage instance.
+     * @param partitionId Partition id.
      * @param versionChainTree Table tree for {@link VersionChain}.
+     * @param indexMetaTree Tree that contains SQL indexes.
      */
     public VolatilePageMemoryMvPartitionStorage(
-            int partId,
-            TableView tableView,
-            VolatilePageMemory pageMemory,
-            RowVersionFreeList rowVersionFreeList,
-            VersionChainTree versionChainTree
+            VolatilePageMemoryTableStorage tableStorage,
+            int partitionId,
+            VersionChainTree versionChainTree,
+            IndexMetaTree indexMetaTree
     ) {
-        super(partId, tableView, pageMemory, rowVersionFreeList, versionChainTree);
+        super(
+                partitionId,
+                tableStorage,
+                tableStorage.dataRegion().rowVersionFreeList(),
+                tableStorage.dataRegion().indexColumnsFreeList(),
+                versionChainTree,
+                indexMetaTree
+        );
     }
 
     /** {@inheritDoc} */

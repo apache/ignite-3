@@ -33,7 +33,7 @@ import org.jetbrains.annotations.Nullable;
  * Insert closure that removes corresponding {@link IndexColumns} from a {@link IndexColumnsFreeList} after removing it from the
  * {@link HashIndexTree}.
  */
-public class RemoveHashIndexRowInvokeClosure implements InvokeClosure<HashIndexRow> {
+class RemoveHashIndexRowInvokeClosure implements InvokeClosure<HashIndexRow> {
     /** Hash index row instance for removal. */
     private final HashIndexRow hashIndexRow;
 

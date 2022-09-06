@@ -55,6 +55,8 @@ public abstract class AbstractHashIndexStorageTest {
 
     private static final String STR_COLUMN_NAME = "strVal";
 
+    private MvTableStorage tableStorage;
+
     private MvPartitionStorage partitionStorage;
 
     private HashIndexStorage indexStorage;
@@ -62,6 +64,8 @@ public abstract class AbstractHashIndexStorageTest {
     private BinaryTupleRowSerializer serializer;
 
     protected void initialize(MvTableStorage tableStorage) {
+        this.tableStorage = tableStorage;
+
         createTestTable(tableStorage.configuration());
 
         this.partitionStorage = tableStorage.getOrCreateMvPartition(TEST_PARTITION);
@@ -114,7 +118,7 @@ public abstract class AbstractHashIndexStorageTest {
      * Tests the {@link HashIndexStorage#get} method.
      */
     @Test
-    void testGet() {
+    public void testGet() {
         // First two rows have the same index key, but different row IDs
         IndexRow row1 = serializer.serializeRow(new Object[]{ 1, "foo" }, new RowId(TEST_PARTITION));
         IndexRow row2 = serializer.serializeRow(new Object[]{ 1, "foo" }, new RowId(TEST_PARTITION));
@@ -137,7 +141,7 @@ public abstract class AbstractHashIndexStorageTest {
      * Tests that {@link HashIndexStorage#put} does not create row ID duplicates.
      */
     @Test
-    void testPutIdempotence() {
+    public void testPutIdempotence() {
         IndexRow row = serializer.serializeRow(new Object[]{ 1, "foo" }, new RowId(TEST_PARTITION));
 
         put(row);
@@ -150,7 +154,7 @@ public abstract class AbstractHashIndexStorageTest {
      * Tests the {@link HashIndexStorage#remove} method.
      */
     @Test
-    void testRemove() {
+    public void testRemove() {
         IndexRow row1 = serializer.serializeRow(new Object[]{ 1, "foo" }, new RowId(TEST_PARTITION));
         IndexRow row2 = serializer.serializeRow(new Object[]{ 1, "foo" }, new RowId(TEST_PARTITION));
         IndexRow row3 = serializer.serializeRow(new Object[]{ 2, "bar" }, new RowId(TEST_PARTITION));
@@ -186,7 +190,7 @@ public abstract class AbstractHashIndexStorageTest {
      * Tests that {@link HashIndexStorage#remove} works normally when removing a non-existent row.
      */
     @Test
-    void testRemoveIdempotence() {
+    public void testRemoveIdempotence() {
         IndexRow row = serializer.serializeRow(new Object[]{ 1, "foo" }, new RowId(TEST_PARTITION));
 
         assertDoesNotThrow(() -> remove(row));
@@ -201,7 +205,7 @@ public abstract class AbstractHashIndexStorageTest {
     }
 
     @Test
-    void testDestroy() {
+    public void testDestroy() throws Exception {
         IndexRow row1 = serializer.serializeRow(new Object[]{ 1, "foo" }, new RowId(TEST_PARTITION));
         IndexRow row2 = serializer.serializeRow(new Object[]{ 1, "foo" }, new RowId(TEST_PARTITION));
         IndexRow row3 = serializer.serializeRow(new Object[]{ 2, "bar" }, new RowId(TEST_PARTITION));
@@ -210,11 +214,30 @@ public abstract class AbstractHashIndexStorageTest {
         put(row2);
         put(row3);
 
-        indexStorage.destroy();
+        CompletableFuture<Void> destroyFuture = tableStorage.destroyIndex(indexStorage.indexDescriptor().id());
 
+        waitForDurableCompletion(destroyFuture, 1L);
+
+        //TODO IGNITE-17626 Index must be invalid, we should assert that getIndex returns null and that in won't surface upon restart.
+        // "destroy" is not "clear", you know. Maybe "getAndCreateIndex" will do it for the test, idk
         assertThat(getAll(row1), is(empty()));
         assertThat(getAll(row2), is(empty()));
         assertThat(getAll(row3), is(empty()));
+    }
+
+    @SuppressWarnings("BusyWait")
+    private void waitForDurableCompletion(CompletableFuture<?> future, long timeout) throws Exception {
+        while (true) {
+            if (future.isDone()) {
+                return;
+            }
+
+            CompletableFuture<Void> flushFuture = partitionStorage.flush();
+
+            Thread.sleep(timeout);
+
+            flushFuture.join();
+        }
     }
 
     private Collection<RowId> getAll(IndexRow row) {
