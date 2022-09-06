@@ -172,10 +172,10 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
 
         pojoView.upsert(null, val);
 
-        Tuple res = table.recordView().get(null, Tuple.create().set("id", "112").set("gid", 111));
+        Tuple res = table.recordView().get(null, Tuple.create().set("id", "112").set("gid", 111L));
 
         assertNotNull(res);
-        assertEquals(111, res.intValue("gid"));
+        assertEquals(111, res.longValue("gid"));
         assertEquals("112", res.stringValue("id"));
         assertEquals(113, res.byteValue("zbyte"));
         assertEquals(114, res.shortValue("zshort"));
