@@ -487,43 +487,43 @@ public class ClientTableCommon {
                 break;
 
             case DECIMAL:
-                builder.appendDecimal((BigDecimal) val);
+                builder.appendDecimalNotNull((BigDecimal) val);
                 break;
 
             case NUMBER:
-                builder.appendNumber((BigInteger) val);
+                builder.appendNumberNotNull((BigInteger) val);
                 break;
 
             case UUID:
-                builder.appendUuid((UUID) val);
+                builder.appendUuidNotNull((UUID) val);
                 break;
 
             case STRING:
-                builder.appendString((String) val);
+                builder.appendStringNotNull((String) val);
                 break;
 
             case BYTES:
-                builder.appendBytes((byte[]) val);
+                builder.appendBytesNotNull((byte[]) val);
                 break;
 
             case BITMASK:
-                builder.appendBitmask((BitSet) val);
+                builder.appendBitmaskNotNull((BitSet) val);
                 break;
 
             case DATE:
-                builder.appendDate((LocalDate) val);
+                builder.appendDateNotNull((LocalDate) val);
                 break;
 
             case TIME:
-                builder.appendTime((LocalTime) val);
+                builder.appendTimeNotNull((LocalTime) val);
                 break;
 
             case DATETIME:
-                builder.appendDateTime((LocalDateTime) val);
+                builder.appendDateTimeNotNull((LocalDateTime) val);
                 break;
 
             case TIMESTAMP:
-                builder.appendTimestamp((Instant) val);
+                builder.appendTimestampNotNull((Instant) val);
                 break;
 
             default:

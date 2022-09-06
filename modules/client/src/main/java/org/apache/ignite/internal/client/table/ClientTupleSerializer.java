@@ -408,43 +408,43 @@ public class ClientTupleSerializer {
                     return;
 
                 case ClientDataType.DECIMAL:
-                    builder.appendDecimal((BigDecimal) v);
+                    builder.appendDecimalNotNull((BigDecimal) v);
                     return;
 
                 case ClientDataType.UUID:
-                    builder.appendUuid((UUID) v);
+                    builder.appendUuidNotNull((UUID) v);
                     return;
 
                 case ClientDataType.STRING:
-                    builder.appendString((String) v);
+                    builder.appendStringNotNull((String) v);
                     return;
 
                 case ClientDataType.BYTES:
-                    builder.appendBytes((byte[]) v);
+                    builder.appendBytesNotNull((byte[]) v);
                     return;
 
                 case ClientDataType.BITMASK:
-                    builder.appendBitmask((BitSet) v);
+                    builder.appendBitmaskNotNull((BitSet) v);
                     return;
 
                 case ClientDataType.DATE:
-                    builder.appendDate((LocalDate) v);
+                    builder.appendDateNotNull((LocalDate) v);
                     return;
 
                 case ClientDataType.TIME:
-                    builder.appendTime((LocalTime) v);
+                    builder.appendTimeNotNull((LocalTime) v);
                     return;
 
                 case ClientDataType.DATETIME:
-                    builder.appendDateTime((LocalDateTime) v);
+                    builder.appendDateTimeNotNull((LocalDateTime) v);
                     return;
 
                 case ClientDataType.TIMESTAMP:
-                    builder.appendTimestamp((Instant) v);
+                    builder.appendTimestampNotNull((Instant) v);
                     return;
 
                 case ClientDataType.NUMBER:
-                    builder.appendNumber((BigInteger) v);
+                    builder.appendNumberNotNull((BigInteger) v);
                     return;
 
                 default:
