@@ -486,13 +486,13 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
         Marshaller keyMarsh = schema.getMarshaller(keySer.mapper(), TuplePart.KEY);
         Marshaller valMarsh = schema.getMarshaller(valSer.mapper(), TuplePart.VAL);
 
-        // TODO IGNITE-17297 Do not allocate array, read from Netty buf directly.
-        var tupleReader = new BinaryTupleReader(schema.columns().length, in.readPayload(in.unpackBinaryHeader()));
-        var reader = new ClientMarshallerReader(tupleReader);
-
         try {
             for (int i = 0; i < cnt; i++) {
                 in.unpackBoolean(); // TODO: Optimize (IGNITE-16022).
+
+                // TODO IGNITE-17297 Do not allocate array, read from Netty buf directly.
+                var tupleReader = new BinaryTupleReader(schema.columns().length, in.readPayload(in.unpackBinaryHeader()));
+                var reader = new ClientMarshallerReader(tupleReader);
                 res.put((K) keyMarsh.readObject(reader, null), (V) valMarsh.readObject(reader, null));
             }
 

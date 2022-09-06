@@ -137,6 +137,7 @@ public class ClientRecordSerializer<R> {
             var builder = BinaryTupleBuilder.create(columnCount, true);
             var noValueSet = new BitSet();
             ClientMarshallerWriter writer = new ClientMarshallerWriter(builder, noValueSet);
+
             marshaller.writeObject(rec, writer);
             out.out().packBinaryTuple(builder, noValueSet);
 
