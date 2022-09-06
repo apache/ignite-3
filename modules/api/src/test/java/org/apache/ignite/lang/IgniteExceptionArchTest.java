@@ -63,7 +63,6 @@ public class IgniteExceptionArchTest {
                         return;
                     }
 
-                    System.out.println("Checking class: " + javaClass.getName());
                     Optional<JavaConstructor> ctor = javaClass.tryGetConstructor(UUID.class, int.class, String.class, Throwable.class);
 
                     if (!ctor.isPresent()) {
