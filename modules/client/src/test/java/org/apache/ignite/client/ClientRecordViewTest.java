@@ -189,7 +189,7 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
         assertEquals("119", res.stringValue("zstring"));
         assertEquals(120, ((byte[]) res.value("zbytes"))[0]);
         assertEquals(BitSet.valueOf(new byte[]{121}), res.bitmaskValue("zbitmask"));
-        assertEquals(122, ((Number) res.value("zdecimal")).longValue());
+        assertEquals(122, ((BigDecimal) res.value("zdecimal")).unscaledValue().longValue());
         assertEquals(BigInteger.valueOf(123), res.value("znumber"));
         assertEquals(uuid, res.uuidValue("zuuid"));
     }
