@@ -516,7 +516,7 @@ public class ClientTableCommon {
         }
     }
 
-    private static int columnCount(SchemaDescriptor schema, TuplePart part){
+    private static int columnCount(SchemaDescriptor schema, TuplePart part) {
         switch (part) {
             case KEY: return schema.keyColumns().length();
             case VAL: return schema.valueColumns().length();
