@@ -17,8 +17,9 @@
 
 namespace Apache.Ignite.Internal.Table.Serialization
 {
+    using System;
+    using System.Collections.Generic;
     using System.Reflection;
-    using Proto;
     using Proto.BinaryTuple;
 
     /// <summary>
@@ -30,6 +31,38 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// No-value writer.
         /// </summary>
         public static readonly MethodInfo WriteNoValue =
-            typeof(MessagePackWriterExtensions).GetMethod(nameof(MessagePackWriterExtensions.WriteNoValue))!;
+            typeof(BinaryTupleBuilderExtensions).GetMethod(nameof(BinaryTupleBuilderExtensions.AppendNoValue))!;
+
+        private static readonly MethodInfo AppendNull = typeof(BinaryTupleBuilder).GetMethod("AppendNull")!;
+        private static readonly MethodInfo AppendByte = typeof(BinaryTupleBuilder).GetMethod("AppendByte")!;
+        private static readonly MethodInfo AppendShort = typeof(BinaryTupleBuilder).GetMethod("AppendShort")!;
+        private static readonly MethodInfo AppendInt = typeof(BinaryTupleBuilder).GetMethod("AppendInt")!;
+        private static readonly MethodInfo AppendLong = typeof(BinaryTupleBuilder).GetMethod("AppendLong")!;
+        private static readonly MethodInfo AppendFloat = typeof(BinaryTupleBuilder).GetMethod("AppendFloat")!;
+        private static readonly MethodInfo AppendGuid = typeof(BinaryTupleBuilder).GetMethod("AppendGuid")!;
+        private static readonly MethodInfo AppendString = typeof(BinaryTupleBuilder).GetMethod("AppendString")!;
+
+        // TODO: Support all types (IGNITE-15431).
+        private static readonly IReadOnlyDictionary<Type, MethodInfo> WriteMethods = new Dictionary<Type, MethodInfo>
+        {
+            { typeof(string), AppendString },
+            { typeof(sbyte), AppendByte },
+            { typeof(short), AppendShort },
+            { typeof(int), AppendInt },
+            { typeof(long), AppendLong },
+            { typeof(float), AppendFloat },
+            { typeof(Guid), AppendGuid }
+        };
+
+
+        /// <summary>
+        /// Gets the write method.
+        /// </summary>
+        /// <param name="valueType">Type of the value to write.</param>
+        /// <returns>Write method for the specified value type.</returns>
+        public static MethodInfo GetWriteMethod(Type valueType) =>
+            WriteMethods.TryGetValue(valueType, out var method)
+                ? method
+                : throw new IgniteClientException("Unsupported type: " + valueType);
     }
 }

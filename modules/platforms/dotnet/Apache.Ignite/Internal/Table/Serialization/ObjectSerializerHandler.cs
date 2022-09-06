@@ -116,16 +116,18 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 if (fieldInfo == null)
                 {
                     il.Emit(OpCodes.Ldarg_0); // writer
-                    il.Emit(OpCodes.Call, MessagePackMethods.WriteNoValue);
+                    il.Emit(OpCodes.Ldarg_1); // noValueSet
+                    il.Emit(OpCodes.Call, BinaryTupleMethods.WriteNoValue);
                 }
                 else
                 {
                     ValidateFieldType(fieldInfo, col);
                     il.Emit(OpCodes.Ldarg_0); // writer
-                    il.Emit(OpCodes.Ldarg_1); // record
+                    il.Emit(OpCodes.Ldarg_2); // record
                     il.Emit(OpCodes.Ldfld, fieldInfo);
 
-                    var writeMethod = MessagePackMethods.GetWriteMethod(fieldInfo.FieldType);
+                    // TODO IGNITE-17297 Support nullable types
+                    var writeMethod = BinaryTupleMethods.GetWriteMethod(fieldInfo.FieldType);
                     il.Emit(OpCodes.Call, writeMethod);
                 }
             }
