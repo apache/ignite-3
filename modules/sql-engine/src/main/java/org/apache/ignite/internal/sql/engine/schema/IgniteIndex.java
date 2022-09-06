@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Objects;
 import org.apache.ignite.internal.index.ColumnCollation;
 import org.apache.ignite.internal.index.Index;
+import org.apache.ignite.internal.index.SortedIndex;
 import org.apache.ignite.internal.index.SortedIndexDescriptor;
 import org.jetbrains.annotations.Nullable;
 
@@ -33,13 +34,32 @@ public class IgniteIndex {
      * Collation, or sorting order, of a column.
      */
     public enum Collation {
-        ASC_NULLS_FIRST, ASC_NULLS_LAST, DESC_NULLS_FIRST, DESC_NULLS_LAST;
+        ASC_NULLS_FIRST(true, true),
+        ASC_NULLS_LAST(true, false),
+        DESC_NULLS_FIRST(false, true),
+        DESC_NULLS_LAST(false, false);
 
         /** Returns collation for a given specs. */
         public static Collation of(boolean asc, boolean nullsFirst) {
             return asc ? nullsFirst ? ASC_NULLS_FIRST : ASC_NULLS_LAST
                     : nullsFirst ? DESC_NULLS_FIRST : DESC_NULLS_LAST;
         }
+
+        public final boolean asc;
+
+        public final boolean nullsFirst;
+
+        Collation(boolean asc, boolean nullsFirst) {
+            this.asc = asc;
+            this.nullsFirst = nullsFirst;
+        }
+    }
+
+    /**
+     * Type of the index.
+     */
+    public enum Type {
+        HASH, SORTED
     }
 
     private final List<String> columns;
@@ -47,6 +67,8 @@ public class IgniteIndex {
     private final @Nullable List<Collation> collations;
 
     private final Index<?> index;
+
+    private final Type type;
 
     /**
      * Constructs the Index object.
@@ -58,6 +80,7 @@ public class IgniteIndex {
 
         this.columns = index.descriptor().columns();
         this.collations = deriveCollations(index);
+        this.type = index instanceof SortedIndex ? Type.SORTED : Type.HASH;
     }
 
     /** Returns a list of names of indexed columns. */
@@ -85,6 +108,10 @@ public class IgniteIndex {
     /** Returns an object providing access to a data. */
     public Index<?> index() {
         return index;
+    }
+
+    public Type type() {
+        return type;
     }
 
     private static @Nullable List<Collation> deriveCollations(Index<?> index) {

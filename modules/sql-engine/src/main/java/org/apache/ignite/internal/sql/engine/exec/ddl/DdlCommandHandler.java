@@ -40,6 +40,7 @@ import org.apache.ignite.configuration.schemas.table.ColumnChange;
 import org.apache.ignite.configuration.schemas.table.ColumnView;
 import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultChange;
 import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultChange;
+import org.apache.ignite.configuration.schemas.table.HashIndexChange;
 import org.apache.ignite.configuration.schemas.table.NullValueDefaultChange;
 import org.apache.ignite.configuration.schemas.table.PrimaryKeyView;
 import org.apache.ignite.configuration.schemas.table.SortedIndexChange;
@@ -52,17 +53,19 @@ import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterTableAddCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterTableDropCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.ColumnDefinition;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateIndexCommand;
+import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateIndexCommand.Type;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateTableCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DefaultValueDefinition.ConstantValue;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DefaultValueDefinition.FunctionCall;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DropIndexCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DropTableCommand;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
+import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.IgniteObjectName;
-import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.lang.ColumnAlreadyExistsException;
 import org.apache.ignite.lang.ColumnNotFoundException;
@@ -229,15 +232,20 @@ public class DdlCommandHandler {
     /** Handles create index command. */
     private CompletableFuture<Boolean> handleCreateIndex(CreateIndexCommand cmd) {
         Consumer<TableIndexChange> indexChanger = tableIndexChange -> {
-            // Only sorted idx for now.
-            createSortedIndexInternal(cmd, tableIndexChange.convert(SortedIndexChange.class));
+            if (cmd.type() == Type.SORTED) {
+                createSortedIndexInternal(cmd, tableIndexChange.convert(SortedIndexChange.class));
+            } else if (cmd.type() == Type.HASH) {
+                createHashIndexInternal(cmd, tableIndexChange.convert(HashIndexChange.class));
+            } else {
+                throw new AssertionError("Unknown index type [type=" + cmd.type() + "]");
+            }
         };
 
         return indexManager.createIndexAsync(
                         cmd.schemaName(),
                         cmd.indexName(),
                         cmd.tableName(),
-                        !cmd.ifIndexNotExists(),
+                        !cmd.ifNotExists(),
                         indexChanger)
                 .thenApply(Objects::nonNull);
     }
@@ -255,11 +263,23 @@ public class DdlCommandHandler {
      */
     private void createSortedIndexInternal(CreateIndexCommand cmd, SortedIndexChange indexChange) {
         indexChange.changeColumns(colsInit -> {
-            for (Pair<String, Boolean> col : cmd.columns()) {
+            for (int i = 0; i < cmd.columns().size(); i++) {
+                String columnName = cmd.columns().get(i);
+                Collation collation = cmd.collations().get(i);
                 //TODO: https://issues.apache.org/jira/browse/IGNITE-17563 Pass null ordering for columns.
-                colsInit.create(col.getFirst(), colInit -> colInit.changeAsc(!col.getSecond()));
+                colsInit.create(columnName, colInit -> colInit.changeAsc(collation.asc));
             }
         });
+    }
+
+    /**
+     * Creates hash index.
+     *
+     * @param cmd Create index command.
+     * @param indexChange Index configuration changer.
+     */
+    private void createHashIndexInternal(CreateIndexCommand cmd, HashIndexChange indexChange) {
+        indexChange.changeColumnNames(cmd.columns().toArray(ArrayUtils.STRING_EMPTY_ARRAY));
     }
 
     /**

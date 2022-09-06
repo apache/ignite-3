@@ -27,6 +27,7 @@ import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.mapping.Mappings;
 import org.apache.ignite.internal.sql.engine.rel.AbstractIndexScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
@@ -61,15 +62,13 @@ public class IgniteLogicalIndexScan extends AbstractIndexScan {
             collation = collation.apply(targetMapping);
         }
 
-        IndexConditions idxCond = new IndexConditions();
-
-        if (collation != null && !collation.getFieldCollations().isEmpty()) {
-            idxCond = RexUtils.buildSortedIndexConditions(
-                    cluster,
-                    collation,
-                    cond,
-                    tbl.getRowType(typeFactory),
-                    requiredColumns);
+        IndexConditions idxCond;
+        if (index.type() == Type.HASH) {
+            idxCond = buildHashIndexConditions(cluster, tbl, index.columns(), cond, requiredColumns);
+        } else if (index.type() == Type.SORTED) {
+            idxCond = buildSortedIndexConditions(cluster, tbl, collation, cond, requiredColumns);
+        } else {
+            throw new AssertionError("Unknown index type [type=" + index.type() + "]");
         }
 
         return new IgniteLogicalIndexScan(
@@ -77,6 +76,7 @@ public class IgniteLogicalIndexScan extends AbstractIndexScan {
                 traits,
                 table,
                 idxName,
+                index.type(),
                 proj,
                 cond,
                 idxCond,
@@ -86,13 +86,14 @@ public class IgniteLogicalIndexScan extends AbstractIndexScan {
     /**
      * Creates a IndexScan.
      *
-     * @param cluster      Cluster that this relational expression belongs to
-     * @param traits       Traits of this relational expression
-     * @param tbl          Table definition.
-     * @param idxName      Index name.
-     * @param proj         Projects.
-     * @param cond         Filters.
-     * @param idxCond      Index conditions.
+     * @param cluster Cluster that this relational expression belongs to
+     * @param traits Traits of this relational expression
+     * @param tbl Table definition.
+     * @param idxName Index name.
+     * @param type Type of the index.
+     * @param proj Projects.
+     * @param cond Filters.
+     * @param idxCond Index conditions.
      * @param requiredCols Participating columns.
      */
     private IgniteLogicalIndexScan(
@@ -100,11 +101,43 @@ public class IgniteLogicalIndexScan extends AbstractIndexScan {
             RelTraitSet traits,
             RelOptTable tbl,
             String idxName,
+            IgniteIndex.Type type,
             @Nullable List<RexNode> proj,
             @Nullable RexNode cond,
             @Nullable IndexConditions idxCond,
             @Nullable ImmutableBitSet requiredCols
     ) {
-        super(cluster, traits, List.of(), tbl, idxName, proj, cond, idxCond, requiredCols);
+        super(cluster, traits, List.of(), tbl, idxName, type, proj, cond, idxCond, requiredCols);
+    }
+
+    private static IndexConditions buildSortedIndexConditions(
+            RelOptCluster cluster,
+            InternalIgniteTable table,
+            RelCollation collation,
+            @Nullable RexNode cond,
+            @Nullable ImmutableBitSet requiredColumns
+    ) {
+        if (collation.getFieldCollations().isEmpty()) {
+            return new IndexConditions();
+        }
+
+        return RexUtils.buildSortedIndexConditions(
+                cluster,
+                collation,
+                cond,
+                table.getRowType(Commons.typeFactory(cluster)),
+                requiredColumns
+        );
+    }
+
+    private static IndexConditions buildHashIndexConditions(
+            RelOptCluster cluster,
+            InternalIgniteTable table,
+            List<String> indexedColumns,
+            @Nullable RexNode cond,
+            @Nullable ImmutableBitSet requiredColumns
+    ) {
+        return RexUtils.buildHashIndexConditions(cluster, indexedColumns, cond,
+                table.getRowType(Commons.typeFactory(cluster)), requiredColumns);
     }
 }
