@@ -492,7 +492,7 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
 
         pojoView.upsert(null, new PersonPojo());
 
-        var res = recordView.get(null, tupleKey(0));
+        var res = recordView.get(null, Tuple.create().set("id", 0));
 
         assertEquals("def_str", res.stringValue("str"));
         assertEquals("def_str2", res.stringValue("strNonNull"));
