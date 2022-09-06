@@ -126,7 +126,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
                     il.Emit(OpCodes.Ldarg_2); // record
                     il.Emit(OpCodes.Ldfld, fieldInfo);
 
-                    // TODO IGNITE-17297 Support nullable types
                     var writeMethod = BinaryTupleMethods.GetWriteMethod(fieldInfo.FieldType);
                     il.Emit(OpCodes.Call, writeMethod);
                 }

@@ -33,14 +33,13 @@ namespace Apache.Ignite.Internal.Table.Serialization
         public static readonly MethodInfo WriteNoValue =
             typeof(BinaryTupleBuilderExtensions).GetMethod(nameof(BinaryTupleBuilderExtensions.AppendNoValue))!;
 
-        private static readonly MethodInfo AppendNull = typeof(BinaryTupleBuilder).GetMethod("AppendNull")!;
         private static readonly MethodInfo AppendByte = typeof(BinaryTupleBuilder).GetMethod("AppendByte")!;
         private static readonly MethodInfo AppendShort = typeof(BinaryTupleBuilder).GetMethod("AppendShort")!;
         private static readonly MethodInfo AppendInt = typeof(BinaryTupleBuilder).GetMethod("AppendInt")!;
         private static readonly MethodInfo AppendLong = typeof(BinaryTupleBuilder).GetMethod("AppendLong")!;
         private static readonly MethodInfo AppendFloat = typeof(BinaryTupleBuilder).GetMethod("AppendFloat")!;
         private static readonly MethodInfo AppendGuid = typeof(BinaryTupleBuilder).GetMethod("AppendGuid")!;
-        private static readonly MethodInfo AppendString = typeof(BinaryTupleBuilder).GetMethod("AppendString")!;
+        private static readonly MethodInfo AppendString = typeof(BinaryTupleBuilder).GetMethod("AppendStringNullable")!;
 
         // TODO: Support all types (IGNITE-15431).
         private static readonly IReadOnlyDictionary<Type, MethodInfo> WriteMethods = new Dictionary<Type, MethodInfo>
@@ -53,7 +52,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
             { typeof(float), AppendFloat },
             { typeof(Guid), AppendGuid }
         };
-
 
         /// <summary>
         /// Gets the write method.

@@ -241,6 +241,23 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         }
 
         /// <summary>
+        /// Appends a string.
+        /// </summary>
+        /// <param name="value">Value.</param>
+        public void AppendStringNullable(string? value)
+        {
+            if (value == null)
+            {
+                AppendNull();
+                return;
+            }
+
+            PutString(value);
+
+            OnWrite();
+        }
+
+        /// <summary>
         /// Appends bytes.
         /// </summary>
         /// <param name="value">Value.</param>
