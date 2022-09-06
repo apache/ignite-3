@@ -105,7 +105,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 else
                 {
                     tupleBuilder.AppendDefault();
-                    noValueSet[index / 8] |= (byte)(1 << (index % 8));
+                    noValueSet.SetBit(index);
                 }
             }
 
