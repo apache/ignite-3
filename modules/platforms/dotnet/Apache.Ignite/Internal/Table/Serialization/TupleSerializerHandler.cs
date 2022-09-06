@@ -49,16 +49,12 @@ namespace Apache.Ignite.Internal.Table.Serialization
             var columns = schema.Columns;
             var count = keyOnly ? schema.KeyColumnCount : columns.Count;
             var tuple = new IgniteTuple(count);
+            var tupleReader = GetBinaryTupleReader(ref reader, count);
 
             for (var index = 0; index < count; index++)
             {
-                if (reader.TryReadNoValue())
-                {
-                    continue;
-                }
-
                 var column = columns[index];
-                tuple[column.Name] = reader.ReadObject(column.Type);
+                tuple[column.Name] = tupleReader.GetObject(index, column.Type);
             }
 
             return tuple;
@@ -67,14 +63,9 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// <inheritdoc/>
         public IIgniteTuple ReadValuePart(ref MessagePackReader reader, Schema schema, IIgniteTuple key)
         {
-            ReadOnlySequence<byte> tupleSeq = reader.ReadBytes()!.Value;
-            Debug.Assert(tupleSeq.IsSingleSegment, "tupleSeq.IsSingleSegment");
-
-            var mem = tupleSeq.First;
-            var tupleReader = new BinaryTupleReader(mem, schema.Columns.Count - schema.KeyColumnCount);
-
             var columns = schema.Columns;
             var tuple = new IgniteTuple(columns.Count);
+            var tupleReader = GetBinaryTupleReader(ref reader, schema.Columns.Count - schema.KeyColumnCount);
 
             for (var i = 0; i < columns.Count; i++)
             {
@@ -122,6 +113,15 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
             var binaryTupleMemory = tupleBuilder.Build();
             writer.Write(binaryTupleMemory.Span);
+        }
+
+        private static BinaryTupleReader GetBinaryTupleReader(ref MessagePackReader reader, int elementCount)
+        {
+            ReadOnlySequence<byte> tupleSeq = reader.ReadBytes()!.Value;
+            Debug.Assert(tupleSeq.IsSingleSegment, "tupleSeq.IsSingleSegment");
+
+            var mem = tupleSeq.First;
+            return new BinaryTupleReader(mem, elementCount);
         }
     }
 }
