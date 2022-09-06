@@ -40,9 +40,9 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
         private delegate void WriteDelegate<in TV>(ref BinaryTupleBuilder writer, Span<byte> noValueSet, TV value);
 
-        private delegate TV ReadDelegate<out TV>(ref MessagePackReader reader);
+        private delegate TV ReadDelegate<out TV>(ref BinaryTupleReader reader);
 
-        private delegate TV ReadValuePartDelegate<TV>(ref MessagePackReader reader, TV key);
+        private delegate TV ReadValuePartDelegate<TV>(ref BinaryTupleReader reader, TV key);
 
         /// <inheritdoc/>
         public T Read(ref MessagePackReader reader, Schema schema, bool keyOnly = false)
@@ -53,7 +53,9 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 ? w
                 : _readers.GetOrAdd(cacheKey, EmitReader(schema, keyOnly));
 
-            return readDelegate(ref reader);
+            var binaryTupleReader = new BinaryTupleReader(reader.ReadBytesAsMemory(), schema.Columns.Count);
+
+            return readDelegate(ref binaryTupleReader);
         }
 
         /// <inheritdoc/>
@@ -63,7 +65,9 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 ? w
                 : _valuePartReaders.GetOrAdd(schema.Version, EmitValuePartReader(schema));
 
-            return readDelegate(ref reader, key);
+            var binaryTupleReader = new BinaryTupleReader(reader.ReadBytesAsMemory(), schema.Columns.Count - schema.KeyColumnCount);
+
+            return readDelegate(ref binaryTupleReader, key);
         }
 
         /// <inheritdoc/>
@@ -143,7 +147,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             var method = new DynamicMethod(
                 name: "Read" + type.Name,
                 returnType: type,
-                parameterTypes: new[] { typeof(MessagePackReader).MakeByRefType() },
+                parameterTypes: new[] { typeof(BinaryTupleReader).MakeByRefType() },
                 m: typeof(IIgnite).Module,
                 skipVisibility: true);
 
@@ -164,7 +168,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 var col = columns[i];
                 var fieldInfo = type.GetFieldIgnoreCase(col.Name);
 
-                EmitFieldRead(fieldInfo, il, col);
+                EmitFieldRead(fieldInfo, il, col, i);
             }
 
             il.Emit(OpCodes.Ldloc_0); // res
@@ -180,7 +184,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             var method = new DynamicMethod(
                 name: "ReadValuePart" + type.Name,
                 returnType: type,
-                parameterTypes: new[] { typeof(MessagePackReader).MakeByRefType(), type },
+                parameterTypes: new[] { typeof(BinaryTupleReader).MakeByRefType(), type },
                 m: typeof(IIgnite).Module,
                 skipVisibility: true);
 
@@ -213,7 +217,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                     continue;
                 }
 
-                EmitFieldRead(fieldInfo, il, col);
+                EmitFieldRead(fieldInfo, il, col, i - schema.KeyColumnCount);
             }
 
             il.Emit(OpCodes.Ldloc_0); // res
@@ -222,7 +226,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             return (ReadValuePartDelegate<T>)method.CreateDelegate(typeof(ReadValuePartDelegate<T>));
         }
 
-        private static void EmitFieldRead(FieldInfo? fieldInfo, ILGenerator il, Column col)
+        private static void EmitFieldRead(FieldInfo? fieldInfo, ILGenerator il, Column col, int elemIdx)
         {
             if (fieldInfo == null)
             {
@@ -235,6 +239,15 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
             il.Emit(OpCodes.Ldloc_0); // res
             il.Emit(OpCodes.Ldarg_0); // reader
+
+            if (elemIdx == 0)
+            {
+                il.Emit(OpCodes.Ldc_I4_0);
+            }
+            else
+            {
+                il.Emit(OpCodes.Ldc_I4_1);
+            }
 
             il.Emit(OpCodes.Call, readMethod);
             il.Emit(OpCodes.Stfld, fieldInfo); // res.field = value

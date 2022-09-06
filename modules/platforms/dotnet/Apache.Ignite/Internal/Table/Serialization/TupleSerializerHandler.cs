@@ -49,7 +49,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             var columns = schema.Columns;
             var count = keyOnly ? schema.KeyColumnCount : columns.Count;
             var tuple = new IgniteTuple(count);
-            var tupleReader = new BinaryTupleReader(ReadBytes(ref reader), count);
+            var tupleReader = new BinaryTupleReader(reader.ReadBytesAsMemory(), count);
 
             for (var index = 0; index < count; index++)
             {
@@ -65,7 +65,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         {
             var columns = schema.Columns;
             var tuple = new IgniteTuple(columns.Count);
-            var tupleReader = new BinaryTupleReader(ReadBytes(ref reader), schema.Columns.Count - schema.KeyColumnCount);
+            var tupleReader = new BinaryTupleReader(reader.ReadBytesAsMemory(), schema.Columns.Count - schema.KeyColumnCount);
 
             for (var i = 0; i < columns.Count; i++)
             {
@@ -117,15 +117,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
             {
                 tupleBuilder.Dispose();
             }
-        }
-
-        private static ReadOnlyMemory<byte> ReadBytes(ref MessagePackReader reader)
-        {
-            ReadOnlySequence<byte> tupleSeq = reader.ReadBytes()!.Value;
-
-            Debug.Assert(tupleSeq.IsSingleSegment, "tupleSeq.IsSingleSegment");
-
-            return tupleSeq.First;
         }
     }
 }
