@@ -25,7 +25,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
     /// <summary>
     /// Binary tuple reader.
     /// </summary>
-    internal sealed class BinaryTupleReader // TODO: Support all types (IGNITE-15431).
+    internal readonly ref struct BinaryTupleReader // TODO: Support all types (IGNITE-15431).
     {
         /** Buffer. */
         private readonly ReadOnlyMemory<byte> _buffer;
@@ -43,7 +43,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         private readonly int _valueBase;
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="BinaryTupleReader"/> class.
+        /// Initializes a new instance of the <see cref="BinaryTupleReader"/> struct.
         /// </summary>
         /// <param name="buffer">Buffer.</param>
         /// <param name="numElements">Number of elements in the tuple.</param>

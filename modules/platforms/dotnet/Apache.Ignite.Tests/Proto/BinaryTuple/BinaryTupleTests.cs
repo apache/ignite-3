@@ -44,23 +44,21 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
         [Test]
         public void TestGetValueThrowsOnNull()
         {
-            var reader = BuildAndRead((ref BinaryTupleBuilder b) => b.AppendNull());
-
-            var getters = new Action<BinaryTupleReader>[]
+            var getters = new Action[]
             {
-                x => x.GetString(0),
-                x => x.GetByte(0),
-                x => x.GetShort(0),
-                x => x.GetInt(0),
-                x => x.GetLong(0),
-                x => x.GetFloat(0),
-                x => x.GetDouble(0),
-                x => x.GetGuid(0)
+                () => BuildAndRead((ref BinaryTupleBuilder b) => b.AppendNull()).GetString(0),
+                () => BuildAndRead((ref BinaryTupleBuilder b) => b.AppendNull()).GetByte(0),
+                () => BuildAndRead((ref BinaryTupleBuilder b) => b.AppendNull()).GetShort(0),
+                () => BuildAndRead((ref BinaryTupleBuilder b) => b.AppendNull()).GetInt(0),
+                () => BuildAndRead((ref BinaryTupleBuilder b) => b.AppendNull()).GetLong(0),
+                () => BuildAndRead((ref BinaryTupleBuilder b) => b.AppendNull()).GetFloat(0),
+                () => BuildAndRead((ref BinaryTupleBuilder b) => b.AppendNull()).GetDouble(0),
+                () => BuildAndRead((ref BinaryTupleBuilder b) => b.AppendNull()).GetGuid(0)
             };
 
             foreach (var getter in getters)
             {
-                var ex = Assert.Throws<InvalidOperationException>(() => getter(reader));
+                var ex = Assert.Throws<InvalidOperationException>(() => getter());
                 Assert.AreEqual("Binary tuple element with index 0 is null.", ex!.Message);
             }
         }
