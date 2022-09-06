@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.client.table.ClientTable.writeTx;
 import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
 
 import java.io.Serializable;
+import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -31,13 +32,14 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
-import org.apache.ignite.internal.binarytuple.BinaryTupleParser;
+import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.internal.marshaller.ClientMarshallerReader;
+import org.apache.ignite.internal.marshaller.ClientMarshallerWriter;
 import org.apache.ignite.internal.marshaller.Marshaller;
 import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.lang.IgniteException;
@@ -457,9 +459,23 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
     }
 
     private void writeKeyValue(ClientSchema s, PayloadOutputChannel w, @Nullable Transaction tx, @NotNull K key, V val) {
-        // TODO IGNITE-17297L Use the same tuple for both parts
-        keySer.writeRec(tx, key, s, w, TuplePart.KEY);
-        valSer.writeRecRaw(val, s, w.out(), TuplePart.VAL);
+        w.out().packUuid(tbl.tableId());
+        writeTx(tx, w);
+        w.out().packInt(s.version());
+
+        var builder = BinaryTupleBuilder.create(s.columns().length, true);
+        var noValueSet = new BitSet();
+        ClientMarshallerWriter writer = new ClientMarshallerWriter(builder, noValueSet);
+
+        try {
+            s.getMarshaller(keySer.mapper(), TuplePart.KEY).writeObject(key, writer);
+            s.getMarshaller(valSer.mapper(), TuplePart.VAL).writeObject(val, writer);
+        } catch (MarshallerException e) {
+            // TODO IGNITE-17297: ???
+            throw new IgniteException(UNKNOWN_ERR, e.getMessage(), e);
+        }
+
+        w.out().packBinaryTuple(builder, noValueSet);
     }
 
     private HashMap<K, V> readGetAllResponse(ClientSchema schema, ClientMessageUnpacker in) {
