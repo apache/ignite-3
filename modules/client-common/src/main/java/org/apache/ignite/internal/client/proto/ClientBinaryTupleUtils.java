@@ -42,6 +42,11 @@ public class ClientBinaryTupleUtils {
             Tuple tuple,
             String columnName,
             int clientDataType) {
+        if (reader.hasNullValue(readerIndex)) {
+            tuple.set(columnName, null);
+            return;
+        }
+
         switch (clientDataType) {
             case ClientDataType.INT8:
                 tuple.set(columnName, reader.byteValue(readerIndex));
