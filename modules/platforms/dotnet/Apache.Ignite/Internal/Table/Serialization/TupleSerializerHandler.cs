@@ -89,11 +89,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         {
             var columns = schema.Columns;
             var count = keyOnly ? schema.KeyColumnCount : columns.Count;
-
-            var noValueSetLen = count / 8 + 1;
-            writer.WriteExtensionFormatHeader(new ExtensionHeader((sbyte)ClientMessagePackType.Bitmask, noValueSetLen));
-            var noValueSet = writer.GetSpan(noValueSetLen);
-            writer.Advance(noValueSetLen);
+            var noValueSet = writer.WriteBitSet(count);
 
             using var tupleBuilder = new BinaryTupleBuilder(count);
 
