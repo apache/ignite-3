@@ -19,6 +19,7 @@ package org.apache.ignite.internal.client.table;
 
 import static org.apache.ignite.internal.client.proto.ClientMessageCommon.NO_VALUE;
 import static org.apache.ignite.internal.client.table.ClientTable.writeTx;
+import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -40,6 +41,7 @@ import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
 import org.apache.ignite.internal.client.proto.ClientDataType;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
@@ -379,73 +381,77 @@ public class ClientTupleSerializer {
             return;
         }
 
-        switch (col.type()) {
-            case ClientDataType.INT8:
-                builder.appendByte((byte) v);
-                return;
+        try {
+            switch (col.type()) {
+                case ClientDataType.INT8:
+                    builder.appendByte((byte) v);
+                    return;
 
-            case ClientDataType.INT16:
-                builder.appendShort((short) v);
-                return;
+                case ClientDataType.INT16:
+                    builder.appendShort((short) v);
+                    return;
 
-            case ClientDataType.INT32:
-                builder.appendInt((int) v);
-                return;
+                case ClientDataType.INT32:
+                    builder.appendInt((int) v);
+                    return;
 
-            case ClientDataType.INT64:
-                builder.appendLong((long) v);
-                return;
+                case ClientDataType.INT64:
+                    builder.appendLong((long) v);
+                    return;
 
-            case ClientDataType.FLOAT:
-                builder.appendFloat((float) v);
-                return;
+                case ClientDataType.FLOAT:
+                    builder.appendFloat((float) v);
+                    return;
 
-            case ClientDataType.DOUBLE:
-                builder.appendDouble((double) v);
-                return;
+                case ClientDataType.DOUBLE:
+                    builder.appendDouble((double) v);
+                    return;
 
-            case ClientDataType.DECIMAL:
-                builder.appendDecimal((BigDecimal) v);
-                return;
+                case ClientDataType.DECIMAL:
+                    builder.appendDecimal((BigDecimal) v);
+                    return;
 
-            case ClientDataType.UUID:
-                builder.appendUuid((UUID) v);
-                return;
+                case ClientDataType.UUID:
+                    builder.appendUuid((UUID) v);
+                    return;
 
-            case ClientDataType.STRING:
-                builder.appendString((String) v);
-                return;
+                case ClientDataType.STRING:
+                    builder.appendString((String) v);
+                    return;
 
-            case ClientDataType.BYTES:
-                builder.appendBytes((byte[]) v);
-                return;
+                case ClientDataType.BYTES:
+                    builder.appendBytes((byte[]) v);
+                    return;
 
-            case ClientDataType.BITMASK:
-                builder.appendBitmask((BitSet) v);
-                return;
+                case ClientDataType.BITMASK:
+                    builder.appendBitmask((BitSet) v);
+                    return;
 
-            case ClientDataType.DATE:
-                builder.appendDate((LocalDate) v);
-                return;
+                case ClientDataType.DATE:
+                    builder.appendDate((LocalDate) v);
+                    return;
 
-            case ClientDataType.TIME:
-                builder.appendTime((LocalTime) v);
-                return;
+                case ClientDataType.TIME:
+                    builder.appendTime((LocalTime) v);
+                    return;
 
-            case ClientDataType.DATETIME:
-                builder.appendDateTime((LocalDateTime) v);
-                return;
+                case ClientDataType.DATETIME:
+                    builder.appendDateTime((LocalDateTime) v);
+                    return;
 
-            case ClientDataType.TIMESTAMP:
-                builder.appendTimestamp((Instant) v);
-                return;
+                case ClientDataType.TIMESTAMP:
+                    builder.appendTimestamp((Instant) v);
+                    return;
 
-            case ClientDataType.NUMBER:
-                builder.appendNumber((BigInteger) v);
-                return;
+                case ClientDataType.NUMBER:
+                    builder.appendNumber((BigInteger) v);
+                    return;
 
-            default:
-                throw new IllegalArgumentException("Unsupported type: " + col.type());
+                default:
+                    throw new IllegalArgumentException("Unsupported type: " + col.type());
+            }
+        } catch (ClassCastException e) {
+            throw new IgniteException(PROTOCOL_ERR, "Incorrect value type for column '" + col.name() + "': " + e.getMessage(), e);
         }
     }
 }
