@@ -466,7 +466,6 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
             s.getMarshaller(keySer.mapper(), TuplePart.KEY).writeObject(key, writer);
             s.getMarshaller(valSer.mapper(), TuplePart.VAL).writeObject(val, writer);
         } catch (MarshallerException e) {
-            // TODO IGNITE-17297: ???
             throw new IgniteException(UNKNOWN_ERR, e.getMessage(), e);
         }
 
