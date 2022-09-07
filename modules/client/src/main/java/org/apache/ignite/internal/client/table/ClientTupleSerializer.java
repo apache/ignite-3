@@ -237,10 +237,7 @@ public class ClientTupleSerializer {
 
         var colCnt = keyOnly ? schema.keyColumnCount() : schema.columns().length;
 
-        // TODO IGNITE-17927 Do not deserialize fields, wrap BinaryTuple as Tuple?
-        var bufSize = in.unpackBinaryHeader();
-        var buf = in.readPayload(bufSize);
-        var binTuple = new BinaryTupleReader(colCnt, buf);
+        var binTuple = new BinaryTupleReader(colCnt, in.readBinaryUnsafe());
 
         for (var i = 0; i < colCnt; i++) {
             ClientColumn column = schema.columns()[i];
@@ -290,10 +287,7 @@ public class ClientTupleSerializer {
         var keyTuple = new ClientTuple(schema, 0, keyColCnt - 1);
         var valTuple = new ClientTuple(schema, keyColCnt, schema.columns().length - 1);
 
-        // TODO IGNITE-17927 Do not deserialize fields, wrap BinaryTuple as Tuple?
-        var bufSize = in.unpackBinaryHeader();
-        var buf = in.readPayload(bufSize);
-        var binTuple = new BinaryTupleReader(colCnt, buf);
+        var binTuple = new BinaryTupleReader(colCnt, in.readBinaryUnsafe());
 
         for (var i = 0; i < colCnt; i++) {
             ClientColumn col = schema.columns()[i];
