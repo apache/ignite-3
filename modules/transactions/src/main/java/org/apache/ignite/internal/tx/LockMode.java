@@ -21,9 +21,76 @@ package org.apache.ignite.internal.tx;
  * Lock mode.
  */
 public enum LockMode {
-    SHARED,
-    EXCLUSIVE,
-    INTENTION_SHARED,
-    INTENTION_EXCLUSIVE,
-    SHARED_AND_INTENTION_EXCLUSIVE
+    /** Intention shared. */
+    IS,
+
+    /** Intention exclusive. */
+    IX,
+
+    /** Shared. */
+    S,
+
+    /** Shared intention exclusive. */
+    SIX,
+
+    /** Exclusive. */
+    X;
+
+    /** Lock mode compatibility matrix. */
+    private static final boolean[][] COMPAT_MATRIX = {
+            {true, true, true, true, false},
+            {true, true, false, false, false},
+            {true, false, true, false, false},
+            {true, false, false, false, false},
+            {false, false, false, false, false},
+    };
+
+    /** Lock mode reenter matrix. */
+    private static final boolean[][] REENTER_MATRIX = {
+            {true, false, false, false, false},
+            {true, true, false, false, false},
+            {true, false, true, false, false},
+            {true, true, true, true, false},
+            {true, true, true, true, true},
+    };
+
+    /** Lock mode upgrade matrix. */
+    private static final LockMode[][] UPGRADE_MATRIX = {
+            {IS, IX, S, SIX, X},
+            {IX, IX, SIX, SIX, X},
+            {S, SIX, S, SIX, X},
+            {SIX, SIX, SIX, SIX, X},
+            {X, X, X, X, X},
+    };
+
+    /**
+     * Is this lock mode compatible with the specified lock mode.
+     *
+     * @param lockMode Lock mode.
+     * @return Is this lock mode compatible with the specified lock mode.
+     */
+    public boolean isCompatible(LockMode lockMode) {
+        return COMPAT_MATRIX[ordinal()][lockMode.ordinal()];
+    }
+
+    /**
+     * Is this lock mode can be reentered.
+     *
+     * @param lockMode Lock mode.
+     * @return Is this lock mode can be reentered.
+     */
+    public boolean allowReenter(LockMode lockMode) {
+        return REENTER_MATRIX[ordinal()][lockMode.ordinal()];
+    }
+
+    /**
+     * Return the lock mode that is a supremum of the two given lock modes.
+     *
+     * @param lockMode1 Lock mode.
+     * @param lockMode2 Lock mode.
+     * @return The lock mode that is a supremum of the two given lock modes.
+     */
+    public static LockMode supremum(LockMode lockMode1, LockMode lockMode2) {
+        return UPGRADE_MATRIX[lockMode1.ordinal()][lockMode2.ordinal()];
+    }
 }

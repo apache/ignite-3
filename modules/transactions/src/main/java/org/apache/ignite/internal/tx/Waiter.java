@@ -38,9 +38,9 @@ public interface Waiter {
     boolean locked();
 
     /**
-     * Returns lock type.
+     * Returns lock mode.
      *
-     * @return {@code True} if a read request.
+     * @return Lock mode.
      */
-    boolean isForRead();
+    LockMode lockMode();
 }

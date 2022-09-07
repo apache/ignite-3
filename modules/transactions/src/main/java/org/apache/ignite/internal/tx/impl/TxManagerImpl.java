@@ -31,7 +31,6 @@ import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.Lock;
-import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.LockMode;
@@ -134,13 +133,7 @@ public class TxManagerImpl implements TxManager {
      * @param txId Transaction id.
      */
     private void unlockAll(UUID txId) {
-        lockManager.locks(txId).forEachRemaining(lock -> {
-            try {
-                lockManager.release(lock);
-            } catch (LockException e) {
-                assert false; // This shouldn't happen during tx finish.
-            }
-        });
+        lockManager.locks(txId).forEachRemaining(lockManager::release);
     }
 
     /** {@inheritDoc} */
@@ -163,7 +156,7 @@ public class TxManagerImpl implements TxManager {
         // Should rollback tx on lock error.
         LockKey lockKey = new LockKey(lockId, keyData);
 
-        return lockManager.acquire(txId, lockKey, LockMode.EXCLUSIVE);
+        return lockManager.acquire(txId, lockKey, LockMode.X);
     }
 
     /** {@inheritDoc} */
@@ -178,7 +171,7 @@ public class TxManagerImpl implements TxManager {
 
         LockKey lockKey = new LockKey(lockId, keyData);
 
-        return lockManager.acquire(txId, lockKey, LockMode.SHARED);
+        return lockManager.acquire(txId, lockKey, LockMode.S);
     }
 
     /** {@inheritDoc} */

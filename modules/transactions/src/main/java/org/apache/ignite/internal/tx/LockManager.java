@@ -41,9 +41,17 @@ public interface LockManager {
      * Attempts to release a lock for the specified {@code lockKey}.
      *
      * @param lock Lock to release.
-     * @throws LockException If the unlock operation is invalid.
      */
-    public void release(Lock lock) throws LockException;
+    public void release(Lock lock);
+
+    /**
+     * Attempts to downgrade a lock mode for the specified {@code lockKey}.
+     *
+     * @param lock Lock to downgrade.
+     * @param lockMode Lock mode.
+     * @throws LockException If the downgrade operation is invalid.
+     */
+    public void downgrade(Lock lock, LockMode lockMode) throws LockException;
 
     /**
      * Retrieves all locks for the specified transaction id.
