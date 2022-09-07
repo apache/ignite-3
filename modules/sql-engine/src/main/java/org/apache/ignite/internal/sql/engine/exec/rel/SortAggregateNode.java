@@ -105,7 +105,7 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
             waiting = inBufSize;
 
             source().request(inBufSize);
-        } else if (waiting < 0) {
+        } else if (waiting < 0 && requested > 0) {
             downstream().end();
         }
     }

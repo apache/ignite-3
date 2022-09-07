@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine;
 
-import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsSubPlan;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -36,6 +35,7 @@ import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.SqlException;
+import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
@@ -154,7 +154,7 @@ public class ItDmlTest extends AbstractBasicIntegrationTest {
                 + "WHEN MATCHED THEN UPDATE SET b = 100 * src.b "
                 + "WHEN NOT MATCHED THEN INSERT (k1, k2, a, b) VALUES (src.k1, src.k2, 10 * src.a, src.b)";
 
-        assertQuery(sql).matches(containsSubPlan("IgniteTableSpool")).check();
+        sql(sql);
 
         assertQuery("SELECT * FROM test2 ORDER BY k1")
                 .returns(222, 222, 10, 300, null)
@@ -348,6 +348,33 @@ public class ItDmlTest extends AbstractBasicIntegrationTest {
                                 + "WHEN NOT MATCHED THEN INSERT (k, a, b) VALUES (0, a, b)"));
 
         assertEquals(Sql.DUPLICATE_KEYS_ERR, ex.code());
+    }
+
+    /**
+     * Test verifies that scan is executed within provided transaction.
+     */
+    @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15081")
+    public void scanExecutedWithinGivenTransaction() {
+        sql("CREATE TABLE test (id int primary key, val int)");
+
+        Transaction tx = CLUSTER_NODES.get(0).transactions().begin();
+
+        sql(tx, "INSERT INTO test VALUES (0, 0)");
+
+        // just inserted row should be visible within the same transaction
+        assertEquals(1, sql(tx, "select * from test").size());
+
+        Transaction anotherTx = CLUSTER_NODES.get(0).transactions().begin();
+
+        // just inserted row should not be visible until related transaction is committed
+        assertEquals(0, sql(anotherTx, "select * from test").size());
+
+        tx.commit();
+
+        assertEquals(1, sql(anotherTx, "select * from test").size());
+
+        anotherTx.commit();
     }
 
     @Test

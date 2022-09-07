@@ -22,10 +22,9 @@ import static java.util.Collections.singletonList;
 import static org.apache.calcite.plan.RelOptUtil.permutationPushDownProject;
 import static org.apache.calcite.rel.RelDistribution.Type.BROADCAST_DISTRIBUTED;
 import static org.apache.calcite.rel.RelDistribution.Type.HASH_DISTRIBUTED;
-import static org.apache.ignite.internal.sql.engine.trait.IgniteDistributions.any;
-import static org.apache.ignite.internal.sql.engine.trait.IgniteDistributions.single;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
+import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
 import java.lang.reflect.Proxy;
@@ -68,6 +67,11 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSort;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableSpool;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTrimExchange;
+import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
+import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
+import org.apache.ignite.lang.ErrorGroups.Common;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -242,15 +246,6 @@ public class TraitUtils {
         return converter.convert(planner, rel, toTrait, true);
     }
 
-    /** Change distribution and Convention. */
-    public static RelTraitSet fixTraits(RelTraitSet traits) {
-        if (distribution(traits) == any()) {
-            traits = traits.replace(single());
-        }
-
-        return traits.replace(IgniteConvention.INSTANCE);
-    }
-
     /**
      * Distribution. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
@@ -382,9 +377,14 @@ public class TraitUtils {
         List<RelTraitSet> inTraits = Collections.nCopies(rel.getInputs().size(),
                 rel.getCluster().traitSetOf(convention));
 
-        List<Pair<RelTraitSet, List<RelTraitSet>>> traits = new PropagationContext(Set.of(Pair.of(requiredTraits, inTraits)))
-                .propagate((in, outs) -> singletonListFromNullable(rel.passThroughCollation(in, outs)))
-                .propagate((in, outs) -> singletonListFromNullable(rel.passThroughDistribution(in, outs)))
+        var context = new PropagationContext(Set.of(Pair.of(requiredTraits, inTraits)))
+                .propagate((in, outs) -> singletonListFromNullable(rel.passThroughCollation(in, outs)));
+
+        if (distributionEnabled(rel)) {
+            context = context.propagate((in, outs) -> singletonListFromNullable(rel.passThroughDistribution(in, outs)));
+        }
+
+        List<Pair<RelTraitSet, List<RelTraitSet>>> traits = context
                 .propagate((in, outs) -> singletonListFromNullable(rel.passThroughRewindability(in, outs)))
                 .propagate((in, outs) -> singletonListFromNullable(rel.passThroughCorrelation(in, outs)))
                 .combinations();
@@ -418,9 +418,14 @@ public class TraitUtils {
             return List.of();
         }
 
-        return new PropagationContext(combinations)
-                .propagate(rel::deriveCollation)
-                .propagate(rel::deriveDistribution)
+        var context = new PropagationContext(combinations)
+                .propagate(rel::deriveCollation);
+
+        if (distributionEnabled(rel)) {
+            context = context.propagate(rel::deriveDistribution);
+        }
+
+        return context
                 .propagate(rel::deriveRewindability)
                 .propagate(rel::deriveCorrelation)
                 .nodes(rel::createNode);
@@ -481,6 +486,36 @@ public class TraitUtils {
     }
 
     /**
+     * Creates {@link RelCollation} object from a given collations.
+     *
+     * @param indexedColumns List of columns names.
+     * @param collations List of collations.
+     * @param descriptor Table descriptor to derive column indexes from.
+     * @return a {@link RelCollation} object.
+     */
+    public static RelCollation createCollation(
+            List<String> indexedColumns,
+            @Nullable List<IgniteIndex.Collation> collations,
+            TableDescriptor descriptor
+    ) {
+        if (collations == null) {
+            return RelCollations.EMPTY;
+        }
+
+        List<RelFieldCollation> fieldCollations = new ArrayList<>();
+
+        for (int i = 0; i < indexedColumns.size(); i++) {
+            String columnName = indexedColumns.get(i);
+            IgniteIndex.Collation collation = collations.get(i);
+            ColumnDescriptor columnDesc = descriptor.columnDescriptor(columnName);
+
+            fieldCollations.add(createFieldCollation(columnDesc.logicalIndex(), collation));
+        }
+
+        return RelCollations.of(fieldCollations);
+    }
+
+    /**
      * Creates field collation with default direction and nulls ordering.
      */
     public static RelFieldCollation createFieldCollation(int fieldIdx) {
@@ -500,6 +535,26 @@ public class TraitUtils {
                 : RelFieldCollation.NullDirection.LAST;
 
         return new RelFieldCollation(fieldIdx, direction, nullDirection);
+    }
+
+    /** Creates field collation. */
+    public static RelFieldCollation createFieldCollation(int fieldIdx, IgniteIndex.Collation collation) {
+        switch (collation) {
+            case ASC_NULLS_LAST:
+                return new RelFieldCollation(fieldIdx, RelFieldCollation.Direction.ASCENDING, RelFieldCollation.NullDirection.LAST);
+            case ASC_NULLS_FIRST:
+                return new RelFieldCollation(fieldIdx, RelFieldCollation.Direction.ASCENDING, RelFieldCollation.NullDirection.FIRST);
+            case DESC_NULLS_LAST:
+                return new RelFieldCollation(fieldIdx, RelFieldCollation.Direction.DESCENDING, RelFieldCollation.NullDirection.LAST);
+            case DESC_NULLS_FIRST:
+                return new RelFieldCollation(fieldIdx, RelFieldCollation.Direction.DESCENDING, RelFieldCollation.NullDirection.FIRST);
+            default:
+                throw new IgniteInternalException(Common.UNEXPECTED_ERR, format("Unknown collation [collation={}]", collation));
+        }
+    }
+
+    public static boolean distributionEnabled(RelNode node) {
+        return distribution(node) != null;
     }
 
     /**

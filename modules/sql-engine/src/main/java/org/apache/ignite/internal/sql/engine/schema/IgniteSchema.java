@@ -89,11 +89,11 @@ public class IgniteSchema extends AbstractSchema {
      * @param tblName Table name.
      */
     public void removeTable(String tblName) {
-        Table rmv = tblMap.remove(tblName);
+        InternalIgniteTable rmv = (InternalIgniteTable) tblMap.remove(tblName);
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-17474
         // Decouple tables and indices.
-        idxMap.values().removeIf(idx -> idx.table() == rmv);
+        idxMap.values().removeIf(idx -> idx.index().tableId().equals(rmv.id()));
     }
 
     /**

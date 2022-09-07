@@ -32,7 +32,7 @@ import org.jetbrains.annotations.Nullable;
  * Insert closure that inserts corresponding {@link IndexColumns} into a {@link IndexColumnsFreeList} before writing to the
  * {@link HashIndexTree}.
  */
-public class InsertHashIndexRowInvokeClosure implements InvokeClosure<HashIndexRow> {
+class InsertHashIndexRowInvokeClosure implements InvokeClosure<HashIndexRow> {
     /** Hash index row instance for insertion. */
     private final HashIndexRow hashIndexRow;
 

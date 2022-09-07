@@ -295,17 +295,14 @@ public class SqlSchemaManagerTest {
 
         IgniteSchema schema = sqlSchemaManager.schema("TEST_SCHEMA").unwrap(IgniteSchema.class);
         Table schemaTable = schema.getTable("T");
-        IgniteIndex schemaIndex = schema.index(indexId);
+        IgniteIndex igniteIndex = schema.index(indexId);
 
-        assertNotNull(schemaIndex);
+        assertNotNull(igniteIndex);
 
-        IgniteIndex igniteIndex = assertInstanceOf(IgniteIndex.class, schemaIndex);
         IgniteTableImpl igniteTable = assertInstanceOf(IgniteTableImpl.class, schemaTable);
 
-        assertEquals(igniteTable.id(), igniteIndex.table().id());
-        assertSame(igniteTable, schemaIndex.table());
-        assertSame(((IgniteTableImpl) igniteTable), schemaIndex.table());
-        assertSame(schemaIndex, igniteTable.indexes().get("I"));
+        assertEquals(igniteTable.id(), igniteIndex.index().tableId());
+        assertSame(igniteIndex, igniteTable.indexes().get("I"));
 
         sqlSchemaManager.onIndexDropped("TEST_SCHEMA", indexId, testRevisionRegister.actualToken() + 1);
         testRevisionRegister.moveForward();

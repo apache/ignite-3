@@ -47,6 +47,7 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
 import org.apache.ignite.internal.sql.engine.trait.CorrelationTrait;
 import org.apache.ignite.internal.sql.engine.trait.RewindabilityTrait;
+import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.util.RexUtils;
 import org.apache.ignite.internal.util.CollectionUtils;
 
@@ -71,7 +72,7 @@ public abstract class LogicalScanConverterRule<T extends ProjectableFilterableTa
                     IgniteIndex index = table.getIndex(rel.indexName());
 
                     RelDistribution distribution = table.distribution();
-                    RelCollation collation = index.collation();
+                    RelCollation collation = TraitUtils.createCollation(index.columns(), index.collations(), table.descriptor());
 
                     if (rel.projects() != null || rel.requiredColumns() != null) {
                         Mappings.TargetMapping mapping = createMapping(
@@ -101,6 +102,7 @@ public abstract class LogicalScanConverterRule<T extends ProjectableFilterableTa
                         traits,
                         rel.getTable(),
                         rel.indexName(),
+                        index.type(),
                         rel.projects(),
                         rel.condition(),
                         rel.indexConditions(),

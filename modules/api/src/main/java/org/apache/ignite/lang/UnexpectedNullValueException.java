@@ -17,6 +17,8 @@
 
 package org.apache.ignite.lang;
 
+import java.util.UUID;
+
 /**
  * This exception is thrown instead of returning a null value from a method which doesn't respect {@code null}-value to avoid ambiguity
  * whether the value is absent or value is {@code null}.
@@ -29,5 +31,17 @@ public class UnexpectedNullValueException extends IgniteException {
      */
     public UnexpectedNullValueException(String msg) {
         super("Got unexpected null value: " + msg);
+    }
+
+    /**
+     * Creates a new exception with the given trace id, error code, detail message and cause.
+     *
+     * @param traceId Unique identifier of this exception.
+     * @param code Full error code.
+     * @param message Detail message.
+     * @param cause Optional nested exception (can be {@code null}).
+     */
+    public UnexpectedNullValueException(UUID traceId, int code, String message, Throwable cause) {
+        super(traceId, code, message, cause);
     }
 }

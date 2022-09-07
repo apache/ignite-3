@@ -23,7 +23,7 @@ import org.apache.ignite.cli.config.ConfigConstants;
  * Constants to use in {@code Option} annotations for commands.
  */
 public class OptionsConstants {
-    /** Cluster endpoint URL option name. */
+    /** Cluster endpoint URL option long name. */
     public static final String CLUSTER_URL_OPTION = "--cluster-endpoint-url";
 
     /** Cluster endpoint URL option description. */
@@ -32,7 +32,7 @@ public class OptionsConstants {
     /** Cluster endpoint URL option description key. */
     public static final String CLUSTER_URL_KEY = ConfigConstants.CLUSTER_URL;
 
-    /** Node URL option name. */
+    /** Node URL option long name. */
     public static final String NODE_URL_OPTION = "--node-url";
 
     /** Node URL option description. */
@@ -44,4 +44,7 @@ public class OptionsConstants {
 
     /** Profile name option description. */
     public static final String PROFILE_OPTION_DESC = "Profile name";
+
+    /** URL option short name. */
+    public static final String URL_OPTION_SHORT = "-u";
 }

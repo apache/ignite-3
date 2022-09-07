@@ -19,6 +19,7 @@ package org.apache.ignite.internal.storage.pagememory.index.freelist.io;
 
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putByteBuffer;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putInt;
+import static org.apache.ignite.internal.pagememory.util.PageUtils.putShort;
 
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.pagememory.io.AbstractDataPageIo;
@@ -47,6 +48,10 @@ public class IndexColumnsDataIo extends AbstractDataPageIo<IndexColumns> {
     @Override
     protected void writeRowData(long pageAddr, int dataOff, int payloadSize, IndexColumns row, boolean newRow) {
         assertPageType(pageAddr);
+
+        putShort(pageAddr, dataOff, (short) payloadSize);
+
+        dataOff += Short.BYTES;
 
         putInt(pageAddr, dataOff + IndexColumns.SIZE_OFFSET, row.valueSize());
 

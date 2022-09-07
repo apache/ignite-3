@@ -35,8 +35,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 /**
  * Base test for MV partition storages based on PageMemory.
  */
-@ExtendWith(ConfigurationExtension.class)
-@ExtendWith(WorkDirectoryExtension.class)
+@ExtendWith({ConfigurationExtension.class, WorkDirectoryExtension.class})
 abstract class AbstractPageMemoryMvPartitionStorageTest extends AbstractMvPartitionStorageTest {
     protected final PageIoRegistry ioRegistry = new PageIoRegistry();
 

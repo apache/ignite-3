@@ -19,6 +19,7 @@ package org.apache.ignite.internal.storage.pagememory.index.freelist;
 
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTracker;
 import org.apache.ignite.internal.pagememory.freelist.AbstractFreeList;
@@ -32,6 +33,10 @@ import org.jetbrains.annotations.Nullable;
  * Free list implementation to store {@link IndexColumns} values.
  */
 public class IndexColumnsFreeList extends AbstractFreeList<IndexColumns>  {
+    private static final IgniteLogger LOG = Loggers.forClass(IndexColumnsFreeList.class);
+
+    private final IoStatisticsHolder statHolder;
+
     /**
      * Constructor.
      *
@@ -40,7 +45,6 @@ public class IndexColumnsFreeList extends AbstractFreeList<IndexColumns>  {
      * @param pageMem Page memory.
      * @param reuseList Reuse list or {@code null} if this free list will be a reuse list for itself.
      * @param lockLsnr Page lock listener.
-     * @param log Logger.
      * @param metaPageId Metadata page ID.
      * @param initNew {@code True} if new metadata should be initialized.
      * @param pageListCacheLimit Page list cache limit.
@@ -53,7 +57,6 @@ public class IndexColumnsFreeList extends AbstractFreeList<IndexColumns>  {
             PageMemory pageMem,
             @Nullable ReuseList reuseList,
             PageLockListener lockLsnr,
-            IgniteLogger log,
             long metaPageId,
             boolean initNew,
             @Nullable AtomicLong pageListCacheLimit,
@@ -67,11 +70,21 @@ public class IndexColumnsFreeList extends AbstractFreeList<IndexColumns>  {
                 pageMem,
                 reuseList,
                 lockLsnr,
-                log,
+                LOG,
                 metaPageId,
                 initNew,
                 pageListCacheLimit,
                 evictionTracker
         );
+        this.statHolder = statHolder;
+    }
+
+    /**
+     * Shortcut method for {@link #saveMetadata(IoStatisticsHolder)} with statistics holder.
+     *
+     * @throws IgniteInternalCheckedException If failed.
+     */
+    public void saveMetadata() throws IgniteInternalCheckedException {
+        saveMetadata(statHolder);
     }
 }

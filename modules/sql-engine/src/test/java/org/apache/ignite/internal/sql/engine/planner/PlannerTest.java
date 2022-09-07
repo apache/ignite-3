@@ -65,11 +65,14 @@ import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 
 /**
  * PlannerTest.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
+@DisabledOnOs(value = OS.WINDOWS, disabledReason = "https://issues.apache.org/jira/browse/IGNITE-17601")
 public class PlannerTest extends AbstractPlannerTest {
     private static List<String> NODES;
 
@@ -98,7 +101,7 @@ public class PlannerTest extends AbstractPlannerTest {
                         .build()) {
             @Override
             public IgniteIndex getIndex(String idxName) {
-                return new IgniteIndex(null, null, null);
+                throw new AssertionError("Should not be called");
             }
 
             @Override
@@ -728,7 +731,7 @@ public class PlannerTest extends AbstractPlannerTest {
             assertEquals(
                     "IgniteProject(DEPTNO=[$3], DEPTNO0=[$2])\n"
                             + "  IgniteCorrelatedNestedLoopJoin(condition=[=(CAST(+($3, $2)):INTEGER, 2)], joinType=[inner], "
-                            + "correlationVariables=[[$cor2]])\n"
+                            + "variablesSet=[[$cor2]], correlationVariables=[[$cor2]])\n"
                             + "    IgniteTableScan(table=[[PUBLIC, EMP]])\n"
                             + "    IgniteTableScan(table=[[PUBLIC, DEPT]], filters=[=(CAST(+($t0, $cor2.DEPTNO)):INTEGER, 2)])\n",
                     RelOptUtil.toString(phys),
@@ -756,7 +759,7 @@ public class PlannerTest extends AbstractPlannerTest {
             }
         };
 
-        emp.addIndex(new IgniteIndex(RelCollations.of(ImmutableIntList.of(1, 2)), "emp_idx", emp));
+        emp.addIndex(new IgniteIndex(TestSortedIndex.create(RelCollations.of(ImmutableIntList.of(1, 2)), "emp_idx", emp)));
 
         TestTable dept = new TestTable(
                 new RelDataTypeFactory.Builder(f)
@@ -770,7 +773,7 @@ public class PlannerTest extends AbstractPlannerTest {
             }
         };
 
-        dept.addIndex(new IgniteIndex(RelCollations.of(ImmutableIntList.of(1, 0)), "dep_idx", dept));
+        dept.addIndex(new IgniteIndex(TestSortedIndex.create(RelCollations.of(ImmutableIntList.of(1, 0)), "dep_idx", dept)));
 
         IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
 

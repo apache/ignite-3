@@ -129,7 +129,7 @@ public class IgniteSort extends Sort implements InternalIgniteRel {
         RelOptCost cost = costFactory.makeCost(rows, cpuCost, 0, memory, 0);
 
         // Distributed sorting is more preferable than sorting on the single node.
-        if (TraitUtils.distribution(traitSet).satisfies(IgniteDistributions.single())) {
+        if (TraitUtils.distributionEnabled(this) && TraitUtils.distribution(traitSet).satisfies(IgniteDistributions.single())) {
             cost.plus(costFactory.makeTinyCost());
         }
 
