@@ -17,52 +17,56 @@
 
 #pragma once
 
-#include <future>
 #include <memory>
 
-#include "ignite/ignite_client_configuration.h"
-
-#include "cluster_connection.h"
+#include "ignite/network/data_buffer.h"
+#include "protocol_version.h"
 
 namespace ignite::impl
 {
 
 /**
- * Ignite client implementation.
+ * Represents connection to the cluster.
+ *
+ * Considered established while there is connection to at least one server.
  */
-class IgniteClientImpl
+class ProtocolContext
 {
 public:
-    // Deleted
-    IgniteClientImpl(const IgniteClientImpl&) = delete;
-    IgniteClientImpl& operator=(const IgniteClientImpl&) = delete;
+    static constexpr ProtocolVersion CURRENT_VERSION{1, 0, 0};
 
     // Default
-    IgniteClientImpl() = default;
-    ~IgniteClientImpl() = default;
-    IgniteClientImpl(IgniteClientImpl&&) = default;
-    IgniteClientImpl& operator=(IgniteClientImpl&&) = default;
+    ProtocolContext() = default;
+    ~ProtocolContext() = default;
+    ProtocolContext(ProtocolContext&&) = default;
+    ProtocolContext(const ProtocolContext&) = default;
+    ProtocolContext& operator=(ProtocolContext&&) = default;
+    ProtocolContext& operator=(const ProtocolContext&) = default;
 
     /**
-     * Constructor.
+     * Get protocol version.
      *
-     * @param configuration Configuration.
+     * @return protocol version.
      */
-    explicit IgniteClientImpl(IgniteClientConfiguration configuration) :
-        m_configuration(std::move(configuration)),
-        m_connection(m_configuration) { }
+    [[nodiscard]]
+    ProtocolVersion getVersion() const
+    {
+        return m_version;
+    }
 
     /**
-     * Start client.
+     * Set version.
+     *
+     * @param ver Version to set.
      */
-    void start();
+    void setVersion(ProtocolVersion ver)
+    {
+        m_version = ver;
+    }
 
 private:
-    /** Configuration. */
-    IgniteClientConfiguration m_configuration;
-
-    /** Cluster connection. */
-    ClusterConnection m_connection;
+    /** Protocol version. */
+    ProtocolVersion m_version = CURRENT_VERSION;
 };
 
 } // namespace ignite::impl

@@ -83,6 +83,8 @@ enable_testing()
 add_subdirectory(tests)
 
 if (${ENABLE_CLIENT})
+	add_subdirectory(protocol)
+	add_subdirectory(network)
     add_subdirectory(client)
 endif()
 

@@ -17,34 +17,39 @@
 
 #pragma once
 
-/**
- * Macro SWITCH_WIN_OTHER that uses first option on Windows and second on any other OS.
- */
-#ifdef WIN32
-#   define SWITCH_WIN_OTHER(x, y) x
-#else
-#   define SWITCH_WIN_OTHER(x, y) y
-#endif
+#include <common/ignite_error.h>
+#include <ignite/network/data_buffer.h>
 
-namespace ignite::platform
+namespace ignite::network
 {
 
 /**
- * Byte order utility class.
+ * Data sink. Can consume data.
  */
-class ByteOrder
+class DataSink
 {
-private:
-    static constexpr uint32_t fourBytes = 0x01020304;
-    static constexpr uint8_t lesserByte = (const uint8_t&)fourBytes;
-
 public:
-    ByteOrder() = delete;
+    // Default.
+    virtual ~DataSink() = default;
 
-    static constexpr bool littleEndian = lesserByte == 0x04;
-    static constexpr bool bigEndian = lesserByte == 0x01;
+    /**
+     * Send data to specific established connection.
+     *
+     * @param id Client ID.
+     * @param data Data to be sent.
+     * @return @c true if connection is present and @c false otherwise.
+     *
+     * @throw IgniteError on error.
+     */
+    virtual bool send(uint64_t id, const DataBuffer& data) = 0;
 
-    static_assert(littleEndian || bigEndian, "Unknown byte order");
+    /**
+     * Closes specified connection if it's established. Connection to the specified address is planned for
+     * re-connect. Error is reported to handler.
+     *
+     * @param id Client ID.
+     */
+    virtual void close(uint64_t id, const IgniteError* err) = 0;
 };
 
-} // ignite::platform
+} // namespace ignite::network

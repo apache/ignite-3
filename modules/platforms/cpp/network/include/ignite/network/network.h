@@ -17,34 +17,20 @@
 
 #pragma once
 
-/**
- * Macro SWITCH_WIN_OTHER that uses first option on Windows and second on any other OS.
- */
-#ifdef WIN32
-#   define SWITCH_WIN_OTHER(x, y) x
-#else
-#   define SWITCH_WIN_OTHER(x, y) y
-#endif
+#include <string>
 
-namespace ignite::platform
+#include <ignite/network/async_client_pool.h>
+#include <ignite/network/data_filter.h>
+
+namespace ignite::network
 {
 
 /**
- * Byte order utility class.
+ * Make asynchronous client pool.
+ *
+ * @param filters Filters.
+ * @return Async client pool.
  */
-class ByteOrder
-{
-private:
-    static constexpr uint32_t fourBytes = 0x01020304;
-    static constexpr uint8_t lesserByte = (const uint8_t&)fourBytes;
+std::shared_ptr<AsyncClientPool> makeAsyncClientPool(DataFilters filters);
 
-public:
-    ByteOrder() = delete;
-
-    static constexpr bool littleEndian = lesserByte == 0x04;
-    static constexpr bool bigEndian = lesserByte == 0x01;
-
-    static_assert(littleEndian || bigEndian, "Unknown byte order");
-};
-
-} // ignite::platform
+}

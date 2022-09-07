@@ -15,36 +15,33 @@
  * limitations under the License.
  */
 
-#pragma once
+#include <windows.h>
 
-/**
- * Macro SWITCH_WIN_OTHER that uses first option on Windows and second on any other OS.
- */
-#ifdef WIN32
-#   define SWITCH_WIN_OTHER(x, y) x
-#else
-#   define SWITCH_WIN_OTHER(x, y) y
-#endif
+#include "network/utils.h"
 
-namespace ignite::platform
+// Using NULLs as specified by WinAPI
+#pragma ide diagnostic ignored "modernize-use-nullptr"
+
+namespace ignite::network
 {
 
-/**
- * Byte order utility class.
- */
-class ByteOrder
+std::string GetLastSystemError()
 {
-private:
-    static constexpr uint32_t fourBytes = 0x01020304;
-    static constexpr uint8_t lesserByte = (const uint8_t&)fourBytes;
+    DWORD errorCode = GetLastError();
 
-public:
-    ByteOrder() = delete;
+    std::string errorDetails;
+    if (errorCode != ERROR_SUCCESS)
+    {
+        char errBuf[1024] = {};
 
-    static constexpr bool littleEndian = lesserByte == 0x04;
-    static constexpr bool bigEndian = lesserByte == 0x01;
+        FormatMessageA(
+                FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, errorCode,
+                MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US), errBuf, sizeof(errBuf), NULL);
 
-    static_assert(littleEndian || bigEndian, "Unknown byte order");
-};
+        errorDetails.assign(errBuf);
+    }
 
-} // ignite::platform
+    return errorDetails;
+}
+
+} // namespace ignite::network

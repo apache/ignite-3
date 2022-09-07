@@ -17,34 +17,31 @@
 
 #pragma once
 
-/**
- * Macro SWITCH_WIN_OTHER that uses first option on Windows and second on any other OS.
- */
-#ifdef WIN32
-#   define SWITCH_WIN_OTHER(x, y) x
-#else
-#   define SWITCH_WIN_OTHER(x, y) y
-#endif
+#include <memory>
 
-namespace ignite::platform
+namespace ignite
 {
 
 /**
- * Byte order utility class.
+ * Factory class.
+ *
+ * @tparam T Instances of this type factory builds.
  */
-class ByteOrder
+template<typename T>
+class Factory
 {
-private:
-    static constexpr uint32_t fourBytes = 0x01020304;
-    static constexpr uint8_t lesserByte = (const uint8_t&)fourBytes;
-
 public:
-    ByteOrder() = delete;
+    /**
+     * Destructor.
+     */
+    virtual ~Factory() = default;
 
-    static constexpr bool littleEndian = lesserByte == 0x04;
-    static constexpr bool bigEndian = lesserByte == 0x01;
-
-    static_assert(littleEndian || bigEndian, "Unknown byte order");
+    /**
+     * Build instance.
+     *
+     * @return New instance of type @c T.
+     */
+    virtual std::unique_ptr<T> build() = 0;
 };
 
-} // ignite::platform
+} // namespace ignite

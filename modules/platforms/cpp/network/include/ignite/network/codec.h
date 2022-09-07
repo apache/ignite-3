@@ -17,34 +17,43 @@
 
 #pragma once
 
-/**
- * Macro SWITCH_WIN_OTHER that uses first option on Windows and second on any other OS.
- */
-#ifdef WIN32
-#   define SWITCH_WIN_OTHER(x, y) x
-#else
-#   define SWITCH_WIN_OTHER(x, y) y
-#endif
+#include <common/ignite_error.h>
+#include <common/factory.h>
 
-namespace ignite::platform
+#include <ignite/network/data_buffer.h>
+
+namespace ignite::network
 {
 
 /**
- * Byte order utility class.
+ * Codec class.
+ * Encodes and decodes data.
  */
-class ByteOrder
+class Codec
 {
-private:
-    static constexpr uint32_t fourBytes = 0x01020304;
-    static constexpr uint8_t lesserByte = (const uint8_t&)fourBytes;
-
 public:
-    ByteOrder() = delete;
+    // Default
+    virtual ~Codec() = default;
 
-    static constexpr bool littleEndian = lesserByte == 0x04;
-    static constexpr bool bigEndian = lesserByte == 0x01;
+    /**
+     * Encode provided data.
+     *
+     * @param data Data to encode.
+     * @return Encoded data. Returning null is ok.
+     *
+     * @throw IgniteError on error.
+     */
+    virtual DataBuffer encode(DataBuffer& data) = 0;
 
-    static_assert(littleEndian || bigEndian, "Unknown byte order");
+    /**
+     * Decode provided data.
+     *
+     * @param data Data to decode.
+     * @return Decoded data. Returning null means data is not yet ready.
+     *
+     * @throw IgniteError on error.
+     */
+    virtual DataBuffer decode(DataBuffer& data) = 0;
 };
 
-} // ignite::platform
+} // namespace ignite::network

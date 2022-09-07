@@ -23,6 +23,8 @@ set(HEADERS
     Bits.h
     Bytes.h
     Config.h
+    guid.h
+    ignite_error.h
     Types.h
     Uuid.h
     Platform.h

@@ -15,36 +15,18 @@
  * limitations under the License.
  */
 
-#pragma once
+#include "node_connection.h"
 
-/**
- * Macro SWITCH_WIN_OTHER that uses first option on Windows and second on any other OS.
- */
-#ifdef WIN32
-#   define SWITCH_WIN_OTHER(x, y) x
-#else
-#   define SWITCH_WIN_OTHER(x, y) y
-#endif
-
-namespace ignite::platform
+namespace ignite::impl
 {
 
-/**
- * Byte order utility class.
- */
-class ByteOrder
+NodeConnection::NodeConnection(uint64_t id, std::shared_ptr<network::AsyncClientPool> pool) :
+    m_id(id),
+    m_pool(std::move(pool)) { }
+
+void NodeConnection::processMessage(const network::DataBuffer &msg)
 {
-private:
-    static constexpr uint32_t fourBytes = 0x01020304;
-    static constexpr uint8_t lesserByte = (const uint8_t&)fourBytes;
+    // TODO:
+}
 
-public:
-    ByteOrder() = delete;
-
-    static constexpr bool littleEndian = lesserByte == 0x04;
-    static constexpr bool bigEndian = lesserByte == 0x01;
-
-    static_assert(littleEndian || bigEndian, "Unknown byte order");
-};
-
-} // ignite::platform
+} // namespace ignite::impl

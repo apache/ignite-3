@@ -17,34 +17,33 @@
 
 #pragma once
 
-/**
- * Macro SWITCH_WIN_OTHER that uses first option on Windows and second on any other OS.
- */
-#ifdef WIN32
-#   define SWITCH_WIN_OTHER(x, y) x
-#else
-#   define SWITCH_WIN_OTHER(x, y) y
-#endif
+#include <cstdint>
 
-namespace ignite::platform
+namespace ignite::protocol
 {
 
 /**
- * Byte order utility class.
+ * Extension types.
  */
-class ByteOrder
+enum class ExtensionTypes : std::int8_t
 {
-private:
-    static constexpr uint32_t fourBytes = 0x01020304;
-    static constexpr uint8_t lesserByte = (const uint8_t&)fourBytes;
+    NUMBER = 1,
 
-public:
-    ByteOrder() = delete;
+    DECIMAL = 2,
 
-    static constexpr bool littleEndian = lesserByte == 0x04;
-    static constexpr bool bigEndian = lesserByte == 0x01;
+    GUID = 3,
 
-    static_assert(littleEndian || bigEndian, "Unknown byte order");
+    DATE = 4,
+
+    TIME = 5,
+
+    DATE_TIME = 6,
+
+    TIMESTAMP = 7,
+
+    BITMASK = 8,
+
+    NO_VALUE = 10
 };
 
-} // ignite::platform
+} // namespace ignite::protocol

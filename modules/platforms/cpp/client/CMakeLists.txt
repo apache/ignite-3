@@ -22,7 +22,10 @@ set(TARGET ${PROJECT_NAME})
 include_directories(include src)
 
 set(SOURCES
+    src/cluster_connection.cpp
 	src/ignite_client.cpp
+    src/ignite_client_impl.cpp
+    src/node_connection.cpp
 )
 
 add_library(${TARGET} SHARED ${SOURCES})
@@ -33,7 +36,7 @@ if (WIN32)
     set_target_properties(${TARGET} PROPERTIES OUTPUT_NAME "ignite-client")
 endif()
 
-target_link_libraries(${TARGET} ignite-common)
+target_link_libraries(${TARGET} ignite-common ignite-network ignite-protocol)
 
 target_include_directories(${TARGET} INTERFACE include)
 

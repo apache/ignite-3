@@ -15,16 +15,16 @@
 # limitations under the License.
 #
 
-project(ignite-test-common)
+project(ignite-protocol)
 
 set(TARGET ${PROJECT_NAME})
 
 include_directories(include)
 
 set(SOURCES
-    src/ignite_node.cpp
-    src/process.cpp
-    src/test_utils.cpp
+    src/buffer.cpp
+    src/reader.cpp
+    src/writer.cpp
 )
 
 add_library(${TARGET} OBJECT ${SOURCES})

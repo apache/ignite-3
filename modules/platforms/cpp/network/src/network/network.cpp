@@ -15,36 +15,24 @@
  * limitations under the License.
  */
 
-#pragma once
-
-/**
- * Macro SWITCH_WIN_OTHER that uses first option on Windows and second on any other OS.
- */
-#ifdef WIN32
-#   define SWITCH_WIN_OTHER(x, y) x
-#else
-#   define SWITCH_WIN_OTHER(x, y) y
+#ifdef _WIN32
+#   include "network/win_async_client_pool.h"
+#else // Other. Assume Linux
+#   include "network/linux_async_client_pool.h"
 #endif
 
-namespace ignite::platform
+#include "common/Platform.h"
+
+#include "ignite/network/network.h"
+#include "network/async_client_pool_adapter.h"
+
+namespace ignite::network
 {
+    std::shared_ptr<AsyncClientPool> makeAsyncClientPool(DataFilters filters)
+    {
+        auto platformPool = std::make_shared<SWITCH_WIN_OTHER(WinAsyncClientPool, LinuxAsyncClientPool)>();
+        auto pool = std::static_pointer_cast<AsyncClientPool>(platformPool);
 
-/**
- * Byte order utility class.
- */
-class ByteOrder
-{
-private:
-    static constexpr uint32_t fourBytes = 0x01020304;
-    static constexpr uint8_t lesserByte = (const uint8_t&)fourBytes;
-
-public:
-    ByteOrder() = delete;
-
-    static constexpr bool littleEndian = lesserByte == 0x04;
-    static constexpr bool bigEndian = lesserByte == 0x01;
-
-    static_assert(littleEndian || bigEndian, "Unknown byte order");
-};
-
-} // ignite::platform
+        return std::make_shared<AsyncClientPoolAdapter>(std::move(filters), pool);
+    }
+}

@@ -15,36 +15,14 @@
  * limitations under the License.
  */
 
-#pragma once
+#include "ignite_client_impl.h"
 
-/**
- * Macro SWITCH_WIN_OTHER that uses first option on Windows and second on any other OS.
- */
-#ifdef WIN32
-#   define SWITCH_WIN_OTHER(x, y) x
-#else
-#   define SWITCH_WIN_OTHER(x, y) y
-#endif
-
-namespace ignite::platform
+namespace ignite::impl
 {
 
-/**
- * Byte order utility class.
- */
-class ByteOrder
+void IgniteClientImpl::start()
 {
-private:
-    static constexpr uint32_t fourBytes = 0x01020304;
-    static constexpr uint8_t lesserByte = (const uint8_t&)fourBytes;
+    m_connection.start();
+}
 
-public:
-    ByteOrder() = delete;
-
-    static constexpr bool littleEndian = lesserByte == 0x04;
-    static constexpr bool bigEndian = lesserByte == 0x01;
-
-    static_assert(littleEndian || bigEndian, "Unknown byte order");
-};
-
-} // ignite::platform
+} // namespace ignite::impl
