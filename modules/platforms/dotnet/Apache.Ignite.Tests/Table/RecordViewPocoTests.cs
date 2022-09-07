@@ -529,9 +529,12 @@ namespace Apache.Ignite.Tests.Table
         public async Task TestBigPoco()
         {
             var sql = "CREATE TABLE IF NOT EXISTS TestBigPoco(ID INT PRIMARY KEY, PROP1 TINYINT, PROP2 SMALLINT, PROP3 INT, " +
-                      "PROP4 BIGINT, PROP5 FLOAT, PROP6 DOUBLE, PROP7 BIGINT, PROP8 VARCHAR, PROP9 INT)";
+                      "PROP4 BIGINT, PROP5 FLOAT, PROP6 DOUBLE, PROP7 BIGINT, PROP8 VARCHAR, PROP9 INT, PROP10 INT)";
 
             await Client.Sql.ExecuteAsync(null, sql);
+
+            using var deferDropTable = new DisposeAction(
+                () => Client.Sql.ExecuteAsync(null, "DROP TABLE TestBigPoco").GetAwaiter().GetResult());
 
             var table = await Client.Tables.GetTableAsync("PUBLIC.TestBigPoco");
             var pocoView = table!.GetRecordView<Poco2>();
@@ -547,7 +550,8 @@ namespace Apache.Ignite.Tests.Table
                 Prop6 = 6,
                 Prop7 = 7,
                 Prop8 = "8",
-                Prop9 = 9
+                Prop9 = 9,
+                Prop10 = 10
             };
 
             await pocoView.UpsertAsync(null, poco);
@@ -563,6 +567,7 @@ namespace Apache.Ignite.Tests.Table
             Assert.AreEqual(poco.Prop7, res.Prop7);
             Assert.AreEqual(poco.Prop8, res.Prop8);
             Assert.AreEqual(poco.Prop9, res.Prop9);
+            Assert.AreEqual(poco.Prop10, res.Prop10);
         }
     }
 }

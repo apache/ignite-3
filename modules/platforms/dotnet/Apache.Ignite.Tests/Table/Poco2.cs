@@ -38,5 +38,7 @@ namespace Apache.Ignite.Tests.Table
         public string? Prop8 { get; set; }
 
         public int Prop9 { get; set; }
+
+        public int Prop10 { get; set; }
     }
 }
