@@ -130,7 +130,6 @@ public class ClientTableCommon {
             packer.packInt(schema.version());
         }
 
-        // TODO IGNITE-17297: BinaryTupleBuilder should write directly to the ByteBuf (separate ticket?).
         var builder = BinaryTupleBuilder.create(columnCount(schema, part), true);
 
         if (part != TuplePart.VAL) {
