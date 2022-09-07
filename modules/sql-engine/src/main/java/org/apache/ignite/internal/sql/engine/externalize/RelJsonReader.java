@@ -162,7 +162,7 @@ public class RelJsonReader {
             List<String> tableName = getStringList("table");
 
             return RelOptTableImpl.create(null, table.getRowType(Commons.typeFactory()), tableName,
-                    table, null);
+                    table, c -> null);
         }
 
         /** {@inheritDoc} */
