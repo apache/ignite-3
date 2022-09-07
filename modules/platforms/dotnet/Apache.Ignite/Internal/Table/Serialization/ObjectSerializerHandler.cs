@@ -241,19 +241,56 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
             il.Emit(OpCodes.Ldloc_0); // res
             il.Emit(OpCodes.Ldarg_0); // reader
-
-            // TODO IGNITE-17297 support all use cases, add tests with many fields.
-            if (elemIdx == 0)
-            {
-                il.Emit(OpCodes.Ldc_I4_0);
-            }
-            else
-            {
-                il.Emit(OpCodes.Ldc_I4_1);
-            }
+            EmitLdcI4(il, elemIdx); // index
 
             il.Emit(OpCodes.Call, readMethod);
             il.Emit(OpCodes.Stfld, fieldInfo); // res.field = value
+        }
+
+        private static void EmitLdcI4(ILGenerator il, int elemIdx)
+        {
+            switch (elemIdx)
+            {
+                case 0:
+                    il.Emit(OpCodes.Ldc_I4_0);
+                    break;
+
+                case 1:
+                    il.Emit(OpCodes.Ldc_I4_1);
+                    break;
+
+                case 2:
+                    il.Emit(OpCodes.Ldc_I4_2);
+                    break;
+
+                case 3:
+                    il.Emit(OpCodes.Ldc_I4_3);
+                    break;
+
+                case 4:
+                    il.Emit(OpCodes.Ldc_I4_4);
+                    break;
+
+                case 5:
+                    il.Emit(OpCodes.Ldc_I4_5);
+                    break;
+
+                case 6:
+                    il.Emit(OpCodes.Ldc_I4_6);
+                    break;
+
+                case 7:
+                    il.Emit(OpCodes.Ldc_I4_7);
+                    break;
+
+                case 8:
+                    il.Emit(OpCodes.Ldc_I4_8);
+                    break;
+
+                default:
+                    il.Emit(OpCodes.Ldc_I4, elemIdx);
+                    break;
+            }
         }
 
         private static void ValidateFieldType(FieldInfo fieldInfo, Column column)
