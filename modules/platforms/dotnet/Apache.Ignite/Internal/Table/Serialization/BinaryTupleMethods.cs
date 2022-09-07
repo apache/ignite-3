@@ -38,14 +38,16 @@ namespace Apache.Ignite.Internal.Table.Serialization
         private static readonly MethodInfo AppendInt = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendInt))!;
         private static readonly MethodInfo AppendLong = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendLong))!;
         private static readonly MethodInfo AppendFloat = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendFloat))!;
+        private static readonly MethodInfo AppendDouble = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendDouble))!;
         private static readonly MethodInfo AppendGuid = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendGuid))!;
         private static readonly MethodInfo AppendString = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendStringNullable))!;
 
         private static readonly MethodInfo GetByte = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetByte))!;
         private static readonly MethodInfo GetShort = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetShort))!;
-        private static readonly MethodInfo Getnt = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetInt))!;
+        private static readonly MethodInfo GetInt = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetInt))!;
         private static readonly MethodInfo GetLong = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetLong))!;
         private static readonly MethodInfo GetFloat = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetFloat))!;
+        private static readonly MethodInfo GetDouble = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetDouble))!;
         private static readonly MethodInfo GetGuid = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetGuid))!;
         private static readonly MethodInfo GetString = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetStringNullable))!;
 
@@ -58,6 +60,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             { typeof(int), AppendInt },
             { typeof(long), AppendLong },
             { typeof(float), AppendFloat },
+            { typeof(double), AppendDouble },
             { typeof(Guid), AppendGuid }
         };
 
@@ -66,9 +69,10 @@ namespace Apache.Ignite.Internal.Table.Serialization
             { typeof(string), GetString },
             { typeof(sbyte), GetByte },
             { typeof(short), GetShort },
-            { typeof(int), Getnt },
+            { typeof(int), GetInt },
             { typeof(long), GetLong },
             { typeof(float), GetFloat },
+            { typeof(double), GetDouble },
             { typeof(Guid), GetGuid }
         };
 

@@ -524,5 +524,12 @@ namespace Apache.Ignite.Tests.Table
             Assert.AreEqual(key, resTuple.Key);
             Assert.AreEqual(val, resTuple.Val);
         }
+
+        [Test]
+        public async Task TestBigPoco()
+        {
+            // TODO: Create a table for Poco2
+
+        }
     }
 }
