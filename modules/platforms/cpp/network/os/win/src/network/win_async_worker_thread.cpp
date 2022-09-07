@@ -23,7 +23,9 @@
 #include "network/win_async_worker_thread.h"
 
 // Using NULLs as specified by WinAPI
-#pragma ide diagnostic ignored "modernize-use-nullptr"
+#ifdef __JETBRAINS_IDE__
+#   pragma ide diagnostic ignored "modernize-use-nullptr"
+#endif
 
 namespace ignite::network
 {

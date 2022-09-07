@@ -81,6 +81,14 @@ public:
     {
         return m_message.c_str();
     }
+    /**
+     * Get error message as std::string.
+     */
+    [[nodiscard]]
+    const std::string& whatStr() const
+    {
+        return m_message;
+    }
 
     /**
      * Get status code.

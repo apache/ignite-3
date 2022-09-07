@@ -22,7 +22,9 @@
 #include "network/win_async_connecting_thread.h"
 
 // Using NULLs as specified by WinAPI
-#pragma ide diagnostic ignored "modernize-use-nullptr"
+#ifdef __JETBRAINS_IDE__
+#   pragma ide diagnostic ignored "modernize-use-nullptr"
+#endif
 
 namespace
 {
@@ -59,7 +61,7 @@ void WinAsyncConnectingThread::run()
         {
             ++m_failedAttempts;
 
-            auto msToWait = static_cast<DWORD>(1000 * fibonacci10.GetValue(m_failedAttempts));
+            auto msToWait = static_cast<DWORD>(1000 * fibonacci10.getValue(m_failedAttempts));
             if (msToWait)
                 Sleep(msToWait);
 
@@ -150,7 +152,7 @@ std::shared_ptr<WinAsyncClient> WinAsyncConnectingThread::tryConnect(const TcpRa
         {
             SOCKET socket = tryConnect(addr);
 
-            return std::make_shared<WinAsyncClient>(socket, addr, range, BUFFER_SIZE);
+            return std::make_shared<WinAsyncClient>(socket, addr, range, int32_t(BUFFER_SIZE));
         }
         catch (const IgniteError&)
         {
@@ -179,7 +181,7 @@ SOCKET WinAsyncConnectingThread::tryConnect(const EndPoint& addr)
     int res = getaddrinfo(addr.host.c_str(), strPort.c_str(), &hints, &result);
 
     if (res != 0)
-        ThrowNetworkError("Can not resolve host: " + addr.host + ":" + strPort);
+        throwNetworkError("Can not resolve host: " + addr.host + ":" + strPort);
 
     std::string lastErrorMsg = "Failed to resolve host";
 
@@ -193,7 +195,7 @@ SOCKET WinAsyncConnectingThread::tryConnect(const EndPoint& addr)
         socket = WSASocket(it->ai_family, it->ai_socktype, it->ai_protocol, NULL, 0, WSA_FLAG_OVERLAPPED);
 
         if (socket == INVALID_SOCKET)
-            ThrowNetworkError("Socket creation failed: " + getLastSocketErrorMessage());
+            throwNetworkError("Socket creation failed: " + getLastSocketErrorMessage());
 
         TrySetSocketOptions(socket, BUFFER_SIZE, TRUE, TRUE, TRUE);
 
@@ -220,7 +222,7 @@ SOCKET WinAsyncConnectingThread::tryConnect(const EndPoint& addr)
     freeaddrinfo(result);
 
     if (socket == INVALID_SOCKET)
-        ThrowNetworkError(lastErrorMsg);
+        throwNetworkError(lastErrorMsg);
 
     return socket;
 }

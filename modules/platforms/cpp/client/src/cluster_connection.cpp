@@ -230,6 +230,7 @@ void ClusterConnection::handshake(uint64_t id, ProtocolContext& context)
     }
     catch (const IgniteError& err)
     {
+        m_logger->logWarning("Failed to send handshake request: " + err.whatStr());
         handshakeFail(id, std::nullopt);
     }
 }

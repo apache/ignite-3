@@ -1,7 +1,7 @@
 [requires]
-openssl/1.1.1q
 msgpack-c/4.0.0
 gtest/1.12.1
 
 [generators]
-cmake
+CMakeDeps
+CMakeToolchain

@@ -19,11 +19,11 @@ project(ignite-client-test)
 
 set(TARGET ${PROJECT_NAME})
 
-include_directories(include src)
+find_package(GTest REQUIRED)
+
+include_directories(include src ${GTEST_INCLUDE_DIR})
 
 enable_testing()
-find_package(GTest REQUIRED)
-include_directories(${GTEST_INCLUDE_DIR})
 
 set(SOURCES
 	src/ignite_client_test.cpp

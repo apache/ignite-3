@@ -19,6 +19,8 @@ project(ignite-protocol)
 
 set(TARGET ${PROJECT_NAME})
 
+find_package(msgpack)
+
 include_directories(include)
 
 set(SOURCES
@@ -32,5 +34,5 @@ add_library(${TARGET} OBJECT ${SOURCES})
 set_target_properties(${TARGET} PROPERTIES VERSION ${CMAKE_PROJECT_VERSION})
 set_target_properties(${TARGET} PROPERTIES POSITION_INDEPENDENT_CODE 1)
 
-target_link_libraries(${TARGET} ignite-common)
+target_link_libraries(${TARGET} ignite-common msgpackc)
 target_include_directories(${TARGET} INTERFACE include)

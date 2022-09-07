@@ -56,7 +56,7 @@ public:
      * @return N-th member of sequence if n < size, or max member.
      */
     [[nodiscard]]
-    constexpr T GetValue(size_t n) const
+    constexpr T getValue(size_t n) const
     {
         return n < size ? sequence[n] : sequence[size-1];
     }
@@ -71,7 +71,7 @@ private:
  *
  * @param err Error message.
  */
-inline void ThrowNetworkError(std::string err)
+inline void throwNetworkError(std::string err)
 {
     // TODO: Remove me
     throw IgniteError(StatusCode::NETWORK, std::move(err));
@@ -84,7 +84,7 @@ inline void ThrowNetworkError(std::string err)
  * @param description Error details.
  * @param advice User advice.
  */
-std::string FormatErrorMessage(std::string_view description, std::string_view details, std::string_view advice)
+inline std::string formatErrorMessage(std::string_view description, std::string_view details, std::string_view advice)
 {
     std::stringstream messageBuilder;
     messageBuilder << description;
@@ -102,7 +102,7 @@ std::string FormatErrorMessage(std::string_view description, std::string_view de
  *
  * @return Error in human-readable format.
  */
-std::string GetLastSystemError();
+std::string getLastSystemError();
 
 /**
  * Try extract from system error stack, format and return platform-specific error.
@@ -110,9 +110,9 @@ std::string GetLastSystemError();
  * @param description Error description.
  * @return Error in human-readable format.
  */
-std::string GetLastSystemError(std::string_view description, std::string_view advice)
+inline std::string getLastSystemError(std::string_view description, std::string_view advice)
 {
-    return FormatErrorMessage(description, GetLastSystemError(), advice);
+    return formatErrorMessage(description, getLastSystemError(), advice);
 }
 
 /**
@@ -120,7 +120,7 @@ std::string GetLastSystemError(std::string_view description, std::string_view ad
  *
  * @param msg Error message.
  */
-inline void ThrowSystemError(std::string msg)
+inline void throwSystemError(std::string msg)
 {
     // TODO: Remove me
     throw IgniteError(StatusCode::OS, std::move(msg));
@@ -132,9 +132,9 @@ inline void ThrowSystemError(std::string msg)
  * @param description Error description.
  * @param advice User advice.
  */
-void ThrowLastSystemError(std::string_view description, std::string_view advice)
+inline void throwLastSystemError(std::string_view description, std::string_view advice)
 {
-    ThrowSystemError(GetLastSystemError(description, advice));
+    throwSystemError(getLastSystemError(description, advice));
 }
 
 /**
@@ -142,9 +142,9 @@ void ThrowLastSystemError(std::string_view description, std::string_view advice)
  *
  * @param description Error description.
  */
-void ThrowLastSystemError(std::string_view description)
+inline void throwLastSystemError(std::string_view description)
 {
-    ThrowLastSystemError(description, "");
+    throwLastSystemError(description, "");
 }
 
 } // namespace ignite::network

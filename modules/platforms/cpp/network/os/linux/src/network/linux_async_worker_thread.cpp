@@ -64,14 +64,14 @@ namespace ignite
         {
             epoll = epoll_create(1);
             if (epoll < 0)
-                common::ThrowLastSystemError("Failed to create epoll instance");
+                common::throwLastSystemError("Failed to create epoll instance");
 
             stopEvent = eventfd(0, EFD_NONBLOCK);
             if (stopEvent < 0)
             {
-                std::string msg = common::GetLastSystemError("Failed to create stop event instance");
+                std::string msg = common::getLastSystemError("Failed to create stop event instance");
                 close(stopEvent);
-                common::ThrowSystemError(msg);
+                common::throwSystemError(msg);
             }
 
             epoll_event event;
@@ -82,10 +82,10 @@ namespace ignite
             int res = epoll_ctl(epoll, EPOLL_CTL_ADD, stopEvent, &event);
             if (res < 0)
             {
-                std::string msg = common::GetLastSystemError("Failed to create stop event instance");
+                std::string msg = common::getLastSystemError("Failed to create stop event instance");
                 close(stopEvent);
                 close(epoll);
-                common::ThrowSystemError(msg);
+                common::throwSystemError(msg);
             }
 
             m_stopping = false;
@@ -190,7 +190,7 @@ namespace ignite
             currentClient = currentConnection->ToClient(socketFd);
             bool ok = currentClient->StartMonitoring(epoll);
             if (!ok)
-                common::ThrowLastSystemError("Can not add file descriptor to epoll");
+                common::throwLastSystemError("Can not add file descriptor to epoll");
 
             // Connect to server.
             int res = connect(socketFd, addr->ai_addr, addr->ai_addrlen);
@@ -325,7 +325,7 @@ namespace ignite
             if (lastConnectionTime.tv_sec == 0)
                 return 0;
 
-            int timeout = fibonacci10.GetValue(m_failedAttempts) * 1000;
+            int timeout = fibonacci10.getValue(m_failedAttempts) * 1000;
 
             timespec now;
             clock_gettime(CLOCK_MONOTONIC, &now);

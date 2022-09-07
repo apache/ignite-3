@@ -19,9 +19,7 @@ project(ignite-network)
 
 set(TARGET ${PROJECT_NAME})
 
-find_package(OpenSSL REQUIRED)
-
-include_directories(include src ${OPENSSL_INCLUDE_DIR})
+include_directories(include src)
 
 set(SOURCES
     src/network/async_client_pool_adapter.cpp

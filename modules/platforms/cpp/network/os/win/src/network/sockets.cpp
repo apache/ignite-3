@@ -23,7 +23,9 @@
 #include "network/utils.h"
 
 // Using NULLs as specified by WinAPI
-#pragma ide diagnostic ignored "modernize-use-nullptr"
+#ifdef __JETBRAINS_IDE__
+#   pragma ide diagnostic ignored "modernize-use-nullptr"
+#endif
 
 namespace ignite::network
 {
@@ -156,7 +158,7 @@ void InitWsa()
             networkInited = WSAStartup(MAKEWORD(2, 2), &wsaData) == 0;
 
             if (!networkInited)
-                ThrowNetworkError("Networking initialisation failed: " + getLastSocketErrorMessage());
+                throwNetworkError("Networking initialisation failed: " + getLastSocketErrorMessage());
         }
     }
 }

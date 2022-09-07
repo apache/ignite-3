@@ -23,7 +23,9 @@
 #include "network/win_async_client_pool.h"
 
 // Using NULLs as specified by WinAPI
-#pragma ide diagnostic ignored "modernize-use-nullptr"
+#ifdef __JETBRAINS_IDE__
+#   pragma ide diagnostic ignored "modernize-use-nullptr"
+#endif
 
 namespace ignite::network
 {
@@ -54,7 +56,7 @@ void WinAsyncClientPool::start(std::vector<TcpRange> addrs, uint32_t connLimit)
 
     m_iocp = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, 0, 0);
     if (!m_iocp)
-        ThrowLastSystemError("Failed to create IOCP instance");
+        throwLastSystemError("Failed to create IOCP instance");
 
     try
     {
@@ -113,7 +115,7 @@ bool WinAsyncClientPool::addClient(std::shared_ptr<WinAsyncClient> client)
 
         HANDLE iocp0 = client->addToIocp(m_iocp);
         if (iocp0 == NULL)
-            ThrowLastSystemError("Can not add socket to IOCP");
+            throwLastSystemError("Can not add socket to IOCP");
 
         m_iocp = iocp0;
 
