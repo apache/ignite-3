@@ -17,24 +17,43 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.getByInternalId;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
 
 import java.nio.ByteBuffer;
 import java.util.NoSuchElementException;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
 import java.util.function.Predicate;
+import org.apache.ignite.configuration.NamedListView;
+import org.apache.ignite.configuration.schemas.table.HashIndexView;
+import org.apache.ignite.configuration.schemas.table.SortedIndexView;
+import org.apache.ignite.configuration.schemas.table.TableIndexView;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.hlc.HybridTimestamp;
+import org.apache.ignite.internal.pagememory.PageIdAllocator;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.datapage.DataPageReader;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
+import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
+import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
+import org.apache.ignite.internal.storage.index.HashIndexStorage;
+import org.apache.ignite.internal.storage.pagememory.AbstractPageMemoryTableStorage;
+import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
+import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumnsFreeList;
+import org.apache.ignite.internal.storage.pagememory.index.hash.HashIndexTree;
+import org.apache.ignite.internal.storage.pagememory.index.hash.PageMemoryHashIndexStorage;
+import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMeta;
+import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteCursor;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
@@ -52,37 +71,132 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     private static final Predicate<HybridTimestamp> ALWAYS_LOAD_VALUE = timestamp -> true;
 
-    private final int partitionId;
-    private final int groupId;
+    protected final int partitionId;
 
-    private final VersionChainTree versionChainTree;
+    protected final int groupId;
+
+    protected final AbstractPageMemoryTableStorage tableStorage;
+
+    protected final VersionChainTree versionChainTree;
+
     protected final RowVersionFreeList rowVersionFreeList;
-    private final DataPageReader rowVersionDataPageReader;
+
+    protected final IndexColumnsFreeList indexFreeList;
+
+    protected final IndexMetaTree indexMetaTree;
+
+    protected final DataPageReader rowVersionDataPageReader;
+
+    protected final ConcurrentMap<UUID, HashIndexStorage> indexes = new ConcurrentHashMap<>();
 
     /**
      * Constructor.
      *
      * @param partitionId Partition id.
-     * @param tableView Table configuration.
-     * @param pageMemory Page memory.
+     * @param tableStorage Table storage instance.
      * @param rowVersionFreeList Free list for {@link RowVersion}.
+     * @param indexFreeList Free list fot {@link IndexColumns}.
      * @param versionChainTree Table tree for {@link VersionChain}.
+     * @param indexMetaTree Tree that contains SQL indexes' metadata.
      */
     protected AbstractPageMemoryMvPartitionStorage(
             int partitionId,
-            TableView tableView,
-            PageMemory pageMemory,
+            AbstractPageMemoryTableStorage tableStorage,
             RowVersionFreeList rowVersionFreeList,
-            VersionChainTree versionChainTree
+            IndexColumnsFreeList indexFreeList,
+            VersionChainTree versionChainTree,
+            IndexMetaTree indexMetaTree
     ) {
         this.partitionId = partitionId;
+        this.tableStorage = tableStorage;
 
         this.rowVersionFreeList = rowVersionFreeList;
-        this.versionChainTree = versionChainTree;
+        this.indexFreeList = indexFreeList;
 
-        groupId = tableView.tableId();
+        this.versionChainTree = versionChainTree;
+        this.indexMetaTree = indexMetaTree;
+
+        PageMemory pageMemory = tableStorage.dataRegion().pageMemory();
+
+        groupId = tableStorage.configuration().value().tableId();
 
         rowVersionDataPageReader = new DataPageReader(pageMemory, groupId, IoStatisticsHolderNoOp.INSTANCE);
+    }
+
+    /**
+     * Starts a partition by initializing its internal structures.
+     */
+    public void start() {
+        try {
+            IgniteCursor<IndexMeta> cursor = indexMetaTree.find(null, null);
+
+            NamedListView<? extends TableIndexView> indicesCfgView = tableStorage.configuration().value().indices();
+
+            while (cursor.next()) {
+                IndexMeta indexMeta = cursor.get();
+
+                TableIndexView indexCfgView = getByInternalId(indicesCfgView, indexMeta.id());
+
+                if (indexCfgView instanceof HashIndexView) {
+                    createOrRestoreHashIndex(indexMeta);
+                } else if (indexCfgView instanceof SortedIndexView) {
+                    throw new UnsupportedOperationException("Not implemented yet");
+                } else {
+                    assert indexCfgView == null;
+
+                    //TODO IGNITE-17626 Drop the index synchronously.
+                }
+            }
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException("Failed to process SQL indexes during the partition start", e);
+        }
+    }
+
+    /**
+     * Returns a hash index instance, creating index it if necessary.
+     *
+     * @param indexId Index UUID.
+     */
+    public HashIndexStorage getOrCreateHashIndex(UUID indexId) {
+        return indexes.computeIfAbsent(indexId, uuid -> createOrRestoreHashIndex(new IndexMeta(indexId, 0L)));
+    }
+
+    private PageMemoryHashIndexStorage createOrRestoreHashIndex(IndexMeta indexMeta) {
+        TableView tableView = tableStorage.configuration().value();
+
+        var indexDescriptor = new HashIndexDescriptor(indexMeta.id(), tableView);
+
+        try {
+            PageMemory pageMemory = tableStorage.dataRegion().pageMemory();
+
+            boolean initNew = indexMeta.metaPageId() == 0L;
+
+            long metaPageId = initNew
+                    ? pageMemory.allocatePage(groupId, partitionId, PageIdAllocator.FLAG_AUX)
+                    : indexMeta.metaPageId();
+
+            HashIndexTree hashIndexTree = new HashIndexTree(
+                    groupId,
+                    tableView.name(),
+                    partitionId,
+                    pageMemory,
+                    PageLockListenerNoOp.INSTANCE,
+                    new AtomicLong(),
+                    metaPageId,
+                    rowVersionFreeList,
+                    initNew
+            );
+
+            if (initNew) {
+                boolean replaced = indexMetaTree.putx(new IndexMeta(indexMeta.id(), metaPageId));
+
+                assert !replaced;
+            }
+
+            return new PageMemoryHashIndexStorage(indexDescriptor, indexFreeList, hashIndexTree);
+        } catch (IgniteInternalCheckedException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     /** {@inheritDoc} */
@@ -392,6 +506,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     @Override
     public void close() {
         versionChainTree.close();
+
+        indexMetaTree.close();
     }
 
     /**

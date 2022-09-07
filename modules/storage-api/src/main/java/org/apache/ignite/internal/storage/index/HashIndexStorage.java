@@ -17,8 +17,11 @@
 
 package org.apache.ignite.internal.storage.index;
 
+import java.util.UUID;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.util.Cursor;
 
 /**
@@ -37,16 +40,20 @@ public interface HashIndexStorage {
 
     /**
      * Returns a cursor over {@code RowId}s associated with the given index key.
+     *
+     * @throws StorageException If failed to read data.
      */
-    Cursor<RowId> get(BinaryTuple key);
+    Cursor<RowId> get(BinaryTuple key) throws StorageException;
 
     /**
      * Adds the given index row to the index.
      *
      * <p>Usage note: this method <b>must</b> always be called inside the corresponding partition's
      * {@link org.apache.ignite.internal.storage.MvPartitionStorage#runConsistently} closure.
+     *
+     * @throws StorageException If failed to put data.
      */
-    void put(IndexRow row);
+    void put(IndexRow row) throws StorageException;
 
     /**
      * Removes the given row from the index.
@@ -55,11 +62,17 @@ public interface HashIndexStorage {
      *
      * <p>Usage note: this method <b>must</b> always be called inside the corresponding partition's
      * {@link org.apache.ignite.internal.storage.MvPartitionStorage#runConsistently} closure.
+     *
+     * @throws StorageException If failed to remove data.
      */
-    void remove(IndexRow row);
+    void remove(IndexRow row) throws StorageException;
 
     /**
      * Removes all data from this index.
+     *
+     * @throws StorageException If failed to destory index.
+     * @deprecated IGNITE-17626 Synchronous API should be removed. {@link MvTableStorage#destroyIndex(UUID)} must be the only public option.
      */
-    void destroy();
+    @Deprecated
+    void destroy() throws StorageException;
 }

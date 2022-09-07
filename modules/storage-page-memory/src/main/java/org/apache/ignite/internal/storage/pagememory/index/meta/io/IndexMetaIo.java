@@ -41,8 +41,8 @@ public interface IndexMetaIo {
     /** Offset of the {@link UUID#getLeastSignificantBits() least significant bits} of the index ID (8 bytes). */
     int INDEX_ID_LSB_OFFSET = INDEX_ID_MSB_OFFSET + Long.BYTES;
 
-    /** Index root page ID offset - long (8 bytes). */
-    int INDEX_ROOT_PAGE_ID_OFFSET = INDEX_ID_LSB_OFFSET + Long.BYTES;
+    /** Index tree meta page id offset - long (8 bytes). */
+    int INDEX_TREE_META_PAGE_ID_OFFSET = INDEX_ID_LSB_OFFSET + Long.BYTES;
 
     /** Payload size in bytes. */
     int SIZE_IN_BYTES = 2 * Long.BYTES /* Index ID - {@link UUID} (16 bytes) */ + Long.BYTES /* Index root page ID - long (8 bytes) */;
@@ -86,9 +86,9 @@ public interface IndexMetaIo {
         long indexIdMsb = getLong(pageAddr, elementOffset + INDEX_ID_MSB_OFFSET);
         long indexIdLsb = getLong(pageAddr, elementOffset + INDEX_ID_LSB_OFFSET);
 
-        long indexRootPageId = getLong(pageAddr, elementOffset + INDEX_ROOT_PAGE_ID_OFFSET);
+        long indexTreeMetaPageId = getLong(pageAddr, elementOffset + INDEX_TREE_META_PAGE_ID_OFFSET);
 
-        return new IndexMeta(new UUID(indexIdMsb, indexIdLsb), indexRootPageId);
+        return new IndexMeta(new UUID(indexIdMsb, indexIdLsb), indexTreeMetaPageId);
     }
 
     /**
@@ -112,6 +112,6 @@ public interface IndexMetaIo {
         putLong(pageAddr, off + INDEX_ID_MSB_OFFSET, row.id().getMostSignificantBits());
         putLong(pageAddr, off + INDEX_ID_LSB_OFFSET, row.id().getLeastSignificantBits());
 
-        putLong(pageAddr, off + INDEX_ROOT_PAGE_ID_OFFSET, row.rootPageId());
+        putLong(pageAddr, off + INDEX_TREE_META_PAGE_ID_OFFSET, row.metaPageId());
     }
 }

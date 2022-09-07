@@ -18,14 +18,13 @@
 package org.apache.ignite.internal.storage.pagememory;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableView;
+import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
@@ -43,9 +42,6 @@ import org.jetbrains.annotations.Nullable;
 // TODO: IGNITE-16642 Support indexes.
 public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
     protected final TableConfiguration tableCfg;
-
-    /** List of objects to be closed on the {@link #stop}. */
-    protected final List<AutoCloseable> autoCloseables = new CopyOnWriteArrayList<>();
 
     protected volatile boolean started;
 
@@ -65,6 +61,11 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
     public TableConfiguration configuration() {
         return tableCfg;
     }
+
+    /**
+     * Returns a data region instance for the table.
+     */
+    public abstract DataRegion<?> dataRegion();
 
     /** {@inheritDoc} */
     @Override
@@ -92,7 +93,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
 
     /** {@inheritDoc} */
     @Override
-    public MvPartitionStorage getOrCreateMvPartition(int partitionId) throws StorageException {
+    public AbstractPageMemoryMvPartitionStorage getOrCreateMvPartition(int partitionId) throws StorageException {
         AbstractPageMemoryMvPartitionStorage partition = getMvPartition(partitionId);
 
         if (partition != null) {
@@ -100,6 +101,8 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
         }
 
         partition = createMvPartitionStorage(partitionId);
+
+        partition.start();
 
         mvPartitions.set(partitionId, partition);
 
@@ -149,7 +152,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
 
     @Override
     public HashIndexStorage getOrCreateHashIndex(int partitionId, UUID indexId) {
-        throw new UnsupportedOperationException("Not implemented yet");
+        return getOrCreateMvPartition(partitionId).getOrCreateHashIndex(indexId);
     }
 
     /** {@inheritDoc} */
@@ -159,7 +162,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
     }
 
     /**
-     * Closes all {@link #mvPartitions} and {@link #autoCloseables}.
+     * Closes all {@link #mvPartitions}.
      *
      * @param destroy Destroy partitions.
      * @throws StorageException If failed.
@@ -167,24 +170,20 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
     protected void close(boolean destroy) throws StorageException {
         started = false;
 
-        List<AutoCloseable> autoCloseables = new ArrayList<>(this.autoCloseables);
+        List<AutoCloseable> closeables = new ArrayList<>();
 
         for (int i = 0; i < mvPartitions.length(); i++) {
             AbstractPageMemoryMvPartitionStorage partition = mvPartitions.getAndUpdate(i, p -> null);
 
             if (partition != null) {
-                autoCloseables.add(destroy ? partition::destroy : partition);
+                closeables.add(destroy ? partition::destroy : partition);
             }
         }
 
-        Collections.reverse(autoCloseables);
-
         try {
-            IgniteUtils.closeAll(autoCloseables);
+            IgniteUtils.closeAll(closeables);
         } catch (Exception e) {
             throw new StorageException("Failed to stop PageMemory table storage.", e);
         }
-
-        this.autoCloseables.clear();
     }
 }

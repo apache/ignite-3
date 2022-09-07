@@ -40,15 +40,13 @@ public class QuestionAsker {
      * @return value of answer.
      */
     public <I, O> O askQuestion(String question, I input, List<QuestionAnswer<I, O>> answers) {
-        readWriter.write(question);
-        String userAnswer = readWriter.readAnswer();
+        String userAnswer = readWriter.readAnswer(question);
 
         for (QuestionAnswer<I, O> answer : answers) {
             if (answer.isAnswer(userAnswer)) {
                 return answer.transform(userAnswer, input);
             }
         }
-        readWriter.write("");
         return askQuestion(question, input, answers);
     }
 }

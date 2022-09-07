@@ -55,7 +55,7 @@ public class ConnectToClusterQuestion {
     /**
      * Execute call with question about connect to cluster in case when disconnected state.
      *
-     * @param clusterUrl cluster url .
+     * @param clusterUrl cluster url.
      * @return {@link FlowBuilder} instance with question in case when cluster url.
      */
     public FlowBuilder<Void, String> askQuestionIfNotConnected(String clusterUrl) {
@@ -72,7 +72,12 @@ public class ConnectToClusterQuestion {
                         .then(Flows.fromCall(connectCall))
                         .toOutput(CommandLineContextProvider.getContext())
                         .build())
-                .then(prevUrl -> Flowable.success(clusterUrlOrSessionNode(clusterUrl)));
+                .then(prevUrl -> {
+                    // If inner flow from ifThen is interrupted we should interrupt outer flow as well.
+                    // TODO https://issues.apache.org/jira/browse/IGNITE-17553
+                    String url = clusterUrlOrSessionNode(clusterUrl);
+                    return url != null ? Flowable.success(url) : Flowable.interrupt();
+                });
     }
 
     private String clusterUrlOrSessionNode(String clusterUrl) {
