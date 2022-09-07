@@ -17,9 +17,10 @@
 
 namespace Apache.Ignite.Benchmarks.Table.Serialization
 {
+    using System;
     using System.Diagnostics.CodeAnalysis;
     using BenchmarkDotNet.Attributes;
-    using Internal.Proto;
+    using Internal.Proto.BinaryTuple;
     using Internal.Table.Serialization;
     using MessagePack;
 
@@ -40,13 +41,13 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
         [Benchmark(Baseline = true)]
         public void ReadObjectManual()
         {
-            var reader = new MessagePackReader(SerializedData);
+            var reader = new BinaryTupleReader(SerializedData.AsMemory(), 3);
 
             var res = new Car
             {
-                Id = reader.TryReadNoValue() ? default : reader.ReadGuid(),
-                BodyType = reader.TryReadNoValue() ? default! : reader.ReadString(),
-                Seats = reader.TryReadNoValue() ? default : reader.ReadInt32()
+                Id = reader.GetGuid(0),
+                BodyType = reader.GetString(1),
+                Seats = reader.GetInt(2)
             };
 
             Consumer.Consume(res);
@@ -70,13 +71,13 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
             Consumer.Consume(res);
         }
 
-        [Benchmark]
-        public void ReadObjectOld()
-        {
-            var reader = new MessagePackReader(SerializedData);
-            var res = ObjectSerializerHandlerOld.Read(ref reader, Schema);
-
-            Consumer.Consume(res);
-        }
+        // [Benchmark]
+        // public void ReadObjectOld()
+        // {
+        //     var reader = new MessagePackReader(SerializedData);
+        //     var res = ObjectSerializerHandlerOld.Read(ref reader, Schema);
+        //
+        //     Consumer.Consume(res);
+        // }
     }
 }

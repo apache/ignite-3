@@ -77,7 +77,7 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
             TupleSerializerHandler.Instance.Write(ref writer, Schema, Tuple);
 
             writer.Flush();
-            return pooledWriter.GetWrittenMemory().ToArray();
+            return pooledWriter.GetWrittenMemory().Slice(3).ToArray();
         }
 
         protected internal class Car
