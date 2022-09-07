@@ -1,4 +1,4 @@
-# Ignore https://issues.apache.org/jira/browse/CALCITE-5253
+# Ignore https://issues.apache.org/jira/browse/IGNITE-17644
 
 statement ok
 CREATE TABLE t1(a INTEGER, b INTEGER, c INTEGER);
