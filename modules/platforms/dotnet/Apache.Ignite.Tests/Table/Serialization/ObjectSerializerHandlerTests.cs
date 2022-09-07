@@ -48,17 +48,6 @@ namespace Apache.Ignite.Tests.Table.Serialization
         }
 
         [Test]
-        public void TestWriteUnsigned()
-        {
-            var bytes = Write(new UnsignedPoco(ulong.MaxValue, "foo"));
-            var reader = new MessagePackReader(bytes);
-
-            Assert.AreEqual(ulong.MaxValue, reader.ReadUInt64());
-            Assert.AreEqual("foo", reader.ReadString());
-            Assert.IsTrue(reader.End);
-        }
-
-        [Test]
         public void TestWriteKeyOnly()
         {
             var reader = WriteAndGetTupleReader(keyOnly: true);
@@ -84,17 +73,6 @@ namespace Apache.Ignite.Tests.Table.Serialization
 
             Assert.AreEqual(1234, resPoco.Key);
             Assert.IsNull(resPoco.Val);
-        }
-
-        [Test]
-        public void TestReadValuePart()
-        {
-            var reader = WriteAndGetReader();
-            reader.Skip(); // Skip key.
-            var resPoco = new ObjectSerializerHandler<Poco>().ReadValuePart(ref reader, Schema, new Poco{Key = 4321});
-
-            Assert.AreEqual(4321, resPoco.Key);
-            Assert.AreEqual("foo", resPoco.Val);
         }
 
         [Test]
@@ -132,7 +110,8 @@ namespace Apache.Ignite.Tests.Table.Serialization
 
         private static BinaryTupleReader WriteAndGetTupleReader(bool keyOnly = false)
         {
-            var bytes = Write(new Poco { Key = 1234, Val = "foo" }, keyOnly);
+            var msgPackReader = WriteAndGetReader(keyOnly);
+            var bytes = msgPackReader.ReadBytesAsMemory();
 
             return new BinaryTupleReader(bytes, keyOnly ? 1 : 2);
         }
@@ -153,7 +132,5 @@ namespace Apache.Ignite.Tests.Table.Serialization
         }
 
         private record BadPoco(Guid Key, DateTimeOffset Val);
-
-        private record UnsignedPoco(ulong Key, string Val);
     }
 }
