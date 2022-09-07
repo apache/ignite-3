@@ -100,9 +100,6 @@ public class RocksDbTableStorage implements MvTableStorage {
     /** Column Family handle for Hash Index data. */
     private volatile ColumnFamily hashIndexCf;
 
-    /** List of all existing Column Family handles. */
-    private volatile List<ColumnFamilyHandle> allCfHandles;
-
     /** Partition storages. */
     private volatile AtomicReferenceArray<RocksDbMvPartitionStorage> partitions;
 
@@ -229,8 +226,6 @@ public class RocksDbTableStorage implements MvTableStorage {
             assert meta != null;
             assert partitionCf != null;
             assert hashIndexCf != null;
-
-            allCfHandles = List.copyOf(cfHandles);
 
             flusher.init(db, cfHandles);
         } catch (RocksDBException e) {
