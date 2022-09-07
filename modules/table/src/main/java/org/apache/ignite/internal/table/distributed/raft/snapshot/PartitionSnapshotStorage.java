@@ -40,8 +40,8 @@ class PartitionSnapshotStorage implements SnapshotStorage {
     /** Raft options. */
     final RaftOptions raftOptions;
 
-    /** Instance of partition storage. */
-    final MvPartitionStorage partitionStorage;
+    /** Instance of partition. */
+    final PartitionAccess partition;
 
     /** Snapshot meta, constructed from the storage data and reaft group configuration. */
     final SnapshotMeta snapshotMeta;
@@ -54,18 +54,18 @@ class PartitionSnapshotStorage implements SnapshotStorage {
      *
      * @param snapshotUri Snapshot URI.
      * @param raftOptions RAFT options.
-     * @param partitionStorage Partition storage.
+     * @param partition Partition.
      * @param snapshotMeta Snapshot meta.
      */
     public PartitionSnapshotStorage(
             String snapshotUri,
             RaftOptions raftOptions,
-            MvPartitionStorage partitionStorage,
+            PartitionAccess partition,
             SnapshotMeta snapshotMeta
     ) {
         this.snapshotUri = snapshotUri;
         this.raftOptions = raftOptions;
-        this.partitionStorage = partitionStorage;
+        this.partition = partition;
         this.snapshotMeta = snapshotMeta;
     }
 

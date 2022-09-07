@@ -24,11 +24,8 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.io.File;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -124,8 +121,8 @@ public class TxStateStorageTest {
 
             assertTxMetaEquals(storage.get(txId), txMeta0);
 
-            assertFalse(storage.compareAndSet(txId, txMeta1.txState(), txMeta2));
-            assertTrue(storage.compareAndSet(txId, txMeta0.txState(), txMeta2));
+            assertFalse(storage.compareAndSet(txId, txMeta1.txState(), txMeta2, 1));
+            assertTrue(storage.compareAndSet(txId, txMeta0.txState(), txMeta2, 2));
 
             assertTxMetaEquals(storage.get(txId), txMeta2);
         }
@@ -159,65 +156,6 @@ public class TxStateStorageTest {
                 }
 
                 assertTrue(txs.isEmpty());
-            }
-        }
-    }
-
-    @Test
-    public void testSnapshot() throws Exception {
-        try (TxStateStorage storage = createStorage()) {
-            storage.start();
-
-            List<UUID> inSnapshot = new ArrayList<>();
-
-            for (int i = 0; i < 100; i++) {
-                UUID txId = UUID.randomUUID();
-
-                storage.put(txId, new TxMeta(TxState.COMMITED, new ArrayList<>(), generateTimestamp(txId)));
-
-                inSnapshot.add(txId);
-            }
-
-            Path snapshotDirPath = workDir.resolve("snapshot");
-            Files.createDirectories(snapshotDirPath);
-
-            try {
-                storage.snapshot(snapshotDirPath).join();
-
-                List<UUID> notInSnapshot = new ArrayList<>();
-
-                for (int i = 0; i < 100; i++) {
-                    UUID txId = UUID.randomUUID();
-
-                    storage.put(txId, new TxMeta(TxState.COMMITED, new ArrayList<>(), generateTimestamp(txId)));
-
-                    notInSnapshot.add(txId);
-                }
-
-                for (int i = 0; i < 100; i++) {
-                    UUID txId = notInSnapshot.get(i);
-
-                    assertTxMetaEquals(new TxMeta(TxState.COMMITED, new ArrayList<>(), generateTimestamp(txId)), storage.get(txId));
-                }
-
-                storage.restoreSnapshot(snapshotDirPath);
-
-                for (int i = 0; i < 100; i++) {
-                    UUID txId = inSnapshot.get(i);
-
-                    assertTxMetaEquals(new TxMeta(TxState.COMMITED, new ArrayList<>(), generateTimestamp(txId)), storage.get(txId));
-                }
-
-                for (int i = 0; i < 100; i++) {
-                    UUID txId = notInSnapshot.get(i);
-
-                    assertNull(storage.get(txId));
-                }
-            } finally {
-                Files.walk(snapshotDirPath)
-                        .sorted(Comparator.reverseOrder())
-                        .map(Path::toFile)
-                        .forEach(File::delete);
             }
         }
     }
