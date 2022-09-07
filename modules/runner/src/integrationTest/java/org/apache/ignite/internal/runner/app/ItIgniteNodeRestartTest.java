@@ -51,6 +51,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
+import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
@@ -71,6 +72,8 @@ import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
 import org.apache.ignite.internal.recovery.ConfigurationCatchUpListener;
 import org.apache.ignite.internal.recovery.RecoveryCompletionFutureFactory;
+import org.apache.ignite.internal.replicator.ReplicaManager;
+import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.internal.storage.DataStorageManager;
@@ -80,9 +83,11 @@ import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableTxManagerImpl;
 import org.apache.ignite.internal.table.message.TableMessagesSerializationRegistryInitializer;
+import org.apache.ignite.internal.table.distributed.TableMessagesSerializationRegistryInitializer;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessagesSerializationRegistryInitializer;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -223,9 +228,10 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 nettyBootstrapFactory
         );
 
-        var raftMgr = new Loza(clusterSvc, dir);
+        var raftMgr = new Loza(clusterSvc, dir, new HybridClock());
 
-        var txManager = new TableTxManagerImpl(clusterSvc, new HeapLockManager());
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-17523
+        var txManager = new TxManagerImpl(clusterSvc, null, new HeapLockManager());
 
         var cmgManager = new ClusterManagementGroupManager(
                 vault,
@@ -271,18 +277,31 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         SchemaManager schemaManager = new SchemaManager(registry, tblCfg);
 
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-17523 seems that it's possible not to instantiate replicaMgr in this test.
+        ReplicaManager replicaMgr = new ReplicaManager(clusterSvc, null);
+
+        ReplicaService replicaSvc = new ReplicaService(
+                replicaMgr,
+                clusterSvc.messagingService(),
+                clusterSvc.topologyService(),
+                null);
+
         TableManager tableManager = new TableManager(
                 name,
                 registry,
                 tblCfg,
                 raftMgr,
+                null,
+                null,
+                replicaSvc,
                 mock(BaselineManager.class),
                 clusterSvc.topologyService(),
                 txManager,
                 dataStorageManager,
                 metaStorageMgr,
                 schemaManager,
-                view -> new LocalLogStorageFactory()
+                view -> new LocalLogStorageFactory(),
+                null
         );
 
         // Preparing the result map.
@@ -313,6 +332,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 nettyBootstrapFactory,
                 clusterSvc,
                 raftMgr,
+                replicaMgr,
                 cmgManager,
                 txManager,
                 metaStorageMgr,

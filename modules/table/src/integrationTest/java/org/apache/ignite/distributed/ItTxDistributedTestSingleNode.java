@@ -29,31 +29,34 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.internal.affinity.RendezvousAffinityFunction;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
+import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapMvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TxAbstractTest;
-import org.apache.ignite.internal.table.distributed.TableTxManagerImpl;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
-import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.internal.tx.storage.state.test.TestConcurrentHashMapTxStateStorage;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
@@ -180,7 +183,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 new NamedThreadFactory(Loza.CLIENT_POOL_NAME, LOG));
 
         for (int i = 0; i < nodes; i++) {
-            var raftSrv = new Loza(cluster.get(i), workDir.resolve("node" + i));
+            var raftSrv = new Loza(cluster.get(i), workDir.resolve("node" + i), new HybridClock());
 
             raftSrv.start();
 
@@ -188,7 +191,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
             raftServers.put(node, raftSrv);
 
-            TableTxManagerImpl txMgr = new TableTxManagerImpl(cluster.get(i), new HeapLockManager());
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-17523 inline replicaService if necessary, stabilize.
+            TxManagerImpl txMgr = new TxManagerImpl(cluster.get(i), null, new HeapLockManager());
 
             txMgr.start();
 
@@ -211,7 +215,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
         TxManager txMgr;
 
         if (startClient()) {
-            txMgr = new TxManagerImpl(client, new HeapLockManager());
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-17523 inline replicaService if necessary, stabilize.
+            txMgr = new TxManagerImpl(client, null, new HeapLockManager());
         } else {
             // Collocated mode.
             txMgr = txManagers.get(accRaftClients.get(0).clusterService().topologyService().localMember());
@@ -229,7 +234,9 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 NetworkAddress::toString,
                 addressToNode,
                 txMgr,
-                Mockito.mock(MvTableStorage.class)
+                Mockito.mock(MvTableStorage.class),
+                Mockito.mock(ReplicaService.class),
+                Mockito.mock(HybridClock.class)
         ), new DummySchemaManagerImpl(ACCOUNTS_SCHEMA));
 
         this.customers = new TableImpl(new InternalTableImpl(
@@ -240,7 +247,9 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 NetworkAddress::toString,
                 addressToNode,
                 txMgr,
-                Mockito.mock(MvTableStorage.class)
+                Mockito.mock(MvTableStorage.class),
+                Mockito.mock(ReplicaService.class),
+                Mockito.mock(HybridClock.class)
         ), new DummySchemaManagerImpl(CUSTOMERS_SCHEMA));
 
         log.info("Tables have been started");
@@ -276,11 +285,18 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                     .collect(Collectors.toList());
 
             for (ClusterNode node : partNodes) {
+                var testMpPartStorage = new TestConcurrentHashMapMvPartitionStorage(0);
+
+                int partId = p;
+
                 raftServers.get(node).prepareRaftGroup(
                         grpId,
                         partNodes,
-                        () -> new PartitionListener(tblId,
-                                new VersionedRowStore(new TestConcurrentHashMapMvPartitionStorage(0), txManagers.get(node))),
+                        () -> new PartitionListener(
+                                testMpPartStorage,
+                                new TestConcurrentHashMapTxStateStorage(),
+                                txManagers.get(node),
+                                new ConcurrentHashMap<>()),
                         RaftGroupOptions.defaults()
                 );
             }
@@ -423,11 +439,11 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
             JraftServerImpl.DelegatingStateMachine fsm = (JraftServerImpl.DelegatingStateMachine) grp
                     .getRaftNode().getOptions().getFsm();
             PartitionListener listener = (PartitionListener) fsm.getListener();
-            VersionedRowStore storage = listener.getStorage();
+            MvPartitionStorage storage = listener.getStorage();
 
             if (hash == 0) {
-                hash = storage.delegate().hashCode();
-            } else if (hash != storage.delegate().hashCode()) {
+                hash = storage.hashCode();
+            } else if (hash != storage.hashCode()) {
                 return false;
             }
         }

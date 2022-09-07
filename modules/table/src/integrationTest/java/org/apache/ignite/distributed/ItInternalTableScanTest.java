@@ -35,6 +35,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Subscriber;
@@ -46,12 +47,15 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.RaftServerImpl;
+import org.apache.ignite.internal.replicator.ReplicaManager;
+import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.storage.DataRow;
@@ -61,12 +65,12 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
-import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -102,11 +106,19 @@ public class ItInternalTableScanTest {
     /** Id for the test RAFT group. */
     public static final String RAFT_GRP_ID = "test_part_grp";
 
+    /** Mock txState storage. */
+    @Mock
+    private TxStateStorage txStateStorage;
+
     /** Mock partition storage. */
     @Mock
     private MvPartitionStorage mockStorage;
 
     private ClusterService network;
+
+    private ReplicaManager replicaManager;
+
+    private ReplicaService replicaService;
 
     private RaftServer raftSrv;
 
@@ -150,13 +162,21 @@ public class ItInternalTableScanTest {
 
         raftSrv.start();
 
+        replicaManager = new ReplicaManager(network, new HybridClock());
+
+        replicaManager.start();
+
+        replicaService = new ReplicaService(replicaManager, network.messagingService(), network.topologyService(), new HybridClock());
+
         String grpName = "test_part_grp";
 
         List<Peer> conf = List.of(new Peer(nodeNetworkAddress));
 
+        txStateStorage = mock(TxStateStorage.class);
+
         mockStorage = mock(MvPartitionStorage.class);
 
-        txManager = new TxManagerImpl(network, new HeapLockManager());
+        txManager = new TxManagerImpl(network, replicaService, new HeapLockManager());
 
         txManager.start();
 
@@ -164,7 +184,7 @@ public class ItInternalTableScanTest {
 
         raftSrv.startRaftGroup(
                 grpName,
-                new PartitionListener(tblId, new VersionedRowStore(mockStorage, txManager)),
+                new PartitionListener(mockStorage, txStateStorage, txManager, new ConcurrentHashMap<>()),
                 conf,
                 RaftGroupOptions.defaults()
         );
@@ -190,7 +210,9 @@ public class ItInternalTableScanTest {
                 NetworkAddress::toString,
                 addressToNode,
                 txManager,
-                mock(MvTableStorage.class)
+                mock(MvTableStorage.class),
+                mock(ReplicaService.class),
+                mock(HybridClock.class)
         );
     }
 
@@ -203,6 +225,10 @@ public class ItInternalTableScanTest {
     public void tearDown() throws Exception {
         raftSrv.stopRaftGroup(RAFT_GRP_ID);
 
+        if (replicaManager != null) {
+            replicaManager.beforeNodeStop();
+        }
+
         if (raftSrv != null) {
             raftSrv.beforeNodeStop();
         }
@@ -212,6 +238,10 @@ public class ItInternalTableScanTest {
         }
 
         IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
+
+        if (replicaManager != null) {
+            replicaManager.stop();
+        }
 
         if (raftSrv != null) {
             raftSrv.stop();

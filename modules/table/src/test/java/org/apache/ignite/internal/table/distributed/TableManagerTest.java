@@ -91,6 +91,8 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
+import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
+import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaUtils;
@@ -176,6 +178,10 @@ public class TableManagerTest extends IgniteAbstractTest {
     /** Raft manager. */
     @Mock
     private Loza rm;
+
+    /** Replica manager. */
+    @Mock
+    private ReplicaManager replicaMgr;
 
     /** TX manager. */
     @Mock(lenient = true)
@@ -471,6 +477,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         tableManager.stop();
 
         verify(rm, times(PARTITIONS)).stopRaftGroup(anyString());
+        verify(replicaMgr, times(PARTITIONS)).stopReplica(anyString());
     }
 
     /**
@@ -764,19 +771,24 @@ public class TableManagerTest extends IgniteAbstractTest {
      *                         create otherwise, the waiting will not be.
      * @return Table manager.
      */
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-17523
     private TableManager createTableManager(CompletableFuture<TableManager> tblManagerFut, boolean waitingSqlSchema) {
         TableManager tableManager = new TableManager(
                 "test",
                 revisionUpdater,
                 tblsCfg,
                 rm,
+                replicaMgr,
+                null,
+                null,
                 bm,
                 ts,
                 tm,
                 dsm = createDataStorageManager(configRegistry, workDir, rocksDbEngineConfig),
                 msm,
                 sm = new SchemaManager(revisionUpdater, tblsCfg),
-                budgetView -> new LocalLogStorageFactory()
+                budgetView -> new LocalLogStorageFactory(),
+                null
         );
 
         sm.start();

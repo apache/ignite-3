@@ -19,12 +19,13 @@ package org.apache.ignite.internal.tx;
 
 import java.nio.ByteBuffer;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.lang.IgniteUuid;
+import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -56,6 +57,7 @@ public interface TxManager extends IgniteComponent {
      * @param after After state.
      * @return {@code True} if a state was changed.
      */
+    // TODO: sanpwc remove
     boolean changeState(UUID txId, @Nullable TxState before, TxState after);
 
     /**
@@ -63,6 +65,7 @@ public interface TxManager extends IgniteComponent {
      *
      * @param txId Transaction id.
      */
+    // TODO: sanpwc remove
     void forget(UUID txId);
 
     /**
@@ -71,6 +74,7 @@ public interface TxManager extends IgniteComponent {
      * @param txId Transaction id.
      * @return The future.
      */
+    // TODO: sanpwc remove
     CompletableFuture<Void> commitAsync(UUID txId);
 
     /**
@@ -79,6 +83,7 @@ public interface TxManager extends IgniteComponent {
      * @param txId Transaction id.
      * @return The future.
      */
+    // TODO: sanpwc remove
     CompletableFuture<Void> rollbackAsync(UUID txId);
 
     /**
@@ -89,8 +94,11 @@ public interface TxManager extends IgniteComponent {
      * @param txId Transaction id.
      * @return The future.
      * @throws LockException When a lock can't be taken due to possible deadlock.
+     *
+     * @deprecated @see LockManager#acquire(java.util.UUID, org.apache.ignite.internal.tx.LockKey, org.apache.ignite.internal.tx.LockMode)
      */
-    public CompletableFuture<Void> writeLock(IgniteUuid lockId, ByteBuffer keyData, UUID txId);
+    @Deprecated
+    public CompletableFuture<Lock> writeLock(UUID lockId, ByteBuffer keyData, UUID txId);
 
     /**
      * Acqures a read lock.
@@ -100,8 +108,20 @@ public interface TxManager extends IgniteComponent {
      * @param txId Transaction id.
      * @return The future.
      * @throws LockException When a lock can't be taken due to possible deadlock.
+     *
+     * @deprecated @see LockManager#acquire(java.util.UUID, org.apache.ignite.internal.tx.LockKey, org.apache.ignite.internal.tx.LockMode)
      */
-    public CompletableFuture<Void> readLock(IgniteUuid lockId, ByteBuffer keyData, UUID txId);
+    @Deprecated
+    public CompletableFuture<Lock> readLock(UUID lockId, ByteBuffer keyData, UUID txId);
+
+    /**
+     * Returns lock manager.
+     *
+     * @return Lock manager for the given transactions manager.
+     * @deprecated Use lockManager directly.
+     */
+    @Deprecated
+    public LockManager lockManager();
 
     /**
      * Returns a transaction state or starts a new in the PENDING state.
@@ -113,23 +133,38 @@ public interface TxManager extends IgniteComponent {
     TxState getOrCreateTransaction(UUID txId);
 
     /**
-     * Finishes a dependant remote transactions.
+     * Finishes a dependant transactions.
      *
-     * @param addr   The address.
+     * @param recipientNode Recipient node.
+     * @param term Raft term.
      * @param commit {@code True} if a commit requested.
-     * @param groups Enlisted partition groups.
-     * @param txId   Transaction id.
+     * @param groups Enlisted partition groups with raft terms.
+     * @param txId Transaction id.
      */
-    CompletableFuture<Void> finishRemote(NetworkAddress addr, boolean commit, Set<String> groups, UUID txId);
+    CompletableFuture<Void> finish(
+            ClusterNode recipientNode,
+            Long term,
+            boolean commit,
+            TreeMap<ClusterNode, List<IgniteBiTuple<String, Long>>> groups,
+            UUID txId);
 
     /**
-     * Keys that are locked by the transaction.
+     * Sends cleanup request to the specified primary replica.
      *
+     * @param recipientNode Primary replica to process given cleanup request.
+     * @param replicationGroupIds Replication group id with raft term.
      * @param txId Transaction id.
-     * @return Keys that are locked by the transaction.
+     * @param commit {@code True} if a commit requested.
+     * @param commitTimestamp Commit timestamp.
+     * @return Completable future of Void.
      */
-    @TestOnly
-    Map<IgniteUuid, List<byte[]>> lockedKeys(UUID txId);
+    CompletableFuture<Void> cleanup(
+            ClusterNode recipientNode,
+            List<IgniteBiTuple<String, Long>> replicationGroupIds,
+            UUID txId,
+            boolean commit,
+            HybridTimestamp commitTimestamp
+            );
 
     /**
      * Checks if a passed address belongs to a local node.

@@ -17,12 +17,12 @@
 
 package org.apache.ignite.internal.tx;
 
-import java.util.Set;
 import java.util.UUID;
-import org.apache.ignite.raft.client.service.RaftGroupService;
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.TestOnly;
 
 /**
  * An extension of a transaction for internal usage.
@@ -36,12 +36,12 @@ public interface InternalTransaction extends Transaction {
     @NotNull UUID id();
 
     /**
-     * Returns a set of enlisted partition groups.
+     * Returns enlisted primary replica node associated with given replication group.
      *
-     * @return A set of enlisted partition groups.
+     * @param partGroupId Replication group id.
+     * @return Enlisted primary replica node and raft term associated with given replication group.
      */
-    @TestOnly
-    Set<RaftGroupService> enlisted();
+    IgniteBiTuple<ClusterNode, Long> enlistedNodeAndTerm(String partGroupId);
 
     /**
      * Returns a transaction state.
@@ -53,8 +53,16 @@ public interface InternalTransaction extends Transaction {
     /**
      * Enlists a partition group into a transaction.
      *
-     * @param svc Partition service.
+     * @param replicationGroupId Replication group id to enlist.
+     * @param nodeAndTerm Primary replica cluster node and raft term to enlist for given replication group.
      * @return {@code True} if a partition is enlisted into the transaction.
      */
-    boolean enlist(RaftGroupService svc);
+    IgniteBiTuple<ClusterNode, Long> enlist(String replicationGroupId, IgniteBiTuple<ClusterNode, Long> nodeAndTerm);
+
+    /**
+     * Enlists operation future in transaction. It's used in order to wait corresponding tx operations before commit.
+     *
+     * @param resultFuture Operation result future.
+     */
+    void enlistResultFuture(CompletableFuture resultFuture);
 }

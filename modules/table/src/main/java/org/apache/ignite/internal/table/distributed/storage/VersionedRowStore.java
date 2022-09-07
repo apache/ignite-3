@@ -62,6 +62,10 @@ public class VersionedRowStore {
     /** Keys that were removed by the transaction. */
     private ConcurrentHashMap<UUID, List<ByteBuffer>> txsRemovedKeys = new ConcurrentHashMap<>();
 
+    // TODO: tmp
+    /** Pending keys. */
+    public ConcurrentHashMap<UUID, List<Object>> pendingKeys = new ConcurrentHashMap<>();
+
     /**
      * The constructor.
      *
@@ -146,6 +150,13 @@ public class VersionedRowStore {
 
         ByteBuffer key = row.keySlice();
 
+        // TODO: tmp IGNITE-17258
+        // TODO: tmp IGNITE-17258
+        List<Object> txKeys = pendingKeys.computeIfAbsent(txId, k -> new ArrayList<>());
+        synchronized (pendingKeys) {
+            txKeys.add(key);
+        }
+
         RowId rowId = primaryIndex.get(key);
 
         if (rowId == null) {
@@ -193,10 +204,16 @@ public class VersionedRowStore {
             return false;
         }
 
-        BinaryRow prevRow = storage.read(primaryIndex.get(row.keySlice()), txId);
+        BinaryRow prevRow = storage.read(rowId, txId);
 
         if (prevRow == null) {
             return false;
+        }
+
+        // TODO: tmp IGNITE-17258
+        List<Object> txKeys = pendingKeys.computeIfAbsent(txId, k -> new ArrayList<>());
+        synchronized (pendingKeys) {
+            txKeys.add(row.keySlice());
         }
 
         storage.addWrite(primaryIndex.get(row.keySlice()), null, txId);
@@ -231,6 +248,12 @@ public class VersionedRowStore {
         assert row != null && row.hasValue() : row;
 
         ByteBuffer key = row.keySlice();
+
+        // TODO: tmp IGNITE-17258
+        List<Object> txKeys = pendingKeys.computeIfAbsent(txId, k -> new ArrayList<>());
+        synchronized (pendingKeys) {
+            txKeys.add(key);
+        }
 
         RowId rowId = primaryIndex.get(key);
 
@@ -420,37 +443,41 @@ public class VersionedRowStore {
      * @param txId Transaction id.
      */
     public void commitWrite(ByteBuffer key, UUID txId) {
-        RowId rowId = primaryIndex.get(key);
+        try {
+            RowId rowId = primaryIndex.get(key);
 
-        if (rowId == null) {
-            return;
-        }
-
-        List<ByteBuffer> keys = txsRemovedKeys.get(txId);
-
-        if (keys != null) {
-            boolean removed = keys.remove(key);
-
-            if (removed) {
-                primaryIndex.remove(key);
+            if (rowId == null) {
+                return;
             }
 
-            if (keys.size() == 0) {
-                txsRemovedKeys.remove(txId);
+            List<ByteBuffer> keys = txsRemovedKeys.get(txId);
+
+            if (keys != null) {
+                boolean removed = keys.remove(key);
+
+                if (removed) {
+                    primaryIndex.remove(key);
+                }
+
+                if (keys.size() == 0) {
+                    txsRemovedKeys.remove(txId);
+                }
             }
-        }
 
-        keys = txsInsertedKeys.get(txId);
+            keys = txsInsertedKeys.get(txId);
 
-        if (keys != null) {
-            keys.remove(key);
+            if (keys != null) {
+                keys.remove(key);
 
-            if (keys.size() == 0) {
-                txsInsertedKeys.remove(txId);
+                if (keys.size() == 0) {
+                    txsInsertedKeys.remove(txId);
+                }
             }
-        }
 
-        storage.commitWrite(rowId, new Timestamp(txId));
+            storage.commitWrite(rowId, new Timestamp(txId));
+        } catch (NullPointerException e) {
+            e.printStackTrace();
+        }
     }
 
     /**

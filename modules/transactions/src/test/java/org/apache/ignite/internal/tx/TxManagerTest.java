@@ -26,12 +26,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 
 import java.util.UUID;
+import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.tx.TransactionException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -52,6 +54,9 @@ public class TxManagerTest extends IgniteAbstractTest {
     @Mock
     private ClusterService clusterService;
 
+    @Mock
+    private ReplicaService replicaService;
+
     /** Init test callback. */
     @BeforeEach
     public void before() {
@@ -59,7 +64,9 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         Mockito.when(clusterService.topologyService().localMember().address()).thenReturn(ADDR);
 
-        txManager = new TxManagerImpl(clusterService, new HeapLockManager());
+        replicaService = Mockito.mock(ReplicaService.class, RETURNS_DEEP_STUBS);
+
+        txManager = new TxManagerImpl(clusterService, replicaService, new HeapLockManager());
     }
 
     @Test
@@ -117,12 +124,13 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         InternalTransaction tx = txManager.begin();
 
-        RaftGroupService svc = Mockito.mock(RaftGroupService.class);
+        String replicationGroupName = "ReplicationGroupName";
 
-        tx.enlist(svc);
+        ClusterNode node  = Mockito.mock(ClusterNode.class);
 
-        assertEquals(1, tx.enlisted().size());
-        assertTrue(tx.enlisted().contains(svc));
+        tx.enlist(replicationGroupName, new IgniteBiTuple<>(node, 1L));
+
+        assertEquals(new IgniteBiTuple<>(node, 1L), tx.enlistedNodeAndTerm(replicationGroupName));
     }
 
     @Test

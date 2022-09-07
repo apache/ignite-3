@@ -176,12 +176,39 @@ public class ErrorGroups {
         public static final ErrorGroup TX_ERR_GROUP = ErrorGroup.newGroup("TX", 3);
 
         /** Error on creation of tx state storage. */
-        public static int TX_STATE_STORAGE_CREATE_ERR = TX_ERR_GROUP.registerErrorCode(1);
+        public static final int TX_STATE_STORAGE_CREATE_ERR = TX_ERR_GROUP.registerErrorCode(1);
 
         /** Error on destruction of tx state storage. */
-        public static int TX_STATE_STORAGE_DESTROY_ERR = TX_ERR_GROUP.registerErrorCode(2);
+        public static final int TX_STATE_STORAGE_DESTROY_ERR = TX_ERR_GROUP.registerErrorCode(2);
 
         /** Error of tx state storage. */
-        public static int TX_STATE_STORAGE_ERR = TX_ERR_GROUP.registerErrorCode(3);
+        public static final int TX_STATE_STORAGE_ERR = TX_ERR_GROUP.registerErrorCode(3);
+
+        /** Error of unexpected tx state on state change. */
+        public static final int TX_UNEXPECTED_STATE = TX_ERR_GROUP.registerErrorCode(4);
+    }
+
+    /** Replicator error group. */
+    public static class Replicator {
+        /** Replicator error group. */
+        public static final ErrorGroup REPLICATOR_ERR_GROUP = ErrorGroup.newGroup("REP", 4);
+
+        /** Common error for the replication procedure. */
+        public static final int REPLICA_COMMON_ERR = REPLICATOR_ERR_GROUP.registerErrorCode(1);
+
+        /** Replica with the same identifier is already existed. */
+        public static final int REPLICA_ALREADY_IS_STARTED_ERR = REPLICATOR_ERR_GROUP.registerErrorCode(2);
+
+        /** Timeout has happened during the replication procedure. */
+        public static final int REPLICA_TIMEOUT_ERR = REPLICATOR_ERR_GROUP.registerErrorCode(3);
+
+        /** The error happens when the replication level try to handle an unsupported request.  */
+        public static final int REPLICA_UNSUPPORTED_REQUEST_ERR = REPLICATOR_ERR_GROUP.registerErrorCode(4);
+
+        /** The error happens when the replica is not ready to handle a request.  */
+        public static final int REPLICA_UNAVAILABLE_ERR = REPLICATOR_ERR_GROUP.registerErrorCode(5);
+
+        /** The error happens when the replica is not the current primary replica. */
+        public static final int REPLICA_MISS_ERR = REPLICATOR_ERR_GROUP.registerErrorCode(6);
     }
 }

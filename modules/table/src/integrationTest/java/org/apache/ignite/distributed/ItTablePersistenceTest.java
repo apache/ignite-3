@@ -21,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.Mockito.mock;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
+import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -30,7 +31,9 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BooleanSupplier;
 import java.util.function.Function;
+import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
+import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.Column;
@@ -38,12 +41,12 @@ import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
+import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapMvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
-import org.apache.ignite.internal.table.distributed.TableTxManagerImpl;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
-import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
@@ -99,7 +102,8 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
     /** {@inheritDoc} */
     @Override
     public void beforeFollowerStop(RaftGroupService service) throws Exception {
-        TxManagerImpl txManager = new TxManagerImpl(clientService(), new HeapLockManager());
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-17523
+        TxManagerImpl txManager = new TxManagerImpl(clientService(), null, new HeapLockManager());
 
         managers.add(txManager);
 
@@ -113,7 +117,9 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 NetworkAddress::toString,
                 addressToNode,
                 txManager,
-                mock(MvTableStorage.class)
+                mock(MvTableStorage.class),
+                mock(ReplicaService.class),
+                mock(HybridClock.class)
         );
 
         table.upsert(FIRST_VALUE, null).get();
@@ -122,7 +128,8 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
     /** {@inheritDoc} */
     @Override
     public void afterFollowerStop(RaftGroupService service) throws Exception {
-        TxManagerImpl txManager = new TxManagerImpl(clientService(), new HeapLockManager());
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-17523
+        TxManagerImpl txManager = new TxManagerImpl(clientService(), null, new HeapLockManager());
 
         managers.add(txManager);
 
@@ -136,7 +143,9 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 NetworkAddress::toString,
                 addressToNode,
                 txManager,
-                mock(MvTableStorage.class)
+                mock(MvTableStorage.class),
+                mock(ReplicaService.class),
+                mock(HybridClock.class)
         );
 
         // Remove the first key
@@ -151,7 +160,8 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
     /** {@inheritDoc} */
     @Override
     public void afterSnapshot(RaftGroupService service) throws Exception {
-        TxManager txManager = new TxManagerImpl(clientService(), new HeapLockManager());
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-17523
+        TxManager txManager = new TxManagerImpl(clientService(), null, new HeapLockManager());
 
         managers.add(txManager);
 
@@ -165,7 +175,9 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 NetworkAddress::toString,
                 addressToNode,
                 txManager,
-                mock(MvTableStorage.class)
+                mock(MvTableStorage.class),
+                mock(ReplicaService.class),
+                mock(HybridClock.class)
         );
 
         table.upsert(SECOND_VALUE, null).get();
@@ -178,13 +190,14 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
     /** {@inheritDoc} */
     @Override
     public BooleanSupplier snapshotCheckClosure(JraftServerImpl restarted, boolean interactedAfterSnapshot) {
-        VersionedRowStore storage = getListener(restarted, raftGroupId()).getStorage();
+        MvPartitionStorage storage = getListener(restarted, raftGroupId()).getStorage();
+        Map<ByteBuffer, RowId> primaryIndex = getListener(restarted, raftGroupId()).getPk();
 
         Row key = interactedAfterSnapshot ? SECOND_KEY : FIRST_KEY;
         Row value = interactedAfterSnapshot ? SECOND_VALUE : FIRST_VALUE;
 
         return () -> {
-            BinaryRow read = storage.get(key, null);
+            BinaryRow read = storage.read(primaryIndex.get(key.keySlice()), UUID.randomUUID());
 
             if (read == null) {
                 return false;
@@ -202,19 +215,24 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
     /** {@inheritDoc} */
     @Override
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-17523
     public RaftGroupListener createListener(ClusterService service, Path workDir) {
         return paths.entrySet().stream()
                 .filter(entry -> entry.getValue().equals(workDir))
                 .map(Map.Entry::getKey)
                 .findAny()
                 .orElseGet(() -> {
-                    TableTxManagerImpl txManager = new TableTxManagerImpl(service, new HeapLockManager());
+                    TxManagerImpl txManager = new TxManagerImpl(service, null, new HeapLockManager());
 
                     txManager.start(); // Init listener.
 
+                    var testMpPartStorage = new TestConcurrentHashMapMvPartitionStorage(0);
+
                     PartitionListener listener = new PartitionListener(
-                            UUID.randomUUID(),
-                            new VersionedRowStore(new TestConcurrentHashMapMvPartitionStorage(0), txManager));
+                            testMpPartStorage,
+                            null,
+                            txManager,
+                            new ConcurrentHashMap<>());
 
                     paths.put(listener, workDir);
 

@@ -42,11 +42,14 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.TimeZone;
+import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import org.apache.ignite.hlc.HybridClock;
+import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeType;
@@ -58,8 +61,9 @@ import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
+import org.apache.ignite.internal.table.distributed.command.DeleteAllCommand;
+import org.apache.ignite.internal.table.distributed.command.InsertAndUpdateAllCommand;
 import org.apache.ignite.internal.table.distributed.command.InsertCommand;
-import org.apache.ignite.internal.table.distributed.command.MultiKeyCommand;
 import org.apache.ignite.internal.table.distributed.command.response.MultiRowsResponse;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
@@ -68,8 +72,9 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.util.CollectionUtils;
+import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupService;
@@ -108,9 +113,16 @@ public class ItColocationTest {
         ClusterService clusterService = Mockito.mock(ClusterService.class, RETURNS_DEEP_STUBS);
         when(clusterService.topologyService().localMember().address()).thenReturn(DummyInternalTableImpl.ADDR);
 
-        TxManager txManager = new TxManagerImpl(clusterService, new HeapLockManager()) {
+        ReplicaService replicaService = Mockito.mock(ReplicaService.class, RETURNS_DEEP_STUBS);
+
+        TxManager txManager = new TxManagerImpl(clusterService, replicaService,  new HeapLockManager()) {
             @Override
-            public CompletableFuture<Void> finishRemote(NetworkAddress addr, boolean commit, Set<String> groups, UUID id) {
+            public CompletableFuture<Void> finish(
+                    ClusterNode recipientNode,
+                    Long term,
+                    boolean commit,
+                    TreeMap<ClusterNode, List<IgniteBiTuple<String, Long>>> groups,
+                    UUID txId) {
                 return CompletableFuture.completedFuture(null);
             }
         };
@@ -132,7 +144,7 @@ public class ItColocationTest {
                     return set;
                 });
 
-                if (cmd instanceof MultiKeyCommand) {
+                if (cmd instanceof DeleteAllCommand || cmd instanceof InsertAndUpdateAllCommand) {
                     return CompletableFuture.completedFuture(new MultiRowsResponse(List.of()));
                 } else {
                     return CompletableFuture.completedFuture(true);
@@ -150,7 +162,9 @@ public class ItColocationTest {
                 null,
                 null,
                 txManager,
-                Mockito.mock(MvTableStorage.class)
+                Mockito.mock(MvTableStorage.class),
+                Mockito.mock(ReplicaService.class),
+                Mockito.mock(HybridClock.class)
         );
     }
 
@@ -304,7 +318,7 @@ public class ItColocationTest {
         assertEquals(partsMap.size(), CMDS_MAP.size());
 
         CMDS_MAP.forEach((p, set) -> {
-            MultiKeyCommand cmd = (MultiKeyCommand) CollectionUtils.first(set);
+            InsertAndUpdateAllCommand cmd = (InsertAndUpdateAllCommand) CollectionUtils.first(set);
             assertEquals(partsMap.get(p), cmd.getRows().size(), () -> "part=" + p + ", set=" + set);
 
             cmd.getRows().forEach(binRow -> {

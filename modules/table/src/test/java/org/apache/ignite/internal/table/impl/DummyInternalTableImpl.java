@@ -26,25 +26,25 @@ import java.io.Serializable;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Flow;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiFunction;
 import javax.naming.OperationNotSupportedException;
+import org.apache.ignite.hlc.HybridClock;
+import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
+import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapMvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
-import org.apache.ignite.internal.table.distributed.command.GetAllCommand;
-import org.apache.ignite.internal.table.distributed.command.GetCommand;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
-import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.Peer;
-import org.apache.ignite.raft.client.ReadCommand;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.apache.ignite.raft.client.service.CommandClosure;
 import org.apache.ignite.raft.client.service.RaftGroupService;
@@ -64,13 +64,13 @@ public class DummyInternalTableImpl extends InternalTableImpl {
     /**
      * Creates a new local table.
      *
-     * @param store The store.
      * @param txManager Transaction manager.
      */
-    public DummyInternalTableImpl(VersionedRowStore store, TxManager txManager, AtomicLong raftIndex) {
+    public DummyInternalTableImpl(TxManager txManager, AtomicLong raftIndex) {
         super("test", UUID.randomUUID(),
                 Int2ObjectMaps.singleton(0, mock(RaftGroupService.class)),
-                1, null, null, txManager, mock(MvTableStorage.class));
+                1, null, null, txManager,
+                mock(MvTableStorage.class), mock(ReplicaService.class), mock(HybridClock.class));
 
         RaftGroupService svc = partitionMap.get(0);
 
@@ -92,7 +92,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                         @Override
                         public Void apply(Void ignored, Throwable err) {
                             if (err == null) {
-                                if (cmd instanceof GetCommand || cmd instanceof GetAllCommand) {
+                                //TODO: IGNITE-17523 Code follow should be moved to a demo replica listener.
+                                /*if (cmd instanceof GetCommand || cmd instanceof GetAllCommand) {
                                     CommandClosure<ReadCommand> clo = new CommandClosure<>() {
                                         @Override
                                         public ReadCommand command() {
@@ -110,7 +111,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                                     } catch (Throwable e) {
                                         res.completeExceptionally(new TransactionException(e));
                                     }
-                                } else {
+                                } else*/ {
                                     CommandClosure<WriteCommand> clo = new CommandClosure<>() {
                                         /** {@inheritDoc} */
                                         @Override
@@ -149,7 +150,15 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 }
         ).when(svc).run(any());
 
-        partitionListener = new PartitionListener(UUID.randomUUID(), store);
+        var mvPartStorage = new TestConcurrentHashMapMvPartitionStorage(0);
+
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-17523
+        partitionListener = new PartitionListener(
+                mvPartStorage,
+                null,
+                txManager,
+                new ConcurrentHashMap<>()
+        );
     }
 
     /**

@@ -57,7 +57,6 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
-import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.KeyValueView;
@@ -76,7 +75,7 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
 /**
- * TODO asch IGNITE-15928 validate zero locks after test finish.
+ * TODO asch IGNITE-15928 validate zero locks after test commit.
  */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
@@ -1483,7 +1482,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
      * @return Lock manager.
      */
     protected LockManager lockManager(Table t) {
-        return ((TxManagerImpl) txManager(t)).getLockManager();
+        return txManager(t).lockManager();
     }
 
     /**

@@ -18,42 +18,42 @@
 package org.apache.ignite.internal.table.distributed.command;
 
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
-import org.apache.ignite.lang.IgniteUuid;
+import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.raft.client.WriteCommand;
 
-/** State machine command to finish a transaction. */
-public class FinishTxCommand implements WriteCommand {
-    /** Transaction id. */
-    private final UUID txId;
+/**
+ * State machine command to finish the transaction on commit or rollback.
+ */
+public class FinishTxCommand extends PartitionCommand implements WriteCommand {
+    /**
+     * Commit or rollback state.
+     */
+    private final boolean commit;
 
-    /** Commit or rollback state. */
-    private final boolean finish;
+    /**
+     * Transaction commit timestamp.
+     */
+    private final HybridTimestamp commitTimestamp;
 
-    /** Keys that are locked by the transaction. */
-    private Map<IgniteUuid, List<byte[]>> lockedKeys;
+    /**
+     * Replication groups ids.
+     */
+    private final List<String> replicationGroupIds;
 
     /**
      * The constructor.
      *
-     * @param txId          The txId.
-     * @param finish        Commit or rollback state {@code True} to commit.
-     * @param lockedKeys    Keys that are locked by the transaction. Mapping: lockId (tableId) -> keys.
+     * @param txId The txId.
+     * @param commit Commit or rollback state {@code True} to commit.
+     * @param commitTimestamp Transaction commit timestamp.
+     * @param replicationGroupIds Set of replication groups ids.
      */
-    public FinishTxCommand(UUID txId, boolean finish, Map<IgniteUuid, List<byte[]>> lockedKeys) {
-        this.txId = txId;
-        this.finish = finish;
-        this.lockedKeys = lockedKeys;
-    }
-
-    /**
-     * Returns a timestamp.
-     *
-     * @return The timestamp.
-     */
-    public UUID txId() {
-        return txId;
+    public FinishTxCommand(UUID txId, boolean commit, HybridTimestamp commitTimestamp, List<String> replicationGroupIds) {
+        super(txId);
+        this.commit = commit;
+        this.commitTimestamp = commitTimestamp;
+        this.replicationGroupIds = replicationGroupIds;
     }
 
     /**
@@ -61,16 +61,25 @@ public class FinishTxCommand implements WriteCommand {
      *
      * @return Commit or rollback state.
      */
-    public boolean finish() {
-        return finish;
+    public boolean commit() {
+        return commit;
     }
 
     /**
-     * Returns keys that are locked by the transaction.
+     * Returns transaction commit timestamp.
      *
-     * @return Keys that are locked by the transaction.
+     * @return Transaction commit timestamp.
      */
-    public Map<IgniteUuid, List<byte[]>> lockedKeys() {
-        return lockedKeys;
+    public HybridTimestamp commitTimestamp() {
+        return commitTimestamp;
+    }
+
+    /**
+     * Returns ordered replication groups ids.
+     *
+     * @return Ordered replication groups ids.
+     */
+    public List<String> replicationGroupIds() {
+        return replicationGroupIds;
     }
 }

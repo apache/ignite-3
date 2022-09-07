@@ -19,24 +19,36 @@ package org.apache.ignite.internal.table.distributed.command;
 
 import java.util.Collection;
 import java.util.UUID;
-import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * The command deletes entries by the passed keys.
+ * The command deletes entries by the passed row ids.
  */
-public class DeleteAllCommand extends MultiKeyCommand implements WriteCommand {
+public class DeleteAllCommand extends PartitionCommand implements WriteCommand {
+    /** Ids of the rows that will be deleted. */
+    private final Collection<RowId> rowIds;
+
     /**
      * Creates a new instance of DeleteAllCommand with the given set of keys to be deleted. The {@code keyRows} should not be {@code null}
      * or empty.
      *
-     * @param keyRows   Collection of binary row keys to be deleted.
-     * @param txId      Transaction id.
-     *
-     * @see TransactionalCommand
+     * @param rowIds Collection of row ids to be deleted.
+     * @param txId   Transaction id.
+     * @see PartitionCommand
      */
-    public DeleteAllCommand(@NotNull Collection<BinaryRow> keyRows, @NotNull UUID txId) {
-        super(keyRows, txId);
+    public DeleteAllCommand(@NotNull Collection<RowId> rowIds, @NotNull UUID txId) {
+        super(txId);
+        this.rowIds = rowIds;
+    }
+
+    /**
+     * Gets rows that will be deleted.
+     *
+     * @return Row ids.
+     */
+    public Collection<RowId> getRowIds() {
+        return rowIds;
     }
 }
