@@ -425,6 +425,7 @@ public class RocksDbTableStorage implements MvTableStorage {
             return CompletableFuture.completedFuture(null);
         }
 
+        //TODO IGNITE-17626 Destroy indexes as well...
         mvPartition.destroy();
 
         // Wait for the data to actually be removed from the disk and close the storage.

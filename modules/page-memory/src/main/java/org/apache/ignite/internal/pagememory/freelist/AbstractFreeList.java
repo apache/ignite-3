@@ -83,8 +83,6 @@ public abstract class AbstractFreeList<T extends Storable> extends PagesList imp
     /** Page eviction tracker. */
     protected final PageEvictionTracker evictionTracker;
 
-    private final PageHandler<T, Boolean> updateRow = new UpdateRowHandler();
-
     /** Write a single row on a single page. */
     private final WriteRowHandler writeRowHnd = new WriteRowHandler();
 
@@ -92,31 +90,6 @@ public abstract class AbstractFreeList<T extends Storable> extends PagesList imp
     private final WriteRowsHandler writeRowsHnd = new WriteRowsHandler();
 
     private final PageHandler<ReuseBag, Long> rmvRow;
-
-    private final class UpdateRowHandler implements PageHandler<T, Boolean> {
-        /** {@inheritDoc} */
-        @Override
-        public Boolean run(
-                int cacheId,
-                long pageId,
-                long page,
-                long pageAddr,
-                PageIo iox,
-                T row,
-                int itemId,
-                IoStatisticsHolder statHolder
-        ) throws IgniteInternalCheckedException {
-            AbstractDataPageIo<T> io = (AbstractDataPageIo<T>) iox;
-
-            int rowSize = row.size();
-
-            boolean updated = io.updateRow(pageAddr, itemId, pageSize(), null, row, rowSize);
-
-            evictionTracker.touchPage(pageId);
-
-            return updated;
-        }
-    }
 
     private class WriteRowHandler implements PageHandler<T, Integer> {
         /** {@inheritDoc} */
@@ -719,33 +692,6 @@ public abstract class AbstractFreeList<T extends Storable> extends PagesList imp
             }
         } finally {
             releasePage(reusedPageId, reusedPage);
-        }
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public boolean updateDataRow(
-            long link,
-            T row,
-            IoStatisticsHolder statHolder
-    ) throws IgniteInternalCheckedException {
-        assert link != 0;
-
-        try {
-            long pageId = pageId(link);
-            int itemId = itemId(link);
-
-            Boolean updated = write(pageId, updateRow, row, itemId, null, statHolder);
-
-            assert updated != null; // Can't fail here.
-
-            return updated;
-        } catch (AssertionError e) {
-            throw corruptedFreeListException(e);
-        } catch (IgniteInternalCheckedException | Error e) {
-            throw e;
-        } catch (Throwable t) {
-            throw new CorruptedFreeListException("Failed to update data row", t, grpId);
         }
     }
 

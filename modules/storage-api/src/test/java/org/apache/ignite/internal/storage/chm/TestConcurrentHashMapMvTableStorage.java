@@ -137,7 +137,12 @@ public class TestConcurrentHashMapMvTableStorage implements MvTableStorage {
     @Override
     public CompletableFuture<Void> destroyIndex(UUID indexId) {
         sortedIndicesById.remove(indexId);
-        hashIndicesById.remove(indexId);
+
+        HashIndices hashIndex = hashIndicesById.remove(indexId);
+
+        if (hashIndex != null) {
+            hashIndex.storageByPartitionId.values().forEach(HashIndexStorage::destroy);
+        }
 
         return CompletableFuture.completedFuture(null);
     }
