@@ -144,6 +144,9 @@ public abstract class AbstractIndexScan extends ProjectableFilterableTableScan {
 
             cost = 0;
 
+            // for hash index both bounds are set to the same search row
+            // because only lookup is possible. So if either bound is null,
+            // then there will be a full index scan.
             if (type == Type.HASH && lowerBound() != null) {
                 cost += IgniteCost.HASH_LOOKUP_COST;
 

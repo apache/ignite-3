@@ -357,9 +357,7 @@ public class RexUtils {
             toTrimmedRowMapping = Commons.mapping(requiredColumns, rowType.getFieldCount());
         }
 
-        for (int i = 0; i < indexedColumns.size(); i++) {
-            String columnName = indexedColumns.get(i);
-
+        for (String columnName : indexedColumns) {
             RelDataTypeField field = rowType.getField(columnName, true, false);
 
             if (field == null) {

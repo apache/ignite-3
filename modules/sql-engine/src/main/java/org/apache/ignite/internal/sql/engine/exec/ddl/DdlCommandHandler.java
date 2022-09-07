@@ -53,7 +53,6 @@ import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterTableAddCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterTableDropCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.ColumnDefinition;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateIndexCommand;
-import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateIndexCommand.Type;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateTableCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DefaultValueDefinition.ConstantValue;
@@ -232,12 +231,17 @@ public class DdlCommandHandler {
     /** Handles create index command. */
     private CompletableFuture<Boolean> handleCreateIndex(CreateIndexCommand cmd) {
         Consumer<TableIndexChange> indexChanger = tableIndexChange -> {
-            if (cmd.type() == Type.SORTED) {
-                createSortedIndexInternal(cmd, tableIndexChange.convert(SortedIndexChange.class));
-            } else if (cmd.type() == Type.HASH) {
-                createHashIndexInternal(cmd, tableIndexChange.convert(HashIndexChange.class));
-            } else {
-                throw new AssertionError("Unknown index type [type=" + cmd.type() + "]");
+            switch (cmd.type()) {
+                case SORTED:
+                    createSortedIndexInternal(cmd, tableIndexChange.convert(SortedIndexChange.class));
+
+                    break;
+                case HASH:
+                    createHashIndexInternal(cmd, tableIndexChange.convert(HashIndexChange.class));
+
+                    break;
+                default:
+                    throw new AssertionError("Unknown index type [type=" + cmd.type() + "]");
             }
         };
 
