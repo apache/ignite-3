@@ -79,7 +79,7 @@ namespace Apache.Ignite.Tests.Table.Serialization
         [Test]
         public void TestReadKeyOnly()
         {
-            var reader = WriteAndGetReader();
+            var reader = WriteAndGetReader(true);
             var resPoco = new ObjectSerializerHandler<Poco>().Read(ref reader, Schema, keyOnly: true);
 
             Assert.AreEqual(1234, resPoco.Key);
