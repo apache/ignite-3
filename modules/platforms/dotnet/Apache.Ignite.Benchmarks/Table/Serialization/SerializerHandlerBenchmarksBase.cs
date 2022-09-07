@@ -63,7 +63,7 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
         {
             var bytesWritten = pooledWriter.GetWrittenMemory().Length;
 
-            if (bytesWritten != 29)
+            if (bytesWritten != 31)
             {
                 throw new Exception("Unexpected number of bytes written: " + bytesWritten);
             }

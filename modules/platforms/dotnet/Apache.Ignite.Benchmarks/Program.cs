@@ -24,7 +24,7 @@ namespace Apache.Ignite.Benchmarks
     {
         private static void Main()
         {
-            BenchmarkRunner.Run<SerializerHandlerReadBenchmarks>();
+            BenchmarkRunner.Run<SerializerHandlerWriteBenchmarks>();
         }
     }
 }
