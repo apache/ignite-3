@@ -27,7 +27,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -35,21 +34,16 @@ import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.apache.calcite.rel.RelCollations;
-import org.apache.calcite.rel.RelFieldCollation;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.internal.causality.VersionedValue;
 import org.apache.ignite.internal.index.Index;
-import org.apache.ignite.internal.index.IndexDescriptor;
-import org.apache.ignite.internal.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.DefaultValueProvider;
 import org.apache.ignite.internal.schema.DefaultValueProvider.Type;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaRegistry;
-import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -373,32 +367,6 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         );
     }
 
-    private IgniteIndex convert(Index<?> index, SchemaRegistry schemaRegistry, IgniteTable table) {
-        IndexDescriptor desc = index.descriptor();
-        SchemaDescriptor schema = schemaRegistry.schema();
-
-        assert table != null;
-
-        if (desc instanceof SortedIndexDescriptor) {
-            List<RelFieldCollation> collations = desc.columns().stream().map(colName ->
-                    TraitUtils.createFieldCollation(
-                            schema.column(colName).columnOrder(),
-                            Objects.requireNonNull(
-                                    ((SortedIndexDescriptor) desc).collation(
-                                            colName))
-                    )
-            ).collect(Collectors.toList());
-
-            return new IgniteIndex(RelCollations.of(collations), index.name(), (InternalIgniteTable) table);
-        }
-
-        List<RelFieldCollation> collations = desc.columns().stream().map(colName ->
-                TraitUtils.createFieldCollation(schema.column(colName).columnOrder())
-        ).collect(Collectors.toList());
-
-        return new IgniteIndex(RelCollations.of(collations), index.name(), (InternalIgniteTable) table);
-    }
-
     private DefaultValueStrategy convertDefaultValueProvider(DefaultValueProvider defaultValueProvider) {
         return defaultValueProvider.type() == Type.CONSTANT
                 ? DefaultValueStrategy.DEFAULT_CONSTANT
@@ -447,9 +415,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                             InternalIgniteTable table = resTbls.compute(index.tableId(),
                                     (k, v) -> IgniteTableImpl.copyOf((IgniteTableImpl) v));
 
-                            CompletableFuture<IgniteIndex> igniteIndexFuture = schemaManager
-                                    .schemaRegistry(causalityToken, index.tableId())
-                                    .thenApply(reg -> convert(index, reg, table));
+                            IgniteIndex schemaIndex = new IgniteIndex(index);
 
                             return indicesVv.update(
                                     causalityToken,
@@ -460,25 +426,17 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
                                         Map<UUID, IgniteIndex> resIdxs = new HashMap<>(indices);
 
-                                        return igniteIndexFuture
-                                                .thenApply(igniteIndex -> {
-                                                    resIdxs.put(index.id(), igniteIndex);
+                                        resIdxs.put(index.id(), schemaIndex);
 
-                                                    return resIdxs;
-                                                });
+                                        return CompletableFuture.completedFuture(resIdxs);
                                     })
-                            ).thenCombine(
-                                    igniteIndexFuture,
-                                    (v, igniteIndex) -> inBusyLock(busyLock, () -> {
-                                        String tblName = tableNameById(schema, index.tableId());
+                            ).thenRun(() -> inBusyLock(busyLock, () -> {
+                                String tblName = tableNameById(schema, index.tableId());
 
-                                        table.addIndex(igniteIndex);
-                                        schema.addTable(tblName, (InternalIgniteTable) table);
-                                        schema.addIndex(index.id(), igniteIndex);
-
-                                        return v;
-                                    })
-                            ).thenCompose(v -> inBusyLock(busyLock, () -> completedFuture(resTbls)));
+                                table.addIndex(schemaIndex);
+                                schema.addTable(tblName, table);
+                                schema.addIndex(index.id(), schemaIndex);
+                            })).thenCompose(ignored -> inBusyLock(busyLock, () -> completedFuture(resTbls)));
                         })
                 ).thenCompose(v -> inBusyLock(busyLock, () -> completedFuture(res)));
             }));
@@ -533,7 +491,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
                                 Map<UUID, InternalIgniteTable> resTbls = new HashMap<>(tables);
 
-                                InternalIgniteTable table = resTbls.compute(rmvIndex.table().id(),
+                                InternalIgniteTable table = resTbls.compute(rmvIndex.index().tableId(),
                                         (k, v) -> IgniteTableImpl.copyOf((IgniteTableImpl) v));
 
                                 table.removeIndex(rmvIndex.name());
@@ -547,9 +505,9 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
                                             IgniteIndex rmvIdx = resIdxs.remove(indexId);
 
-                                            assert table.id().equals(rmvIdx.table().id());
+                                            assert table.id().equals(rmvIdx.index().tableId());
 
-                                            String tblName = tableNameById(schema, rmvIdx.table().id());
+                                            String tblName = tableNameById(schema, rmvIdx.index().tableId());
                                             schema.addTable(tblName, table);
 
                                             return completedFuture(resIdxs);

@@ -58,6 +58,7 @@ import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
 import org.apache.ignite.internal.sql.engine.schema.ModifyRow.Operation;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.RewindabilityTrait;
+import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
@@ -192,10 +193,14 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
             RexNode condition,
             ImmutableBitSet requiredCols
     ) {
+        IgniteIndex index = getIndex(idxName);
+
+        RelCollation collation = TraitUtils.createCollation(index.columns(), index.collations(), descriptor());
+
         RelTraitSet traitSet = cluster.traitSetOf(Convention.Impl.NONE)
                 .replace(distribution())
                 .replace(RewindabilityTrait.REWINDABLE)
-                .replace(getIndex(idxName).collation());
+                .replace(collation);
 
         return IgniteLogicalIndexScan.create(cluster, traitSet, relOptTable, idxName, proj, condition, requiredCols);
     }

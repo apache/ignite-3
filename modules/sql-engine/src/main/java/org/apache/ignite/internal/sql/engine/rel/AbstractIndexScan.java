@@ -32,6 +32,8 @@ import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexUtil;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCost;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.util.IndexConditions;
 import org.jetbrains.annotations.Nullable;
 
@@ -43,6 +45,8 @@ public abstract class AbstractIndexScan extends ProjectableFilterableTableScan {
 
     protected final IndexConditions idxCond;
 
+    protected final IgniteIndex.Type type;
+
     /**
      * Constructor used for deserialization.
      *
@@ -51,6 +55,7 @@ public abstract class AbstractIndexScan extends ProjectableFilterableTableScan {
     protected AbstractIndexScan(RelInput input) {
         super(input);
         idxName = input.getString("index");
+        type = input.getEnum("type", IgniteIndex.Type.class);
         idxCond = new IndexConditions(input);
     }
 
@@ -64,6 +69,7 @@ public abstract class AbstractIndexScan extends ProjectableFilterableTableScan {
             List<RelHint> hints,
             RelOptTable table,
             String idxName,
+            IgniteIndex.Type type,
             @Nullable List<RexNode> proj,
             @Nullable RexNode cond,
             @Nullable IndexConditions idxCond,
@@ -72,6 +78,7 @@ public abstract class AbstractIndexScan extends ProjectableFilterableTableScan {
         super(cluster, traitSet, hints, table, proj, cond, reqColumns);
 
         this.idxName = idxName;
+        this.type = type;
         this.idxCond = idxCond;
     }
 
@@ -79,6 +86,7 @@ public abstract class AbstractIndexScan extends ProjectableFilterableTableScan {
     @Override
     protected RelWriter explainTerms0(RelWriter pw) {
         pw = pw.item("index", idxName);
+        pw = pw.item("type", type.name());
         pw = super.explainTerms0(pw);
 
         return idxCond.explainTerms(pw);
@@ -136,18 +144,27 @@ public abstract class AbstractIndexScan extends ProjectableFilterableTableScan {
 
             cost = 0;
 
-            if (lowerCondition() != null) {
-                double selectivity0 = mq.getSelectivity(this, RexUtil.composeConjunction(builder, lowerCondition()));
+            // for hash index both bounds are set to the same search row
+            // because only lookup is possible. So if either bound is null,
+            // then there will be a full index scan.
+            if (type == Type.HASH && lowerBound() != null) {
+                cost += IgniteCost.HASH_LOOKUP_COST;
 
-                selectivity -= 1 - selectivity0;
+                selectivity -= 1 - mq.getSelectivity(this, RexUtil.composeConjunction(builder, List.of(condition)));
+            } else if (type == Type.SORTED) {
+                if (lowerCondition() != null) {
+                    double selectivity0 = mq.getSelectivity(this, RexUtil.composeConjunction(builder, lowerCondition()));
 
-                cost += Math.log(rows);
-            }
+                    selectivity -= 1 - selectivity0;
 
-            if (upperCondition() != null && lowerCondition() != null && !lowerCondition().equals(upperCondition())) {
-                double selectivity0 = mq.getSelectivity(this, RexUtil.composeConjunction(builder, upperCondition()));
+                    cost += Math.log(rows);
+                }
 
-                selectivity -= 1 - selectivity0;
+                if (upperCondition() != null && lowerCondition() != null && !lowerCondition().equals(upperCondition())) {
+                    double selectivity0 = mq.getSelectivity(this, RexUtil.composeConjunction(builder, upperCondition()));
+
+                    selectivity -= 1 - selectivity0;
+                }
             }
 
             rows *= selectivity;

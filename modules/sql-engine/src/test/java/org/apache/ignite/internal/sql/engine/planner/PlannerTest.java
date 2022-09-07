@@ -101,7 +101,7 @@ public class PlannerTest extends AbstractPlannerTest {
                         .build()) {
             @Override
             public IgniteIndex getIndex(String idxName) {
-                return new IgniteIndex(null, null, null);
+                throw new AssertionError("Should not be called");
             }
 
             @Override
@@ -759,7 +759,7 @@ public class PlannerTest extends AbstractPlannerTest {
             }
         };
 
-        emp.addIndex(new IgniteIndex(RelCollations.of(ImmutableIntList.of(1, 2)), "emp_idx", emp));
+        emp.addIndex(new IgniteIndex(TestSortedIndex.create(RelCollations.of(ImmutableIntList.of(1, 2)), "emp_idx", emp)));
 
         TestTable dept = new TestTable(
                 new RelDataTypeFactory.Builder(f)
@@ -773,7 +773,7 @@ public class PlannerTest extends AbstractPlannerTest {
             }
         };
 
-        dept.addIndex(new IgniteIndex(RelCollations.of(ImmutableIntList.of(1, 0)), "dep_idx", dept));
+        dept.addIndex(new IgniteIndex(TestSortedIndex.create(RelCollations.of(ImmutableIntList.of(1, 0)), "dep_idx", dept)));
 
         IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
 
