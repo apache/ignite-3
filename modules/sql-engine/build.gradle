@@ -1,0 +1,138 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+
+import fmpp.setting.Settings
+
+buildscript {
+    dependencies {
+        classpath group: 'net.sourceforge.fmpp', name: 'fmpp', version: '0.9.16'
+    }
+}
+
+plugins {
+    alias(libs.plugins.javacc)
+    id 'idea'
+}
+
+apply from: "$rootDir/buildscripts/java-library.gradle"
+apply from: "$rootDir/buildscripts/java-junit5.gradle"
+
+description = 'ignite-sql-engine'
+
+configurations {
+    calcite
+}
+
+dependencies {
+    implementation project(':ignite-core')
+    implementation project(':ignite-api')
+    implementation project(':ignite-network')
+    implementation project(':ignite-index')
+    implementation project(':ignite-table')
+    implementation project(':ignite-storage-api')
+    implementation project(':ignite-schema')
+    implementation project(':ignite-transactions')
+    implementation libs.jetbrains.annotations
+    implementation libs.fastutil.core
+    implementation libs.caffeine
+    api libs.calcite.core
+    implementation libs.calcite.linq4j
+    implementation libs.value.annotations
+    implementation libs.janino.compiler
+    implementation libs.janino.core
+    implementation libs.calcite.avatica
+    implementation libs.jackson.core
+    implementation libs.jackson.databind
+    implementation libs.jackson.annotations
+    implementation libs.jsonpath.core
+    implementation libs.classgraph
+    implementation libs.javassist
+    implementation libs.esri.geometry
+    implementation libs.checker.qual
+
+    annotationProcessor project(':ignite-network-annotation-processor')
+    annotationProcessor libs.value.annotation.processor
+
+    testAnnotationProcessor project(':ignite-network-annotation-processor')
+    testAnnotationProcessor libs.value.annotation.processor
+    testImplementation project(':ignite-core')
+    testImplementation project(':ignite-baseline')
+    testImplementation project(':ignite-extended-api')
+    testImplementation project(':ignite-metastorage')
+    testImplementation project(':ignite-raft')
+    testImplementation project(':ignite-raft-client')
+    testImplementation project(':ignite-configuration')
+    testImplementation project(':ignite-storage-api')
+    testImplementation project(':ignite-storage-rocksdb')
+    testImplementation(testFixtures(project(':ignite-core')))
+    testImplementation(testFixtures(project(':ignite-configuration')))
+    testImplementation(testFixtures(project(':ignite-storage-api')))
+    testImplementation libs.mockito.junit
+    testImplementation libs.mockito.core
+    testImplementation libs.mockito.inline
+    testImplementation libs.hamcrest.core
+    testImplementation libs.slf4j.jdk14
+
+    calcite(libs.calcite.core)
+}
+
+task copyFmppResources(type: Copy) {
+    from("$rootDir/modules/sql-engine/src/main/codegen")
+    into("$buildDir/codegen")
+}
+
+task extractParserTemplate(type: Copy) {
+    from({ zipTree(configurations.calcite.files[0]) }) {
+        include 'codegen/templates/Parser.jj'
+    }
+    into("${buildDir}")
+}
+
+task generateFmppSources() {
+    doLast {
+        Settings settings = new Settings(temporaryDir)
+        settings.set("sourceRoot", file("${buildDir}/codegen/templates").absolutePath)
+        settings.set("outputRoot", file("$buildDir/generated-sources/fmpp").absolutePath)
+
+        settings.load(file("${buildDir}/codegen/config.fmpp"))
+        settings.execute()
+    }
+}
+
+
+javacc {
+    configs {
+        template {
+            inputFile = file("${buildDir}/generated-sources/fmpp/javacc/Parser.jj")
+            outputDir = file("${buildDir}/generated-sources/javacc")
+            packageName = 'org.apache.ignite.internal.generated.query.calcite.sql'
+            lookahead = 2
+            staticParam = false
+        }
+    }
+}
+
+extractParserTemplate.dependsOn copyFmppResources
+generateFmppSources.dependsOn extractParserTemplate
+javaccTemplate.dependsOn generateFmppSources
+compileJava.dependsOn javaccTemplate
+
+idea.module {
+    sourceDirs += file("${buildDir}/generated-sources/javacc")
+}
+

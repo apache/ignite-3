@@ -115,9 +115,9 @@ public class TestUtils {
 
     public static RpcRequests.PingRequest createPingRequest() {
         return new RaftMessagesFactory()
-            .pingRequest()
-            .sendTimestamp(System.currentTimeMillis())
-            .build();
+                .pingRequest()
+                .sendTimestamp(System.currentTimeMillis())
+                .build();
     }
 
     public static final int INIT_PORT = 5003;
@@ -199,9 +199,9 @@ public class TestUtils {
      */
     public static void assertAllJraftThreadsStopped() {
         assertTrue(waitForCondition(() -> Thread.getAllStackTraces().keySet().stream().
-                noneMatch(t -> t.getName().contains("JRaft")), 5_000),
-            Thread.getAllStackTraces().keySet().stream().filter(t -> t.getName().contains("JRaft")).
-                sorted(comparing(Thread::getName)).collect(toList()).toString());
+                        noneMatch(t -> t.getName().contains("JRaft")), 5_000),
+                Thread.getAllStackTraces().keySet().stream().filter(t -> t.getName().contains("JRaft")).
+                        sorted(comparing(Thread::getName)).collect(toList()).toString());
     }
 
     /**
