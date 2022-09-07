@@ -198,7 +198,6 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <returns>Value.</returns>
         public object? GetObject(int index, ClientDataType columnType)
         {
-            // TODO IGNITE-17297 Seek only once.
             if (IsNull(index))
             {
                 return null;
