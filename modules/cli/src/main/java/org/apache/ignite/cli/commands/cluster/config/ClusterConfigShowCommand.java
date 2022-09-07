@@ -22,7 +22,7 @@ import java.util.concurrent.Callable;
 import org.apache.ignite.cli.call.configuration.ClusterConfigShowCall;
 import org.apache.ignite.cli.call.configuration.ClusterConfigShowCallInput;
 import org.apache.ignite.cli.commands.BaseCommand;
-import org.apache.ignite.cli.commands.cluster.ClusterUrlOptions;
+import org.apache.ignite.cli.commands.cluster.ClusterUrlProfileMixin;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.cli.core.exception.handler.ShowConfigExceptionHandler;
 import org.apache.ignite.cli.decorators.JsonDecorator;
@@ -39,7 +39,7 @@ public class ClusterConfigShowCommand extends BaseCommand implements Callable<In
      * Cluster endpoint URL option.
      */
     @Mixin
-    private ClusterUrlOptions clusterUrl;
+    private ClusterUrlProfileMixin clusterUrl;
 
     /** Configuration selector option. */
     @Parameters(arity = "0..1", description = "Configuration path selector")

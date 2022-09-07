@@ -17,27 +17,24 @@
 
 package org.apache.ignite.cli.commands.cliconfig;
 
-import static org.apache.ignite.cli.commands.OptionsConstants.PROFILE_OPTION;
-import static org.apache.ignite.cli.commands.OptionsConstants.PROFILE_OPTION_DESC;
-import static org.apache.ignite.cli.commands.OptionsConstants.PROFILE_OPTION_SHORT;
-
 import jakarta.inject.Inject;
 import java.util.concurrent.Callable;
 import org.apache.ignite.cli.call.cliconfig.CliConfigShowCall;
 import org.apache.ignite.cli.commands.BaseCommand;
+import org.apache.ignite.cli.commands.ProfileMixin;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.cli.core.call.StringCallInput;
 import org.apache.ignite.cli.decorators.ProfileDecorator;
 import picocli.CommandLine.Command;
-import picocli.CommandLine.Option;
+import picocli.CommandLine.Mixin;
 
 /**
  * Command to get CLI configuration.
  */
 @Command(name = "show", description = "Shows config")
 public class CliConfigShowCommand extends BaseCommand implements Callable<Integer> {
-    @Option(names = {PROFILE_OPTION, PROFILE_OPTION_SHORT}, description = PROFILE_OPTION_DESC)
-    private String profileName;
+    @Mixin
+    private ProfileMixin profileName;
 
     @Inject
     private CliConfigShowCall call;
@@ -45,7 +42,7 @@ public class CliConfigShowCommand extends BaseCommand implements Callable<Intege
     @Override
     public Integer call() {
         return CallExecutionPipeline.builder(call)
-                .inputProvider(() -> new StringCallInput(profileName))
+                .inputProvider(() -> new StringCallInput(profileName.getProfileName()))
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
                 .decorator(new ProfileDecorator())

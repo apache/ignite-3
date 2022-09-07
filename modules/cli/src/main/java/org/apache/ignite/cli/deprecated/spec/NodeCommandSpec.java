@@ -32,12 +32,15 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
+import java.util.stream.Collectors;
 import org.apache.ignite.cli.commands.BaseCommand;
+import org.apache.ignite.cli.core.converters.NetworkAddressConverter;
 import org.apache.ignite.cli.core.style.element.UiElements;
 import org.apache.ignite.cli.deprecated.CliPathsConfigLoader;
 import org.apache.ignite.cli.deprecated.IgniteCliException;
 import org.apache.ignite.cli.deprecated.IgnitePaths;
 import org.apache.ignite.cli.deprecated.builtins.node.NodeManager;
+import org.apache.ignite.network.NetworkAddress;
 import picocli.CommandLine.ArgGroup;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Help.Ansi;
@@ -84,19 +87,19 @@ public class NodeCommandSpec {
             private ConfigArguments args;
 
             /** Path to node config. */
-            @Option(names = "--config", description = "Configuration file to start the node with")
+            @Option(names = {"-c", "--config"}, description = "Configuration file to start the node with")
             private Path configPath;
         }
 
         private static class ConfigArguments {
-            @Option(names = "--port", description = "Node port")
+            @Option(names = {"-p", "--port"}, description = "Node port")
             private Integer port;
 
-            @Option(names = "--rest-port", description = "REST port")
+            @Option(names = {"-r", "--rest-port"}, description = "REST port")
             private Integer restPort;
 
-            @Option(names = "--join", description = "Seed nodes", split = ",")
-            private String[] seedNodes;
+            @Option(names = {"-j", "--join"}, description = "Seed nodes", split = ",", converter = NetworkAddressConverter.class)
+            private NetworkAddress[] seedNodes;
         }
 
         /** {@inheritDoc} */
@@ -141,7 +144,10 @@ public class NodeCommandSpec {
                 configMap.put("network.port", configOptions.args.port);
             }
             if (configOptions.args.seedNodes != null) {
-                configMap.put("network.nodeFinder.netClusterNodes", Arrays.asList(configOptions.args.seedNodes));
+                List<String> strings = Arrays.stream(configOptions.args.seedNodes)
+                        .map(NetworkAddress::toString)
+                        .collect(Collectors.toList());
+                configMap.put("network.nodeFinder.netClusterNodes", strings);
             }
             if (configOptions.args.restPort != null) {
                 configMap.put("rest.port", configOptions.args.restPort);

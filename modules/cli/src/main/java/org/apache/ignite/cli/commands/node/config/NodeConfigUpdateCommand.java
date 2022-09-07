@@ -22,7 +22,7 @@ import java.util.concurrent.Callable;
 import org.apache.ignite.cli.call.configuration.NodeConfigUpdateCall;
 import org.apache.ignite.cli.call.configuration.NodeConfigUpdateCallInput;
 import org.apache.ignite.cli.commands.BaseCommand;
-import org.apache.ignite.cli.commands.node.NodeUrlOptions;
+import org.apache.ignite.cli.commands.node.NodeUrlProfileMixin;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
@@ -35,7 +35,7 @@ import picocli.CommandLine.Parameters;
 public class NodeConfigUpdateCommand extends BaseCommand implements Callable<Integer> {
     /** Node URL option. */
     @Mixin
-    private NodeUrlOptions nodeUrl;
+    private NodeUrlProfileMixin nodeUrl;
 
     /** Configuration that will be updated. */
     @Parameters(index = "0")

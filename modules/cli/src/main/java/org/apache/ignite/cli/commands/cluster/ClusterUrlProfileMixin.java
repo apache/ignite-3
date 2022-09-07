@@ -15,50 +15,41 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.commands.node;
-
-import static org.apache.ignite.cli.commands.OptionsConstants.NODE_URL_DESC;
-import static org.apache.ignite.cli.commands.OptionsConstants.NODE_URL_OPTION;
-import static org.apache.ignite.cli.commands.OptionsConstants.PROFILE_OPTION;
-import static org.apache.ignite.cli.commands.OptionsConstants.PROFILE_OPTION_DESC;
-import static org.apache.ignite.cli.commands.OptionsConstants.PROFILE_OPTION_SHORT;
+package org.apache.ignite.cli.commands.cluster;
 
 import jakarta.inject.Inject;
+import org.apache.ignite.cli.commands.ProfileMixin;
 import org.apache.ignite.cli.config.ConfigConstants;
 import org.apache.ignite.cli.config.ConfigManager;
 import org.apache.ignite.cli.config.ConfigManagerProvider;
-import picocli.CommandLine.Option;
+import picocli.CommandLine.Mixin;
 
 /**
- * Helper class to combine node URL and profile options.
+ * Mixin class to combine cluster URL and profile options.
  */
-public class NodeUrlOptions {
-    /**
-     * Node URL option.
-     */
-    @Option(names = {NODE_URL_OPTION}, description = NODE_URL_DESC)
-    private String nodeUrl;
+public class ClusterUrlProfileMixin {
+    /** Cluster endpoint URL option. */
+    @Mixin
+    private ClusterUrlMixin clusterUrl;
 
-    /**
-     * Profile to get default values from.
-     */
-    @Option(names = {PROFILE_OPTION, PROFILE_OPTION_SHORT}, description = PROFILE_OPTION_DESC)
-    private String profileName;
+    /** Profile to get default values from. */
+    @Mixin
+    private ProfileMixin profileName;
 
     @Inject
     private ConfigManagerProvider configManagerProvider;
 
     /**
-     * Gets node URL from either the command line or from the config with specified or default profile.
+     * Gets cluster URL from either the command line or from the config with specified or default profile.
      *
-     * @return node URL
+     * @return cluster URL
      */
-    public String getNodeUrl() {
-        if (nodeUrl != null) {
-            return nodeUrl;
+    public String getClusterUrl() {
+        if (clusterUrl.getClusterUrl() != null) {
+            return clusterUrl.getClusterUrl();
         } else {
             ConfigManager configManager = configManagerProvider.get();
-            return configManager.getProperty(ConfigConstants.CLUSTER_URL, profileName);
+            return configManager.getProperty(ConfigConstants.CLUSTER_URL, profileName.getProfileName());
         }
     }
 }
