@@ -56,7 +56,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="totalValueSize">Total value size, -1 when unknown.</param>
         public BinaryTupleBuilder(int numElements, bool allowNulls = true, int totalValueSize = -1)
         {
-            Debug.Assert(numElements > 0, "numElements > 0");
+            Debug.Assert(numElements >= 0, "numElements >= 0");
 
             _numElements = numElements;
             _buffer = new();
