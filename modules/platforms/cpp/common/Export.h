@@ -15,25 +15,14 @@
  * limitations under the License.
  */
 
-#include "ignite/ignite_client.h"
+#pragma once
 
-#include "ignite_client_impl.h"
-
-namespace ignite
-{
-
-std::future<IgniteClient> IgniteClient::startAsync(IgniteClientConfiguration configuration)
-{
-    return std::async(std::launch::async, [cfg = std::move(configuration)] () mutable {
-        auto impl = std::make_shared<impl::IgniteClientImpl>(std::move(cfg));
-
-        impl->start();
-
-        return IgniteClient(std::move(impl));
-    });
-}
-
-IgniteClient::IgniteClient(std::shared_ptr<void> impl) :
-    m_impl(std::move(impl)) { }
-
-} // namespace ignite
+#ifdef _WIN32
+#    ifdef IGNITE_EXPORTS
+#        define IGNITE_API __declspec(dllexport)
+#    else
+#        define IGNITE_API __declspec(dllimport)
+#    endif
+#elif
+#    define IGNITE_API
+#endif

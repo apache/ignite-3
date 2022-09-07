@@ -20,15 +20,11 @@
 #include <future>
 #include <memory>
 
+#include "common/export.h"
 #include <ignite/ignite_client_configuration.h>
 
 namespace ignite
 {
-
-namespace impl
-{
-class IgniteClientImpl;
-}
 
 /**
  * Ignite client.
@@ -65,7 +61,7 @@ public:
      * @param configuration Client configuration.
      * @return Future with either Ignite client or exception.
      */
-    static std::future<IgniteClient> startAsync(IgniteClientConfiguration configuration);
+    IGNITE_API static std::future<IgniteClient> startAsync(IgniteClientConfiguration configuration);
 
 private:
     /**
@@ -73,10 +69,10 @@ private:
      *
      * @param impl Implementation
      */
-    explicit IgniteClient(std::unique_ptr<impl::IgniteClientImpl> impl);
+    explicit IgniteClient(std::shared_ptr<void> impl);
 
     /** Implementation. */
-    std::unique_ptr<impl::IgniteClientImpl> m_impl;
+    std::shared_ptr<void> m_impl;
 };
 
 } // namespace ignite

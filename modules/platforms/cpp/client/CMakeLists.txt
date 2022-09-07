@@ -36,6 +36,10 @@ if (WIN32)
     set_target_properties(${TARGET} PROPERTIES OUTPUT_NAME "ignite-client")
 endif()
 
+if (WIN32)
+    add_definitions(-DIGNITE_EXPORTS)
+endif()
+
 target_link_libraries(${TARGET} ignite-common ignite-network ignite-protocol)
 
 target_include_directories(${TARGET} INTERFACE include)

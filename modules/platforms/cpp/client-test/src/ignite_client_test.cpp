@@ -20,12 +20,17 @@
 
 #include <gtest/gtest.h>
 
+#include "ignite/ignite_client_configuration.h"
+#include "ignite/ignite_client.h"
+
 #include "ignite_node.h"
+
+using namespace ignite;
 
 class ClientTest : public ::testing::Test {
 protected:
     ClientTest() = default;
-    ~ClientTest() = default;
+    ~ClientTest() override = default;
 
     void SetUp() override
     {
@@ -40,13 +45,45 @@ protected:
     }
 };
 
+class TestLogger : public IgniteLogger
+{
+public:
+    void logError(std::string_view message) override
+    {
+        std::cout << "ERROR:   " << message << std::endl;
+    }
+
+    void logWarning(std::string_view message) override
+    {
+        std::cout << "WARNING: " << message << std::endl;
+    }
+
+    void logInfo(std::string_view message) override
+    {
+        std::cout << "INFO:    " << message << std::endl;
+    }
+
+    void logDebug(std::string_view message) override
+    {
+        std::cout << "DEBUG:   " << message << std::endl;
+    }
+};
+
 TEST_F(ClientTest, TestTest)
 {
-    ignite::IgniteNode node;
+    IgniteNode node;
 
     node.start();
 
+    // TODO: Implement node startup await
     std::this_thread::sleep_for(std::chrono::seconds(20));
+
+    IgniteClientConfiguration cfg{"127.0.0.1:10942"};
+    cfg.setLogger(std::make_shared<TestLogger>());
+
+    std::cout << "Connecting..." << std::endl;
+
+    auto client = IgniteClient::startAsync(cfg).get();
 
     node.stop();
 }
