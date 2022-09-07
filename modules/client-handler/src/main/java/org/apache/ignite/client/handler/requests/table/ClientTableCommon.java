@@ -17,7 +17,6 @@
 
 package org.apache.ignite.client.handler.requests.table;
 
-import static org.apache.ignite.internal.client.proto.ClientMessageCommon.NO_VALUE;
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.TABLE_ID_NOT_FOUND_ERR;
 
@@ -132,7 +131,6 @@ public class ClientTableCommon {
         }
 
         // TODO IGNITE-17297: BinaryTupleBuilder should write directly to the ByteBuf (separate ticket?).
-        // TODO IGNITE-17297: Detect nulls efficiently - how? Probably don't bother here?
         var builder = BinaryTupleBuilder.create(columnCount(schema, part), true);
 
         if (part != TuplePart.VAL) {
@@ -273,6 +271,9 @@ public class ClientTableCommon {
     ) {
         var cnt = keyOnly ? schema.keyColumns().length() : schema.length();
 
+        // NOTE: noValueMask is only present for client -> server communication.
+        // It helps disambiguate two cases: 1 - column value is not set, 2 - column value is set to null explicitly.
+        // If the column has a default value, it should be applied only in case 1.
         var noValueMask = unpacker.unpackBitSet();
 
         // TODO IGNITE-17297: Read from Netty buf directly (easier) OR wrap netty buf in a Tuple impl (may be hard with multiple tuples)
@@ -281,7 +282,6 @@ public class ClientTableCommon {
 
         var tuple = Tuple.create(cnt);
 
-        // TODO: IGNITE-17297 BinaryTuple to Tuple adapter? Separate ticket?
         for (int i = 0; i < cnt; i++) {
             if (noValueMask.get(i)) {
                 continue;
@@ -432,17 +432,10 @@ public class ClientTableCommon {
     }
 
     private static void writeColumnValue(BinaryTupleBuilder builder, Tuple tuple, Column col) {
-        var val = tuple.valueOrDefault(col.name(), NO_VALUE);
+        var val = tuple.valueOrDefault(col.name(), null);
 
         if (val == null) {
             builder.appendNull();
-            return;
-        }
-
-        if (val == NO_VALUE) {
-            // TODO IGNITE-17297: Handle missing (not set) value differently.
-            // TODO: This should not be the case for server -> client!
-            builder.appendDefault();
             return;
         }
 
