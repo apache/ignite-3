@@ -275,11 +275,7 @@ public class ClientTableCommon {
         // It helps disambiguate two cases: 1 - column value is not set, 2 - column value is set to null explicitly.
         // If the column has a default value, it should be applied only in case 1.
         var noValueMask = unpacker.unpackBitSet();
-
-        // TODO IGNITE-17297: Read from Netty buf directly (easier) OR wrap netty buf in a Tuple impl (may be hard with multiple tuples)
-        var binaryTupleBuf = unpacker.readPayload(unpacker.unpackBinaryHeader());
-        var binaryTupleReader = new BinaryTupleReader(cnt, binaryTupleBuf);
-
+        var binaryTupleReader = new BinaryTupleReader(cnt, unpacker.readBinaryUnsafe());
         var tuple = Tuple.create(cnt);
 
         for (int i = 0; i < cnt; i++) {

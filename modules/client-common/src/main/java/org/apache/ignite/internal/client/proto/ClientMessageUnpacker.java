@@ -39,6 +39,8 @@ import static org.msgpack.core.MessagePack.Code;
 import io.netty.buffer.ByteBuf;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -623,6 +625,27 @@ public class ClientMessageUnpacker implements AutoCloseable {
         buf.readBytes(res);
 
         return res;
+    }
+
+    /**
+     * Reads a binary value.
+     * NOTE: Exposes internal pooled buffer to avoid copying. The buffer is not valid after current instance is closed.
+     *
+     * @return Payload bytes.
+     */
+    public ByteBuffer readBinaryUnsafe() {
+        assert refCnt > 0 : "Unpacker is closed";
+
+        var length = unpackBinaryHeader();
+        var idx = buf.readerIndex();
+
+        // Note: this may or may not avoid the actual copy.
+        ByteBuffer byteBuffer = buf.internalNioBuffer(idx, length).slice();
+        byteBuffer.order(ByteOrder.LITTLE_ENDIAN);
+
+        buf.readerIndex(idx + length);
+
+        return byteBuffer;
     }
 
     /**

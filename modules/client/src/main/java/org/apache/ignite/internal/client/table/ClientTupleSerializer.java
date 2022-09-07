@@ -252,10 +252,7 @@ public class ClientTupleSerializer {
 
     static Tuple readValueTuple(ClientSchema schema, ClientMessageUnpacker in, Tuple keyTuple) {
         var tuple = new ClientTuple(schema);
-
-        // TODO IGNITE-17297 Do not allocate array, read from Netty buf directly.
-        var buf = in.readPayload(in.unpackBinaryHeader());
-        var binTuple = new BinaryTupleReader(schema.columns().length - schema.keyColumnCount(), buf);
+        var binTuple = new BinaryTupleReader(schema.columns().length - schema.keyColumnCount(), in.readBinaryUnsafe());
 
         for (var i = 0; i < schema.columns().length; i++) {
             ClientColumn col = schema.columns()[i];
@@ -275,10 +272,7 @@ public class ClientTupleSerializer {
         var colCnt = schema.columns().length;
 
         var valTuple = new ClientTuple(schema, keyColCnt, schema.columns().length - 1);
-
-        // TODO IGNITE-17297: Read from Netty buf directly (easier) OR wrap netty buf in a Tuple impl (may be hard with multiple tuples)
-        var binTupleBuf = in.readPayload(in.unpackBinaryHeader());
-        var binTupleReader = new BinaryTupleReader(colCnt - keyColCnt, binTupleBuf);
+        var binTupleReader = new BinaryTupleReader(colCnt - keyColCnt, in.readBinaryUnsafe());
 
         for (var i = keyColCnt; i < colCnt; i++) {
             ClientColumn col = schema.columns()[i];
