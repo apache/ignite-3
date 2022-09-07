@@ -53,10 +53,3 @@ dependencies {
 }
 
 description = 'ignite-storage-api'
-
-//tasks.register('testsJar', Jar) {
-//    archiveClassifier = 'tests'
-//    from(sourceSets.test.output)
-//}
-//
-//publishing.publications.maven.artifact(testsJar)
