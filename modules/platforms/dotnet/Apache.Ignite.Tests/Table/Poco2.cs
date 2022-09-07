@@ -17,10 +17,10 @@
 
 namespace Apache.Ignite.Tests.Table
 {
-    using System;
-
     public class Poco2
     {
+        public int Id { get; set; }
+
         public sbyte Prop1 { get; set; }
 
         public short Prop2 { get; set; }
@@ -29,16 +29,14 @@ namespace Apache.Ignite.Tests.Table
 
         public long Prop4 { get; set; }
 
-        public Guid Prop5 { get; set; }
+        public float Prop5 { get; set; }
 
-        public string? Prop6 { get; set; }
+        public double Prop6 { get; set; }
 
-        public float Prop7 { get; set; }
+        public long Prop7 { get; set; }
 
-        public double Prop8 { get; set; }
+        public string? Prop8 { get; set; }
 
         public int Prop9 { get; set; }
-
-        public int Prop10 { get; set; }
     }
 }
