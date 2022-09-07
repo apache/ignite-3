@@ -80,7 +80,7 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
             VerifyWritten(pooledWriter);
         }
 
-        [Benchmark]
+        // [Benchmark]
         public void WriteObjectOld()
         {
             using var pooledWriter = new PooledArrayBufferWriter();
