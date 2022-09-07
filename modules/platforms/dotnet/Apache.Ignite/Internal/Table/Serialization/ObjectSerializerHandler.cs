@@ -242,6 +242,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             il.Emit(OpCodes.Ldloc_0); // res
             il.Emit(OpCodes.Ldarg_0); // reader
 
+            // TODO IGNITE-17297 support all use cases, add tests with many fields.
             if (elemIdx == 0)
             {
                 il.Emit(OpCodes.Ldc_I4_0);
