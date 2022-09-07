@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Internal.Proto.BinaryTuple
 {
     using System.Diagnostics;
+    using System.Text;
 
     /// <summary>
     /// Common binary tuple constants and utils.
@@ -38,6 +39,11 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// Flag that indicates null map presence.
         /// </summary>
         public const int NullmapFlag = 0b100;
+
+        /// <summary>
+        /// UTF8 encoding without preamble (as opposed to <see cref="Encoding.UTF8"/>).
+        /// </summary>
+        public static readonly Encoding StringEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
 
         /// <summary>
         /// Calculates flags for a given size of variable-length area.

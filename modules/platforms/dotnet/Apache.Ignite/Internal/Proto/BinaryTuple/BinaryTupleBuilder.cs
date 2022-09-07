@@ -444,10 +444,10 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                 return;
             }
 
-            var maxByteCount = Encoding.UTF8.GetMaxByteCount(value.Length);
+            var maxByteCount = BinaryTupleCommon.StringEncoding.GetMaxByteCount(value.Length);
             var span = _buffer.GetSpan(maxByteCount);
 
-            var actualBytes = Encoding.UTF8.GetBytes(value, span);
+            var actualBytes = BinaryTupleCommon.StringEncoding.GetBytes(value, span);
 
             _buffer.Advance(actualBytes);
         }

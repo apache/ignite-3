@@ -20,7 +20,6 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
     using System;
     using System.Buffers.Binary;
     using System.Diagnostics;
-    using System.Text;
 
     /// <summary>
     /// Binary tuple reader.
@@ -158,7 +157,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         public string GetString(int index) => Seek(index) switch
         {
             { IsEmpty: true } => string.Empty,
-            var s => Encoding.UTF8.GetString(s)
+            var s => BinaryTupleCommon.StringEncoding.GetString(s)
         };
 
         /// <summary>
