@@ -56,6 +56,9 @@ public final class ArrayUtils {
     /** Empty object array. */
     public static final Object[] OBJECT_EMPTY_ARRAY = new Object[0];
 
+    /** Empty string array. */
+    public static final String[] STRING_EMPTY_ARRAY = new String[0];
+
     /** {@code byte} array factory. */
     public static final ArrayFactory<byte[]> BYTE_ARRAY = len -> {
         if (len < 0) {

@@ -64,15 +64,17 @@ import org.apache.calcite.util.TimeString;
 import org.apache.calcite.util.TimestampString;
 import org.apache.ignite.internal.sql.engine.prepare.IgnitePlanner;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
+import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateIndexCommand.Type;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterTableAddColumn;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterTableDropColumn;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateIndex;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateTable;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateTableOption;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropIndex;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlIndexType;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.ArrayUtils;
-import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
@@ -387,8 +389,10 @@ public class DdlSqlToCommandConverter {
         createIdxCmd.schemaName(deriveSchemaName(sqlCmd.tableName(), ctx));
         createIdxCmd.tableName(deriveObjectName(sqlCmd.tableName(), ctx, "table name"));
         createIdxCmd.indexName(sqlCmd.indexName().getSimple());
+        createIdxCmd.type(convertIndexType(sqlCmd.type()));
 
-        List<Pair<String, Boolean>> cols = new ArrayList<>(sqlCmd.columnList().size());
+        List<String> columns = new ArrayList<>(sqlCmd.columnList().size());
+        List<Collation> collations = new ArrayList<>(sqlCmd.columnList().size());
 
         for (SqlNode col : sqlCmd.columnList().getList()) {
             boolean desc = false;
@@ -399,12 +403,17 @@ public class DdlSqlToCommandConverter {
                 desc = true;
             }
 
-            cols.add(new Pair<>(((SqlIdentifier) col).getSimple(), desc));
+            columns.add(((SqlIdentifier) col).getSimple());
+            collations.add(desc ? Collation.DESC_NULLS_FIRST : Collation.ASC_NULLS_LAST);
         }
 
-        createIdxCmd.columns(cols);
+        createIdxCmd.columns(columns);
 
-        createIdxCmd.ifIndexNotExists(sqlCmd.ifNotExists());
+        if (createIdxCmd.type() == Type.SORTED) {
+            createIdxCmd.collations(collations);
+        }
+
+        createIdxCmd.ifNotExists(sqlCmd.ifNotExists());
 
         return createIdxCmd;
     }
@@ -582,6 +591,18 @@ public class DdlSqlToCommandConverter {
 
     private TableOptionInfo<?> dataStorageFieldOptionInfo(Entry<String, Class<?>> e) {
         return new TableOptionInfo<>(e.getKey(), e.getValue(), null, (cmd, o) -> cmd.addDataStorageOption(e.getKey(), o));
+    }
+
+    private Type convertIndexType(IgniteSqlIndexType type) {
+        switch (type) {
+            case TREE:
+            case IMPLICIT_TREE:
+                return Type.SORTED;
+            case HASH:
+                return Type.HASH;
+            default:
+                throw new AssertionError("Unknown index type [type=" + type + "]");
+        }
     }
 
     /**

@@ -18,14 +18,19 @@
 package org.apache.ignite.internal.sql.engine.prepare.ddl;
 
 import java.util.List;
-import org.apache.ignite.internal.util.Pair;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
 
 /**
  * CREATE INDEX statement.
  */
 public class CreateIndexCommand implements DdlCommand {
+    /** Type of the index to create. */
+    public enum Type {
+        SORTED, HASH
+    }
+
     /** Table name. */
-    private String tblName;
+    private String tableName;
 
     /** Schema name where this new Index will be created. */
     private String schemaName;
@@ -33,11 +38,14 @@ public class CreateIndexCommand implements DdlCommand {
     /** Idx name. */
     private String indexName;
 
-    /** Quietly ignore this command if index already exists. */
-    private boolean ifIdxNotExists;
+    private Type type;
 
-    /** Columns covered with ordering. */
-    List<Pair<String, Boolean>> cols;
+    /** Quietly ignore this command if index already exists. */
+    private boolean ifNotExists;
+
+    private List<String> columns;
+
+    private List<Collation> collations;
 
     /** Return idx name. */
     public String indexName() {
@@ -49,12 +57,20 @@ public class CreateIndexCommand implements DdlCommand {
         this.indexName = indexName;
     }
 
-    public List<Pair<String, Boolean>> columns() {
-        return cols;
+    public List<String> columns() {
+        return columns;
     }
 
-    public void columns(List<Pair<String, Boolean>> cols) {
-        this.cols = cols;
+    public void columns(List<String> columns) {
+        this.columns = columns;
+    }
+
+    public List<Collation> collations() {
+        return collations;
+    }
+
+    public void collations(List<Collation> collations) {
+        this.collations = collations;
     }
 
     /**
@@ -62,25 +78,33 @@ public class CreateIndexCommand implements DdlCommand {
      *
      * @return Quietly ignore flag.
      */
-    public boolean ifIndexNotExists() {
-        return ifIdxNotExists;
+    public boolean ifNotExists() {
+        return ifNotExists;
     }
 
     /**
      * Quietly ignore this command if index already exists.
      *
-     * @param ifIdxNotExists Exists flag.
+     * @param ifNotExists Exists flag.
      */
-    public void ifIndexNotExists(boolean ifIdxNotExists) {
-        this.ifIdxNotExists = ifIdxNotExists;
+    public void ifNotExists(boolean ifNotExists) {
+        this.ifNotExists = ifNotExists;
+    }
+
+    public void type(Type type) {
+        this.type = type;
+    }
+
+    public Type type() {
+        return type;
     }
 
     public String tableName() {
-        return tblName;
+        return tableName;
     }
 
     public void tableName(String tblName) {
-        this.tblName = tblName;
+        this.tableName = tblName;
     }
 
     public String schemaName() {
