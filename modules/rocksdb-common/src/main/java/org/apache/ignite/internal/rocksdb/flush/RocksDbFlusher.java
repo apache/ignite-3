@@ -200,7 +200,7 @@ public class RocksDbFlusher {
                     // Default flush is buggy and only invokes listener methods for a single random CF.
                     db.flush(flushOptions, columnFamilyHandles);
                 } catch (RocksDBException e) {
-                    LOG.error("Error occurred during the explicit flush");
+                    LOG.error("Error occurred during the explicit flush", e);
                 } finally {
                     busyLock.leaveBusy();
                 }
