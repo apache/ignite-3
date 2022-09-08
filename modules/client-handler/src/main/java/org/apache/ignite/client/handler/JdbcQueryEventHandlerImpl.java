@@ -278,9 +278,6 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         PrintWriter pw = new PrintWriter(sw);
 
         pw.print(message);
-
-        // check if stacktrace is needed
-        // t.printStackTrace(pw);
         return sw;
     }
 
