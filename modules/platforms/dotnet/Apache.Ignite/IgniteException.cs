@@ -17,17 +17,79 @@
 
 namespace Apache.Ignite
 {
+    using System;
+    using System.Diagnostics.CodeAnalysis;
+    using System.Runtime.Serialization;
+
     /// <summary>
     /// Ignite exception.
     /// </summary>
-    public class IgniteException
+    [Serializable]
+    [SuppressMessage(
+        "Microsoft.Design",
+        "CA1032:ImplementStandardExceptionConstructors",
+        Justification="Ignite exception has a special constructor.")]
+    public class IgniteException : Exception
     {
-        public string GroupName { get; private set; }
+        /// <summary>
+        /// Initializes a new instance of the <see cref="IgniteException"/> class.
+        /// </summary>
+        /// <param name="traceId">Trace id.</param>
+        /// <param name="code">Code.</param>
+        /// <param name="message">Message.</param>
+        /// <param name="innerException">Inner exception.</param>
+        public IgniteException(Guid traceId, int code, string message, Exception? innerException = null)
+            : base(message, innerException)
+        {
+            TraceId = traceId;
+            Code = code;
+        }
 
-        public int Code { get; private set; }
+        /// <summary>
+        /// Initializes a new instance of the <see cref="IgniteException"/> class.
+        /// </summary>
+        /// <param name="serializationInfo">Serialization information.</param>
+        /// <param name="streamingContext">Streaming context.</param>
+        protected IgniteException(SerializationInfo serializationInfo, StreamingContext streamingContext)
+        {
+            base.GetObjectData(serializationInfo, streamingContext);
 
+            TraceId = (Guid)serializationInfo.GetValue(nameof(TraceId), typeof(Guid));
+            Code = serializationInfo.GetInt32(nameof(Code));
+        }
+
+        /// <summary>
+        /// Gets the group name.
+        /// </summary>
+        public string GroupName => "TODO: errorGroupByCode((extractGroupCode(code))).name() " + Code;
+
+        /// <summary>
+        /// Gets the full exception code.
+        /// </summary>
+        public int Code { get; }
+
+        /// <summary>
+        /// Gets the trace id (correlation id).
+        /// </summary>
+        public Guid TraceId { get; }
+
+        /// <summary>
+        /// Gets the error code.
+        /// </summary>
         public int ErrorCode => ErrorGroup.ExtractErrorCode(Code);
 
+        /// <summary>
+        /// Gets the code as string.
+        /// </summary>
         public string CodeAsString => ErrorGroup.ErrPrefix + GroupName + '-' + ErrorCode;
+
+        /// <inheritdoc />
+        public override void GetObjectData(SerializationInfo info, StreamingContext context)
+        {
+            base.GetObjectData(info, context);
+
+            info.AddValue(nameof(Code), Code);
+            info.AddValue(nameof(TraceId), TraceId);
+        }
     }
 }
