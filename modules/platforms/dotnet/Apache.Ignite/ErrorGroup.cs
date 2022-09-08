@@ -33,6 +33,12 @@ namespace Apache.Ignite
         /** Contains error codes for this error group. */
         private readonly HashSet<int> _codes = new();
 
+        private ErrorGroup(string groupName, int groupCode)
+        {
+            GroupName = groupName;
+            GroupCode = groupCode;
+        }
+
         /// <summary>
         /// Gets the group name.
         /// </summary>
@@ -49,5 +55,12 @@ namespace Apache.Ignite
         /// <param name="code">Full error code.</param>
         /// <returns>Error code.</returns>
         public static int ExtractErrorCode(int code) => code & 0xFFFF;
+
+        /// <summary>
+        /// Returns group code extracted from the given full error code.
+        /// </summary>
+        /// <param name="code">Full error code.</param>
+        /// <returns>Group code.</returns>
+        public static int ExtractGroupCode(int code) => code >> 16;
     }
 }
