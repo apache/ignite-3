@@ -17,6 +17,8 @@
 
 namespace Apache.Ignite
 {
+    using System.Collections.Generic;
+
     /// <summary>
     /// Represents a concept of error group. Error group defines a collection of errors that belong to a single semantic component.
     /// Each group can be identified by a name and an integer number that both must be unique across all error groups.
@@ -27,6 +29,19 @@ namespace Apache.Ignite
         /// Ignite error prefix.
         /// </summary>
         public const string ErrPrefix = "IGN-";
+
+        /** Contains error codes for this error group. */
+        private readonly HashSet<int> _codes = new();
+
+        /// <summary>
+        /// Gets the group name.
+        /// </summary>
+        public string GroupName { get; }
+
+        /// <summary>
+        /// Gets the group code.
+        /// </summary>
+        public int GroupCode { get; }
 
         /// <summary>
         /// Returns error code extracted from the given full error code.
