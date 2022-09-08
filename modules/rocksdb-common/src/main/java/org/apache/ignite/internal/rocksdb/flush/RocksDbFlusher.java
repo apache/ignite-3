@@ -64,9 +64,6 @@ public class RocksDbFlusher {
     /** Flush completion callback. */
     final Runnable onFlushCompleted;
 
-    /** Instance of {@link AbstractEventListener} to process actual RocksDB events. */
-    private final RocksDbFlushListener flushListener;
-
     /**
      * Flush options to be used to asynchronously flush the Rocks DB memtable. It needs to be cached, because
      * {@link RocksDB#flush(FlushOptions)} contract requires this object to not be GC-ed.
@@ -119,8 +116,6 @@ public class RocksDbFlusher {
         this.threadPool = threadPool;
         this.delaySupplier = delaySupplier;
         this.onFlushCompleted = onFlushCompleted;
-
-        flushListener = new RocksDbFlushListener(this);
     }
 
     /**
@@ -128,7 +123,7 @@ public class RocksDbFlusher {
      * {@link Options#setListeners(List)} before database is started. Otherwise, no events would occurre.
      */
     public AbstractEventListener listener() {
-        return flushListener;
+        return new RocksDbFlushListener(this);
     }
 
     /**
