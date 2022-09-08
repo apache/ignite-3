@@ -404,9 +404,10 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     }
 
     private UUID bytesToUuid(byte[] bytes) {
-        ByteBuffer buffer = ByteBuffer.wrap(bytes).order(ByteOrder.BIG_ENDIAN);
+        long msb = bytesToLong(bytes, 0);
+        long lsb = bytesToLong(bytes, Long.BYTES);
 
-        return new UUID(buffer.getLong(), buffer.getLong());
+        return new UUID(msb, lsb);
     }
 
     /** {@inheritDoc} */

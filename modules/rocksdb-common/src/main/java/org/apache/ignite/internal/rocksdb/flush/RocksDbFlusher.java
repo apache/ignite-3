@@ -17,13 +17,10 @@
 
 package org.apache.ignite.internal.rocksdb.flush;
 
-import java.util.Iterator;
 import java.util.List;
-import java.util.Map.Entry;
-import java.util.Set;
+import java.util.SortedMap;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -71,7 +68,7 @@ public class RocksDbFlusher {
     private final FlushOptions flushOptions = new FlushOptions().setWaitForFlush(false);
 
     /** Map with flush futures by sequence number at the time of the {@link #awaitFlush(boolean)} call. */
-    final ConcurrentMap<Long, CompletableFuture<Void>> flushFuturesBySequenceNumber = new ConcurrentHashMap<>();
+    final SortedMap<Long, CompletableFuture<Void>> flushFuturesBySequenceNumber = new ConcurrentSkipListMap<>();
 
     /** Latest known sequence number for persisted data. Not volatile, protected by explicit synchronization. */
     private long latestPersistedSequenceNumber;
@@ -219,17 +216,13 @@ public class RocksDbFlusher {
             latestPersistedSequenceNumber = sequenceNumber;
         }
 
-        Set<Entry<Long, CompletableFuture<Void>>> entries = flushFuturesBySequenceNumber.entrySet();
+        SortedMap<Long, CompletableFuture<Void>> futuresToComplete = flushFuturesBySequenceNumber.headMap(sequenceNumber + 1);
 
-        for (Iterator<Entry<Long, CompletableFuture<Void>>> iterator = entries.iterator(); iterator.hasNext(); ) {
-            Entry<Long, CompletableFuture<Void>> entry = iterator.next();
-
-            if (sequenceNumber >= entry.getKey()) {
-                entry.getValue().complete(null);
-
-                iterator.remove();
-            }
+        for (CompletableFuture<Void> future : futuresToComplete.values()) {
+            future.complete(null);
         }
+
+        futuresToComplete.clear();
     }
 
     /**

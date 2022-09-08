@@ -44,10 +44,16 @@ public abstract class BusyRocksIteratorAdapter<T> extends RocksIteratorAdapter<T
      */
     protected abstract void handleBusy();
 
+    private void handleBusy0() {
+        handleBusy();
+
+        assert false : "handleBusy() should have thrown an exception.";
+    }
+
     @Override
     public boolean hasNext() {
         if (!busyLock.enterBusy()) {
-            handleBusy();
+            handleBusy0();
         }
 
         try {
@@ -60,7 +66,7 @@ public abstract class BusyRocksIteratorAdapter<T> extends RocksIteratorAdapter<T
     @Override
     public T next() {
         if (!busyLock.enterBusy()) {
-            handleBusy();
+            handleBusy0();
         }
 
         try {
@@ -73,7 +79,7 @@ public abstract class BusyRocksIteratorAdapter<T> extends RocksIteratorAdapter<T
     @Override
     public void close() throws Exception {
         if (!busyLock.enterBusy()) {
-            handleBusy();
+            handleBusy0();
         }
 
         try {

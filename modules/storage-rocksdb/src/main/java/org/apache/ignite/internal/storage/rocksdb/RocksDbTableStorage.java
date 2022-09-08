@@ -291,6 +291,10 @@ public class RocksDbTableStorage implements MvTableStorage {
 
         resources.add(flusher::stop);
 
+        resources.add(meta.columnFamily().handle());
+        resources.add(partitionCf.handle());
+        resources.add(hashIndexCf.handle());
+
         resources.add(db);
 
         resources.add(writeOptions);
