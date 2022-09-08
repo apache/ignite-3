@@ -57,7 +57,6 @@ public class IndexColumnsFreeList extends AbstractFreeList<IndexColumns>  {
             PageMemory pageMem,
             @Nullable ReuseList reuseList,
             PageLockListener lockLsnr,
-            IgniteLogger log,
             long metaPageId,
             boolean initNew,
             @Nullable AtomicLong pageListCacheLimit,

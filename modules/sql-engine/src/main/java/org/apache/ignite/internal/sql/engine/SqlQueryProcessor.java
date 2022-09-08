@@ -515,14 +515,6 @@ public class SqlQueryProcessor implements QueryProcessor {
         }
     }
 
-    private abstract static class AbstractIndexEventListener implements EventListener<IndexEventParameters> {
-        protected final SqlSchemaManagerImpl schemaHolder;
-
-        private AbstractIndexEventListener(SqlSchemaManagerImpl schemaHolder) {
-            this.schemaHolder = schemaHolder;
-        }
-    }
-
     private static class TableCreatedListener extends AbstractTableEventListener {
         private TableCreatedListener(
                 SqlSchemaManagerImpl schemaHolder

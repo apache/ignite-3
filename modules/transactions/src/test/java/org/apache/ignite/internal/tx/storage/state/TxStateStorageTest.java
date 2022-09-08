@@ -33,7 +33,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.Executors;
 import java.util.stream.IntStream;
 import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -229,6 +228,6 @@ public class TxStateStorageTest {
     }
 
     private TxStateStorage createStorage() {
-        return new TxStateRocksDbStorage(workDir, Executors.newSingleThreadExecutor());
+        return new TxStateRocksDbStorage(workDir);
     }
 }
