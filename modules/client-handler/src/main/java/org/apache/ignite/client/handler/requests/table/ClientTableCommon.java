@@ -270,15 +270,16 @@ public class ClientTableCommon {
     ) {
         var cnt = keyOnly ? schema.keyColumns().length() : schema.length();
 
-        // NOTE: noValueMask is only present for client -> server communication.
+        // NOTE: noValueSet is only present for client -> server communication.
         // It helps disambiguate two cases: 1 - column value is not set, 2 - column value is set to null explicitly.
         // If the column has a default value, it should be applied only in case 1.
-        var noValueMask = unpacker.unpackBitSet();
+        // https://cwiki.apache.org/confluence/display/IGNITE/IEP-76+Thin+Client+Protocol+for+Ignite+3.0#IEP76ThinClientProtocolforIgnite3.0-NullvsNoValue
+        var noValueSet = unpacker.unpackBitSet();
         var binaryTupleReader = new BinaryTupleReader(cnt, unpacker.readBinaryUnsafe());
         var tuple = Tuple.create(cnt);
 
         for (int i = 0; i < cnt; i++) {
-            if (noValueMask.get(i)) {
+            if (noValueSet.get(i)) {
                 continue;
             }
 
