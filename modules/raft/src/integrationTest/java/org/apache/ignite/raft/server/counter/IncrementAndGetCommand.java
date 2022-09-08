@@ -15,12 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.raft.server;
+package org.apache.ignite.raft.server.counter;
 
-import org.apache.ignite.raft.client.ReadCommand;
+import org.apache.ignite.raft.client.WriteCommand;
 
 /**
- * Get a value command.
+ * Increment and get command.
  */
-public class GetValueCommand implements ReadCommand {
+public class IncrementAndGetCommand implements WriteCommand {
+    /**
+     * The delta.
+     */
+    private final long delta;
+
+    /**
+     * Constructor.
+     *
+     * @param delta The delta.
+     */
+    public IncrementAndGetCommand(long delta) {
+        this.delta = delta;
+    }
+
+    /**
+     * Returns the delta.
+     */
+    public long delta() {
+        return delta;
+    }
 }

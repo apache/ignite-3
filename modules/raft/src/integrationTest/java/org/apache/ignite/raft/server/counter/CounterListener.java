@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.raft.server;
+package org.apache.ignite.raft.server.counter;
 
 import java.io.File;
 import java.io.IOException;
