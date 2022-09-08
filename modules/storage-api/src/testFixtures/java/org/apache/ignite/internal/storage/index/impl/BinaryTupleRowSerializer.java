@@ -148,7 +148,7 @@ public class BinaryTupleRowSerializer {
      * @return Builder for chaining.
      */
     private static BinaryTupleBuilder appendValue(BinaryTupleBuilder builder, BinaryTupleSchema schema, Object value) {
-        BinaryTupleSchema.Element element = schema.element(builder.elementIndex());
+        Element element = schema.element(builder.elementIndex());
 
         if (value == null) {
             if (!element.nullable()) {

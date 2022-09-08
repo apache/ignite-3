@@ -65,11 +65,14 @@ import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 
 /**
  * PlannerTest.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
+@DisabledOnOs(value = OS.WINDOWS, disabledReason = "https://issues.apache.org/jira/browse/IGNITE-17601")
 public class PlannerTest extends AbstractPlannerTest {
     private static List<String> NODES;
 

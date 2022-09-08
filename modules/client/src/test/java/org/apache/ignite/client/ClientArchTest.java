@@ -25,6 +25,7 @@ import com.tngtech.archunit.junit.LocationProvider;
 import com.tngtech.archunit.lang.ArchRule;
 import com.tngtech.archunit.lang.syntax.ArchRuleDefinition;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.HashSet;
 import java.util.Set;
@@ -48,13 +49,9 @@ public class ClientArchTest {
             var locations = new HashSet<Location>();
 
             // both target/classes and target/libs defines a runtime scope of this particular module
-            locations.add(Location.of(Paths.get("target", "classes")));
+            locations.add(Location.of(directoryFromBuildDir("classes")));
 
-            var libDir = Paths.get("target", "libs").toFile();
-
-            if (!libDir.exists()) {
-                throw new AssertionError("Expect \"libs\" directory to exist. Try to run 'mvn clean install'");
-            }
+            var libDir = directoryFromBuildDir("libs").toFile();
 
             for (var lib : libDir.listFiles()) {
                 if (!lib.getName().endsWith(".jar")) {
@@ -69,6 +66,17 @@ public class ClientArchTest {
             }
 
             return locations;
+        }
+
+        private static Path directoryFromBuildDir(String folder) {
+            Path path = Paths.get("target", folder);
+            if (!path.toFile().exists()) {
+                path = Paths.get("build", folder);
+            }
+            if (!path.toFile().exists()) {
+                throw new AssertionError("Expect " + folder + " directory to exist.");
+            }
+            return path;
         }
     }
 

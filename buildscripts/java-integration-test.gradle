@@ -1,0 +1,65 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+sourceSets {
+    integrationTest {
+        compileClasspath += sourceSets.main.output
+        compileClasspath += sourceSets.test.output
+        runtimeClasspath += sourceSets.main.output
+        runtimeClasspath += sourceSets.test.output
+        if (sourceSets.hasProperty("testFixtures")) {
+            compileClasspath += sourceSets.testFixtures.output
+            runtimeClasspath += sourceSets.testFixtures.output
+        }
+    }
+}
+
+pmdIntegrationTest {
+    ruleSetFiles = files("$rootDir/check-rules/pmd-rules.xml")
+    enabled = false
+}
+
+configurations {
+    integrationTestImplementation.extendsFrom implementation
+    integrationTestRuntimeOnly.extendsFrom runtimeOnly
+    integrationTestApi.extendsFrom api
+}
+
+tasks.register('integrationTest', Test) {
+    description = 'Runs integration tests.'
+    group = 'verification'
+
+    testClassesDirs = sourceSets.integrationTest.output.classesDirs
+    classpath = sourceSets.integrationTest.runtimeClasspath
+}
+
+integrationTest {
+    useJUnitPlatform()
+    maxHeapSize = "16g"
+}
+
+dependencies {
+    integrationTestImplementation libs.junit5.api
+    integrationTestImplementation libs.junit5.impl
+    integrationTestImplementation libs.junit5.params
+    integrationTestImplementation libs.mockito.core
+    integrationTestImplementation libs.mockito.junit
+    integrationTestImplementation libs.mockito.inline
+    integrationTestImplementation libs.hamcrest.core
+    integrationTestImplementation libs.hamcrest.optional
+    integrationTestImplementation libs.hamcrest.path
+}
