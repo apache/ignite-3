@@ -25,6 +25,7 @@ dependencies {
     implementation project(':ignite-network-api')
     implementation project(':ignite-network')
     implementation project(':ignite-raft-client')
+    implementation project(':ignite-rocksdb-common')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
 

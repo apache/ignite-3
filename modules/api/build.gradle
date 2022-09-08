@@ -27,6 +27,8 @@ dependencies {
 
     testImplementation libs.hamcrest.core
     testImplementation libs.hamcrest.optional
+    testImplementation libs.archunit.core
+    testImplementation libs.archunit.junit5
 }
 
 description = 'ignite-api'
