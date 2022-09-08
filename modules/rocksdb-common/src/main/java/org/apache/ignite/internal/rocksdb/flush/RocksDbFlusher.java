@@ -39,7 +39,7 @@ import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
 
 /**
- * Helper class do deal with RocksDB flushes. Provides an ability to wait until current state of data is flushed to the storage.
+ * Helper class to deal with RocksDB flushes. Provides an ability to wait until current state of data is flushed to the storage.
  * Requires enabled {@link Options#setAtomicFlush(boolean)} option to work properly.
  */
 public class RocksDbFlusher {
@@ -52,13 +52,13 @@ public class RocksDbFlusher {
     /** List of all column families. */
     private volatile List<ColumnFamilyHandle> columnFamilyHandles;
 
-    /** Scheduled pool the schedule flushes. */
+    /** Scheduled pool to schedule flushes. */
     private final ScheduledExecutorService scheduledPool;
 
     /** Thread pool to complete flush completion futures. */
     final ExecutorService threadPool;
 
-    /** Supplier of delay values to batch independant flush requests. */
+    /** Supplier of delay values to batch independent flush requests. */
     private final IntSupplier delaySupplier;
 
     /** Flush completion callback. */
@@ -95,7 +95,7 @@ public class RocksDbFlusher {
      * @param busyLock Busy lock.
      * @param scheduledPool Scheduled pool the schedule flushes.
      * @param threadPool Thread pool to run flush completion closure, provided by {@code onFlushCompleted} parameter.
-     * @param delaySupplier Supplier of delay values to batch independant flush requests. When {@link #awaitFlush(boolean)} is called with
+     * @param delaySupplier Supplier of delay values to batch independent flush requests. When {@link #awaitFlush(boolean)} is called with
      *      {@code true} parameter, the flusher waits given number of milliseconds (using {@code scheduledPool}) and then executes flush
      *      only if there were no other {@code awaitFlush(true)} calls. Otherwise, it does nothing after the timeout. This guarantees that
      *      either the last one wins, or automatic flush wins if there's an enlless stream of {@code awaitFlush(true)} calls with very small
@@ -146,7 +146,7 @@ public class RocksDbFlusher {
      * Returns a future to wait next flush operation from the current point in time. Uses {@link RocksDB#getLatestSequenceNumber()} to
      * achieve this, by fixing its value at the time of invokation. Storage is considered flushed when at least one persisted column
      * family has its latest sequence number greater or equal to the one that we fixed. This is enough to guarantee that all column families
-     * have up-to-data state as well, because fluher expects its users to also have {@link Options#setAtomicFlush(boolean)} option
+     * have up-to-data state as well, because flusher expects its users to also have {@link Options#setAtomicFlush(boolean)} option
      * enabled.
      *
      * @param schedule {@code true} if {@link RocksDB#flush(FlushOptions)} should be explicitly triggerred in the near future. Please refer
