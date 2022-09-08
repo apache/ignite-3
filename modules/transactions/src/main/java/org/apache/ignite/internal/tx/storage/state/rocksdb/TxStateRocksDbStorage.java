@@ -32,13 +32,17 @@ import static org.rocksdb.ReadTier.PERSISTED_TIER;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.rocksdb.BusyRocksIteratorAdapter;
 import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
 import org.apache.ignite.internal.rocksdb.flush.RocksDbFlusher;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -112,6 +116,9 @@ public class TxStateRocksDbStorage implements TxStateStorage {
 
     /** Whether is started. */
     private boolean isStarted;
+
+    /** Collection of opened RocksDB iterators. */
+    private final Set<RocksIterator> iterators = ConcurrentHashMap.newKeySet();
 
     /** Busy lock to stop synchronously. */
     final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -204,7 +211,16 @@ public class TxStateRocksDbStorage implements TxStateStorage {
 
         busyLock.block();
 
-        IgniteUtils.closeAll(persistedTierReadOptions, readOptions, writeOptions, options, txDbOptions, db);
+        List<AutoCloseable> closeables = new ArrayList<>(iterators);
+
+        closeables.add(persistedTierReadOptions);
+        closeables.add(readOptions);
+        closeables.add(writeOptions);
+        closeables.add(options);
+        closeables.add(txDbOptions);
+        closeables.add(db);
+
+        IgniteUtils.closeAll(closeables);
 
         db = null;
         options = null;
@@ -318,20 +334,51 @@ public class TxStateRocksDbStorage implements TxStateStorage {
 
     /** {@inheritDoc} */
     @Override public Cursor<IgniteBiTuple<UUID, TxMeta>> scan() {
-        RocksIterator rocksIterator = db.newIterator();
-        rocksIterator.seekToFirst();
+        if (!busyLock.enterBusy()) {
+            throwStorageStoppedException();
+        }
 
-        //TODO What do I do with busy lock here?
-        RocksIteratorAdapter<IgniteBiTuple<UUID, TxMeta>> iteratorAdapter = new RocksIteratorAdapter<>(rocksIterator) {
-            @Override protected IgniteBiTuple<UUID, TxMeta> decodeEntry(byte[] keyBytes, byte[] valueBytes) {
-                UUID key = bytesToUuid(keyBytes);
-                TxMeta txMeta = fromBytes(valueBytes);
+        try {
+            RocksIterator rocksIterator = db.newIterator();
 
-                return new IgniteBiTuple<>(key, txMeta);
+            iterators.add(rocksIterator);
+
+            try {
+                rocksIterator.seekToFirst();
+            } catch (Exception e) {
+                // Unlikely, but what if...
+                iterators.remove(rocksIterator);
+
+                rocksIterator.close();
+
+                throw e;
             }
-        };
 
-        return Cursor.fromIterator(iteratorAdapter);
+            RocksIteratorAdapter<IgniteBiTuple<UUID, TxMeta>> iteratorAdapter = new BusyRocksIteratorAdapter<>(busyLock, rocksIterator) {
+                @Override protected IgniteBiTuple<UUID, TxMeta> decodeEntry(byte[] keyBytes, byte[] valueBytes) {
+                    UUID key = bytesToUuid(keyBytes);
+                    TxMeta txMeta = fromBytes(valueBytes);
+
+                    return new IgniteBiTuple<>(key, txMeta);
+                }
+
+                @Override
+                protected void handleBusy() {
+                    throwStorageStoppedException();
+                }
+
+                @Override
+                public void close() throws Exception {
+                    iterators.remove(rocksIterator);
+
+                    super.close();
+                }
+            };
+
+            return Cursor.fromIterator(iteratorAdapter);
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 
     /** {@inheritDoc} */
