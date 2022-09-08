@@ -20,6 +20,7 @@ package org.apache.ignite.cli.core.exception.handler;
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 import java.util.function.Function;
 import org.apache.ignite.cli.core.exception.ExceptionHandler;
 import org.apache.ignite.cli.core.exception.ExceptionWriter;
@@ -29,9 +30,11 @@ import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.ErrorGroup;
 import org.apache.ignite.lang.ErrorGroups.Client;
 import org.apache.ignite.lang.ErrorGroups.Sql;
+import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.lang.IgniteException;
 
 /**
@@ -58,33 +61,39 @@ public class SqlExceptionHandler implements ExceptionHandler<SQLException> {
     }
 
     private ErrorComponentBuilder invalidQueryErrUiComponent(IgniteException e) {
-        return fromExWithHeader(e, PARSING_ERROR_MESSAGE);
+        return fromExWithHeader(PARSING_ERROR_MESSAGE, e.errorCode(), e.traceId(), e.getMessage());
     }
 
     private ErrorComponentBuilder unrecognizedErrComponent(IgniteException e) {
-        return fromExWithHeader(e, UNRECOGNIZED_ERROR_MESSAGE);
+        return fromExWithHeader(UNRECOGNIZED_ERROR_MESSAGE, e.errorCode(), e.traceId(), e.getMessage());
     }
 
     private ErrorComponentBuilder connectionErrUiComponent(IgniteException e) {
         if (e.getCause() instanceof IgniteClientConnectionException) {
-            return fromExWithHeader((IgniteClientConnectionException) e.getCause(), CLIENT_CONNECTION_FAILED_MESSAGE);
+            IgniteClientConnectionException cause = (IgniteClientConnectionException) e.getCause();
+            return fromExWithHeader(CLIENT_CONNECTION_FAILED_MESSAGE, cause.errorCode(), cause.traceId(), cause.getMessage());
         }
 
-        return fromExWithHeader(e, CLIENT_CONNECTION_FAILED_MESSAGE);
+        return fromExWithHeader(CLIENT_CONNECTION_FAILED_MESSAGE, e.errorCode(), e.traceId(), e.getMessage());
     }
 
-    private static ErrorComponentBuilder fromExWithHeader(IgniteException e, String header) {
+    private static ErrorComponentBuilder fromExWithHeader(String header, int errorCode, UUID traceId, String message) {
         return ErrorUiComponent.builder()
                 .header(header)
-                .errorCode(e.codeAsString())
-                .traceId(e.traceId())
-                .details(ErrorGroup.extractCauseMessage(e.getMessage()));
+                .errorCode(String.valueOf(errorCode))
+                .traceId(traceId)
+                .details(ErrorGroup.extractCauseMessage(message));
     }
 
     @Override
     public int handle(ExceptionWriter err, SQLException e) {
-        if (e.getCause() instanceof IgniteException) {
-            return handleIgniteException(err, (IgniteException) e.getCause());
+        Throwable unwrappedCause = ExceptionUtils.unwrapCause(e.getCause());
+        if (unwrappedCause instanceof IgniteException) {
+            return handleIgniteException(err, (IgniteException) unwrappedCause);
+        }
+
+        if (unwrappedCause instanceof IgniteCheckedException) {
+            return handleIgniteCheckedException(err, (IgniteCheckedException) unwrappedCause);
         }
 
         var errorComponentBuilder = ErrorUiComponent.builder();
@@ -114,10 +123,18 @@ public class SqlExceptionHandler implements ExceptionHandler<SQLException> {
     }
 
     /** Handles IgniteException that has more information like error code and trace id. */
-    public int handleIgniteException(ExceptionWriter err, IgniteException e) {
+    private int handleIgniteException(ExceptionWriter err, IgniteException e) {
         var errorComponentBuilder = sqlExceptionMappers.getOrDefault(e.code(), this::unrecognizedErrComponent);
 
         String renderedError = errorComponentBuilder.apply(e).build().render();
+        err.write(renderedError);
+
+        return 1;
+    }
+
+    private int handleIgniteCheckedException(ExceptionWriter err, IgniteCheckedException e) {
+        String renderedError = fromExWithHeader(UNRECOGNIZED_ERROR_MESSAGE, e.errorCode(), e.traceId(), e.getMessage())
+                .build().render();
         err.write(renderedError);
 
         return 1;

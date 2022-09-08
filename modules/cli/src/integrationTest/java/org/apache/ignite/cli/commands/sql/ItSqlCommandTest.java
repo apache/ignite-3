@@ -63,8 +63,7 @@ class ItSqlCommandTest extends CliCommandTestInitializedIntegrationBase {
         assertAll(
                 () -> assertExitCodeIs(1),
                 this::assertOutputIsEmpty,
-                () -> assertErrOutputContains(CLIENT_CONNECTION_FAILED_MESSAGE),
-                () -> assertErrOutputContains("no-such-host.com: Name or service not known")
+                () -> assertErrOutputContains(CLIENT_CONNECTION_FAILED_MESSAGE)
         );
     }
 

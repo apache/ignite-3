@@ -733,6 +733,6 @@ public class JdbcStatement implements Statement {
     }
 
     private static SQLException toSqlException(CompletionException e) {
-        return new SQLException(e.getCause());
+        return new SQLException(e);
     }
 }

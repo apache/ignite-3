@@ -19,6 +19,8 @@ package org.apache.ignite.internal.sql.engine.util;
 
 import static org.apache.ignite.internal.sql.engine.util.BaseQueryContext.CLUSTER;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
+import static org.apache.ignite.internal.util.ExceptionUtils.withCauseAndCode;
+import static org.apache.ignite.lang.ErrorGroup.extractCauseMessage;
 import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_INVALID_ERR;
 
 import it.unimi.dsi.fastutil.ints.IntArrayList;
@@ -63,7 +65,6 @@ import org.apache.calcite.rel.RelCollationTraitDef;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.Aggregate;
 import org.apache.calcite.rel.hint.HintStrategyTable;
-import org.apache.calcite.runtime.CalciteException;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.calcite.sql.parser.SqlParser;
@@ -79,7 +80,6 @@ import org.apache.calcite.util.mapping.Mapping;
 import org.apache.calcite.util.mapping.MappingType;
 import org.apache.calcite.util.mapping.Mappings;
 import org.apache.ignite.internal.generated.query.calcite.sql.IgniteSqlParserImpl;
-import org.apache.ignite.internal.generated.query.calcite.sql.ParseException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.schema.BitmaskNativeType;
 import org.apache.ignite.internal.schema.DecimalNativeType;
@@ -805,13 +805,11 @@ public final class Commons {
         try {
             return parse(new SourceStringReader(qry), parserCfg);
         } catch (SqlParseException e) {
-            String message = "Failed to parse query";
-            Throwable cause = e.getCause();
-            if (cause instanceof CalciteException || cause instanceof ParseException) {
-                message = message + ": " + cause.getMessage();
-            }
-
-            throw new SqlException(QUERY_INVALID_ERR, message, e);
+            throw withCauseAndCode(
+                    SqlException::new,
+                    QUERY_INVALID_ERR,
+                    "Failed to parse query: " + extractCauseMessage(e.getMessage()),
+                    e);
         }
     }
 
