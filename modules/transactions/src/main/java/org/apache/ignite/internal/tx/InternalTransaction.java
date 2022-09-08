@@ -64,5 +64,5 @@ public interface InternalTransaction extends Transaction {
      *
      * @param resultFuture Operation result future.
      */
-    void enlistResultFuture(CompletableFuture resultFuture);
+    void enlistResultFuture(CompletableFuture<?> resultFuture);
 }

@@ -27,6 +27,7 @@ public class TransactionException extends IgniteException {
      *
      * @param message The message.
      */
+    @Deprecated
     public TransactionException(String message) {
         super(message);
     }
@@ -36,8 +37,41 @@ public class TransactionException extends IgniteException {
      *
      * @param cause The cause.
      */
+    @Deprecated
     public TransactionException(Throwable cause) {
         super(cause);
+    }
+
+    /**
+     * Creates a new transaction exception with the given error code and cause.
+     *
+     * @param code Full error code.
+     * @param cause Optional nested exception (can be {@code null}).
+     */
+    public TransactionException(int code, Throwable cause) {
+        super(code, cause);
+    }
+
+    /**
+     * Creates a new transaction exception with the given trace id, error code and cause.
+     *
+     * @param traceId Unique identifier of this exception.
+     * @param code Full error code.
+     * @param cause Optional nested exception (can be {@code null}).
+     */
+    public TransactionException(UUID traceId, int code, Throwable cause) {
+        super(traceId, code, cause);
+    }
+
+    /**
+     * Creates a new transaction exception with the given error code, detail message and cause.
+     *
+     * @param code Full error code.
+     * @param message Detail message.
+     * @param cause Optional nested exception (can be {@code null}).
+     */
+    public TransactionException(int code, String message, Throwable cause) {
+        super(code, message, cause);
     }
 
     /**

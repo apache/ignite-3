@@ -24,7 +24,6 @@ import org.apache.ignite.internal.replicator.message.ReplicaRequest;
  * Replica listener.
  */
 public interface ReplicaListener {
-
     /**
      * Invokes a replica listener to process request.
      *
