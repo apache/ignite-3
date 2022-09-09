@@ -18,7 +18,10 @@
 namespace Apache.Ignite.Tests
 {
     using System.Collections.Generic;
+    using System.Globalization;
+    using System.IO;
     using System.Linq;
+    using System.Text.RegularExpressions;
     using NUnit.Framework;
 
     /// <summary>
@@ -87,6 +90,18 @@ namespace Apache.Ignite.Tests
         [Test]
         public void TestJavaErrorGroupsAndCodesHaveDotNetCounterparts()
         {
+            var javaErrorGroupsFile = Path.Combine(
+                TestUtils.RepoRootDir, "modules", "core", "src", "main", "java", "org", "apache", "ignite", "lang", "ErrorGroups.java");
+
+            var javaErrorGroups = Regex.Matches(
+                File.ReadAllText(javaErrorGroupsFile),
+                @"ErrorGroup ([\w_]+)_ERR_GROUP = ErrorGroup.newGroup\(""(\w+)"", (\d+)\);")
+                .Select(x => (Name: x.Groups[1].Value, ShortName: x.Groups[2].Value, Code: int.Parse(x.Groups[3].Value, CultureInfo.InvariantCulture)))
+                .ToList();
+
+            // TODO: Client and TX reuse ID - why does the check fail?
+            Assert.IsNotEmpty(javaErrorGroups);
+
             Assert.Fail("TODO");
         }
 
