@@ -34,9 +34,6 @@ public class ClientStatement implements Statement {
     /** Default schema. */
     private final String defaultSchema;
 
-    /** Prepared flag. */
-    private final boolean prepared;
-
     /** Query timeout. */
     private final Long queryTimeoutMs;
 
@@ -51,7 +48,6 @@ public class ClientStatement implements Statement {
      *
      * @param query Query.
      * @param defaultSchema Default schema.
-     * @param prepared Prepared.
      * @param queryTimeoutMs Timeout
      * @param pageSize Page size.
      * @param properties Properties.
@@ -60,7 +56,6 @@ public class ClientStatement implements Statement {
     public ClientStatement(
             String query,
             String defaultSchema,
-            boolean prepared,
             Long queryTimeoutMs,
             Integer pageSize,
             Map<String, Object> properties) {
@@ -68,7 +63,6 @@ public class ClientStatement implements Statement {
 
         this.query = query;
         this.defaultSchema = defaultSchema;
-        this.prepared = prepared;
         this.queryTimeoutMs = queryTimeoutMs;
         this.pageSize = pageSize;
         this.properties = properties;
@@ -120,12 +114,6 @@ public class ClientStatement implements Statement {
 
     /** {@inheritDoc} */
     @Override
-    public boolean prepared() {
-        return prepared;
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public @Nullable Object property(@NotNull String name) {
         return properties == null ? null : properties.get(name);
     }
@@ -145,8 +133,7 @@ public class ClientStatement implements Statement {
     public StatementBuilder toBuilder() {
         var builder = new ClientStatementBuilder()
                 .query(query)
-                .defaultSchema(defaultSchema)
-                .prepared(prepared);
+                .defaultSchema(defaultSchema);
 
         if (pageSize != null) {
             builder.pageSize(pageSize);

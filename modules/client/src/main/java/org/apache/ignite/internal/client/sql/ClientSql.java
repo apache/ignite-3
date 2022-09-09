@@ -55,7 +55,7 @@ public class ClientSql implements IgniteSql {
     /** {@inheritDoc} */
     @Override
     public Statement createStatement(String query) {
-        return new ClientStatement(query, null, false, null, null, null);
+        return new ClientStatement(query, null, null, null, null);
     }
 
     /** {@inheritDoc} */
