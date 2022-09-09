@@ -73,6 +73,9 @@
             <artifactId>micronaut-http-server</artifactId>
         </dependency>
 
+        <!--
+            This is needed because micronaut-openapi generator in ignite-rest module uses these types to detect nullable properties
+        -->
         <dependency>
             <groupId>com.google.code.findbugs</groupId>
             <artifactId>jsr305</artifactId>
