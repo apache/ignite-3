@@ -23,7 +23,7 @@ import org.apache.ignite.cli.call.configuration.ClusterConfigShowCallInput;
 import org.apache.ignite.cli.commands.BaseCommand;
 import org.apache.ignite.cli.commands.cluster.ClusterUrlMixin;
 import org.apache.ignite.cli.commands.questions.ConnectToClusterQuestion;
-import org.apache.ignite.cli.core.exception.handler.ShowConfigExceptionHandler;
+import org.apache.ignite.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
 import org.apache.ignite.cli.core.flow.Flowable;
 import org.apache.ignite.cli.core.flow.builder.Flows;
 import picocli.CommandLine.Command;
@@ -56,7 +56,7 @@ public class ClusterConfigShowReplCommand extends BaseCommand implements Runnabl
     @Override
     public void run() {
         question.askQuestionIfNotConnected(clusterUrl.getClusterUrl())
-                .exceptionHandler(new ShowConfigExceptionHandler())
+                .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot show cluster config", "cluster init"))
                 .map(this::configShowCallInput)
                 .then(Flows.fromCall(call))
                 .toOutput(spec.commandLine().getOut(), spec.commandLine().getErr())

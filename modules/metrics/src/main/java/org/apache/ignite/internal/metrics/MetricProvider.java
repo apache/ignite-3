@@ -15,28 +15,33 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.core.style.element;
+package org.apache.ignite.internal.metrics;
 
-import org.apache.ignite.cli.core.style.AnsiStringSupport.Marker;
+import java.util.Map;
+import org.apache.ignite.lang.IgniteBiTuple;
 
-/** IU element that is marked with provided ANSI marker. */
-public class MarkedUiElement implements UiElement {
-    private final String content;
+/**
+ * Read-only metrics registry.
+ */
+public class MetricProvider {
+    /** Metrics registry. */
+    private MetricRegistry metricRegistry;
 
-    private final Marker marker;
-
-    MarkedUiElement(String content, Marker marker) {
-        this.content = content;
-        this.marker = marker;
+    /**
+     * Constructor.
+     *
+     * @param metricRegistry Metrics registry.
+     */
+    public MetricProvider(MetricRegistry metricRegistry) {
+        this.metricRegistry = metricRegistry;
     }
 
-    @Override
-    public String represent() {
-        return marker.mark(content);
-    }
-
-    @Override
-    public String toString() {
-        return represent();
+    /**
+     * Returns a map of (metricSetName -> metricSet) pairs with available metrics from {@link MetricRegistry}.
+     *
+     * @return map of metrics
+     */
+    public IgniteBiTuple<Map<String, MetricSet>, Long> metrics() {
+        return metricRegistry.metricSnapshot();
     }
 }

@@ -18,12 +18,24 @@
 package org.apache.ignite.cli.core.exception.handler;
 
 import java.sql.SQLException;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+import java.util.function.Function;
 import org.apache.ignite.cli.core.exception.ExceptionHandler;
 import org.apache.ignite.cli.core.exception.ExceptionWriter;
 import org.apache.ignite.cli.core.style.component.ErrorUiComponent;
+import org.apache.ignite.cli.core.style.component.ErrorUiComponent.ErrorComponentBuilder;
+import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.lang.ErrorGroup;
+import org.apache.ignite.lang.ErrorGroups.Client;
+import org.apache.ignite.lang.ErrorGroups.Sql;
+import org.apache.ignite.lang.IgniteCheckedException;
+import org.apache.ignite.lang.IgniteException;
 
 /**
  * Exception handler for {@link SQLException}.
@@ -38,9 +50,52 @@ public class SqlExceptionHandler implements ExceptionHandler<SQLException> {
     public static final String CLIENT_CONNECTION_FAILED_MESSAGE = "Connection failed";
 
     public static final String CONNECTION_BROKE_MESSAGE = "Connection error";
+    public static final String UNRECOGNIZED_ERROR_MESSAGE = "Unrecognized error while processing SQL query ";
+
+    private final Map<Integer, Function<IgniteException, ErrorComponentBuilder>> sqlExceptionMappers = new HashMap<>();
+
+    /** Default constructor. */
+    public SqlExceptionHandler() {
+        sqlExceptionMappers.put(Client.CONNECTION_ERR, this::connectionErrUiComponent);
+        sqlExceptionMappers.put(Sql.QUERY_INVALID_ERR, this::invalidQueryErrUiComponent);
+    }
+
+    private ErrorComponentBuilder invalidQueryErrUiComponent(IgniteException e) {
+        return fromExWithHeader(PARSING_ERROR_MESSAGE, e.errorCode(), e.traceId(), e.getMessage());
+    }
+
+    private ErrorComponentBuilder unrecognizedErrComponent(IgniteException e) {
+        return fromExWithHeader(UNRECOGNIZED_ERROR_MESSAGE, e.errorCode(), e.traceId(), e.getMessage());
+    }
+
+    private ErrorComponentBuilder connectionErrUiComponent(IgniteException e) {
+        if (e.getCause() instanceof IgniteClientConnectionException) {
+            IgniteClientConnectionException cause = (IgniteClientConnectionException) e.getCause();
+            return fromExWithHeader(CLIENT_CONNECTION_FAILED_MESSAGE, cause.errorCode(), cause.traceId(), cause.getMessage());
+        }
+
+        return fromExWithHeader(CLIENT_CONNECTION_FAILED_MESSAGE, e.errorCode(), e.traceId(), e.getMessage());
+    }
+
+    private static ErrorComponentBuilder fromExWithHeader(String header, int errorCode, UUID traceId, String message) {
+        return ErrorUiComponent.builder()
+                .header(header)
+                .errorCode(String.valueOf(errorCode))
+                .traceId(traceId)
+                .details(ErrorGroup.extractCauseMessage(message));
+    }
 
     @Override
     public int handle(ExceptionWriter err, SQLException e) {
+        Throwable unwrappedCause = ExceptionUtils.unwrapCause(e.getCause());
+        if (unwrappedCause instanceof IgniteException) {
+            return handleIgniteException(err, (IgniteException) unwrappedCause);
+        }
+
+        if (unwrappedCause instanceof IgniteCheckedException) {
+            return handleIgniteCheckedException(err, (IgniteCheckedException) unwrappedCause);
+        }
+
         var errorComponentBuilder = ErrorUiComponent.builder();
 
         switch (e.getSQLState()) {
@@ -50,7 +105,7 @@ public class SqlExceptionHandler implements ExceptionHandler<SQLException> {
                 errorComponentBuilder.header(CONNECTION_BROKE_MESSAGE);
                 break;
             case SqlStateCode.PARSING_EXCEPTION:
-                errorComponentBuilder.header(PARSING_ERROR_MESSAGE).details(e.getMessage());
+                errorComponentBuilder.header(PARSING_ERROR_MESSAGE).details(ErrorGroup.extractCauseMessage(e.getMessage()));
                 break;
             case SqlStateCode.INVALID_PARAMETER_VALUE:
                 errorComponentBuilder.header(INVALID_PARAMETER_MESSAGE);
@@ -60,10 +115,28 @@ public class SqlExceptionHandler implements ExceptionHandler<SQLException> {
                 break;
             default:
                 LOG.error("Unrecognized error", e);
-                errorComponentBuilder.header("Unrecognized error while process SQL query");
+                errorComponentBuilder.header("SQL query execution error").details(e.getMessage());
         }
 
         err.write(errorComponentBuilder.build().render());
+        return 1;
+    }
+
+    /** Handles IgniteException that has more information like error code and trace id. */
+    private int handleIgniteException(ExceptionWriter err, IgniteException e) {
+        var errorComponentBuilder = sqlExceptionMappers.getOrDefault(e.code(), this::unrecognizedErrComponent);
+
+        String renderedError = errorComponentBuilder.apply(e).build().render();
+        err.write(renderedError);
+
+        return 1;
+    }
+
+    private int handleIgniteCheckedException(ExceptionWriter err, IgniteCheckedException e) {
+        String renderedError = fromExWithHeader(UNRECOGNIZED_ERROR_MESSAGE, e.errorCode(), e.traceId(), e.getMessage())
+                .build().render();
+        err.write(renderedError);
+
         return 1;
     }
 

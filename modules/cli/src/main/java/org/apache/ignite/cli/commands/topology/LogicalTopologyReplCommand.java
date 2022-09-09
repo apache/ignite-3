@@ -27,6 +27,7 @@ import org.apache.ignite.cli.call.cluster.topology.TopologyCallInput.TopologyCal
 import org.apache.ignite.cli.commands.BaseCommand;
 import org.apache.ignite.cli.commands.cluster.ClusterUrlMixin;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
+import org.apache.ignite.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
 import org.apache.ignite.cli.core.repl.Session;
 import org.apache.ignite.cli.decorators.TopologyDecorator;
 import picocli.CommandLine.Command;
@@ -66,6 +67,7 @@ public class LogicalTopologyReplCommand extends BaseCommand implements Callable<
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
                 .decorator(new TopologyDecorator())
+                .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot show logical topology", "cluster init"))
                 .build()
                 .runPipeline();
     }

@@ -46,7 +46,6 @@ import org.apache.ignite.internal.jdbc.proto.event.JdbcQuerySingleResult;
 import org.apache.ignite.internal.jdbc.proto.event.Response;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.CollectionUtils;
-import org.apache.ignite.lang.IgniteException;
 
 /**
  * Jdbc statement implementation.
@@ -734,16 +733,6 @@ public class JdbcStatement implements Statement {
     }
 
     private static SQLException toSqlException(CompletionException e) {
-        if (e.getCause() instanceof IgniteException) {
-            IgniteException cause = (IgniteException) e.getCause();
-            String message = cause.getMessage();
-
-            if (message != null) {
-                if (message.contains("Failed to parse query")) {
-                    return new SQLException("Sql query execution failed.", SqlStateCode.PARSING_EXCEPTION, e);
-                }
-            }
-        }
-        return new SQLException("Internal server error.", SqlStateCode.INTERNAL_ERROR, e);
+        return new SQLException(e);
     }
 }

@@ -55,6 +55,10 @@ paths:
         "404":
           description: "Cluster state not found, it means that the cluster is not\
             \ initialized"
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
         "500":
           description: Internal error
           content:
@@ -76,6 +80,13 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/ClusterNode'
+        "404":
+          description: "Logical topology not found, it means that the cluster is not\
+            \ initialized"
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
         "500":
           description: Internal error
           content:
@@ -128,6 +139,13 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
+        "404":
+          description: "Configuration not found, it means that the cluster is not\
+            \ initialized"
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
     patch:
       tags:
       - clusterConfiguration
@@ -158,6 +176,13 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
+        "404":
+          description: "Configuration not found, it means that the cluster is not\
+            \ initialized"
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
   /management/v1/configuration/cluster/{path}:
     get:
       tags:
@@ -184,6 +209,13 @@ paths:
                 $ref: '#/components/schemas/Problem'
         "400":
           description: Incorrect configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        "404":
+          description: "Configuration not found, it means that the cluster is not\
+            \ initialized"
           content:
             application/problem+json:
               schema:
@@ -410,13 +442,8 @@ components:
     Problem:
       required:
       - code
-      - detail
-      - invalidParams
-      - node
       - status
       - title
-      - traceId
-      - type
       type: object
       properties:
         title:

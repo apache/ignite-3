@@ -24,6 +24,7 @@ import org.apache.ignite.cli.call.configuration.ClusterConfigUpdateCallInput;
 import org.apache.ignite.cli.commands.BaseCommand;
 import org.apache.ignite.cli.commands.cluster.ClusterUrlProfileMixin;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
+import org.apache.ignite.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Parameters;
@@ -51,6 +52,9 @@ public class ClusterConfigUpdateCommand extends BaseCommand implements Callable<
                 .inputProvider(this::buildCallInput)
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
+                .exceptionHandler(new ClusterNotInitializedExceptionHandler(
+                        "Cannot update cluster config", "ignite cluster init"
+                ))
                 .build()
                 .runPipeline();
     }
