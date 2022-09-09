@@ -69,11 +69,11 @@ class ErrorGroupTest {
         // Given
         UUID traceId = UUID.fromString("24103638-d079-4a19-a8f6-ca9c23662908");
         int code = Common.UNEXPECTED_ERR;
-        // And reason that already has error code and traceId inside
-        String reason = "IGN-CMN-1 TraceId:24103638-d079-4a19-a8f6-ca9c23662908 I'm the\n reason\n";
+        IgniteInternalException cause = new IgniteInternalException(traceId, code, "I'm the\n reason\n");
+        IgniteInternalException origin = new IgniteInternalException(traceId, code, cause);
 
         // When
-        String errorMessage = ErrorGroup.errorMessage(traceId, code, reason);
+        String errorMessage = origin.getMessage();
 
         // Then error code and traceId are not duplicated
         assertThat(errorMessage, equalTo("IGN-CMN-1 TraceId:24103638-d079-4a19-a8f6-ca9c23662908 I'm the\n reason\n"));
