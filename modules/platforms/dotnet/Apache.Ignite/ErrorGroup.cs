@@ -24,7 +24,14 @@ namespace Apache.Ignite
     /// Represents a concept of error group. Error group defines a collection of errors that belong to a single semantic component.
     /// Each group can be identified by a name and an integer number that both must be unique across all error groups.
     /// </summary>
-    [SuppressMessage("Microsoft.Design", "CA1034:NestedTypesShouldNotBeVisible", Justification = "Reviewed.")]
+    [SuppressMessage(
+        "Microsoft.Design",
+        "CA1034:NestedTypesShouldNotBeVisible",
+        Justification = "Reviewed.")]
+    [SuppressMessage(
+        "Microsoft.Naming",
+        "CA1724:TypeNamesShouldNotMatchNamespaces",
+        Justification = "Types are nested, there is no conflict.")]
     public static class ErrorGroup
     {
         /// <summary>

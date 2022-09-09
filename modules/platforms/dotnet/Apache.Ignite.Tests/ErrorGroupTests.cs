@@ -17,6 +17,9 @@
 
 namespace Apache.Ignite.Tests
 {
+    using System.Collections.Generic;
+    using NUnit.Framework;
+
     /// <summary>
     /// Tests for <see cref="ErrorGroup"/>.
     /// </summary>
@@ -26,5 +29,33 @@ namespace Apache.Ignite.Tests
         // 1. Test that all group and error codes are unique.
         // 2. Test that all Java groups and codes are mapped to .NET.
         // 3. Test that all Java exception classes have .NET counterparts
+        [Test]
+        public void TestErrorGroupCodesAreUnique()
+        {
+            var errorGroups = typeof(ErrorGroup).GetNestedTypes();
+            var existingCodes = new Dictionary<int, string>();
+
+            Assert.IsNotEmpty(errorGroups);
+
+            foreach (var errorGroup in errorGroups)
+            {
+                var groupCodeField = errorGroup.GetField("GroupCode");
+                Assert.IsNotNull(groupCodeField);
+
+                var groupCode = (int)groupCodeField!.GetValue(null)!;
+
+                if (existingCodes.TryGetValue(groupCode, out var existingGroupName))
+                {
+                    Assert.Fail($"Duplicate group code: {groupCode} ({existingGroupName} and {errorGroup.Name})");
+                }
+
+                existingCodes.Add(groupCode, errorGroup.Name);
+            }
+        }
+
+        [Test]
+        public void TestErrorCodesAreUnique()
+        {
+        }
     }
 }
