@@ -15,35 +15,25 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Tests.Table
+namespace Apache.Ignite.Internal.Table.Serialization
 {
-    using Ignite.Table;
+    using System;
+    using Proto.BinaryTuple;
 
     /// <summary>
-    /// Custom tuple implementation for tests.
+    /// Extensions for <see cref="BinaryTupleBuilder"/>.
     /// </summary>
-    public class CustomTestIgniteTuple : IIgniteTuple
+    internal static class BinaryTupleBuilderExtensions
     {
-        public const long Key = 42;
-
-        public const string Value = "Val1";
-
-        public int FieldCount => 2;
-
-        public object? this[int ordinal]
+        /// <summary>
+        /// Appends a no-value marker.
+        /// </summary>
+        /// <param name="builder">Builder.</param>
+        /// <param name="noValueSet">No-value bit set.</param>
+        public static void AppendNoValue(this ref BinaryTupleBuilder builder, Span<byte> noValueSet)
         {
-            get => ordinal switch { 0 => Key, _ => Value };
-            set => throw new System.NotImplementedException();
+            noValueSet.SetBit(builder.ElementIndex);
+            builder.AppendDefault();
         }
-
-        public object? this[string name]
-        {
-            get => name switch { "KEY" => Key, _ => Value };
-            set => throw new System.NotImplementedException();
-        }
-
-        public string GetName(int ordinal) => ordinal switch { 0 => "KEY", _ => "VAL" };
-
-        public int GetOrdinal(string name) => name switch { "KEY" => 0, _ => 1 };
     }
 }

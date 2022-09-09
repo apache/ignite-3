@@ -285,7 +285,7 @@ public class ClientMessagePackerUnpackerTest {
     @Test
     public void testObjectArray() {
         try (var packer = new ClientMessagePacker(PooledByteBufAllocator.DEFAULT.directBuffer())) {
-            Object[] args = new Object[]{(byte) 4, (short) 8, 15, 16L, 23.0f, 42.0d, "TEST_STRING", null, UUID.randomUUID(), false};
+            Object[] args = new Object[]{(byte) 4, (short) 8, 15, 16L, 23.0f, 42.0d, "TEST_STRING", null, UUID.randomUUID()};
             packer.packObjectArray(args);
 
             var buf = packer.getBuffer();

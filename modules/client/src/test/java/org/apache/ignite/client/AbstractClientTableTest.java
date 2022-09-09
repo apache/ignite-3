@@ -102,7 +102,7 @@ public class AbstractClientTableTest extends AbstractClientTest {
         return client.tables().table(TABLE_WITH_DEFAULT_VALUES);
     }
 
-    protected static Tuple allClumnsTableKey(long id) {
+    protected static Tuple allColumnsTableKey(long id) {
         return Tuple.create().set("gid", id).set("id", String.valueOf(id));
     }
 

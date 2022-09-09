@@ -190,7 +190,7 @@ namespace Apache.Ignite.Tests.Compute
         [TestCase(2, "_2")]
         [TestCase(3, "")]
         [TestCase(5, "_2")]
-        public async Task TestExecuteColocated(int key, string nodeName)
+        public async Task TestExecuteColocated(long key, string nodeName)
         {
             var keyTuple = new IgniteTuple { [KeyCol] = key };
             var resNodeName = await Client.Compute.ExecuteColocatedAsync<string>(TableName, keyTuple, NodeNameJob);
@@ -230,7 +230,7 @@ namespace Apache.Ignite.Tests.Compute
 
             try
             {
-                var keyTuple = new IgniteTuple { [KeyCol] = 1 };
+                var keyTuple = new IgniteTuple { [KeyCol] = 1L };
                 var resNodeName = await Client.Compute.ExecuteColocatedAsync<string>(tableName, keyTuple, NodeNameJob);
 
                 // Drop table and create a new one with a different ID, then execute a computation again.

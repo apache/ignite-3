@@ -58,6 +58,24 @@ namespace Apache.Ignite.Internal.Proto
         }
 
         /// <summary>
+        /// Writes BitSet header and reserves space for bits, returns a span to write bits to.
+        /// </summary>
+        /// <param name="writer">Writer.</param>
+        /// <param name="bitCount">Bit count.</param>
+        /// <returns>Span to write bits to.</returns>
+        public static Span<byte> WriteBitSet(this ref MessagePackWriter writer, int bitCount)
+        {
+            var byteCount = bitCount / 8 + 1;
+            writer.WriteExtensionFormatHeader(new ExtensionHeader((sbyte)ClientMessagePackType.Bitmask, byteCount));
+
+            var span = writer.GetSpan(byteCount)[..byteCount];
+            span.Clear();
+            writer.Advance(byteCount);
+
+            return span;
+        }
+
+        /// <summary>
         /// Writes an object.
         /// </summary>
         /// <param name="writer">Writer.</param>

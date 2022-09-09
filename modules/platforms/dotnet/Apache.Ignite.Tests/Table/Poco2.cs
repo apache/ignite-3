@@ -17,33 +17,28 @@
 
 namespace Apache.Ignite.Tests.Table
 {
-    using Ignite.Table;
-
-    /// <summary>
-    /// Custom tuple implementation for tests.
-    /// </summary>
-    public class CustomTestIgniteTuple : IIgniteTuple
+    public class Poco2
     {
-        public const long Key = 42;
+        public int Id { get; set; }
 
-        public const string Value = "Val1";
+        public sbyte Prop1 { get; set; }
 
-        public int FieldCount => 2;
+        public short Prop2 { get; set; }
 
-        public object? this[int ordinal]
-        {
-            get => ordinal switch { 0 => Key, _ => Value };
-            set => throw new System.NotImplementedException();
-        }
+        public int Prop3 { get; set; }
 
-        public object? this[string name]
-        {
-            get => name switch { "KEY" => Key, _ => Value };
-            set => throw new System.NotImplementedException();
-        }
+        public long Prop4 { get; set; }
 
-        public string GetName(int ordinal) => ordinal switch { 0 => "KEY", _ => "VAL" };
+        public float Prop5 { get; set; }
 
-        public int GetOrdinal(string name) => name switch { "KEY" => 0, _ => 1 };
+        public double Prop6 { get; set; }
+
+        public long Prop7 { get; set; }
+
+        public string? Prop8 { get; set; }
+
+        public int Prop9 { get; set; }
+
+        public int Prop10 { get; set; }
     }
 }

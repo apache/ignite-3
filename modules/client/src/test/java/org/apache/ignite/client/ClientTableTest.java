@@ -383,7 +383,8 @@ public class ClientTableTest extends AbstractClientTableTest {
 
         var ex = assertThrows(IgniteException.class, () -> defaultTable().recordView().upsert(null, tuple));
 
-        assertTrue(ex.getMessage().contains("Incorrect value type for column 'ID': Expected Integer, but got String"), ex.getMessage());
+        String expectedErr = "Incorrect value type for column 'ID': class java.lang.String cannot be cast to class java.lang.Long";
+        assertThat(ex.getMessage(), containsString(expectedErr));
     }
 
     @Test
