@@ -99,7 +99,6 @@ namespace Apache.Ignite.Tests
                 .Select(x => (Name: x.Groups[1].Value, ShortName: x.Groups[2].Value, Code: int.Parse(x.Groups[3].Value, CultureInfo.InvariantCulture)))
                 .ToList();
 
-            // TODO: Client and TX reuse ID - why does the check fail?
             Assert.IsNotEmpty(javaErrorGroups);
 
             Assert.Fail("TODO");
