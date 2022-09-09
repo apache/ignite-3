@@ -41,8 +41,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.IntSupplier;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.rocksdb.BusyRocksIteratorAdapter;
 import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
 import org.apache.ignite.internal.rocksdb.flush.RocksDbFlusher;
@@ -73,9 +71,6 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     static {
         RocksDB.loadLibrary();
     }
-
-    /** Logger. */
-    private static final IgniteLogger LOG = Loggers.forClass(TxStateRocksDbStorage.class);
 
     /** Key for the applied index. */
     private static final byte[] APPLIED_INDEX_KEY = ArrayUtils.BYTE_EMPTY_ARRAY;
