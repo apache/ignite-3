@@ -30,9 +30,6 @@ namespace Apache.Ignite.Tests
     /// </summary>
     public class ExceptionsTests
     {
-        /// <summary>
-        /// Tests that all exceptions have mandatory constructors and are serializable.
-        /// </summary>
         [Test]
         public void TestExceptionsAreSerializableAndHaveRequiredConstructors()
         {
@@ -79,7 +76,7 @@ namespace Apache.Ignite.Tests
                 .Where(x => !x.Contains("internal"))
                 .Select(File.ReadAllText)
                 .Select(x => Regex.Match(x, @"public class (\w+) extends (\w+)"))
-                .Where(x => x.Success)
+                .Where(x => x.Success && !x.Value.Contains("RaftException")) // Ignore duplicate RaftException.
                 .ToDictionary(x => x.Groups[1].Value, x => x.Groups[2].Value);
 
             Assert.IsNotEmpty(javaExceptionsWithParents);
@@ -87,6 +84,16 @@ namespace Apache.Ignite.Tests
             var javaExceptions = javaExceptionsWithParents.Select(x => x.Key).Where(IsIgniteException).ToList();
 
             Assert.IsNotEmpty(javaExceptions);
+
+            Assert.Multiple(() =>
+            {
+                foreach (var exception in javaExceptions)
+                {
+                    var dotNetException = typeof(IIgnite).Assembly.GetType(exception, throwOnError: false);
+
+                    Assert.IsNotNull(dotNetException, "No .NET equivalent for Java exception: " + exception);
+                }
+            });
 
             bool IsIgniteException(string? ex) =>
                 ex != null && (ex == "IgniteException" || IsIgniteException(javaExceptionsWithParents.GetValueOrDefault(ex)));
