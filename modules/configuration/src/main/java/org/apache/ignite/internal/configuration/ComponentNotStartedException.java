@@ -17,10 +17,14 @@
 
 package org.apache.ignite.internal.configuration;
 
+import org.apache.ignite.lang.ErrorGroups.Common;
+import org.apache.ignite.lang.IgniteInternalException;
+
 /**
  * Exception thrown when component is not started.
  */
-public class ComponentNotStartedException extends RuntimeException {
+public class ComponentNotStartedException extends IgniteInternalException {
     public ComponentNotStartedException() {
+        super(Common.COMPONENT_NOT_STARTED_ERR);
     }
 }
