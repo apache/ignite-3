@@ -27,7 +27,6 @@ namespace Apache.Ignite.Tests
     public class ErrorGroupTests
     {
         // TODO:
-        // 1. Test that all group and error codes are unique.
         // 2. Test that all Java groups and codes are mapped to .NET.
         // 3. Test that all Java exception classes have .NET counterparts
         [Test]
@@ -67,6 +66,13 @@ namespace Apache.Ignite.Tests
         [Test]
         public void TestErrorCodesAreUnique()
         {
+            Assert.Fail("TODO");
+        }
+
+        [Test]
+        public void TestErrorCodeMatchesParentGroup()
+        {
+            Assert.Fail("TODO");
         }
 
         private static IEnumerable<(int Code, string Name)> GetErrorGroups() => typeof(ErrorGroup).GetNestedTypes()
