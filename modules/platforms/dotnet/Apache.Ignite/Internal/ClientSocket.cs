@@ -291,7 +291,7 @@ namespace Apache.Ignite.Internal
                 new ClusterNode(clusterNodeId, clusterNodeName, endPoint));
         }
 
-        private static IgniteClientException? ReadError(ref MessagePackReader reader)
+        private static IgniteException? ReadError(ref MessagePackReader reader)
         {
             if (reader.TryReadNil())
             {
@@ -304,7 +304,8 @@ namespace Apache.Ignite.Internal
             string className = reader.ReadString();
             string? message = reader.ReadString();
 
-            return new IgniteClientException($"{className}: {message} ({code}, {traceId})", null, code);
+            // TODO: Reconstruct class by name.
+            return new IgniteException(traceId, code, message + className);
         }
 
         private static async ValueTask<PooledBuffer> ReadResponseAsync(

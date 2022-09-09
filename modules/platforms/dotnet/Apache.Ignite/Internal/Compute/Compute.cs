@@ -213,14 +213,13 @@ namespace Apache.Ignite.Internal.Compute
 
                 using var bufferWriter = Write(table, schema);
 
-                // TODO: IGNITE-17390 replace magic ErrorCode number with constant.
                 try
                 {
                     using var res = await _socket.DoOutInOpAsync(ClientOp.ComputeExecuteColocated, bufferWriter).ConfigureAwait(false);
 
                     return Read(res);
                 }
-                catch (IgniteClientException e) when (e.ErrorCode == 196612)
+                catch (IgniteClientException e) when (e.ErrorCode == ErrorGroup.Table.TableNotFound)
                 {
                     // Table was dropped - remove from cache.
                     // Try again in case a new table with the same name exists.
