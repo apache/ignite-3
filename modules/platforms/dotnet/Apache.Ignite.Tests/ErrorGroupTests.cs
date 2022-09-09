@@ -72,10 +72,24 @@ namespace Apache.Ignite.Tests
         [Test]
         public void TestErrorCodeMatchesParentGroup()
         {
-            Assert.Fail("TODO");
+            foreach (var (code, group, name) in GetErrorCodes())
+            {
+                var expectedGroup = ErrorGroup.GetGroupCode(group);
+
+                Assert.AreEqual(expectedGroup, group, $"Code {code} ({name}) has incorrect group. Expected {expectedGroup}, got {group}.");
+            }
         }
 
         private static IEnumerable<(int Code, string Name)> GetErrorGroups() => typeof(ErrorGroup).GetNestedTypes()
                 .Select(x => ((int) x.GetField("GroupCode")!.GetValue(null)!, x.Name));
+
+        private static IEnumerable<(int Code, int GroupCode, string Name)> GetErrorCodes() => typeof(ErrorGroup).GetNestedTypes()
+                .SelectMany(groupClass =>
+                {
+                    var groupCode = (int)groupClass.GetField("GroupCode")!.GetValue(null)!;
+                    var errorCodes = groupClass.GetFields().Where(x => x.Name != "GroupCode").Select(x => (int)x.GetValue(null)!);
+
+                    return errorCodes.Select(errCode => (errCode, groupCode, groupClass.Name));
+                });
     }
 }
