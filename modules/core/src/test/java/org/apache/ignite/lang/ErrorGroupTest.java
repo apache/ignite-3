@@ -19,7 +19,11 @@ package org.apache.ignite.lang;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
+import static org.junit.jupiter.api.Assertions.fail;
 
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.junit.jupiter.api.Test;
@@ -76,5 +80,22 @@ class ErrorGroupTest {
 
         // Then error code and traceId are not duplicated
         assertThat(errorMessage, equalTo("IGN-CMN-1 TraceId:24103638-d079-4a19-a8f6-ca9c23662908 I'm the\n reason\n"));
+    }
+
+    @SuppressWarnings({"rawtypes", "OptionalGetWithoutIsPresent"})
+    @Test
+    void groupIdsAreUnique() throws IllegalAccessException {
+        Map<Integer, ErrorGroup> errGroups = new HashMap<>();
+
+        for (Class cls : ErrorGroups.class.getDeclaredClasses()) {
+            var errGroupField = Arrays.stream(cls.getFields()).filter(f -> f.getName().endsWith("_ERR_GROUP")).findFirst().get();
+            var errGroup = (ErrorGroup) errGroupField.get(null);
+
+            var existing = errGroups.putIfAbsent(errGroup.code(), errGroup);
+
+            if (existing != null) {
+                fail("Duplicate error group id: " + errGroup.code() + " (" + existing.name() + ", " + errGroup.name() + ")");
+            }
+        }
     }
 }
