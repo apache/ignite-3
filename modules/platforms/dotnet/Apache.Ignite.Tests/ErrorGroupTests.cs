@@ -87,9 +87,11 @@ namespace Apache.Ignite.Tests
                 .SelectMany(groupClass =>
                 {
                     var groupCode = (int)groupClass.GetField("GroupCode")!.GetValue(null)!;
-                    var errorCodes = groupClass.GetFields().Where(x => x.Name != "GroupCode").Select(x => (int)x.GetValue(null)!);
 
-                    return errorCodes.Select(errCode => (errCode, groupCode, groupClass.Name));
+                    return groupClass
+                        .GetFields()
+                        .Where(x => x.Name != "GroupCode")
+                        .Select(errCode => ((int)errCode.GetValue(null)!, groupCode, errCode.Name));
                 });
     }
 }
