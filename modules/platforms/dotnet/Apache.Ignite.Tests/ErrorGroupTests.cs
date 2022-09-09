@@ -74,7 +74,7 @@ namespace Apache.Ignite.Tests
         {
             foreach (var (code, group, name) in GetErrorCodes())
             {
-                var expectedGroup = ErrorGroup.GetGroupCode(group);
+                var expectedGroup = ErrorGroup.GetGroupCode(code);
 
                 Assert.AreEqual(expectedGroup, group, $"Code {code} ({name}) has incorrect group. Expected {expectedGroup}, got {group}.");
             }
