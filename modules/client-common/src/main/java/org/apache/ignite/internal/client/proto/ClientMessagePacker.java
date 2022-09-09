@@ -25,6 +25,7 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufUtil;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.nio.ByteBuffer;
 import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
@@ -34,6 +35,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.UUID;
+import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 
 /**
  * ByteBuf-based MsgPack implementation. Replaces {@link org.msgpack.core.MessagePacker} to avoid
@@ -469,6 +471,20 @@ public class ClientMessagePacker implements AutoCloseable {
     }
 
     /**
+     * Writes a byte buffer to the output.
+     *
+     * <p>This method is used with {@link #packRawStringHeader(int)} or {@link #packBinaryHeader(int)}
+     * methods.
+     *
+     * @param src the data to add.
+     */
+    public void writePayload(ByteBuffer src) {
+        assert !closed : "Packer is closed";
+
+        buf.writeBytes(src);
+    }
+
+    /**
      * Writes a byte array to the output.
      *
      * <p>This method is used with {@link #packRawStringHeader(int)} or {@link #packBinaryHeader(int)}
@@ -861,7 +877,7 @@ public class ClientMessagePacker implements AutoCloseable {
             packInt(ClientDataType.BITMASK);
             packBitSet((BitSet) obj);
         } else {
-            throw new UnsupportedOperationException("Custom objects are not supported");
+            throw new UnsupportedOperationException("Custom objects are not supported: " + cls);
         }
     }
 
@@ -885,6 +901,20 @@ public class ClientMessagePacker implements AutoCloseable {
         for (Object arg : args) {
             packObjectWithType(arg);
         }
+    }
+
+    /**
+     * Packs binary tuple with no-value set.
+     *
+     * @param builder Builder.
+     * @param noValueSet No-value bit set.
+     */
+    public void packBinaryTuple(BinaryTupleBuilder builder, BitSet noValueSet) {
+        packBitSet(noValueSet);
+
+        var buf = builder.build();
+        packBinaryHeader(buf.limit() - buf.position());
+        writePayload(buf);
     }
 
     /**

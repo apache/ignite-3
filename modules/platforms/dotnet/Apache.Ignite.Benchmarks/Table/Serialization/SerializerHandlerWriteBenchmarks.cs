@@ -21,6 +21,7 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
     using BenchmarkDotNet.Attributes;
     using Internal.Buffers;
     using Internal.Proto;
+    using Internal.Proto.BinaryTuple;
     using Internal.Table.Serialization;
 
     /// <summary>
@@ -43,9 +44,13 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
             using var pooledWriter = new PooledArrayBufferWriter();
             var writer = pooledWriter.GetMessageWriter();
 
-            writer.Write(Object.Id);
-            writer.Write(Object.BodyType);
-            writer.Write(Object.Seats);
+            using var tupleBuilder = new BinaryTupleBuilder(3);
+            tupleBuilder.AppendGuid(Object.Id);
+            tupleBuilder.AppendString(Object.BodyType);
+            tupleBuilder.AppendInt(Object.Seats);
+
+            writer.WriteBitSet(3);
+            writer.Write(tupleBuilder.Build().Span);
 
             writer.Flush();
             VerifyWritten(pooledWriter);
@@ -75,7 +80,7 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
             VerifyWritten(pooledWriter);
         }
 
-        [Benchmark]
+        // [Benchmark]
         public void WriteObjectOld()
         {
             using var pooledWriter = new PooledArrayBufferWriter();

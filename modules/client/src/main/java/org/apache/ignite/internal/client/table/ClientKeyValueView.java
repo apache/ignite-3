@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.client.table.ClientTable.writeTx;
 import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
 
 import java.io.Serializable;
+import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -30,11 +31,14 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
+import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.internal.marshaller.ClientMarshallerReader;
+import org.apache.ignite.internal.marshaller.ClientMarshallerWriter;
 import org.apache.ignite.internal.marshaller.Marshaller;
 import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.lang.IgniteException;
@@ -192,14 +196,11 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_UPSERT_ALL,
                 (s, w) -> {
-                    w.out().packUuid(tbl.tableId());
-                    writeTx(tx, w);
-                    w.out().packInt(s.version());
+                    writeSchemaAndTx(s, w, tx);
                     w.out().packInt(pairs.size());
 
                     for (Entry<K, V> e : pairs.entrySet()) {
-                        keySer.writeRecRaw(e.getKey(), s, w.out(), TuplePart.KEY);
-                        valSer.writeRecRaw(e.getValue(), s, w.out(), TuplePart.VAL);
+                        writeKeyValueRaw(s, w, e.getKey(), e.getValue());
                     }
                 },
                 r -> null);
@@ -370,11 +371,9 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_REPLACE_EXACT,
                 (s, w) -> {
-                    keySer.writeRec(tx, key, s, w, TuplePart.KEY);
-                    valSer.writeRecRaw(oldVal, s, w.out(), TuplePart.VAL);
-
-                    keySer.writeRecRaw(key, s, w.out(), TuplePart.KEY);
-                    valSer.writeRecRaw(newVal, s, w.out(), TuplePart.VAL);
+                    writeSchemaAndTx(s, w, tx);
+                    writeKeyValueRaw(s, w, key, oldVal);
+                    writeKeyValueRaw(s, w, key, newVal);
                 },
                 ClientMessageUnpacker::unpackBoolean);
     }
@@ -454,8 +453,29 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
     }
 
     private void writeKeyValue(ClientSchema s, PayloadOutputChannel w, @Nullable Transaction tx, @NotNull K key, V val) {
-        keySer.writeRec(tx, key, s, w, TuplePart.KEY);
-        valSer.writeRecRaw(val, s, w.out(), TuplePart.VAL);
+        writeSchemaAndTx(s, w, tx);
+        writeKeyValueRaw(s, w, key, val);
+    }
+
+    private void writeKeyValueRaw(ClientSchema s, PayloadOutputChannel w, @NotNull K key, V val) {
+        var builder = BinaryTupleBuilder.create(s.columns().length, true);
+        var noValueSet = new BitSet();
+        ClientMarshallerWriter writer = new ClientMarshallerWriter(builder, noValueSet);
+
+        try {
+            s.getMarshaller(keySer.mapper(), TuplePart.KEY).writeObject(key, writer);
+            s.getMarshaller(valSer.mapper(), TuplePart.VAL).writeObject(val, writer);
+        } catch (MarshallerException e) {
+            throw new IgniteException(UNKNOWN_ERR, e.getMessage(), e);
+        }
+
+        w.out().packBinaryTuple(builder, noValueSet);
+    }
+
+    private void writeSchemaAndTx(ClientSchema s, PayloadOutputChannel w, @Nullable Transaction tx) {
+        w.out().packUuid(tbl.tableId());
+        writeTx(tx, w);
+        w.out().packInt(s.version());
     }
 
     private HashMap<K, V> readGetAllResponse(ClientSchema schema, ClientMessageUnpacker in) {
@@ -466,11 +486,12 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
         Marshaller keyMarsh = schema.getMarshaller(keySer.mapper(), TuplePart.KEY);
         Marshaller valMarsh = schema.getMarshaller(valSer.mapper(), TuplePart.VAL);
 
-        var reader = new ClientMarshallerReader(in);
-
         try {
             for (int i = 0; i < cnt; i++) {
                 in.unpackBoolean(); // TODO: Optimize (IGNITE-16022).
+
+                var tupleReader = new BinaryTupleReader(schema.columns().length, in.readBinaryUnsafe());
+                var reader = new ClientMarshallerReader(tupleReader);
                 res.put((K) keyMarsh.readObject(reader, null), (V) valMarsh.readObject(reader, null));
             }
 

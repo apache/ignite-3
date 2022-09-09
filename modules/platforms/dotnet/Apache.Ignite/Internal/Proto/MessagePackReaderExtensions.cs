@@ -170,6 +170,20 @@ namespace Apache.Ignite.Internal.Proto
             return false;
         }
 
+        /// <summary>
+        /// Reads binary value as <see cref="ReadOnlyMemory{T}"/>.
+        /// </summary>
+        /// <param name="reader">Reader.</param>
+        /// <returns>Binary value.</returns>
+        public static ReadOnlyMemory<byte> ReadBytesAsMemory(this ref MessagePackReader reader)
+        {
+            ReadOnlySequence<byte> tupleSeq = reader.ReadBytes()!.Value;
+
+            Debug.Assert(tupleSeq.IsSingleSegment, "tupleSeq.IsSingleSegment");
+
+            return tupleSeq.First;
+        }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static void ValidateExtensionType(
             ref MessagePackReader reader,

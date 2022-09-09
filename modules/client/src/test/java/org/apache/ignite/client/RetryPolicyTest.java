@@ -143,8 +143,8 @@ public class RetryPolicyTest {
 
         try (var client = getClient(plc)) {
             RecordView<Tuple> recView = client.tables().table("t").recordView();
-            recView.get(null, Tuple.create().set("id", 1));
-            recView.get(null, Tuple.create().set("id", 1));
+            recView.get(null, Tuple.create().set("id", 1L));
+            recView.get(null, Tuple.create().set("id", 1L));
 
             assertEquals(1, plc.invocations.size());
         }
@@ -172,8 +172,8 @@ public class RetryPolicyTest {
 
         try (var client = getClient(new RetryReadPolicy())) {
             RecordView<Tuple> recView = client.tables().table("t").recordView();
-            recView.get(null, Tuple.create().set("id", 1));
-            recView.get(null, Tuple.create().set("id", 1));
+            recView.get(null, Tuple.create().set("id", 1L));
+            recView.get(null, Tuple.create().set("id", 1L));
         }
     }
 
@@ -183,8 +183,8 @@ public class RetryPolicyTest {
 
         try (var client = getClient(new RetryReadPolicy())) {
             RecordView<Tuple> recView = client.tables().table("t").recordView();
-            recView.upsert(null, Tuple.create().set("id", 1));
-            assertThrows(IgniteClientConnectionException.class, () -> recView.upsert(null, Tuple.create().set("id", 1)));
+            recView.upsert(null, Tuple.create().set("id", 1L));
+            assertThrows(IgniteClientConnectionException.class, () -> recView.upsert(null, Tuple.create().set("id", 1L)));
         }
     }
 

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.rocksdb;
+package org.apache.ignite.internal.rocksdb.flush;
 
 import static org.rocksdb.AbstractEventListener.EnabledEventCallback.ON_FLUSH_BEGIN;
 import static org.rocksdb.AbstractEventListener.EnabledEventCallback.ON_FLUSH_COMPLETED;
@@ -23,26 +23,16 @@ import static org.rocksdb.AbstractEventListener.EnabledEventCallback.ON_FLUSH_CO
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
-import org.apache.ignite.configuration.schemas.table.TableView;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.storage.StorageException;
 import org.rocksdb.AbstractEventListener;
 import org.rocksdb.FlushJobInfo;
 import org.rocksdb.RocksDB;
 
 /**
- * Represents a listener of RocksDB flush events. Responsible for updating persisted index of partitions.
- *
- * @see RocksDbMvPartitionStorage#persistedIndex()
- * @see RocksDbMvPartitionStorage#refreshPersistedIndex()
+ * Represents a listener of RocksDB flush events.
  */
 class RocksDbFlushListener extends AbstractEventListener {
-    /** Logger. */
-    private static final IgniteLogger LOG = Loggers.forClass(RocksDbFlushListener.class);
-
-    /** Table storage. */
-    private final RocksDbTableStorage tableStorage;
+    /** Flusher instance. */
+    private final RocksDbFlusher flusher;
 
     /**
      * Type of last processed event. Real amount of events doesn't matter in atomic flush mode. All "completed" events go after all "begin"
@@ -55,9 +45,15 @@ class RocksDbFlushListener extends AbstractEventListener {
      */
     private volatile CompletableFuture<?> lastFlushProcessed = CompletableFuture.completedFuture(null);
 
-    public RocksDbFlushListener(RocksDbTableStorage tableStorage) {
+    /**
+     * Constructor.
+     *
+     * @param flusher Flusher instance to delegate events processing to.
+     */
+    RocksDbFlushListener(RocksDbFlusher flusher) {
         super(EnabledEventCallback.ON_FLUSH_BEGIN, EnabledEventCallback.ON_FLUSH_COMPLETED);
-        this.tableStorage = tableStorage;
+
+        this.flusher = flusher;
     }
 
     /** {@inheritDoc} */
@@ -71,42 +67,13 @@ class RocksDbFlushListener extends AbstractEventListener {
     /** {@inheritDoc} */
     @Override
     public void onFlushCompleted(RocksDB db, FlushJobInfo flushJobInfo) {
-        ExecutorService threadPool = tableStorage.engine().threadPool();
+        ExecutorService threadPool = flusher.threadPool;
 
         if (lastEventType.compareAndSet(ON_FLUSH_BEGIN, ON_FLUSH_COMPLETED)) {
-            lastFlushProcessed = CompletableFuture.runAsync(this::refreshPersistedIndexes, threadPool);
+            lastFlushProcessed = CompletableFuture.runAsync(flusher.onFlushCompleted, threadPool);
         }
 
         // Do it for every column family, there's no way to tell in advance which one has the latest sequence number.
-        lastFlushProcessed.whenCompleteAsync((o, throwable) -> tableStorage.completeFutures(flushJobInfo.getLargestSeqno()), threadPool);
-    }
-
-    private void refreshPersistedIndexes() {
-        if (!tableStorage.busyLock.enterBusy()) {
-            return;
-        }
-
-        try {
-            TableView tableCfgView = tableStorage.configuration().value();
-
-            for (int partitionId = 0; partitionId < tableCfgView.partitions(); partitionId++) {
-                RocksDbMvPartitionStorage partition = tableStorage.getMvPartition(partitionId);
-
-                if (partition != null) {
-                    try {
-                        partition.refreshPersistedIndex();
-                    } catch (StorageException storageException) {
-                        LOG.error(
-                                "Filed to refresh persisted applied index value for table {} partition {}",
-                                storageException,
-                                tableStorage.configuration().name().value(),
-                                partitionId
-                        );
-                    }
-                }
-            }
-        } finally {
-            tableStorage.busyLock.leaveBusy();
-        }
+        lastFlushProcessed.whenCompleteAsync((o, throwable) -> flusher.completeFutures(flushJobInfo.getLargestSeqno()), threadPool);
     }
 }

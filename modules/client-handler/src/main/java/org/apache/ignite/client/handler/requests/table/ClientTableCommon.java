@@ -17,12 +17,12 @@
 
 package org.apache.ignite.client.handler.requests.table;
 
-import static org.apache.ignite.internal.client.proto.ClientMessageCommon.NO_VALUE;
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.TABLE_ID_NOT_FOUND_ERR;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -32,6 +32,9 @@ import java.util.BitSet;
 import java.util.Collection;
 import java.util.UUID;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
+import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
+import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
+import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
 import org.apache.ignite.internal.client.proto.ClientDataType;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
@@ -51,7 +54,6 @@ import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.msgpack.core.MessageTypeException;
 
 /**
  * Common table functionality.
@@ -93,24 +95,6 @@ public class ClientTableCommon {
      * @param packer Packer.
      * @param tuple  Tuple.
      */
-    public static void writeTupleOrNil(ClientMessagePacker packer, Tuple tuple) {
-        if (tuple == null) {
-            packer.packNil();
-
-            return;
-        }
-
-        var schema = ((SchemaAware) tuple).schema();
-
-        writeTuple(packer, tuple, schema);
-    }
-
-    /**
-     * Writes a tuple.
-     *
-     * @param packer Packer.
-     * @param tuple  Tuple.
-     */
     public static void writeTupleOrNil(ClientMessagePacker packer, Tuple tuple, TuplePart part) {
         if (tuple == null) {
             packer.packNil();
@@ -121,40 +105,6 @@ public class ClientTableCommon {
         var schema = ((SchemaAware) tuple).schema();
 
         writeTuple(packer, tuple, schema, false, part);
-    }
-
-    /**
-     * Writes a tuple.
-     *
-     * @param packer Packer.
-     * @param tuple  Tuple.
-     * @param schema Tuple schema.
-     * @throws IgniteException on failed serialization.
-     */
-    public static void writeTuple(
-            ClientMessagePacker packer,
-            Tuple tuple,
-            SchemaDescriptor schema
-    ) {
-        writeTuple(packer, tuple, schema, false, TuplePart.KEY_AND_VAL);
-    }
-
-    /**
-     * Writes a tuple.
-     *
-     * @param packer     Packer.
-     * @param tuple      Tuple.
-     * @param schema     Tuple schema.
-     * @param skipHeader Whether to skip the tuple header.
-     * @throws IgniteException on failed serialization.
-     */
-    public static void writeTuple(
-            ClientMessagePacker packer,
-            Tuple tuple,
-            SchemaDescriptor schema,
-            boolean skipHeader
-    ) {
-        writeTuple(packer, tuple, schema, skipHeader, TuplePart.KEY_AND_VAL);
     }
 
     /**
@@ -180,17 +130,21 @@ public class ClientTableCommon {
             packer.packInt(schema.version());
         }
 
+        var builder = BinaryTupleBuilder.create(columnCount(schema, part), true);
+
         if (part != TuplePart.VAL) {
             for (var col : schema.keyColumns().columns()) {
-                writeColumnValue(packer, tuple, col);
+                writeColumnValue(builder, tuple, col);
             }
         }
 
         if (part != TuplePart.KEY) {
             for (var col : schema.valueColumns().columns()) {
-                writeColumnValue(packer, tuple, col);
+                writeColumnValue(builder, tuple, col);
             }
         }
+
+        packBinary(packer, builder.build());
     }
 
     /**
@@ -316,14 +270,22 @@ public class ClientTableCommon {
     ) {
         var cnt = keyOnly ? schema.keyColumns().length() : schema.length();
 
+        // NOTE: noValueSet is only present for client -> server communication.
+        // It helps disambiguate two cases: 1 - column value is not set, 2 - column value is set to null explicitly.
+        // If the column has a default value, it should be applied only in case 1.
+        // https://cwiki.apache.org/confluence/display/IGNITE/IEP-76+Thin+Client+Protocol+for+Ignite+3.0#IEP76ThinClientProtocolforIgnite3.0-NullvsNoValue
+        var noValueSet = unpacker.unpackBitSet();
+        var binaryTupleReader = new BinaryTupleReader(cnt, unpacker.readBinaryUnsafe());
         var tuple = Tuple.create(cnt);
 
         for (int i = 0; i < cnt; i++) {
-            if (unpacker.tryUnpackNoValue()) {
+            if (noValueSet.get(i)) {
                 continue;
             }
 
-            readAndSetColumnValue(unpacker, tuple, schema.column(i));
+            Column column = schema.column(i);
+            ClientBinaryTupleUtils.readAndSetColumnValue(
+                    binaryTupleReader, i, tuple, column.name(), getClientDataType(column.type().spec()));
         }
 
         return tuple;
@@ -410,16 +372,6 @@ public class ClientTableCommon {
         }
     }
 
-    private static void readAndSetColumnValue(ClientMessageUnpacker unpacker, Tuple tuple, Column col) {
-        try {
-            int type = getClientDataType(col.type().spec());
-            Object val = unpacker.unpackObject(type);
-            tuple.set(col.name(), val);
-        } catch (MessageTypeException e) {
-            throw new IgniteException(PROTOCOL_ERR, "Incorrect value type for column '" + col.name() + "': " + e.getMessage(), e);
-        }
-    }
-
     private static int getClientDataType(NativeTypeSpec spec) {
         switch (spec) {
             case INT8:
@@ -475,88 +427,94 @@ public class ClientTableCommon {
         }
     }
 
-    private static void writeColumnValue(ClientMessagePacker packer, Tuple tuple, Column col) {
-        var val = tuple.valueOrDefault(col.name(), NO_VALUE);
+    private static void writeColumnValue(BinaryTupleBuilder builder, Tuple tuple, Column col) {
+        var val = tuple.valueOrDefault(col.name(), null);
 
         if (val == null) {
-            packer.packNil();
-            return;
-        }
-
-        if (val == NO_VALUE) {
-            packer.packNoValue();
+            builder.appendNull();
             return;
         }
 
         switch (col.type().spec()) {
             case INT8:
-                packer.packByte((byte) val);
+                builder.appendByte((byte) val);
                 break;
 
             case INT16:
-                packer.packShort((short) val);
+                builder.appendShort((short) val);
                 break;
 
             case INT32:
-                packer.packInt((int) val);
+                builder.appendInt((int) val);
                 break;
 
             case INT64:
-                packer.packLong((long) val);
+                builder.appendLong((long) val);
                 break;
 
             case FLOAT:
-                packer.packFloat((float) val);
+                builder.appendFloat((float) val);
                 break;
 
             case DOUBLE:
-                packer.packDouble((double) val);
+                builder.appendDouble((double) val);
                 break;
 
             case DECIMAL:
-                packer.packDecimal((BigDecimal) val);
+                builder.appendDecimalNotNull((BigDecimal) val);
                 break;
 
             case NUMBER:
-                packer.packNumber((BigInteger) val);
+                builder.appendNumberNotNull((BigInteger) val);
                 break;
 
             case UUID:
-                packer.packUuid((UUID) val);
+                builder.appendUuidNotNull((UUID) val);
                 break;
 
             case STRING:
-                packer.packString((String) val);
+                builder.appendStringNotNull((String) val);
                 break;
 
             case BYTES:
-                byte[] bytes = (byte[]) val;
-                packer.packBinaryHeader(bytes.length);
-                packer.writePayload(bytes);
+                builder.appendBytesNotNull((byte[]) val);
                 break;
 
             case BITMASK:
-                packer.packBitSet((BitSet) val);
+                builder.appendBitmaskNotNull((BitSet) val);
                 break;
 
             case DATE:
-                packer.packDate((LocalDate) val);
+                builder.appendDateNotNull((LocalDate) val);
                 break;
 
             case TIME:
-                packer.packTime((LocalTime) val);
+                builder.appendTimeNotNull((LocalTime) val);
                 break;
 
             case DATETIME:
-                packer.packDateTime((LocalDateTime) val);
+                builder.appendDateTimeNotNull((LocalDateTime) val);
                 break;
 
             case TIMESTAMP:
-                packer.packTimestamp((Instant) val);
+                builder.appendTimestampNotNull((Instant) val);
                 break;
 
             default:
                 throw new IgniteException(PROTOCOL_ERR, "Data type not supported: " + col.type());
         }
+    }
+
+    private static int columnCount(SchemaDescriptor schema, TuplePart part) {
+        switch (part) {
+            case KEY: return schema.keyColumns().length();
+            case VAL: return schema.valueColumns().length();
+            default: return schema.length();
+        }
+    }
+
+    private static void packBinary(ClientMessagePacker packer, ByteBuffer buf) {
+        packer.packBinaryHeader(buf.limit() - buf.position());
+        packer.writePayload(buf);
     }
 }

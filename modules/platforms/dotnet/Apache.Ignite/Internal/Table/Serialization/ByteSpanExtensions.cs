@@ -15,35 +15,20 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Tests.Table
+namespace Apache.Ignite.Internal.Table.Serialization
 {
-    using Ignite.Table;
+    using System;
 
     /// <summary>
-    /// Custom tuple implementation for tests.
+    /// Extensions for <see cref="Span{T}"/>.
     /// </summary>
-    public class CustomTestIgniteTuple : IIgniteTuple
+    internal static class ByteSpanExtensions
     {
-        public const long Key = 42;
-
-        public const string Value = "Val1";
-
-        public int FieldCount => 2;
-
-        public object? this[int ordinal]
-        {
-            get => ordinal switch { 0 => Key, _ => Value };
-            set => throw new System.NotImplementedException();
-        }
-
-        public object? this[string name]
-        {
-            get => name switch { "KEY" => Key, _ => Value };
-            set => throw new System.NotImplementedException();
-        }
-
-        public string GetName(int ordinal) => ordinal switch { 0 => "KEY", _ => "VAL" };
-
-        public int GetOrdinal(string name) => name switch { "KEY" => 0, _ => 1 };
+        /// <summary>
+        /// Sets the bit at the specified index.
+        /// </summary>
+        /// <param name="span">Span.</param>
+        /// <param name="index">Bit index.</param>
+        public static void SetBit(this Span<byte> span, int index) => span[index / 8] |= (byte)(1 << (index % 8));
     }
 }

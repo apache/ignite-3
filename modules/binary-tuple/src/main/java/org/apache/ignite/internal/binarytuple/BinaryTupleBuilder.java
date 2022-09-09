@@ -143,6 +143,15 @@ public class BinaryTupleBuilder {
     }
 
     /**
+     * Append a default (empty) value for the current element.
+     *
+     * @return {@code this} for chaining.
+     */
+    public BinaryTupleBuilder appendDefault() {
+        return proceed();
+    }
+
+    /**
      * Append a value for the current element.
      *
      * @param value Element value.

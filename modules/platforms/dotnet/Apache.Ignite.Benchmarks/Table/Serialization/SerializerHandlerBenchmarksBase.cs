@@ -63,7 +63,7 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
         {
             var bytesWritten = pooledWriter.GetWrittenMemory().Length;
 
-            if (bytesWritten != 29)
+            if (bytesWritten != 31)
             {
                 throw new Exception("Unexpected number of bytes written: " + bytesWritten);
             }
@@ -77,7 +77,7 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
             TupleSerializerHandler.Instance.Write(ref writer, Schema, Tuple);
 
             writer.Flush();
-            return pooledWriter.GetWrittenMemory().ToArray();
+            return pooledWriter.GetWrittenMemory().Slice(3).ToArray();
         }
 
         protected internal class Car
