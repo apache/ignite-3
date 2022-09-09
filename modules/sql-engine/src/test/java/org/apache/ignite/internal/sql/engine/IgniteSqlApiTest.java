@@ -106,7 +106,7 @@ public class IgniteSqlApiTest {
                 .build();
 
         // Statement with params.
-        Statement preparedStatement = igniteSql.statementBuilder()
+        Statement statementWipParams = igniteSql.statementBuilder()
                 .query("SELECT id, val FROM tbl WHERE id > ?")
                 .defaultSchema("PUBLIC")
                 .build();
@@ -115,8 +115,8 @@ public class IgniteSqlApiTest {
         session.execute(null, simpleStatement,  /* args */ 1);
 
         // Execute same statement in different sessions is allowed.
-        session.execute(null, preparedStatement,  /* args */ 1);
-        sessionWithParams.execute(null, preparedStatement,  /* args */ 1);
+        session.execute(null, statementWipParams,  /* args */ 1);
+        sessionWithParams.execute(null, statementWipParams,  /* args */ 1);
 
         // Releasing session resources.
         session.close();
