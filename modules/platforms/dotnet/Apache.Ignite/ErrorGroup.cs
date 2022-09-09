@@ -33,7 +33,12 @@ namespace Apache.Ignite
         /** Contains error codes for this error group. */
         private readonly HashSet<int> _codes = new();
 
-        private ErrorGroup(string groupName, int groupCode)
+        // TODO: Use simplified model with a bunch of enums?
+        // We need:
+        // 1. Group codes.
+        // 2. Error codes within groups.
+        // And write a test to verify that all codes are the same as in Java.
+        private ErrorGroup(string groupName, int groupCode, ISet<int> codes)
         {
             GroupName = groupName;
             GroupCode = groupCode;
