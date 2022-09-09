@@ -33,18 +33,18 @@ namespace Apache.Ignite
         public const string ErrPrefix = "IGN-";
 
         /// <summary>
-        /// Returns error code extracted from the given full error code.
+        /// Gets error code extracted from the given full error code.
         /// </summary>
-        /// <param name="code">Full error code.</param>
+        /// <param name="fullCode">Full error code.</param>
         /// <returns>Error code.</returns>
-        public static int ExtractErrorCode(int code) => code & 0xFFFF;
+        public static int GetErrorCode(int fullCode) => fullCode & 0xFFFF;
 
         /// <summary>
         /// Returns group code extracted from the given full error code.
         /// </summary>
-        /// <param name="code">Full error code.</param>
+        /// <param name="fullCode">Full error code.</param>
         /// <returns>Group code.</returns>
-        public static int ExtractGroupCode(int code) => code >> 16;
+        public static int GetGroupCode(int fullCode) => fullCode >> 16;
 
         /// <summary>
         /// Gets the full error code from group and error codes.

@@ -76,7 +76,7 @@ namespace Apache.Ignite
         /// <summary>
         /// Gets the error code.
         /// </summary>
-        public int ErrorCode => ErrorGroup.ExtractErrorCode(Code);
+        public int ErrorCode => ErrorGroup.GetErrorCode(Code);
 
         /// <summary>
         /// Gets the code as string.
