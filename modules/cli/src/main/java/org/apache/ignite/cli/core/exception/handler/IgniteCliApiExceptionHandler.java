@@ -21,6 +21,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.net.ConnectException;
 import java.net.UnknownHostException;
+import java.util.List;
 import java.util.stream.Collectors;
 import org.apache.ignite.cli.core.exception.ExceptionHandler;
 import org.apache.ignite.cli.core.exception.ExceptionWriter;
@@ -31,6 +32,7 @@ import org.apache.ignite.cli.core.style.element.UiElements;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.rest.client.invoker.ApiException;
+import org.apache.ignite.rest.client.model.InvalidParam;
 import org.apache.ignite.rest.client.model.Problem;
 import org.jetbrains.annotations.NotNull;
 
@@ -77,11 +79,12 @@ public class IgniteCliApiExceptionHandler implements ExceptionHandler<IgniteCliA
     private static void tryToExtractProblem(ErrorComponentBuilder errorComponentBuilder, ApiException cause) {
         try {
             Problem problem = objectMapper.readValue(cause.getResponseBody(), Problem.class);
-            if (!problem.getInvalidParams().isEmpty()) {
-                errorComponentBuilder.details(extractInvalidParams(problem));
+            List<InvalidParam> invalidParams = problem.getInvalidParams();
+            if (invalidParams != null && !invalidParams.isEmpty()) {
+                errorComponentBuilder.details(extractInvalidParams(invalidParams));
             }
             errorComponentBuilder
-                    .header(problem.getDetail())
+                    .header(problem.getDetail() != null ? problem.getDetail() : problem.getTitle())
                     .errorCode(problem.getCode())
                     .traceId(problem.getTraceId());
         } catch (JsonProcessingException ex) {
@@ -90,8 +93,8 @@ public class IgniteCliApiExceptionHandler implements ExceptionHandler<IgniteCliA
     }
 
     @NotNull
-    private static String extractInvalidParams(Problem problem) {
-        return problem.getInvalidParams().stream()
+    private static String extractInvalidParams(List<InvalidParam> invalidParams) {
+        return invalidParams.stream()
                 .map(invalidParam -> "" + invalidParam.getName() + ": " + invalidParam.getReason())
                 .collect(Collectors.joining(System.lineSeparator()));
     }

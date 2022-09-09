@@ -463,19 +463,31 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
      * Get storage super root.
      *
      * @return Super root storage.
+     * @throws ComponentNotStartedException if changer is not started.
      */
     public SuperRoot superRoot() {
-        return storageRoots.roots;
+        StorageRoots localRoots = storageRoots;
+
+        if (localRoots == null) {
+            throw new ComponentNotStartedException();
+        }
+
+        return localRoots.roots;
     }
 
     /**
      * Entry point for configuration changes.
      *
      * @param src Configuration source.
-     * @return fut Future that will be completed after changes are written to the storage.
+     * @return Future that will be completed after changes are written to the storage.
+     * @throws ComponentNotStartedException if changer is not started.
      */
     private CompletableFuture<Void> changeInternally(ConfigurationSource src) {
         StorageRoots localRoots = storageRoots;
+
+        if (localRoots == null) {
+            throw new ComponentNotStartedException();
+        }
 
         return storage.lastRevision()
             .thenCompose(storageRevision -> {
@@ -503,7 +515,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
      * Internal configuration change method that completes provided future.
      *
      * @param src Configuration source.
-     * @return fut Future that will be completed after changes are written to the storage.
+     * @return Future that will be completed after changes are written to the storage.
      */
     private CompletableFuture<Void> changeInternally0(StorageRoots localRoots, ConfigurationSource src) {
         return CompletableFuture

@@ -31,7 +31,6 @@ import org.junit.jupiter.api.TestInfo;
  * Tests for {@link SqlCommand}.
  */
 class ItSqlCommandTest extends CliCommandTestInitializedIntegrationBase {
-
     @BeforeEach
     @Override
     public void setUp(TestInfo testInfo) throws Exception {
@@ -64,8 +63,7 @@ class ItSqlCommandTest extends CliCommandTestInitializedIntegrationBase {
         assertAll(
                 () -> assertExitCodeIs(1),
                 this::assertOutputIsEmpty,
-                // TODO: https://issues.apache.org/jira/browse/IGNITE-17090
-                () -> assertErrOutputIs(CLIENT_CONNECTION_FAILED_MESSAGE + System.lineSeparator())
+                () -> assertErrOutputContains(CLIENT_CONNECTION_FAILED_MESSAGE)
         );
     }
 
@@ -77,9 +75,55 @@ class ItSqlCommandTest extends CliCommandTestInitializedIntegrationBase {
         assertAll(
                 () -> assertExitCodeIs(1),
                 this::assertOutputIsEmpty,
-                // TODO: https://issues.apache.org/jira/browse/IGNITE-17090
-                () -> assertErrOutputIs("SQL query parsing error" + System.lineSeparator()
-                        + "Sql query execution failed." + System.lineSeparator())
+                () -> assertErrOutputContains("Failed to parse query: Encountered \"\" at line 1, column 6")
+        );
+    }
+
+    @Test
+    @DisplayName("Should display readable error when wrong engine is given on CREATE TABLE")
+    void incorrectEngineOnCreate() {
+        execute("sql", "create table mytable1(i int, j int, primary key (i)) with engine='nusuch'", "--jdbc-url", JDBC_URL);
+
+        assertAll(
+                () -> assertExitCodeIs(1),
+                this::assertOutputIsEmpty,
+                () -> assertErrOutputContains("Unexpected table option [option=ENGINE")
+        );
+    }
+
+    @Test
+    @DisplayName("Should display readable error when not SQL expression given")
+    void notSqlExpression() {
+        execute("sql", "asdf", "--jdbc-url", JDBC_URL);
+
+        assertAll(
+                () -> assertExitCodeIs(1),
+                this::assertOutputIsEmpty,
+                () -> assertErrOutputContains("Failed to parse query: Non-query expression encountered in illegal context")
+        );
+    }
+
+    @Test
+    @DisplayName("Should display readable error when select from non existent table")
+    void noSuchTableSelect() {
+        execute("sql", "select * from nosuchtable", "--jdbc-url", JDBC_URL);
+
+        assertAll(
+                () -> assertExitCodeIs(1),
+                this::assertOutputIsEmpty,
+                () -> assertErrOutputContains("From line 1, column 15 to line 1, column 25: Object 'NOSUCHTABLE' not found")
+        );
+    }
+
+    @Test
+    @DisplayName("Should display readable error when create table without PK")
+    void createTableWithoutPk() {
+        execute("sql", "create table mytable(i int)", "--jdbc-url", JDBC_URL);
+
+        assertAll(
+                () -> assertExitCodeIs(1),
+                this::assertOutputIsEmpty,
+                () -> assertErrOutputContains("Table without PRIMARY KEY is not supported")
         );
     }
 }

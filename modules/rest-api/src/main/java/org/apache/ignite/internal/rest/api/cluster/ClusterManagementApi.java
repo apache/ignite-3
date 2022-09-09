@@ -38,16 +38,15 @@ import org.apache.ignite.internal.rest.constants.MediaType;
 @Controller("/management/v1/cluster")
 @Tag(name = "clusterManagement")
 public interface ClusterManagementApi {
-
     /**
      * Returns cluster state.
      */
     @Get("state")
     @Operation(operationId = "clusterState")
     @ApiResponse(responseCode = "200", description = "Return cluster state",
-            content = @Content(mediaType = MediaType.APPLICATION_JSON,
-                    schema = @Schema(implementation = ClusterStateDto.class)))
-    @ApiResponse(responseCode = "404", description = "Cluster state not found, it means that the cluster is not initialized")
+            content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = ClusterStateDto.class)))
+    @ApiResponse(responseCode = "404", description = "Cluster state not found, it means that the cluster is not initialized",
+            content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @ApiResponse(responseCode = "500", description = "Internal error",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @Produces({

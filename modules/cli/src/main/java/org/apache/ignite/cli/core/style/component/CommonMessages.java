@@ -19,9 +19,7 @@ package org.apache.ignite.cli.core.style.component;
 
 import org.apache.ignite.cli.core.style.element.UiElements;
 
-/**
- * Common UI messages.
- */
+/** Common UI messages. */
 public class CommonMessages {
     public static MessageUiComponent CONNECT_OR_USE_CLUSTER_URL_MESSAGE = MessageUiComponent.builder()
             .message("You are not connected to node")

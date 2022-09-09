@@ -15,28 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.core.style.element;
+package org.apache.ignite.internal.configuration;
 
-import org.apache.ignite.cli.core.style.AnsiStringSupport.Marker;
+import org.apache.ignite.lang.ErrorGroups.Common;
+import org.apache.ignite.lang.IgniteInternalException;
 
-/** IU element that is marked with provided ANSI marker. */
-public class MarkedUiElement implements UiElement {
-    private final String content;
-
-    private final Marker marker;
-
-    MarkedUiElement(String content, Marker marker) {
-        this.content = content;
-        this.marker = marker;
-    }
-
-    @Override
-    public String represent() {
-        return marker.mark(content);
-    }
-
-    @Override
-    public String toString() {
-        return represent();
+/**
+ * Exception thrown when component is not started.
+ */
+public class ComponentNotStartedException extends IgniteInternalException {
+    public ComponentNotStartedException() {
+        super(Common.COMPONENT_NOT_STARTED_ERR);
     }
 }

@@ -33,6 +33,9 @@ public class ErrorGroups {
         /** Node stopping error. */
         public static final int NODE_STOPPING_ERR = COMMON_ERR_GROUP.registerErrorCode(2);
 
+        /** Component not started error. */
+        public static final int COMPONENT_NOT_STARTED_ERR = COMMON_ERR_GROUP.registerErrorCode(3);
+
         /** Unknown error. */
         @Deprecated
         public static final int UNKNOWN_ERR = COMMON_ERR_GROUP.registerErrorCode(0xFFFF);
@@ -173,7 +176,7 @@ public class ErrorGroups {
     /** Transactions error group. */
     public static class Transactions {
         /** Transactions error group. */
-        public static final ErrorGroup TX_ERR_GROUP = ErrorGroup.newGroup("TX", 3);
+        public static final ErrorGroup TX_ERR_GROUP = ErrorGroup.newGroup("TX", 7);
 
         /** Error on creation of tx state storage. */
         public static final int TX_STATE_STORAGE_CREATE_ERR = TX_ERR_GROUP.registerErrorCode(1);
