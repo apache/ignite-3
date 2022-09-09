@@ -66,7 +66,14 @@ namespace Apache.Ignite.Tests
         [Test]
         public void TestErrorCodesAreUnique()
         {
-            Assert.Fail("TODO");
+            var duplicateCodes = GetErrorCodes()
+                .GroupBy(x => x.Code)
+                .Select(x => x.ToList())
+                .Where(x => x.Count > 1)
+                .ToList();
+
+            Assert.Multiple(() => duplicateCodes.ForEach(
+                x => Assert.Fail($"Duplicate error code: {x[0].Code} ({string.Join(", ", x.Select(y => y.Name))})")));
         }
 
         [Test]
