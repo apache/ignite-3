@@ -85,6 +85,11 @@ namespace Apache.Ignite
             /// Node stopping error.
             /// </summary>
             public static readonly int NodeStopping = GetFullCode(GroupCode, 2);
+
+            /// <summary>
+            /// Unknown error.
+            /// </summary>
+            public static readonly int Unknown = GetFullCode(GroupCode, 0xFFFF);
         }
 
         /// <summary>
@@ -106,6 +111,16 @@ namespace Apache.Ignite
             /// Table not found.
             /// </summary>
             public static readonly int TableNotFound = GetFullCode(GroupCode, 2);
+
+            /// <summary>
+            /// Column already exists.
+            /// </summary>
+            public static readonly int ColumnAlreadyExists = GetFullCode(GroupCode, 3);
+
+            /// <summary>
+            /// Column not found.
+            /// </summary>
+            public static readonly int ColumnNotFound = GetFullCode(GroupCode, 4);
         }
     }
 }
