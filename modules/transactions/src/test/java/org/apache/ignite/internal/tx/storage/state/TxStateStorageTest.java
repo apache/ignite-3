@@ -141,6 +141,7 @@ public class TxStateStorageTest {
                 TxMeta txMeta = new TxMeta(TxState.PENDING, generateEnlistedPartitions(i), generateTimestamp(txId));
                 txs.put(txId, txMeta);
                 storage.put(txId, txMeta);
+                storage.compareAndSet(txId, TxState.PENDING, txMeta, i);
             }
 
             try (Cursor<IgniteBiTuple<UUID, TxMeta>> scanCursor = storage.scan()) {

@@ -359,7 +359,8 @@ public class TxStateRocksDbStorage implements TxStateStorage {
             iterators.add(rocksIterator);
 
             try {
-                rocksIterator.seekToFirst();
+                // Skip applied index value.
+                rocksIterator.seek(new byte[1]);
             } catch (Exception e) {
                 // Unlikely, but what if...
                 iterators.remove(rocksIterator);
