@@ -64,7 +64,7 @@ class ErrorGroupTest {
             var existing = errGroups.putIfAbsent(errGroup.code(), errGroup);
 
             if (existing != null) {
-                fail("Duplicate error group id: " + errGroup.code() + "(" + existing.name() + ", " + errGroup.name() + ")");
+                fail("Duplicate error group id: " + errGroup.code() + " (" + existing.name() + ", " + errGroup.name() + ")");
             }
         }
     }
