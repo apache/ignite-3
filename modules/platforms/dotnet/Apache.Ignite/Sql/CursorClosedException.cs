@@ -18,12 +18,18 @@
 namespace Apache.Ignite.Sql
 {
     using System;
+    using System.Diagnostics.CodeAnalysis;
     using System.Runtime.Serialization;
 
     /// <summary>
     /// Exception is thrown when query cursor data fetch attempt is performed on a closed cursor.
     /// </summary>
-    public class CursorClosedException : IgniteException
+    [SuppressMessage(
+        "Microsoft.Design",
+        "CA1032:ImplementStandardExceptionConstructors",
+        Justification="Ignite exceptions use a special constructor.")]
+    [Serializable]
+    public sealed class CursorClosedException : IgniteException
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="CursorClosedException"/> class.
@@ -50,7 +56,7 @@ namespace Apache.Ignite.Sql
         /// <summary>
         /// Initializes a new instance of the <see cref="CursorClosedException"/> class.
         /// </summary>
-        protected CursorClosedException(SerializationInfo serializationInfo, StreamingContext streamingContext)
+        private CursorClosedException(SerializationInfo serializationInfo, StreamingContext streamingContext)
             : base(serializationInfo, streamingContext)
         {
             // No-op.

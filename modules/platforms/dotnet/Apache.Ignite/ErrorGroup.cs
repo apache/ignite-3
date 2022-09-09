@@ -70,6 +70,7 @@ namespace Apache.Ignite
         {
             Common.GroupCode => "CMN",
             Table.GroupCode => "TBL",
+            Sql.GroupCode => "SQL",
             _ => throw new ArgumentOutOfRangeException(nameof(groupCode))
         };
 
@@ -78,55 +79,35 @@ namespace Apache.Ignite
         /// </summary>
         public static class Common
         {
-            /// <summary>
-            /// Group code.
-            /// </summary>
+            /// <summary> Group code. </summary>
             public const int GroupCode = 1;
 
-            /// <summary>
-            /// Unexpected error.
-            /// </summary>
+            /// <summary> Unexpected error. </summary>
             public static readonly int Unexpected = GetFullCode(GroupCode, 1);
 
-            /// <summary>
-            /// Node stopping error.
-            /// </summary>
+            /// <summary> Node stopping error. </summary>
             public static readonly int NodeStopping = GetFullCode(GroupCode, 2);
 
-            /// <summary>
-            /// Unknown error.
-            /// </summary>
+            /// <summary> Unknown error. </summary>
             public static readonly int Unknown = GetFullCode(GroupCode, 0xFFFF);
         }
 
-        /// <summary>
-        /// Table errors.
-        /// </summary>
+        /// <summary> Table errors. </summary>
         public static class Table
         {
-            /// <summary>
-            /// Group code.
-            /// </summary>
+            /// <summary> Group code. </summary>
             public const int GroupCode = 2;
 
-            /// <summary>
-            /// Table already exists.
-            /// </summary>
+            /// <summary> Table already exists. </summary>
             public static readonly int TableAlreadyExists = GetFullCode(GroupCode, 1);
 
-            /// <summary>
-            /// Table not found.
-            /// </summary>
+            /// <summary> Table not found. </summary>
             public static readonly int TableNotFound = GetFullCode(GroupCode, 2);
 
-            /// <summary>
-            /// Column already exists.
-            /// </summary>
+            /// <summary> Column already exists. </summary>
             public static readonly int ColumnAlreadyExists = GetFullCode(GroupCode, 3);
 
-            /// <summary>
-            /// Column not found.
-            /// </summary>
+            /// <summary> Column not found. </summary>
             public static readonly int ColumnNotFound = GetFullCode(GroupCode, 4);
         }
 
@@ -135,39 +116,37 @@ namespace Apache.Ignite
         /// </summary>
         public static class Sql
         {
-            /// <summary>
-            /// Group code.
-            /// </summary>
+            /// <summary> Group code. </summary>
             public const int GroupCode = 4;
 
-            /** No more pages in the cursor error. */
+            /// <summary> No more pages in the cursor error. </summary>
             public static readonly int CursorNoMorePages = GetFullCode(GroupCode, 1);
 
-            /** Session not found error. */
+            /// <summary> Session not found error. </summary>
             public static readonly int SessionNotFound = GetFullCode(GroupCode, 2);
 
-            /** Invalid query error. */
+            /// <summary> Invalid query error. </summary>
             public static readonly int QueryInvalid = GetFullCode(GroupCode, 3);
 
-            /** Query without a result set error. */
+            /// <summary> Query without a result set error. </summary>
             public static readonly int QueryNoResultSet = GetFullCode(GroupCode, 4);
 
-            /** Missing primary key error. */
+            /// <summary> Missing primary key error. </summary>
             public static readonly int PrimaryKeyMissing = GetFullCode(GroupCode, 5);
 
-            /** Multiple primary keys error. */
+            /// <summary> Multiple primary keys error. </summary>
             public static readonly int PrimaryKeysMultiple = GetFullCode(GroupCode, 6);
 
-            /** Schema not found. */
+            /// <summary> Schema not found. </summary>
             public static readonly int SchemaNotFound = GetFullCode(GroupCode, 7);
 
-            /** Storage engine not valid. */
+            /// <summary> Storage engine not valid. </summary>
             public static readonly int StorageEngineNotValid = GetFullCode(GroupCode, 8);
 
-            /** Cursor is already closed error. */
+            /// <summary> Cursor is already closed error. </summary>
             public static readonly int CursorClosed = GetFullCode(GroupCode, 9);
 
-            /** Some keys can't be inserted because they violates unique constraint PK. */
+            /// <summary> Some keys can't be inserted because they violates unique constraint PK. </summary>
             public static readonly int DuplicateKeys = GetFullCode(GroupCode, 10);
         }
     }

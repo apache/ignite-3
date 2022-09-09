@@ -28,7 +28,7 @@ namespace Apache.Ignite
     [SuppressMessage(
         "Microsoft.Design",
         "CA1032:ImplementStandardExceptionConstructors",
-        Justification="Ignite exception has a special constructor.")]
+        Justification="Ignite exceptions use a special constructor.")]
     public class IgniteException : Exception
     {
         /// <summary>
