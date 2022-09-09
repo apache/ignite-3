@@ -17,42 +17,20 @@
 
 namespace Apache.Ignite
 {
-    using System.Collections.Generic;
+    using System;
+    using System.Diagnostics.CodeAnalysis;
 
     /// <summary>
     /// Represents a concept of error group. Error group defines a collection of errors that belong to a single semantic component.
     /// Each group can be identified by a name and an integer number that both must be unique across all error groups.
     /// </summary>
-    public class ErrorGroup
+    [SuppressMessage("Microsoft.Design", "CA1034:NestedTypesShouldNotBeVisible", Justification = "Reviewed.")]
+    public static class ErrorGroup
     {
         /// <summary>
         /// Ignite error prefix.
         /// </summary>
         public const string ErrPrefix = "IGN-";
-
-        /** Contains error codes for this error group. */
-        private readonly HashSet<int> _codes = new();
-
-        // TODO: Use simplified model with a bunch of enums?
-        // We need:
-        // 1. Group codes.
-        // 2. Error codes within groups.
-        // And write a test to verify that all codes are the same as in Java.
-        private ErrorGroup(string groupName, int groupCode, ISet<int> codes)
-        {
-            GroupName = groupName;
-            GroupCode = groupCode;
-        }
-
-        /// <summary>
-        /// Gets the group name.
-        /// </summary>
-        public string GroupName { get; }
-
-        /// <summary>
-        /// Gets the group code.
-        /// </summary>
-        public int GroupCode { get; }
 
         /// <summary>
         /// Returns error code extracted from the given full error code.
@@ -67,5 +45,67 @@ namespace Apache.Ignite
         /// <param name="code">Full error code.</param>
         /// <returns>Group code.</returns>
         public static int ExtractGroupCode(int code) => code >> 16;
+
+        /// <summary>
+        /// Gets the full error code from group and error codes.
+        /// </summary>
+        /// <param name="groupCode">Group code.</param>
+        /// <param name="errorCode">Error code.</param>
+        /// <returns>Combined code.</returns>
+        public static int GetFullCode(int groupCode, int errorCode) => (groupCode << 16) | (errorCode & 0xFFFF);
+
+        /// <summary>
+        /// Gets the group name by code.
+        /// </summary>
+        /// <param name="groupCode">Group code.</param>
+        /// <returns>Group name.</returns>
+        public static string GetGroupName(int groupCode) => groupCode switch
+        {
+            Common.GroupCode => "CMN",
+            Table.GroupCode => "TBL",
+            _ => throw new ArgumentOutOfRangeException(nameof(groupCode))
+        };
+
+        /// <summary>
+        /// Common errors.
+        /// </summary>
+        public static class Common
+        {
+            /// <summary>
+            /// Group code.
+            /// </summary>
+            public const int GroupCode = 1;
+
+            /// <summary>
+            /// Unexpected error.
+            /// </summary>
+            public static readonly int Unexpected = GetFullCode(GroupCode, 1);
+
+            /// <summary>
+            /// Node stopping error.
+            /// </summary>
+            public static readonly int NodeStopping = GetFullCode(GroupCode, 2);
+        }
+
+        /// <summary>
+        /// Table errors.
+        /// </summary>
+        public static class Table
+        {
+            /// <summary>
+            /// Group code.
+            /// </summary>
+            public const int GroupCode = 2;
+
+            /// <summary>
+            /// Table already exists.
+            /// </summary>
+            public static readonly int TableAlreadyExists = GetFullCode(GroupCode, 1);
+
+            /// <summary>
+            /// Table not found.
+            /// </summary>
+            public static readonly int TableNotFound = GetFullCode(GroupCode, 2);
+        }
     }
 }
