@@ -23,6 +23,7 @@ import org.apache.ignite.cli.call.configuration.ClusterConfigUpdateCallInput;
 import org.apache.ignite.cli.commands.BaseCommand;
 import org.apache.ignite.cli.commands.cluster.ClusterUrlMixin;
 import org.apache.ignite.cli.commands.questions.ConnectToClusterQuestion;
+import org.apache.ignite.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
 import org.apache.ignite.cli.core.flow.Flowable;
 import org.apache.ignite.cli.core.flow.builder.Flows;
 import picocli.CommandLine.Command;
@@ -52,6 +53,7 @@ public class ClusterConfigUpdateReplCommand extends BaseCommand implements Runna
     @Override
     public void run() {
         question.askQuestionIfNotConnected(clusterUrl.getClusterUrl())
+                .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot update cluster config", "cluster init"))
                 .map(this::configUpdateCallInput)
                 .then(Flows.fromCall(call))
                 .toOutput(spec.commandLine().getOut(), spec.commandLine().getErr())

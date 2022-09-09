@@ -33,6 +33,9 @@ public class ErrorGroups {
         /** Node stopping error. */
         public static final int NODE_STOPPING_ERR = COMMON_ERR_GROUP.registerErrorCode(2);
 
+        /** Component not started error. */
+        public static final int COMPONENT_NOT_STARTED_ERR = COMMON_ERR_GROUP.registerErrorCode(3);
+
         /** Unknown error. */
         @Deprecated
         public static final int UNKNOWN_ERR = COMMON_ERR_GROUP.registerErrorCode(0xFFFF);

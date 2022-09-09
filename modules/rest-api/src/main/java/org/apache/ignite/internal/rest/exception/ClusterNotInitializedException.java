@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cluster.management.rest.exception;
+package org.apache.ignite.internal.rest.exception;
 
 /**
  * Exception that is thrown when the cluster is not initialized.

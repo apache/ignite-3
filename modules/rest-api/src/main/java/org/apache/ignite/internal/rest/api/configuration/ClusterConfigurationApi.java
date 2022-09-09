@@ -39,7 +39,6 @@ import org.apache.ignite.internal.rest.constants.MediaType;
 @Controller("/management/v1/configuration/cluster/")
 @Tag(name = "clusterConfiguration")
 public interface ClusterConfigurationApi {
-
     /**
      * Returns cluster configuration in HOCON format. This is represented as a plain text.
      *
@@ -53,6 +52,8 @@ public interface ClusterConfigurationApi {
     @ApiResponse(responseCode = "500", description = "Internal error",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @ApiResponse(responseCode = "400", description = "Incorrect configuration",
+            content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
+    @ApiResponse(responseCode = "404", description = "Configuration not found, it means that the cluster is not initialized",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @Produces({
             MediaType.TEXT_PLAIN,
@@ -72,6 +73,8 @@ public interface ClusterConfigurationApi {
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @ApiResponse(responseCode = "400", description = "Incorrect configuration",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
+    @ApiResponse(responseCode = "404", description = "Configuration not found, it means that the cluster is not initialized",
+            content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @Consumes(MediaType.TEXT_PLAIN)
     @Produces(MediaType.PROBLEM_JSON)
     @Patch
@@ -90,6 +93,8 @@ public interface ClusterConfigurationApi {
     @ApiResponse(responseCode = "500", description = "Internal error",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @ApiResponse(responseCode = "400", description = "Incorrect configuration",
+            content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
+    @ApiResponse(responseCode = "404", description = "Configuration not found, it means that the cluster is not initialized",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @Produces({
             MediaType.TEXT_PLAIN,
