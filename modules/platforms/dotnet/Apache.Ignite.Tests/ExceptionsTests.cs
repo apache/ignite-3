@@ -18,9 +18,11 @@
 namespace Apache.Ignite.Tests
 {
     using System;
+    using System.Collections.Generic;
     using System.IO;
     using System.Linq;
     using System.Runtime.Serialization.Formatters.Binary;
+    using System.Text.RegularExpressions;
     using NUnit.Framework;
 
     /// <summary>
@@ -66,6 +68,28 @@ namespace Apache.Ignite.Tests
                 Assert.IsNotNull(ex.InnerException);
                 Assert.AreEqual("innerEx", ex.InnerException!.Message);
             }
+        }
+
+        [Test]
+        public void TestAllJavaIgniteExceptionsHaveDotNetCounterparts()
+        {
+            var modulesDir = Path.GetFullPath(Path.Combine(TestUtils.RepoRootDir, "modules"));
+
+            var javaExceptionsWithParents = Directory.EnumerateFiles(modulesDir, "*Exception.java", SearchOption.AllDirectories)
+                .Where(x => !x.Contains("internal"))
+                .Select(File.ReadAllText)
+                .Select(x => Regex.Match(x, @"public class (\w+) extends (\w+)"))
+                .Where(x => x.Success)
+                .ToDictionary(x => x.Groups[1].Value, x => x.Groups[2].Value);
+
+            Assert.IsNotEmpty(javaExceptionsWithParents);
+
+            var javaExceptions = javaExceptionsWithParents.Select(x => x.Key).Where(IsIgniteException).ToList();
+
+            Assert.IsNotEmpty(javaExceptions);
+
+            bool IsIgniteException(string? ex) =>
+                ex != null && (ex == "IgniteException" || IsIgniteException(javaExceptionsWithParents.GetValueOrDefault(ex)));
         }
     }
 }
