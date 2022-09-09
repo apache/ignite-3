@@ -20,6 +20,8 @@ package org.apache.ignite.lang;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 
+import java.util.UUID;
+import org.apache.ignite.lang.ErrorGroups.Common;
 import org.junit.jupiter.api.Test;
 
 class ErrorGroupTest {
@@ -45,5 +47,34 @@ class ErrorGroupTest {
 
         // Then
         assertThat(extractedMessage, equalTo(""));
+    }
+
+    @Test
+    void createsErrorMassage() {
+        // Given
+        UUID traceId = UUID.fromString("24103638-d079-4a19-a8f6-ca9c23662908");
+        int code = Common.UNEXPECTED_ERR;
+        String reason = "I'm the reason";
+
+        // When
+        String errorMessage = ErrorGroup.errorMessage(traceId, code, reason);
+
+        // Then
+        assertThat(errorMessage, equalTo("IGN-CMN-1 TraceId:24103638-d079-4a19-a8f6-ca9c23662908 I'm the reason"));
+    }
+
+    @Test
+    void doesNotDuplicateErrorCodeAndTraceId() {
+        // Given
+        UUID traceId = UUID.fromString("24103638-d079-4a19-a8f6-ca9c23662908");
+        int code = Common.UNEXPECTED_ERR;
+        IgniteInternalException cause = new IgniteInternalException(traceId, code, "I'm the\n reason\n");
+        IgniteInternalException origin = new IgniteInternalException(traceId, code, cause);
+
+        // When
+        String errorMessage = origin.getMessage();
+
+        // Then error code and traceId are not duplicated
+        assertThat(errorMessage, equalTo("IGN-CMN-1 TraceId:24103638-d079-4a19-a8f6-ca9c23662908 I'm the\n reason\n"));
     }
 }

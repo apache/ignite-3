@@ -33,9 +33,7 @@ public final class AnsiStringSupport {
         return new Fg(color);
     }
 
-    /**
-     * Can mark the string as a ANSI string.
-     */
+    /** Can mark the string as a ANSI string. */
     public interface Marker {
         String mark(String content);
     }
@@ -45,6 +43,7 @@ public final class AnsiStringSupport {
      */
     public static class Fg implements Marker {
         private final Color color;
+
         private Style style;
 
         private Fg(Color color) {
@@ -56,9 +55,7 @@ public final class AnsiStringSupport {
             return this;
         }
 
-        /**
-         * Marks given text with the configured before style.
-         */
+        /** Marks given text with the configured before style. */
         public String mark(String textToMark) {
             if (style == Style.BOLD) {
                 return String.format("@|fg(%d),bold %s|@", color.code, textToMark);
@@ -67,12 +64,9 @@ public final class AnsiStringSupport {
         }
     }
 
-    /**
-     * Represents the text style.
-     */
+    /** Represents the text style. */
     public enum Style implements Marker {
-        BOLD("bold"),
-        UNDERLINE("underline");
+        BOLD("bold"), UNDERLINE("underline");
 
         private final String value;
 

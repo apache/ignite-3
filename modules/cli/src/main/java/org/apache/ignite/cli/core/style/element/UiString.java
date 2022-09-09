@@ -19,9 +19,7 @@ package org.apache.ignite.cli.core.style.element;
 
 import java.util.Arrays;
 
-/**
- * Can format the string with UI Elements.
- */
+/** Can format the string with UI Elements. */
 public class UiString {
     /** Accepts the String template with UI Elements. */
     public static String format(String template, UiElement... elements) {
