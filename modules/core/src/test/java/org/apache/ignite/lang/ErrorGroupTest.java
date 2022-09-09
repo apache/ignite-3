@@ -21,11 +21,11 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.fail;
 
-import java.util.UUID;
-import org.apache.ignite.lang.ErrorGroups.Common;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
+import org.apache.ignite.lang.ErrorGroups.Common;
 import org.junit.jupiter.api.Test;
 
 class ErrorGroupTest {
@@ -84,7 +84,7 @@ class ErrorGroupTest {
 
     @SuppressWarnings({"rawtypes", "OptionalGetWithoutIsPresent"})
     @Test
-    void testGroupIdsAreUnique() throws IllegalAccessException {
+    void groupIdsAreUnique() throws IllegalAccessException {
         Map<Integer, ErrorGroup> errGroups = new HashMap<>();
 
         for (Class cls : ErrorGroups.class.getDeclaredClasses()) {
