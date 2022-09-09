@@ -173,7 +173,7 @@ public class ErrorGroups {
     /** Transactions error group. */
     public static class Transactions {
         /** Transactions error group. */
-        public static final ErrorGroup TX_ERR_GROUP = ErrorGroup.newGroup("TX", 3);
+        public static final ErrorGroup TX_ERR_GROUP = ErrorGroup.newGroup("TX", 7);
 
         /** Error on creation of tx state storage. */
         public static final int TX_STATE_STORAGE_CREATE_ERR = TX_ERR_GROUP.registerErrorCode(1);
