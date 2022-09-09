@@ -751,7 +751,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         //TODO Revisit peers String representation: https://issues.apache.org/jira/browse/IGNITE-17420
         raftGroupOptions.snapshotStorageFactory(new PartitionSnapshotStorageFactory(
-                partitionStorage,
+                //TODO IGNITE-17302 Use miniumum from mv storage and tx state storage.
+                partitionStorage::persistedIndex,
                 peers.stream().map(n -> new Peer(n.address())).map(PeerId::fromPeer).map(Object::toString).collect(Collectors.toList()),
                 List.of()
         ));

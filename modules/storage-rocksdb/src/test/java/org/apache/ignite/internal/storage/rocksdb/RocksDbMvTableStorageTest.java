@@ -116,7 +116,7 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
         CompletableFuture<Void> destroyFuture = tableStorage.destroyPartition(42);
 
         // Partition destruction doesn't enforce flush.
-        ((RocksDbTableStorage) tableStorage).scheduleFlush();
+        ((RocksDbTableStorage) tableStorage).awaitFlush(true);
 
         assertThat(destroyFuture, willCompleteSuccessfully());
 

@@ -38,18 +38,12 @@ public class ByteUtils {
     public static long bytesToLong(byte[] bytes, int off) {
         assert bytes != null;
 
-        int bytesCnt = Long.BYTES;
-
-        if (off + bytesCnt > bytes.length) {
-            bytesCnt = bytes.length - off;
-        }
+        int bytesCnt = Math.min(Long.BYTES, bytes.length - off);
 
         long res = 0;
 
         for (int i = 0; i < bytesCnt; i++) {
-            int shift = bytesCnt - i - 1 << 3;
-
-            res |= (0xffL & bytes[off++]) << shift;
+            res = (res << 8) | (0xffL & bytes[off + i]);
         }
 
         return res;

@@ -39,7 +39,7 @@ import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
  */
 public class PartitionSnapshotStorageFactory implements SnapshotStorageFactory {
     /** Partition storage. */
-    private final MvPartitionStorage partitionStorage;
+    private final PartitionAccess partition;
 
     /** List of peers. */
     private final List<String> peers;
@@ -47,25 +47,25 @@ public class PartitionSnapshotStorageFactory implements SnapshotStorageFactory {
     /** List of learners. */
     private final List<String> learners;
 
-    /** RAFT log index read from {@link MvPartitionStorage#persistedIndex()} during factory instantiation. */
+    /** RAFT log index read from {@link PartitionAccess#persistedIndex()} during factory instantiation. */
     private final long persistedRaftIndex;
 
     /**
      * Constructor.
      *
-     * @param partitionStorage MV partition storage.
+     * @param partition MV partition storage.
      * @param peers List of raft group peers to be used in snapshot meta.
      * @param learners List of raft group learners to be used in snapshot meta.
      *
      * @see SnapshotMeta
      */
     @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
-    public PartitionSnapshotStorageFactory(MvPartitionStorage partitionStorage, List<String> peers, List<String> learners) {
-        this.partitionStorage = partitionStorage;
+    public PartitionSnapshotStorageFactory(PartitionAccess partition, List<String> peers, List<String> learners) {
+        this.partition = partition;
         this.peers = peers;
         this.learners = learners;
 
-        persistedRaftIndex = partitionStorage.persistedIndex();
+        persistedRaftIndex = partition.persistedIndex();
     }
 
     /** {@inheritDoc} */
@@ -80,6 +80,6 @@ public class PartitionSnapshotStorageFactory implements SnapshotStorageFactory {
                 .learnersList(learners)
                 .build();
 
-        return new PartitionSnapshotStorage(uri, raftOptions, partitionStorage, snapshotMeta);
+        return new PartitionSnapshotStorage(uri, raftOptions, partition, snapshotMeta);
     }
 }
