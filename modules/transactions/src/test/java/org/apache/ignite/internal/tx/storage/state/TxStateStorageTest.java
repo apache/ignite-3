@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.tx.storage.state;
 
+import static java.util.concurrent.Executors.newSingleThreadExecutor;
+import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.stream.Collectors.toList;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -30,7 +32,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.Executors;
 import java.util.stream.IntStream;
 import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -167,6 +168,6 @@ public class TxStateStorageTest {
     }
 
     private TxStateStorage createStorage() {
-        return new TxStateRocksDbStorage(workDir, Executors.newSingleThreadExecutor());
+        return new TxStateRocksDbStorage(workDir, newSingleThreadScheduledExecutor(), newSingleThreadExecutor(), () -> 100);
     }
 }

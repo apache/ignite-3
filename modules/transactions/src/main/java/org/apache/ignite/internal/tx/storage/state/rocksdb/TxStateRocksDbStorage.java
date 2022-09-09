@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.tx.storage.state.rocksdb;
 
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
@@ -39,13 +38,14 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.IntSupplier;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.rocksdb.BusyRocksIteratorAdapter;
 import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
 import org.apache.ignite.internal.rocksdb.flush.RocksDbFlusher;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
@@ -105,8 +105,14 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     /** Read options for reading persisted data. */
     private final ReadOptions persistedTierReadOptions = new ReadOptions().setReadTier(PERSISTED_TIER);
 
+    /** Scheduled pool for {@link RocksDbFlusher}. */
+    private final ScheduledExecutorService scheduledPool;
+
     /** Thread-pool for snapshot operations execution. */
     private final ExecutorService threadPool;
+
+    /** Delay supplier for {@link RocksDbFlusher}. */
+    private final IntSupplier delaySupplier;
 
     /** On-heap-cached last applied index value. */
     private volatile long lastAppliedIndex;
@@ -130,11 +136,21 @@ public class TxStateRocksDbStorage implements TxStateStorage {
      * The constructor.
      *
      * @param dbPath Database path.
+     * @param scheduledPool Scheduled thread pool.
      * @param threadPool Thread pool.
+     * @param delaySupplier Supplier of delay values to batch independent flush requests. Please refer to {@link RocksDbFlusher} for
+     *      details.
      */
-    public TxStateRocksDbStorage(Path dbPath, ExecutorService threadPool) {
+    public TxStateRocksDbStorage(
+            Path dbPath,
+            ScheduledExecutorService scheduledPool,
+            ExecutorService threadPool,
+            IntSupplier delaySupplier
+    ) {
         this.dbPath = dbPath;
         this.threadPool = threadPool;
+        this.scheduledPool = scheduledPool;
+        this.delaySupplier = delaySupplier;
     }
 
     /** {@inheritDoc} */
@@ -142,10 +158,9 @@ public class TxStateRocksDbStorage implements TxStateStorage {
         try {
             flusher = new RocksDbFlusher(
                     busyLock,
-                    //TODO Use shared pool.
-                    newSingleThreadScheduledExecutor(new NamedThreadFactory("tx-state-store-scheduled-pool", LOG)),
+                    scheduledPool,
                     threadPool,
-                    () -> 100, //TODO Remove hardcode.
+                    delaySupplier,
                     this::refreshPersistedIndex
             );
 
