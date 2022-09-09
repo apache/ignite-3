@@ -19,8 +19,13 @@ package org.apache.ignite.lang;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import org.junit.jupiter.api.Test;
+
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 
 class ErrorGroupTest {
     @Test
@@ -45,5 +50,22 @@ class ErrorGroupTest {
 
         // Then
         assertThat(extractedMessage, equalTo(""));
+    }
+
+    @SuppressWarnings({"rawtypes", "OptionalGetWithoutIsPresent"})
+    @Test
+    void testGroupIdsAreUnique() throws IllegalAccessException {
+        Map<Integer, ErrorGroup> errGroups = new HashMap<>();
+
+        for (Class cls : ErrorGroups.class.getDeclaredClasses()) {
+            var errGroupField = Arrays.stream(cls.getFields()).filter(f -> f.getName().endsWith("_ERR_GROUP")).findFirst().get();
+            var errGroup = (ErrorGroup)errGroupField.get(null);
+
+            var existing = errGroups.putIfAbsent(errGroup.code(), errGroup);
+
+            if (existing != null) {
+                fail("Duplicate error group id: " + errGroup.code() + "(" + existing.name() + ", " + errGroup.name() + ")");
+            }
+        }
     }
 }
