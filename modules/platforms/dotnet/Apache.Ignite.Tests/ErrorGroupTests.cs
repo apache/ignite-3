@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Tests
 {
     using System.Collections.Generic;
+    using System.Linq;
     using NUnit.Framework;
 
     /// <summary>
@@ -32,24 +33,34 @@ namespace Apache.Ignite.Tests
         [Test]
         public void TestErrorGroupCodesAreUnique()
         {
-            var errorGroups = typeof(ErrorGroup).GetNestedTypes();
             var existingCodes = new Dictionary<int, string>();
 
-            Assert.IsNotEmpty(errorGroups);
-
-            foreach (var errorGroup in errorGroups)
+            foreach (var (code, name) in GetErrorGroups())
             {
-                var groupCodeField = errorGroup.GetField("GroupCode");
-                Assert.IsNotNull(groupCodeField);
-
-                var groupCode = (int)groupCodeField!.GetValue(null)!;
-
-                if (existingCodes.TryGetValue(groupCode, out var existingGroupName))
+                if (existingCodes.TryGetValue(code, out var existingGroupName))
                 {
-                    Assert.Fail($"Duplicate group code: {groupCode} ({existingGroupName} and {errorGroup.Name})");
+                    Assert.Fail($"Duplicate group code: {code} ({existingGroupName} and {name})");
                 }
 
-                existingCodes.Add(groupCode, errorGroup.Name);
+                existingCodes.Add(code, name);
+            }
+        }
+
+        [Test]
+        public void TestGetGroupNameReturnsUniqueNames()
+        {
+            var existingNames = new Dictionary<string, string>();
+
+            foreach (var (code, className) in GetErrorGroups())
+            {
+                var name = ErrorGroup.GetGroupName(code);
+
+                if (existingNames.TryGetValue(name, out var existingClassName))
+                {
+                    Assert.Fail($"Duplicate group name: {name} ({existingClassName} and {className})");
+                }
+
+                existingNames.Add(name, className);
             }
         }
 
@@ -57,5 +68,8 @@ namespace Apache.Ignite.Tests
         public void TestErrorCodesAreUnique()
         {
         }
+
+        private static IEnumerable<(int Code, string Name)> GetErrorGroups() => typeof(ErrorGroup).GetNestedTypes()
+                .Select(x => ((int) x.GetField("GroupCode")!.GetValue(null)!, x.Name));
     }
 }
