@@ -129,5 +129,46 @@ namespace Apache.Ignite
             /// </summary>
             public static readonly int ColumnNotFound = GetFullCode(GroupCode, 4);
         }
+
+        /// <summary>
+        /// SQL errors.
+        /// </summary>
+        public static class Sql
+        {
+            /// <summary>
+            /// Group code.
+            /// </summary>
+            public const int GroupCode = 4;
+
+            /** No more pages in the cursor error. */
+            public static readonly int CursorNoMorePages = GetFullCode(GroupCode, 1);
+
+            /** Session not found error. */
+            public static readonly int SessionNotFound = GetFullCode(GroupCode, 2);
+
+            /** Invalid query error. */
+            public static readonly int QueryInvalid = GetFullCode(GroupCode, 3);
+
+            /** Query without a result set error. */
+            public static readonly int QueryNoResultSet = GetFullCode(GroupCode, 4);
+
+            /** Missing primary key error. */
+            public static readonly int PrimaryKeyMissing = GetFullCode(GroupCode, 5);
+
+            /** Multiple primary keys error. */
+            public static readonly int PrimaryKeysMultiple = GetFullCode(GroupCode, 6);
+
+            /** Schema not found. */
+            public static readonly int SchemaNotFound = GetFullCode(GroupCode, 7);
+
+            /** Storage engine not valid. */
+            public static readonly int StorageEngineNotValid = GetFullCode(GroupCode, 8);
+
+            /** Cursor is already closed error. */
+            public static readonly int CursorClosed = GetFullCode(GroupCode, 9);
+
+            /** Some keys can't be inserted because they violates unique constraint PK. */
+            public static readonly int DuplicateKeys = GetFullCode(GroupCode, 10);
+        }
     }
 }
