@@ -39,9 +39,6 @@ class StatementBuilderImpl implements StatementBuilder {
     /** Default schema. */
     private String defaultSchema;
 
-    /** Prepared flag. */
-    private boolean prepared;
-
     /** Query timeout. */
     private Long queryTimeoutMs;
 
@@ -58,20 +55,6 @@ class StatementBuilderImpl implements StatementBuilder {
     @Override
     public StatementBuilder query(String sql) {
         query = sql;
-
-        return this;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public boolean prepared() {
-        return prepared;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public StatementBuilder prepared(boolean prepared) {
-        this.prepared = prepared;
 
         return this;
     }

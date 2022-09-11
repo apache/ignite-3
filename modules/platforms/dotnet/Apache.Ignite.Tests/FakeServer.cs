@@ -189,7 +189,6 @@ namespace Apache.Ignite.Tests
 
             var sql = reader.ReadString();
             props["sql"] = sql;
-            props["prepared"] = reader.ReadBoolean();
 
             using var arrayBufferWriter = new PooledArrayBufferWriter();
             var writer = new MessagePackWriter(arrayBufferWriter);

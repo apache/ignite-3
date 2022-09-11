@@ -121,7 +121,6 @@ public class ClientSqlExecuteRequest {
         StatementBuilder statementBuilder = sql.statementBuilder();
 
         statementBuilder.query(in.unpackString());
-        statementBuilder.prepared(in.unpackBoolean());
 
         return statementBuilder.build();
     }

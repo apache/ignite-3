@@ -255,7 +255,6 @@ namespace Apache.Ignite.Tests.Sql
                 timeout: TimeSpan.FromSeconds(123),
                 schema: "schema-1",
                 pageSize: 987,
-                prepared: true,
                 properties: new Dictionary<string, object?> { { "prop1", 10 }, { "prop-2", "xyz" } });
 
             var res = await client.Sql.ExecuteAsync(null, sqlStatement);
@@ -263,13 +262,12 @@ namespace Apache.Ignite.Tests.Sql
             var props = rows.ToDictionary(x => (string)x["NAME"]!, x => (string)x["VAL"]!);
 
             Assert.IsTrue(res.HasRowSet);
-            Assert.AreEqual(9, props.Count);
+            Assert.AreEqual(8, props.Count);
 
             Assert.AreEqual("schema-1", props["schema"]);
             Assert.AreEqual("987", props["pageSize"]);
             Assert.AreEqual("123000", props["timeoutMs"]);
             Assert.AreEqual("SELECT PROPS", props["sql"]);
-            Assert.AreEqual("True", props["prepared"]);
             Assert.AreEqual("10", props["prop1"]);
             Assert.AreEqual("xyz", props["prop-2"]);
         }
