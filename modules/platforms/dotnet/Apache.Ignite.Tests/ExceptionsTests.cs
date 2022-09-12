@@ -77,6 +77,7 @@ namespace Apache.Ignite.Tests
                 .Select(File.ReadAllText)
                 .Select(x => Regex.Match(x, @"public class (\w+) extends (\w+)"))
                 .Where(x => x.Success && !x.Value.Contains("RaftException")) // Ignore duplicate RaftException.
+                .Where(x => !x.Value.Contains("IgniteClient")) // Skip Java client exceptions.
                 .ToDictionary(x => x.Groups[1].Value, x => x.Groups[2].Value);
 
             Assert.IsNotEmpty(javaExceptionsWithParents);
