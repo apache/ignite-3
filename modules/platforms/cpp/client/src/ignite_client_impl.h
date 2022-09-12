@@ -64,6 +64,17 @@ public:
      */
     void stop();
 
+    /**
+     * Get client configuration.
+     *
+     * @return Configuration.
+     */
+    [[nodiscard]]
+    const IgniteClientConfiguration& getConfiguration() const
+    {
+        return m_configuration;
+    }
+
 private:
     /** Configuration. */
     const IgniteClientConfiguration m_configuration;

@@ -76,6 +76,14 @@ public:
      */
     IGNITE_API static IgniteClient start(IgniteClientConfiguration configuration, std::chrono::milliseconds timeout);
 
+    /**
+     * Get client configuration.
+     *
+     * @return Configuration.
+     */
+    [[nodiscard]]
+    IGNITE_API const IgniteClientConfiguration& getConfiguration() const;
+
 private:
     /**
      * Constructor

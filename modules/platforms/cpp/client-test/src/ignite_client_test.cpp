@@ -73,6 +73,18 @@ private:
     }
 };
 
+TEST_F(ClientTest, TestGetConfiguration)
+{
+    IgniteClientConfiguration cfg{"127.0.0.1:10942"};
+    cfg.setLogger(std::make_shared<TestLogger>());
+
+    auto client = IgniteClient::start(cfg, std::chrono::seconds(5));
+
+    const auto& cfg2 = client.getConfiguration();
+
+    EXPECT_EQ(cfg.getEndpoints(), cfg2.getEndpoints());
+}
+
 TEST_F(ClientTest, TestTest)
 {
     IgniteClientConfiguration cfg{"127.0.0.1:10942"};

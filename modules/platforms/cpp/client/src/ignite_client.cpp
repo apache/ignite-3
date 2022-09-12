@@ -52,5 +52,10 @@ IgniteClient IgniteClient::start(IgniteClientConfiguration configuration, std::c
 IgniteClient::IgniteClient(std::shared_ptr<void> impl) :
     m_impl(std::move(impl)) { }
 
+const IgniteClientConfiguration &IgniteClient::getConfiguration() const
+{
+    return ((impl::IgniteClientImpl*)(m_impl.get()))->getConfiguration();
+}
+
 
 } // namespace ignite
