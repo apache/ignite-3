@@ -27,7 +27,7 @@ namespace Apache.Ignite.Internal.Generators
     using Microsoft.CodeAnalysis;
 
     /// <summary>
-    /// Generates source for ErrorGroups.
+    /// Generates error groups source from ErrorGroups.java.
     /// </summary>
     [Generator]
     public sealed class ErrorGroupGenerator : ISourceGenerator
