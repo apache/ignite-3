@@ -63,7 +63,7 @@ public:
      *
      * @param handler Handler to set.
      */
-    void setHandler(AsyncHandler *handler) override;
+    void setHandler(std::weak_ptr<AsyncHandler> handler) override;
 
     /**
      * Send data to specific established connection.

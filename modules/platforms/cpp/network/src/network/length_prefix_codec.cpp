@@ -23,7 +23,9 @@ namespace ignite::network
 {
 
 LengthPrefixCodec::LengthPrefixCodec() :
-    m_packetSize(-1) { }
+    m_packetSize(-1),
+    m_packet(),
+    m_magicReceived(false) { }
 
 DataBuffer LengthPrefixCodec::encode(DataBuffer& data)
 {
@@ -32,13 +34,30 @@ DataBuffer LengthPrefixCodec::encode(DataBuffer& data)
     return data.consumeEntirely();
 }
 
+void LengthPrefixCodec::resetBuffer()
+{
+    m_packetSize = -1;
+    m_packet.clear();
+}
+
 DataBuffer LengthPrefixCodec::decode(DataBuffer& data)
 {
-    if (m_packet.empty() || m_packet.size() == (PACKET_HEADER_SIZE + m_packetSize))
+    if (!m_magicReceived)
     {
-        m_packetSize = -1;
-        m_packet.clear();
+        consume(data, protocol::MAGIC_BYTES.size());
+
+        if (m_packet.size() < protocol::MAGIC_BYTES.size())
+            return {};
+
+        if (!std::equal(protocol::MAGIC_BYTES.begin(), protocol::MAGIC_BYTES.end(), m_packet.begin(), m_packet.end()))
+            throw IgniteError("Unknown protocol response");
+
+        resetBuffer();
+        m_magicReceived = true;
     }
+
+    if (m_packet.empty() || m_packet.size() == (PACKET_HEADER_SIZE + m_packetSize))
+        resetBuffer();
 
     if (m_packetSize < 0)
     {
@@ -48,13 +67,12 @@ DataBuffer LengthPrefixCodec::decode(DataBuffer& data)
             return {};
 
         m_packetSize = protocol::readInt32(m_packet.data());
-        m_packet.clear();
     }
 
-    consume(data, m_packetSize);
+    consume(data, m_packetSize + PACKET_HEADER_SIZE);
 
-    if (m_packet.size() == m_packetSize)
-        return {std::make_shared<protocol::Buffer>(m_packet), 0, m_packetSize};
+    if (m_packet.size() == m_packetSize + PACKET_HEADER_SIZE)
+        return {std::make_shared<protocol::Buffer>(m_packet), PACKET_HEADER_SIZE, m_packetSize};
 
     return {};
 }

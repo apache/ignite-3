@@ -33,7 +33,7 @@ namespace ignite::impl
 class ProtocolContext
 {
 public:
-    static constexpr ProtocolVersion CURRENT_VERSION{1, 0, 0};
+    static constexpr ProtocolVersion CURRENT_VERSION{3, 0, 0};
 
     // Default
     ProtocolContext() = default;

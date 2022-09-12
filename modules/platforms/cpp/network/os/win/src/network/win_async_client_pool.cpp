@@ -32,7 +32,7 @@ namespace ignite::network
 
 WinAsyncClientPool::WinAsyncClientPool() :
     m_stopping(true),
-    m_asyncHandler(nullptr),
+    m_asyncHandler(),
     m_connectingThread(),
     m_workerThread(),
     m_idGen(0),
@@ -101,7 +101,7 @@ void WinAsyncClientPool::internalStop()
     m_clientIdMap.clear();
 }
 
-bool WinAsyncClientPool::addClient(std::shared_ptr<WinAsyncClient> client)
+bool WinAsyncClientPool::addClient(const std::shared_ptr<WinAsyncClient>& client)
 {
     uint64_t id;
     {
@@ -119,7 +119,7 @@ bool WinAsyncClientPool::addClient(std::shared_ptr<WinAsyncClient> client)
 
         m_iocp = iocp0;
 
-        m_clientIdMap[id] = std::move(client);
+        m_clientIdMap[id] = client;
     }
 
     PostQueuedCompletionStatus(m_iocp, 0, reinterpret_cast<ULONG_PTR>(client.get()), NULL);
@@ -129,35 +129,35 @@ bool WinAsyncClientPool::addClient(std::shared_ptr<WinAsyncClient> client)
 
 void WinAsyncClientPool::handleConnectionError(const EndPoint &addr, const IgniteError &err)
 {
-    AsyncHandler* asyncHandler0 = m_asyncHandler;
+    auto asyncHandler0 = m_asyncHandler.lock();
     if (asyncHandler0)
         asyncHandler0->onConnectionError(addr, err);
 }
 
 void WinAsyncClientPool::handleConnectionSuccess(const EndPoint &addr, uint64_t id)
 {
-    AsyncHandler* asyncHandler0 = m_asyncHandler;
+    auto asyncHandler0 = m_asyncHandler.lock();
     if (asyncHandler0)
         asyncHandler0->onConnectionSuccess(addr, id);
 }
 
 void WinAsyncClientPool::handleConnectionClosed(uint64_t id, const IgniteError *err)
 {
-    AsyncHandler* asyncHandler0 = m_asyncHandler;
+    auto asyncHandler0 = m_asyncHandler.lock();
     if (asyncHandler0)
         asyncHandler0->onConnectionClosed(id, err);
 }
 
 void WinAsyncClientPool::handleMessageReceived(uint64_t id, const DataBuffer &msg)
 {
-    AsyncHandler* asyncHandler0 = m_asyncHandler;
+    auto asyncHandler0 = m_asyncHandler.lock();
     if (asyncHandler0)
         asyncHandler0->onMessageReceived(id, msg);
 }
 
 void WinAsyncClientPool::handleMessageSent(uint64_t id)
 {
-    AsyncHandler* asyncHandler0 = m_asyncHandler;
+    auto asyncHandler0 = m_asyncHandler.lock();
     if (asyncHandler0)
         asyncHandler0->onMessageSent(id);
 }
@@ -228,7 +228,7 @@ std::shared_ptr<WinAsyncClient> WinAsyncClientPool::findClientLocked(uint64_t id
     return it->second;
 }
 
-void WinAsyncClientPool::setHandler(AsyncHandler *handler)
+void WinAsyncClientPool::setHandler(std::weak_ptr<AsyncHandler> handler)
 {
     m_asyncHandler = handler;
 }

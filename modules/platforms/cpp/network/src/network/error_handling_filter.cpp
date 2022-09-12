@@ -51,7 +51,7 @@ void ErrorHandlingFilter::onConnectionClosed(uint64_t id, const IgniteError *err
 
 void ErrorHandlingFilter::onMessageReceived(uint64_t id, const DataBuffer &data)
 {
-    closeConnectionOnException(id, [this, id, &data] { onMessageReceived(id, data); });
+    closeConnectionOnException(id, [this, id, &data] { DataFilterAdapter::onMessageReceived(id, data); });
 }
 
 void ErrorHandlingFilter::onMessageSent(uint64_t id)

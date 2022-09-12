@@ -154,9 +154,9 @@ std::shared_ptr<WinAsyncClient> WinAsyncConnectingThread::tryConnect(const TcpRa
 
             return std::make_shared<WinAsyncClient>(socket, addr, range, int32_t(BUFFER_SIZE));
         }
-        catch (const IgniteError&)
+        catch (const IgniteError& err)
         {
-            // No-op.
+            m_clientPool->handleConnectionError(addr, err);
         }
     }
 

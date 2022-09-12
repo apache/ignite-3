@@ -60,14 +60,6 @@ public:
     ~DataBuffer() = default;
 
     /**
-     * Consume data from buffer to specified place in memory.
-     *
-     * @param dst Destination in memory.
-     * @param size Number of bytes to copy.
-     */
-    void beConsumed(int8_t* dst, int32_t size);
-
-    /**
      * Consume data from buffer to the vector.
      *
      * @param dst Vector to append data to.

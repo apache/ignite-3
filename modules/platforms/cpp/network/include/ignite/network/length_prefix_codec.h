@@ -73,11 +73,19 @@ private:
      */
     void consume(DataBuffer& data, int32_t desired);
 
+    /**
+     * Reset packet buffer.
+     */
+    void resetBuffer();
+
     /** Size of the current packet. */
     int32_t m_packetSize;
 
-    /** Current packet */
+    /** Current packet. */
     std::vector<std::byte> m_packet;
+
+    /** Magic bytes received. */
+    bool m_magicReceived;
 };
 
 /**

@@ -20,10 +20,15 @@
 #include <cstdint>
 #include <cstddef>
 
+#include <array>
+
 #include "common/Types.h"
 
 namespace ignite::protocol
 {
+/** Magic bytes. */
+static constexpr std::array<std::byte, 4> MAGIC_BYTES =
+        { std::byte('I'), std::byte('G'), std::byte('N'), std::byte('I') };
 
 /**
  * Read uint64 from bytes stream.
@@ -34,14 +39,14 @@ namespace ignite::protocol
  */
 inline uint64_t readUint64(const std::byte* data, size_t offset = 0)
 {
-    return std::uint64_t(data[offset]) |
-        (std::uint64_t(data[offset + 1]) << 8) |
-        (std::uint64_t(data[offset + 2]) << 16) |
-        (std::uint64_t(data[offset + 3]) << 24) |
-        (std::uint64_t(data[offset + 4]) << 32) |
-        (std::uint64_t(data[offset + 5]) << 40) |
-        (std::uint64_t(data[offset + 6]) << 48) |
-        (std::uint64_t(data[offset + 7]) << 56);
+    return (std::uint64_t(data[offset]) << 56) |
+        (std::uint64_t(data[offset + 1]) << 48) |
+        (std::uint64_t(data[offset + 2]) << 40) |
+        (std::uint64_t(data[offset + 3]) << 32) |
+        (std::uint64_t(data[offset + 4]) << 24) |
+        (std::uint64_t(data[offset + 5]) << 16) |
+        (std::uint64_t(data[offset + 6]) << 8) |
+         std::uint64_t(data[offset + 7]);
 }
 
 /**
@@ -65,10 +70,10 @@ inline int64_t readInt64(const std::byte* data, size_t offset = 0)
  */
 inline uint32_t readUint32(const std::byte* data, size_t offset = 0)
 {
-    return std::uint32_t(data[offset]) |
-       (std::uint32_t(data[offset + 1]) << 8) |
-       (std::uint32_t(data[offset + 2]) << 16) |
-       (std::uint32_t(data[offset + 3]) << 24);
+    return (std::uint32_t(data[offset]) << 24) |
+        (std::uint32_t(data[offset + 1]) << 16) |
+        (std::uint32_t(data[offset + 2]) << 8) |
+         std::uint32_t(data[offset + 3]);
 }
 
 /**
@@ -92,7 +97,7 @@ inline int32_t readInt32(const std::byte* data, size_t offset = 0)
  */
 inline uint16_t readUint16(const std::byte* data, size_t offset = 0)
 {
-    return std::uint16_t(data[offset]) | (std::uint16_t(data[offset + 1]) << 8);
+    return std::uint16_t(data[offset + 1]) | (std::uint16_t(data[offset]) << 8);
 }
 
 /**
@@ -117,14 +122,14 @@ inline int16_t readInt16(const std::byte* data, size_t offset = 0)
  */
 inline void writeUint64(uint64_t value, std::byte* buffer, size_t offset = 0)
 {
-    buffer[offset]     = std::byte( value & 0x00000000'000000FF);
-    buffer[offset + 1] = std::byte((value & 0x00000000'0000FF00) >> 8);
-    buffer[offset + 2] = std::byte((value & 0x00000000'00FF0000) >> 16);
-    buffer[offset + 3] = std::byte((value & 0x00000000'FF000000) >> 24);
-    buffer[offset + 4] = std::byte((value & 0x000000FF'00000000) >> 32);
-    buffer[offset + 5] = std::byte((value & 0x0000FF00'00000000) >> 40);
-    buffer[offset + 6] = std::byte((value & 0x00FF0000'00000000) >> 48);
-    buffer[offset + 7] = std::byte((value & 0xFF000000'00000000) >> 56);
+    buffer[offset]     = std::byte((value & 0xFF000000'00000000) >> 56);
+    buffer[offset + 1] = std::byte((value & 0x00FF0000'00000000) >> 48);
+    buffer[offset + 2] = std::byte((value & 0x0000FF00'00000000) >> 40);
+    buffer[offset + 3] = std::byte((value & 0x000000FF'00000000) >> 32);
+    buffer[offset + 4] = std::byte((value & 0x00000000'FF000000) >> 24);
+    buffer[offset + 5] = std::byte((value & 0x00000000'00FF0000) >> 16);
+    buffer[offset + 6] = std::byte((value & 0x00000000'0000FF00) >> 8);
+    buffer[offset + 7] = std::byte( value & 0x00000000'000000FF);
 }
 
 /**
@@ -150,10 +155,10 @@ inline void writeInt64(int64_t value, std::byte* buffer, size_t offset = 0)
  */
 inline void writeUint32(uint32_t value, std::byte* buffer, size_t offset = 0)
 {
-    buffer[offset]     = std::byte( value & 0x000000FF);
-    buffer[offset + 1] = std::byte((value & 0x0000FF00) >> 8);
-    buffer[offset + 2] = std::byte((value & 0x00FF0000) >> 16);
-    buffer[offset + 3] = std::byte((value & 0xFF000000) >> 24);
+    buffer[offset]     = std::byte((value & 0xFF000000) >> 24);
+    buffer[offset + 1] = std::byte((value & 0x00FF0000) >> 16);
+    buffer[offset + 2] = std::byte((value & 0x0000FF00) >> 8);
+    buffer[offset + 3] = std::byte( value & 0x000000FF);
 }
 
 /**
@@ -179,8 +184,8 @@ inline void writeInt32(int32_t value, std::byte* buffer, size_t offset = 0)
  */
 inline void writeUint16(uint16_t value, std::byte* buffer, size_t offset = 0)
 {
-    buffer[offset]     = std::byte( value & 0x00FF);
-    buffer[offset + 1] = std::byte((value & 0xFF00) >> 8);
+    buffer[offset]     = std::byte((value & 0xFF00) >> 8);
+    buffer[offset + 1] = std::byte( value & 0x00FF);
 }
 
 /**

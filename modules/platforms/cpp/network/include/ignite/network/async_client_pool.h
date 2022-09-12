@@ -20,6 +20,7 @@
 #include <cstdint>
 
 #include <vector>
+#include <memory>
 
 #include <ignite/network/async_handler.h>
 #include <ignite/network/data_sink.h>
@@ -59,7 +60,7 @@ public:
      *
      * @param handler Handler to set.
      */
-    virtual void setHandler(AsyncHandler *handler) = 0;
+    virtual void setHandler(std::weak_ptr<AsyncHandler> handler) = 0;
 };
 
 } // namespace ignite::network

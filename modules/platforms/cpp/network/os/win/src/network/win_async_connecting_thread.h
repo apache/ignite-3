@@ -81,7 +81,7 @@ private:
      * @param range TCP range.
      * @return New client.
      */
-    static std::shared_ptr<WinAsyncClient> tryConnect(const TcpRange& range);
+    std::shared_ptr<WinAsyncClient> tryConnect(const TcpRange& range);
 
     /**
      * Try establish connection to address.

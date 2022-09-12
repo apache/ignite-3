@@ -73,7 +73,7 @@ public:
      *
      * @param handler Handler to set.
      */
-    void setHandler(AsyncHandler *handler) override;
+    void setHandler(std::weak_ptr<AsyncHandler> handler) override;
 
     /**
      * Send data to specific established connection.
@@ -110,7 +110,7 @@ public:
      * @param client Client.
      * @return Client ID.
      */
-    bool addClient(std::shared_ptr<WinAsyncClient> client);
+    bool addClient(const std::shared_ptr<WinAsyncClient>& client);
 
     /**
      * Handle error during connection establishment.
@@ -180,7 +180,7 @@ private:
     volatile bool m_stopping;
 
     /** Event handler. */
-    AsyncHandler* m_asyncHandler;
+    std::weak_ptr<AsyncHandler> m_asyncHandler;
 
     /** Connecting thread. */
     WinAsyncConnectingThread m_connectingThread;

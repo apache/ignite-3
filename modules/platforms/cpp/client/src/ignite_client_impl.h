@@ -34,14 +34,14 @@ class IgniteClientImpl
 {
 public:
     // Deleted
+    IgniteClientImpl() = delete;
+    IgniteClientImpl(IgniteClientImpl&&) = delete;
     IgniteClientImpl(const IgniteClientImpl&) = delete;
+    IgniteClientImpl& operator=(IgniteClientImpl&&) = delete;
     IgniteClientImpl& operator=(const IgniteClientImpl&) = delete;
 
     // Default
-    IgniteClientImpl() = default;
     ~IgniteClientImpl() = default;
-    IgniteClientImpl(IgniteClientImpl&&) = default;
-    IgniteClientImpl& operator=(IgniteClientImpl&&) = default;
 
     /**
      * Constructor.
@@ -50,7 +50,7 @@ public:
      */
     explicit IgniteClientImpl(IgniteClientConfiguration configuration) :
         m_configuration(std::move(configuration)),
-        m_connection(m_configuration) { }
+        m_connection(ClusterConnection::create(m_configuration)) { }
 
     /**
      * Start client.
@@ -59,10 +59,10 @@ public:
 
 private:
     /** Configuration. */
-    IgniteClientConfiguration m_configuration;
+    const IgniteClientConfiguration m_configuration;
 
     /** Cluster connection. */
-    ClusterConnection m_connection;
+    std::shared_ptr<ClusterConnection> m_connection;
 };
 
 } // namespace ignite::impl

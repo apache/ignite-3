@@ -24,6 +24,7 @@ namespace ignite
 
 std::future<IgniteClient> IgniteClient::startAsync(IgniteClientConfiguration configuration)
 {
+    // TODO: stop connection process on error.
     return std::async(std::launch::async, [cfg = std::move(configuration)] () mutable {
         auto impl = std::make_shared<impl::IgniteClientImpl>(std::move(cfg));
 

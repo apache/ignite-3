@@ -85,7 +85,7 @@ HANDLE WinAsyncClient::addToIocp(HANDLE iocp)
 {
     assert(State::CONNECTED == m_state);
 
-    HANDLE res = CreateIoCompletionPort((HANDLE)socket, iocp, reinterpret_cast<DWORD_PTR>(this), 0);
+    HANDLE res = CreateIoCompletionPort((HANDLE)m_socket, iocp, reinterpret_cast<DWORD_PTR>(this), 0);
 
     if (!res)
         return res;

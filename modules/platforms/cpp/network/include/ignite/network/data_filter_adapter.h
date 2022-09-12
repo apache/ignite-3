@@ -71,7 +71,7 @@ public:
       */
     void onConnectionSuccess(const EndPoint& addr, uint64_t id) override
     {
-        AsyncHandler* handler = m_handler;
+        auto handler = m_handler.lock();
         if (handler)
             handler->onConnectionSuccess(addr, id);
     }
@@ -84,7 +84,7 @@ public:
      */
     void onConnectionError(const EndPoint& addr, const IgniteError& err) override
     {
-        AsyncHandler* handler = m_handler;
+        auto handler = m_handler.lock();
         if (handler)
             handler->onConnectionError(addr, err);
     }
@@ -97,7 +97,7 @@ public:
      */
     void onConnectionClosed(uint64_t id, const IgniteError* err) override
     {
-        AsyncHandler* handler = m_handler;
+        auto handler = m_handler.lock();
         if (handler)
             handler->onConnectionClosed(id, err);
     }
@@ -110,7 +110,7 @@ public:
      */
     void onMessageReceived(uint64_t id, const DataBuffer& msg) override
     {
-        AsyncHandler* handler = m_handler;
+        auto handler = m_handler.lock();
         if (handler)
             handler->onMessageReceived(id, msg);
     }
@@ -122,7 +122,7 @@ public:
      */
     void onMessageSent(uint64_t id) override
     {
-        AsyncHandler* handler = m_handler;
+        auto handler = m_handler.lock();
         if (handler)
             handler->onMessageSent(id);
     }

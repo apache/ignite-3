@@ -86,6 +86,14 @@ public:
     std::string readString();
 
     /**
+     * Read string.
+     *
+     * @return String value or nullopt.
+     */
+    [[nodiscard]]
+    std::optional<std::string> readStringNullable();
+
+    /**
      * Read GUID.
      *
      * @return GUID value.
@@ -111,11 +119,19 @@ private:
      */
     void next();
 
+    /**
+     * Check whether there is a data in stream and throw IgniteError if there is none.
+     */
+    void checkDataInStream();
+
     /** Buffer. */
     BytesView m_buffer;
 
-    /** Unpacked data. */
-    msgpack_unpacked m_unpacked;
+    /** Unpacker. */
+    msgpack_unpacker m_unpacker;
+
+    /** Current value. */
+    msgpack_unpacked m_currentVal;
 
     /** Result of the last move operation. */
     msgpack_unpack_return m_moveRes;

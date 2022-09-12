@@ -34,15 +34,17 @@ protected:
 
     void SetUp() override
     {
-        // Code here will be called immediately after the constructor (right
-        // before each test).
+        node.start();
+        // TODO: Implement node startup await
+        std::this_thread::sleep_for(std::chrono::seconds(20));
     }
 
     void TearDown() override
     {
-        // Code here will be called immediately after each test (right
-        // before the destructor).
+        node.stop();
     }
+
+    IgniteNode node;
 };
 
 class TestLogger : public IgniteLogger
@@ -50,40 +52,52 @@ class TestLogger : public IgniteLogger
 public:
     void logError(std::string_view message) override
     {
-        std::cout << "ERROR:   " << message << std::endl;
+        std::cout << getTimestamp() << " [ERROR]   " << message << std::endl;
     }
 
     void logWarning(std::string_view message) override
     {
-        std::cout << "WARNING: " << message << std::endl;
+        std::cout << getTimestamp() << " [WARNING] " << message << std::endl;
     }
 
     void logInfo(std::string_view message) override
     {
-        std::cout << "INFO:    " << message << std::endl;
+        std::cout << getTimestamp() << " [INFO]    " << message << std::endl;
     }
 
     void logDebug(std::string_view message) override
     {
-        std::cout << "DEBUG:   " << message << std::endl;
+        std::cout << getTimestamp() << " [DEBUG]  " << message << std::endl;
+    }
+private:
+    static std::string getTimestamp()
+    {
+        using clock = std::chrono::system_clock;
+
+        auto now = clock::now();
+        auto cTime = clock::to_time_t(now);
+
+        auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch());
+
+        std::stringstream ss;
+        ss << std::put_time(std::localtime(&cTime), "%H:%M:%S.") << std::setw(3) << std::setfill('0') << (ms.count() % 1000);
+        return ss.str();
     }
 };
 
 TEST_F(ClientTest, TestTest)
 {
-    IgniteNode node;
-
-    node.start();
-
-    // TODO: Implement node startup await
-    std::this_thread::sleep_for(std::chrono::seconds(20));
-
-    IgniteClientConfiguration cfg{"127.0.0.1:10942"};
+    IgniteClientConfiguration cfg{"127.0.0.1:10942", "127.0.0.1:10943"};
     cfg.setLogger(std::make_shared<TestLogger>());
 
     std::cout << "Connecting..." << std::endl;
 
-    auto client = IgniteClient::startAsync(cfg).get();
+    auto clientFuture = IgniteClient::startAsync(cfg);
 
-    node.stop();
+    if (clientFuture.wait_for(std::chrono::seconds(5)) != std::future_status::ready)
+        return;
+
+    auto client = clientFuture.get();
+
+    std::this_thread::sleep_for(std::chrono::seconds(10));
 }

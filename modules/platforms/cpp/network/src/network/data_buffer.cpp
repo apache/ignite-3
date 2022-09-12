@@ -38,25 +38,16 @@ DataBuffer::DataBuffer(std::shared_ptr<protocol::Buffer> data, int32_t pos, int3
     m_length(len),
     m_data(std::move(data)) { }
 
-void DataBuffer::beConsumed(int8_t *dst, int32_t size)
-{
-    if (!size)
-        return;
-
-    if (size < 0)
-        throw IgniteError("Codec error: Can not read negative number of bytes");
-
-    if (getSize() < size)
-        throw IgniteError("Codec error: Not enough data to read data from buffer");
-
-    std::memcpy(dst, getData(), size);
-    advance(size);
-}
-
 void DataBuffer::beConsumed(std::vector<std::byte>& dst, int32_t toCopy)
 {
     auto bytes = m_data->getBuffer();
-    dst.insert(dst.end(), bytes.begin(), bytes.begin() + toCopy);
+
+    int32_t end = m_position + toCopy;
+    if (end > bytes.size())
+        end = int32_t(bytes.size());
+
+    dst.insert(dst.end(), bytes.begin() + m_position, bytes.begin() + end);
+    advance(toCopy);
 }
 
 const int8_t *DataBuffer::getData() const

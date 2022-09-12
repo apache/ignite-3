@@ -22,7 +22,7 @@ namespace ignite::impl
 
 void IgniteClientImpl::start()
 {
-    m_connection.start();
+    m_connection->start();
 }
 
 } // namespace ignite::impl

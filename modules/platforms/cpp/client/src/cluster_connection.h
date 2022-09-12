@@ -44,15 +44,11 @@ namespace ignite::impl
  *
  * Considered established while there is connection to at least one server.
  */
-class ClusterConnection : public network::AsyncHandler
+class ClusterConnection : public std::enable_shared_from_this<ClusterConnection>, public network::AsyncHandler
 {
 public:
     /** Default TCP port. */
     static constexpr uint16_t DEFAULT_TCP_PORT = 10800;
-
-    /** Magic bytes. */
-    static constexpr std::array<std::byte, 4> MAGIC_BYTES =
-            { std::byte('I'), std::byte('G'), std::byte('N'), std::byte('I') };
 
     // Deleted
     ClusterConnection() = delete;
@@ -65,18 +61,29 @@ public:
     ~ClusterConnection() override = default;
 
     /**
-     * Constructor.
-     *
-     * @param configuration Configuration.
-     */
-    explicit ClusterConnection(const IgniteClientConfiguration& configuration);
-
-    /**
      * Start client.
      */
     void start();
 
+    /**
+     * Create new instance of the object.
+     *
+     * @param configuration Configuration.
+     * @return New instance.
+     */
+    static std::shared_ptr<ClusterConnection> create(IgniteClientConfiguration configuration)
+    {
+        return std::shared_ptr<ClusterConnection>(new ClusterConnection(std::move(configuration)));
+    }
+
 private:
+    /**
+     * Constructor.
+     *
+     * @param configuration Configuration.
+     */
+    explicit ClusterConnection(IgniteClientConfiguration configuration);
+
     /**
      * Callback that called on successful connection establishment.
      *
@@ -138,7 +145,7 @@ private:
      * @param protocolCtx Handshake context.
      * @param buffer Message.
      */
-    static void handshakeRsp(ProtocolContext &protocolCtx, const network::DataBuffer &buffer);
+    void handshakeRsp(ProtocolContext &protocolCtx, const network::DataBuffer &buffer);
 
     /**
      * Read error.
@@ -149,7 +156,7 @@ private:
     static std::optional<IgniteError> readError(protocol::Reader& reader);
 
     /** Configuration. */
-    const IgniteClientConfiguration& m_configuration;
+    const IgniteClientConfiguration m_configuration;
 
     /** Initial connect promise. */
     std::promise<void> m_initialConnect;

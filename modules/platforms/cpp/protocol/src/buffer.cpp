@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+#include <array>
 #include <limits>
 
 #include "common/ignite_error.h"
@@ -40,10 +41,10 @@ void Buffer::writeRawData(BytesView data)
 
 void Buffer::reserveLengthHeader()
 {
-    static constexpr std::byte empty[] = {std::byte{0}, std::byte{0}, std::byte{0}, std::byte{0}};
+    static constexpr std::array<std::byte, 4> empty = {std::byte{0}, std::byte{0}, std::byte{0}, std::byte{0}};
 
     m_lengthPos = m_buffer.size();
-    writeRawData((BytesView)empty);
+    writeRawData({empty.data(), empty.size()});
 }
 
 void Buffer::writeLengthHeader()

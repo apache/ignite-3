@@ -26,16 +26,24 @@ namespace ignite::protocol
 
 Reader::Reader(BytesView buffer) :
     m_buffer(buffer),
-    m_unpacked(),
+    m_unpacker(),
+    m_currentVal(),
     m_moveRes(MSGPACK_UNPACK_SUCCESS)
 {
-    msgpack_unpacked_init(&m_unpacked);
+    // TODO: Research if we can get rid of copying here.
+    msgpack_unpacker_init(&m_unpacker, MSGPACK_UNPACKER_INIT_BUFFER_SIZE);
+    msgpack_unpacker_reserve_buffer(&m_unpacker, m_buffer.size());
+    memcpy(msgpack_unpacker_buffer(&m_unpacker), m_buffer.data(), m_buffer.size());
+    msgpack_unpacker_buffer_consumed(&m_unpacker, m_buffer.size());
+
+    msgpack_unpacked_init(&m_currentVal);
+
     next();
 }
 
 Reader::~Reader()
 {
-    msgpack_unpacked_destroy(&m_unpacked);
+    msgpack_unpacker_destroy(&m_unpacker);
 }
 
 std::int16_t Reader::readInt16()
@@ -50,10 +58,9 @@ std::int32_t Reader::readInt32()
 
 std::int64_t Reader::readInt64()
 {
-    if (m_moveRes <= 0)
-        throw IgniteError("No more data in stream");
+    checkDataInStream();
 
-    msgpack_object object = m_unpacked.data;
+    msgpack_object object = m_currentVal.data;
     if (object.type != MSGPACK_OBJECT_NEGATIVE_INTEGER && object.type != MSGPACK_OBJECT_POSITIVE_INTEGER)
         throw IgniteError("The value in stream is not an integer number");
 
@@ -66,10 +73,9 @@ std::int64_t Reader::readInt64()
 
 std::string Reader::readString()
 {
-    if (m_moveRes <= 0)
-        throw IgniteError("No more data in stream");
+    checkDataInStream();
 
-    msgpack_object object = m_unpacked.data;
+    msgpack_object object = m_currentVal.data;
     if (object.type != MSGPACK_OBJECT_STR)
         throw IgniteError("The value in stream is not a string");
 
@@ -80,18 +86,25 @@ std::string Reader::readString()
     return res;
 }
 
+std::optional<std::string> Reader::readStringNullable()
+{
+    if (tryReadNil())
+        return std::nullopt;
+
+    return readString();
+}
+
 Guid Reader::readGuid()
 {
-    if (m_moveRes <= 0)
-        throw IgniteError("No more data in stream");
+    checkDataInStream();
 
-    if (m_unpacked.data.type != MSGPACK_OBJECT_EXT && m_unpacked.data.via.ext.type != std::int8_t(ExtensionTypes::GUID))
+    if (m_currentVal.data.type != MSGPACK_OBJECT_EXT && m_currentVal.data.via.ext.type != std::int8_t(ExtensionTypes::GUID))
         throw IgniteError("The value in stream is not a GUID");
 
-    if (m_unpacked.data.via.ext.size != 16)
+    if (m_currentVal.data.via.ext.size != 16)
         throw IgniteError("Unexpected value size");
 
-    auto data = reinterpret_cast<const std::byte*>(m_unpacked.data.via.ext.ptr);
+    auto data = reinterpret_cast<const std::byte*>(m_currentVal.data.via.ext.ptr);
 
     int64_t most = protocol::readInt64(data);
     int64_t least = protocol::readInt64(data, 8);
@@ -104,7 +117,7 @@ Guid Reader::readGuid()
 
 bool Reader::tryReadNil()
 {
-    if (m_unpacked.data.type != MSGPACK_OBJECT_NIL)
+    if (m_currentVal.data.type != MSGPACK_OBJECT_NIL)
         return false;
 
     next();
@@ -118,7 +131,15 @@ void Reader::skip()
 
 void Reader::next()
 {
-    m_moveRes = msgpack_unpack_next(&m_unpacked, reinterpret_cast<const char *>(m_buffer.data()), m_buffer.size(), NULL);
+    checkDataInStream();
+
+    m_moveRes = msgpack_unpacker_next(&m_unpacker, &m_currentVal);
+}
+
+void Reader::checkDataInStream()
+{
+    if (m_moveRes < 0)
+        throw IgniteError("No more data in stream");
 }
 
 } // namespace ignite::protocol

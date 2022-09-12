@@ -24,7 +24,7 @@ namespace ignite::network
 AsyncClientPoolAdapter::AsyncClientPoolAdapter(DataFilters filters, std::shared_ptr<AsyncClientPool> pool) :
     m_filters(std::move(filters)),
     m_pool(std::move(pool)),
-    m_sink(pool.get())
+    m_sink(m_pool.get())
 {
     m_filters.insert(m_filters.begin(), std::make_shared<ErrorHandlingFilter>());
 
@@ -45,16 +45,16 @@ void AsyncClientPoolAdapter::stop()
     m_pool->stop();
 }
 
-void AsyncClientPoolAdapter::setHandler(AsyncHandler* handler)
+void AsyncClientPoolAdapter::setHandler(std::weak_ptr<AsyncHandler> handler)
 {
-    auto handler0 = handler;
+    auto handler0 = std::move(handler);
     for (auto it = m_filters.rbegin(); it != m_filters.rend(); ++it)
     {
-        (*it)->setHandler(handler0);
-        handler0 = it->get();
+        (*it)->setHandler(std::move(handler0));
+        handler0 = *it;
     }
 
-    m_pool->setHandler(handler0);
+    m_pool->setHandler(std::move(handler0));
 }
 
 bool AsyncClientPoolAdapter::send(uint64_t id, const DataBuffer& data)

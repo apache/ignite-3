@@ -24,6 +24,7 @@
 
 #include "ignite/protocol/writer.h"
 #include "ignite/protocol/reader.h"
+#include "ignite/protocol/utils.h"
 
 #include "cluster_connection.h"
 
@@ -49,8 +50,8 @@ ignite::Guid makeRandomGuid()
 namespace ignite::impl
 {
 
-ClusterConnection::ClusterConnection(const IgniteClientConfiguration &configuration) :
-    m_configuration(configuration),
+ClusterConnection::ClusterConnection(IgniteClientConfiguration configuration) :
+    m_configuration(std::move(configuration)),
     m_pool(),
     m_logger(m_configuration.getLogger()) { }
 
@@ -80,7 +81,7 @@ void ClusterConnection::start()
 
     m_pool = network::makeAsyncClientPool(filters);
 
-    m_pool->setHandler(this);
+    m_pool->setHandler(shared_from_this());
 
     // TODO: Implement connection limit.
     m_pool->start(addrs, 0);
@@ -113,6 +114,9 @@ void ClusterConnection::onConnectionError(const network::EndPoint &addr, const I
 {
     m_logger->logWarning("Failed to establish connection with remote host " + addr.toString() +
         ", reason: " + err.what());
+
+    if (err.getStatusCode() == StatusCode::OS)
+        handshakeFail(0, err);
 }
 
 void ClusterConnection::onConnectionClosed(uint64_t id, const IgniteError *err)
@@ -203,8 +207,7 @@ void ClusterConnection::handshake(uint64_t id, ProtocolContext& context)
     static constexpr int8_t CLIENT_TYPE = 2;
 
     auto buffer = std::make_shared<protocol::Buffer>();
-    buffer->writeRawData(BytesView(MAGIC_BYTES.data(), MAGIC_BYTES.size()));
-    buffer->reserveLengthHeader();
+    buffer->writeRawData(BytesView(protocol::MAGIC_BYTES.data(), protocol::MAGIC_BYTES.size()));
 
     protocol::Writer::writeMessageToBuffer(*buffer, [&context](protocol::Writer& writer) {
         auto ver = context.getVersion();
@@ -226,7 +229,8 @@ void ClusterConnection::handshake(uint64_t id, ProtocolContext& context)
 
     try
     {
-        m_pool->send(id, dataBuffer);
+        bool res = m_pool->send(id, dataBuffer);
+        m_logger->logDebug("Handshake sent successfully");
     }
     catch (const IgniteError& err)
     {
@@ -247,6 +251,8 @@ void ClusterConnection::handshakeFail(uint64_t id, std::optional<IgniteError> er
 
 void ClusterConnection::handshakeRsp(ProtocolContext& protocolCtx, const network::DataBuffer& buffer)
 {
+    m_logger->logDebug("Got handshake response");
+
     protocol::Reader reader(buffer.getBytesView());
 
     auto verMajor = reader.readInt16();
@@ -254,6 +260,8 @@ void ClusterConnection::handshakeRsp(ProtocolContext& protocolCtx, const network
     auto verPatch = reader.readInt16();
 
     ProtocolVersion ver(verMajor, verMinor, verPatch);
+
+    m_logger->logDebug("Server-side protocol version: " + ver.toString());
 
     // We now only support a single version
     if (ver != ProtocolContext::CURRENT_VERSION)
@@ -264,8 +272,8 @@ void ClusterConnection::handshakeRsp(ProtocolContext& protocolCtx, const network
         throw IgniteError(err.value());
 
     (void) reader.readInt64(); // TODO: IGNITE-17606 Implement heartbeats
-    (void) reader.readString(); // Cluster node ID. Needed for partition-aware compute.
-    (void) reader.readString(); // Cluster node name. Needed for partition-aware compute.
+    (void) reader.readStringNullable(); // Cluster node ID. Needed for partition-aware compute.
+    (void) reader.readStringNullable(); // Cluster node name. Needed for partition-aware compute.
 
     reader.skip(); // Features.
     reader.skip(); // Extensions.

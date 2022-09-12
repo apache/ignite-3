@@ -61,9 +61,9 @@ public:
      *
      * @param handler Event handler.
      */
-    void setHandler(AsyncHandler* handler)
+    void setHandler(std::weak_ptr<AsyncHandler> handler)
     {
-        m_handler = handler;
+        m_handler = std::move(handler);
     }
 
     /**
@@ -71,9 +71,9 @@ public:
      *
      * @return Event handler.
      */
-    AsyncHandler* getHandler()
+    std::shared_ptr<AsyncHandler> getHandler()
     {
-        return m_handler;
+        return m_handler.lock();
     }
 
 protected:
@@ -81,7 +81,7 @@ protected:
     DataSink* m_sink{nullptr};
 
     /** Handler. */
-    AsyncHandler* m_handler{nullptr};
+    std::weak_ptr<AsyncHandler> m_handler{};
 };
 
 typedef std::vector<std::shared_ptr<DataFilter>> DataFilters;
