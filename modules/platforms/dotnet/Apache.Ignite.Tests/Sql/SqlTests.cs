@@ -263,6 +263,15 @@ namespace Apache.Ignite.Tests.Sql
         }
 
         [Test]
+        public void TestAlterTableColumnExistsThrowsException()
+        {
+            var ex = Assert.ThrowsAsync<ColumnAlreadyExistsException>(
+                async () => await Client.Sql.ExecuteAsync(null, "ALTER TABLE TEST ADD COLUMN ID INT"));
+
+            StringAssert.EndsWith("Column already exists [name=ID]", ex!.Message);
+        }
+
+        [Test]
         public async Task TestStatementProperties()
         {
             using var server = new FakeServer();
