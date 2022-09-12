@@ -190,7 +190,7 @@ namespace Apache.Ignite.Internal.Compute
 
             _tableCache.TryRemove(tableName, out _);
 
-            throw new IgniteClientException(ErrorGroups.Table.TableNotFound, $"Table '{tableName}' does not exist.");
+            throw new IgniteClientException(ErrorGroups.Client.TableIdNotFound, $"Table '{tableName}' does not exist.");
         }
 
         private async Task<T> ExecuteColocatedAsync<T, TKey>(
@@ -219,7 +219,7 @@ namespace Apache.Ignite.Internal.Compute
 
                     return Read(res);
                 }
-                catch (IgniteClientException e) when (e.ErrorCode == ErrorGroups.Table.TableNotFound)
+                catch (IgniteException e) when (e.Code == ErrorGroups.Client.TableIdNotFound)
                 {
                     // Table was dropped - remove from cache.
                     // Try again in case a new table with the same name exists.
