@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Internal.Generators
 {
     using System;
+    using System.Collections.Generic;
     using System.Collections.Immutable;
     using System.IO;
     using System.Linq;
@@ -50,11 +51,11 @@ namespace Apache.Ignite.Internal.Generators
                 .Select(File.ReadAllText)
                 .Select(x => (
                     Class: Regex.Match(x, @"public class (\w+) extends (\w+)"),
-                    Package: Regex.Match(x, @"package org\.apache(\.[a-z.]+);")))
-                .Where(x => x.Class.Success && x.Package.Success)
+                    Source: x))
+                .Where(x => x.Class.Success)
                 .Where(x => !x.Class.Value.Contains("RaftException")) // Ignore duplicate RaftException.
                 .Where(x => !x.Class.Value.Contains("IgniteClient")) // Skip Java client exceptions.
-                .ToDictionary(x => x.Class.Groups[1].Value, x => (Parent: x.Class.Groups[2].Value, Package: x.Package.Groups[1].Value));
+                .ToDictionary(x => x.Class.Groups[1].Value, x => (Parent: x.Class.Groups[2].Value, x.Source));
 
             var existingExceptions = context.Compilation.SyntaxTrees
                 .Where(x => x.FilePath.Contains("Exception"))
@@ -75,17 +76,12 @@ namespace Apache.Ignite.Internal.Generators
 
             foreach (var javaException in javaExceptions)
             {
-                // TODO: Copy javadoc.
                 var className = javaException.Key;
-                var xmlDoc = Regex.Replace(className, "([A-Z])", " $1");
-
-                var package = Regex.Replace(javaException.Value.Package, @"(\.[a-z])", x => x.Groups[1].Value.ToUpperInvariant())
-                    .Replace(".Lang", string.Empty);
 
                 var src = template
                     .Replace("IgniteTemplateException", className)
-                    .Replace(" XMLDOC", xmlDoc)
-                    .Replace("NAMESPACE", "Apache" + package);
+                    .Replace("XMLDOC", GetXmlDoc(className, javaException.Value.Source))
+                    .Replace("NAMESPACE", GetNamespace(className, javaException.Value.Source));
 
                 context.AddSource(className + ".g.cs", src);
             }
@@ -94,6 +90,35 @@ namespace Apache.Ignite.Internal.Generators
                 ex != null &&
                 (ex == "IgniteException" ||
                  IsIgniteException(javaExceptionsWithParents.TryGetValue(ex, out var parent) ? parent.Parent : null));
+        }
+
+        private static string GetXmlDoc(string javaClassName, string javaSource)
+        {
+            var javaDocMatch = Regex.Match(javaSource, @"/\*\*\s*\*?\s*(.*?)\s*\*/\s+public class", RegexOptions.Singleline);
+
+            if (!javaDocMatch.Success)
+            {
+                throw new Exception($"Failed to parse Java package name from '{javaClassName}.java'");
+            }
+
+            var xmlDoc = javaDocMatch.Groups[1].Value;
+
+            return xmlDoc;
+        }
+
+        private static string GetNamespace(string javaClassName, string javaSource)
+        {
+            var javaPackageMatch = Regex.Match(javaSource, @"package org\.apache(\.[a-z.]+);");
+
+            if (!javaPackageMatch.Success)
+            {
+                throw new Exception($"Failed to parse Java package name from '{javaClassName}.java'");
+            }
+
+            var ns = Regex.Replace(javaPackageMatch.Groups[1].Value, @"(\.[a-z])", x => x.Groups[1].Value.ToUpperInvariant())
+                .Replace(".Lang", string.Empty);
+
+            return "Apache" + ns;
         }
 
         private static string GetExceptionClassTemplate()

@@ -23,7 +23,7 @@ namespace NAMESPACE
     using System.Runtime.Serialization;
 
     /// <summary>
-    /// XMLDOC.
+    /// XMLDOC
     /// </summary>
     [Serializable]
     [SuppressMessage(
