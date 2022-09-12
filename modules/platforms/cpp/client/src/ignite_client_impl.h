@@ -54,8 +54,15 @@ public:
 
     /**
      * Start client.
+     *
+     * @return Execution future,
      */
-    void start();
+    std::future<void> start();
+
+    /**
+     * Stop client.
+     */
+    void stop();
 
 private:
     /** Configuration. */

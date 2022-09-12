@@ -59,9 +59,11 @@ public:
      * with a usable IgniteClient instance.
      *
      * @param configuration Client configuration.
+     * @param timeout Operation timeout.
      * @return Future with either Ignite client or exception.
      */
-    IGNITE_API static std::future<IgniteClient> startAsync(IgniteClientConfiguration configuration);
+    IGNITE_API static std::future<IgniteClient> startAsync(IgniteClientConfiguration configuration,
+        std::chrono::milliseconds timeout);
 
 private:
     /**
@@ -70,6 +72,15 @@ private:
      * @param impl Implementation
      */
     explicit IgniteClient(std::shared_ptr<void> impl);
+
+    /**
+     * Start client.
+     *
+     * @param configuration Client configuration.
+     * @param timeout Operation timeout.
+     * @return IgniteClient instance.
+     */
+    static IgniteClient start(IgniteClientConfiguration configuration, std::chrono::milliseconds timeout);
 
     /** Implementation. */
     std::shared_ptr<void> m_impl;

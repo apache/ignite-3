@@ -15,22 +15,33 @@
  * limitations under the License.
  */
 
-#include "ignite/ignite_client.h"
+#include <thread>
 
+#include "common/ignite_error.h"
+#include "ignite/ignite_client.h"
 #include "ignite_client_impl.h"
 
 namespace ignite
 {
 
-std::future<IgniteClient> IgniteClient::startAsync(IgniteClientConfiguration configuration)
+std::future<IgniteClient> IgniteClient::startAsync(IgniteClientConfiguration configuration,
+    std::chrono::milliseconds timeout)
 {
     // TODO: stop connection process on error.
-    return std::async(std::launch::async, [cfg = std::move(configuration)] () mutable {
+    return std::async(std::launch::async, [cfg = std::move(configuration), timeout] () mutable {
         auto impl = std::make_shared<impl::IgniteClientImpl>(std::move(cfg));
 
-        impl->start();
+        try {
+            auto res = impl->start();
+            if (res.wait_for(timeout) != std::future_status::ready)
+                throw IgniteError("Can not establish connection within timeout");
 
-        return IgniteClient(std::move(impl));
+            return IgniteClient(impl);
+        }
+        catch (...) {
+            impl->stop();
+            throw;
+        }
     });
 }
 

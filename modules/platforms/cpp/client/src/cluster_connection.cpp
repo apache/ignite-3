@@ -17,6 +17,8 @@
 
 #include <random>
 
+#include "common/utils.h"
+
 #include "ignite/network/codec.h"
 #include "ignite/network/codec_data_filter.h"
 #include "ignite/network/length_prefix_codec.h"
@@ -55,12 +57,12 @@ ClusterConnection::ClusterConnection(IgniteClientConfiguration configuration) :
     m_pool(),
     m_logger(m_configuration.getLogger()) { }
 
-void ClusterConnection::start()
+std::future<void> ClusterConnection::start()
 {
     using namespace network;
 
     if (m_pool)
-        return;
+        return makeFutureError<void>(IgniteError("Client is already started"));
 
     std::vector<TcpRange> addrs;
     addrs.reserve(m_configuration.getEndpoints().size());
@@ -86,9 +88,14 @@ void ClusterConnection::start()
     // TODO: Implement connection limit.
     m_pool->start(addrs, 0);
 
-    auto connectResult = m_initialConnect.get_future();
+    return m_initialConnect.get_future();
+}
 
-    connectResult.get();
+void ClusterConnection::stop()
+{
+    auto pool = m_pool;
+    if (pool)
+        pool->stop();
 }
 
 void ClusterConnection::onConnectionSuccess(const network::EndPoint &addr, uint64_t id)

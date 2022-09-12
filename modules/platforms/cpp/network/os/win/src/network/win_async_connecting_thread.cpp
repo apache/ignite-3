@@ -132,6 +132,9 @@ void WinAsyncConnectingThread::start(WinAsyncClientPool& clientPool, size_t limi
 
 void WinAsyncConnectingThread::stop()
 {
+    if (m_stopping)
+        return;
+
     m_stopping = true;
 
     {

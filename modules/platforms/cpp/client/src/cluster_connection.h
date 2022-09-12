@@ -61,9 +61,18 @@ public:
     ~ClusterConnection() override = default;
 
     /**
-     * Start client.
+     * Start establishing connection.
+     *
+     * @return Future representing finishing of the connection process.
      */
-    void start();
+    std::future<void> start();
+
+    /**
+     * Stop connection.
+     *
+     * @return Future representing finishing of the connection process.
+     */
+    void stop();
 
     /**
      * Create new instance of the object.

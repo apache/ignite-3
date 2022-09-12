@@ -78,6 +78,9 @@ void WinAsyncClientPool::stop()
 
 void WinAsyncClientPool::internalStop()
 {
+    if (m_stopping)
+        return;
+
     m_stopping = true;
     m_connectingThread.stop();
 

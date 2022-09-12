@@ -129,6 +129,9 @@ void WinAsyncWorkerThread::run()
 
 void WinAsyncWorkerThread::stop()
 {
+    if (m_stopping)
+        return;
+
     m_stopping = true;
 
     PostQueuedCompletionStatus(m_iocp, 0, 0, NULL);

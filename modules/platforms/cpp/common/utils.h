@@ -15,19 +15,31 @@
  * limitations under the License.
  */
 
-#include "ignite_client_impl.h"
+#pragma once
 
-namespace ignite::impl
+#include <future>
+#include <memory>
+#include <utility>
+
+#include <common/ignite_error.h>
+
+namespace ignite
 {
 
-std::future<void> IgniteClientImpl::start()
+/**
+ * Make future error.
+ *
+ * @tparam T Future type.
+ * @param err Error.
+ * @return Failed future with the specified error.
+ */
+template<typename T>
+std::future<T> makeFutureError(IgniteError err)
 {
-    return m_connection->start();
+    std::promise<T> promise;
+    promise.set_exception(std::make_exception_ptr(std::move(err)));
+
+    return promise.get_future();
 }
 
-void IgniteClientImpl::stop()
-{
-    m_connection->stop();
-}
-
-} // namespace ignite::impl
+} // namespace ignite
