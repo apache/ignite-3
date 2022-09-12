@@ -23,7 +23,7 @@ namespace Apache.Ignite.Internal.Generators
     /// Generates source for ErrorGroups.
     /// </summary>
     [Generator]
-    internal sealed class ErrorGroupGenerator : ISourceGenerator
+    public sealed class ErrorGroupGenerator : ISourceGenerator
     {
         /// <inheritdoc/>
         public void Initialize(GeneratorInitializationContext context)
