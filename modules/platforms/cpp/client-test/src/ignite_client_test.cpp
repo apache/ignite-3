@@ -31,20 +31,6 @@ class ClientTest : public ::testing::Test {
 protected:
     ClientTest() = default;
     ~ClientTest() override = default;
-
-    void SetUp() override
-    {
-        node.start();
-        // TODO: Implement node startup await
-        std::this_thread::sleep_for(std::chrono::seconds(20));
-    }
-
-    void TearDown() override
-    {
-        node.stop();
-    }
-
-    IgniteNode node;
 };
 
 class TestLogger : public IgniteLogger
@@ -87,17 +73,14 @@ private:
 
 TEST_F(ClientTest, TestTest)
 {
-    IgniteClientConfiguration cfg{"127.0.0.1:10942", "127.0.0.1:10943"};
+    IgniteClientConfiguration cfg{"127.0.0.1:10942"};
     cfg.setLogger(std::make_shared<TestLogger>());
 
     std::cout << "Connecting..." << std::endl;
 
-    auto clientFuture = IgniteClient::startAsync(cfg);
+    auto client = IgniteClient::startAsync(cfg, std::chrono::seconds(5)).get();
 
-    if (clientFuture.wait_for(std::chrono::seconds(5)) != std::future_status::ready)
-        return;
+    std::cout << "Ready" << std::endl;
 
-    auto client = clientFuture.get();
-
-    std::this_thread::sleep_for(std::chrono::seconds(10));
+    std::this_thread::sleep_for(std::chrono::seconds(2));
 }
