@@ -93,6 +93,7 @@ namespace Apache.Ignite.Internal.Generators
                 sb.AppendLine($"        /// <summary> {className} errors. </summary>");
                 sb.AppendLine($"        public static class {className}");
                 sb.AppendLine($"        {{");
+                sb.AppendLine($"            /// <summary> {className} group code. </summary>");
                 sb.AppendLine($"            public const int GroupCode = {groupCode};\n");
 
                 // TX_STATE_STORAGE_CREATE_ERR = TX_ERR_GROUP.registerErrorCode(1)
@@ -112,6 +113,7 @@ namespace Apache.Ignite.Internal.Generators
                 {
                     var dotNetErrorName = SnakeToCamelCase(errorName);
 
+                    sb.AppendLine($"            /// <summary> {dotNetErrorName} error. </summary>");
                     sb.AppendLine($"            public static readonly int {dotNetErrorName} = GetFullCode(GroupCode, {errorCode});");
                 }
 
