@@ -77,7 +77,7 @@ namespace Apache.Ignite.Internal.Generators
                 var xmlDoc = Regex.Replace(javaException, "[A-Z]", " $1");
 
                 var src = template
-                    .Replace("IgniteClientException", javaException)
+                    .Replace("IgniteTemplateException", javaException)
                     .Replace(" XMLDOC", xmlDoc);
 
                 context.AddSource(javaException + ".g.cs", src);
