@@ -149,6 +149,26 @@ namespace Apache.Ignite.Tests
             Assert.AreEqual(2, ErrorGroup.Table.GroupCode);
             Assert.AreEqual("TBL", ErrorGroup.Table.GroupName);
             Assert.AreEqual("TBL", ErrorGroup.GetGroupName(2));
+
+            Assert.AreEqual(3, ErrorGroup.Client.GroupCode);
+            Assert.AreEqual("CLIENT", ErrorGroup.Client.GroupName);
+            Assert.AreEqual("CLIENT", ErrorGroup.GetGroupName(3));
+
+            Assert.AreEqual(4, ErrorGroup.Sql.GroupCode);
+            Assert.AreEqual("SQL", ErrorGroup.Sql.GroupName);
+            Assert.AreEqual("SQL", ErrorGroup.GetGroupName(4));
+
+            Assert.AreEqual(5, ErrorGroup.MetaStorage.GroupCode);
+            Assert.AreEqual("META", ErrorGroup.MetaStorage.GroupName);
+            Assert.AreEqual("META", ErrorGroup.GetGroupName(5));
+
+            Assert.AreEqual(6, ErrorGroup.Index.GroupCode);
+            Assert.AreEqual("IDX", ErrorGroup.Index.GroupName);
+            Assert.AreEqual("IDX", ErrorGroup.GetGroupName(6));
+
+            Assert.AreEqual(7, ErrorGroup.Transactions.GroupCode);
+            Assert.AreEqual("TX", ErrorGroup.Transactions.GroupName);
+            Assert.AreEqual("TX", ErrorGroup.GetGroupName(7));
         }
 
         private static IEnumerable<(int Code, string Name)> GetErrorGroups() => typeof(ErrorGroup).GetNestedTypes()
