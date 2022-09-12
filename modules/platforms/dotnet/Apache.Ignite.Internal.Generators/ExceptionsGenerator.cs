@@ -29,7 +29,7 @@ namespace Apache.Ignite.Internal.Generators
     /// Generates exception classes from Java exceptions.
     /// </summary>
     [Generator]
-    public class ExceptionsGenerator : ISourceGenerator
+    public sealed class ExceptionsGenerator : ISourceGenerator
     {
         /// <inheritdoc/>
         public void Initialize(GeneratorInitializationContext context)
