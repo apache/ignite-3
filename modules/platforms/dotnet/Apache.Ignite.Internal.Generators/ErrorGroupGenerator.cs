@@ -15,12 +15,12 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Internal
+namespace Apache.Ignite.Internal.Generators
 {
     using Microsoft.CodeAnalysis;
 
     /// <summary>
-    /// Generates source for <see cref="ErrorGroup"/>.
+    /// Generates source for ErrorGroups.
     /// </summary>
     [Generator]
     internal sealed class ErrorGroupGenerator : ISourceGenerator
