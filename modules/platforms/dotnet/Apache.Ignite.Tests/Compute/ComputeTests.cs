@@ -133,10 +133,16 @@ namespace Apache.Ignite.Tests.Compute
         [Test]
         public void TestJobErrorPropagatesToClientWithClassAndMessage()
         {
-            var ex = Assert.ThrowsAsync<IgniteClientException>(async () =>
+            var ex = Assert.ThrowsAsync<IgniteException>(async () =>
                 await Client.Compute.ExecuteAsync<string>(await Client.GetClusterNodesAsync(), ErrorJob, "unused"));
 
             StringAssert.Contains("Custom job error", ex!.Message);
+
+            Assert.AreEqual(
+                "org.apache.ignite.internal.runner.app.client.ItThinClientComputeTest$CustomException",
+                ex.InnerException!.Message);
+
+            Assert.AreEqual(ErrorGroups.Table.ColumnAlreadyExists, ex.Code);
         }
 
         [Test]
@@ -144,7 +150,7 @@ namespace Apache.Ignite.Tests.Compute
         {
             var unknownNode = new ClusterNode("x", "y", new IPEndPoint(IPAddress.Loopback, 0));
 
-            var ex = Assert.ThrowsAsync<IgniteClientException>(async () =>
+            var ex = Assert.ThrowsAsync<IgniteException>(async () =>
                 await Client.Compute.ExecuteAsync<string>(new[] { unknownNode }, EchoJob, "unused"));
 
             StringAssert.Contains("Specified node is not present in the cluster: y", ex!.Message);

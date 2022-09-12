@@ -57,7 +57,7 @@ namespace Apache.Ignite.Internal
                 return (IgniteException)Activator.CreateInstance(type, traceId, code, null);
             }
 
-            return new IgniteException(traceId, code, message);
+            return new IgniteException(traceId, code, message, new IgniteException(traceId, code, javaClass));
         }
     }
 }
