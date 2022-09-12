@@ -71,7 +71,7 @@ namespace Apache.Ignite
             Common.GroupCode => "CMN",
             Table.GroupCode => "TBL",
             Sql.GroupCode => "SQL",
-            _ => throw new ArgumentOutOfRangeException(nameof(groupCode))
+            _ => throw new Exception("Unknown error group code: " + groupCode)
         };
 
         /// <summary>
@@ -87,6 +87,9 @@ namespace Apache.Ignite
 
             /// <summary> Node stopping error. </summary>
             public static readonly int NodeStopping = GetFullCode(GroupCode, 2);
+
+            /// <summary> Component not started error. </summary>
+            public static readonly int ComponentNotStarted = GetFullCode(GroupCode, 3);
 
             /// <summary> Unknown error. </summary>
             public static readonly int Unknown = GetFullCode(GroupCode, 0xFFFF);

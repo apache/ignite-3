@@ -124,14 +124,17 @@ namespace Apache.Ignite.Tests
                 foreach (var (errName, errCode) in javaErrors)
                 {
                     var fullErrCode = ErrorGroup.GetFullCode(grpCode, errCode);
+                    var expectedDotNetName = errName.SnakeToCamelCase()[..^3];
 
                     if (!dotNetErrorCodes.TryGetValue(fullErrCode, out var dotNetError))
                     {
-                        Assert.Fail($"Java error '{errName}' ('{errCode}') in group '{grpName}' ('{grpCode}') has no .NET counterpart");
+                        Assert.Fail(
+                            $"Java error '{errName}' ('{errCode}') in group '{grpName}' ('{grpCode}') has no .NET counterpart.\n" +
+                            $"public static readonly int {expectedDotNetName} = GetFullCode(GroupCode, {errCode});");
                     }
 
                     Assert.AreEqual(grpCode, dotNetError.GroupCode);
-                    Assert.AreEqual(errName.SnakeToCamelCase()[..^3], dotNetError.Name);
+                    Assert.AreEqual(expectedDotNetName, dotNetError.Name);
                 }
             }
         }
