@@ -119,6 +119,7 @@ namespace Apache.Ignite.Internal.Generators
             }
 
             sb.AppendLine("    }");
+            sb.AppendLine("}");
 
             context.AddSource("ErrorGroup.g.cs", sb.ToString());
         }
