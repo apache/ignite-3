@@ -30,7 +30,7 @@ namespace Apache.Ignite.Internal.Generators
     /// Generates error groups source from ErrorGroups.java.
     /// </summary>
     [Generator]
-    public sealed class ErrorGroupGenerator : ISourceGenerator
+    public sealed class ErrorGroupsGenerator : ISourceGenerator
     {
         /// <inheritdoc/>
         public void Initialize(GeneratorInitializationContext context)
@@ -86,7 +86,7 @@ namespace Apache.Ignite.Internal.Generators
             sb.AppendLine("namespace Apache.Ignite");
             sb.AppendLine("{");
             sb.AppendLine("    using System;\n");
-            sb.AppendLine("    public static partial class ErrorGroup");
+            sb.AppendLine("    public static partial class ErrorGroups");
             sb.AppendLine("    {");
 
             // GetGroupName.
@@ -150,7 +150,7 @@ namespace Apache.Ignite.Internal.Generators
             sb.AppendLine("    }");
             sb.AppendLine("}");
 
-            context.AddSource("ErrorGroup.g.cs", sb.ToString());
+            context.AddSource("ErrorGroups.g.cs", sb.ToString());
         }
 
         private static string SnakeToCamelCase(string str) =>

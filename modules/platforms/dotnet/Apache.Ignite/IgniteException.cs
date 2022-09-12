@@ -62,7 +62,7 @@ namespace Apache.Ignite
         /// <summary>
         /// Gets the group name.
         /// </summary>
-        public string GroupName => "TODO: errorGroupByCode((extractGroupCode(code))).name() " + Code;
+        public string GroupName => ErrorGroups.GetGroupName(ErrorGroups.GetGroupCode(Code));
 
         /// <summary>
         /// Gets the full exception code.
@@ -77,12 +77,12 @@ namespace Apache.Ignite
         /// <summary>
         /// Gets the error code.
         /// </summary>
-        public int ErrorCode => ErrorGroup.GetErrorCode(Code);
+        public int ErrorCode => ErrorGroups.GetErrorCode(Code);
 
         /// <summary>
         /// Gets the code as string.
         /// </summary>
-        public string CodeAsString => ErrorGroup.ErrPrefix + GroupName + '-' + ErrorCode;
+        public string CodeAsString => ErrorGroups.ErrPrefix + GroupName + '-' + ErrorCode;
 
         /// <inheritdoc />
         public override void GetObjectData(SerializationInfo info, StreamingContext context)

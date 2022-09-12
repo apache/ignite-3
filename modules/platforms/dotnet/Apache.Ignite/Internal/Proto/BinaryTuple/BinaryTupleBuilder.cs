@@ -335,7 +335,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                 case ClientDataType.Decimal:
                 default:
                     // TODO: Support all types (IGNITE-15431).
-                    throw new IgniteClientException(ErrorGroup.Client.Protocol, "Unsupported type: " + colType);
+                    throw new IgniteClientException(ErrorGroups.Client.Protocol, "Unsupported type: " + colType);
             }
         }
 

@@ -215,7 +215,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                 ClientDataType.String => GetString(index),
 
                 // TODO: Support all types (IGNITE-15431).
-                _ => throw new IgniteClientException(ErrorGroup.Client.Protocol, "Unsupported type: " + columnType)
+                _ => throw new IgniteClientException(ErrorGroups.Client.Protocol, "Unsupported type: " + columnType)
             };
         }
 

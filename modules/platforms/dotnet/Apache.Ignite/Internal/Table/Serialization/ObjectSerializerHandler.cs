@@ -303,7 +303,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 var message = $"Can't map field '{fieldInfo.DeclaringType?.Name}.{fieldInfo.Name}' of type '{fieldType}' " +
                               $"to column '{column.Name}' of type '{columnTypePrimary}' - types do not match.";
 
-                throw new IgniteClientException(ErrorGroup.Client.Configuration, message);
+                throw new IgniteClientException(ErrorGroups.Client.Configuration, message);
             }
         }
     }

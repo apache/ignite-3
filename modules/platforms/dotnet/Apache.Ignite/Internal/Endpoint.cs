@@ -82,7 +82,7 @@ namespace Apache.Ignite.Internal
             if (string.IsNullOrWhiteSpace(endpoint))
             {
                 throw new IgniteClientException(
-                    ErrorGroup.Client.Configuration,
+                    ErrorGroups.Client.Configuration,
                     "IgniteClientConfiguration.Endpoints[...] can't be null or whitespace.");
             }
 
@@ -111,7 +111,7 @@ namespace Apache.Ignite.Internal
                 if (maxPort < minPort)
                 {
                     throw new IgniteClientException(
-                        ErrorGroup.Client.Configuration,
+                        ErrorGroups.Client.Configuration,
                         "Invalid format of IgniteClientConfiguration.Endpoint, port range is empty: " + endpoint);
                 }
 
@@ -119,7 +119,7 @@ namespace Apache.Ignite.Internal
             }
 
             throw new IgniteClientException(
-                ErrorGroup.Client.Configuration,
+                ErrorGroups.Client.Configuration,
                 "Unrecognized format of IgniteClientConfiguration.Endpoint: " + endpoint);
         }
 
@@ -136,7 +136,7 @@ namespace Apache.Ignite.Internal
             }
 
             throw new IgniteClientException(
-                ErrorGroup.Client.Configuration,
+                ErrorGroups.Client.Configuration,
                 "Unrecognized format of IgniteClientConfiguration.Endpoint, failed to parse port: " + endpoint);
         }
     }

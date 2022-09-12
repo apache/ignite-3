@@ -25,7 +25,7 @@ namespace Apache.Ignite.Tests
     using NUnit.Framework;
 
     /// <summary>
-    /// Tests for <see cref="ErrorGroup"/>.
+    /// Tests for <see cref="ErrorGroups"/>.
     /// </summary>
     public class ErrorGroupTests
     {
@@ -55,7 +55,7 @@ namespace Apache.Ignite.Tests
 
             foreach (var (code, className) in GetErrorGroups())
             {
-                var name = ErrorGroup.GetGroupName(code);
+                var name = ErrorGroups.GetGroupName(code);
 
                 if (existingNames.TryGetValue(name, out var existingClassName))
                 {
@@ -84,7 +84,7 @@ namespace Apache.Ignite.Tests
         {
             foreach (var (code, group, name) in GetErrorCodes())
             {
-                var expectedGroup = ErrorGroup.GetGroupCode(code);
+                var expectedGroup = ErrorGroups.GetGroupCode(code);
 
                 Assert.AreEqual(expectedGroup, group, $"Code {code} ({name}) has incorrect group. Expected {expectedGroup}, got {group}.");
             }
@@ -108,7 +108,7 @@ namespace Apache.Ignite.Tests
 
             foreach (var (grpName, grpShortName, grpCode) in javaErrorGroups)
             {
-                var dotNetName = ErrorGroup.GetGroupName(grpCode);
+                var dotNetName = ErrorGroups.GetGroupName(grpCode);
 
                 Assert.AreEqual(grpShortName, dotNetName, $"Java and .NET error group '{grpName}' names do not match");
 
@@ -123,7 +123,7 @@ namespace Apache.Ignite.Tests
 
                 foreach (var (errName, errCode) in javaErrors)
                 {
-                    var fullErrCode = ErrorGroup.GetFullCode(grpCode, errCode);
+                    var fullErrCode = ErrorGroups.GetFullCode(grpCode, errCode);
                     var expectedDotNetName = errName.SnakeToCamelCase()[..^3];
 
                     if (!dotNetErrorCodes.TryGetValue(fullErrCode, out var dotNetError))
@@ -142,39 +142,39 @@ namespace Apache.Ignite.Tests
         [Test]
         public void TestGeneratedErrorGroups()
         {
-            Assert.AreEqual(1, ErrorGroup.Common.GroupCode);
-            Assert.AreEqual("CMN", ErrorGroup.Common.GroupName);
-            Assert.AreEqual("CMN", ErrorGroup.GetGroupName(1));
+            Assert.AreEqual(1, ErrorGroups.Common.GroupCode);
+            Assert.AreEqual("CMN", ErrorGroups.Common.GroupName);
+            Assert.AreEqual("CMN", ErrorGroups.GetGroupName(1));
 
-            Assert.AreEqual(2, ErrorGroup.Table.GroupCode);
-            Assert.AreEqual("TBL", ErrorGroup.Table.GroupName);
-            Assert.AreEqual("TBL", ErrorGroup.GetGroupName(2));
+            Assert.AreEqual(2, ErrorGroups.Table.GroupCode);
+            Assert.AreEqual("TBL", ErrorGroups.Table.GroupName);
+            Assert.AreEqual("TBL", ErrorGroups.GetGroupName(2));
 
-            Assert.AreEqual(3, ErrorGroup.Client.GroupCode);
-            Assert.AreEqual("CLIENT", ErrorGroup.Client.GroupName);
-            Assert.AreEqual("CLIENT", ErrorGroup.GetGroupName(3));
+            Assert.AreEqual(3, ErrorGroups.Client.GroupCode);
+            Assert.AreEqual("CLIENT", ErrorGroups.Client.GroupName);
+            Assert.AreEqual("CLIENT", ErrorGroups.GetGroupName(3));
 
-            Assert.AreEqual(4, ErrorGroup.Sql.GroupCode);
-            Assert.AreEqual("SQL", ErrorGroup.Sql.GroupName);
-            Assert.AreEqual("SQL", ErrorGroup.GetGroupName(4));
+            Assert.AreEqual(4, ErrorGroups.Sql.GroupCode);
+            Assert.AreEqual("SQL", ErrorGroups.Sql.GroupName);
+            Assert.AreEqual("SQL", ErrorGroups.GetGroupName(4));
 
-            Assert.AreEqual(5, ErrorGroup.MetaStorage.GroupCode);
-            Assert.AreEqual("META", ErrorGroup.MetaStorage.GroupName);
-            Assert.AreEqual("META", ErrorGroup.GetGroupName(5));
+            Assert.AreEqual(5, ErrorGroups.MetaStorage.GroupCode);
+            Assert.AreEqual("META", ErrorGroups.MetaStorage.GroupName);
+            Assert.AreEqual("META", ErrorGroups.GetGroupName(5));
 
-            Assert.AreEqual(6, ErrorGroup.Index.GroupCode);
-            Assert.AreEqual("IDX", ErrorGroup.Index.GroupName);
-            Assert.AreEqual("IDX", ErrorGroup.GetGroupName(6));
+            Assert.AreEqual(6, ErrorGroups.Index.GroupCode);
+            Assert.AreEqual("IDX", ErrorGroups.Index.GroupName);
+            Assert.AreEqual("IDX", ErrorGroups.GetGroupName(6));
 
-            Assert.AreEqual(7, ErrorGroup.Transactions.GroupCode);
-            Assert.AreEqual("TX", ErrorGroup.Transactions.GroupName);
-            Assert.AreEqual("TX", ErrorGroup.GetGroupName(7));
+            Assert.AreEqual(7, ErrorGroups.Transactions.GroupCode);
+            Assert.AreEqual("TX", ErrorGroups.Transactions.GroupName);
+            Assert.AreEqual("TX", ErrorGroups.GetGroupName(7));
         }
 
-        private static IEnumerable<(int Code, string Name)> GetErrorGroups() => typeof(ErrorGroup).GetNestedTypes()
+        private static IEnumerable<(int Code, string Name)> GetErrorGroups() => typeof(ErrorGroups).GetNestedTypes()
                 .Select(x => ((int) x.GetField("GroupCode")!.GetValue(null)!, x.Name));
 
-        private static IEnumerable<(int Code, int GroupCode, string Name)> GetErrorCodes() => typeof(ErrorGroup).GetNestedTypes()
+        private static IEnumerable<(int Code, int GroupCode, string Name)> GetErrorCodes() => typeof(ErrorGroups).GetNestedTypes()
                 .SelectMany(groupClass =>
                 {
                     var groupCode = (int)groupClass.GetField("GroupCode")!.GetValue(null)!;

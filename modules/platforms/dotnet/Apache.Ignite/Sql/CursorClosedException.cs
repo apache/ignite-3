@@ -36,7 +36,7 @@ namespace Apache.Ignite.Sql
         /// </summary>
         /// <param name="message">Message.</param>
         public CursorClosedException(string message)
-            : base(Guid.NewGuid(), ErrorGroup.Sql.CursorClosed, message)
+            : base(Guid.NewGuid(), ErrorGroups.Sql.CursorClosed, message)
         {
             // No-op.
         }

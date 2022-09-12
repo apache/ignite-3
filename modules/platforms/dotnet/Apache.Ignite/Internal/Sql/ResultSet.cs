@@ -365,12 +365,12 @@ namespace Apache.Ignite.Internal.Sql
         {
             if (!HasRowSet)
             {
-                throw new IgniteClientException(ErrorGroup.Sql.QueryNoResultSet, "Query has no result set.");
+                throw new IgniteClientException(ErrorGroups.Sql.QueryNoResultSet, "Query has no result set.");
             }
 
             if (_iterated)
             {
-                throw new IgniteClientException(ErrorGroup.Sql.CursorClosed, "Query result set can not be iterated more than once.");
+                throw new IgniteClientException(ErrorGroups.Sql.CursorClosed, "Query result set can not be iterated more than once.");
             }
 
             _iterated = true;

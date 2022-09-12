@@ -142,7 +142,7 @@ namespace Apache.Ignite.Internal.Proto
                     return;
             }
 
-            throw new IgniteClientException(ErrorGroup.Client.Protocol, "Unsupported type: " + obj.GetType());
+            throw new IgniteClientException(ErrorGroups.Client.Protocol, "Unsupported type: " + obj.GetType());
         }
 
         /// <summary>
@@ -220,7 +220,7 @@ namespace Apache.Ignite.Internal.Proto
                     return;
             }
 
-            throw new IgniteClientException(ErrorGroup.Client.Protocol, "Unsupported type: " + obj.GetType());
+            throw new IgniteClientException(ErrorGroups.Client.Protocol, "Unsupported type: " + obj.GetType());
         }
 
         /// <summary>

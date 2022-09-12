@@ -71,7 +71,7 @@ namespace Apache.Ignite.Internal
             if (configuration.Endpoints.Count == 0)
             {
                 throw new IgniteClientException(
-                    ErrorGroup.Client.Configuration,
+                    ErrorGroups.Client.Configuration,
                     $"Invalid {nameof(IgniteClientConfiguration)}: {nameof(IgniteClientConfiguration.Endpoints)} is empty. Nowhere to connect.");
             }
 
@@ -124,7 +124,7 @@ namespace Apache.Ignite.Internal
 
             if (tx.FailoverSocket != this)
             {
-                throw new IgniteClientException(ErrorGroup.Client.Connection, "Specified transaction belongs to a different IgniteClient instance.");
+                throw new IgniteClientException(ErrorGroups.Client.Connection, "Specified transaction belongs to a different IgniteClient instance.");
             }
 
             // Use tx-specific socket without retry and failover.
@@ -160,7 +160,7 @@ namespace Apache.Ignite.Internal
             {
                 if (tx.FailoverSocket != this)
                 {
-                    throw new IgniteClientException(ErrorGroup.Client.Connection, "Specified transaction belongs to a different IgniteClient instance.");
+                    throw new IgniteClientException(ErrorGroups.Client.Connection, "Specified transaction belongs to a different IgniteClient instance.");
                 }
 
                 // Use tx-specific socket without retry and failover.
@@ -526,7 +526,7 @@ namespace Apache.Ignite.Internal
                 var inner = new AggregateException(errors);
 
                 throw new IgniteClientConnectionException(
-                    ErrorGroup.Client.Connection,
+                    ErrorGroups.Client.Connection,
                     $"Operation failed after {attempt} retries, examine InnerException for details.",
                     inner);
             }

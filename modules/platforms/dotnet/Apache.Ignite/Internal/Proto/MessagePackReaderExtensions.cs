@@ -63,7 +63,7 @@ namespace Apache.Ignite.Internal.Proto
                     return reader.ReadString();
 
                 default:
-                    throw new IgniteClientException(ErrorGroup.Client.Protocol, "Unsupported type: " + type);
+                    throw new IgniteClientException(ErrorGroups.Client.Protocol, "Unsupported type: " + type);
             }
         }
 
@@ -195,14 +195,14 @@ namespace Apache.Ignite.Internal.Proto
             if (hdr.TypeCode != (int)expectedType)
             {
                 throw new IgniteClientException(
-                    ErrorGroup.Client.Protocol,
+                    ErrorGroups.Client.Protocol,
                     $"Expected {expectedType} extension ({(int)expectedType}), but got {hdr.TypeCode}.");
             }
 
             if (expectedLength != null && hdr.Length != expectedLength)
             {
                 throw new IgniteClientException(
-                    ErrorGroup.Client.Protocol,
+                    ErrorGroups.Client.Protocol,
                     $"Expected {expectedLength} bytes for {expectedType} extension, but got {hdr.Length}.");
             }
         }
