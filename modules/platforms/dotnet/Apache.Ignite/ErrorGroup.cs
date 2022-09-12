@@ -72,6 +72,9 @@ namespace Apache.Ignite
             Table.GroupCode => "TBL",
             Client.GroupCode => "CLIENT",
             Sql.GroupCode => "SQL",
+            MetaStorage.GroupCode => "META",
+            Index.GroupCode => "IDX",
+            Transactions.GroupCode => "TX",
             _ => throw new Exception("Unknown error group code: " + groupCode)
         };
 
@@ -176,6 +179,27 @@ namespace Apache.Ignite
 
             /// <summary> Some keys can't be inserted because they violates unique constraint PK. </summary>
             public static readonly int DuplicateKeys = GetFullCode(GroupCode, 10);
+        }
+
+        /// <summary> Meta storage errors. </summary>
+        public static class MetaStorage
+        {
+            /// <summary> Group code. </summary>
+            public const int GroupCode = 5;
+        }
+
+        /// <summary> Indexing errors. </summary>
+        public static class Index
+        {
+            /// <summary> Group code. </summary>
+            public const int GroupCode = 6;
+        }
+
+        /// <summary> Transaction errors. </summary>
+        public static class Transactions
+        {
+            /// <summary> Group code. </summary>
+            public const int GroupCode = 7;
         }
     }
 }
