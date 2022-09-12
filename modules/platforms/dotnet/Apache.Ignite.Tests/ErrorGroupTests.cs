@@ -93,6 +93,8 @@ namespace Apache.Ignite.Tests
         [Test]
         public void TestJavaErrorGroupsAndCodesHaveDotNetCounterparts()
         {
+            var dotNetErrorCodes = GetErrorCodes().ToDictionary(x => x.Code, x => (x.Name, x.GroupCode));
+
             var javaErrorGroupsText = File.ReadAllText(JavaErrorGroupsFile);
 
             // ErrorGroup TX_ERR_GROUP = ErrorGroup.newGroup("TX", 7);
@@ -121,7 +123,13 @@ namespace Apache.Ignite.Tests
 
                 foreach (var (errName, errCode) in javaErrors)
                 {
-                    // TODO: Find corresponding .NET error code with reflection.
+                    if (!dotNetErrorCodes.TryGetValue(errCode, out var dotNetError))
+                    {
+                        Assert.Fail($"Java error '{errName}' has no .NET counterpart");
+                    }
+
+                    Assert.AreEqual(grpCode, dotNetError.GroupCode);
+                    Assert.AreEqual(errName, dotNetError.Name);
                 }
             }
         }
