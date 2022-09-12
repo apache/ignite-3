@@ -125,7 +125,7 @@ namespace Apache.Ignite.Tests
                 {
                     if (!dotNetErrorCodes.TryGetValue(errCode, out var dotNetError))
                     {
-                        Assert.Fail($"Java error '{errName}' has no .NET counterpart");
+                        Assert.Fail($"Java error '{errName}' ('{errCode}') in group '{grpName}' ('{grpCode}') has no .NET counterpart");
                     }
 
                     Assert.AreEqual(grpCode, dotNetError.GroupCode);
