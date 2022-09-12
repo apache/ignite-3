@@ -39,7 +39,7 @@ namespace NAMESPACE
         /// <param name="code">Code.</param>
         /// <param name="message">Message.</param>
         /// <param name="innerException">Inner exception.</param>
-        public IgniteTemplateException(Guid traceId, int code, string message, Exception? innerException = null)
+        public IgniteTemplateException(Guid traceId, int code, string? message, Exception? innerException = null)
             : base(traceId, code, message, innerException)
         {
             // No-op.

@@ -59,5 +59,12 @@ namespace Apache.Ignite.Internal
 
             return new IgniteException(traceId, code, message, new IgniteException(traceId, code, javaClass));
         }
+
+        private static IgniteException GetException(Guid traceId, int code, string javaClass, string? message) =>
+            javaClass switch
+            {
+                "org.apache.ignite.lang.ColumnAlreadyExistsException" => new ColumnAlreadyExistsException(traceId, code, message),
+                _ => new IgniteException(traceId, code, message, new IgniteException(traceId, code, javaClass))
+            };
     }
 }
