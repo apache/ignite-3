@@ -1087,3 +1087,51 @@ SELECT d-e,
 ----
 33 values hashing to 83af9d93602ea54fa991d265574a4c3a
 
+query IIIIIII nosort
+SELECT d,
+       (SELECT count(*) FROM t1 AS x WHERE x.c>t1.c AND x.d<t1.d),
+       (a+b+c+d+e)/5,
+       a-b,
+       (SELECT count(*) FROM t1 AS x WHERE x.b<t1.b),
+       c-d,
+       d-e
+  FROM t1
+ WHERE b>c
+    OR d NOT BETWEEN 110 AND 150
+ ORDER BY 2,3,6,7,4,1,5
+----
+182 values hashing to 9bb679937b36be78dd530a683782d10a
+
+query II nosort
+SELECT (a+b+c+d+e)/5,
+       (SELECT count(*) FROM t1 AS x WHERE x.c>t1.c AND x.d<t1.d)
+  FROM t1
+ WHERE (c<=d-2 OR c>=d+2)
+    OR c BETWEEN b-2 AND d+2
+    OR (a>b-2 AND a<b+2)
+ ORDER BY 2,1
+----
+60 values hashing to 4ff348b6082ffad99447100b2c77aca6
+
+query I nosort
+SELECT (SELECT count(*) FROM t1 AS x WHERE x.c>t1.c AND x.d<t1.d)
+  FROM t1
+ WHERE c BETWEEN b-2 AND d+2
+    OR c>d
+ ORDER BY 1
+----
+25 values hashing to 3a8c1f92b5515a90e97181b7aaf6970b
+
+query IIIIII nosort
+SELECT (a+b+c+d+e)/5,
+       a,
+       (SELECT count(*) FROM t1 AS x WHERE x.c>t1.c AND x.d<t1.d),
+       b-c,
+       a+b*2+c*3+d*4+e*5,
+       (SELECT count(*) FROM t1 AS x WHERE x.b<t1.b)
+  FROM t1
+ WHERE (a>b-2 AND a<b+2)
+ ORDER BY 6,4,5,1,2,3
+----
+66 values hashing to 80d5784436f12d6111be1755171b13d4
+
