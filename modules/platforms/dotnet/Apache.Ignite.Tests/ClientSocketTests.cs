@@ -59,7 +59,7 @@ namespace Apache.Ignite.Tests
             using var requestWriter = ProtoCommon.GetMessageWriter();
             requestWriter.GetMessageWriter().Write(123);
 
-            var ex = Assert.ThrowsAsync<IgniteClientException>(
+            var ex = Assert.ThrowsAsync<IgniteException>(
                 async () => await socket.DoOutInOpAsync((ClientOp)1234567, requestWriter));
 
             StringAssert.Contains("Unexpected operation code: 1234567", ex!.Message);
