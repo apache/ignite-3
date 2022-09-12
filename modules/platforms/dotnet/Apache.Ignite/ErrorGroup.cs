@@ -70,13 +70,12 @@ namespace Apache.Ignite
         {
             Common.GroupCode => "CMN",
             Table.GroupCode => "TBL",
+            Client.GroupCode => "CLIENT",
             Sql.GroupCode => "SQL",
             _ => throw new Exception("Unknown error group code: " + groupCode)
         };
 
-        /// <summary>
-        /// Common errors.
-        /// </summary>
+        /// <summary> Common errors. </summary>
         public static class Common
         {
             /// <summary> Group code. </summary>
@@ -114,9 +113,35 @@ namespace Apache.Ignite
             public static readonly int ColumnNotFound = GetFullCode(GroupCode, 4);
         }
 
-        /// <summary>
-        /// SQL errors.
-        /// </summary>
+        /// <summary> Client errors. </summary>
+        public static class Client
+        {
+            /// <summary> Group code. </summary>
+            public const int GroupCode = 3;
+
+            /// <summary> Connection failed. </summary>
+            public static readonly int Connection = GetFullCode(GroupCode, 1);
+
+            /// <summary> Protocol breakdown. </summary>
+            public static readonly int Protocol = GetFullCode(GroupCode, 2);
+
+            /// <summary> Incompatible protocol version. </summary>
+            public static readonly int ProtocolCompatibility = GetFullCode(GroupCode, 3);
+
+            /// <summary> Table not found by ID. </summary>
+            public static readonly int TableIdNotFound = GetFullCode(GroupCode, 4);
+
+            /// <summary> Authentication error. </summary>
+            public static readonly int Authentication = GetFullCode(GroupCode, 5);
+
+            /// <summary> Authorization error. </summary>
+            public static readonly int Authorization = GetFullCode(GroupCode, 6);
+
+            /// <summary> Configuration error. </summary>
+            public static readonly int Configuration = GetFullCode(GroupCode, 7);
+        }
+
+        /// <summary> SQL errors. </summary>
         public static class Sql
         {
             /// <summary> Group code. </summary>
