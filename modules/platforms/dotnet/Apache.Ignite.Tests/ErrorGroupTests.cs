@@ -104,7 +104,7 @@ namespace Apache.Ignite.Tests
                 .Select(x => (Name: x.Groups[1].Value, ShortName: x.Groups[2].Value, Code: int.Parse(x.Groups[3].Value, CultureInfo.InvariantCulture)))
                 .ToList();
 
-            Assert.IsNotEmpty(javaErrorGroups);
+            Assert.GreaterOrEqual(javaErrorGroups.Count, 7);
 
             foreach (var (grpName, grpShortName, grpCode) in javaErrorGroups)
             {
@@ -137,6 +137,16 @@ namespace Apache.Ignite.Tests
                     Assert.AreEqual(expectedDotNetName, dotNetError.Name);
                 }
             }
+        }
+
+        [Test]
+        public void TestGeneratedErrorGroups()
+        {
+            Assert.AreEqual(1, ErrorGroup.Common.GroupCode);
+            Assert.AreEqual("CMN", ErrorGroup.GetGroupName(1));
+
+            Assert.AreEqual(2, ErrorGroup.Table.GroupCode);
+            Assert.AreEqual("TBL", ErrorGroup.GetGroupName(2));
         }
 
         private static IEnumerable<(int Code, string Name)> GetErrorGroups() => typeof(ErrorGroup).GetNestedTypes()
