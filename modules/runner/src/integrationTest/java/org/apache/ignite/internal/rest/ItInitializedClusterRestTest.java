@@ -19,9 +19,7 @@ package org.apache.ignite.internal.rest;
 
 import static com.jayway.jsonpath.matchers.JsonPathMatchers.hasJsonPath;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.hasSize;
-import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.*;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 import com.typesafe.config.Config;
@@ -234,5 +232,17 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
                 () -> assertThat(response.body(), hasJsonPath("$.name")),
                 () -> assertThat(response.body(), hasJsonPath("$.state", is(equalTo("STARTED"))))
         );
+    }
+
+    @Test
+    @DisplayName("Node version is available on initialized cluster")
+    void nodeVersion() throws IOException, InterruptedException {
+        // When GET /management/v1/node/version/
+        HttpResponse<String> response = client.send(get("/management/v1/node/version/"), BodyHandlers.ofString());
+
+        // Then
+        assertThat(response.statusCode(), is(200));
+        // And version is a semver
+        assertThat(response.body(), matchesRegex("[1-9]\\d*\\.\\d+\\.\\d+(?:-[a-zA-Z0-9]+)?"));
     }
 }

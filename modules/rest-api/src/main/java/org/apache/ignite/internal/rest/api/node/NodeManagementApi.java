@@ -49,4 +49,16 @@ public interface NodeManagementApi {
             MediaType.PROBLEM_JSON
     })
     NodeState state();
+
+    @Get("version")
+    @Operation(operationId = "nodeVersion")
+    @ApiResponse(responseCode = "200", description = "Return node version",
+            content = @Content(mediaType = MediaType.TEXT_PLAIN))
+    @ApiResponse(responseCode = "500", description = "Internal error",
+            content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
+    @Produces({
+            MediaType.TEXT_PLAIN,
+            MediaType.PROBLEM_JSON
+    })
+    String version();
 }
