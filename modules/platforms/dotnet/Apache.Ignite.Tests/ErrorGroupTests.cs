@@ -143,9 +143,11 @@ namespace Apache.Ignite.Tests
         public void TestGeneratedErrorGroups()
         {
             Assert.AreEqual(1, ErrorGroup.Common.GroupCode);
+            Assert.AreEqual("CMN", ErrorGroup.Common.GroupName);
             Assert.AreEqual("CMN", ErrorGroup.GetGroupName(1));
 
             Assert.AreEqual(2, ErrorGroup.Table.GroupCode);
+            Assert.AreEqual("TBL", ErrorGroup.Table.GroupName);
             Assert.AreEqual("TBL", ErrorGroup.GetGroupName(2));
         }
 
