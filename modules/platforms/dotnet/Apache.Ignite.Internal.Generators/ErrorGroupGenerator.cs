@@ -41,7 +41,7 @@ namespace Apache.Ignite.Internal.Generators
         /// <inheritdoc/>
         public void Execute(GeneratorExecutionContext context)
         {
-            var mainSyntaxTree = context.Compilation.SyntaxTrees.First(x => x.HasCompilationUnitRoot);
+            var mainSyntaxTree = context.Compilation.SyntaxTrees.Single(x => x.FilePath.EndsWith("IIgnite.cs", StringComparison.Ordinal));
             var directory = Path.GetDirectoryName(mainSyntaxTree.FilePath);
 
             var javaErrorGroupsFile = Path.GetFullPath(Path.Combine(
