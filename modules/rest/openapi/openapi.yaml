@@ -324,6 +324,23 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
+  /management/v1/node/version:
+    get:
+      tags:
+      - nodeManagement
+      operationId: nodeVersion
+      parameters: []
+      responses:
+        "200":
+          description: Return node version
+          content:
+            text/plain: {}
+        "500":
+          description: Internal error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
 components:
   schemas:
     ClusterNode:
