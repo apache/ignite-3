@@ -193,15 +193,6 @@ namespace Apache.Ignite
         {
             /// <summary> Group code. </summary>
             public const int GroupCode = 6;
-
-            // TODO: Use source generators for this!
-        }
-
-        /// <summary> Transaction errors. </summary>
-        public static class Transactions
-        {
-            /// <summary> Group code. </summary>
-            public const int GroupCode = 7;
         }
     }
 }
