@@ -17,7 +17,6 @@
 
 namespace Apache.Ignite.Tests
 {
-    using System;
     using System.Linq;
 
     /// <summary>

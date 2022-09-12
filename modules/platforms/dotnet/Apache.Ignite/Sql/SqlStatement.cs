@@ -73,7 +73,7 @@ namespace Apache.Ignite.Sql
             Schema = schema ?? DefaultSchema;
             PageSize = pageSize ?? DefaultPageSize;
             Prepared = prepared;
-            Properties = properties == null || properties == EmptyProperties ? EmptyProperties : new(properties);
+            Properties = properties == null || ReferenceEquals(properties, EmptyProperties) ? EmptyProperties : new(properties);
         }
 
         /// <summary>
