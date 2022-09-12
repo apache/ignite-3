@@ -28,11 +28,11 @@ namespace Apache.Ignite.Internal
     internal static class ExceptionUtils
     {
         // TODO: Replace with source generator?
-        private static readonly IReadOnlyDictionary<ReadOnlyMemory<char>, Type> ExceptionTypes = Assembly
+        private static readonly IReadOnlyDictionary<string, Type> ExceptionTypes = Assembly
             .GetExecutingAssembly()
             .GetTypes()
             .Where(t => typeof(IgniteException).IsAssignableFrom(t))
-            .ToDictionary(x => x.Name.AsMemory(), x => x);
+            .ToDictionary(x => x.Name, x => x, StringComparer.Ordinal);
 
         /// <summary>
         /// Gets an Ignite exception.
@@ -44,17 +44,17 @@ namespace Apache.Ignite.Internal
         /// <returns>Exception.</returns>
         public static IgniteException GetIgniteException(Guid traceId, int code, string javaClass, string? message)
         {
-            var typeName = javaClass.AsMemory();
-            var idx = typeName.Span.LastIndexOf('.');
+            var typeName = javaClass;
+            var idx = typeName.LastIndexOf('.');
 
             if (idx > 0 && idx < typeName.Length - 1)
             {
-                typeName = typeName.Slice(idx + 1);
+                typeName = typeName.Substring(idx + 1);
             }
 
             if (ExceptionTypes.TryGetValue(typeName, out var type))
             {
-                return (IgniteException)Activator.CreateInstance(type, traceId, code, null);
+                return (IgniteException)Activator.CreateInstance(type, traceId, code, message, null);
             }
 
             return new IgniteException(traceId, code, message, new IgniteException(traceId, code, javaClass));

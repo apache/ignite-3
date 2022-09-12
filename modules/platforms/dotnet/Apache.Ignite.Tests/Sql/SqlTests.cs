@@ -245,6 +245,15 @@ namespace Apache.Ignite.Tests.Sql
         }
 
         [Test]
+        public void TestCreateTableExistsThrowsException()
+        {
+            var ex = Assert.ThrowsAsync<TableAlreadyExistsException>(
+                async () => await Client.Sql.ExecuteAsync(null, "CREATE TABLE TEST(ID INT PRIMARY KEY)"));
+
+            StringAssert.EndsWith("Table already exists [name=PUBLIC.TEST]", ex!.Message);
+        }
+
+        [Test]
         public async Task TestStatementProperties()
         {
             using var server = new FakeServer();
