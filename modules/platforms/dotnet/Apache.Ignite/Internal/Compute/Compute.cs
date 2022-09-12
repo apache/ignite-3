@@ -190,7 +190,7 @@ namespace Apache.Ignite.Internal.Compute
 
             _tableCache.TryRemove(tableName, out _);
 
-            throw new IgniteClientException($"Table '{tableName}' does not exist.");
+            throw new IgniteClientException(ErrorGroup.Table.TableNotFound, $"Table '{tableName}' does not exist.");
         }
 
         private async Task<T> ExecuteColocatedAsync<T, TKey>(
