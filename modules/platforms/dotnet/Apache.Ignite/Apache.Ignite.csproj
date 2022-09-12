@@ -39,4 +39,10 @@
     </AssemblyAttribute>
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\Apache.Ignite.Internal.Generators\Apache.Ignite.Internal.Generators.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
 </Project>

@@ -21,6 +21,7 @@
         <TargetFramework>netstandard2.0</TargetFramework>
         <Nullable>enable</Nullable>
         <CodeAnalysisRuleSet>..\Apache.Ignite.Tests.ruleset</CodeAnalysisRuleSet>
+        <IsPackable>false</IsPackable>
     </PropertyGroup>
     
     <ItemGroup>
