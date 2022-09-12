@@ -41,13 +41,12 @@ namespace Apache.Ignite.Internal.Generators
         /// <inheritdoc/>
         public void Execute(GeneratorExecutionContext context)
         {
-            var javaErrorGroupsFile = Path.GetFullPath(
-                Path.Combine(
-                    Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)!,
-                    "..", // netcoreapp
-                    "..", // Debug/Release
-                    "..", // bin
-                    "..", // Apache.Ignite.Internal.Generators
+            var mainSyntaxTree = context.Compilation.SyntaxTrees.First(x => x.HasCompilationUnitRoot);
+            var directory = Path.GetDirectoryName(mainSyntaxTree.FilePath);
+
+            var javaErrorGroupsFile = Path.GetFullPath(Path.Combine(
+                    directory,
+                    "..", // Apache.Ignite
                     "..", // dotnet
                     "..", // platforms
                     "core",
@@ -62,7 +61,7 @@ namespace Apache.Ignite.Internal.Generators
 
             if (!File.Exists(javaErrorGroupsFile))
             {
-                throw new Exception("File not found: " + javaErrorGroupsFile);
+                throw new Exception("File not found: " + javaErrorGroupsFile + " = " + Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)!);
             }
 
             var javaErrorGroupsText = File.ReadAllText(javaErrorGroupsFile);
@@ -70,10 +69,10 @@ namespace Apache.Ignite.Internal.Generators
             // ErrorGroup TX_ERR_GROUP = ErrorGroup.newGroup("TX", 7);
             var javaErrorGroups = Regex.Matches(
                     javaErrorGroupsText,
-                    @"public static class ([A-Za-z]+) {\s+/\*\*.*?\*/\s+public static final ErrorGroup [\w_]+ERR_GROUP = ErrorGroup.newGroup\(""([A-Z]+)"", (\d+)",
+                    @"public static class ([A-Za-z]+) {\s+/\*\*.*?\*/\s+public static final ErrorGroup ([\w_]+)_ERR_GROUP = ErrorGroup.newGroup\(""([A-Z]+)"", (\d+)",
                     RegexOptions.Singleline | RegexOptions.CultureInvariant)
                 .Cast<Match>()
-                .Select(x => (ClassName: x.Groups[1].Value, GroupName: x.Groups[2].Value, Code: int.Parse(x.Groups[3].Value, CultureInfo.InvariantCulture)))
+                .Select(x => (ClassName: x.Groups[1].Value, GroupName: x.Groups[2].Value, ShortGroupName: x.Groups[3].Value, Code: int.Parse(x.Groups[4].Value, CultureInfo.InvariantCulture)))
                 .ToList();
 
             if (javaErrorGroups.Count == 0)
@@ -89,7 +88,7 @@ namespace Apache.Ignite.Internal.Generators
             sb.AppendLine("    public static partial class ErrorGroup");
             sb.AppendLine("    {");
 
-            foreach (var (className, groupName, groupCode) in javaErrorGroups)
+            foreach (var (className, groupName, shortGroupName, groupCode) in javaErrorGroups)
             {
                 sb.AppendLine($"        /// <summary> {className} errors. </summary>");
                 sb.AppendLine($"        public static class {className}");
@@ -99,7 +98,7 @@ namespace Apache.Ignite.Internal.Generators
                 // TX_STATE_STORAGE_CREATE_ERR = TX_ERR_GROUP.registerErrorCode(1)
                 var javaErrors = Regex.Matches(
                         javaErrorGroupsText,
-                        @"([\w_]+) = " + groupName + @"_ERR_GROUP\.registerErrorCode\((\d+)\);")
+                        @"([\w_]+)_ERR = " + groupName + @"_ERR_GROUP\.registerErrorCode\((\d+)\);")
                     .Cast<Match>()
                     .Select(x => (Name: x.Groups[1].Value, Code: int.Parse(x.Groups[2].Value, CultureInfo.InvariantCulture)))
                     .ToList();
@@ -111,7 +110,7 @@ namespace Apache.Ignite.Internal.Generators
 
                 foreach (var (errorName, errorCode) in javaErrors)
                 {
-                    var dotNetErrorName = SnakeToCamelCase(errorName)[..^3];
+                    var dotNetErrorName = SnakeToCamelCase(errorName);
 
                     sb.AppendLine($"            public static readonly int {dotNetErrorName} = GetFullCode(GroupCode, {errorCode});");
                 }
@@ -125,6 +124,6 @@ namespace Apache.Ignite.Internal.Generators
         }
 
         private static string SnakeToCamelCase(string str) =>
-            string.Concat(str.Split('_').Select(x => x[..1].ToUpperInvariant() + x[1..].ToLowerInvariant()));
+            string.Concat(str.Split('_').Select(x => x.Substring(0, 1).ToUpperInvariant() + x.Substring(1).ToLowerInvariant()));
     }
 }
