@@ -93,19 +93,36 @@ namespace Apache.Ignite.Tests
         [Test]
         public void TestJavaErrorGroupsAndCodesHaveDotNetCounterparts()
         {
+            var javaErrorGroupsText = File.ReadAllText(JavaErrorGroupsFile);
+
+            // ErrorGroup TX_ERR_GROUP = ErrorGroup.newGroup("TX", 7);
             var javaErrorGroups = Regex.Matches(
-                File.ReadAllText(JavaErrorGroupsFile),
+                javaErrorGroupsText,
                 @"ErrorGroup ([\w_]+)_ERR_GROUP = ErrorGroup.newGroup\(""(\w+)"", (\d+)\);")
                 .Select(x => (Name: x.Groups[1].Value, ShortName: x.Groups[2].Value, Code: int.Parse(x.Groups[3].Value, CultureInfo.InvariantCulture)))
                 .ToList();
 
             Assert.IsNotEmpty(javaErrorGroups);
 
-            foreach (var (name, shortName, code) in javaErrorGroups)
+            foreach (var (grpName, grpShortName, grpCode) in javaErrorGroups)
             {
-                var dotNetName = ErrorGroup.GetGroupName(code);
+                var dotNetName = ErrorGroup.GetGroupName(grpCode);
 
-                Assert.AreEqual(shortName, dotNetName, $"Java and .NET error group '{name}' names do not match");
+                Assert.AreEqual(grpShortName, dotNetName, $"Java and .NET error group '{grpName}' names do not match");
+
+                // TX_STATE_STORAGE_CREATE_ERR = TX_ERR_GROUP.registerErrorCode(1)
+                var javaErrors = Regex.Matches(
+                        javaErrorGroupsText,
+                        @"([\w_]+) = " + grpName + @"_ERR_GROUP\.registerErrorCode\((\d+)\);")
+                    .Select(x => (Name: x.Groups[1].Value, Code: int.Parse(x.Groups[2].Value, CultureInfo.InvariantCulture)))
+                    .ToList();
+
+                Assert.IsNotEmpty(javaErrors);
+
+                foreach (var (errName, errCode) in javaErrors)
+                {
+                    // TODO: Find corresponding .NET error code with reflection.
+                }
             }
         }
 
