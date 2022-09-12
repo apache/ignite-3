@@ -29,7 +29,7 @@ namespace Apache.Ignite
         "Microsoft.Design",
         "CA1032:ImplementStandardExceptionConstructors",
         Justification="Ignite exceptions use a special constructor.")]
-    public class IgniteClientConnectionException : IgniteException
+    public class IgniteClientConnectionException : IgniteClientException
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="IgniteClientConnectionException"/> class.

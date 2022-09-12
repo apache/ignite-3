@@ -20,6 +20,7 @@ namespace Apache.Ignite
     using System;
     using System.Diagnostics.CodeAnalysis;
     using System.Runtime.Serialization;
+    using Internal.Common;
 
     /// <summary>
     /// Ignite exception.
@@ -52,7 +53,7 @@ namespace Apache.Ignite
         /// <param name="streamingContext">Streaming context.</param>
         protected IgniteException(SerializationInfo serializationInfo, StreamingContext streamingContext)
         {
-            base.GetObjectData(serializationInfo, streamingContext);
+            IgniteArgumentCheck.NotNull(serializationInfo, nameof(serializationInfo));
 
             TraceId = (Guid)serializationInfo.GetValue(nameof(TraceId), typeof(Guid));
             Code = serializationInfo.GetInt32(nameof(Code));
