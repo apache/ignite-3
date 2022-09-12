@@ -26,9 +26,6 @@ namespace Apache.Ignite.Tests
     public static class StringExtensions
     {
         public static string SnakeToCamelCase(this string str) =>
-            str.Split("_", StringSplitOptions.RemoveEmptyEntries)
-                .Aggregate(
-                    string.Empty,
-                    (current, part) => current + part[..1].ToUpperInvariant() + part[1..].ToLowerInvariant());
+            string.Concat(str.Split('_').Select(x => x[..1].ToUpperInvariant() + x[1..].ToLowerInvariant()));
     }
 }
