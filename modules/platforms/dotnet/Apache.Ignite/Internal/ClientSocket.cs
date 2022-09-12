@@ -307,7 +307,7 @@ namespace Apache.Ignite.Internal
             string className = reader.ReadString();
             string? message = reader.ReadString();
 
-            return ExceptionUtils.GetIgniteException(traceId, code, className, message);
+            return ExceptionMapper.GetException(traceId, code, className, message);
         }
 
         private static async ValueTask<PooledBuffer> ReadResponseAsync(
