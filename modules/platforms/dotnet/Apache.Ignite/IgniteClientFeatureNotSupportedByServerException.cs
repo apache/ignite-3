@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -29,39 +29,39 @@ namespace Apache.Ignite
         "Microsoft.Design",
         "CA1032:ImplementStandardExceptionConstructors",
         Justification="Ignite exceptions use a special constructor.")]
-    public class IgniteClientException : IgniteException
+    public class IgniteClientFeatureNotSupportedByServerException : IgniteException
     {
         /// <summary>
-        /// Initializes a new instance of the <see cref="IgniteClientException"/> class.
+        /// Initializes a new instance of the <see cref="IgniteClientFeatureNotSupportedByServerException"/> class.
         /// </summary>
         /// <param name="code">Code.</param>
         /// <param name="message">Message.</param>
         /// <param name="innerException">Inner exception.</param>
-        public IgniteClientException(int code, string message, Exception? innerException = null)
+        public IgniteClientFeatureNotSupportedByServerException(int code, string message, Exception? innerException = null)
             : base(Guid.NewGuid(), code, message, innerException)
         {
             // No-op.
         }
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="IgniteClientException"/> class.
+        /// Initializes a new instance of the <see cref="IgniteClientFeatureNotSupportedByServerException"/> class.
         /// </summary>
         /// <param name="traceId">Trace id.</param>
         /// <param name="code">Code.</param>
         /// <param name="message">Message.</param>
         /// <param name="innerException">Inner exception.</param>
-        public IgniteClientException(Guid traceId, int code, string message, Exception? innerException = null)
+        public IgniteClientFeatureNotSupportedByServerException(Guid traceId, int code, string message, Exception? innerException = null)
             : base(traceId, code, message, innerException)
         {
             // No-op.
         }
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="IgniteClientException"/> class.
+        /// Initializes a new instance of the <see cref="IgniteClientFeatureNotSupportedByServerException"/> class.
         /// </summary>
         /// <param name="serializationInfo">Serialization information.</param>
         /// <param name="streamingContext">Streaming context.</param>
-        protected IgniteClientException(SerializationInfo serializationInfo, StreamingContext streamingContext)
+        protected IgniteClientFeatureNotSupportedByServerException(SerializationInfo serializationInfo, StreamingContext streamingContext)
             : base(serializationInfo, streamingContext)
         {
             // No-op.

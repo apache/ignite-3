@@ -177,7 +177,10 @@ namespace Apache.Ignite.Internal
 
             if (ex != null)
             {
-                throw new IgniteClientException("Socket is closed due to an error, examine inner exception for details.", ex);
+                throw new IgniteClientConnectionException(
+                    ErrorGroup.Client.Connection,
+                    "Socket is closed due to an error, examine inner exception for details.",
+                    ex);
             }
 
             if (_disposeTokenSource.IsCancellationRequested)
@@ -251,8 +254,9 @@ namespace Apache.Ignite.Internal
                 {
                     if (responseMagic[i] != ProtoCommon.MagicBytes[i])
                     {
-                        throw new IgniteClientException("Invalid magic bytes returned from the server: " +
-                                                        BitConverter.ToString(responseMagic));
+                        throw new IgniteClientConnectionException(
+                            ErrorGroup.Client.Protocol,
+                            "Invalid magic bytes returned from the server: " + BitConverter.ToString(responseMagic));
                     }
                 }
             }
@@ -268,7 +272,7 @@ namespace Apache.Ignite.Internal
 
             if (serverVer != CurrentProtocolVersion)
             {
-                throw new IgniteClientException("Unexpected server version: " + serverVer);
+                throw new IgniteClientConnectionException(ErrorGroup.Client.Protocol, "Unexpected server version: " + serverVer);
             }
 
             var exception = ReadError(ref reader);
@@ -359,7 +363,8 @@ namespace Apache.Ignite.Internal
                 if (res == 0)
                 {
                     // Disconnected.
-                    throw new IgniteClientException(
+                    throw new IgniteClientConnectionException(
+                        ErrorGroup.Client.Protocol,
                         "Connection lost (failed to read data from socket)",
                         new SocketException((int) SocketError.ConnectionAborted));
                 }
@@ -407,8 +412,8 @@ namespace Apache.Ignite.Internal
             if (configuredInterval <= TimeSpan.Zero)
             {
                 throw new IgniteClientException(
-                    $"{nameof(IgniteClientConfiguration)}.{nameof(IgniteClientConfiguration.HeartbeatInterval)} " +
-                    "should be greater than zero.");
+                    ErrorGroup.Client.Configuration,
+                    $"{nameof(IgniteClientConfiguration)}.{nameof(IgniteClientConfiguration.HeartbeatInterval)} should be greater than zero.");
             }
 
             if (serverIdleTimeout <= TimeSpan.Zero)
@@ -514,7 +519,7 @@ namespace Apache.Ignite.Internal
                 const string message = "Exception while reading from socket. Connection closed.";
 
                 _logger?.Error(message, e);
-                Dispose(new IgniteClientException(message, e));
+                Dispose(new IgniteClientConnectionException(ErrorGroup.Client.Connection, message, e));
             }
         }
 
@@ -536,7 +541,7 @@ namespace Apache.Ignite.Internal
             {
                 var message = $"Unexpected response ID ({requestId}) received from the server, closing the socket.";
                 _logger?.Error(message);
-                Dispose(new IgniteClientException(message));
+                Dispose(new IgniteClientConnectionException(ErrorGroup.Client.Protocol, message));
 
                 return;
             }

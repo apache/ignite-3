@@ -71,8 +71,8 @@ namespace Apache.Ignite.Internal
             if (configuration.Endpoints.Count == 0)
             {
                 throw new IgniteClientException(
-                    $"Invalid {nameof(IgniteClientConfiguration)}: " +
-                    $"{nameof(IgniteClientConfiguration.Endpoints)} is empty. Nowhere to connect.");
+                    ErrorGroup.Client.Configuration,
+                    $"Invalid {nameof(IgniteClientConfiguration)}: {nameof(IgniteClientConfiguration.Endpoints)} is empty. Nowhere to connect.");
             }
 
             _logger = configuration.Logger.GetLogger(GetType());
@@ -124,7 +124,7 @@ namespace Apache.Ignite.Internal
 
             if (tx.FailoverSocket != this)
             {
-                throw new IgniteClientException("Specified transaction belongs to a different IgniteClient instance.");
+                throw new IgniteClientException(ErrorGroup.Client.Connection, "Specified transaction belongs to a different IgniteClient instance.");
             }
 
             // Use tx-specific socket without retry and failover.
@@ -160,7 +160,7 @@ namespace Apache.Ignite.Internal
             {
                 if (tx.FailoverSocket != this)
                 {
-                    throw new IgniteClientException("Specified transaction belongs to a different IgniteClient instance.");
+                    throw new IgniteClientException(ErrorGroup.Client.Connection, "Specified transaction belongs to a different IgniteClient instance.");
                 }
 
                 // Use tx-specific socket without retry and failover.
@@ -525,7 +525,8 @@ namespace Apache.Ignite.Internal
                 errors.Add(exception);
                 var inner = new AggregateException(errors);
 
-                throw new IgniteClientException(
+                throw new IgniteClientConnectionException(
+                    ErrorGroup.Client.Connection,
                     $"Operation failed after {attempt} retries, examine InnerException for details.",
                     inner);
             }
