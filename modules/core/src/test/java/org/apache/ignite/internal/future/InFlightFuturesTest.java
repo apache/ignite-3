@@ -42,7 +42,7 @@ class InFlightFuturesTest {
 
 
     @Test
-    void addsAlreadyCompletedFutureToInFlightSet() {
+    void removesAlreadyCompletedFutureOnRegistration() {
         CompletableFuture<Object> completedFuture = CompletableFuture.completedFuture("Completed");
 
         inFlightFutures.registerFuture(completedFuture);
