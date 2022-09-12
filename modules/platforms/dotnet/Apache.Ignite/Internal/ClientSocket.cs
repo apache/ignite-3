@@ -309,6 +309,7 @@ namespace Apache.Ignite.Internal
             string? message = reader.ReadString();
 
             // TODO: Reconstruct class by name.
+            // TODO: Source-generate lookup table for Java classes.
             return new IgniteException(traceId, code, message + className);
         }
 
