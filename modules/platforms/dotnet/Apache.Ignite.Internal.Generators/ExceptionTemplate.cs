@@ -16,14 +16,14 @@
  */
 
 #nullable enable
-namespace Apache.Ignite
+namespace NAMESPACE
 {
     using System;
     using System.Diagnostics.CodeAnalysis;
     using System.Runtime.Serialization;
 
     /// <summary>
-    /// XMLDOC
+    /// XMLDOC.
     /// </summary>
     [Serializable]
     [SuppressMessage(

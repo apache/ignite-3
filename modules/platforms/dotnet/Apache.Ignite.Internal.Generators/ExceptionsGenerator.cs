@@ -50,7 +50,7 @@ namespace Apache.Ignite.Internal.Generators
                 .Select(File.ReadAllText)
                 .Select(x => (
                     Class: Regex.Match(x, @"public class (\w+) extends (\w+)"),
-                    Package: Regex.Match(x, @"package org\.apache\.ignite\.([a-z.]+);")))
+                    Package: Regex.Match(x, @"package org\.apache(\.[a-z.]+);")))
                 .Where(x => x.Class.Success && x.Package.Success)
                 .Where(x => !x.Class.Value.Contains("RaftException")) // Ignore duplicate RaftException.
                 .Where(x => !x.Class.Value.Contains("IgniteClient")) // Skip Java client exceptions.
@@ -62,9 +62,8 @@ namespace Apache.Ignite.Internal.Generators
                 .ToImmutableHashSet();
 
             var javaExceptions = javaExceptionsWithParents
-                .Select(x => x.Key)
-                .Where(x => !existingExceptions.Contains(x))
-                .Where(IsIgniteException)
+                .Where(x => !existingExceptions.Contains(x.Key))
+                .Where(x => IsIgniteException(x.Key))
                 .ToList();
 
             if (javaExceptionsWithParents.Count == 0 || javaExceptions.Count == 0)
@@ -76,14 +75,19 @@ namespace Apache.Ignite.Internal.Generators
 
             foreach (var javaException in javaExceptions)
             {
-                // TODO: Put into correct namespace?
-                var xmlDoc = Regex.Replace(javaException, "[A-Z]", " $1");
+                // TODO: Copy javadoc.
+                var className = javaException.Key;
+                var xmlDoc = Regex.Replace(className, "([A-Z])", " $1");
+
+                var package = Regex.Replace(javaException.Value.Package, @"(\.[a-z])", x => x.Groups[1].Value.ToUpperInvariant())
+                    .Replace(".Lang", string.Empty);
 
                 var src = template
-                    .Replace("IgniteTemplateException", javaException)
-                    .Replace(" XMLDOC", xmlDoc);
+                    .Replace("IgniteTemplateException", className)
+                    .Replace(" XMLDOC", xmlDoc)
+                    .Replace("NAMESPACE", "Apache" + package);
 
-                context.AddSource(javaException + ".g.cs", src);
+                context.AddSource(className + ".g.cs", src);
             }
 
             bool IsIgniteException(string? ex) =>
