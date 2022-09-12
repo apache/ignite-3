@@ -27,25 +27,30 @@ namespace ignite
 std::future<IgniteClient> IgniteClient::startAsync(IgniteClientConfiguration configuration,
     std::chrono::milliseconds timeout)
 {
-    // TODO: stop connection process on error.
     return std::async(std::launch::async, [cfg = std::move(configuration), timeout] () mutable {
-        auto impl = std::make_shared<impl::IgniteClientImpl>(std::move(cfg));
-
-        try {
-            auto res = impl->start();
-            if (res.wait_for(timeout) != std::future_status::ready)
-                throw IgniteError("Can not establish connection within timeout");
-
-            return IgniteClient(impl);
-        }
-        catch (...) {
-            impl->stop();
-            throw;
-        }
+        return IgniteClient::start(cfg, timeout);
     });
+}
+
+IgniteClient IgniteClient::start(IgniteClientConfiguration configuration, std::chrono::milliseconds timeout)
+{
+    auto impl = std::make_shared<impl::IgniteClientImpl>(std::move(configuration));
+
+    try {
+        auto res = impl->start();
+        if (res.wait_for(timeout) != std::future_status::ready)
+            throw IgniteError("Can not establish connection within timeout");
+
+        return IgniteClient(impl);
+    }
+    catch (...) {
+        impl->stop();
+        throw;
+    }
 }
 
 IgniteClient::IgniteClient(std::shared_ptr<void> impl) :
     m_impl(std::move(impl)) { }
+
 
 } // namespace ignite

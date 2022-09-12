@@ -33,6 +33,7 @@ protected:
     ~ClientTest() override = default;
 };
 
+// TODO: implement test logger
 class TestLogger : public IgniteLogger
 {
 public:
@@ -55,6 +56,7 @@ public:
     {
         std::cout << getTimestamp() << " [DEBUG]  " << message << std::endl;
     }
+
 private:
     static std::string getTimestamp()
     {

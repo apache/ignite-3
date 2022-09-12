@@ -40,8 +40,18 @@ void BeforeAll()
 
 int main(int argc, char** argv)
 {
-    BeforeAll();
+//    BeforeAll();
+
+//    ignite::IgniteNode testNode;
+//    testNode.start(false);
+
+    // TODO: Implement node startup await
+//    std::this_thread::sleep_for(std::chrono::seconds(20));
 
     ::testing::InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
+    auto res = RUN_ALL_TESTS();
+
+//    testNode.stop();
+
+    return res;
 }
