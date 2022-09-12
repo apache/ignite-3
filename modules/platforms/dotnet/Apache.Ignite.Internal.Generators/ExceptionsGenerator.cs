@@ -48,10 +48,13 @@ namespace Apache.Ignite.Internal.Generators
                     SearchOption.AllDirectories)
                 .Where(x => !x.Contains("internal"))
                 .Select(File.ReadAllText)
-                .Select(x => Regex.Match(x, @"public class (\w+) extends (\w+)"))
-                .Where(x => x.Success && !x.Value.Contains("RaftException")) // Ignore duplicate RaftException.
-                .Where(x => !x.Value.Contains("IgniteClient")) // Skip Java client exceptions.
-                .ToDictionary(x => x.Groups[1].Value, x => x.Groups[2].Value);
+                .Select(x => (
+                    Class: Regex.Match(x, @"public class (\w+) extends (\w+)"),
+                    Package: Regex.Match(x, @"package org\.apache\.ignite\.([a-z.]+);")))
+                .Where(x => x.Class.Success && x.Package.Success)
+                .Where(x => !x.Class.Value.Contains("RaftException")) // Ignore duplicate RaftException.
+                .Where(x => !x.Class.Value.Contains("IgniteClient")) // Skip Java client exceptions.
+                .ToDictionary(x => x.Class.Groups[1].Value, x => (Parent: x.Class.Groups[2].Value, Package: x.Package.Groups[1].Value));
 
             var existingExceptions = context.Compilation.SyntaxTrees
                 .Where(x => x.FilePath.Contains("Exception"))
@@ -86,7 +89,7 @@ namespace Apache.Ignite.Internal.Generators
             bool IsIgniteException(string? ex) =>
                 ex != null &&
                 (ex == "IgniteException" ||
-                 IsIgniteException(javaExceptionsWithParents.TryGetValue(ex, out var parent) ? parent : null));
+                 IsIgniteException(javaExceptionsWithParents.TryGetValue(ex, out var parent) ? parent.Parent : null));
         }
 
         private static string GetExceptionClassTemplate()
