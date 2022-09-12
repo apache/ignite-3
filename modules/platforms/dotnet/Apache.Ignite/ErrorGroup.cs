@@ -74,7 +74,8 @@ namespace Apache.Ignite
             Sql.GroupCode => "SQL",
             MetaStorage.GroupCode => "META",
             Index.GroupCode => "IDX",
-            Transactions.GroupCode => "TX",
+
+            // Transactions.GroupCode => "TX",
             _ => throw new Exception("Unknown error group code: " + groupCode)
         };
 
