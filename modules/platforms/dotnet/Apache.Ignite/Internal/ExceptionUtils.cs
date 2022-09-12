@@ -27,6 +27,7 @@ namespace Apache.Ignite.Internal
     /// </summary>
     internal static class ExceptionUtils
     {
+        // TODO: Replace with source generator?
         private static readonly IReadOnlyDictionary<ReadOnlyMemory<char>, Type> ExceptionTypes = Assembly
             .GetExecutingAssembly()
             .GetTypes()
