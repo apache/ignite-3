@@ -99,9 +99,9 @@ namespace Apache.Ignite.Internal.Generators
         public static string GetGroupName(int groupCode) => groupCode switch
         {");
 
-            foreach (var (_, _, shortGroupName, groupCode) in javaErrorGroups)
+            foreach (var (className, _, _, _) in javaErrorGroups)
             {
-                sb.AppendLine(@$"            {groupCode} => ""{shortGroupName}"",");
+                sb.AppendLine(@$"            {className}.GroupCode => {className}.GroupName,");
             }
 
             sb.AppendLine(
@@ -110,7 +110,7 @@ namespace Apache.Ignite.Internal.Generators
         };");
 
             // Groups.
-            foreach (var (className, groupName, _, groupCode) in javaErrorGroups)
+            foreach (var (className, groupName, shortGroupName, groupCode) in javaErrorGroups)
             {
                 sb.AppendLine();
                 sb.AppendLine($"        /// <summary> {className} errors. </summary>");
@@ -118,6 +118,9 @@ namespace Apache.Ignite.Internal.Generators
                 sb.AppendLine($"        {{");
                 sb.AppendLine($"            /// <summary> {className} group code. </summary>");
                 sb.AppendLine($"            public const int GroupCode = {groupCode};");
+                sb.AppendLine();
+                sb.AppendLine($"            /// <summary> {className} group name. </summary>");
+                sb.AppendLine($"            public const string GroupName = \"{shortGroupName}\";");
 
                 // TX_STATE_STORAGE_CREATE_ERR = TX_ERR_GROUP.registerErrorCode(1)
                 var javaErrors = Regex.Matches(
