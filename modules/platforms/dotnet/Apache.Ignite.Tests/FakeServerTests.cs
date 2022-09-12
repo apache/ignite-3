@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Tests
 {
+    using System;
     using System.Threading.Tasks;
     using NUnit.Framework;
 
@@ -42,7 +43,9 @@ namespace Apache.Ignite.Tests
             using var client = await server.ConnectClientAsync();
 
             var ex = Assert.ThrowsAsync<IgniteException>(async () => await client.Tables.GetTableAsync("t"));
-            Assert.AreEqual("ErrCls: : Err! (65537, 00000000-0000-0000-0000-000000000000)", ex!.Message);
+            Assert.AreEqual("Err!", ex!.Message);
+            Assert.AreEqual(Guid.Empty, ex.TraceId);
+            Assert.AreEqual(65537, ex.Code);
         }
 
         [Test]
