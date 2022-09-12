@@ -29,6 +29,9 @@ namespace Apache.Ignite.Tests
     /// </summary>
     public class ErrorGroupTests
     {
+        private static readonly string JavaErrorGroupsFile = Path.Combine(
+            TestUtils.RepoRootDir, "modules", "core", "src", "main", "java", "org", "apache", "ignite", "lang", "ErrorGroups.java");
+
         [Test]
         public void TestErrorGroupCodesAreUnique()
         {
@@ -90,18 +93,20 @@ namespace Apache.Ignite.Tests
         [Test]
         public void TestJavaErrorGroupsAndCodesHaveDotNetCounterparts()
         {
-            var javaErrorGroupsFile = Path.Combine(
-                TestUtils.RepoRootDir, "modules", "core", "src", "main", "java", "org", "apache", "ignite", "lang", "ErrorGroups.java");
-
             var javaErrorGroups = Regex.Matches(
-                File.ReadAllText(javaErrorGroupsFile),
+                File.ReadAllText(JavaErrorGroupsFile),
                 @"ErrorGroup ([\w_]+)_ERR_GROUP = ErrorGroup.newGroup\(""(\w+)"", (\d+)\);")
                 .Select(x => (Name: x.Groups[1].Value, ShortName: x.Groups[2].Value, Code: int.Parse(x.Groups[3].Value, CultureInfo.InvariantCulture)))
                 .ToList();
 
             Assert.IsNotEmpty(javaErrorGroups);
 
-            Assert.Fail("TODO");
+            foreach (var (name, shortName, code) in javaErrorGroups)
+            {
+                var dotNetName = ErrorGroup.GetGroupName(code);
+
+                Assert.AreEqual(shortName, dotNetName, $"Java and .NET error group '{name}' names do not match");
+            }
         }
 
         private static IEnumerable<(int Code, string Name)> GetErrorGroups() => typeof(ErrorGroup).GetNestedTypes()
