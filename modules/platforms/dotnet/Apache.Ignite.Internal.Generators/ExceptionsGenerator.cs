@@ -101,7 +101,10 @@ namespace Apache.Ignite.Internal.Generators
                 throw new Exception($"Failed to parse Java package name from '{javaClassName}.java'");
             }
 
-            var xmlDoc = javaDocMatch.Groups[1].Value;
+            var xmlDoc = javaDocMatch.Groups[1].Value
+                .Replace(Environment.NewLine, " ")
+                .Replace('\n', ' ')
+                .Replace(" * ", " ");
 
             return xmlDoc;
         }
