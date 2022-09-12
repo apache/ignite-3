@@ -50,7 +50,7 @@ namespace Apache.Ignite
         /// </summary>
         /// <param name="serializationInfo">Serialization information.</param>
         /// <param name="streamingContext">Streaming context.</param>
-        protected IgniteTemplateException(SerializationInfo serializationInfo, StreamingContext streamingContext)
+        private IgniteTemplateException(SerializationInfo serializationInfo, StreamingContext streamingContext)
             : base(serializationInfo, streamingContext)
         {
             // No-op.

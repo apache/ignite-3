@@ -19,6 +19,7 @@ namespace Apache.Ignite.Tests
 {
     using System;
     using System.Collections.Generic;
+    using System.Collections.Immutable;
     using System.IO;
     using System.Linq;
     using System.Runtime.Serialization.Formatters.Binary;
@@ -88,11 +89,14 @@ namespace Apache.Ignite.Tests
 
             Assert.Multiple(() =>
             {
+                var dotNetExceptions = typeof(IIgnite).Assembly.GetTypes()
+                    .Select(t => t.Name)
+                    .Where(x => x.EndsWith("Exception", StringComparison.Ordinal))
+                    .ToImmutableHashSet();
+
                 foreach (var exception in javaExceptions)
                 {
-                    var dotNetException = typeof(IIgnite).Assembly.GetType(exception, throwOnError: false);
-
-                    Assert.IsNotNull(dotNetException, "No .NET equivalent for Java exception: " + exception);
+                    Assert.IsTrue(dotNetExceptions.Contains(exception), "No .NET equivalent for Java exception: " + exception);
                 }
             });
 
