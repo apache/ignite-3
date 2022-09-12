@@ -60,23 +60,5 @@ namespace Apache.Ignite
         /// <param name="errorCode">Error code.</param>
         /// <returns>Combined code.</returns>
         public static int GetFullCode(int groupCode, int errorCode) => (groupCode << 16) | (errorCode & 0xFFFF);
-
-        /// <summary>
-        /// Gets the group name by code.
-        /// </summary>
-        /// <param name="groupCode">Group code.</param>
-        /// <returns>Group name.</returns>
-        public static string GetGroupName(int groupCode) => groupCode switch
-        {
-            1 => "CMN",
-
-            // Table.GroupCode => "TBL",
-            // Client.GroupCode => "CLIENT",
-            // Sql.GroupCode => "SQL",
-            // MetaStorage.GroupCode => "META",
-            // Index.GroupCode => "IDX",
-            // Transactions.GroupCode => "TX",
-            _ => throw new Exception("Unknown error group code: " + groupCode)
-        };
     }
 }
