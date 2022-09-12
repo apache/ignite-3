@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+#nullable enable
 namespace Apache.Ignite
 {
     using System;

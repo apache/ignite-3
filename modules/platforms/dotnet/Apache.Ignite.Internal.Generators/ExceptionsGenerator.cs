@@ -49,6 +49,7 @@ namespace Apache.Ignite.Internal.Generators
                 .Select(File.ReadAllText)
                 .Select(x => Regex.Match(x, @"public class (\w+) extends (\w+)"))
                 .Where(x => x.Success && !x.Value.Contains("RaftException")) // Ignore duplicate RaftException.
+                .Where(x => !x.Value.Contains("public class IgniteException ")) // IgniteException already exists.
                 .Where(x => !x.Value.Contains("IgniteClient")) // Skip Java client exceptions.
                 .ToDictionary(x => x.Groups[1].Value, x => x.Groups[2].Value);
 
@@ -81,7 +82,9 @@ namespace Apache.Ignite.Internal.Generators
 
         private static string GetExceptionClassTemplate()
         {
-            using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("ExceptionTemplate.cs");
+            using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(
+                "Apache.Ignite.Internal.Generators.ExceptionTemplate.cs");
+
             using var reader = new StreamReader(stream!);
 
             return reader.ReadToEnd();
