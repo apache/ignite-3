@@ -17,6 +17,11 @@
 
 namespace Apache.Ignite.Internal.Generators
 {
+    using System;
+    using System.IO;
+    using System.Linq;
+    using System.Reflection;
+    using System.Text.RegularExpressions;
     using Microsoft.CodeAnalysis;
 
     /// <summary>
@@ -34,7 +39,52 @@ namespace Apache.Ignite.Internal.Generators
         /// <inheritdoc/>
         public void Execute(GeneratorExecutionContext context)
         {
-            // TODO
+            var javaModulesDirectory = context.GetJavaModulesDirectory();
+
+            var javaExceptionsWithParents = Directory.EnumerateFiles(
+                    javaModulesDirectory,
+                    "*Exception.java",
+                    SearchOption.AllDirectories)
+                .Where(x => !x.Contains("internal"))
+                .Select(File.ReadAllText)
+                .Select(x => Regex.Match(x, @"public class (\w+) extends (\w+)"))
+                .Where(x => x.Success && !x.Value.Contains("RaftException")) // Ignore duplicate RaftException.
+                .Where(x => !x.Value.Contains("IgniteClient")) // Skip Java client exceptions.
+                .ToDictionary(x => x.Groups[1].Value, x => x.Groups[2].Value);
+
+            var javaExceptions = javaExceptionsWithParents.Select(x => x.Key).Where(IsIgniteException).ToList();
+
+            if (javaExceptionsWithParents.Count == 0 || javaExceptions.Count == 0)
+            {
+                throw new Exception($"Failed to detect Java exception classes in {javaModulesDirectory}.");
+            }
+
+            var template = GetExceptionClassTemplate();
+
+            foreach (var javaException in javaExceptions)
+            {
+                // TODO: Put into correct namespace?
+                var xmlDoc = Regex.Replace(javaException, "[A-Z]", " $1");
+
+                var src = template
+                    .Replace("IgniteClientException", javaException)
+                    .Replace(" XMLDOC", xmlDoc);
+
+                context.AddSource(javaException + ".g.cs", src);
+            }
+
+            bool IsIgniteException(string? ex) =>
+                ex != null &&
+                (ex == "IgniteException" ||
+                 IsIgniteException(javaExceptionsWithParents.TryGetValue(ex, out var parent) ? parent : null));
+        }
+
+        private static string GetExceptionClassTemplate()
+        {
+            using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("ExceptionTemplate.cs");
+            using var reader = new StreamReader(stream!);
+
+            return reader.ReadToEnd();
         }
     }
 }
