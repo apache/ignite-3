@@ -54,7 +54,7 @@ namespace Apache.Ignite.Tests
             using var server = new FakeServer(reqId => reqId % 2 == 0);
             using var client = await server.ConnectClientAsync(cfg);
 
-            var ex = Assert.ThrowsAsync<IgniteClientConnectionException>(async () => await client.Tables.GetTableAsync("bad-table"));
+            var ex = Assert.ThrowsAsync<IgniteException>(async () => await client.Tables.GetTableAsync("bad-table"));
             StringAssert.Contains(FakeServer.Err, ex!.Message);
         }
 
