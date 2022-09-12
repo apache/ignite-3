@@ -240,7 +240,7 @@ namespace Apache.Ignite.Tests.Sql
         [Test]
         public void TestInvalidSqlThrowsException()
         {
-            var ex = Assert.ThrowsAsync<IgniteClientException>(async () => await Client.Sql.ExecuteAsync(null, "select x from bad"));
+            var ex = Assert.ThrowsAsync<IgniteException>(async () => await Client.Sql.ExecuteAsync(null, "select x from bad"));
             StringAssert.Contains("From line 1, column 15 to line 1, column 17: Object 'BAD' not found", ex!.Message);
         }
 

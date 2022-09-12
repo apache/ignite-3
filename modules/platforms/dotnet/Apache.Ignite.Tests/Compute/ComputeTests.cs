@@ -215,7 +215,7 @@ namespace Apache.Ignite.Tests.Compute
         [Test]
         public void TestExecuteColocatedThrowsWhenKeyColumnIsMissing()
         {
-            var ex = Assert.ThrowsAsync<IgniteClientException>(async () =>
+            var ex = Assert.ThrowsAsync<IgniteException>(async () =>
                 await Client.Compute.ExecuteColocatedAsync<string>(TableName, new IgniteTuple(), EchoJob));
 
             StringAssert.Contains("Missed key column: KEY", ex!.Message);
