@@ -84,7 +84,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         public static MethodInfo GetWriteMethod(Type valueType) =>
             WriteMethods.TryGetValue(valueType, out var method)
                 ? method
-                : throw new IgniteClientException("Unsupported type: " + valueType);
+                : throw new IgniteClientException(ErrorGroup.Client.Configuration, "Unsupported type: " + valueType);
 
         /// <summary>
         /// Gets the read method.
@@ -94,6 +94,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
         public static MethodInfo GetReadMethod(Type valueType) =>
             ReadMethods.TryGetValue(valueType, out var method)
                 ? method
-                : throw new IgniteClientException("Unsupported type: " + valueType);
+                : throw new IgniteClientException(ErrorGroup.Client.Configuration, "Unsupported type: " + valueType);
     }
 }

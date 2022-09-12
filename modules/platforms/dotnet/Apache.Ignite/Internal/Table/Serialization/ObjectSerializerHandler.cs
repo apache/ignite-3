@@ -300,9 +300,10 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
             if (fieldType != columnTypePrimary && fieldType != columnTypeAlternative)
             {
-                throw new IgniteClientException(
-                    $"Can't map field '{fieldInfo.DeclaringType?.Name}.{fieldInfo.Name}' of type '{fieldType}' " +
-                    $"to column '{column.Name}' of type '{columnTypePrimary}' - types do not match.");
+                var message = $"Can't map field '{fieldInfo.DeclaringType?.Name}.{fieldInfo.Name}' of type '{fieldType}' " +
+                              $"to column '{column.Name}' of type '{columnTypePrimary}' - types do not match.";
+
+                throw new IgniteClientException(ErrorGroup.Client.Configuration, message);
             }
         }
     }
