@@ -44,8 +44,8 @@ namespace Apache.Ignite.Tests
                 var defCtor = type.GetConstructor(new[] { typeof(Guid), typeof(int), typeof(string), typeof(Exception) });
                 Assert.IsNotNull(defCtor, "Required constructor is missing: " + type);
 
-                var ex = (Exception)defCtor!.Invoke(new object[] { Guid.NewGuid(), 1, "msg", new Exception() });
-                Assert.AreEqual("msg", ex.Message);
+                var ex = (Exception)defCtor!.Invoke(new object[] { Guid.NewGuid(), 1, "myMessage", new Exception() });
+                Assert.AreEqual("myMessage", ex.Message);
 
                 // Serialization.
                 var stream = new MemoryStream();
@@ -54,17 +54,8 @@ namespace Apache.Ignite.Tests
                 formatter.Serialize(stream, ex);
                 stream.Seek(0, SeekOrigin.Begin);
 
-                ex = (Exception) formatter.Deserialize(stream);
-                Assert.AreEqual("myMessage", ex.Message);
-
-                // Message+cause ctor.
-                var msgCauseCtor = type.GetConstructor(new[] { typeof(string), typeof(Exception) })!;
-                Assert.IsNotNull(msgCauseCtor);
-
-                ex = (Exception) msgCauseCtor.Invoke(new object[] {"myMessage", new Exception("innerEx")});
-                Assert.AreEqual("myMessage", ex.Message);
-                Assert.IsNotNull(ex.InnerException);
-                Assert.AreEqual("innerEx", ex.InnerException!.Message);
+                var res = (Exception) formatter.Deserialize(stream);
+                Assert.AreEqual("myMessage", res.Message);
             }
         }
 

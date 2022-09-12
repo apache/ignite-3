@@ -52,6 +52,7 @@ namespace Apache.Ignite
         /// <param name="serializationInfo">Serialization information.</param>
         /// <param name="streamingContext">Streaming context.</param>
         protected IgniteException(SerializationInfo serializationInfo, StreamingContext streamingContext)
+            : base(serializationInfo, streamingContext)
         {
             IgniteArgumentCheck.NotNull(serializationInfo, nameof(serializationInfo));
 
