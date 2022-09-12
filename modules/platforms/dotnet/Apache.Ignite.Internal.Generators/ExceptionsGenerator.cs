@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Internal.Generators
 {
     using System;
+    using System.Collections.Immutable;
     using System.IO;
     using System.Linq;
     using System.Reflection;
@@ -49,11 +50,19 @@ namespace Apache.Ignite.Internal.Generators
                 .Select(File.ReadAllText)
                 .Select(x => Regex.Match(x, @"public class (\w+) extends (\w+)"))
                 .Where(x => x.Success && !x.Value.Contains("RaftException")) // Ignore duplicate RaftException.
-                .Where(x => !x.Value.Contains("public class IgniteException ")) // IgniteException already exists.
                 .Where(x => !x.Value.Contains("IgniteClient")) // Skip Java client exceptions.
                 .ToDictionary(x => x.Groups[1].Value, x => x.Groups[2].Value);
 
-            var javaExceptions = javaExceptionsWithParents.Select(x => x.Key).Where(IsIgniteException).ToList();
+            var existingExceptions = context.Compilation.SyntaxTrees
+                .Where(x => x.FilePath.Contains("Exception"))
+                .Select(x => Path.GetFileNameWithoutExtension(x.FilePath))
+                .ToImmutableHashSet();
+
+            var javaExceptions = javaExceptionsWithParents
+                .Select(x => x.Key)
+                .Where(x => !existingExceptions.Contains(x))
+                .Where(IsIgniteException)
+                .ToList();
 
             if (javaExceptionsWithParents.Count == 0 || javaExceptions.Count == 0)
             {
