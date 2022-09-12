@@ -32,7 +32,7 @@ namespace Apache.Ignite
         "Microsoft.Naming",
         "CA1724:TypeNamesShouldNotMatchNamespaces",
         Justification = "Types are nested, there is no conflict.")]
-    public static class ErrorGroup
+    public static partial class ErrorGroup
     {
         /// <summary>
         /// Ignite error prefix.
