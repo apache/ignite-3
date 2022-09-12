@@ -39,7 +39,7 @@ namespace Apache.Ignite
         /// <param name="code">Code.</param>
         /// <param name="message">Message.</param>
         /// <param name="innerException">Inner exception.</param>
-        public IgniteException(Guid traceId, int code, string message, Exception? innerException = null)
+        public IgniteException(Guid traceId, int code, string? message, Exception? innerException = null)
             : base(message, innerException)
         {
             TraceId = traceId;

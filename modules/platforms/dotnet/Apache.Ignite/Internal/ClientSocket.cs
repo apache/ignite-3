@@ -302,15 +302,12 @@ namespace Apache.Ignite.Internal
                 return null;
             }
 
-            // TODO: IGNITE-17390 .NET: Thin 3.0: Unified exception handling - reconstruct correct exception.
             Guid traceId = reader.TryReadNil() ? Guid.NewGuid() : reader.ReadGuid();
             int code = reader.TryReadNil() ? 65537 : reader.ReadInt32();
             string className = reader.ReadString();
             string? message = reader.ReadString();
 
-            // TODO: Reconstruct class by name.
-            // TODO: Source-generate lookup table for Java classes.
-            return new IgniteException(traceId, code, message + className);
+            return ExceptionUtils.GetIgniteException(traceId, code, className, message);
         }
 
         private static async ValueTask<PooledBuffer> ReadResponseAsync(
