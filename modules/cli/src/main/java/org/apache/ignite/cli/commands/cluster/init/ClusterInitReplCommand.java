@@ -52,7 +52,8 @@ public class ClusterInitReplCommand extends BaseCommand implements Runnable {
         question.askQuestionIfNotConnected(clusterUrl.getClusterUrl())
                 .map(this::buildCallInput)
                 .then(Flows.fromCall(call))
-                .startWithPrint();
+                .print()
+                .start();
     }
 
     private ClusterInitCallInput buildCallInput(String clusterUrl) {

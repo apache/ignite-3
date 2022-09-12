@@ -117,14 +117,8 @@ public interface FlowBuilder<I, O>  {
     Flow<I, O> build();
 
     /**
-     * Convenience method which is equivalent to the {@code print(decorator).build().start(Flowable.empty())}. Appends the print operation,
-     * builds the flow and starts it with the empty input.
+     * Convenience method which is equivalent to the {@code build().start(Flowable.empty())}. It builds the flow and starts it with the
+     * empty input.
      */
-    void startWithPrint(Decorator<O, TerminalOutput> decorator);
-
-    /**
-     * Convenience method which is equivalent to the {@code print().build().start(Flowable.empty())}. Appends the print operation, builds
-     * the flow and starts it with the empty input.
-     */
-    void startWithPrint();
+    void start();
 }

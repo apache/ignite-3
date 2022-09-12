@@ -53,7 +53,8 @@ public class NodeConfigUpdateReplCommand extends BaseCommand implements Runnable
         question.askQuestionIfNotConnected(nodeUrl.getNodeUrl())
                 .map(this::nodeConfigUpdateCallInput)
                 .then(Flows.fromCall(call))
-                .startWithPrint();
+                .print()
+                .start();
     }
 
     private NodeConfigUpdateCallInput nodeConfigUpdateCallInput(String nodeUrl) {

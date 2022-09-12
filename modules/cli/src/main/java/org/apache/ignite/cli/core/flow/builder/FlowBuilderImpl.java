@@ -113,13 +113,8 @@ public class FlowBuilderImpl<I, O> implements FlowBuilder<I, O> {
     }
 
     @Override
-    public void startWithPrint(Decorator<O, TerminalOutput> decorator) {
-        printResult(run(Flowable.empty()), type -> decorator);
-    }
-
-    @Override
-    public void startWithPrint() {
-        printResult(run(Flowable.empty()), decoratorRegistry::getDecorator);
+    public void start() {
+        run(Flowable.empty());
     }
 
     /**

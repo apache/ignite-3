@@ -51,6 +51,7 @@ public class LogicalTopologyReplCommand extends BaseCommand implements Runnable 
                 .map(UrlCallInput::new)
                 .then(Flows.fromCall(call))
                 .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot show logical topology", "cluster init"))
-                .startWithPrint(new TopologyDecorator());
+                .print(new TopologyDecorator())
+                .start();
     }
 }

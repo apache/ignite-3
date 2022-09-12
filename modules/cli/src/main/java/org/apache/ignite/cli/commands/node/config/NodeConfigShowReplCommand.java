@@ -53,7 +53,8 @@ public class NodeConfigShowReplCommand extends BaseCommand implements Runnable {
         question.askQuestionIfNotConnected(nodeUrl.getNodeUrl())
                 .map(this::nodeConfigShowCallInput)
                 .then(Flows.fromCall(call))
-                .startWithPrint();
+                .print()
+                .start();
     }
 
     private NodeConfigShowCallInput nodeConfigShowCallInput(String nodeUrl) {

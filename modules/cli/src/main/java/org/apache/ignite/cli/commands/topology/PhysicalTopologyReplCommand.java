@@ -49,6 +49,7 @@ public class PhysicalTopologyReplCommand extends BaseCommand implements Runnable
         question.askQuestionIfNotConnected(clusterUrl.getClusterUrl())
                 .map(UrlCallInput::new)
                 .then(Flows.fromCall(call))
-                .startWithPrint(new TopologyDecorator());
+                .print(new TopologyDecorator())
+                .start();
     }
 }

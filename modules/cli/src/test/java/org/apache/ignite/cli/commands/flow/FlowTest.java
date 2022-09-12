@@ -173,7 +173,7 @@ class FlowTest {
     }
 
     @Test
-    void testMultiplePrints() throws IOException {
+    void multiplePrints() throws IOException {
         // Given
         bindAnswers("no");
 
@@ -197,7 +197,7 @@ class FlowTest {
     }
 
     @Test
-    void testMultiplePrintsWithError() throws IOException {
+    void multiplePrintsWithError() throws IOException {
         // Given
         bindAnswers("no");
 
@@ -223,13 +223,14 @@ class FlowTest {
     }
 
     @Test
-    void testStartWithPrint() throws IOException {
+    void printAndStart() throws IOException {
         // Given
         bindAnswers("no");
 
         // When start flow with print
         askQuestion()
-                .startWithPrint();
+                .print()
+                .start();
 
         // Then error output equals to the message from answer
         assertThat(out.toString(), equalTo("2" + System.lineSeparator()));
@@ -237,7 +238,7 @@ class FlowTest {
     }
 
     @Test
-    void testStartWithPrintError() throws IOException {
+    void printAndStartError() throws IOException {
         // Given
         bindAnswers("no");
 
@@ -245,7 +246,8 @@ class FlowTest {
         askQuestion()
                 .then(Flows.fromCall(new ThrowingStrCall(), StrCallInput::new))
                 .exceptionHandler(new TestExceptionHandler())
-                .startWithPrint();
+                .print()
+                .start();
 
         // Then error output equals to the message from exception
         assertThat(out.toString(), emptyString());
@@ -253,13 +255,14 @@ class FlowTest {
     }
 
     @Test
-    void testCustomDecorator() throws IOException {
+    void customDecorator() throws IOException {
         // Given
         bindAnswers("no");
 
         // When start flow with print
         askQuestion()
-                .startWithPrint(data -> () -> "*" + data + "*");
+                .print(data -> () -> "*" + data + "*")
+                .start();
 
         // Then error output equals to the message from exception
         assertThat(out.toString(), equalTo("*2*" + System.lineSeparator()));
