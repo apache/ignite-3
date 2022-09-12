@@ -44,7 +44,7 @@ DataBuffer LengthPrefixCodec::decode(DataBuffer& data)
 {
     if (!m_magicReceived)
     {
-        consume(data, protocol::MAGIC_BYTES.size());
+        consume(data, int32_t(protocol::MAGIC_BYTES.size()));
 
         if (m_packet.size() < protocol::MAGIC_BYTES.size())
             return {};

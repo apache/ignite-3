@@ -54,8 +54,22 @@ IgniteClient::IgniteClient(std::shared_ptr<void> impl) :
 
 const IgniteClientConfiguration &IgniteClient::getConfiguration() const
 {
-    return ((impl::IgniteClientImpl*)(m_impl.get()))->getConfiguration();
+    return getImpl().getConfiguration();
 }
 
+Tables IgniteClient::getTables() const
+{
+    return Tables(getImpl().getTablesImpl());
+}
+
+impl::IgniteClientImpl &IgniteClient::getImpl()
+{
+    return *((impl::IgniteClientImpl*)(m_impl.get()));
+}
+
+const impl::IgniteClientImpl &IgniteClient::getImpl() const
+{
+    return *((impl::IgniteClientImpl*)(m_impl.get()));
+}
 
 } // namespace ignite

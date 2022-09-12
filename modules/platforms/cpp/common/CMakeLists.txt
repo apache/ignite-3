@@ -24,6 +24,7 @@ set(HEADERS
     Bytes.h
     Config.h
     guid.h
+    Export.h
     ignite_error.h
     Types.h
     Uuid.h

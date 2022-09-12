@@ -23,6 +23,7 @@
 #include "ignite/ignite_client_configuration.h"
 
 #include "cluster_connection.h"
+#include "table/tables_impl.h"
 
 namespace ignite::impl
 {
@@ -50,19 +51,26 @@ public:
      */
     explicit IgniteClientImpl(IgniteClientConfiguration configuration) :
         m_configuration(std::move(configuration)),
-        m_connection(ClusterConnection::create(m_configuration)) { }
+        m_connection(ClusterConnection::create(m_configuration)),
+        m_tables(std::make_shared<TablesImpl>(m_connection)) { }
 
     /**
      * Start client.
      *
      * @return Execution future,
      */
-    std::future<void> start();
+    std::future<void> start()
+    {
+        return m_connection->start();
+    }
 
     /**
      * Stop client.
      */
-    void stop();
+    void stop()
+    {
+        m_connection->stop();
+    }
 
     /**
      * Get client configuration.
@@ -75,12 +83,26 @@ public:
         return m_configuration;
     }
 
+    /**
+     * Get table management API implementation.
+     *
+     * @return Table management API implementation.
+     */
+    [[nodiscard]]
+    std::shared_ptr<TablesImpl> getTablesImpl() const
+    {
+        return m_tables;
+    }
+
 private:
     /** Configuration. */
     const IgniteClientConfiguration m_configuration;
 
     /** Cluster connection. */
     std::shared_ptr<ClusterConnection> m_connection;
+
+    /** Tables. */
+    std::shared_ptr<TablesImpl> m_tables;
 };
 
 } // namespace ignite::impl

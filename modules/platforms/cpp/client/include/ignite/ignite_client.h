@@ -20,11 +20,17 @@
 #include <future>
 #include <memory>
 
-#include "common/export.h"
-#include <ignite/ignite_client_configuration.h>
+#include "common/Export.h"
+#include "ignite/ignite_client_configuration.h"
+#include "ignite/table/tables.h"
 
 namespace ignite
 {
+
+namespace impl
+{
+class IgniteClientImpl;
+}
 
 /**
  * Ignite client.
@@ -84,6 +90,14 @@ public:
     [[nodiscard]]
     IGNITE_API const IgniteClientConfiguration& getConfiguration() const;
 
+    /**
+     * Get the table API.
+     *
+     * @return Table API.
+     */
+    [[nodiscard]]
+    IGNITE_API Tables getTables() const;
+
 private:
     /**
      * Constructor
@@ -91,6 +105,22 @@ private:
      * @param impl Implementation
      */
     explicit IgniteClient(std::shared_ptr<void> impl);
+
+    /**
+     * Get implementation reference.
+     *
+     * @return Implementation reference.
+     */
+    [[nodiscard]]
+    impl::IgniteClientImpl& getImpl();
+
+    /**
+     * Get implementation reference.
+     *
+     * @return Implementation reference.
+     */
+    [[nodiscard]]
+    const impl::IgniteClientImpl& getImpl() const;
 
     /** Implementation. */
     std::shared_ptr<void> m_impl;

@@ -20,14 +20,5 @@
 namespace ignite::impl
 {
 
-std::future<void> IgniteClientImpl::start()
-{
-    return m_connection->start();
-}
-
-void IgniteClientImpl::stop()
-{
-    m_connection->stop();
-}
 
 } // namespace ignite::impl

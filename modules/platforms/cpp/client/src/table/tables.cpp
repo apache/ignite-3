@@ -15,31 +15,21 @@
  * limitations under the License.
  */
 
-#pragma once
+#include "ignite/table/tables.h"
 
-#include <future>
-#include <memory>
-#include <utility>
-
-#include <common/ignite_error.h>
+#include "table/tables_impl.h"
 
 namespace ignite
 {
 
-/**
- * Make future error.
- *
- * @tparam T Future type.
- * @param err Error.
- * @return Failed future with the specified error.
- */
-template<typename T>
-std::future<T> makeFutureError(IgniteError err)
+std::future<std::optional<Table>> Tables::getTableAsync(const std::string &name)
 {
-    std::promise<T> promise;
-    promise.set_exception(std::make_exception_ptr(std::move(err)));
+    return {};
+}
 
-    return promise.get_future();
+Tables::Tables(std::shared_ptr<void> impl)
+{
+
 }
 
 } // namespace ignite

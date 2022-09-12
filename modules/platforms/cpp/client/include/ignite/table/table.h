@@ -19,27 +19,45 @@
 
 #include <future>
 #include <memory>
-#include <utility>
 
-#include <common/ignite_error.h>
+#include "common/Export.h"
 
 namespace ignite
 {
 
 /**
- * Make future error.
- *
- * @tparam T Future type.
- * @param err Error.
- * @return Failed future with the specified error.
+ * Table view.
  */
-template<typename T>
-std::future<T> makeFutureError(IgniteError err)
+class Table
 {
-    std::promise<T> promise;
-    promise.set_exception(std::make_exception_ptr(std::move(err)));
+public:
+    // Deleted
+    Table(const Table&) = delete;
+    Table& operator=(const Table&) = delete;
 
-    return promise.get_future();
-}
+    // Default
+    Table() = default;
+    ~Table() = default;
+    Table(Table&&) = default;
+    Table& operator=(Table&&) = default;
+
+    /**
+     * Get table name.
+     *
+     * @return Table name.
+     */
+    const std::string& getName() const;
+
+private:
+    /**
+     * Constructor
+     *
+     * @param impl Implementation
+     */
+    explicit Table(std::shared_ptr<void> impl);
+
+    /** Implementation. */
+    std::shared_ptr<void> m_impl;
+};
 
 } // namespace ignite
