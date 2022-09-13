@@ -55,7 +55,7 @@ public class IndexMeta {
     public long metaPageId() {
         return metaPageId;
     }
-    
+
     @Override
     public String toString() {
         return S.toString(IndexMeta.class, this, "metaPageId", IgniteUtils.hexLong(metaPageId));
