@@ -77,15 +77,17 @@ TEST_F(ClientTest, GetConfiguration)
 {
     IgniteClientConfiguration cfg{"127.0.0.1:10942"};
     cfg.setLogger(std::make_shared<TestLogger>());
+    cfg.setConnectionLimit(42);
 
     auto client = IgniteClient::start(cfg, std::chrono::seconds(5));
 
     const auto& cfg2 = client.getConfiguration();
 
     EXPECT_EQ(cfg.getEndpoints(), cfg2.getEndpoints());
+    EXPECT_EQ(cfg.getConnectionLimit(), cfg2.getConnectionLimit());
 }
 
-TEST_F(ClientTest, TableGetUpsert)
+TEST_F(ClientTest, TablesGetTable)
 {
     IgniteClientConfiguration cfg{"127.0.0.1:10942"};
     cfg.setLogger(std::make_shared<TestLogger>());
