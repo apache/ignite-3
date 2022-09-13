@@ -27,6 +27,7 @@ import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.util.HashUtils;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.RecordView;
@@ -100,9 +101,12 @@ public class ItThinClientConnectionTest extends ItAbstractThinClientTest {
         }
 
         // TBD: Calculate partition per key.
+        int colocationHash = HashUtils.hash32(1, 0);
+        int partitionManual = colocationHash % assignments.size();
+
         int partition = tbl.partition(Tuple.create().set("KEY", 1));
         String leaderNodeId = assignments.get(partition);
 
-        System.out.println("partition = " + partition + ", leader = " + leaderNodeId);
+        System.out.println("partition = " + partition + " partitionManual = " + partitionManual + ", leader = " + leaderNodeId);
     }
 }
