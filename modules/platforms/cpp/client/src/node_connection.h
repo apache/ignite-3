@@ -31,6 +31,7 @@
 #include "ignite/ignite_client_configuration.h"
 
 #include "client_operation.h"
+#include "response_handler.h"
 
 namespace ignite::impl
 {
@@ -87,7 +88,7 @@ public:
      */
     template<typename T>
     std::future<T> performRequest(ClientOperation op,
-        const std::function<void(protocol::Writer&)>& wr, std::packaged_task<T(protocol::Reader&)>&& rd)
+        const std::function<void(protocol::Writer&)>& wr, ResponseHandlerImpl<T> handler)
     {
         auto reqId = generateRequestId();
         auto buffer = std::make_shared<protocol::Buffer>();
@@ -101,15 +102,11 @@ public:
 
         buffer->writeLengthHeader();
 
-        auto fut = rd.get_future();
-        auto task = std::make_shared<std::packaged_task<T(protocol::Reader&)>>(std::move(rd));
-        std::function<void(protocol::Reader&)> handler = [task = std::move(task)] (protocol::Reader& reader) {
-            (*task)(reader);
-        };
+        auto fut = handler.getFuture();
 
         {
             std::lock_guard<std::mutex> lock(m_requestHandlersMutex);
-            m_requestHandlers[reqId] = handler;
+            m_requestHandlers[reqId] = std::make_shared<ResponseHandlerImpl<T>>(std::move(handler));
         }
 
         bool sent = m_pool->send(m_id, network::DataBuffer(std::move(buffer)));
@@ -148,7 +145,7 @@ private:
      * @param reqId Request ID.
      * @return Handler.
      */
-    std::function<void(protocol::Reader&)> getAndRemoveHandler(int64_t reqId);
+    std::shared_ptr<ResponseHandler> getAndRemoveHandler(int64_t reqId);
 
     /** Connection ID. */
     uint64_t m_id;
@@ -163,7 +160,7 @@ private:
     std::atomic_int64_t m_reqIdGen;
 
     /** Pending request handlers. */
-    std::unordered_map<int64_t, std::function<void(protocol::Reader&)>> m_requestHandlers;
+    std::unordered_map<int64_t, std::shared_ptr<ResponseHandler>> m_requestHandlers;
 
     /** Handlers map mutex. */
     std::mutex m_requestHandlersMutex;

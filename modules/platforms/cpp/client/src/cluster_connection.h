@@ -32,6 +32,7 @@
 #include "node_connection.h"
 #include "protocol_context.h"
 #include "client_operation.h"
+#include "response_handler.h"
 
 namespace ignite::protocol
 {
@@ -100,7 +101,7 @@ public:
      */
     template<typename T>
     std::future<T> performRequest(ClientOperation op,
-        const std::function<void(protocol::Writer&)>& wr, std::packaged_task<T(protocol::Reader&)>&& rd)
+        const std::function<void(protocol::Writer&)>& wr, ResponseHandlerImpl<T> handler)
     {
         while (true)
         {
@@ -108,7 +109,7 @@ public:
             if (!channel)
                 throw IgniteError("No nodes connected");
 
-            auto res = channel->performRequest(op, wr, std::move(rd));
+            auto res = channel->performRequest(op, wr, std::move(handler));
             if (res.valid())
                 return res;
         }

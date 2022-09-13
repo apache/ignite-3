@@ -26,7 +26,7 @@ namespace ignite::impl
 
 std::future<std::optional<Table>> TablesImpl::getTableImplAsync(const std::string &name)
 {
-    std::packaged_task<std::optional<Table>(protocol::Reader&)> readerTask {
+    ResponseHandlerImpl<std::optional<Table>> handler {
         [&name] (protocol::Reader& reader) -> std::optional<Table>  {
             if (reader.tryReadNil())
                 return std::nullopt;
@@ -42,7 +42,7 @@ std::future<std::optional<Table>> TablesImpl::getTableImplAsync(const std::strin
     [&name] (protocol::Writer& writer) {
         writer.write(name);
     },
-    std::move(readerTask));
+    std::move(handler));
 }
 
 } // namespace ignite::impl

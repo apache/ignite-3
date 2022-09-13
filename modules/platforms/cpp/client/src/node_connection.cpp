@@ -52,15 +52,15 @@ void NodeConnection::processMessage(const network::DataBuffer &msg)
     auto err = protocol::readError(reader);
     if (err)
     {
-        // TODO: Add error handling
+        handler->setError(std::move(err.value()));
         m_logger->logError("Error: " + err->whatStr());
         return;
     }
 
-    handler(reader);
+    handler->handle(reader);
 }
 
-std::function<void(protocol::Reader&)> NodeConnection::getAndRemoveHandler(int64_t id)
+std::shared_ptr<ResponseHandler> NodeConnection::getAndRemoveHandler(int64_t id)
 {
     std::lock_guard<std::mutex> lock(m_requestHandlersMutex);
 
