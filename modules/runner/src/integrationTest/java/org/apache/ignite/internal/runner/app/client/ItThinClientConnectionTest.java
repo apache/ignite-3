@@ -168,6 +168,7 @@ public class ItThinClientConnectionTest extends ItAbstractThinClientTest {
 
         Thread.sleep(1000);
 
+        // Still has old assignment (IGNITE-15554)
         List<String> assignments3 = tblMgr.assignments(tbl.tableId());
         for (String assignment : assignments3) {
             System.out.println(assignment);
