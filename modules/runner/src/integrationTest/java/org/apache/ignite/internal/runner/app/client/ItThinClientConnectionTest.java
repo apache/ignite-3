@@ -100,7 +100,7 @@ public class ItThinClientConnectionTest extends ItAbstractThinClientTest {
         }
 
         // TBD: Calculate partition per key.
-        int partition = tbl.partition(Tuple.create().set("ID", 1));
+        int partition = tbl.partition(Tuple.create().set("KEY", 1));
         String leaderNodeId = assignments.get(partition);
 
         System.out.println("partition = " + partition + ", leader = " + leaderNodeId);
