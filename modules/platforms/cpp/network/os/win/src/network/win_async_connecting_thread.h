@@ -91,12 +91,12 @@ private:
     static SOCKET tryConnect(const EndPoint& addr);
 
     /**
-     * Get random address.
+     * Get next address.
      *
      * @warning Will block if no addresses are available for connect.
      * @return @c true if a new connection should be established.
      */
-    TcpRange getRandomAddress() const;
+    TcpRange getNextAddress() const;
 
     /** Thread. */
     std::thread m_thread;
@@ -121,5 +121,9 @@ private:
 
     /** Addresses to use for connection establishment. */
     std::vector<TcpRange> m_nonConnected;
+
+    /** Position seed. */
+    mutable size_t m_addrPositionSeed;
 };
-}
+
+} // namespace ignite::network

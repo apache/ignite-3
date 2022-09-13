@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+#include <random>
+
 #include "network/utils.h"
 
 #include "network/sockets.h"
@@ -42,7 +44,8 @@ WinAsyncConnectingThread::WinAsyncConnectingThread() :
     m_minAddrs(0),
     m_addrsMutex(),
     m_connectNeeded(),
-    m_nonConnected() { }
+    m_nonConnected(),
+    m_addrPositionSeed(std::random_device()()){ }
 
 void WinAsyncConnectingThread::run()
 {
@@ -50,7 +53,7 @@ void WinAsyncConnectingThread::run()
 
     while (!m_stopping)
     {
-        TcpRange range = getRandomAddress();
+        TcpRange range = getNextAddress();
 
         if (m_stopping || range.isEmpty())
             break;
@@ -121,7 +124,6 @@ void WinAsyncConnectingThread::start(WinAsyncClientPool& clientPool, size_t limi
     m_clientPool = &clientPool;
     m_failedAttempts = 0;
     m_nonConnected = std::move(addrs);
-
 
     if (!limit || limit > m_nonConnected.size())
         m_minAddrs = 0;
@@ -231,7 +233,7 @@ SOCKET WinAsyncConnectingThread::tryConnect(const EndPoint& addr)
     return socket;
 }
 
-TcpRange WinAsyncConnectingThread::getRandomAddress() const
+TcpRange WinAsyncConnectingThread::getNextAddress() const
 {
     std::unique_lock<std::mutex> lock(m_addrsMutex);
 
@@ -246,9 +248,9 @@ TcpRange WinAsyncConnectingThread::getRandomAddress() const
             return {};
     }
 
-    // TODO: Re-write to round-robin
-    size_t idx = rand() % m_nonConnected.size();
+    size_t idx = m_addrPositionSeed % m_nonConnected.size();
     TcpRange range = m_nonConnected.at(idx);
+    --m_addrPositionSeed;
 
     return range;
 }

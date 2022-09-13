@@ -155,7 +155,6 @@ void WinAsyncClient::clearReceiveBuffer()
 
 DataBuffer WinAsyncClient::processReceived(size_t bytes)
 {
-    // TODO: Re-factor read-only data buffers
     return {std::make_shared<protocol::Buffer>(m_recvPacket), 0, static_cast<int32_t>(bytes)};
 }
 
