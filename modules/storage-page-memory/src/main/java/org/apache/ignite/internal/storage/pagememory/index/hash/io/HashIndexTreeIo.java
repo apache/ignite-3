@@ -118,6 +118,7 @@ public interface HashIndexTreeIo {
 
         int off = offset(idx);
 
+        // TODO: IGNITE-17672 Compare by BinaryTuple
         int cmp = Integer.compare(getInt(pageAddr, off + INDEX_COLUMNS_HASH_OFFSET), hashIndexRow.indexColumnsHash());
 
         if (cmp != 0) {
