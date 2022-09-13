@@ -15,21 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.node;
+package org.apache.ignite.cli.commands.node;
 
-import org.apache.ignite.internal.cli.commands.node.config.NodeConfigReplCommand;
-import org.apache.ignite.internal.cli.commands.node.status.NodeStatusReplCommand;
-import org.apache.ignite.internal.cli.deprecated.spec.NodeCommandSpec;
-import picocli.CommandLine.Command;
-import picocli.CommandLine.Mixin;
+import org.apache.ignite.cli.commands.CliCommandTestNotInitializedIntegrationBase;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
-/**
- * Node command in REPL mode.
- */
-@Command(name = "node",
-        subcommands = {NodeConfigReplCommand.class, NodeStatusReplCommand.class, NodeVersionReplCommand.class},
-        description = "Node operations")
-public class NodeReplCommand {
-    @Mixin
-    NodeCommandSpec nodeCommandSpec;
+import static org.junit.jupiter.api.Assertions.assertAll;
+
+public class NodeVersionCommandTest extends CliCommandTestNotInitializedIntegrationBase {
+
+    @Test
+    @DisplayName("Should display node version with provided cluster url")
+    void nodeVersion() {
+        // When
+        execute("node", "version", "--node-url", NODE_URL);
+
+        // Then
+        assertAll(
+                this::assertExitCodeIsZero,
+                this::assertErrOutputIsEmpty,
+                () -> assertOutputMatches("[1-9]\\d*\\.\\d+\\.\\d+(?:-[a-zA-Z0-9]+)?\\s+")
+        );
+    }
 }

@@ -53,7 +53,7 @@ public interface NodeManagementApi {
     @Get("version")
     @Operation(operationId = "nodeVersion")
     @ApiResponse(responseCode = "200", description = "Return node version",
-            content = @Content(mediaType = MediaType.TEXT_PLAIN))
+            content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "string")))
     @ApiResponse(responseCode = "500", description = "Internal error",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @Produces({

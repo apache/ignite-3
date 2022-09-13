@@ -27,7 +27,7 @@ import picocli.CommandLine.Mixin;
  * Node command.
  */
 @Command(name = "node",
-        subcommands = {NodeConfigCommand.class, NodeStatusCommand.class},
+        subcommands = {NodeConfigCommand.class, NodeStatusCommand.class, NodeVersionCommand.class},
         description = "Node operations")
 public class NodeCommand {
     @Mixin

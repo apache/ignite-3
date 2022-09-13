@@ -334,7 +334,9 @@ paths:
         "200":
           description: Return node version
           content:
-            text/plain: {}
+            text/plain:
+              schema:
+                type: string
         "500":
           description: Internal error
           content:
