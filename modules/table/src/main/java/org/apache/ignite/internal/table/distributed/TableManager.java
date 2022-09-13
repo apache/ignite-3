@@ -810,15 +810,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
     }
 
-    /**
-     * Gets a list of the current table assignments.
-     *
-     * <p>Returns a list where on the i-th place resides a node id that considered as a leader for
-     * the i-th partition on the moment of invocation.
-     *
-     * @param tableId Unique id of a table.
-     * @return List of the current assignments.
-     */
+    /** {@inheritDoc} */
+    @Override
     public List<String> assignments(UUID tableId) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
@@ -830,22 +823,16 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
     }
 
-    /**
-     * Adds a listener to track changes in {@link #assignments(UUID)}.
-     *
-     * @param listener Listener.
-     */
+    /** {@inheritDoc} */
+    @Override
     public void addAssignmentsChangeListener(Consumer<TableManager> listener) {
         Objects.requireNonNull(listener);
 
         assignmentsChangeListeners.add(listener);
     }
 
-    /**
-     * Removes assignments change listener.
-     *
-     * @param listener Listener.
-     */
+    /** {@inheritDoc} */
+    @Override
     public boolean removeAssignmentsChangeListener(Consumer<TableManager> listener) {
         Objects.requireNonNull(listener);
 

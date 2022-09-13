@@ -31,7 +31,9 @@ import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.jetbrains.annotations.NotNull;
@@ -157,6 +159,24 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
     @Override
     public CompletableFuture<TableImpl> tableImplAsync(String name) {
         return CompletableFuture.completedFuture(tableImpl(name));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public List<String> assignments(UUID tableId) throws NodeStoppingException {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void addAssignmentsChangeListener(Consumer<TableManager> listener) {
+        // No-op.
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean removeAssignmentsChangeListener(Consumer<TableManager> listener) {
+        return false;
     }
 
     @NotNull
