@@ -115,7 +115,7 @@ public class InternalTableImpl implements InternalTable {
     private final MvTableStorage tableStorage;
 
     /** Mutex for the partition map update. */
-    public Object updatePartMapMux = new Object();
+    private final Object updatePartMapMux = new Object();
 
     /**
      * Constructor.
