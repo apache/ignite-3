@@ -55,8 +55,8 @@ public class SortedIndexTreeLeafIo extends BplusLeafIo<SortedIndexRowKey> implem
     @Override
     public SortedIndexRowKey getLookupRow(BplusTree<SortedIndexRowKey, ?> tree, long pageAddr, int idx)
             throws IgniteInternalCheckedException {
-        SortedIndexTree hashIndexTree = (SortedIndexTree) tree;
+        SortedIndexTree sortedIndexTree = (SortedIndexTree) tree;
 
-        return getRow(hashIndexTree.dataPageReader(), hashIndexTree.partitionId(), pageAddr, idx);
+        return getRow(sortedIndexTree.dataPageReader(), sortedIndexTree.partitionId(), pageAddr, idx);
     }
 }

@@ -113,7 +113,7 @@ public interface SortedIndexTreeIo {
 
         long link = readPartitionlessLink(partitionId, pageAddr, off + INDEX_COLUMNS_LINK_OFFSET);
 
-        //TODO Add in-place compare in IGNITE-17536
+        //TODO Add in-place compare in IGNITE-17671
         ReadIndexColumnsValue indexColumnsTraversal = new ReadIndexColumnsValue();
 
         dataPageReader.traverse(link, indexColumnsTraversal, null);
