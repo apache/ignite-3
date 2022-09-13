@@ -26,6 +26,12 @@
 
 namespace ignite
 {
+
+namespace impl
+{
+class TablesImpl;
+}
+
 class IgniteClient;
 
 /**
@@ -65,6 +71,22 @@ private:
      * @param impl Implementation
      */
     explicit Tables(std::shared_ptr<void> impl);
+
+    /**
+     * Get implementation reference.
+     *
+     * @return Implementation reference.
+     */
+    [[nodiscard]]
+    impl::TablesImpl& getImpl();
+
+    /**
+     * Get implementation reference.
+     *
+     * @return Implementation reference.
+     */
+    [[nodiscard]]
+    const impl::TablesImpl& getImpl() const;
 
     /** Implementation. */
     std::shared_ptr<void> m_impl;

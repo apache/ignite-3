@@ -16,6 +16,7 @@
  */
 
 #include <random>
+#include <iterator>
 
 #include "common/utils.h"
 
@@ -40,6 +41,7 @@ namespace
  */
 ignite::Guid makeRandomGuid()
 {
+    // TODO: move to utils
     static std::random_device rd;
     static std::mt19937 gen(rd());
 
@@ -303,6 +305,18 @@ std::optional<IgniteError> ClusterConnection::readError(protocol::Reader &reader
     errMsgBuilder << className << ": " << message << " (" << code << ", " << traceId << ")";
 
     return {IgniteError(StatusCode(code), errMsgBuilder.str())};
+}
+
+std::shared_ptr<NodeConnection> ClusterConnection::getRandomChannel()
+{
+    std::lock_guard<std::recursive_mutex> lock(m_connectionsMutex);
+
+    // TODO: Move to utils
+    static std::random_device rd;
+    static std::mt19937 gen(rd());
+
+    std::uniform_int_distribution<size_t> distrib(0, m_connections.size());
+    return std::next(m_connections.begin(), ptrdiff_t(distrib(gen)))->second;
 }
 
 } // namespace ignite::impl

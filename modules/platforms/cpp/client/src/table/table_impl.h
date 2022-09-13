@@ -19,51 +19,56 @@
 
 #include <future>
 #include <memory>
+#include <utility>
 
-#include "ignite/table/table.h"
-
-#include "table/table_impl.h"
-#include "cluster_connection.h"
+#include "common/guid.h"
 
 namespace ignite::impl
 {
 
 /**
- * Table management.
+ * Table view implementation.
  */
-class TablesImpl
+class TableImpl
 {
 public:
+    // Deleted
+    TableImpl(const TableImpl&) = delete;
+    TableImpl& operator=(const TableImpl&) = delete;
+
     // Default
-    TablesImpl() = default;
-    ~TablesImpl() = default;
-    TablesImpl(TablesImpl&&) = default;
-    TablesImpl(const TablesImpl&) = default;
-    TablesImpl& operator=(TablesImpl&&) = default;
-    TablesImpl& operator=(const TablesImpl&) = default;
+    TableImpl() = default;
+    ~TableImpl() = default;
+    TableImpl(TableImpl&&) = default;
+    TableImpl& operator=(TableImpl&&) = default;
 
     /**
      * Constructor.
      *
-     * @param connection Connection.
+     * @param name Name.
+     * @param id ID.
      */
-    explicit TablesImpl(std::shared_ptr<ClusterConnection> connection) :
-        m_connection(std::move(connection)) { }
+    TableImpl(std::string name, Guid id) :
+        m_name(std::move(name)),
+        m_id(id) { }
 
     /**
-     * Gets a table implementation by name.
-     * See Table::getTableAsync() for details.
+     * Get table name.
      *
-     * @param name Table name.
-     * @return TableImpl with corresponding name.
-     * @throw IgniteError In case of error.
+     * @return Table name.
      */
     [[nodiscard]]
-    std::future<std::optional<Table>> getTableImplAsync(const std::string& name);
+    const std::string& getName() const
+    {
+        return m_name;
+    }
 
 private:
-    /** Cluster connection. */
-    std::shared_ptr<ClusterConnection> m_connection;
+    /** Table name. */
+    std::string m_name;
+
+    /** Table ID. */
+    Guid m_id;
 };
 
 } // namespace ignite::impl

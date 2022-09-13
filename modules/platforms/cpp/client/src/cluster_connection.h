@@ -22,12 +22,16 @@
 #include <memory>
 #include <unordered_map>
 #include <mutex>
+#include <functional>
 
+#include "ignite/protocol/reader.h"
+#include "ignite/protocol/writer.h"
 #include "ignite/network/async_client_pool.h"
 
 #include "ignite/ignite_client_configuration.h"
 #include "node_connection.h"
 #include "protocol_context.h"
+#include "client_operation.h"
 
 namespace ignite::protocol
 {
@@ -49,6 +53,17 @@ class ClusterConnection : public std::enable_shared_from_this<ClusterConnection>
 public:
     /** Default TCP port. */
     static constexpr uint16_t DEFAULT_TCP_PORT = 10800;
+
+    /**
+     * Create new instance of the object.
+     *
+     * @param configuration Configuration.
+     * @return New instance.
+     */
+    static std::shared_ptr<ClusterConnection> create(IgniteClientConfiguration configuration)
+    {
+        return std::shared_ptr<ClusterConnection>(new ClusterConnection(std::move(configuration)));
+    }
 
     // Deleted
     ClusterConnection() = delete;
@@ -74,18 +89,39 @@ public:
      */
     void stop();
 
-    /**
-     * Create new instance of the object.
+   /**
+     * Perform request.
      *
-     * @param configuration Configuration.
-     * @return New instance.
+     * @tparam T Result type.
+     * @param op Operation code.
+     * @param wr Writer function.
+     * @param rd Reader function.
+     * @return Future result.
      */
-    static std::shared_ptr<ClusterConnection> create(IgniteClientConfiguration configuration)
+    template<typename T>
+    std::future<T> performRequest(ClientOperation op,
+        const std::function<void(protocol::Writer&)>& wr, std::packaged_task<T(protocol::Reader&)>&& rd)
     {
-        return std::shared_ptr<ClusterConnection>(new ClusterConnection(std::move(configuration)));
+        while (true)
+        {
+            auto channel = getRandomChannel();
+            if (!channel)
+                throw IgniteError("No nodes connected");
+
+            auto res = channel->performRequest(op, wr, std::move(rd));
+            if (res.valid())
+                return res;
+        }
     }
 
 private:
+    /**
+     * Get random node connection.
+     *
+     * @return Random node connection or nullptr if there are no active connections.
+     */
+    std::shared_ptr<NodeConnection> getRandomChannel();
+
     /**
      * Constructor.
      *

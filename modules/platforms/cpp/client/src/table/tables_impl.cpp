@@ -15,19 +15,34 @@
  * limitations under the License.
  */
 
-#include "node_connection.h"
+#include "common/utils.h"
+
+#include "ignite/protocol/writer.h"
+#include "ignite/protocol/reader.h"
+#include "table/tables_impl.h"
 
 namespace ignite::impl
 {
 
-NodeConnection::NodeConnection(uint64_t id, std::shared_ptr<network::AsyncClientPool> pool) :
-    m_id(id),
-    m_pool(std::move(pool)),
-    m_reqIdGen(0) { }
-
-void NodeConnection::processMessage(const network::DataBuffer &msg)
+std::future<std::optional<Table>> TablesImpl::getTableImplAsync(const std::string &name)
 {
-    // TODO:
+    std::packaged_task<std::optional<Table>(protocol::Reader&)> readerTask {
+        [&name] (protocol::Reader& reader) -> std::optional<Table>  {
+            if (reader.tryReadNil())
+                return std::nullopt;
+
+            auto guid = reader.readGuid();
+            auto tableImpl = std::make_shared<TableImpl>(name, guid);
+
+            return std::make_optional(Table(tableImpl));
+        }
+    };
+
+    return m_connection->performRequest(ClientOperation::TABLE_GET,
+    [&name] (protocol::Writer& writer) {
+        writer.write(name);
+    },
+    std::move(readerTask));
 }
 
 } // namespace ignite::impl

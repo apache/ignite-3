@@ -19,10 +19,18 @@
 
 #include <future>
 #include <memory>
+#include <atomic>
+#include <mutex>
+#include <unordered_map>
 
+#include "common/utils.h"
+
+#include "ignite/protocol/reader.h"
+#include "ignite/protocol/writer.h"
 #include "ignite/network/async_client_pool.h"
-
 #include "ignite/ignite_client_configuration.h"
+
+#include "client_operation.h"
 
 namespace ignite::impl
 {
@@ -40,13 +48,13 @@ class NodeConnection
 public:
     // Deleted
     NodeConnection() = delete;
+    NodeConnection(NodeConnection&&) = delete;
     NodeConnection(const NodeConnection&) = delete;
     NodeConnection& operator=(NodeConnection&&) = delete;
     NodeConnection& operator=(const NodeConnection&) = delete;
 
     // Default
     ~NodeConnection() = default;
-    NodeConnection(NodeConnection&&) = default;
 
     /**
      * Constructor.
@@ -56,6 +64,57 @@ public:
      */
     NodeConnection(uint64_t id, std::shared_ptr<network::AsyncClientPool> pool);
 
+    /**
+     * Get connection ID.
+     *
+     * @return ID.
+     */
+    [[nodiscard]]
+    uint64_t getId() const
+    {
+        return m_id;
+    }
+
+    /**
+     * Send request.
+     *
+     * @tparam T Result type.
+     * @param op Operation code.
+     * @param wr Writer function.
+     * @param rd Reader function.
+     * @return Future result.
+     */
+    template<typename T>
+    std::future<T> performRequest(ClientOperation op,
+        const std::function<void(protocol::Writer&)>& wr, std::packaged_task<T(protocol::Reader&)>&& rd)
+    {
+        auto reqId = generateRequestId();
+        auto buffer = std::make_shared<protocol::Buffer>();
+
+        buffer->reserveLengthHeader();
+
+        protocol::Writer writer(*buffer);
+        writer.write(int32_t(op));
+        writer.write(reqId);
+        wr(writer);
+
+        buffer->writeLengthHeader();
+
+        bool sent = m_pool->send(m_id, network::DataBuffer(std::move(buffer)));
+        if (!sent)
+            return {};
+
+        auto fut = rd.get_future();
+        auto task = std::make_shared<std::packaged_task<T(protocol::Reader&)>>(std::move(rd));
+        std::function<void(protocol::Reader&)> handler = [task = std::move(task)] (protocol::Reader& reader) {
+            (*task)(reader);
+        };
+
+        m_requestHandlers[reqId] = handler;
+
+        return fut;
+    }
+
 private:
     /**
      * Callback that called when new message is received.
@@ -63,6 +122,12 @@ private:
      * @param msg Received message.
      */
     void processMessage(const network::DataBuffer& msg);
+
+    [[nodiscard]]
+    int32_t generateRequestId()
+    {
+        return m_reqIdGen.fetch_add(1, std::memory_order_seq_cst);
+    }
 
     /** Connection ID. */
     uint64_t m_id;
@@ -72,6 +137,12 @@ private:
 
     /** Connection pool. */
     std::shared_ptr<network::AsyncClientPool> m_pool;
+
+    /** Request ID generator. */
+    std::atomic_int32_t m_reqIdGen;
+
+    /** Pending request handlers. */
+    std::unordered_map<int32_t, std::function<void(protocol::Reader&)>> m_requestHandlers;
 };
 
 } // namespace ignite::impl

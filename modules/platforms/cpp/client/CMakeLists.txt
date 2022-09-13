@@ -22,7 +22,9 @@ set(TARGET ${PROJECT_NAME})
 include_directories(include src)
 
 set(SOURCES
+    src/table/table.cpp
     src/table/tables.cpp
+    src/table/tables_impl.cpp
     src/cluster_connection.cpp
 	src/ignite_client.cpp
     src/ignite_client_impl.cpp

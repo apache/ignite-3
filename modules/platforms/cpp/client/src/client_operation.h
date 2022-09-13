@@ -15,19 +15,21 @@
  * limitations under the License.
  */
 
-#include "node_connection.h"
+#pragma once
 
 namespace ignite::impl
 {
 
-NodeConnection::NodeConnection(uint64_t id, std::shared_ptr<network::AsyncClientPool> pool) :
-    m_id(id),
-    m_pool(std::move(pool)),
-    m_reqIdGen(0) { }
-
-void NodeConnection::processMessage(const network::DataBuffer &msg)
+enum class ClientOperation
 {
-    // TODO:
-}
+    /** Get table. */
+    TABLE_GET = 4,
+
+    /** Upsert tuple. */
+    TUPLE_UPSERT = 10,
+
+    /** Get tuple. */
+    TUPLE_GET = 12,
+};
 
 } // namespace ignite::impl

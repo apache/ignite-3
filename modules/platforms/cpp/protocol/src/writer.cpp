@@ -59,6 +59,11 @@ void Writer::write(int64_t value)
     msgpack_pack_int64(m_packer, value);
 }
 
+void Writer::write(std::string_view value)
+{
+    msgpack_pack_str_with_body(m_packer, value.data(), value.size());
+}
+
 void Writer::writeBinaryEmpty()
 {
     msgpack_pack_bin(m_packer, 0);

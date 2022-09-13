@@ -73,7 +73,7 @@ private:
     }
 };
 
-TEST_F(ClientTest, TestGetConfiguration)
+TEST_F(ClientTest, GetConfiguration)
 {
     IgniteClientConfiguration cfg{"127.0.0.1:10942"};
     cfg.setLogger(std::make_shared<TestLogger>());
@@ -85,7 +85,7 @@ TEST_F(ClientTest, TestGetConfiguration)
     EXPECT_EQ(cfg.getEndpoints(), cfg2.getEndpoints());
 }
 
-TEST_F(ClientTest, TestTest)
+TEST_F(ClientTest, TableGetUpsert)
 {
     IgniteClientConfiguration cfg{"127.0.0.1:10942"};
     cfg.setLogger(std::make_shared<TestLogger>());
@@ -96,5 +96,6 @@ TEST_F(ClientTest, TestTest)
 
     std::cout << "Ready" << std::endl;
 
-    std::this_thread::sleep_for(std::chrono::seconds(2));
+    auto tables = client.getTables();
+    auto table = tables.getTableAsync("PUB.tbl1").get();
 }

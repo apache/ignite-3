@@ -15,6 +15,9 @@
  * limitations under the License.
  */
 
+#include <utility>
+
+#include "common/utils.h"
 #include "ignite/table/tables.h"
 
 #include "table/tables_impl.h"
@@ -24,12 +27,20 @@ namespace ignite
 
 std::future<std::optional<Table>> Tables::getTableAsync(const std::string &name)
 {
-    return {};
+    return getImpl().getTableImplAsync(name);
 }
 
-Tables::Tables(std::shared_ptr<void> impl)
-{
+Tables::Tables(std::shared_ptr<void> impl) :
+    m_impl(std::move(impl)) { }
 
+impl::TablesImpl &Tables::getImpl()
+{
+    return *((impl::TablesImpl*)(m_impl.get()));
+}
+
+const impl::TablesImpl &Tables::getImpl() const
+{
+    return *((impl::TablesImpl*)(m_impl.get()));
 }
 
 } // namespace ignite

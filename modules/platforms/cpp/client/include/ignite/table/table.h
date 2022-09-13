@@ -19,17 +19,25 @@
 
 #include <future>
 #include <memory>
+#include <utility>
 
 #include "common/Export.h"
 
 namespace ignite
 {
 
+namespace impl
+{
+class TableImpl;
+class TablesImpl;
+}
+
 /**
  * Table view.
  */
 class Table
 {
+    friend class impl::TablesImpl;
 public:
     // Deleted
     Table(const Table&) = delete;
@@ -46,7 +54,8 @@ public:
      *
      * @return Table name.
      */
-    const std::string& getName() const;
+    [[nodiscard]]
+    IGNITE_API const std::string& getName() const;
 
 private:
     /**
@@ -54,7 +63,24 @@ private:
      *
      * @param impl Implementation
      */
-    explicit Table(std::shared_ptr<void> impl);
+    explicit Table(std::shared_ptr<void> impl) :
+        m_impl(std::move(impl)) { }
+
+    /**
+     * Get implementation reference.
+     *
+     * @return Implementation reference.
+     */
+    [[nodiscard]]
+    impl::TableImpl& getImpl();
+
+    /**
+     * Get implementation reference.
+     *
+     * @return Implementation reference.
+     */
+    [[nodiscard]]
+    const impl::TableImpl& getImpl() const;
 
     /** Implementation. */
     std::shared_ptr<void> m_impl;

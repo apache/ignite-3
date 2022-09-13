@@ -15,19 +15,25 @@
  * limitations under the License.
  */
 
-#include "node_connection.h"
+#include "ignite/table/table.h"
+#include "table/table_impl.h"
 
-namespace ignite::impl
+namespace ignite
 {
 
-NodeConnection::NodeConnection(uint64_t id, std::shared_ptr<network::AsyncClientPool> pool) :
-    m_id(id),
-    m_pool(std::move(pool)),
-    m_reqIdGen(0) { }
-
-void NodeConnection::processMessage(const network::DataBuffer &msg)
+const std::string &Table::getName() const
 {
-    // TODO:
+    return getImpl().getName();
 }
 
-} // namespace ignite::impl
+impl::TableImpl &Table::getImpl()
+{
+    return *((impl::TableImpl*)(m_impl.get()));
+}
+
+const impl::TableImpl &Table::getImpl() const
+{
+    return *((impl::TableImpl*)(m_impl.get()));
+}
+
+} // namespace ignite

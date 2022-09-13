@@ -19,6 +19,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <string_view>
 
 #include <msgpack.h>
 
@@ -88,6 +89,13 @@ public:
      * @param value Value to write.
      */
     void write(int64_t value);
+
+    /**
+     * Write string value.
+     *
+     * @param value Value to write.
+     */
+    void write(std::string_view value);
 
     /**
      * Write empty binary data.
