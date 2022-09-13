@@ -26,12 +26,16 @@ import java.util.List;
 
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
+import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.HashUtils;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.schema.definition.ColumnType;
+import org.apache.ignite.schema.definition.TableDefinition;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -122,11 +126,27 @@ public class ItThinClientConnectionTest extends ItAbstractThinClientTest {
                 + "}";
 
         String nodeName = "new-node";
-        IgnitionManager.start(nodeName, cfg, workDir.resolve(nodeName));
+        var newServer = IgnitionManager.start(nodeName, cfg, workDir.resolve(nodeName)).join();
 
-        Thread.sleep(6000);
-        tblMgr.assignments(tbl.tableId());
-        Thread.sleep(6000);
+        // Create a new table to force assignment update.
+        TableDefinition schTbl = SchemaBuilders.tableBuilder(SCHEMA_NAME, "TBL_NEW").columns(
+                SchemaBuilders.column(COLUMN_KEY, ColumnType.INT32).build(),
+                SchemaBuilders.column(COLUMN_VAL, ColumnType.string()).asNullable(true).build()
+        ).withPrimaryKey(COLUMN_KEY).build();
+
+        server().tables().createTable(schTbl.canonicalName(), tblCh ->
+                SchemaConfigurationConverter.convert(schTbl, tblCh)
+                        .changeReplicas(1)
+                        .changePartitions(10)
+        );
+
+        Thread.sleep(1000);
+
+        for (var node : server().clusterNodes()) {
+            System.out.println(node.name() + " - " + node.id() + " " + node.address());
+        }
+
+        System.out.println();
 
         List<String> assignments2 = tblMgr.assignments(tbl.tableId());
         for (String assignment : assignments2) {
