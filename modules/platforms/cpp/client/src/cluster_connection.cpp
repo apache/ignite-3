@@ -176,6 +176,8 @@ void ClusterConnection::onMessageReceived(uint64_t id, const network::DataBuffer
 
                 m_connections[id] = connection;
                 m_initialConnect.set_value();
+
+                return;
             }
             else
                 connection = it->second;

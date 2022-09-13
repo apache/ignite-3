@@ -99,6 +99,6 @@ TEST_F(ClientTest, TableGetUpsert)
 
     auto table = tables.getTableAsync("PUB.tbl1").get();
 
-    EXPECT_TRUE(table.has_value());
+    ASSERT_TRUE(table.has_value());
     EXPECT_EQ(table->getName(), "PUB.tbl1");
 }

@@ -100,7 +100,7 @@ void DataBuffer::skip(int32_t bytes)
 
 BytesView DataBuffer::getBytesView() const
 {
-    return {reinterpret_cast<const std::byte *>(getData()), std::size_t(getSize())};
+    return {reinterpret_cast<const std::byte *>(getData()), std::size_t(m_length)};
 }
 
 } // namespace ignite::network

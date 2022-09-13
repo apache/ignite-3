@@ -101,10 +101,6 @@ public:
 
         buffer->writeLengthHeader();
 
-        bool sent = m_pool->send(m_id, network::DataBuffer(std::move(buffer)));
-        if (!sent)
-            return {};
-
         auto fut = rd.get_future();
         auto task = std::make_shared<std::packaged_task<T(protocol::Reader&)>>(std::move(rd));
         std::function<void(protocol::Reader&)> handler = [task = std::move(task)] (protocol::Reader& reader) {
@@ -113,10 +109,17 @@ public:
 
         {
             std::lock_guard<std::mutex> lock(m_requestHandlersMutex);
-
             m_requestHandlers[reqId] = handler;
         }
 
+        bool sent = m_pool->send(m_id, network::DataBuffer(std::move(buffer)));
+        if (!sent)
+        {
+            std::lock_guard<std::mutex> lock(m_requestHandlersMutex);
+            getAndRemoveHandler(reqId);
+
+            return {};
+        }
         return fut;
     }
 

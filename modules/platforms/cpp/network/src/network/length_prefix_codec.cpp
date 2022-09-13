@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+#include <iostream>
+
 #include "ignite/protocol/utils.h"
 
 #include <ignite/network/length_prefix_codec.h>
@@ -72,7 +74,7 @@ DataBuffer LengthPrefixCodec::decode(DataBuffer& data)
     consume(data, m_packetSize + PACKET_HEADER_SIZE);
 
     if (m_packet.size() == m_packetSize + PACKET_HEADER_SIZE)
-        return {std::make_shared<protocol::Buffer>(m_packet), PACKET_HEADER_SIZE, m_packetSize};
+        return {std::make_shared<protocol::Buffer>(m_packet), PACKET_HEADER_SIZE, m_packetSize + PACKET_HEADER_SIZE};
 
     return {};
 }
