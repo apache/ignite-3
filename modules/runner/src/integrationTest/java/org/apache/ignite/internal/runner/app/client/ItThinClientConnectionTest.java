@@ -83,7 +83,7 @@ public class ItThinClientConnectionTest extends ItAbstractThinClientTest {
      * TODO: Temporary test for IGNITE-17395.
      */
     @Test
-    void testAssignments() throws NodeStoppingException {
+    void testAssignments() throws NodeStoppingException, InterruptedException {
         TableManager tblMgr = (TableManager) server().tables();
         TableImpl tbl = (TableImpl) tblMgr.tables().get(0);
 
@@ -123,5 +123,14 @@ public class ItThinClientConnectionTest extends ItAbstractThinClientTest {
 
         String nodeName = "new-node";
         IgnitionManager.start(nodeName, cfg, workDir.resolve(nodeName));
+
+        Thread.sleep(6000);
+        tblMgr.assignments(tbl.tableId());
+        Thread.sleep(6000);
+
+        List<String> assignments2 = tblMgr.assignments(tbl.tableId());
+        for (String assignment : assignments2) {
+            System.out.println(assignment);
+        }
     }
 }
