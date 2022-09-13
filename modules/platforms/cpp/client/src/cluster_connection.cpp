@@ -220,7 +220,12 @@ void ClusterConnection::handshake(uint64_t id, ProtocolContext& context)
     try
     {
         bool res = m_pool->send(id, dataBuffer);
-        // TODO: handle res
+        if (!res)
+        {
+            m_logger->logWarning("Failed to send handshake request: Connection already closed.");
+            handshakeFail(id, std::nullopt);
+            return;
+        }
         m_logger->logDebug("Handshake sent successfully");
     }
     catch (const IgniteError& err)

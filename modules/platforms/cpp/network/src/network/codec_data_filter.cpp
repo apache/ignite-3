@@ -39,7 +39,9 @@ bool CodecDataFilter::send(uint64_t id, const DataBuffer &data)
         if (out.isEmpty())
             break;
 
-        DataFilterAdapter::send(id, out);
+        bool res = DataFilterAdapter::send(id, out);
+        if (!res)
+            return res;
     }
 
     return true;
