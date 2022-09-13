@@ -192,14 +192,6 @@ private:
      */
     void handshakeRsp(ProtocolContext &protocolCtx, const network::DataBuffer &buffer);
 
-    /**
-     * Read error.
-     *
-     * @param reader Reader.
-     * @return Error.
-     */
-    static std::optional<IgniteError> readError(protocol::Reader& reader);
-
     /** Configuration. */
     const IgniteClientConfiguration m_configuration;
 

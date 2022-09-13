@@ -31,26 +31,6 @@
 
 #include "cluster_connection.h"
 
-namespace
-{
-
-/**
- * Make random GUID.
- *
- * @return Random GUID instance.
- */
-ignite::Guid makeRandomGuid()
-{
-    // TODO: move to utils
-    static std::random_device rd;
-    static std::mt19937 gen(rd());
-
-    std::uniform_int_distribution<int64_t> distrib;
-    return {distrib(gen), distrib(gen)};
-}
-
-} // namespace
-
 namespace ignite::impl
 {
 
@@ -169,7 +149,7 @@ void ClusterConnection::onMessageReceived(uint64_t id, const network::DataBuffer
             {
                 handshakeRsp(*it->second, msg);
 
-                connection = std::make_shared<NodeConnection>(id, m_pool);
+                connection = std::make_shared<NodeConnection>(id, m_pool, m_logger);
 
                 m_inProgress.erase(it);
             }
@@ -276,7 +256,7 @@ void ClusterConnection::handshakeRsp(ProtocolContext& protocolCtx, const network
     if (ver != ProtocolContext::CURRENT_VERSION)
         throw IgniteError("Unsupported server version: " + ver.toString());
 
-    auto err = readError(reader);
+    auto err = protocol::readError(reader);
     if (err)
         throw IgniteError(err.value());
 
@@ -290,33 +270,23 @@ void ClusterConnection::handshakeRsp(ProtocolContext& protocolCtx, const network
     protocolCtx.setVersion(ver);
 }
 
-std::optional<IgniteError> ClusterConnection::readError(protocol::Reader &reader)
-{
-    if (reader.tryReadNil())
-        return std::nullopt;
-
-    Guid traceId = reader.tryReadNil() ? makeRandomGuid() : reader.readGuid();
-    int32_t code = reader.tryReadNil() ? 65537 : reader.readInt32();
-    std::string className = reader.readString();
-    std::string message = reader.readString();
-
-    std::stringstream errMsgBuilder;
-
-    errMsgBuilder << className << ": " << message << " (" << code << ", " << traceId << ")";
-
-    return {IgniteError(StatusCode(code), errMsgBuilder.str())};
-}
-
 std::shared_ptr<NodeConnection> ClusterConnection::getRandomChannel()
 {
     std::lock_guard<std::recursive_mutex> lock(m_connectionsMutex);
+
+    if (m_connections.empty())
+        return {};
+
+    if (m_connections.size() == 1)
+        return m_connections.begin()->second;
 
     // TODO: Move to utils
     static std::random_device rd;
     static std::mt19937 gen(rd());
 
-    std::uniform_int_distribution<size_t> distrib(0, m_connections.size());
-    return std::next(m_connections.begin(), ptrdiff_t(distrib(gen)))->second;
+    std::uniform_int_distribution<size_t> distrib(0, m_connections.size() - 1);
+    auto idx = ptrdiff_t(distrib(gen));
+    return std::next(m_connections.begin(), idx)->second;
 }
 
 } // namespace ignite::impl

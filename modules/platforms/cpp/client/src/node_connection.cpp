@@ -15,19 +15,63 @@
  * limitations under the License.
  */
 
+#include "ignite/protocol/utils.h"
+
 #include "node_connection.h"
 
 namespace ignite::impl
 {
 
-NodeConnection::NodeConnection(uint64_t id, std::shared_ptr<network::AsyncClientPool> pool) :
+NodeConnection::NodeConnection(uint64_t id, std::shared_ptr<network::AsyncClientPool> pool,
+    std::shared_ptr<IgniteLogger> logger) :
     m_id(id),
     m_pool(std::move(pool)),
-    m_reqIdGen(0) { }
+    m_reqIdGen(0),
+    m_logger(std::move(logger)) { }
 
 void NodeConnection::processMessage(const network::DataBuffer &msg)
 {
-    // TODO:
+    protocol::Reader reader(msg.getBytesView());
+
+    auto responseType = reader.readInt32();
+    if (MessageType(responseType) != MessageType::RESPONSE)
+    {
+        m_logger->logWarning("Unsupported message type: " + std::to_string(responseType));
+        return;
+    }
+
+    auto reqId = reader.readInt64();
+    auto handler = getAndRemoveHandler(reqId);
+
+    if (!handler)
+    {
+        m_logger->logError("Missing handler for request with id=" + std::to_string(reqId));
+        return;
+    }
+
+    auto err = protocol::readError(reader);
+    if (err)
+    {
+        // TODO: Add error handling
+        m_logger->logError("Error: " + err->whatStr());
+        return;
+    }
+
+    handler(reader);
+}
+
+std::function<void(protocol::Reader&)> NodeConnection::getAndRemoveHandler(int64_t id)
+{
+    std::lock_guard<std::mutex> lock(m_requestHandlersMutex);
+
+    auto it = m_requestHandlers.find(id);
+    if (it == m_requestHandlers.end())
+        return {};
+
+    auto res = std::move(it->second);
+    m_requestHandlers.erase(it);
+
+    return res;
 }
 
 } // namespace ignite::impl

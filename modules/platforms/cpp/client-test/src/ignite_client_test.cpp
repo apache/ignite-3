@@ -90,12 +90,15 @@ TEST_F(ClientTest, TableGetUpsert)
     IgniteClientConfiguration cfg{"127.0.0.1:10942"};
     cfg.setLogger(std::make_shared<TestLogger>());
 
-    std::cout << "Connecting..." << std::endl;
-
     auto client = IgniteClient::startAsync(cfg, std::chrono::seconds(5)).get();
 
-    std::cout << "Ready" << std::endl;
-
     auto tables = client.getTables();
+    auto tableUnknown = tables.getTableAsync("PUB.some_unknown").get();
+
+    EXPECT_FALSE(tableUnknown.has_value());
+
     auto table = tables.getTableAsync("PUB.tbl1").get();
+
+    EXPECT_TRUE(table.has_value());
+    EXPECT_EQ(table->getName(), "PUB.tbl1");
 }

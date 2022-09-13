@@ -61,8 +61,9 @@ public:
      *
      * @param id Connection ID.
      * @param pool Connection pool.
+     * @param logger Logger.
      */
-    NodeConnection(uint64_t id, std::shared_ptr<network::AsyncClientPool> pool);
+    NodeConnection(uint64_t id, std::shared_ptr<network::AsyncClientPool> pool, std::shared_ptr<IgniteLogger> logger);
 
     /**
      * Get connection ID.
@@ -110,7 +111,11 @@ public:
             (*task)(reader);
         };
 
-        m_requestHandlers[reqId] = handler;
+        {
+            std::lock_guard<std::mutex> lock(m_requestHandlersMutex);
+
+            m_requestHandlers[reqId] = handler;
+        }
 
         return fut;
     }
@@ -123,11 +128,24 @@ private:
      */
     void processMessage(const network::DataBuffer& msg);
 
+    /**
+     * Generate next request ID.
+     *
+     * @return New request ID.
+     */
     [[nodiscard]]
-    int32_t generateRequestId()
+    int64_t generateRequestId()
     {
         return m_reqIdGen.fetch_add(1, std::memory_order_seq_cst);
     }
+
+    /**
+     * Get and remove request handler.
+     *
+     * @param reqId Request ID.
+     * @return Handler.
+     */
+    std::function<void(protocol::Reader&)> getAndRemoveHandler(int64_t reqId);
 
     /** Connection ID. */
     uint64_t m_id;
@@ -139,10 +157,16 @@ private:
     std::shared_ptr<network::AsyncClientPool> m_pool;
 
     /** Request ID generator. */
-    std::atomic_int32_t m_reqIdGen;
+    std::atomic_int64_t m_reqIdGen;
 
     /** Pending request handlers. */
-    std::unordered_map<int32_t, std::function<void(protocol::Reader&)>> m_requestHandlers;
+    std::unordered_map<int64_t, std::function<void(protocol::Reader&)>> m_requestHandlers;
+
+    /** Handlers map mutex. */
+    std::mutex m_requestHandlersMutex;
+
+    /** Logger. */
+    std::shared_ptr<IgniteLogger> m_logger;
 };
 
 } // namespace ignite::impl

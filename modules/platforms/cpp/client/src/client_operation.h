@@ -20,6 +20,9 @@
 namespace ignite::impl
 {
 
+/**
+ * Client operation code.
+ */
 enum class ClientOperation
 {
     /** Get table. */
@@ -30,6 +33,18 @@ enum class ClientOperation
 
     /** Get tuple. */
     TUPLE_GET = 12,
+};
+
+/**
+ * Message type.
+ */
+enum class MessageType
+{
+    /** Response. */
+    RESPONSE = 0,
+
+    /** Notification. */
+    NOTIFICATION = 1
 };
 
 } // namespace ignite::impl
