@@ -129,6 +129,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
     /** Context. */
     private ClientContext clientContext;
 
+    /** */
+    private volatile boolean assignmentChanged = false;
+
     /**
      * Constructor.
      *
@@ -167,6 +170,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
 
         igniteTables.addAssignmentsChangeListener(mgr -> {
             // TODO: Reset some flag and send to client on first response.
+            assignmentChanged = true;
         });
     }
 
@@ -474,6 +478,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
             case ClientOp.SQL_CURSOR_CLOSE:
                 return ClientSqlCursorCloseRequest.process(in, resources);
 
+            // TODO: Handle GetAssignment OP, set assignmentChanged to false - beware race conditions
             default:
                 throw new IgniteException(PROTOCOL_ERR, "Unexpected operation code: " + opCode);
         }
