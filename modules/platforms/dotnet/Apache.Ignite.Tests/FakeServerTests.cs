@@ -44,8 +44,9 @@ namespace Apache.Ignite.Tests
 
             var ex = Assert.ThrowsAsync<IgniteException>(async () => await client.Tables.GetTableAsync("t"));
             Assert.AreEqual("Err!", ex!.Message);
+            Assert.AreEqual("org.foo.bar.BazException", ex.InnerException!.Message);
             Assert.AreEqual(Guid.Empty, ex.TraceId);
-            Assert.AreEqual(65537, ex.Code);
+            Assert.AreEqual(ErrorGroups.Sql.QueryInvalid, ex.Code);
         }
 
         [Test]
