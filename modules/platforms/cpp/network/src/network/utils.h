@@ -26,8 +26,6 @@
 namespace ignite::network
 {
 
-// TODO: Re-factor
-
 /**
  * Fibonacci sequence iterator.
  *
@@ -65,17 +63,6 @@ private:
     /** Sequence of fibonacci numbers */
     T sequence[size]{0, 1};
 };
-
-/**
- * Throw connection error.
- *
- * @param err Error message.
- */
-inline void throwNetworkError(std::string err)
-{
-    // TODO: Remove me
-    throw IgniteError(StatusCode::NETWORK, std::move(err));
-}
 
 /**
  * Format error message.
@@ -116,17 +103,6 @@ inline std::string getLastSystemError(std::string_view description, std::string_
 }
 
 /**
- * Throw platform-specific error.
- *
- * @param msg Error message.
- */
-inline void throwSystemError(std::string msg)
-{
-    // TODO: Remove me
-    throw IgniteError(StatusCode::OS, std::move(msg));
-}
-
-/**
  * Try extract from system error stack and throw platform-specific error.
  *
  * @param description Error description.
@@ -134,7 +110,7 @@ inline void throwSystemError(std::string msg)
  */
 inline void throwLastSystemError(std::string_view description, std::string_view advice)
 {
-    throwSystemError(getLastSystemError(description, advice));
+    throw IgniteError(StatusCode::OS, getLastSystemError(description, advice));
 }
 
 /**

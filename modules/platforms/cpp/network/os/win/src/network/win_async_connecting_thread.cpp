@@ -122,6 +122,7 @@ void WinAsyncConnectingThread::start(WinAsyncClientPool& clientPool, size_t limi
     m_failedAttempts = 0;
     m_nonConnected = std::move(addrs);
 
+
     if (!limit || limit > m_nonConnected.size())
         m_minAddrs = 0;
     else
@@ -184,7 +185,7 @@ SOCKET WinAsyncConnectingThread::tryConnect(const EndPoint& addr)
     int res = getaddrinfo(addr.host.c_str(), strPort.c_str(), &hints, &result);
 
     if (res != 0)
-        throwNetworkError("Can not resolve host: " + addr.host + ":" + strPort);
+        throw IgniteError(StatusCode::NETWORK, "Can not resolve host: " + addr.host + ":" + strPort);
 
     std::string lastErrorMsg = "Failed to resolve host";
 
@@ -198,7 +199,7 @@ SOCKET WinAsyncConnectingThread::tryConnect(const EndPoint& addr)
         socket = WSASocket(it->ai_family, it->ai_socktype, it->ai_protocol, NULL, 0, WSA_FLAG_OVERLAPPED);
 
         if (socket == INVALID_SOCKET)
-            throwNetworkError("Socket creation failed: " + getLastSocketErrorMessage());
+            throw IgniteError(StatusCode::NETWORK, "Socket creation failed: " + getLastSocketErrorMessage());
 
         TrySetSocketOptions(socket, BUFFER_SIZE, TRUE, TRUE, TRUE);
 
@@ -225,7 +226,7 @@ SOCKET WinAsyncConnectingThread::tryConnect(const EndPoint& addr)
     freeaddrinfo(result);
 
     if (socket == INVALID_SOCKET)
-        throwNetworkError(lastErrorMsg);
+        throw IgniteError(StatusCode::NETWORK, std::move(lastErrorMsg));
 
     return socket;
 }

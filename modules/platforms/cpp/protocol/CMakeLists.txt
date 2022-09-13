@@ -26,6 +26,7 @@ include_directories(include)
 set(SOURCES
     src/buffer.cpp
     src/reader.cpp
+    src/utils.cpp
     src/writer.cpp
 )
 

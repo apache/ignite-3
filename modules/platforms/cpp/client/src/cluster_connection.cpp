@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-#include <random>
 #include <iterator>
 
 #include "common/utils.h"
@@ -37,7 +36,8 @@ namespace ignite::impl
 ClusterConnection::ClusterConnection(IgniteClientConfiguration configuration) :
     m_configuration(std::move(configuration)),
     m_pool(),
-    m_logger(m_configuration.getLogger()) { }
+    m_logger(m_configuration.getLogger()),
+    m_generator(std::random_device()()) { }
 
 std::future<void> ClusterConnection::start()
 {
@@ -287,12 +287,8 @@ std::shared_ptr<NodeConnection> ClusterConnection::getRandomChannel()
     if (m_connections.size() == 1)
         return m_connections.begin()->second;
 
-    // TODO: Move to utils
-    static std::random_device rd;
-    static std::mt19937 gen(rd());
-
     std::uniform_int_distribution<size_t> distrib(0, m_connections.size() - 1);
-    auto idx = ptrdiff_t(distrib(gen));
+    auto idx = ptrdiff_t(distrib(m_generator));
     return std::next(m_connections.begin(), idx)->second;
 }
 

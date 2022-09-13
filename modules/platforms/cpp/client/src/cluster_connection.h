@@ -23,6 +23,7 @@
 #include <unordered_map>
 #include <mutex>
 #include <functional>
+#include <random>
 
 #include "ignite/protocol/reader.h"
 #include "ignite/protocol/writer.h"
@@ -216,6 +217,9 @@ private:
 
     /** Connections mutex. */
     std::recursive_mutex m_connectionsMutex;
+
+    /** Generator. */
+    std::mt19937 m_generator;
 };
 
 } // namespace ignite::impl

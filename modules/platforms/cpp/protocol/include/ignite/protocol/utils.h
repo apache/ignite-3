@@ -212,15 +212,7 @@ inline void writeInt16(int16_t value, std::byte* buffer, size_t offset = 0)
  *
  * @return Random GUID instance.
  */
-inline ignite::Guid makeRandomGuid()
-{
-    // TODO: move to utils
-    static std::random_device rd;
-    static std::mt19937 gen(rd());
-
-    std::uniform_int_distribution<int64_t> distrib;
-    return {distrib(gen), distrib(gen)};
-}
+ignite::Guid makeRandomGuid();
 
 /**
  * Read error.
@@ -228,22 +220,6 @@ inline ignite::Guid makeRandomGuid()
  * @param reader Reader.
  * @return Error.
  */
-inline std::optional<IgniteError> readError(protocol::Reader& reader)
-{
-    // TODO: Move to cpp
-    if (reader.tryReadNil())
-        return std::nullopt;
-
-    Guid traceId = reader.tryReadNil() ? makeRandomGuid() : reader.readGuid();
-    int32_t code = reader.tryReadNil() ? 65537 : reader.readInt32();
-    std::string className = reader.readString();
-    std::string message = reader.readString();
-
-    std::stringstream errMsgBuilder;
-
-    errMsgBuilder << className << ": " << message << " (" << code << ", " << traceId << ")";
-
-    return {IgniteError(StatusCode(code), errMsgBuilder.str())};
-}
+std::optional<IgniteError> readError(protocol::Reader& reader);
 
 } // namespace ignite::protocol
