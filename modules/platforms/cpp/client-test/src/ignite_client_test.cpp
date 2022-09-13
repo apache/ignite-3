@@ -24,59 +24,33 @@
 #include "ignite/ignite_client.h"
 
 #include "ignite_node.h"
+#include "test_logger.h"
 
 using namespace ignite;
 
+/**
+ * Test suite.
+ */
 class ClientTest : public ::testing::Test {
 protected:
     ClientTest() = default;
     ~ClientTest() override = default;
-};
 
-// TODO: implement test logger
-class TestLogger : public IgniteLogger
-{
-public:
-    void logError(std::string_view message) override
+    /**
+     * Get logger.
+     *
+     * @return Logger for tests.
+     */
+    static std::shared_ptr<TestLogger> getLogger()
     {
-        std::cout << getTimestamp() << " [ERROR]   " << message << std::endl;
-    }
-
-    void logWarning(std::string_view message) override
-    {
-        std::cout << getTimestamp() << " [WARNING] " << message << std::endl;
-    }
-
-    void logInfo(std::string_view message) override
-    {
-        std::cout << getTimestamp() << " [INFO]    " << message << std::endl;
-    }
-
-    void logDebug(std::string_view message) override
-    {
-        std::cout << getTimestamp() << " [DEBUG]  " << message << std::endl;
-    }
-
-private:
-    static std::string getTimestamp()
-    {
-        using clock = std::chrono::system_clock;
-
-        auto now = clock::now();
-        auto cTime = clock::to_time_t(now);
-
-        auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch());
-
-        std::stringstream ss;
-        ss << std::put_time(std::localtime(&cTime), "%H:%M:%S.") << std::setw(3) << std::setfill('0') << (ms.count() % 1000);
-        return ss.str();
+        return std::make_shared<TestLogger>(false, true);
     }
 };
 
 TEST_F(ClientTest, GetConfiguration)
 {
     IgniteClientConfiguration cfg{"127.0.0.1:10942"};
-    cfg.setLogger(std::make_shared<TestLogger>());
+    cfg.setLogger(getLogger());
     cfg.setConnectionLimit(42);
 
     auto client = IgniteClient::start(cfg, std::chrono::seconds(5));
@@ -90,7 +64,7 @@ TEST_F(ClientTest, GetConfiguration)
 TEST_F(ClientTest, TablesGetTable)
 {
     IgniteClientConfiguration cfg{"127.0.0.1:10942"};
-    cfg.setLogger(std::make_shared<TestLogger>());
+    cfg.setLogger(getLogger());
 
     auto client = IgniteClient::startAsync(cfg, std::chrono::seconds(5)).get();
 
