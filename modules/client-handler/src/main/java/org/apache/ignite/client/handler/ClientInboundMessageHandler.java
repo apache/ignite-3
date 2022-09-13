@@ -164,6 +164,10 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
 
         jdbcQueryEventHandler = new JdbcQueryEventHandlerImpl(processor, new JdbcMetadataCatalog(igniteTables), resources);
         jdbcQueryCursorHandler = new JdbcQueryCursorHandlerImpl(resources);
+
+        igniteTables.addAssignmentsChangeListener(mgr -> {
+            // TODO: Reset some flag and send to client on first response.
+        });
     }
 
     /** {@inheritDoc} */
