@@ -44,7 +44,8 @@ namespace Apache.Ignite.Tests
                 var defCtor = type.GetConstructor(new[] { typeof(Guid), typeof(int), typeof(string), typeof(Exception) });
                 Assert.IsNotNull(defCtor, "Required constructor is missing: " + type);
 
-                var ex = (Exception)defCtor!.Invoke(new object[] { Guid.NewGuid(), 1, "myMessage", new Exception() });
+                var traceId = Guid.NewGuid();
+                var ex = (IgniteException)defCtor!.Invoke(new object[] { traceId, 123, "myMessage", new Exception() });
                 Assert.AreEqual("myMessage", ex.Message);
 
                 // Serialization.
@@ -54,8 +55,10 @@ namespace Apache.Ignite.Tests
                 formatter.Serialize(stream, ex);
                 stream.Seek(0, SeekOrigin.Begin);
 
-                var res = (Exception) formatter.Deserialize(stream);
+                var res = (IgniteException) formatter.Deserialize(stream);
                 Assert.AreEqual("myMessage", res.Message);
+                Assert.AreEqual(traceId, res.TraceId);
+                Assert.AreEqual(123, res.Code);
             }
         }
 
