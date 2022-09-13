@@ -38,6 +38,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
+import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterService;
@@ -57,7 +58,7 @@ public class ClientHandlerModule implements IgniteComponent {
     private final ConfigurationRegistry registry;
 
     /** Ignite tables API. */
-    private final IgniteTables igniteTables;
+    private final IgniteTablesInternal igniteTables;
 
     /** Ignite transactions API. */
     private final IgniteTransactions igniteTransactions;
@@ -93,7 +94,7 @@ public class ClientHandlerModule implements IgniteComponent {
      */
     public ClientHandlerModule(
             QueryProcessor queryProcessor,
-            IgniteTables igniteTables,
+            IgniteTablesInternal igniteTables,
             IgniteTransactions igniteTransactions,
             ConfigurationRegistry registry,
             IgniteCompute igniteCompute,

@@ -41,6 +41,7 @@ import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
+import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.sql.IgniteSql;
@@ -229,7 +230,7 @@ public class ItClientHandlerTest {
         Mockito.when(clusterService.topologyService().localMember().id()).thenReturn("id");
         Mockito.when(clusterService.topologyService().localMember().name()).thenReturn("consistent-id");
 
-        var module = new ClientHandlerModule(mock(QueryProcessor.class), mock(IgniteTables.class), mock(IgniteTransactions.class), registry,
+        var module = new ClientHandlerModule(mock(QueryProcessor.class), mock(IgniteTablesInternal.class), mock(IgniteTransactions.class), registry,
                 mock(IgniteCompute.class), clusterService, bootstrapFactory, mock(IgniteSql.class));
 
         module.start();

@@ -39,6 +39,7 @@ import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NettyBootstrapFactory;
@@ -126,7 +127,7 @@ public class TestServer implements AutoCloseable {
                 ? new TestClientHandlerModule(ignite, cfg, bootstrapFactory, shouldDropConnection, clusterService, compute)
                 : new ClientHandlerModule(
                         ((FakeIgnite) ignite).queryEngine(),
-                        ignite.tables(),
+                        (IgniteTablesInternal) ignite.tables(),
                         ignite.transactions(),
                         cfg,
                         compute,

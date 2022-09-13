@@ -81,6 +81,7 @@ import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
+import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
@@ -99,7 +100,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
     private static final IgniteLogger LOG = Loggers.forClass(ClientInboundMessageHandler.class);
 
     /** Ignite tables API. */
-    private final IgniteTables igniteTables;
+    private final IgniteTablesInternal igniteTables;
 
     /** Ignite tables API. */
     private final IgniteTransactions igniteTransactions;
@@ -139,7 +140,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
      * @param clusterService     Cluster.
      */
     public ClientInboundMessageHandler(
-            IgniteTables igniteTables,
+            IgniteTablesInternal igniteTables,
             IgniteTransactions igniteTransactions,
             QueryProcessor processor,
             ClientConnectorView configuration,

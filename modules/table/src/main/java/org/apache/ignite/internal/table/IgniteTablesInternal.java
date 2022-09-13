@@ -21,11 +21,12 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NodeStoppingException;
+import org.apache.ignite.table.manager.IgniteTables;
 
 /**
  * Internal tables facade provides low-level methods for table operations.
  */
-public interface IgniteTablesInternal {
+public interface IgniteTablesInternal extends IgniteTables {
     /**
      * Gets a table by id.
      *
