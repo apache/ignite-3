@@ -44,11 +44,13 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
@@ -226,6 +228,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * or partition raft group meta data persisting.
      */
     private final ExecutorService ioExecutor;
+
+    /** Assignment change event listeners. */
+    private final CopyOnWriteArrayList<Consumer<TableManager>> assignmentsChangeListeners = new CopyOnWriteArrayList<>();
 
     /** Rebalance scheduler pool size. */
     private static final int REBALANCE_SCHEDULER_POOL_SIZE = Math.min(Utils.cpus() * 3, 20);
@@ -546,6 +551,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             busyLock.leaveBusy();
         }
 
+        for (var listener : assignmentsChangeListeners) {
+            listener.accept(this);
+        }
+
         return completedFuture(null);
     }
 
@@ -819,6 +828,28 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         } finally {
             busyLock.leaveBusy();
         }
+    }
+
+    /**
+     * Adds a listener to track changes in {@link #assignments(UUID)}.
+     *
+     * @param listener Listener.
+     */
+    public void addAssignmentsChangeListener(Consumer<TableManager> listener) {
+        Objects.requireNonNull(listener);
+
+        assignmentsChangeListeners.add(listener);
+    }
+
+    /**
+     * Removes assignments change listener.
+     *
+     * @param listener Listener.
+     */
+    public boolean removeAssignmentsChangeListener(Consumer<TableManager> listener) {
+        Objects.requireNonNull(listener);
+
+        return assignmentsChangeListeners.remove(listener);
     }
 
     /**
