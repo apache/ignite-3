@@ -134,7 +134,7 @@ public class ItThinClientConnectionTest extends ItAbstractThinClientTest {
                 SchemaBuilders.column(COLUMN_VAL, ColumnType.string()).asNullable(true).build()
         ).withPrimaryKey(COLUMN_KEY).build();
 
-        server().tables().createTable(schTbl.canonicalName(), tblCh ->
+        var newTable = server().tables().createTable(schTbl.canonicalName(), tblCh ->
                 SchemaConfigurationConverter.convert(schTbl, tblCh)
                         .changeReplicas(1)
                         .changePartitions(10)
@@ -150,6 +150,13 @@ public class ItThinClientConnectionTest extends ItAbstractThinClientTest {
 
         List<String> assignments2 = tblMgr.assignments(tbl.tableId());
         for (String assignment : assignments2) {
+            System.out.println(assignment);
+        }
+
+        System.out.println();
+
+        List<String> assignments3 = tblMgr.assignments(((TableImpl)newTable).tableId());
+        for (String assignment : assignments3) {
             System.out.println(assignment);
         }
     }
