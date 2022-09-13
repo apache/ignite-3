@@ -24,7 +24,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
@@ -70,6 +73,23 @@ public class ItThinClientConnectionTest extends ItAbstractThinClientTest {
                 assertEquals(1, nodes.size());
                 assertThat(nodes.get(0).name(), startsWith("itcct_n_"));
             }
+        }
+    }
+
+    /**
+     * TODO: Temporary test for IGNITE-17395.
+     */
+    @Test
+    void testAssignments() throws NodeStoppingException {
+        TableManager tblMgr = (TableManager) server().tables();
+        TableImpl tbl = (TableImpl) tblMgr.tables().get(0);
+
+        List<String> assignments = tblMgr.assignments(tbl.tableId());
+
+        System.out.println(assignments.size());
+
+        for (String assignment : assignments) {
+            System.out.println(assignment);
         }
     }
 }

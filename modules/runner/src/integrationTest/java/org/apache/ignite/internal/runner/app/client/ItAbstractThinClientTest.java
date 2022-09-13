@@ -170,6 +170,10 @@ public abstract class ItAbstractThinClientTest extends IgniteAbstractTest {
         return client;
     }
 
+    protected Ignite server() {
+        return startedNodes.get(0);
+    }
+
     /**
      * Test class.
      */
