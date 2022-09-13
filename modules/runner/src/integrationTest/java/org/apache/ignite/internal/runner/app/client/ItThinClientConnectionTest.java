@@ -116,7 +116,7 @@ public class ItThinClientConnectionTest extends ItAbstractThinClientTest {
         System.out.println("partition = " + partition + " partitionManual = " + partitionManual + ", leader = " + leaderNodeId);
 
         // Subscribe to assignment update.
-        tblMgr.addAssignmentsChangeListener(mgr -> System.out.println("Assignment changed"));
+        tblMgr.addAssignmentsChangeListener(mgr -> System.out.println(">>>>> Assignment changed"));
 
         // Start new node.
         var cfg =  "{\n"
@@ -148,6 +148,7 @@ public class ItThinClientConnectionTest extends ItAbstractThinClientTest {
 
         System.out.println();
 
+        // Old table does not change assignments. New node is not affected.
         List<String> assignments2 = tblMgr.assignments(tbl.tableId());
         for (String assignment : assignments2) {
             System.out.println(assignment);
@@ -155,7 +156,19 @@ public class ItThinClientConnectionTest extends ItAbstractThinClientTest {
 
         System.out.println();
 
-        List<String> assignments3 = tblMgr.assignments(((TableImpl)newTable).tableId());
+        // New table gets assigned to all nodes.
+        List<String> newTableAssignments = tblMgr.assignments(((TableImpl)newTable).tableId());
+        for (String assignment : newTableAssignments) {
+            System.out.println(assignment);
+        }
+
+        // Alter old table
+        System.out.println(">>>>> ALTER OLD TABLE " + tbl.name());
+        tblMgr.alterTable(tbl.name(), ch -> ch.changeReplicas(3));
+
+        Thread.sleep(1000);
+
+        List<String> assignments3 = tblMgr.assignments(tbl.tableId());
         for (String assignment : assignments3) {
             System.out.println(assignment);
         }
