@@ -51,8 +51,7 @@ public:
      * @param endpoint Endpoints list.
      */
     IgniteClientConfiguration(std::initializer_list<std::string> endpoints) :
-        m_endpoints(endpoints),
-        m_logger() { }
+        m_endpoints(endpoints) { }
 
     /**
      * Get endpoints.
@@ -78,6 +77,8 @@ public:
      * - my-host.com - Default port is used, see DEFAULT_PORT;
      * - my-host.com:780 - Custom port;
      * - my-host.com:780..787 - Custom port range.
+     *
+     * Default is "localhost"
      *
      * @param endpoints Endpoints.
      */
@@ -109,12 +110,46 @@ public:
         m_logger = std::move(logger);
     }
 
+    /**
+     * Get connection limit.
+     *
+     * By default, C++ client establishes a connection to every server node listed in @c endPoints. Use
+     * this setting to limit the number of active connections. This reduces initial connection time and the
+     * resource usage, but can have a negative effect on cache operation performance.
+     *
+     * Zero value means that number of active connections is not limited.
+     *
+     * The default value is zero.
+     *
+     * @return Active connection limit.
+     */
+    [[nodiscard]]
+    uint32_t getConnectionLimit() const
+    {
+        return m_connectionsLimit;
+    }
+
+    /**
+     * Set connection limit.
+     *
+     * @see GetConnectionsLimit for details.
+     *
+     * @param connectionsLimit Connections limit to set.
+     */
+    void setConnectionLimit(uint32_t limit)
+    {
+        m_connectionsLimit = limit;
+    }
+
 private:
     /** Endpoints. */
-    std::vector<std::string> m_endpoints;
+    std::vector<std::string> m_endpoints{"localhost"};
 
     /** Logger. */
-    std::shared_ptr<IgniteLogger> m_logger;
+    std::shared_ptr<IgniteLogger> m_logger{};
+
+    /** Active connections limit. */
+    uint32_t m_connectionsLimit{0};
 };
 
 } // namespace ignite

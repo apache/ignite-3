@@ -67,8 +67,7 @@ std::future<void> ClusterConnection::start()
 
     m_pool->setHandler(shared_from_this());
 
-    // TODO: Implement connection limit.
-    m_pool->start(addrs, 0);
+    m_pool->start(addrs, m_configuration.getConnectionLimit());
 
     return m_initialConnect.get_future();
 }
@@ -221,6 +220,7 @@ void ClusterConnection::handshake(uint64_t id, ProtocolContext& context)
     try
     {
         bool res = m_pool->send(id, dataBuffer);
+        // TODO: handle res
         m_logger->logDebug("Handshake sent successfully");
     }
     catch (const IgniteError& err)
