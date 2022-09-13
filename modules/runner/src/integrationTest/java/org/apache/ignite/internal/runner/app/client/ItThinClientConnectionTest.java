@@ -84,12 +84,25 @@ public class ItThinClientConnectionTest extends ItAbstractThinClientTest {
         TableManager tblMgr = (TableManager) server().tables();
         TableImpl tbl = (TableImpl) tblMgr.tables().get(0);
 
-        List<String> assignments = tblMgr.assignments(tbl.tableId());
+        // We have node info on the client.
+        for (var node : server().clusterNodes()) {
+            System.out.println(node.name() + " - " + node.id() + " " + node.address());
+        }
 
+        System.out.println();
+
+        // We will pass assignments (partition -> nodeId array).
+        List<String> assignments = tblMgr.assignments(tbl.tableId());
         System.out.println(assignments.size());
 
         for (String assignment : assignments) {
             System.out.println(assignment);
         }
+
+        // TBD: Calculate partition per key.
+        int partition = tbl.partition(Tuple.create().set("ID", 1));
+        String leaderNodeId = assignments.get(partition);
+
+        System.out.println("partition = " + partition + ", leader = " + leaderNodeId);
     }
 }
