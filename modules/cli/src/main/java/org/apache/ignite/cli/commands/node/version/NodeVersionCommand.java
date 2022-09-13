@@ -18,32 +18,25 @@
 package org.apache.ignite.cli.commands.node.version;
 
 import jakarta.inject.Inject;
+import java.util.concurrent.Callable;
 import org.apache.ignite.cli.call.node.version.NodeVersionCall;
 import org.apache.ignite.cli.commands.BaseCommand;
 import org.apache.ignite.cli.commands.node.NodeUrlProfileMixin;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.cli.core.call.StringCallInput;
-import picocli.CommandLine;
+import picocli.CommandLine.Command;
+import picocli.CommandLine.Mixin;
 
-import java.util.concurrent.Callable;
-
-/**
- * Display the node build version.
- */
-@CommandLine.Command(name = "version", description = "Prints the node build version")
+/** Display the node build version. */
+@Command(name = "version", description = "Prints the node build version")
 public class NodeVersionCommand extends BaseCommand implements Callable<Integer> {
-    /**
-     * Node URL option.
-     */
-    @CommandLine.Mixin
+    @Mixin
     private NodeUrlProfileMixin nodeUrl;
 
     @Inject
     private NodeVersionCall nodeVersionCall;
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public Integer call() {
         return CallExecutionPipeline.builder(nodeVersionCall)

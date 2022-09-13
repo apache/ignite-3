@@ -17,28 +17,23 @@
 
 package org.apache.ignite.cli.commands.node.version;
 
+import static org.apache.ignite.cli.core.style.component.CommonMessages.CONNECT_OR_USE_NODE_URL_MESSAGE;
+
 import jakarta.inject.Inject;
+import java.util.concurrent.Callable;
 import org.apache.ignite.cli.call.node.version.NodeVersionCall;
 import org.apache.ignite.cli.commands.BaseCommand;
 import org.apache.ignite.cli.commands.node.NodeUrlMixin;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.cli.core.call.StringCallInput;
 import org.apache.ignite.cli.core.repl.Session;
-import picocli.CommandLine;
+import picocli.CommandLine.Command;
+import picocli.CommandLine.Mixin;
 
-import java.util.concurrent.Callable;
-
-import static org.apache.ignite.cli.core.style.component.CommonMessages.CONNECT_OR_USE_NODE_URL_MESSAGE;
-
-/**
- * Display the node version in REPL.
- */
-@CommandLine.Command(name = "version", description = "Prints the node build version")
+/** Display the node version in REPL. */
+@Command(name = "version", description = "Prints the node build version")
 public class NodeVersionReplCommand extends BaseCommand implements Callable<Integer> {
-    /**
-     * Node URL option.
-     */
-    @CommandLine.Mixin
+    @Mixin
     private NodeUrlMixin nodeUrl;
 
     @Inject
@@ -47,9 +42,7 @@ public class NodeVersionReplCommand extends BaseCommand implements Callable<Inte
     @Inject
     private Session session;
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public Integer call() {
         String inputUrl;
