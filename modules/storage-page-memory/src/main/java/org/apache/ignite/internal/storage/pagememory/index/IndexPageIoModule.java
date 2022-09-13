@@ -47,6 +47,7 @@ public class IndexPageIoModule implements PageIoModule {
                 HashIndexTreeMetaIo.VERSIONS,
                 HashIndexTreeInnerIo.VERSIONS,
                 HashIndexTreeLeafIo.VERSIONS
+                // Sorted index IO.
         );
     }
 }
