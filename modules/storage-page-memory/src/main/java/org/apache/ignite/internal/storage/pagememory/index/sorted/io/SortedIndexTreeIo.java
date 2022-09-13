@@ -31,18 +31,17 @@ import org.apache.ignite.internal.pagememory.util.PageUtils;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.ReadIndexColumnsValue;
-import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMeta;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.SortedIndexRow;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.SortedIndexRowKey;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
- * Interface for {@link IndexMeta} B+Tree-related IO.
+ * Interface for {@link SortedIndexRow} B+Tree-related IO.
  *
  * <p>Defines a following data layout:
  * <ul>
- *     <li>Index ID - {@link UUID} (16 bytes);</li>
- *     <li>Index root page ID - long (8 bytes).</li>
+ *     <li>Index columns link - long (6 bytes);</li>
+ *     <li>Row ID - {@link UUID} (16 bytes).</li>
  * </ul>
  */
 public interface SortedIndexTreeIo {
@@ -120,6 +119,7 @@ public interface SortedIndexTreeIo {
 
         ByteBuffer indexColumnsBuffer = ByteBuffer.wrap(indexColumnsTraversal.result());
 
+        // TODO: IGNITE-17672 Compare by BinaryTuple
         int cmp = indexColumnsBuffer.compareTo(sortedIndexRow.indexColumns().valueBuffer());
 
         if (cmp != 0) {
