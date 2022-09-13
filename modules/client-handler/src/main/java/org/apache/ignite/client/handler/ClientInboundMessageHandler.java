@@ -329,6 +329,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
 
             out.packInt(ServerMessageType.RESPONSE);
             out.packLong(requestId);
+
+            // TODO: Include flags here.
             out.packNil(); // No error.
 
             var fut = processOperation(in, out, opCode);
