@@ -23,6 +23,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
+
+import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
@@ -100,7 +102,7 @@ public class ItThinClientConnectionTest extends ItAbstractThinClientTest {
             System.out.println(assignment);
         }
 
-        // TBD: Calculate partition per key.
+        // Calculate partition per key.
         int colocationHash = HashUtils.hash32(1, 0);
         int partitionManual = colocationHash % assignments.size();
 
@@ -108,5 +110,18 @@ public class ItThinClientConnectionTest extends ItAbstractThinClientTest {
         String leaderNodeId = assignments.get(partition);
 
         System.out.println("partition = " + partition + " partitionManual = " + partitionManual + ", leader = " + leaderNodeId);
+
+        // Subscribe to assignment update.
+        tblMgr.addAssignmentsChangeListener(mgr -> System.out.println("Assignment changed"));
+
+        // Start new node.
+        var cfg =  "{\n"
+                + "  network.port: 3346,\n"
+                + "  network.nodeFinder.netClusterNodes: [ \"localhost:3344\", \"localhost:3345\" , \"localhost:3346\" ]\n"
+                + "  clientConnector.sendServerExceptionStackTraceToClient: true\n"
+                + "}";
+
+        String nodeName = "new-node";
+        IgnitionManager.start(nodeName, cfg, workDir.resolve(nodeName));
     }
 }
