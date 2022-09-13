@@ -100,7 +100,7 @@ namespace Apache.Ignite.Internal.Generators
 
             sb.AppendLine(
                 @"
-            _ => throw new Exception(""Unknown error group code: "" + groupCode)
+            _ => UnknownGroupName
         };");
 
             // Groups.

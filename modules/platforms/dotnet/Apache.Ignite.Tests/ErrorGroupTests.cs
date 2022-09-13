@@ -171,6 +171,14 @@ namespace Apache.Ignite.Tests
             Assert.AreEqual("TX", ErrorGroups.GetGroupName(7));
         }
 
+        [Test]
+        public void TestGetGroupNameForUnknownGroupCode()
+        {
+            // Newer servers may return unknown to us error codes.
+            Assert.AreEqual("UNKNOWN", ErrorGroups.GetGroupName(-1));
+            Assert.AreEqual(ErrorGroups.UnknownGroupName, ErrorGroups.GetGroupName(9999));
+        }
+
         private static IEnumerable<(int Code, string Name)> GetErrorGroups() => typeof(ErrorGroups).GetNestedTypes()
                 .Select(x => ((int) x.GetField("GroupCode")!.GetValue(null)!, x.Name));
 

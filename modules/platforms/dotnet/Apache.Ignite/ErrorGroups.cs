@@ -39,6 +39,11 @@ namespace Apache.Ignite
         public const string ErrPrefix = "IGN-";
 
         /// <summary>
+        /// Unknown error group name.
+        /// </summary>
+        public const string UnknownGroupName = "UNKNOWN";
+
+        /// <summary>
         /// Gets error code extracted from the given full error code.
         /// </summary>
         /// <param name="fullCode">Full error code.</param>
