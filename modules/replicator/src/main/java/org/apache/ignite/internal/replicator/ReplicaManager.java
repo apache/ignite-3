@@ -88,48 +88,46 @@ public class ReplicaManager implements IgniteComponent {
         this.clusterNetSvc = clusterNetSvc;
         this.clock = clock;
         this.handler = (message, senderAddr, correlationId) -> {
-            @Override
-            public void onReceived(NetworkMessage message, NetworkAddress senderAddr, @Nullable Long correlationId) {
-                if (!busyLock.enterBusy()) {
-                    throw new IgniteException(new NodeStoppingException());
+            if (!busyLock.enterBusy()) {
+                throw new IgniteException(new NodeStoppingException());
+            }
+
+            try {
+                assert message instanceof ReplicaRequest : "Unexpected message [message=" + message + ']';
+
+                ReplicaRequest request = (ReplicaRequest) message;
+
+                HybridTimestamp requestTimestamp = extractTimestamp(request);
+
+                Replica replica = replicas.get(request.groupId());
+
+                if (replica == null) {
+                    sendReplicaUnavailableErrorResponse(senderAddr, correlationId, request, requestTimestamp);
+
+                    return;
                 }
 
-                try {
-                    assert message instanceof ReplicaRequest : "Unexpected message [message=" + message + ']';
+                CompletableFuture<Object> result = replica.processRequest(request);
 
-                    ReplicaRequest request = (ReplicaRequest) message;
+                result.handle((res, ex) -> {
+                    NetworkMessage msg;
 
-                    HybridTimestamp requestTimestamp = extractTimestamp(request);
+                    if (ex == null) {
+                        msg = prepareReplicaResponse(requestTimestamp, res);
+                    } else {
+                        LOG.warn("Failed to process replica request [request={}]", ex, request);
 
-                    Replica replica = replicas.get(request.groupId());
-
-                    if (replica == null) {
-                        sendReplicaUnavailableErrorResponse(senderAddr, correlationId, request, requestTimestamp);
-
-                        return;
+                        msg = prepareReplicaErrorResponse(requestTimestamp, ex);
                     }
 
-                    CompletableFuture<Object> result = replica.processRequest(request);
+                    clusterNetSvc.messagingService().respond(senderAddr, msg, correlationId);
 
-                    result.handle((res, ex) -> {
-                        NetworkMessage msg;
-
-                        if (ex == null) {
-                            msg = prepareReplicaResponse(requestTimestamp, res);
-                        } else {
-                            LOG.warn("Failed to process replica request [request={}]", ex, request);
-
-                            msg = prepareReplicaErrorResponse(requestTimestamp, ex);
-                        }
-
-                        clusterNetSvc.messagingService().respond(senderAddr, msg, correlationId);
-
-                        return null;
-                    });
-                } finally {
-                    busyLock.leaveBusy();
-                }
+                    return null;
+                });
+            } finally {
+                busyLock.leaveBusy();
             }
+        };
         this.registeredMessageGroups = new ConcurrentHashSet<>();
     }
 
@@ -236,6 +234,7 @@ public class ReplicaManager implements IgniteComponent {
     /** {@inheritDoc} */
     @Override
     public void start() {
+        // No-op.
         clusterNetSvc.messagingService().addMessageHandler(ReplicaMessageGroup.class, handler);
     }
 
