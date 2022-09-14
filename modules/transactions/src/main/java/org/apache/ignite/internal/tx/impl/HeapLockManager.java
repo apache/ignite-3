@@ -18,6 +18,9 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.DOWNGRADE_LOCK_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.RELEASE_LOCK_ERR;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -148,14 +151,10 @@ public class HeapLockManager implements LockManager {
      * A lock state.
      */
     private static class LockState {
-        /**
-         * Waiters.
-         */
-        private TreeMap<UUID, WaiterImpl> waiters = new TreeMap<>();
+        /** Waiters. */
+        private final TreeMap<UUID, WaiterImpl> waiters = new TreeMap<>();
 
-        /**
-         * Marked for removal flag.
-         */
+        /** Marked for removal flag. */
         private boolean markedForRemove = false;
 
         /**
@@ -207,7 +206,11 @@ public class HeapLockManager implements LockManager {
                         waiters.put(txId, prev); // Restore old lock.
                     }
 
-                    return new IgniteBiTuple(failedFuture(new LockException(nextEntry.getValue())), lockMode);
+                    return new IgniteBiTuple(
+                            failedFuture(new LockException(
+                                    ACQUIRE_LOCK_ERR,
+                                    "Failed to acquire a lock due to a conflict [txId=" + txId + ", waiter=" + nextEntry.getValue() + ']')),
+                            lockMode);
                 }
 
                 // Lock if oldest.
@@ -251,7 +254,6 @@ public class HeapLockManager implements LockManager {
             WaiterImpl removed;
 
             synchronized (waiters) {
-
                 removed = waiters.remove(txId);
 
                 markedForRemove = waiters.isEmpty();
@@ -306,7 +308,10 @@ public class HeapLockManager implements LockManager {
             }
 
             for (WaiterImpl waiter : toFail) {
-                waiter.fut.completeExceptionally(new LockException(removed));
+                waiter.fut.completeExceptionally(
+                        new LockException(
+                                RELEASE_LOCK_ERR,
+                                "Failed to release a lock due to a conflict [txId=" + txId + ", waiter=" + removed + ']'));
             }
 
             return false;
@@ -331,8 +336,7 @@ public class HeapLockManager implements LockManager {
                             || prev.lockMode.compareTo(lockMode) < 0) {
                         waiters.put(lock.txId(), prev);
 
-                        throw new LockException("Cannot change lock mode from "
-                                + prev.lockMode + " to " + lockMode);
+                        throw new LockException(DOWNGRADE_LOCK_ERR, "Cannot change lock mode from " + prev.lockMode + " to " + lockMode);
                     }
 
                     for (Map.Entry<UUID, WaiterImpl> entry : waiters.entrySet()) {
@@ -341,8 +345,9 @@ public class HeapLockManager implements LockManager {
                         if (!lockMode.isCompatible(tmp.lockMode)) {
                             waiters.put(lock.txId(), waiter);
 
-                            throw new LockException("Cannot change lock mode from "
-                                    + prev.lockMode + " to " + lockMode);
+                            throw new LockException(
+                                    DOWNGRADE_LOCK_ERR,
+                                    "Cannot change lock mode from " + prev.lockMode + " to " + lockMode);
                         }
                     }
 

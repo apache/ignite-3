@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.replicator.message;
 
-import java.util.UUID;
+import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
@@ -27,37 +27,10 @@ import org.apache.ignite.network.annotations.Transferable;
 @Transferable(ReplicaMessageGroup.ERROR_REPLICA_RESPONSE)
 public interface ErrorReplicaResponse extends ReplicaResponse {
     /**
-     * Gets an error code. All code are available in {@link org.apache.ignite.lang.ErrorGroups.Replicator}
+     * Returns a {@link Throwable} that was thrown during handling a replica request on replica node.
      *
-     * @return Error code.
+     * @return {@link Throwable} that was thrown during handling a replica request on replica node.
      */
-    int errorCode();
-
-    /**
-     * Gets an exception name.
-     *
-     * @return Fully qualified error name.
-     */
-    String errorClassName();
-
-    /**
-     * Gets an error text message.
-     *
-     * @return Message.
-     */
-    String errorMessage();
-
-    /**
-     * Get a trace id by that determines a trace in the remote node.
-     *
-     * @return Trace id.
-     */
-    UUID errorTraceId();
-
-    /**
-     * If the passing stack trace is switched on, the method returns a stack, otherwise the method returns a {@nill}.
-     *
-     * @return Stack trace as a string or {@code null}.
-     */
-    String errorStackTrace();
+    @Marshallable
+    Throwable throwable();
 }

@@ -17,10 +17,12 @@
 
 package org.apache.ignite.internal.replicator;
 
+import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
+import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_COMMON_ERR;
+
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
 import org.apache.ignite.hlc.HybridClock;
-import org.apache.ignite.internal.replicator.exception.ExceptionUtils;
 import org.apache.ignite.internal.replicator.exception.ReplicaUnavailableException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
@@ -28,7 +30,6 @@ import org.apache.ignite.internal.replicator.message.ErrorReplicaResponse;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaResponse;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
-import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.MessagingService;
@@ -81,6 +82,7 @@ public class ReplicaService {
      * @param req  Replica request.
      * @return Response future.
      * @throws NodeStoppingException Is thrown when the node is stopping.
+     * @throws ReplicaUnavailableException If replica node does not exists or not started yet.
      */
     private <R> CompletableFuture<R> sendToReplica(ClusterNode node, ReplicaRequest req) throws NodeStoppingException {
         if (localNode.equals(node)) {
@@ -93,16 +95,21 @@ public class ReplicaService {
             return (CompletableFuture<R>) replica.processRequest(req);
         }
 
-        return messagingService.invoke(node.address(), req, RPC_TIMEOUT).handle((response, throwable) -> {
+        CompletableFuture<R> res = new CompletableFuture<>();
+
+        messagingService.invoke(node.address(), req, RPC_TIMEOUT).whenComplete((response, throwable) -> {
             if (throwable != null) {
                 if (throwable instanceof TimeoutException) {
-                    throw new ReplicationTimeoutException(req.groupId());
+                    res.completeExceptionally(new ReplicationTimeoutException(req.groupId()));
                 }
 
-                throw new ReplicationException(req.groupId(), throwable);
+                res.completeExceptionally(withCause(
+                        ReplicationException::new,
+                        REPLICA_COMMON_ERR,
+                        "Failed to process replica request [replicaGroupId=" + req.groupId() + ']',
+                        throwable));
             } else {
-                assert response instanceof ReplicaResponse : IgniteStringFormatter.format("Unexpected message response [resp={}]",
-                        response);
+                assert response instanceof ReplicaResponse : "Unexpected message response [resp=" + response + ']';
 
                 if (response instanceof TimestampAware) {
                     clock.update(((TimestampAware) response).timestamp());
@@ -110,44 +117,40 @@ public class ReplicaService {
 
                 if (response instanceof ErrorReplicaResponse) {
                     var errResp = (ErrorReplicaResponse) response;
-
-                    throw ExceptionUtils
-                            .error(errResp.errorTraceId(), errResp.errorCode(), errResp.errorClassName(), errResp.errorMessage(),
-                                    errResp.errorStackTrace());
+                    res.completeExceptionally(errResp.throwable());
                 } else {
-                    return (R) ((ReplicaResponse) response).result();
+                    res.complete((R) ((ReplicaResponse) response).result());
                 }
-
             }
         });
+
+        return res;
     }
 
     /**
-     * Passes a request to replication. The result future is completed with instant response. The completion means the requested node
-     * received the request, but the full process of replication might not complete yet.
+     * Sends a request to the given replica {@code node} and returns a future that will be completed with a result of request processing.
      *
      * @param node    Replica node.
      * @param request Request.
-     * @return A future holding the response.
-     * @throws NodeStoppingException Is thrown when the node is stopping.
+     * @return A future holding the response or error if handling of the request resulted in an error.
+     * @throws NodeStoppingException If node is stopping.
+     * @throws ReplicaUnavailableException If replica node does not exists or not started yet.
      */
     public <R> CompletableFuture<R> invoke(ClusterNode node, ReplicaRequest request) throws NodeStoppingException {
         return sendToReplica(node, request);
     }
 
     /**
-     * Passes a request to replication. The result future is completed with instant response. The completion means the requested node
-     * received the request, but the full process of replication might not complete yet.
+     * Sends a request to the given replica {@code node} and returns a future that will be completed with a result of request processing.
      *
      * @param node      Replica node.
      * @param request   Request.
      * @param storageId Storage id.
-     * @return A future holding the response.
-     * @throws NodeStoppingException Is thrown when the node is stopping.
+     * @return A future holding the response or error if handling of the request resulted in an error.
+     * @throws NodeStoppingException If node is stopping.
+     * @throws ReplicaUnavailableException If replica node does not exists or not started yet.
      */
-    public <R> CompletableFuture<R> invoke(ClusterNode node, ReplicaRequest request, String storageId)
-            throws NodeStoppingException {
+    public <R> CompletableFuture<R> invoke(ClusterNode node, ReplicaRequest request, String storageId) throws NodeStoppingException {
         return sendToReplica(node, request);
-
     }
 }
