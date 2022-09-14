@@ -102,6 +102,7 @@ Apache Ignite 3 also provides implicit transaction managemet for dealing with si
 
 - The transaction is started and substituted to the closure.
 - The transaction is committed if no exceptions were thrown during the closure.
+- The transaction will be retried in case of recoverable error. Closure must be purely functional - not causing side effects.
 
 Here is the example of a transaction that transfers money from one account to another, and handles a possible overdraft:
 
