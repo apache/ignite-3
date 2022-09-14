@@ -20,25 +20,23 @@ package org.apache.ignite.internal.metrics.exporters;
 import java.util.Map;
 import org.apache.ignite.internal.metrics.MetricProvider;
 import org.apache.ignite.internal.metrics.MetricSet;
+import org.apache.ignite.internal.metrics.exporters.configuration.ExporterConfiguration;
 import org.apache.ignite.lang.IgniteBiTuple;
 
 /**
  * Base class for new metrics exporters implementations.
  */
-public abstract class BasicMetricExporter implements MetricExporter {
+public abstract class BasicMetricExporter<CfgT extends ExporterConfiguration> implements MetricExporter<CfgT> {
     /** Metrics provider. */
     private MetricProvider metricsProvider;
 
-    /** {@inheritDoc} */
-    @Override
-    public final void init(MetricProvider metricProvider) {
-        this.metricsProvider = metricProvider;
-    }
+    protected CfgT configuration;
 
     /** {@inheritDoc} */
     @Override
-    public final String name() {
-        return getClass().getCanonicalName();
+    public void init(MetricProvider metricsProvider, CfgT configuration) {
+        this.metricsProvider = metricsProvider;
+        this.configuration = configuration;
     }
 
     /**

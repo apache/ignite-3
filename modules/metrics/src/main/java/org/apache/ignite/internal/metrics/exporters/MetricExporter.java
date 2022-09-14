@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.metrics.exporters;
 
 import org.apache.ignite.internal.metrics.MetricProvider;
+import org.apache.ignite.internal.metrics.exporters.configuration.ExporterConfiguration;
 
 /**
  * Interface for metric exporters to external recipients.
@@ -29,13 +30,14 @@ import org.apache.ignite.internal.metrics.MetricProvider;
  * <p>Pull exporters is the endpoint by itself (HTTP, JMX and etc.), which response with the metric data for request.
  * Pull exporters should extend {@link BasicMetricExporter}.
  */
-public interface MetricExporter {
+public interface MetricExporter<CfgT extends ExporterConfiguration> {
     /**
      * Initialize metric exporter with the provider of available metrics.
      *
      * @param metricProvider Metrics provider
+     * @param configuration CfgT
      */
-    void init(MetricProvider metricProvider);
+    void init(MetricProvider metricProvider, CfgT configuration);
 
     /**
      * Start metrics exporter. Here all needed listeners, schedulers etc. should be started.
@@ -48,7 +50,7 @@ public interface MetricExporter {
     void stop();
 
     /**
-     * Returns the name of exporter. Name must be unique.
+     * Returns the name of exporter. Name must be unique and be the same for exporter and its {@link ExporterConfiguration}.
      *
      * @return Name of the exporter.
      */

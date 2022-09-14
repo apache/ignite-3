@@ -23,16 +23,36 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.ByteArrayOutputStream;
 import java.io.OutputStream;
 import java.util.concurrent.locks.LockSupport;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Integration test for metrics' exporters loading.
  */
+@ExtendWith({ConfigurationExtension.class})
 public class MetricExportersLoadingTest {
+
+    @InjectConfiguration(
+            value = "mock.exporters = {"
+                    + "testPull = {exporterName = testPull},"
+                    + "testPush = {exporterName = testPush, period = 100},\n"
+                    + "}",
+            polymorphicExtensions = {
+                    TestPushMetricsExporterConfigurationSchema.class,
+                    TestPullMetricsExporterConfigurationSchema.class
+            }
+    )
+    private MetricConfiguration metricConfiguration;
+
     @Test
     public void test() throws Exception {
         MetricManager metricManager = new MetricManager();
+
+        metricManager.configure(metricConfiguration);
 
         TestMetricsSource src = new TestMetricsSource("TestMetricsSource");
 
