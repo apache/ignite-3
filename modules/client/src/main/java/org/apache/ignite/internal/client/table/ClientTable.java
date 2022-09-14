@@ -59,9 +59,11 @@ public class ClientTable implements Table {
 
     private final ConcurrentHashMap<Integer, ClientSchema> schemas = new ConcurrentHashMap<>();
 
+    private final Object latestSchemaLock = new Object();
+
     private volatile int latestSchemaVer = -1;
 
-    private final Object latestSchemaLock = new Object();
+    private volatile List<String> partitionAssignment = null;
 
     /**
      * Constructor.
@@ -351,25 +353,30 @@ public class ClientTable implements Table {
         return resFut;
     }
 
-    private CompletableFuture<List<String>> loadPartitionAssignment(Integer ver) {
-        return ch.serviceAsync(ClientOp.PARTITION_ASSIGNMENT_GET, w -> {
-            w.out().packUuid(id);
+    CompletableFuture<List<String>> getPartitionAssignment() {
+        var cached = partitionAssignment;
 
-            if (ver == null) {
-                w.out().packNil();
-            } else {
-                w.out().packArrayHeader(1);
-                w.out().packInt(ver);
-            }
-        }, r -> {
-            int cnt = r.in().unpackArrayHeader();
-            List<String> res = new ArrayList<>(cnt);
+        if (cached != null) {
+            return CompletableFuture.completedFuture(cached);
+        }
 
-            for (int i = 0; i < cnt; i++) {
-                res.add(r.in().unpackString());
-            }
+        return loadPartitionAssignment();
+    }
 
-            return res;
-        });
+    private CompletableFuture<List<String>> loadPartitionAssignment() {
+        return ch.serviceAsync(ClientOp.PARTITION_ASSIGNMENT_GET,
+                w -> w.out().packUuid(id),
+                r -> {
+                    int cnt = r.in().unpackArrayHeader();
+                    List<String> res = new ArrayList<>(cnt);
+
+                    for (int i = 0; i < cnt; i++) {
+                        res.add(r.in().unpackString());
+                    }
+
+                    partitionAssignment = res;
+
+                    return res;
+                });
     }
 }

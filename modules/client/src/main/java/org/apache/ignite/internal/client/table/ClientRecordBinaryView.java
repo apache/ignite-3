@@ -69,24 +69,22 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
     public @NotNull CompletableFuture<Tuple> getAsync(@Nullable Transaction tx, @NotNull Tuple keyRec) {
         Objects.requireNonNull(keyRec);
 
-        // TODO: Partition awareness
-        // 1. Get assignment from parent table.
-        List<String> partitionAssignment = tbl.partitionAssignment(); // TODO: Async etc
-        // 2. Calculate hash
-        int key = 123;
-        int hash = HashUtils.hash32(key, 0);
+        return tbl.getPartitionAssignment().thenCompose(partitionAssignment -> {
+            // TODO: We need schema to get key columns!
+            int key = 123;
+            int hash = HashUtils.hash32(key, 0);
 
-        // 3. Get partition.
-        int partition = hash % partitionAssignment.size();
-        String leaderNodeId = partitionAssignment.get(partition);
+            int partition = hash % partitionAssignment.size();
+            String leaderNodeId = partitionAssignment.get(partition);
 
-        return tbl.doSchemaOutInOpAsync(
-                ClientOp.TUPLE_GET,
-                (s, w) -> ser.writeTuple(tx, keyRec, s, w, true),
-                (s, r) -> ClientTupleSerializer.readValueTuple(s, r, keyRec),
-                null,
-                null,
-                leaderNodeId);
+            return tbl.doSchemaOutInOpAsync(
+                    ClientOp.TUPLE_GET,
+                    (s, w) -> ser.writeTuple(tx, keyRec, s, w, true),
+                    (s, r) -> ClientTupleSerializer.readValueTuple(s, r, keyRec),
+                    null,
+                    null,
+                    leaderNodeId);
+        });
     }
 
     /** {@inheritDoc} */
