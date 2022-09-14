@@ -540,6 +540,9 @@ namespace Apache.Ignite.Internal
                 return;
             }
 
+            // Skip flags.
+            reader.ReadInt32();
+
             var exception = ReadError(ref reader);
 
             if (exception != null)
