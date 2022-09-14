@@ -84,6 +84,18 @@ public class ItThinClientConnectionTest extends ItAbstractThinClientTest {
         }
     }
 
+    @Test
+    void testPartitionAwareGet() {
+        RecordView<Tuple> recView = client().tables().table(String.format("%s.%s", SCHEMA_NAME, TABLE_NAME)).recordView();
+
+        var tuple = Tuple.create().set(COLUMN_KEY, 1).set(COLUMN_VAL, "Hello");
+
+        recView.upsert(null, tuple);
+        Tuple res = recView.get(null, tuple);
+
+        assertEquals("Hello", res.stringValue(COLUMN_VAL));
+    }
+
     /**
      * TODO: Temporary test for IGNITE-17395.
      */
