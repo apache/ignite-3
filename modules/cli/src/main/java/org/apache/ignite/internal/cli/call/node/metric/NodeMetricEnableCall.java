@@ -15,38 +15,39 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.call.cluster.topology;
+package org.apache.ignite.internal.cli.call.node.metric;
 
 import jakarta.inject.Singleton;
-import java.util.List;
 import org.apache.ignite.internal.cli.core.call.Call;
 import org.apache.ignite.internal.cli.core.call.CallOutput;
 import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
-import org.apache.ignite.internal.cli.core.call.UrlCallInput;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliApiException;
-import org.apache.ignite.rest.client.api.TopologyApi;
+import org.apache.ignite.rest.client.api.NodeMetricApi;
 import org.apache.ignite.rest.client.invoker.ApiException;
 import org.apache.ignite.rest.client.invoker.Configuration;
-import org.apache.ignite.rest.client.model.ClusterNode;
 
-/**
- * Shows logical cluster topology.
- */
+/** Enables or disables metric source. */
 @Singleton
-public class LogicalTopologyCall implements Call<UrlCallInput, List<ClusterNode>> {
-
+public class NodeMetricEnableCall implements Call<NodeMetricEnableCallInput, String> {
     /** {@inheritDoc} */
     @Override
-    public CallOutput<List<ClusterNode>> execute(UrlCallInput input) {
-        String clusterUrl = input.getUrl();
+    public CallOutput<String> execute(NodeMetricEnableCallInput input) {
+        NodeMetricApi api = createApiClient(input);
+
         try {
-            return DefaultCallOutput.success(fetchLogicalTopology(clusterUrl));
+            if (input.getEnable()) {
+                api.enableNodeMetric(input.getSrcName());
+            } else {
+                api.disableNodeMetric(input.getSrcName());
+            }
+            String message = input.getEnable() ? "enabled" : "disabled";
+            return DefaultCallOutput.success("Metric source was " + message + " successfully");
         } catch (ApiException | IllegalArgumentException e) {
-            return DefaultCallOutput.failure(new IgniteCliApiException(e, clusterUrl));
+            return DefaultCallOutput.failure(new IgniteCliApiException(e, input.getEndpointUrl()));
         }
     }
 
-    private List<ClusterNode> fetchLogicalTopology(String url) throws ApiException {
-        return new TopologyApi(Configuration.getDefaultApiClient().setBasePath(url)).logical();
+    private static NodeMetricApi createApiClient(NodeMetricEnableCallInput input) {
+        return new NodeMetricApi(Configuration.getDefaultApiClient().setBasePath(input.getEndpointUrl()));
     }
 }

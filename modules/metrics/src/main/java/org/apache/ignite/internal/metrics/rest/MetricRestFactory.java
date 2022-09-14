@@ -15,21 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.node;
+package org.apache.ignite.internal.metrics.rest;
 
-import org.apache.ignite.cli.commands.node.version.NodeVersionCommand;
-import org.apache.ignite.internal.cli.commands.node.config.NodeConfigCommand;
-import org.apache.ignite.internal.cli.commands.node.metric.NodeMetricCommand;
-import org.apache.ignite.internal.cli.commands.node.status.NodeStatusCommand;
-import org.apache.ignite.internal.cli.deprecated.spec.NodeCommandSpec;
-import picocli.CommandLine.Command;
-import picocli.CommandLine.Mixin;
+import io.micronaut.context.annotation.Bean;
+import io.micronaut.context.annotation.Factory;
+import jakarta.inject.Singleton;
+import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.rest.RestFactory;
 
-/** Node command. */
-@Command(name = "node",
-        subcommands = {NodeConfigCommand.class, NodeStatusCommand.class, NodeVersionCommand.class, NodeMetricCommand.class},
-        description = "Node operations")
-public class NodeCommand {
-    @Mixin
-    NodeCommandSpec nodeCommandSpec;
+/**
+ * Factory that creates beans that are needed for {@link NodeMetricController}.
+ */
+@Factory
+public class MetricRestFactory implements RestFactory {
+    private final MetricManager metricManager;
+
+    public MetricRestFactory(MetricManager metricManager) {
+        this.metricManager = metricManager;
+    }
+
+    @Bean
+    @Singleton
+    public MetricManager metricManager() {
+        return metricManager;
+    }
 }

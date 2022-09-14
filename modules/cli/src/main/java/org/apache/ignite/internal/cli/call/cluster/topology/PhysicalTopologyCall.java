@@ -21,6 +21,7 @@ import jakarta.inject.Singleton;
 import java.util.List;
 import org.apache.ignite.internal.cli.core.call.Call;
 import org.apache.ignite.internal.cli.core.call.CallOutput;
+import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
 import org.apache.ignite.internal.cli.core.call.UrlCallInput;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.rest.client.api.TopologyApi;
@@ -39,9 +40,9 @@ public class PhysicalTopologyCall implements Call<UrlCallInput, List<ClusterNode
     public CallOutput<List<ClusterNode>> execute(UrlCallInput input) {
         String clusterUrl = input.getUrl();
         try {
-            return TopologyCallOutput.success(fetchPhysicalTopology(clusterUrl));
+            return DefaultCallOutput.success(fetchPhysicalTopology(clusterUrl));
         } catch (ApiException | IllegalArgumentException e) {
-            return TopologyCallOutput.failure(new IgniteCliApiException(e, clusterUrl));
+            return DefaultCallOutput.failure(new IgniteCliApiException(e, clusterUrl));
         }
     }
 

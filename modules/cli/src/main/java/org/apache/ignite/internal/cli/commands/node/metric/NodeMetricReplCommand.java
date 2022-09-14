@@ -15,21 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.node;
+package org.apache.ignite.internal.cli.commands.node.metric;
 
-import org.apache.ignite.cli.commands.node.version.NodeVersionReplCommand;
-import org.apache.ignite.internal.cli.commands.node.config.NodeConfigReplCommand;
-import org.apache.ignite.internal.cli.commands.node.metric.NodeMetricReplCommand;
-import org.apache.ignite.internal.cli.commands.node.status.NodeStatusReplCommand;
-import org.apache.ignite.internal.cli.deprecated.spec.NodeCommandSpec;
+import org.apache.ignite.internal.cli.commands.BaseCommand;
 import picocli.CommandLine.Command;
-import picocli.CommandLine.Mixin;
 
-/** Node command in REPL mode. */
-@Command(name = "node",
-        subcommands = {NodeConfigReplCommand.class, NodeStatusReplCommand.class, NodeVersionReplCommand.class, NodeMetricReplCommand.class},
-        description = "Node operations")
-public class NodeReplCommand {
-    @Mixin
-    NodeCommandSpec nodeCommandSpec;
+/** Node metric command in REPL. */
+@Command(name = "metric",
+        subcommands = {NodeMetricEnableReplCommand.class, NodeMetricDisableReplCommand.class, NodeMetricListReplCommand.class},
+        description = "Node metric operations")
+public class NodeMetricReplCommand extends BaseCommand {
 }

@@ -20,8 +20,12 @@ apply from: "$rootDir/buildscripts/java-junit5.gradle"
 apply from: "$rootDir/buildscripts/java-integration-test.gradle"
 
 dependencies {
+    annotationProcessor libs.micronaut.inject.annotation.processor
+
     implementation project(':ignite-core')
+    implementation project(':ignite-rest-api')
     implementation libs.jetbrains.annotations
+    implementation libs.micronaut.http.core
 
     testImplementation libs.hamcrest.core
 }
