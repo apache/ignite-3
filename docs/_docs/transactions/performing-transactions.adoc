@@ -16,9 +16,9 @@
 
 This Alpha release introduces the key-value API that provides an interface for starting and completing transactions.
 
-== Executing Transactions
+=== Synchronous Transactions
 
-Use the `igniteTransactions` class to create a transaction object and the `commit` method to send it.
+Use the `igniteTransactions` class to create a transaction object, and the `commit` method to send it.
 
 [tabs]
 --
@@ -27,6 +27,42 @@ tab:Java[]
 ----
 Transaction tx = igniteTransactions.begin();
 tx.commit()
+----
+--
+
+You can also perform a rollback with the `rollback` command:
+
+[tabs]
+--
+tab:Java[]
+[source,java]
+----
+Transaction tx = igniteTransactions.begin();
+tx.rollback()
+----
+--
+
+
+Here is the example of a transaction that transfers money from one account to another, and handles a possible overdraft:
+
+--
+[source,java]
+----
+Transaction tx = igniteTransactions.begin();
+
+try {
+    Tuple row1 = accounts.get(tx, Tuple.create().set("accountId", 1));
+    if (row1.doubleValue("balance") - amount < 0) {
+        tx.rollback();
+        return false;
+    }
+    Tuple row2 = accounts.get(tx, Tuple.create().set("accountId", 2);
+    accounts.upsert(tx, Tuple.create().set("accountId", 1).set("balance", row1.doubleValue("balance") - amount));
+    accounts.upsert(tx, Tuple.create().set("accountId", 2).set("balance", row2.doubleValue("balance") + amount));
+    tx.commit();
+} catch (Throwable t) {
+    tx.rollback();
+}
 ----
 --
 
@@ -56,5 +92,35 @@ igniteTransactions.beginAsync()
         .thenApply(ignored -> tx)
         )
     ).thenCompose(Transaction::commitAsync).join();
+----
+--
+
+
+== Implicit Transaction Management
+
+Apache Ignite 3 also provides implicit transaction managemet for dealing with simpler transactions by using the `runInTransaction` class. When using it, the following will be done automatically:
+
+- The transaction is started and substituted to the closure.
+- The transaction is committed if no exceptions were thrown during the closure.
+- You can also configure closure retries.
+
+Here is the example of a transaction that transfers money from one account to another, and handles a possible overdraft:
+
+[tabs]
+--
+tab:Java[]
+[source,java]
+----
+igniteTransactions.runInTransaction(tx -> {
+    CompletableFuture<Tuple> fut1 = view.getAsync(tx, Tuple.create().set("accountId", 1));
+    CompletableFuture<Tuple> fut2 = view.getAsync(tx, Tuple.create().set("accountId", 2)); // Read second balance concurrently
+    if (fut1.join().doubleValue("balance") - amount < 0) {
+        tx.rollback();
+        return;
+    }
+
+    view.upsertAsync(tx, Tuple.create().set("accountId", 1).set("balance", fut1.join().doubleValue("balance") - amount));
+    view.upsertAsync(tx, Tuple.create().set("accountId", 2).set("balance", fut2.join().doubleValue("balance") + amount);
+});
 ----
 --
