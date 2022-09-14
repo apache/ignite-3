@@ -263,6 +263,24 @@ public class ClientTable implements Table {
                 .thenCompose(t -> loadSchemaAndReadData(t, reader));
     }
 
+    <T> CompletableFuture<T> doSchemaOutInOpAsync(
+            int opCode,
+            BiConsumer<ClientSchema, PayloadOutputChannel> writer,
+            BiFunction<ClientSchema, ClientMessageUnpacker, T> reader,
+            T defaultValue,
+            String preferredNodeName,
+            String preferredNodeId
+    ) {
+        return getLatestSchema()
+                .thenCompose(schema ->
+                        ch.serviceAsync(opCode,
+                                w -> writer.accept(schema, w),
+                                r -> readSchemaAndReadData(schema, r.in(), reader, defaultValue),
+                                preferredNodeName,
+                                preferredNodeId))
+                .thenCompose(t -> loadSchemaAndReadData(t, reader));
+    }
+
     /**
      * Performs a schema-based operation.
      *

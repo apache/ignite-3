@@ -83,7 +83,10 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET,
                 (s, w) -> ser.writeTuple(tx, keyRec, s, w, true),
-                (s, r) -> ClientTupleSerializer.readValueTuple(s, r, keyRec));
+                (s, r) -> ClientTupleSerializer.readValueTuple(s, r, keyRec),
+                null,
+                null,
+                leaderNodeId);
     }
 
     /** {@inheritDoc} */
