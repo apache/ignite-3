@@ -286,7 +286,7 @@ public class ClientTable implements Table {
 
                     String preferredNodeId = null;
 
-                    if (partitions != null && hashFunction != null) {
+                    if (partitions != null && partitions.size() > 0 && hashFunction != null) {
                         int hash = hashFunction.apply(schema);
                         preferredNodeId = partitions.get(hash % partitions.size());
                     }

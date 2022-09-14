@@ -164,7 +164,7 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
     /** {@inheritDoc} */
     @Override
     public List<String> assignments(UUID tableId) throws NodeStoppingException {
-        return null;
+        return new ArrayList<>();
     }
 
     /** {@inheritDoc} */
