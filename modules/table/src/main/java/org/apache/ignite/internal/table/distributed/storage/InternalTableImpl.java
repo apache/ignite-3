@@ -49,6 +49,7 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteScanRetrieveBatchReplicaRequest;
+import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteScanRetrieveBatchReplicaRequestBuilder;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
@@ -201,9 +202,9 @@ public class InternalTableImpl implements InternalTable {
 
         CompletableFuture<R> fut;
 
-        ReplicaRequest request = op.apply(tx0, partGroupId, primaryReplicaAndTerm == null ? null : primaryReplicaAndTerm.get2());
-
         if (primaryReplicaAndTerm != null) {
+            ReplicaRequest request = op.apply(tx0, partGroupId, primaryReplicaAndTerm.get2());
+
             try {
                 fut = replicaSvc.invoke(primaryReplicaAndTerm.get1(), request);
             } catch (PrimaryReplicaMissException e) {
@@ -260,9 +261,9 @@ public class InternalTableImpl implements InternalTable {
 
             CompletableFuture<Object> fut;
 
-            ReplicaRequest request = op.apply(partToRows.getValue(), tx0, partGroupId, primaryReplicaAndTerm.get2());
-
             if (primaryReplicaAndTerm != null) {
+                ReplicaRequest request = op.apply(partToRows.getValue(), tx0, partGroupId, primaryReplicaAndTerm.get2());
+
                 try {
                     fut = replicaSvc.invoke(primaryReplicaAndTerm.get1(), request);
                 } catch (PrimaryReplicaMissException e) {
@@ -312,15 +313,16 @@ public class InternalTableImpl implements InternalTable {
 
         CompletableFuture<Collection<BinaryRow>> fut;
 
-        ReadWriteScanRetrieveBatchReplicaRequest request = tableMessagesFactory.readWriteScanRetrieveBatchReplicaRequest()
+        ReadWriteScanRetrieveBatchReplicaRequestBuilder requestBuilder = tableMessagesFactory.readWriteScanRetrieveBatchReplicaRequest()
                 .groupId(partGroupId)
                 .transactionId(tx0.id())
                 .scanId(scanId)
                 .batchSize(batchSize)
-                .timestamp(clock.now())
-                .build();
+                .timestamp(clock.now());
 
         if (primaryReplicaAndTerm != null) {
+            ReadWriteScanRetrieveBatchReplicaRequest request = requestBuilder.term(primaryReplicaAndTerm.get2()).build();
+
             try {
                 fut = replicaSvc.invoke(primaryReplicaAndTerm.get1(), request);
             } catch (PrimaryReplicaMissException e) {
@@ -329,8 +331,7 @@ public class InternalTableImpl implements InternalTable {
                 throw new TransactionException("Failed to invoke the replica request.");
             }
         } else {
-            // TODO: sanpwc use term instead of ignored
-            fut = enlistWithRetry(tx0, partId, ignored -> request, ATTEMPTS_TO_ENLIST_PARTITION);
+            fut = enlistWithRetry(tx0, partId, term -> requestBuilder.term(term).build(), ATTEMPTS_TO_ENLIST_PARTITION);
         }
 
         return postEnlist(fut, implicit, tx0);
@@ -341,14 +342,14 @@ public class InternalTableImpl implements InternalTable {
      *
      * @param tx Internal transaction.
      * @param partId Partition number.
-     * @param request Replica request.
+     * @param requestFunction Function to create replica request with new raft term.
      * @param attempts Number of attempts.
      * @return The future.
      */
     private <R> CompletableFuture<R> enlistWithRetry(
             InternalTransaction tx,
             int partId,
-            Function<Long, ReplicaRequest> requestFunciton,
+            Function<Long, ReplicaRequest> requestFunction,
             int attempts
     ) {
         CompletableFuture<R> result = new CompletableFuture();
@@ -358,7 +359,7 @@ public class InternalTableImpl implements InternalTable {
                             try {
                                 return replicaSvc.invoke(
                                         primaryReplicaAndTerm.get1(),
-                                        requestFunciton.apply(primaryReplicaAndTerm.get2())
+                                        requestFunction.apply(primaryReplicaAndTerm.get2())
                                 );
                             } catch (PrimaryReplicaMissException e) {
                                 throw new TransactionException(e);
@@ -375,7 +376,7 @@ public class InternalTableImpl implements InternalTable {
                 .handle((res0, e) -> {
                     if (e != null) {
                         if (e.getCause() instanceof PrimaryReplicaMissException && attempts > 0) {
-                            return enlistWithRetry(tx, partId, requestFunciton, attempts - 1).handle((r2, e2) -> {
+                            return enlistWithRetry(tx, partId, requestFunction, attempts - 1).handle((r2, e2) -> {
                                 if (e2 != null) {
                                     return result.completeExceptionally(e2);
                                 } else {
