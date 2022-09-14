@@ -50,17 +50,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.EntryCountBudgetConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableIndexView;
 import org.apache.ignite.configuration.schemas.table.TableView;
-import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
-import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
-import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -69,8 +61,6 @@ import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.internal.schema.testutils.builder.SortedIndexDefinitionBuilder;
 import org.apache.ignite.internal.schema.testutils.builder.SortedIndexDefinitionBuilder.SortedIndexColumnBuilder;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapStorageEngine;
-import org.apache.ignite.internal.storage.chm.schema.TestConcurrentHashMapDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor.ColumnDescriptor;
 import org.apache.ignite.internal.storage.index.impl.BinaryTupleRowSerializer;
 import org.apache.ignite.internal.storage.index.impl.TestIndexRow;
@@ -83,16 +73,13 @@ import org.apache.ignite.schema.definition.index.ColumnarIndexDefinition;
 import org.apache.ignite.schema.definition.index.SortedIndexDefinition;
 import org.intellij.lang.annotations.MagicConstant;
 import org.jetbrains.annotations.Nullable;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 
 /**
  * Base class for Sorted Index storage tests.
  */
-@ExtendWith(ConfigurationExtension.class)
 public abstract class AbstractSortedIndexStorageTest {
     private static final IgniteLogger log = Loggers.forClass(AbstractSortedIndexStorageTest.class);
 
@@ -128,20 +115,7 @@ public abstract class AbstractSortedIndexStorageTest {
                 .collect(toUnmodifiableList());
     }
 
-    @BeforeEach
-    void setUp(@InjectConfiguration(
-            polymorphicExtensions = {
-                    SortedIndexConfigurationSchema.class,
-                    TestConcurrentHashMapDataStorageConfigurationSchema.class,
-                    ConstantValueDefaultConfigurationSchema.class,
-                    FunctionCallDefaultConfigurationSchema.class,
-                    NullValueDefaultConfigurationSchema.class,
-                    UnlimitedBudgetConfigurationSchema.class,
-                    EntryCountBudgetConfigurationSchema.class
-            },
-            // This value only required for configuration validity, it's not used otherwise.
-            value = "mock.dataStorage.name = " + TestConcurrentHashMapStorageEngine.ENGINE_NAME
-    ) TableConfiguration tableCfg) {
+    protected void initialize(TableConfiguration tableCfg) {
         createTestTable(tableCfg);
 
         this.tableCfg = tableCfg;

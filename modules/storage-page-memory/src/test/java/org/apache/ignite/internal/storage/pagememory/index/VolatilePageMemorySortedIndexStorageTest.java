@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.index;
+package org.apache.ignite.internal.storage.pagememory.index;
 
 import java.util.UUID;
 import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigurationSchema;
@@ -28,36 +28,73 @@ import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapStorageEngine;
-import org.apache.ignite.internal.storage.chm.schema.TestConcurrentHashMapDataStorageConfigurationSchema;
-import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
+import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
+import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.storage.index.AbstractSortedIndexStorageTest;
+import org.apache.ignite.internal.storage.index.SortedIndexStorage;
+import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEngine;
+import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryTableStorage;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryDataStorageConfigurationSchema;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
+import org.apache.ignite.internal.util.IgniteUtils;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
- * Class for testing the {@link TestSortedIndexStorage}.
+ * Sorted index test implementation for volatile page memory storage.
  */
 @ExtendWith(ConfigurationExtension.class)
-public class TestSortedIndexStorageTest extends AbstractSortedIndexStorageTest {
-    @BeforeEach
-    void setUp(@InjectConfiguration(
+public class VolatilePageMemorySortedIndexStorageTest extends AbstractSortedIndexStorageTest {
+    @InjectConfiguration(polymorphicExtensions = UnsafeMemoryAllocatorConfigurationSchema.class)
+    private VolatilePageMemoryStorageEngineConfiguration engineConfig;
+
+    @InjectConfiguration(
+            name = "table",
+            value = "mock.dataStorage.name = " + VolatilePageMemoryStorageEngine.ENGINE_NAME,
             polymorphicExtensions = {
                     SortedIndexConfigurationSchema.class,
-                    TestConcurrentHashMapDataStorageConfigurationSchema.class,
+                    VolatilePageMemoryDataStorageConfigurationSchema.class,
                     ConstantValueDefaultConfigurationSchema.class,
                     FunctionCallDefaultConfigurationSchema.class,
                     NullValueDefaultConfigurationSchema.class,
                     UnlimitedBudgetConfigurationSchema.class,
                     EntryCountBudgetConfigurationSchema.class
-            },
-            // This value only required for configuration validity, it's not used otherwise.
-            value = "mock.dataStorage.name = " + TestConcurrentHashMapStorageEngine.ENGINE_NAME
-    ) TableConfiguration tableCfg) {
+            }
+    )
+    private TableConfiguration tableCfg;
+
+    private VolatilePageMemoryStorageEngine engine;
+
+    private VolatilePageMemoryTableStorage table;
+
+    @BeforeEach
+    void setUp() {
+        PageIoRegistry ioRegistry = new PageIoRegistry();
+
+        ioRegistry.loadFromServiceLoader();
+
+        engine = new VolatilePageMemoryStorageEngine(engineConfig, ioRegistry);
+
+        engine.start();
+
+        table = engine.createMvTable(tableCfg);
+
+        table.start();
+
         initialize(tableCfg);
     }
 
+    @AfterEach
+    void tearDown() throws Exception {
+        IgniteUtils.closeAll(
+                table == null ? null : table::stop,
+                engine == null ? null : engine::stop
+        );
+    }
+
     @Override
-    protected SortedIndexStorage createIndexStorage(UUID indexId, TableView tableCfg) {
-        return new TestSortedIndexStorage(new SortedIndexDescriptor(indexId, tableCfg));
+    protected SortedIndexStorage createIndexStorage(UUID id, TableView tableCfg) {
+        return table.getOrCreateSortedIndex(0, id);
     }
 }
