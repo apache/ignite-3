@@ -15,11 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.pagememory.index.hash.io;
+package org.apache.ignite.internal.storage.pagememory.index.sorted.io;
 
-import static org.apache.ignite.internal.pagememory.util.PageUtils.getInt;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.getLong;
-import static org.apache.ignite.internal.pagememory.util.PageUtils.putInt;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putLong;
 import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.PARTITIONLESS_LINK_SIZE_BYTES;
 import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.readPartitionlessLink;
@@ -33,26 +31,22 @@ import org.apache.ignite.internal.pagememory.util.PageUtils;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.ReadIndexColumnsValue;
-import org.apache.ignite.internal.storage.pagememory.index.hash.HashIndexRow;
-import org.apache.ignite.internal.storage.pagememory.index.hash.HashIndexRowKey;
+import org.apache.ignite.internal.storage.pagememory.index.sorted.SortedIndexRow;
+import org.apache.ignite.internal.storage.pagememory.index.sorted.SortedIndexRowKey;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
- * Interface for {@link HashIndexRow} B+Tree-related IO.
+ * Interface for {@link SortedIndexRow} B+Tree-related IO.
  *
  * <p>Defines a following data layout:
  * <ul>
- *     <li>Index columns hash - int (4 bytes);</li>
  *     <li>Index columns link - long (6 bytes);</li>
  *     <li>Row ID - {@link UUID} (16 bytes).</li>
  * </ul>
  */
-public interface HashIndexTreeIo {
-    /** Offset of the index columns hash (4 bytes). */
-    int INDEX_COLUMNS_HASH_OFFSET = 0;
-
+public interface SortedIndexTreeIo {
     /** Offset of the index column link (6 bytes). */
-    int INDEX_COLUMNS_LINK_OFFSET = INDEX_COLUMNS_HASH_OFFSET + Integer.BYTES;
+    int INDEX_COLUMNS_LINK_OFFSET = 0;
 
     /** Offset of rowId's most significant bits, 8 bytes. */
     int ROW_ID_MSB_OFFSET = INDEX_COLUMNS_LINK_OFFSET + PARTITIONLESS_LINK_SIZE_BYTES;
@@ -71,11 +65,11 @@ public interface HashIndexTreeIo {
     int offset(int idx);
 
     /**
-     * Stores a hash index row, copied from another page.
+     * Stores a sorted index row, copied from another page.
      *
      * @see BplusIo#store(long, int, BplusIo, long, int)
      */
-    default void store(long dstPageAddr, int dstIdx, BplusIo<HashIndexRowKey> srcIo, long srcPageAddr, int srcIdx) {
+    default void store(long dstPageAddr, int dstIdx, BplusIo<SortedIndexRowKey> srcIo, long srcPageAddr, int srcIdx) {
         int dstOffset = offset(dstIdx);
         int srcOffset = offset(srcIdx);
 
@@ -83,57 +77,50 @@ public interface HashIndexTreeIo {
     }
 
     /**
-     * Stores a hash index row in the page.
+     * Stores a sorted index row in the page.
      *
      * @see BplusIo#storeByOffset(long, int, Object)
      */
-    default void storeByOffset(long pageAddr, int off, HashIndexRowKey rowKey) {
-        assert rowKey instanceof HashIndexRow;
+    default void storeByOffset(long pageAddr, int off, SortedIndexRowKey rowKey) {
+        assert rowKey instanceof SortedIndexRow;
 
-        HashIndexRow hashIndexRow = (HashIndexRow) rowKey;
+        SortedIndexRow sortedIndexRow = (SortedIndexRow) rowKey;
 
-        putInt(pageAddr, off + INDEX_COLUMNS_HASH_OFFSET, hashIndexRow.indexColumnsHash());
+        writePartitionlessLink(pageAddr + off + INDEX_COLUMNS_LINK_OFFSET, sortedIndexRow.indexColumns().link());
 
-        writePartitionlessLink(pageAddr + off + INDEX_COLUMNS_LINK_OFFSET, hashIndexRow.indexColumns().link());
-
-        RowId rowId = hashIndexRow.rowId();
+        RowId rowId = sortedIndexRow.rowId();
 
         putLong(pageAddr, off + ROW_ID_MSB_OFFSET, rowId.mostSignificantBits());
         putLong(pageAddr, off + ROW_ID_LSB_OFFSET, rowId.leastSignificantBits());
     }
 
     /**
-     * Compare the {@link HashIndexRowKey} from the page with passed {@link HashIndexRowKey}.
+     * Compare the {@link SortedIndexRowKey} from the page with passed {@link SortedIndexRowKey}.
      *
      * @param pageAddr Page address.
      * @param idx Element's index.
      * @param rowKey Lookup index row key.
      * @return Comparison result.
      */
-    default int compare(DataPageReader dataPageReader, int partitionId, long pageAddr, int idx, HashIndexRowKey rowKey)
+    default int compare(DataPageReader dataPageReader, int partitionId, long pageAddr, int idx, SortedIndexRowKey rowKey)
             throws IgniteInternalCheckedException {
-        assert rowKey instanceof HashIndexRow;
+        assert rowKey instanceof SortedIndexRow;
 
-        HashIndexRow hashIndexRow = (HashIndexRow) rowKey;
+        SortedIndexRow sortedIndexRow = (SortedIndexRow) rowKey;
 
         int off = offset(idx);
 
-        int cmp = Integer.compare(getInt(pageAddr, off + INDEX_COLUMNS_HASH_OFFSET), hashIndexRow.indexColumnsHash());
-
-        if (cmp != 0) {
-            return cmp;
-        }
-
         long link = readPartitionlessLink(partitionId, pageAddr, off + INDEX_COLUMNS_LINK_OFFSET);
 
-        //TODO Add in-place compare in IGNITE-17536
+        //TODO Add in-place compare in IGNITE-17671
         ReadIndexColumnsValue indexColumnsTraversal = new ReadIndexColumnsValue();
 
         dataPageReader.traverse(link, indexColumnsTraversal, null);
 
         ByteBuffer indexColumnsBuffer = ByteBuffer.wrap(indexColumnsTraversal.result());
 
-        cmp = indexColumnsBuffer.compareTo(hashIndexRow.indexColumns().valueBuffer());
+        // TODO: IGNITE-17672 Compare by BinaryTuple
+        int cmp = indexColumnsBuffer.compareTo(sortedIndexRow.indexColumns().valueBuffer());
 
         if (cmp != 0) {
             return cmp;
@@ -141,7 +128,7 @@ public interface HashIndexTreeIo {
 
         long rowIdMsb = getLong(pageAddr, off + ROW_ID_MSB_OFFSET);
 
-        cmp = Long.compare(rowIdMsb, hashIndexRow.rowId().mostSignificantBits());
+        cmp = Long.compare(rowIdMsb, sortedIndexRow.rowId().mostSignificantBits());
 
         if (cmp != 0) {
             return cmp;
@@ -149,24 +136,22 @@ public interface HashIndexTreeIo {
 
         long rowIdLsb = getLong(pageAddr, off + ROW_ID_LSB_OFFSET);
 
-        return Long.compare(rowIdLsb, hashIndexRow.rowId().leastSignificantBits());
+        return Long.compare(rowIdLsb, sortedIndexRow.rowId().leastSignificantBits());
     }
 
     /**
-     * Reads a hash index row value.
+     * Reads a sorted index row value.
      *
      * @param dataPageReader Data page reader instance to read payload from data pages.
      * @param partitionId Partition id.
      * @param pageAddr Page address.
      * @param idx Element's index.
-     * @return Hash index row.
+     * @return Sorted index row.
      * @throws IgniteInternalCheckedException If failed to read payload from data pages.
      */
-    default HashIndexRow getRow(DataPageReader dataPageReader, int partitionId, long pageAddr, int idx)
+    default SortedIndexRow getRow(DataPageReader dataPageReader, int partitionId, long pageAddr, int idx)
             throws IgniteInternalCheckedException {
         int off = offset(idx);
-
-        int hash = getInt(pageAddr, off + INDEX_COLUMNS_HASH_OFFSET);
 
         long link = readPartitionlessLink(partitionId, pageAddr, off + INDEX_COLUMNS_LINK_OFFSET);
 
@@ -183,6 +168,6 @@ public interface HashIndexTreeIo {
 
         RowId rowId = new RowId(partitionId, rowIdMsb, rowIdLsb);
 
-        return new HashIndexRow(hash, indexColumns, rowId);
+        return new SortedIndexRow(indexColumns, rowId);
     }
 }

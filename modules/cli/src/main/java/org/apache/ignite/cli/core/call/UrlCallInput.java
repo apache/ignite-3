@@ -15,21 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.core.style.component;
+package org.apache.ignite.cli.core.call;
 
-import org.apache.ignite.cli.core.style.element.UiElements;
+/** Input for executing commands with URL arguments. */
+public class UrlCallInput implements CallInput {
+    private final String url;
 
-/** Common UI messages. */
-public class CommonMessages {
-    public static MessageUiComponent CONNECT_OR_USE_CLUSTER_URL_MESSAGE = MessageUiComponent.builder()
-            .message("You are not connected to node")
-            .hint("Run %s command or use %s option",
-                    UiElements.command("connect"), UiElements.option("--cluster-url"))
-            .build();
+    /**
+     * Constructor with specified URL.
+     *
+     * @param url URL input
+     */
+    public UrlCallInput(String url) {
+        this.url = url;
+    }
 
-    public static MessageUiComponent CONNECT_OR_USE_NODE_URL_MESSAGE = MessageUiComponent.builder()
-            .message("You are not connected to node")
-            .hint("Run %s command or use %s  option",
-                    UiElements.command("connect"), UiElements.option("--node-url"))
-            .build();
+    /**
+     * Argument getter.
+     *
+     * @return URL argument
+     */
+    public String getUrl() {
+        return url;
+    }
 }

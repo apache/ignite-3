@@ -21,7 +21,7 @@ import jakarta.inject.Singleton;
 import org.apache.ignite.cli.core.call.Call;
 import org.apache.ignite.cli.core.call.CallOutput;
 import org.apache.ignite.cli.core.call.DefaultCallOutput;
-import org.apache.ignite.cli.core.call.StatusCallInput;
+import org.apache.ignite.cli.core.call.UrlCallInput;
 import org.apache.ignite.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.rest.client.api.NodeManagementApi;
 import org.apache.ignite.rest.client.invoker.ApiClient;
@@ -32,12 +32,13 @@ import org.apache.ignite.rest.client.model.NodeState;
  * Call to get node status.
  */
 @Singleton
-public class NodeStatusCall implements Call<StatusCallInput, NodeStatus> {
+public class NodeStatusCall implements Call<UrlCallInput, NodeStatus> {
 
     @Override
-    public CallOutput<NodeStatus> execute(StatusCallInput input) {
+    public CallOutput<NodeStatus> execute(UrlCallInput input) {
+        String clusterUrl = input.getUrl();
         try {
-            NodeState nodeState = fetchNodeState(input.getClusterUrl());
+            NodeState nodeState = fetchNodeState(clusterUrl);
             return DefaultCallOutput.success(
                     NodeStatus.builder()
                             .name(nodeState.getName())
@@ -45,7 +46,7 @@ public class NodeStatusCall implements Call<StatusCallInput, NodeStatus> {
                             .build()
             );
         } catch (ApiException | IllegalArgumentException e) {
-            return DefaultCallOutput.failure(new IgniteCliApiException(e, input.getClusterUrl()));
+            return DefaultCallOutput.failure(new IgniteCliApiException(e, clusterUrl));
         }
     }
 

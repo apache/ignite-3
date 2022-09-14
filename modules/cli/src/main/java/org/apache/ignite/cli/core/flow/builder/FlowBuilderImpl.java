@@ -21,7 +21,9 @@ import java.io.PrintWriter;
 import java.util.List;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import org.apache.ignite.cli.core.decorator.Decorator;
 import org.apache.ignite.cli.core.decorator.DecoratorRegistry;
+import org.apache.ignite.cli.core.decorator.TerminalOutput;
 import org.apache.ignite.cli.core.exception.ExceptionHandler;
 import org.apache.ignite.cli.core.exception.ExceptionHandlers;
 import org.apache.ignite.cli.core.exception.ExceptionWriter;
@@ -42,8 +44,8 @@ import org.apache.ignite.cli.decorators.DefaultDecoratorRegistry;
  */
 public class FlowBuilderImpl<I, O> implements FlowBuilder<I, O> {
     private final Flow<I, O> flow;
-    private final ExceptionHandlers exceptionHandlers = new DefaultExceptionHandlers();
-    private final DecoratorRegistry decoratorRegistry = new DefaultDecoratorRegistry();
+    private final ExceptionHandlers exceptionHandlers;
+    private final DecoratorRegistry decoratorRegistry;
 
     FlowBuilderImpl(Flow<I, O> flow) {
         this(flow, new DefaultExceptionHandlers(), new DefaultDecoratorRegistry());
@@ -56,10 +58,10 @@ public class FlowBuilderImpl<I, O> implements FlowBuilder<I, O> {
      * @param exceptionHandlers exception handlers.
      * @param decoratorRegistry decorator registry.
      */
-    public FlowBuilderImpl(Flow<I, O> flow, ExceptionHandlers exceptionHandlers, DecoratorRegistry decoratorRegistry) {
+    private FlowBuilderImpl(Flow<I, O> flow, ExceptionHandlers exceptionHandlers, DecoratorRegistry decoratorRegistry) {
         this.flow = flow;
-        this.exceptionHandlers.addExceptionHandlers(exceptionHandlers);
-        this.decoratorRegistry.addAll(decoratorRegistry);
+        this.exceptionHandlers = exceptionHandlers;
+        this.decoratorRegistry = decoratorRegistry;
     }
 
     @Override
@@ -69,26 +71,24 @@ public class FlowBuilderImpl<I, O> implements FlowBuilder<I, O> {
 
     @Override
     public <OT> FlowBuilder<I, O> ifThen(Predicate<O> tester, Flow<O, OT> flow) {
-        return new FlowBuilderImpl<>(this.flow.composite(input -> {
+        return then(input -> {
             if (tester.test(input.value())) {
                 flow.start(input);
             }
             return input;
-        }), exceptionHandlers, decoratorRegistry);
+        });
     }
 
     @Override
     public <QT> FlowBuilder<I, QT> question(String questionText, List<QuestionAnswer<O, QT>> questionAnswers) {
-        return new FlowBuilderImpl<>(flow.composite(input -> Flowable.success(
-                QuestionAskerFactory.newQuestionAsker().askQuestion(questionText, input.value(), questionAnswers))),
-                exceptionHandlers, decoratorRegistry);
+        return then(input -> Flowable.success(
+                QuestionAskerFactory.newQuestionAsker().askQuestion(questionText, input.value(), questionAnswers)));
     }
 
     @Override
     public <QT> FlowBuilder<I, QT> question(Function<O, String> questionText, List<QuestionAnswer<O, QT>> answers) {
-        return new FlowBuilderImpl<>(flow.composite(input -> Flowable.success(
-                QuestionAskerFactory.newQuestionAsker().askQuestion(questionText.apply(input.value()), input.value(), answers))),
-                exceptionHandlers, decoratorRegistry);
+        return then(input -> Flowable.success(
+                QuestionAskerFactory.newQuestionAsker().askQuestion(questionText.apply(input.value()), input.value(), answers)));
     }
 
     @Override
@@ -98,35 +98,59 @@ public class FlowBuilderImpl<I, O> implements FlowBuilder<I, O> {
     }
 
     @Override
-    public FlowBuilder<I, O> toOutput(PrintWriter output, PrintWriter errorOutput) {
-        return new FlowBuilderImpl<>(flow.composite(input -> {
-            if (input.hasResult()) {
-                // Workaround for the https://issues.apache.org/jira/browse/IGNITE-17346
-                // This will turn the tailtips off before printing
-                CommandLineContextProvider.print(() -> {
-                    String out = decoratorRegistry.getDecorator(input.type()).decorate(input.value()).toTerminalString();
-                    output.println(out);
-                });
-            } else if (input.hasError()) {
-                exceptionHandlers.handleException(ExceptionWriter.fromPrintWriter(errorOutput), input.errorCause());
-                return Flowable.empty();
-            }
-            return input;
-        }));
+    public FlowBuilder<I, O> print(Decorator<O, TerminalOutput> decorator) {
+        return then(input -> printResult(input, type -> decorator));
+    }
+
+    @Override
+    public FlowBuilder<I, O> print() {
+        return then(input -> printResult(input, decoratorRegistry::getDecorator));
     }
 
     @Override
     public Flow<I, O> build() {
-        return input -> {
-            try {
-                Flowable<O> output = flow.start(input);
-                if (output.hasError()) {
-                    exceptionHandlers.handleException(output.errorCause());
-                }
-                return output;
-            } catch (FlowInterruptException e) {
-                return Flowable.empty();
-            }
-        };
+        return this::run;
+    }
+
+    @Override
+    public void start() {
+        run(Flowable.empty());
+    }
+
+    /**
+     * Flow method which starts current flow and returns its result or empty output if flow is interrupted.
+     *
+     * @param input input flowable
+     * @return output flowable
+     */
+    private Flowable<O> run(Flowable<I> input) {
+        try {
+            return flow.start(input);
+        } catch (FlowInterruptException e) {
+            return Flowable.empty();
+        }
+    }
+
+    /**
+     * Flow method which will print the decorated result of the {@code input} to the output provided by the context
+     * or handle the exception using the error output from the context.
+
+     * @param input input flowable
+     * @return input flowable
+     */
+    private Flowable<O> printResult(Flowable<O> input, Function<Class<O>, Decorator<O, TerminalOutput>> decoratorProvider) {
+        if (input.hasResult()) {
+            // Workaround for the https://issues.apache.org/jira/browse/IGNITE-17346
+            // This will turn the tailtips off before printing
+            CommandLineContextProvider.print(() -> {
+                String out = decoratorProvider.apply(input.type()).decorate(input.value()).toTerminalString();
+                PrintWriter output = CommandLineContextProvider.getContext().out();
+                output.println(out);
+            });
+        } else if (input.hasError()) {
+            PrintWriter errOutput = CommandLineContextProvider.getContext().err();
+            exceptionHandlers.handleException(ExceptionWriter.fromPrintWriter(errOutput), input.errorCause());
+        }
+        return input;
     }
 }

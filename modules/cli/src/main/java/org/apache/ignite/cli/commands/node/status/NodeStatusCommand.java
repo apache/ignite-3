@@ -23,7 +23,7 @@ import org.apache.ignite.cli.call.node.status.NodeStatusCall;
 import org.apache.ignite.cli.commands.BaseCommand;
 import org.apache.ignite.cli.commands.node.NodeUrlProfileMixin;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
-import org.apache.ignite.cli.core.call.StatusCallInput;
+import org.apache.ignite.cli.core.call.UrlCallInput;
 import org.apache.ignite.cli.decorators.NodeStatusDecorator;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
@@ -38,13 +38,13 @@ public class NodeStatusCommand extends BaseCommand implements Callable<Integer> 
     private NodeUrlProfileMixin nodeUrl;
 
     @Inject
-    private NodeStatusCall nodeStatusCall;
+    private NodeStatusCall call;
 
     /** {@inheritDoc} */
     @Override
     public Integer call() {
-        return CallExecutionPipeline.builder(nodeStatusCall)
-                .inputProvider(() -> new StatusCallInput(nodeUrl.getNodeUrl()))
+        return CallExecutionPipeline.builder(call)
+                .inputProvider(() -> new UrlCallInput(nodeUrl.getNodeUrl()))
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
                 .decorator(new NodeStatusDecorator())

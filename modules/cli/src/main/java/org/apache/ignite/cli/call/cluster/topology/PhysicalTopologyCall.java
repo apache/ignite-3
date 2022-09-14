@@ -18,10 +18,10 @@
 package org.apache.ignite.cli.call.cluster.topology;
 
 import jakarta.inject.Singleton;
-import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.cli.core.call.Call;
 import org.apache.ignite.cli.core.call.CallOutput;
+import org.apache.ignite.cli.core.call.UrlCallInput;
 import org.apache.ignite.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.rest.client.api.TopologyApi;
 import org.apache.ignite.rest.client.invoker.ApiException;
@@ -32,19 +32,20 @@ import org.apache.ignite.rest.client.model.ClusterNode;
  * Shows physical cluster topology.
  */
 @Singleton
-public class PhysicalTopologyCall implements Call<TopologyCallInput, List<ClusterNode>> {
+public class PhysicalTopologyCall implements Call<UrlCallInput, List<ClusterNode>> {
 
     /** {@inheritDoc} */
     @Override
-    public CallOutput<List<ClusterNode>> execute(TopologyCallInput input) {
+    public CallOutput<List<ClusterNode>> execute(UrlCallInput input) {
+        String clusterUrl = input.getUrl();
         try {
-            return TopologyCallOutput.success(fetchPhysicalTopology(input));
+            return TopologyCallOutput.success(fetchPhysicalTopology(clusterUrl));
         } catch (ApiException | IllegalArgumentException e) {
-            return TopologyCallOutput.failure(new IgniteCliApiException(e, input.getClusterUrl()));
+            return TopologyCallOutput.failure(new IgniteCliApiException(e, clusterUrl));
         }
     }
 
-    private List<ClusterNode> fetchPhysicalTopology(TopologyCallInput input) throws ApiException {
-        return new ArrayList<>(new TopologyApi(Configuration.getDefaultApiClient().setBasePath(input.getClusterUrl())).physical());
+    private List<ClusterNode> fetchPhysicalTopology(String url) throws ApiException {
+        return new TopologyApi(Configuration.getDefaultApiClient().setBasePath(url)).physical();
     }
 }

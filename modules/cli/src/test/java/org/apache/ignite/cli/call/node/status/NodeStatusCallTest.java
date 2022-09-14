@@ -28,7 +28,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Arrays;
 import java.util.stream.Stream;
 import org.apache.ignite.cli.core.call.CallOutput;
-import org.apache.ignite.cli.core.call.StatusCallInput;
+import org.apache.ignite.cli.core.call.UrlCallInput;
 import org.apache.ignite.rest.client.model.NodeState;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -71,7 +71,7 @@ class NodeStatusCallTest {
         nodeState(givenNodeState);
 
         // When call node status
-        CallOutput<NodeStatus> output = call.execute(new StatusCallInput(url));
+        CallOutput<NodeStatus> output = call.execute(new UrlCallInput(url));
 
         // Then output is successful
         assertThat(output.hasError(), is(false));

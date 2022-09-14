@@ -15,20 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.core.call;
+package org.apache.ignite.internal.storage.pagememory.index.sorted.io;
+
+import org.apache.ignite.internal.pagememory.io.IoVersions;
+import org.apache.ignite.internal.pagememory.tree.io.BplusMetaIo;
+import org.apache.ignite.internal.storage.pagememory.index.IndexPageTypes;
+import org.apache.ignite.internal.storage.pagememory.index.sorted.SortedIndexTree;
 
 /**
- * Input for status call.
+ * IO routines for {@link SortedIndexTree} meta pages.
  */
-public class StatusCallInput implements CallInput {
-    private final String clusterUrl;
+public class SortedIndexTreeMetaIo extends BplusMetaIo {
+    /** I/O versions. */
+    public static final IoVersions<SortedIndexTreeMetaIo> VERSIONS = new IoVersions<>(new SortedIndexTreeMetaIo(1));
 
-    public StatusCallInput(String clusterUrl) {
-        this.clusterUrl = clusterUrl;
+    /**
+     * Constructor.
+     *
+     * @param ver Page format version.
+     */
+    protected SortedIndexTreeMetaIo(int ver) {
+        super(IndexPageTypes.T_SORTED_INDEX_META_IO, ver);
     }
-
-    public String getClusterUrl() {
-        return clusterUrl;
-    }
-
 }

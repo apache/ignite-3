@@ -76,6 +76,7 @@ public class IndexColumnsFreeList extends AbstractFreeList<IndexColumns>  {
                 pageListCacheLimit,
                 evictionTracker
         );
+
         this.statHolder = statHolder;
     }
 
