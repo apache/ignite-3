@@ -186,6 +186,21 @@ public class ErrorGroups {
 
         /** Error of unexpected tx state on state change. */
         public static final int TX_UNEXPECTED_STATE = TX_ERR_GROUP.registerErrorCode(4);
+
+        /** Failed to release a lock on a key. */
+        public static final int RELEASE_LOCK_ERR = TX_ERR_GROUP.registerErrorCode(5);
+
+        /** Failed to acquire a lock on a key due to a conflict. */
+        public static final int ACQUIRE_LOCK_ERR = TX_ERR_GROUP.registerErrorCode(6);
+
+        /** Failed to downgrade a lock on a key due to a conflict. */
+        public static final int DOWNGRADE_LOCK_ERR = TX_ERR_GROUP.registerErrorCode(7);
+
+        /** Failed to commit a transaction. */
+        public static final int TX_COMMIT_ERR = TX_ERR_GROUP.registerErrorCode(8);
+
+        /** Failed to rollback a transaction. */
+        public static final int TX_ROLLBACK_ERR = TX_ERR_GROUP.registerErrorCode(9);
     }
 
     /** Replicator error group. */

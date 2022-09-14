@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.replicator.exception;
 
+import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_COMMON_ERR;
+
 import java.util.UUID;
-import org.apache.ignite.lang.ErrorGroups.Replicator;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteStringFormatter;
 
 /**
  * The exception is thrown when some issue happened during replication.
@@ -42,8 +42,7 @@ public class ReplicationException extends IgniteInternalException {
      * @param cause        Optional nested exception (can be {@code null}).
      */
     public ReplicationException(String replicaGrpId, Throwable cause) {
-        this(Replicator.REPLICA_COMMON_ERR, IgniteStringFormatter.format("Error during replication [replicaGrpId={}]", replicaGrpId),
-                cause);
+        this(REPLICA_COMMON_ERR, "Failed to process replica request [replicaGroupId=" + replicaGrpId + ']', cause);
     }
 
     /**

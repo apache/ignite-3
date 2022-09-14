@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.tx.impl;
 
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_COMMIT_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ROLLBACK_ERR;
+
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -24,12 +27,12 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.TransactionException;
@@ -54,7 +57,8 @@ public class TransactionImpl implements InternalTransaction {
     /** Enlisted replication groups: replication group id -> (primary replica node, raft term). */
     private Map<String, IgniteBiTuple<ClusterNode, Long>> enlisted = new ConcurrentSkipListMap<>();
 
-    private volatile List<CompletableFuture>  enlistedResults = new ArrayList<>();
+    /** Enlisted operation futures in this transaction. */
+    private volatile List<CompletableFuture<?>>  enlistedResults = new ArrayList<>();
 
     /**
      * The constructor.
@@ -89,8 +93,8 @@ public class TransactionImpl implements InternalTransaction {
 
     /** {@inheritDoc} */
     @Override
-    public IgniteBiTuple<ClusterNode, Long> enlist(String repicationGroupId, IgniteBiTuple<ClusterNode, Long> nodeAndTerm) {
-        enlisted.put(repicationGroupId, nodeAndTerm);
+    public IgniteBiTuple<ClusterNode, Long> enlist(String replicationGroupId, IgniteBiTuple<ClusterNode, Long> nodeAndTerm) {
+        enlisted.put(replicationGroupId, nodeAndTerm);
 
         return nodeAndTerm;
     }
@@ -100,14 +104,8 @@ public class TransactionImpl implements InternalTransaction {
     public void commit() throws TransactionException {
         try {
             commitAsync().get();
-        } catch (ExecutionException e) {
-            if (e.getCause() instanceof TransactionException) {
-                throw (TransactionException) e.getCause();
-            } else {
-                throw new TransactionException(e.getCause());
-            }
         } catch (Exception e) {
-            throw new TransactionException(e);
+            throw ExceptionUtils.withCause(TransactionException::new, TX_COMMIT_ERR, e);
         }
     }
 
@@ -122,14 +120,8 @@ public class TransactionImpl implements InternalTransaction {
     public void rollback() throws TransactionException {
         try {
             rollbackAsync().get();
-        } catch (ExecutionException e) {
-            if (e.getCause() instanceof TransactionException) {
-                throw (TransactionException) e.getCause();
-            } else {
-                throw new TransactionException(e.getCause());
-            }
         } catch (Exception e) {
-            throw new TransactionException(e);
+            throw ExceptionUtils.withCause(TransactionException::new, TX_ROLLBACK_ERR, e);
         }
     }
 
@@ -166,7 +158,10 @@ public class TransactionImpl implements InternalTransaction {
         return CompletableFuture.allOf(enlistedResults.toArray(new CompletableFuture[0])).handle(
                 (ignored, ex) -> {
                     if (ex != null && commit) {
-                        throw new TransactionException("Unable to commit the transaction with partially failed operations.");
+                        throw new TransactionException(
+                                TX_COMMIT_ERR,
+                                "Unable to commit the transaction with partially failed operations.",
+                                ex);
                     } else {
                         if (!enlisted.isEmpty()) {
                             txManager.finish(
@@ -187,7 +182,7 @@ public class TransactionImpl implements InternalTransaction {
 
     /** {@inheritDoc} */
     @Override
-    public void enlistResultFuture(CompletableFuture resultFuture) {
+    public void enlistResultFuture(CompletableFuture<?> resultFuture) {
         enlistedResults.add(resultFuture);
     }
 }
