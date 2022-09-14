@@ -46,6 +46,7 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
+import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.pagememory.AbstractPageMemoryTableStorage;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumnsFreeList;
@@ -54,6 +55,7 @@ import org.apache.ignite.internal.storage.pagememory.index.hash.PageMemoryHashIn
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMeta;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.PageMemorySortedIndexStorage;
+import org.apache.ignite.internal.storage.pagememory.index.sorted.SortedIndexTree;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteCursor;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
@@ -211,8 +213,41 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     }
 
     private PageMemorySortedIndexStorage createOrRestoreSortedIndex(IndexMeta indexMeta) {
-        // TODO: IGNITE-17320 реализовать
-        return null;
+        TableView tableView = tableStorage.configuration().value();
+
+        var indexDescriptor = new SortedIndexDescriptor(indexMeta.id(), tableView);
+
+        try {
+            PageMemory pageMemory = tableStorage.dataRegion().pageMemory();
+
+            boolean initNew = indexMeta.metaPageId() == 0L;
+
+            long metaPageId = initNew
+                    ? pageMemory.allocatePage(groupId, partitionId, PageIdAllocator.FLAG_AUX)
+                    : indexMeta.metaPageId();
+
+            SortedIndexTree sortedIndexTree = new SortedIndexTree(
+                    groupId,
+                    tableView.name(),
+                    partitionId,
+                    pageMemory,
+                    PageLockListenerNoOp.INSTANCE,
+                    new AtomicLong(),
+                    metaPageId,
+                    rowVersionFreeList,
+                    initNew
+            );
+
+            if (initNew) {
+                boolean replaced = indexMetaTree.putx(new IndexMeta(indexMeta.id(), metaPageId));
+
+                assert !replaced;
+            }
+
+            return new PageMemorySortedIndexStorage(indexDescriptor, indexFreeList, sortedIndexTree);
+        } catch (IgniteInternalCheckedException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Override
