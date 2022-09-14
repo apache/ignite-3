@@ -17,6 +17,9 @@
 
 namespace Apache.Ignite.Internal.Proto.BinaryTuple
 {
+    using System.Diagnostics;
+    using System.Text;
+
     /// <summary>
     /// Common binary tuple constants and utils.
     /// </summary>
@@ -38,6 +41,11 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         public const int NullmapFlag = 0b100;
 
         /// <summary>
+        /// UTF8 encoding without preamble (as opposed to <see cref="Encoding.UTF8"/>).
+        /// </summary>
+        public static readonly Encoding StringEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
+
+        /// <summary>
         /// Calculates flags for a given size of variable-length area.
         /// </summary>
         /// <param name="size">Variable-length area size.</param>
@@ -54,12 +62,9 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                 return 0b01;
             }
 
-            if (size <= int.MaxValue)
-            {
-                return 0b10;
-            }
+            Debug.Assert(size <= int.MaxValue, "size <= int.MaxValue");
 
-            throw new IgniteClientException("Too big binary tuple size");
+            return 0b10;
         }
 
         /// <summary>

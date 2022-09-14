@@ -1437,6 +1437,18 @@
                             </resources>
                         </configuration>
                     </execution>
+                    <execution>
+                        <id>add-test-fixtures</id>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>add-test-source</goal>
+                        </goals>
+                        <configuration>
+                            <sources>
+                                <source>src/testFixtures/java</source>
+                            </sources>
+                        </configuration>
+                    </execution>
                 </executions>
             </plugin>
 
@@ -1534,7 +1546,7 @@
                     <linkXRef>false</linkXRef>
 
                     <includeTestSourceDirectory>true</includeTestSourceDirectory>
-                    <testSourceDirectories>src/integrationTest/java</testSourceDirectories>
+                    <testSourceDirectories>src/integrationTest/java,src/testFixtures/java</testSourceDirectories>
                 </configuration>
             </plugin>
 
@@ -1604,6 +1616,9 @@
                         <exclude>**/*.bat</exclude> <!-- Files in bat format -->
                         <exclude>**/*.ini</exclude> <!-- Files in ini format -->
                         <exclude>modules/runner/src/integrationTest/sql/**</exclude> <!-- SQL logic tests. -->
+                        <exclude>gradle/**</exclude> <!-- Gradle internal -->
+                        <exclude>gradlew</exclude> <!-- Gradle internal -->
+                        <exclude>gradlew.batc</exclude> <!-- Gradle internal -->
                     </excludes>
                 </configuration>
             </plugin>

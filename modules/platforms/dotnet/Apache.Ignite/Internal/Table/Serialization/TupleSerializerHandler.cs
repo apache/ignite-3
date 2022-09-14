@@ -20,6 +20,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
     using Ignite.Table;
     using MessagePack;
     using Proto;
+    using Proto.BinaryTuple;
 
     /// <summary>
     /// Serializer handler for <see cref="IIgniteTuple"/>.
@@ -45,16 +46,12 @@ namespace Apache.Ignite.Internal.Table.Serialization
             var columns = schema.Columns;
             var count = keyOnly ? schema.KeyColumnCount : columns.Count;
             var tuple = new IgniteTuple(count);
+            var tupleReader = new BinaryTupleReader(reader.ReadBytesAsMemory(), count);
 
             for (var index = 0; index < count; index++)
             {
-                if (reader.TryReadNoValue())
-                {
-                    continue;
-                }
-
                 var column = columns[index];
-                tuple[column.Name] = reader.ReadObject(column.Type);
+                tuple[column.Name] = tupleReader.GetObject(index, column.Type);
             }
 
             return tuple;
@@ -65,6 +62,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         {
             var columns = schema.Columns;
             var tuple = new IgniteTuple(columns.Count);
+            var tupleReader = new BinaryTupleReader(reader.ReadBytesAsMemory(), schema.Columns.Count - schema.KeyColumnCount);
 
             for (var i = 0; i < columns.Count; i++)
             {
@@ -76,12 +74,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 }
                 else
                 {
-                    if (reader.TryReadNoValue())
-                    {
-                        continue;
-                    }
-
-                    tuple[column.Name] = reader.ReadObject(column.Type);
+                    tuple[column.Name] = tupleReader.GetObject(i - schema.KeyColumnCount, column.Type);
                 }
             }
 
@@ -93,20 +86,33 @@ namespace Apache.Ignite.Internal.Table.Serialization
         {
             var columns = schema.Columns;
             var count = keyOnly ? schema.KeyColumnCount : columns.Count;
+            var noValueSet = writer.WriteBitSet(count);
 
-            for (var index = 0; index < count; index++)
+            var tupleBuilder = new BinaryTupleBuilder(count);
+
+            try
             {
-                var col = columns[index];
-                var colIdx = record.GetOrdinal(col.Name);
+                for (var index = 0; index < count; index++)
+                {
+                    var col = columns[index];
+                    var colIdx = record.GetOrdinal(col.Name);
 
-                if (colIdx < 0)
-                {
-                    writer.WriteNoValue();
+                    if (colIdx >= 0)
+                    {
+                        tupleBuilder.AppendObject(record[colIdx], col.Type);
+                    }
+                    else
+                    {
+                        tupleBuilder.AppendNoValue(noValueSet);
+                    }
                 }
-                else
-                {
-                    writer.WriteObject(record[colIdx]);
-                }
+
+                var binaryTupleMemory = tupleBuilder.Build();
+                writer.Write(binaryTupleMemory.Span);
+            }
+            finally
+            {
+                tupleBuilder.Dispose();
             }
         }
     }

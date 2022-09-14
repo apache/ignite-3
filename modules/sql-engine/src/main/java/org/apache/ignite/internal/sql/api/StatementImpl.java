@@ -64,12 +64,6 @@ class StatementImpl implements Statement {
 
     /** {@inheritDoc} */
     @Override
-    public boolean prepared() {
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public @Nullable Object property(@NotNull String name) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }

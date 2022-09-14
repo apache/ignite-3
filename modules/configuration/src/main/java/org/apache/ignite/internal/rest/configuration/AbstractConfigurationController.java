@@ -40,7 +40,7 @@ public abstract class AbstractConfigurationController {
      * @return the presentation of configuration.
      */
     public String getConfiguration() {
-        return this.cfgPresentation.represent();
+        return cfgPresentation.represent();
     }
 
     /**

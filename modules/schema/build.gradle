@@ -1,0 +1,51 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+apply from: "$rootDir/buildscripts/java-library.gradle"
+apply from: "$rootDir/buildscripts/java-junit5.gradle"
+apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
+
+description = 'ignite-schema'
+
+dependencies {
+    api project(':ignite-binary-tuple')
+    implementation project(':ignite-api')
+    implementation project(':ignite-bytecode')
+    implementation project(':ignite-core')
+    implementation project(':ignite-configuration')
+    implementation project(':ignite-extended-api')
+    implementation libs.jetbrains.annotations
+
+    testAnnotationProcessor project(':ignite-configuration-annotation-processor')
+    testImplementation project(':ignite-configuration')
+    testImplementation project(':ignite-core')
+    testImplementation(testFixtures(project(':ignite-core')))
+    testImplementation(testFixtures(project(':ignite-configuration')))
+    testImplementation libs.hamcrest.core
+    testImplementation libs.hamcrest.optional
+    testImplementation libs.mockito.core
+    testImplementation libs.jmh.core
+    testImplementation libs.javax.annotations
+
+    testFixturesImplementation project(':ignite-api')
+    testFixturesImplementation project(':ignite-bytecode')
+    testFixturesImplementation(testFixtures(project(':ignite-core')))
+    testFixturesImplementation libs.jetbrains.annotations
+    testFixturesImplementation libs.junit5.api
+    testFixturesImplementation libs.junit5.impl
+    testFixturesImplementation libs.junit5.params
+}

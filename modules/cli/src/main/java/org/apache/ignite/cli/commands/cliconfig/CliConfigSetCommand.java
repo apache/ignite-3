@@ -17,19 +17,16 @@
 
 package org.apache.ignite.cli.commands.cliconfig;
 
-import static org.apache.ignite.cli.commands.OptionsConstants.PROFILE_OPTION;
-import static org.apache.ignite.cli.commands.OptionsConstants.PROFILE_OPTION_DESC;
-import static org.apache.ignite.cli.commands.OptionsConstants.PROFILE_OPTION_SHORT;
-
 import jakarta.inject.Inject;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import org.apache.ignite.cli.call.cliconfig.CliConfigSetCall;
 import org.apache.ignite.cli.call.cliconfig.CliConfigSetCallInput;
 import org.apache.ignite.cli.commands.BaseCommand;
+import org.apache.ignite.cli.commands.ProfileMixin;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
 import picocli.CommandLine.Command;
-import picocli.CommandLine.Option;
+import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Parameters;
 
 /**
@@ -40,8 +37,8 @@ public class CliConfigSetCommand extends BaseCommand implements Callable<Integer
     @Parameters(arity = "1..*", description = "Key-value pairs")
     private Map<String, String> parameters;
 
-    @Option(names = {PROFILE_OPTION, PROFILE_OPTION_SHORT}, description = PROFILE_OPTION_DESC)
-    private String profileName;
+    @Mixin
+    private ProfileMixin profileName;
 
     @Inject
     private CliConfigSetCall call;
@@ -51,7 +48,7 @@ public class CliConfigSetCommand extends BaseCommand implements Callable<Integer
         return CallExecutionPipeline.builder(call)
                 .inputProvider(CliConfigSetCallInput.builder()
                         .parameters(parameters)
-                        .profileName(profileName)::build)
+                        .profileName(profileName.getProfileName())::build)
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
                 .build()

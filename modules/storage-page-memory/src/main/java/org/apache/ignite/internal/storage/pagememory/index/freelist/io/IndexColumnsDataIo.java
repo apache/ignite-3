@@ -44,7 +44,6 @@ public class IndexColumnsDataIo extends AbstractDataPageIo<IndexColumns> {
         super(IndexPageTypes.T_VALUE_VERSION_DATA_IO, ver);
     }
 
-    /** {@inheritDoc} */
     @Override
     protected void writeRowData(long pageAddr, int dataOff, int payloadSize, IndexColumns row, boolean newRow) {
         assertPageType(pageAddr);
@@ -58,7 +57,6 @@ public class IndexColumnsDataIo extends AbstractDataPageIo<IndexColumns> {
         putByteBuffer(pageAddr, dataOff + IndexColumns.VALUE_OFFSET, row.valueBuffer());
     }
 
-    /** {@inheritDoc} */
     @Override
     protected void writeFragmentData(IndexColumns row, ByteBuffer pageBuf, int rowOff, int payloadSize) {
         assertPageType(pageBuf);
@@ -78,7 +76,6 @@ public class IndexColumnsDataIo extends AbstractDataPageIo<IndexColumns> {
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     protected void printPage(long addr, int pageSize, IgniteStringBuilder sb) {
         sb.app("IndexColumnsDataIo [\n");

@@ -22,9 +22,7 @@ import static org.apache.ignite.cli.core.style.AnsiStringSupport.fg;
 import org.apache.ignite.cli.core.style.AnsiStringSupport.Color;
 import org.apache.ignite.cli.core.style.AnsiStringSupport.Style;
 
-/**
- * Defines all UI Elements that are used in the CLI.
- */
+/** Defines all UI Elements that are used in the CLI. */
 public class UiElements {
     public static UiElement url(String content) {
         return new MarkedUiElement(content, Style.UNDERLINE);

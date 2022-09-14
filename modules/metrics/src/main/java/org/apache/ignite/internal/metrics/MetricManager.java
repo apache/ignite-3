@@ -17,10 +17,17 @@
 
 package org.apache.ignite.internal.metrics;
 
+import static java.util.stream.Collectors.toUnmodifiableList;
+
+import java.util.List;
 import java.util.Map;
+import java.util.ServiceLoader;
+import java.util.ServiceLoader.Provider;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.metrics.exporters.MetricExporter;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.jetbrains.annotations.NotNull;
+
 
 /**
  * Metric manager.
@@ -31,6 +38,9 @@ public class MetricManager implements IgniteComponent {
      */
     private final MetricRegistry registry;
 
+    /** Metrics' exporters. */
+    private List<MetricExporter> metricExporters;
+
     /**
      * Constructor.
      */
@@ -40,12 +50,23 @@ public class MetricManager implements IgniteComponent {
 
     /** {@inheritDoc} */
     @Override public void start() {
-        // No-op.
+        // TODO: IGNITE-17358 not all exporters should be started, it must be defined by configuration
+        metricExporters = loadExporters();
+
+        MetricProvider metricsProvider = new MetricProvider(registry);
+
+        for (MetricExporter metricExporter : metricExporters) {
+            metricExporter.init(metricsProvider);
+
+            metricExporter.start();
+        }
     }
 
     /** {@inheritDoc} */
     @Override public void stop() throws Exception {
-        // No-op.
+        for (MetricExporter metricExporter : metricExporters) {
+            metricExporter.stop();
+        }
     }
 
     /**
@@ -93,6 +114,21 @@ public class MetricManager implements IgniteComponent {
      */
     public MetricSet enable(final String srcName) {
         return registry.enable(srcName);
+    }
+
+    /**
+     * Load exporters by {@link ServiceLoader} mechanism.
+     *
+     * @return list of loaded exporters.
+     */
+    private List<MetricExporter> loadExporters() {
+        var clsLdr = Thread.currentThread().getContextClassLoader();
+
+        return ServiceLoader
+                .load(MetricExporter.class, clsLdr)
+                .stream()
+                .map(Provider::get)
+                .collect(toUnmodifiableList());
     }
 
     /**

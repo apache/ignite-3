@@ -52,8 +52,8 @@ class ItTopologyCommandNotInitializedClusterTest extends CliCommandTestNotInitia
         // Then prints nothing
         assertAll(
                 this::assertOutputIsEmpty,
-                () -> assertErrOutputContains(
-                        "Cluster not initialized. Call /management/v1/cluster/init in order to initialize cluster"
+                () -> assertErrOutputContains("Cannot show logical topology" + System.lineSeparator()
+                                + "Probably, you have not initialized the cluster, try to run ignite cluster init command"
                 )
         );
     }

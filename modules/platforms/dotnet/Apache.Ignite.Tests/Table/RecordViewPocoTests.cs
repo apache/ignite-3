@@ -524,5 +524,50 @@ namespace Apache.Ignite.Tests.Table
             Assert.AreEqual(key, resTuple.Key);
             Assert.AreEqual(val, resTuple.Val);
         }
+
+        [Test]
+        public async Task TestBigPoco()
+        {
+            var sql = "CREATE TABLE IF NOT EXISTS TestBigPoco(ID INT PRIMARY KEY, PROP1 TINYINT, PROP2 SMALLINT, PROP3 INT, " +
+                      "PROP4 BIGINT, PROP5 FLOAT, PROP6 DOUBLE, PROP7 BIGINT, PROP8 VARCHAR, PROP9 INT, PROP10 INT)";
+
+            await Client.Sql.ExecuteAsync(null, sql);
+
+            using var deferDropTable = new DisposeAction(
+                () => Client.Sql.ExecuteAsync(null, "DROP TABLE TestBigPoco").GetAwaiter().GetResult());
+
+            var table = await Client.Tables.GetTableAsync("PUBLIC.TestBigPoco");
+            var pocoView = table!.GetRecordView<Poco2>();
+
+            var poco = new Poco2
+            {
+                Id = -1,
+                Prop1 = 1,
+                Prop2 = 2,
+                Prop3 = 3,
+                Prop4 = 4,
+                Prop5 = 5,
+                Prop6 = 6,
+                Prop7 = 7,
+                Prop8 = "8",
+                Prop9 = 9,
+                Prop10 = 10
+            };
+
+            await pocoView.UpsertAsync(null, poco);
+
+            var res = await pocoView.GetAsync(null, new Poco2 { Id = -1 });
+
+            Assert.AreEqual(poco.Prop1, res!.Prop1);
+            Assert.AreEqual(poco.Prop2, res.Prop2);
+            Assert.AreEqual(poco.Prop3, res.Prop3);
+            Assert.AreEqual(poco.Prop4, res.Prop4);
+            Assert.AreEqual(poco.Prop5, res.Prop5);
+            Assert.AreEqual(poco.Prop6, res.Prop6);
+            Assert.AreEqual(poco.Prop7, res.Prop7);
+            Assert.AreEqual(poco.Prop8, res.Prop8);
+            Assert.AreEqual(poco.Prop9, res.Prop9);
+            Assert.AreEqual(poco.Prop10, res.Prop10);
+        }
     }
 }

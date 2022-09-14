@@ -17,11 +17,13 @@
 
 namespace Apache.Ignite.Internal.Table.Serialization
 {
+    using System;
     using System.Collections.Concurrent;
     using System.Reflection;
     using System.Reflection.Emit;
     using MessagePack;
     using Proto;
+    using Proto.BinaryTuple;
 
     /// <summary>
     /// Object serializer handler.
@@ -36,11 +38,11 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
         private readonly ConcurrentDictionary<int, ReadValuePartDelegate<T>> _valuePartReaders = new();
 
-        private delegate void WriteDelegate<in TV>(ref MessagePackWriter writer, TV value);
+        private delegate void WriteDelegate<in TV>(ref BinaryTupleBuilder writer, Span<byte> noValueSet, TV value);
 
-        private delegate TV ReadDelegate<out TV>(ref MessagePackReader reader);
+        private delegate TV ReadDelegate<out TV>(ref BinaryTupleReader reader);
 
-        private delegate TV ReadValuePartDelegate<TV>(ref MessagePackReader reader, TV key);
+        private delegate TV ReadValuePartDelegate<TV>(ref BinaryTupleReader reader, TV key);
 
         /// <inheritdoc/>
         public T Read(ref MessagePackReader reader, Schema schema, bool keyOnly = false)
@@ -51,7 +53,11 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 ? w
                 : _readers.GetOrAdd(cacheKey, EmitReader(schema, keyOnly));
 
-            return readDelegate(ref reader);
+            var columnCount = keyOnly ? schema.KeyColumnCount : schema.Columns.Count;
+
+            var binaryTupleReader = new BinaryTupleReader(reader.ReadBytesAsMemory(), columnCount);
+
+            return readDelegate(ref binaryTupleReader);
         }
 
         /// <inheritdoc/>
@@ -61,7 +67,9 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 ? w
                 : _valuePartReaders.GetOrAdd(schema.Version, EmitValuePartReader(schema));
 
-            return readDelegate(ref reader, key);
+            var binaryTupleReader = new BinaryTupleReader(reader.ReadBytesAsMemory(), schema.Columns.Count - schema.KeyColumnCount);
+
+            return readDelegate(ref binaryTupleReader, key);
         }
 
         /// <inheritdoc/>
@@ -73,7 +81,21 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 ? w
                 : _writers.GetOrAdd(cacheKey, EmitWriter(schema, keyOnly));
 
-            writeDelegate(ref writer, record);
+            var count = keyOnly ? schema.KeyColumnCount : schema.Columns.Count;
+            var noValueSet = writer.WriteBitSet(count);
+            var tupleBuilder = new BinaryTupleBuilder(count);
+
+            try
+            {
+                writeDelegate(ref tupleBuilder, noValueSet, record);
+
+                var binaryTupleMemory = tupleBuilder.Build();
+                writer.Write(binaryTupleMemory.Span);
+            }
+            finally
+            {
+                tupleBuilder.Dispose();
+            }
         }
 
         private static WriteDelegate<T> EmitWriter(Schema schema, bool keyOnly)
@@ -83,7 +105,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             var method = new DynamicMethod(
                 name: "Write" + type.Name,
                 returnType: typeof(void),
-                parameterTypes: new[] { typeof(MessagePackWriter).MakeByRefType(), type },
+                parameterTypes: new[] { typeof(BinaryTupleBuilder).MakeByRefType(), typeof(Span<byte>), type },
                 m: typeof(IIgnite).Module,
                 skipVisibility: true);
 
@@ -100,16 +122,17 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 if (fieldInfo == null)
                 {
                     il.Emit(OpCodes.Ldarg_0); // writer
-                    il.Emit(OpCodes.Call, MessagePackMethods.WriteNoValue);
+                    il.Emit(OpCodes.Ldarg_1); // noValueSet
+                    il.Emit(OpCodes.Call, BinaryTupleMethods.WriteNoValue);
                 }
                 else
                 {
                     ValidateFieldType(fieldInfo, col);
                     il.Emit(OpCodes.Ldarg_0); // writer
-                    il.Emit(OpCodes.Ldarg_1); // record
+                    il.Emit(OpCodes.Ldarg_2); // record
                     il.Emit(OpCodes.Ldfld, fieldInfo);
 
-                    var writeMethod = MessagePackMethods.GetWriteMethod(fieldInfo.FieldType);
+                    var writeMethod = BinaryTupleMethods.GetWriteMethod(fieldInfo.FieldType);
                     il.Emit(OpCodes.Call, writeMethod);
                 }
             }
@@ -126,7 +149,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             var method = new DynamicMethod(
                 name: "Read" + type.Name,
                 returnType: type,
-                parameterTypes: new[] { typeof(MessagePackReader).MakeByRefType() },
+                parameterTypes: new[] { typeof(BinaryTupleReader).MakeByRefType() },
                 m: typeof(IIgnite).Module,
                 skipVisibility: true);
 
@@ -147,7 +170,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 var col = columns[i];
                 var fieldInfo = type.GetFieldIgnoreCase(col.Name);
 
-                EmitFieldRead(fieldInfo, il, col);
+                EmitFieldRead(fieldInfo, il, col, i);
             }
 
             il.Emit(OpCodes.Ldloc_0); // res
@@ -163,7 +186,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             var method = new DynamicMethod(
                 name: "ReadValuePart" + type.Name,
                 returnType: type,
-                parameterTypes: new[] { typeof(MessagePackReader).MakeByRefType(), type },
+                parameterTypes: new[] { typeof(BinaryTupleReader).MakeByRefType(), type },
                 m: typeof(IIgnite).Module,
                 skipVisibility: true);
 
@@ -196,7 +219,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                     continue;
                 }
 
-                EmitFieldRead(fieldInfo, il, col);
+                EmitFieldRead(fieldInfo, il, col, i - schema.KeyColumnCount);
             }
 
             il.Emit(OpCodes.Ldloc_0); // res
@@ -205,31 +228,68 @@ namespace Apache.Ignite.Internal.Table.Serialization
             return (ReadValuePartDelegate<T>)method.CreateDelegate(typeof(ReadValuePartDelegate<T>));
         }
 
-        private static void EmitFieldRead(FieldInfo? fieldInfo, ILGenerator il, Column col)
+        private static void EmitFieldRead(FieldInfo? fieldInfo, ILGenerator il, Column col, int elemIdx)
         {
             if (fieldInfo == null)
             {
-                il.Emit(OpCodes.Ldarg_0); // reader
-                il.Emit(OpCodes.Call, MessagePackMethods.Skip);
+                return;
             }
-            else
+
+            ValidateFieldType(fieldInfo, col);
+
+            var readMethod = BinaryTupleMethods.GetReadMethod(fieldInfo.FieldType);
+
+            il.Emit(OpCodes.Ldloc_0); // res
+            il.Emit(OpCodes.Ldarg_0); // reader
+            EmitLdcI4(il, elemIdx); // index
+
+            il.Emit(OpCodes.Call, readMethod);
+            il.Emit(OpCodes.Stfld, fieldInfo); // res.field = value
+        }
+
+        private static void EmitLdcI4(ILGenerator il, int elemIdx)
+        {
+            switch (elemIdx)
             {
-                ValidateFieldType(fieldInfo, col);
-                il.Emit(OpCodes.Ldarg_0); // reader
-                il.Emit(OpCodes.Call, MessagePackMethods.TryReadNoValue);
+                case 0:
+                    il.Emit(OpCodes.Ldc_I4_0);
+                    break;
 
-                Label noValueLabel = il.DefineLabel();
-                il.Emit(OpCodes.Brtrue_S, noValueLabel);
+                case 1:
+                    il.Emit(OpCodes.Ldc_I4_1);
+                    break;
 
-                var readMethod = MessagePackMethods.GetReadMethod(fieldInfo.FieldType);
+                case 2:
+                    il.Emit(OpCodes.Ldc_I4_2);
+                    break;
 
-                il.Emit(OpCodes.Ldloc_0); // res
-                il.Emit(OpCodes.Ldarg_0); // reader
+                case 3:
+                    il.Emit(OpCodes.Ldc_I4_3);
+                    break;
 
-                il.Emit(OpCodes.Call, readMethod);
-                il.Emit(OpCodes.Stfld, fieldInfo); // res.field = value
+                case 4:
+                    il.Emit(OpCodes.Ldc_I4_4);
+                    break;
 
-                il.MarkLabel(noValueLabel);
+                case 5:
+                    il.Emit(OpCodes.Ldc_I4_5);
+                    break;
+
+                case 6:
+                    il.Emit(OpCodes.Ldc_I4_6);
+                    break;
+
+                case 7:
+                    il.Emit(OpCodes.Ldc_I4_7);
+                    break;
+
+                case 8:
+                    il.Emit(OpCodes.Ldc_I4_8);
+                    break;
+
+                default:
+                    il.Emit(OpCodes.Ldc_I4, elemIdx);
+                    break;
             }
         }
 

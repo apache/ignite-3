@@ -19,15 +19,28 @@ package org.apache.ignite.internal.client.table;
 
 import static org.apache.ignite.internal.client.proto.ClientMessageCommon.NO_VALUE;
 import static org.apache.ignite.internal.client.table.ClientTable.writeTx;
+import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
+import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
+import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
+import org.apache.ignite.internal.client.proto.ClientDataType;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
@@ -121,13 +134,17 @@ public class ClientTupleSerializer {
         var columns = schema.columns();
         var count = keyOnly ? schema.keyColumnCount() : columns.length;
 
+        var builder = BinaryTupleBuilder.create(count, true);
+        var noValueSet = new BitSet(count);
+
         for (var i = 0; i < count; i++) {
             var col = columns[i];
-
             Object v = tuple.valueOrDefault(col.name(), NO_VALUE);
 
-            out.out().packObject(v);
+            appendValue(builder, noValueSet, col, v);
         }
+
+        out.out().packBinaryTuple(builder, noValueSet);
     }
 
     /**
@@ -154,6 +171,8 @@ public class ClientTupleSerializer {
         }
 
         var columns = schema.columns();
+        var noValueSet = new BitSet(columns.length);
+        var builder = BinaryTupleBuilder.create(columns.length, true);
 
         for (var i = 0; i < columns.length; i++) {
             var col = columns[i];
@@ -164,8 +183,10 @@ public class ClientTupleSerializer {
                             ? val.valueOrDefault(col.name(), NO_VALUE)
                             : NO_VALUE;
 
-            out.out().packObject(v);
+            appendValue(builder, noValueSet, col, v);
         }
+
+        out.out().packBinaryTuple(builder, noValueSet);
     }
 
     /**
@@ -216,8 +237,11 @@ public class ClientTupleSerializer {
 
         var colCnt = keyOnly ? schema.keyColumnCount() : schema.columns().length;
 
+        var binTuple = new BinaryTupleReader(colCnt, in.readBinaryUnsafe());
+
         for (var i = 0; i < colCnt; i++) {
-            tuple.setInternal(i, in.unpackObject(schema.columns()[i].type()));
+            ClientColumn column = schema.columns()[i];
+            ClientBinaryTupleUtils.readAndSetColumnValue(binTuple, i, tuple, column.name(), column.type());
         }
 
         return tuple;
@@ -225,15 +249,16 @@ public class ClientTupleSerializer {
 
     static Tuple readValueTuple(ClientSchema schema, ClientMessageUnpacker in, Tuple keyTuple) {
         var tuple = new ClientTuple(schema);
+        var binTuple = new BinaryTupleReader(schema.columns().length - schema.keyColumnCount(), in.readBinaryUnsafe());
 
         for (var i = 0; i < schema.columns().length; i++) {
             ClientColumn col = schema.columns()[i];
 
-            Object value = i < schema.keyColumnCount()
-                    ? keyTuple.value(col.name())
-                    : in.unpackObject(schema.columns()[i].type());
-
-            tuple.setInternal(i, value);
+            if (i < schema.keyColumnCount()) {
+                tuple.setInternal(i, keyTuple.value(col.name()));
+            } else {
+                ClientBinaryTupleUtils.readAndSetColumnValue(binTuple, i - schema.keyColumnCount(), tuple, col.name(), col.type());
+            }
         }
 
         return tuple;
@@ -244,12 +269,12 @@ public class ClientTupleSerializer {
         var colCnt = schema.columns().length;
 
         var valTuple = new ClientTuple(schema, keyColCnt, schema.columns().length - 1);
+        var binTupleReader = new BinaryTupleReader(colCnt - keyColCnt, in.readBinaryUnsafe());
 
         for (var i = keyColCnt; i < colCnt; i++) {
             ClientColumn col = schema.columns()[i];
-            Object val = in.unpackObject(col.type());
-
-            valTuple.setInternal(i - keyColCnt, val);
+            ClientBinaryTupleUtils.readAndSetColumnValue(
+                    binTupleReader, i - keyColCnt, valTuple, col.name(), col.type());
         }
 
         return valTuple;
@@ -262,14 +287,15 @@ public class ClientTupleSerializer {
         var keyTuple = new ClientTuple(schema, 0, keyColCnt - 1);
         var valTuple = new ClientTuple(schema, keyColCnt, schema.columns().length - 1);
 
+        var binTuple = new BinaryTupleReader(colCnt, in.readBinaryUnsafe());
+
         for (var i = 0; i < colCnt; i++) {
             ClientColumn col = schema.columns()[i];
-            Object val = in.unpackObject(col.type());
 
             if (i < keyColCnt) {
-                keyTuple.setInternal(i, val);
+                ClientBinaryTupleUtils.readAndSetColumnValue(binTuple, i, keyTuple, col.name(), col.type());
             } else {
-                valTuple.setInternal(i - keyColCnt, val);
+                ClientBinaryTupleUtils.readAndSetColumnValue(binTuple, i, valTuple, col.name(), col.type());
             }
         }
 
@@ -328,5 +354,91 @@ public class ClientTupleSerializer {
         }
 
         return res;
+    }
+
+    private static void appendValue(BinaryTupleBuilder builder, BitSet noValueSet, ClientColumn col, Object v) {
+        if (v == null) {
+            builder.appendNull();
+            return;
+        }
+
+        if (v == NO_VALUE) {
+            noValueSet.set(col.schemaIndex());
+            builder.appendDefault();
+            return;
+        }
+
+        try {
+            switch (col.type()) {
+                case ClientDataType.INT8:
+                    builder.appendByte((byte) v);
+                    return;
+
+                case ClientDataType.INT16:
+                    builder.appendShort((short) v);
+                    return;
+
+                case ClientDataType.INT32:
+                    builder.appendInt((int) v);
+                    return;
+
+                case ClientDataType.INT64:
+                    builder.appendLong((long) v);
+                    return;
+
+                case ClientDataType.FLOAT:
+                    builder.appendFloat((float) v);
+                    return;
+
+                case ClientDataType.DOUBLE:
+                    builder.appendDouble((double) v);
+                    return;
+
+                case ClientDataType.DECIMAL:
+                    builder.appendDecimalNotNull((BigDecimal) v);
+                    return;
+
+                case ClientDataType.UUID:
+                    builder.appendUuidNotNull((UUID) v);
+                    return;
+
+                case ClientDataType.STRING:
+                    builder.appendStringNotNull((String) v);
+                    return;
+
+                case ClientDataType.BYTES:
+                    builder.appendBytesNotNull((byte[]) v);
+                    return;
+
+                case ClientDataType.BITMASK:
+                    builder.appendBitmaskNotNull((BitSet) v);
+                    return;
+
+                case ClientDataType.DATE:
+                    builder.appendDateNotNull((LocalDate) v);
+                    return;
+
+                case ClientDataType.TIME:
+                    builder.appendTimeNotNull((LocalTime) v);
+                    return;
+
+                case ClientDataType.DATETIME:
+                    builder.appendDateTimeNotNull((LocalDateTime) v);
+                    return;
+
+                case ClientDataType.TIMESTAMP:
+                    builder.appendTimestampNotNull((Instant) v);
+                    return;
+
+                case ClientDataType.NUMBER:
+                    builder.appendNumberNotNull((BigInteger) v);
+                    return;
+
+                default:
+                    throw new IllegalArgumentException("Unsupported type: " + col.type());
+            }
+        } catch (ClassCastException e) {
+            throw new IgniteException(PROTOCOL_ERR, "Incorrect value type for column '" + col.name() + "': " + e.getMessage(), e);
+        }
     }
 }

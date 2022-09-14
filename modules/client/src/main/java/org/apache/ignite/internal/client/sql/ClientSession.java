@@ -89,7 +89,7 @@ public class ClientSession implements Session {
     public CompletableFuture<AsyncResultSet> executeAsync(@Nullable Transaction transaction, String query, @Nullable Object... arguments) {
         Objects.requireNonNull(query);
 
-        ClientStatement statement = new ClientStatement(query, null, false, null, null, null);
+        ClientStatement statement = new ClientStatement(query, null, null, null, null);
 
         return executeAsync(transaction, statement, arguments);
     }
@@ -120,7 +120,6 @@ public class ClientSession implements Session {
             packProperties(w, clientStatement.properties());
 
             w.out().packString(clientStatement.query());
-            w.out().packBoolean(clientStatement.prepared());
 
             w.out().packObjectArray(arguments);
         }, r -> new ClientAsyncResultSet(r.clientChannel(), r.in()));

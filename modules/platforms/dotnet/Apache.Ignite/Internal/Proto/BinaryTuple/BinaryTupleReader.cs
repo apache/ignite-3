@@ -20,12 +20,11 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
     using System;
     using System.Buffers.Binary;
     using System.Diagnostics;
-    using System.Text;
 
     /// <summary>
     /// Binary tuple reader.
     /// </summary>
-    internal sealed class BinaryTupleReader // TODO: Support all types (IGNITE-15431).
+    internal readonly ref struct BinaryTupleReader // TODO: Support all types (IGNITE-15431).
     {
         /** Buffer. */
         private readonly ReadOnlyMemory<byte> _buffer;
@@ -43,7 +42,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         private readonly int _valueBase;
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="BinaryTupleReader"/> class.
+        /// Initializes a new instance of the <see cref="BinaryTupleReader"/> struct.
         /// </summary>
         /// <param name="buffer">Buffer.</param>
         /// <param name="numElements">Number of elements in the tuple.</param>
@@ -158,8 +157,15 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         public string GetString(int index) => Seek(index) switch
         {
             { IsEmpty: true } => string.Empty,
-            var s => Encoding.UTF8.GetString(s)
+            var s => BinaryTupleCommon.StringEncoding.GetString(s)
         };
+
+        /// <summary>
+        /// Gets a string value.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <returns>Value.</returns>
+        public string? GetStringNullable(int index) => IsNull(index) ? null : GetString(index);
 
         /// <summary>
         /// Gets a float value.
@@ -183,6 +189,35 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             { Length: 4 } s => BitConverter.Int32BitsToSingle(BinaryPrimitives.ReadInt32LittleEndian(s)),
             var s => BitConverter.Int64BitsToDouble(BinaryPrimitives.ReadInt64LittleEndian(s))
         };
+
+        /// <summary>
+        /// Gets an object value according to the specified type.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <param name="columnType">Column type.</param>
+        /// <returns>Value.</returns>
+        public object? GetObject(int index, ClientDataType columnType)
+        {
+            if (IsNull(index))
+            {
+                return null;
+            }
+
+            return columnType switch
+            {
+                ClientDataType.Int8 => GetByte(index),
+                ClientDataType.Int16 => GetShort(index),
+                ClientDataType.Int32 => GetInt(index),
+                ClientDataType.Int64 => GetLong(index),
+                ClientDataType.Float => GetFloat(index),
+                ClientDataType.Double => GetDouble(index),
+                ClientDataType.Uuid => GetGuid(index),
+                ClientDataType.String => GetString(index),
+
+                // TODO: Support all types (IGNITE-15431).
+                _ => throw new IgniteClientException("Unsupported type: " + columnType)
+            };
+        }
 
         private int GetOffset(int position)
         {

@@ -94,7 +94,7 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
         KeyValueView<Tuple, Tuple> kvView = table.keyValueView();
         KeyValueView<IncompletePojo, IncompletePojo> pojoView = table.keyValueView(IncompletePojo.class, IncompletePojo.class);
 
-        kvView.put(null, allClumnsTableKey(1), allColumnsTableVal("x"));
+        kvView.put(null, allColumnsTableKey(1), allColumnsTableVal("x"));
 
         var key = new IncompletePojo();
         key.id = "1";
@@ -136,7 +136,7 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
         assertEquals("foo", res.zstring);
         assertArrayEquals(new byte[]{1, 2}, res.zbytes);
         assertEquals(BitSet.valueOf(new byte[]{32}), res.zbitmask);
-        assertEquals(21, res.zdecimal.longValue());
+        assertEquals(21, res.zdecimal.unscaledValue().longValue()); // TODO: IGNITE-17632 check correct round-trip
         assertEquals(22, res.znumber.longValue());
         assertEquals(uuid, res.zuuid);
     }
@@ -174,10 +174,10 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
 
         pojoView.put(null, val, val);
 
-        Tuple res = table.recordView().get(null, Tuple.create().set("id", "112").set("gid", 111));
+        Tuple res = table.recordView().get(null, Tuple.create().set("id", "112").set("gid", 111L));
 
         assertNotNull(res);
-        assertEquals(111, res.intValue("gid"));
+        assertEquals(111, res.longValue("gid"));
         assertEquals("112", res.stringValue("id"));
         assertEquals(113, res.byteValue("zbyte"));
         assertEquals(114, res.shortValue("zshort"));
@@ -191,7 +191,7 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
         assertEquals("119", res.stringValue("zstring"));
         assertEquals(120, ((byte[]) res.value("zbytes"))[0]);
         assertEquals(BitSet.valueOf(new byte[]{121}), res.bitmaskValue("zbitmask"));
-        assertEquals(122, ((Number) res.value("zdecimal")).longValue());
+        assertEquals(122, ((BigDecimal) res.value("zdecimal")).unscaledValue().longValue()); // TODO: IGNITE-17632 check correct round-trip
         assertEquals(BigInteger.valueOf(123), res.value("znumber"));
         assertEquals(uuid, res.uuidValue("zuuid"));
     }
@@ -467,7 +467,7 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
 
         pojoView.put(null, 1, new NamePojo());
 
-        var res = recordView.get(null, tupleKey(1));
+        var res = recordView.get(null, Tuple.create().set("id", 1));
 
         assertEquals("def_str", res.stringValue("str"));
         assertEquals("def_str2", res.stringValue("strNonNull"));
@@ -485,7 +485,7 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
 
         pojoView.put(null, 1, pojo);
 
-        var res = recordView.get(null, tupleKey(1));
+        var res = recordView.get(null, Tuple.create().set("id", 1));
 
         assertNull(res.stringValue("str"));
     }

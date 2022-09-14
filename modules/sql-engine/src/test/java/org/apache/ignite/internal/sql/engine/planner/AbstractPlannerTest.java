@@ -31,6 +31,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -51,6 +52,7 @@ import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.AbstractRelNode;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelDistribution;
+import org.apache.calcite.rel.RelFieldCollation.NullDirection;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelReferentialConstraint;
 import org.apache.calcite.rel.RelVisitor;
@@ -73,7 +75,13 @@ import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql2rel.InitializerContext;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.Util;
+import org.apache.ignite.internal.index.ColumnCollation;
+import org.apache.ignite.internal.index.Index;
+import org.apache.ignite.internal.index.IndexDescriptor;
+import org.apache.ignite.internal.index.SortedIndex;
+import org.apache.ignite.internal.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
@@ -109,6 +117,7 @@ import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.ArrayUtils;
+import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -872,7 +881,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
          * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
          */
         public TestTable addIndex(RelCollation collation, String name) {
-            indexes.put(name, new IgniteIndex(collation, name, this));
+            indexes.put(name, new IgniteIndex(TestSortedIndex.create(collation, name, this)));
 
             return this;
         }
@@ -1089,6 +1098,126 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         @Override
         public IgniteTable tableById(UUID id, int ver) {
             return tablesById.get(id);
+        }
+    }
+
+    static class TestSortedIndex implements SortedIndex {
+        private final UUID id = UUID.randomUUID();
+
+        private final UUID tableId = UUID.randomUUID();
+
+        private final SortedIndexDescriptor descriptor;
+
+        public static TestSortedIndex create(RelCollation collation, String name, InternalIgniteTable table) {
+            List<String> columns = new ArrayList<>();
+            List<ColumnCollation> collations = new ArrayList<>();
+            TableDescriptor tableDescriptor = table.descriptor();
+
+            for (var fieldCollation : collation.getFieldCollations()) {
+                columns.add(tableDescriptor.columnDescriptor(fieldCollation.getFieldIndex()).name());
+                collations.add(ColumnCollation.get(
+                        !fieldCollation.getDirection().isDescending(),
+                        fieldCollation.nullDirection == NullDirection.FIRST
+                ));
+            }
+
+            var descriptor = new SortedIndexDescriptor(name, columns, collations);
+
+            return new TestSortedIndex(descriptor);
+        }
+
+        public TestSortedIndex(SortedIndexDescriptor descriptor) {
+            this.descriptor = descriptor;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public UUID id() {
+            return id;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public String name() {
+            return descriptor.name();
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public UUID tableId() {
+            return tableId;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public SortedIndexDescriptor descriptor() {
+            return descriptor;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public Cursor<BinaryTuple> scan(BinaryTuple key, BitSet columns) {
+            throw new AssertionError("Should not be called");
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public Cursor<BinaryTuple> scan(BinaryTuple left, BinaryTuple right, BitSet columns) {
+            throw new AssertionError("Should not be called");
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public Cursor<BinaryTuple> scan(BinaryTuple left, BinaryTuple right, byte includeBounds, BitSet columns) {
+            throw new AssertionError("Should not be called");
+        }
+    }
+
+    static class TestHashIndex implements Index<IndexDescriptor> {
+        private final UUID id = UUID.randomUUID();
+
+        private final UUID tableId = UUID.randomUUID();
+
+        private final IndexDescriptor descriptor;
+
+        public static TestHashIndex create(List<String> indexedColumns, String name) {
+            var descriptor = new IndexDescriptor(name, indexedColumns);
+
+            return new TestHashIndex(descriptor);
+        }
+
+        public TestHashIndex(IndexDescriptor descriptor) {
+            this.descriptor = descriptor;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public UUID id() {
+            return id;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public String name() {
+            return descriptor.name();
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public UUID tableId() {
+            return tableId;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public IndexDescriptor descriptor() {
+            return descriptor;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public Cursor<BinaryTuple> scan(BinaryTuple key, BitSet columns) {
+            throw new AssertionError("Should not be called");
         }
     }
 }

@@ -37,9 +37,9 @@ public class InFlightFutures implements Iterable<CompletableFuture<?>> {
      * @param future the future to register
      */
     public void registerFuture(CompletableFuture<?> future) {
-        future.whenComplete((result, ex) -> inFlightFutures.remove(future));
-
         inFlightFutures.add(future);
+
+        future.whenComplete((result, ex) -> inFlightFutures.remove(future));
     }
 
     /**

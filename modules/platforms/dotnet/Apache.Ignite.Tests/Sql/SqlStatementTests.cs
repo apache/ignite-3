@@ -78,7 +78,7 @@ namespace Apache.Ignite.Tests.Sql
                 });
 
             var expected = "SqlStatement { Query = select foo from bar, Timeout = 00:00:01, Schema = schema2, PageSize = 256, " +
-                           "Prepared = False, Properties = { a = 1, b = 02:00:00 } }";
+                           "Properties = { a = 1, b = 02:00:00 } }";
 
             Assert.AreEqual(expected, s.ToString());
         }
