@@ -39,6 +39,7 @@ import org.apache.ignite.schema.definition.TableDefinition;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -87,6 +88,7 @@ public class ItThinClientConnectionTest extends ItAbstractThinClientTest {
      * TODO: Temporary test for IGNITE-17395.
      */
     @Test
+    @Disabled("IGNITE-17395")
     void testAssignments() throws NodeStoppingException, InterruptedException {
         TableManager tblMgr = (TableManager) server().tables();
         TableImpl tbl = (TableImpl) tblMgr.tables().get(0);
