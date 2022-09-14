@@ -70,15 +70,12 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
     public @NotNull CompletableFuture<Tuple> getAsync(@Nullable Transaction tx, @NotNull Tuple keyRec) {
         Objects.requireNonNull(keyRec);
 
-        // Disable partition awareness when transaction is used: tx belongs to a default connection.
-        Function<ClientSchema, Integer> hashFunction = tx != null ? null : schema -> getKeyHash(schema, keyRec);
-
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET,
                 (s, w) -> ser.writeTuple(tx, keyRec, s, w, true),
                 (s, r) -> ClientTupleSerializer.readValueTuple(s, r, keyRec),
                 null,
-                hashFunction);
+                getHashFunction(tx, keyRec));
     }
 
     /** {@inheritDoc} */
@@ -381,5 +378,11 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
 
         // TODO IGNITE-17395: Support all column types.
         return null;
+    }
+
+    @Nullable
+    private Function<ClientSchema, Integer> getHashFunction(@Nullable Transaction tx, @NotNull Tuple keyRec) {
+        // Disable partition awareness when transaction is used: tx belongs to a default connection.
+        return tx != null ? null : schema -> getKeyHash(schema, keyRec);
     }
 }
