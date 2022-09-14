@@ -27,7 +27,7 @@ import picocli.CommandLine;
 //Tech Debt: IGNITE-17484
 public class CommandLineContextProvider {
 
-    private static volatile CommandLine cmd;
+    private static volatile CommandLineContext context;
 
     private static volatile Consumer<Runnable> printWrapper = Runnable::run;
 
@@ -37,7 +37,16 @@ public class CommandLineContextProvider {
      * @return context instance.
      */
     public static CommandLineContext getContext() {
-        return new CommandLineContext() {
+        return context;
+    }
+
+    /**
+     * Sets a context from {@link CommandLine} instance.
+     *
+     * @param cmd {@link CommandLine} instance
+     */
+    public static void setCmd(CommandLine cmd) {
+        context = new CommandLineContext() {
             @Override
             public PrintWriter out() {
                 return cmd.getOut();
@@ -50,8 +59,24 @@ public class CommandLineContextProvider {
         };
     }
 
-    public static void setCmd(CommandLine cmd) {
-        CommandLineContextProvider.cmd = cmd;
+    /**
+     * Sets a context from {@link PrintWriter}.
+     *
+     * @param out output writer
+     * @param err error output writer
+     */
+    public static void setWriters(PrintWriter out, PrintWriter err) {
+        context = new CommandLineContext() {
+            @Override
+            public PrintWriter out() {
+                return out;
+            }
+
+            @Override
+            public PrintWriter err() {
+                return err;
+            }
+        };
     }
 
     /**

@@ -121,7 +121,7 @@ public class DefaultCallOutput<T> implements CallOutput<T> {
     }
 
     /**
-     * New empty coll output.
+     * New empty call output.
      *
      * @return Empty call output.
      */
