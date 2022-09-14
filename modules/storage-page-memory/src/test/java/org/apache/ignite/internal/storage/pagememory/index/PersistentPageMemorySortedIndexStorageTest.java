@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage.pagememory.index;
 
+import java.nio.file.Path;
 import java.util.UUID;
 import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.EntryCountBudgetConfigurationSchema;
@@ -32,29 +33,34 @@ import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAl
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.storage.index.AbstractSortedIndexStorageTest;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
-import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEngine;
-import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryTableStorage;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryDataStorageConfigurationSchema;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
+import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
+import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryTableStorage;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryDataStorageConfigurationSchema;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
+import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
- * Sorted index test implementation for volatile page memory storage.
+ * Sorted index test implementation for persistent page memory storage.
  */
-@ExtendWith(ConfigurationExtension.class)
-class VolatilePageMemorySortedIndexStorageTest extends AbstractSortedIndexStorageTest {
+@ExtendWith({ConfigurationExtension.class, WorkDirectoryExtension.class})
+class PersistentPageMemorySortedIndexStorageTest extends AbstractSortedIndexStorageTest {
+    @WorkDirectory
+    private Path workDir;
+
     @InjectConfiguration(polymorphicExtensions = UnsafeMemoryAllocatorConfigurationSchema.class)
-    private VolatilePageMemoryStorageEngineConfiguration engineConfig;
+    private PersistentPageMemoryStorageEngineConfiguration engineConfig;
 
     @InjectConfiguration(
             name = "table",
-            value = "mock.dataStorage.name = " + VolatilePageMemoryStorageEngine.ENGINE_NAME,
+            value = "mock.dataStorage.name = " + PersistentPageMemoryStorageEngine.ENGINE_NAME,
             polymorphicExtensions = {
                     SortedIndexConfigurationSchema.class,
-                    VolatilePageMemoryDataStorageConfigurationSchema.class,
+                    PersistentPageMemoryDataStorageConfigurationSchema.class,
                     ConstantValueDefaultConfigurationSchema.class,
                     FunctionCallDefaultConfigurationSchema.class,
                     NullValueDefaultConfigurationSchema.class,
@@ -64,9 +70,9 @@ class VolatilePageMemorySortedIndexStorageTest extends AbstractSortedIndexStorag
     )
     private TableConfiguration tableCfg;
 
-    private VolatilePageMemoryStorageEngine engine;
+    private PersistentPageMemoryStorageEngine engine;
 
-    private VolatilePageMemoryTableStorage table;
+    private PersistentPageMemoryTableStorage table;
 
     @BeforeEach
     void setUp() {
@@ -74,7 +80,7 @@ class VolatilePageMemorySortedIndexStorageTest extends AbstractSortedIndexStorag
 
         ioRegistry.loadFromServiceLoader();
 
-        engine = new VolatilePageMemoryStorageEngine(engineConfig, ioRegistry);
+        engine = new PersistentPageMemoryStorageEngine("test", engineConfig, ioRegistry, workDir, null);
 
         engine.start();
 
