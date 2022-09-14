@@ -57,7 +57,7 @@ public class PageMemoryHashIndexStorage implements HashIndexStorage {
      * Constructor.
      *
      * @param descriptor Hash index descriptor.
-     * @param freeList Free list to store indx columns.
+     * @param freeList Free list to store index columns.
      * @param hashIndexTree Hash index tree instance.
      */
     public PageMemoryHashIndexStorage(HashIndexDescriptor descriptor, IndexColumnsFreeList freeList, HashIndexTree hashIndexTree) {
