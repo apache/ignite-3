@@ -25,6 +25,8 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
+
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.util.HashUtils;
@@ -68,12 +70,15 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
     public @NotNull CompletableFuture<Tuple> getAsync(@Nullable Transaction tx, @NotNull Tuple keyRec) {
         Objects.requireNonNull(keyRec);
 
+        // Disable partition awareness when transaction is used: tx belongs to a default connection.
+        Function<ClientSchema, Integer> hashFunction = tx != null ? null : schema -> getKeyHash(schema, keyRec);
+
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET,
                 (s, w) -> ser.writeTuple(tx, keyRec, s, w, true),
                 (s, r) -> ClientTupleSerializer.readValueTuple(s, r, keyRec),
                 null,
-                schema -> getKeyHash(schema, keyRec));
+                hashFunction);
     }
 
     /** {@inheritDoc} */
