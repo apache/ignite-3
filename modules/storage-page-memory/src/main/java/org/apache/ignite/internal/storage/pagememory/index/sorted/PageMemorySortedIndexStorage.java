@@ -25,8 +25,6 @@ import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumnsFreeList;
-import org.apache.ignite.internal.storage.pagememory.index.hash.HashIndexRow;
-import org.apache.ignite.internal.storage.pagememory.index.hash.InsertHashIndexRowInvokeClosure;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
@@ -58,6 +56,8 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
         this.descriptor = descriptor;
         this.freeList = freeList;
         this.sortedIndexTree = sortedIndexTree;
+
+        partitionId = sortedIndexTree.partitionId();
     }
 
     @Override
@@ -70,11 +70,11 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
         IndexColumns indexColumns = new IndexColumns(partitionId, row.indexColumns().byteBuffer());
 
         try {
-            HashIndexRow hashIndexRow = new HashIndexRow(indexColumns, row.rowId());
+            SortedIndexRow sortedIndexRow = new SortedIndexRow(indexColumns, row.rowId());
 
-            var insert = new InsertHashIndexRowInvokeClosure(hashIndexRow, freeList, IoStatisticsHolderNoOp.INSTANCE);
+            var insert = new InsertSortedIndexRowInvokeClosure(sortedIndexRow, freeList, IoStatisticsHolderNoOp.INSTANCE);
 
-            hashIndexTree.invoke(hashIndexRow, null, insert);
+            sortedIndexTree.invoke(sortedIndexRow, null, insert);
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Failed to put value into index", e);
         }
@@ -82,11 +82,25 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
 
     @Override
     public void remove(IndexRow row) {
+        IndexColumns indexColumns = new IndexColumns(partitionId, row.indexColumns().byteBuffer());
 
+        try {
+            SortedIndexRow hashIndexRow = new SortedIndexRow(indexColumns, row.rowId());
+
+            var remove = new RemoveSortedIndexRowInvokeClosure(hashIndexRow, freeList, IoStatisticsHolderNoOp.INSTANCE);
+
+            sortedIndexTree.invoke(hashIndexRow, null, remove);
+
+            // Performs actual deletion from freeList if necessary.
+            remove.afterCompletion();
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException("Failed to remove value from index", e);
+        }
     }
 
     @Override
     public Cursor<IndexRow> scan(@Nullable BinaryTuple lowerBound, @Nullable BinaryTuple upperBound, int flags) {
+        // TODO: IGNITE-17320 реализовать
         return null;
     }
 }

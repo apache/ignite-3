@@ -50,9 +50,7 @@ class AwaitTasksCompletionExecutor implements Executor {
     public void execute(Runnable command) {
         CompletableFuture<?> future = new CompletableFuture<>();
 
-        future.whenComplete((o, throwable) -> updateHeartbeat.run());
-
-        pendingTaskFutures.add(future);
+        pendingTaskFutures.add(future.whenComplete((o, throwable) -> updateHeartbeat.run()));
 
         executor.execute(() -> {
             try {

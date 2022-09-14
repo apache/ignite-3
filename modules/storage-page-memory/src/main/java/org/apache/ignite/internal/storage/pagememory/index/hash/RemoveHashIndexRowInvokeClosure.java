@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.storage.pagememory.index.hash;
 
-
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
 
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolder;
@@ -30,8 +29,8 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Insert closure that removes corresponding {@link IndexColumns} from a {@link IndexColumnsFreeList} after removing it from the
- * {@link HashIndexTree}.
+ * Insert closure that removes corresponding {@link IndexColumns} from a {@link IndexColumnsFreeList} after removing it from the {@link
+ * HashIndexTree}.
  */
 class RemoveHashIndexRowInvokeClosure implements InvokeClosure<HashIndexRow> {
     /** Hash index row instance for removal. */

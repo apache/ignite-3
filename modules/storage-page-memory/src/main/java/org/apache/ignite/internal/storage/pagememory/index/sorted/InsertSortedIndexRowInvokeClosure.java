@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.pagememory.index.hash;
+package org.apache.ignite.internal.storage.pagememory.index.sorted;
 
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
 
@@ -29,11 +29,11 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Insert closure that inserts corresponding {@link IndexColumns} into a {@link IndexColumnsFreeList} before writing to the {@link
- * HashIndexTree}.
+ * SortedIndexTree}.
  */
-class InsertHashIndexRowInvokeClosure implements InvokeClosure<HashIndexRow> {
-    /** Hash index row instance for insertion. */
-    private final HashIndexRow hashIndexRow;
+class InsertSortedIndexRowInvokeClosure implements InvokeClosure<SortedIndexRow> {
+    /** Sorted index row instance for insertion. */
+    private final SortedIndexRow hashIndexRow;
 
     /** Free list to insert data into in case of necessity. */
     private final IndexColumnsFreeList freeList;
@@ -47,20 +47,20 @@ class InsertHashIndexRowInvokeClosure implements InvokeClosure<HashIndexRow> {
     /**
      * Constructor.
      *
-     * @param hashIndexRow Hash index row instance for insertion.
+     * @param sortedIndexRow Sorted index row instance for insertion.
      * @param freeList Free list to insert data into in case of necessity.
      * @param statHolder Statistics holder to track IO operations.
      */
-    public InsertHashIndexRowInvokeClosure(HashIndexRow hashIndexRow, IndexColumnsFreeList freeList, IoStatisticsHolder statHolder) {
-        assert hashIndexRow.indexColumns().link() == NULL_LINK;
+    public InsertSortedIndexRowInvokeClosure(SortedIndexRow sortedIndexRow, IndexColumnsFreeList freeList, IoStatisticsHolder statHolder) {
+        assert sortedIndexRow.indexColumns().link() == NULL_LINK;
 
-        this.hashIndexRow = hashIndexRow;
+        this.hashIndexRow = sortedIndexRow;
         this.freeList = freeList;
         this.statHolder = statHolder;
     }
 
     @Override
-    public void call(@Nullable HashIndexRow oldRow) throws IgniteInternalCheckedException {
+    public void call(@Nullable SortedIndexRow oldRow) throws IgniteInternalCheckedException {
         if (oldRow != null) {
             operationType = OperationType.NOOP;
 
@@ -71,7 +71,7 @@ class InsertHashIndexRowInvokeClosure implements InvokeClosure<HashIndexRow> {
     }
 
     @Override
-    public @Nullable HashIndexRow newRow() {
+    public @Nullable SortedIndexRow newRow() {
         return hashIndexRow;
     }
 
