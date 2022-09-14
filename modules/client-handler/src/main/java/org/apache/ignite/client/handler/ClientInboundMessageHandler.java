@@ -78,6 +78,7 @@ import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
+import org.apache.ignite.internal.client.proto.ResponseFlags;
 import org.apache.ignite.internal.client.proto.ServerMessageType;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryCursorHandler;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
@@ -271,6 +272,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
 
             packer.packInt(ServerMessageType.RESPONSE);
             packer.packLong(requestId);
+            writeFlags(packer);
 
             writeErrorCore(err, packer);
 
@@ -328,11 +330,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
 
             out.packInt(ServerMessageType.RESPONSE);
             out.packLong(requestId);
-
-            // TODO assignment change flag.
-            var flags = 0;
-            out.packInt(flags);
-
+            writeFlags(out);
             out.packNil(); // No error.
 
             var fut = processOperation(in, out, opCode);
@@ -357,6 +355,11 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
 
             writeError(requestId, t, ctx);
         }
+    }
+
+    private void writeFlags(ClientMessagePacker out) {
+        var flags = ResponseFlags.getFlags(partitionAssignmentChanged.compareAndSet(true, false));
+        out.packInt(flags);
     }
 
     private CompletableFuture processOperation(

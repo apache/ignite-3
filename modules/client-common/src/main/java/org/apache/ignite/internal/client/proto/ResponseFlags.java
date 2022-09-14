@@ -30,7 +30,7 @@ public class ResponseFlags {
      * @param partitionAssignmentChanged Assignment changed flag.
      * @return Flags as int.
      */
-    public int getFlags(boolean partitionAssignmentChanged) {
+    public static int getFlags(boolean partitionAssignmentChanged) {
         var flags = 0;
 
         if (partitionAssignmentChanged) {
@@ -40,7 +40,13 @@ public class ResponseFlags {
         return flags;
     }
 
-    public boolean getPartitionAssignmentChangedFlag(int flags) {
+    /**
+     * Gets partition assignment flag value.
+     *
+     * @param flags Flags.
+     * @return Whether partition assignment has changed.
+     */
+    public static boolean getPartitionAssignmentChangedFlag(int flags) {
         return (flags & PARTITION_ASSIGNMENT_FLAG) == PARTITION_ASSIGNMENT_FLAG;
     }
 }

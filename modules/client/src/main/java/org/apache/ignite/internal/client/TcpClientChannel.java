@@ -49,6 +49,7 @@ import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
+import org.apache.ignite.internal.client.proto.ResponseFlags;
 import org.apache.ignite.internal.client.proto.ServerMessageType;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
@@ -281,8 +282,11 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             throw new IgniteClientConnectionException(PROTOCOL_ERR, String.format("Unexpected response ID [%s]", resId));
         }
 
-        // TODO: Handle partition assignment update.
         int flags = unpacker.unpackInt();
+
+        if (ResponseFlags.getPartitionAssignmentChangedFlag(flags)) {
+            // TODO: Raise an event - all tables should drop their cached assignment.
+        }
 
         if (unpacker.tryUnpackNil()) {
             pendingReq.complete(unpacker);
