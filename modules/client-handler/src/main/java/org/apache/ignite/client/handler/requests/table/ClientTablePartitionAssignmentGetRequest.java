@@ -22,13 +22,9 @@ import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NodeStoppingException;
-import org.apache.ignite.table.manager.IgniteTables;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-
-import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTable;
-import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.writeSchema;
 
 /**
  * Client partition assignment retrieval request.

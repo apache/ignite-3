@@ -21,7 +21,7 @@ package org.apache.ignite.internal.client.proto;
  * Response flags utils.
  */
 public class ResponseFlags {
-    /** */
+    /** Partitions assignment flag. */
     private static final int PARTITION_ASSIGNMENT_FLAG = 1;
 
     /**
