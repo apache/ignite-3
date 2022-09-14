@@ -281,6 +281,9 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             throw new IgniteClientConnectionException(PROTOCOL_ERR, String.format("Unexpected response ID [%s]", resId));
         }
 
+        // TODO: Handle partition assignment update.
+        int flags = unpacker.unpackInt();
+
         if (unpacker.tryUnpackNil()) {
             pendingReq.complete(unpacker);
         } else {

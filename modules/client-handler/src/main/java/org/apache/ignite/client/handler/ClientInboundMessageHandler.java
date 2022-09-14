@@ -29,6 +29,8 @@ import io.netty.channel.ChannelInboundHandlerAdapter;
 import java.util.BitSet;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
+
 import org.apache.ignite.client.handler.requests.cluster.ClientClusterGetNodesRequest;
 import org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteColocatedRequest;
 import org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteRequest;
@@ -89,7 +91,6 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.sql.IgniteSql;
-import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
 
 /**
@@ -130,8 +131,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
     /** Context. */
     private ClientContext clientContext;
 
-    /** */
-    private volatile boolean assignmentChanged = false;
+    /** Whether the partition assignment has changed since the last server response. */
+    private final AtomicBoolean partitionAssignmentChanged = new AtomicBoolean();
 
     /**
      * Constructor.
@@ -169,10 +170,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
         jdbcQueryEventHandler = new JdbcQueryEventHandlerImpl(processor, new JdbcMetadataCatalog(igniteTables), resources);
         jdbcQueryCursorHandler = new JdbcQueryCursorHandlerImpl(resources);
 
-        igniteTables.addAssignmentsChangeListener(mgr -> {
-            // TODO: Reset some flag and send to client on first response.
-            assignmentChanged = true;
-        });
+        igniteTables.addAssignmentsChangeListener(mgr -> partitionAssignmentChanged.set(true));
     }
 
     /** {@inheritDoc} */
@@ -331,7 +329,10 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
             out.packInt(ServerMessageType.RESPONSE);
             out.packLong(requestId);
 
-            // TODO: Include flags here.
+            // TODO assignment change flag.
+            var flags = 0;
+            out.packInt(flags);
+
             out.packNil(); // No error.
 
             var fut = processOperation(in, out, opCode);
@@ -482,7 +483,6 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
                 return ClientSqlCursorCloseRequest.process(in, resources);
 
             case ClientOp.PARTITION_ASSIGNMENT_GET:
-                assignmentChanged = false; // TODO race condition.
                 return ClientTablePartitionAssignmentGetRequest.process(in, out, igniteTables);
 
             default:
