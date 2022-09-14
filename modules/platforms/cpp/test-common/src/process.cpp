@@ -25,16 +25,16 @@
 #include <utility>
 #include <vector>
 
-#include "process.h"
+#include "cmd_process.h"
 
 
 namespace ignite
 {
 
-std::unique_ptr<Process> Process::make(std::string command, std::string workDir)
+std::unique_ptr<CmdProcess> CmdProcess::make(std::string command, std::string workDir)
 {
 #ifdef WIN32
-    return std::unique_ptr<Process>(new win::WinProcess(std::move(command), std::move(workDir)));
+    return std::unique_ptr<CmdProcess>(new win::WinProcess(std::move(command), std::move(workDir)));
 #else
 #endif
 }

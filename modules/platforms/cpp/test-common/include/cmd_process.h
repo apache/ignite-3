@@ -27,22 +27,22 @@ namespace ignite
 /**
  * Represents system process launched using commandline instruction.
  */
-class Process
+class CmdProcess
 {
 public:
     /**
      * Destructor.
      */
-    virtual ~Process() = default;
+    virtual ~CmdProcess() = default;
 
     /**
      * Make new process instance.
      *
      * @param command Command.
      * @param workDir Working directory.
-     * @return Process.
+     * @return CmdProcess.
      */
-    static std::unique_ptr<Process> make(std::string command, std::string workDir);
+    static std::unique_ptr<CmdProcess> make(std::string command, std::string workDir);
 
     /**
      * Start process.
@@ -65,7 +65,7 @@ protected:
     /**
      * Constructor.
      */
-    Process() = default;
+    CmdProcess() = default;
 };
 
 } // namespace ignite

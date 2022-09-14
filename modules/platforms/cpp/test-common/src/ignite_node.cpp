@@ -55,7 +55,7 @@ void IgniteNode::start(bool dryRun)
     std::cout << "working dir=" << workDir << std::endl;
     std::cout << "command=" << command << std::endl;
 
-    m_process = Process::make(command, workDir.string());
+    m_process = CmdProcess::make(command, workDir.string());
     if (!m_process->start())
     {
         m_process.reset();

@@ -26,7 +26,12 @@
 #include <chrono>
 #include <string>
 
-#include "process.h"
+#include "cmd_process.h"
+
+// Using NULLs as specified by WinAPI
+#ifdef __JETBRAINS_IDE__
+#   pragma ide diagnostic ignored "modernize-use-nullptr"
+#endif
 
 namespace ignite::win
 {
@@ -34,7 +39,7 @@ namespace ignite::win
 /**
  * Get process tree.
  * @param processId ID of the parent process.
- * @return Process tree.
+ * @return CmdProcess tree.
  */
 std::vector<DWORD> getProcessTree(DWORD processId) // NOLINT(misc-no-recursion)
 {
@@ -70,9 +75,9 @@ std::vector<DWORD> getProcessTree(DWORD processId) // NOLINT(misc-no-recursion)
 }
 
 /**
- * Implementation of Process for Windows.
+ * Implementation of CmdProcess for Windows.
  */
-class WinProcess : public ignite::Process
+class WinProcess : public ignite::CmdProcess
 {
 public:
     /**
@@ -91,8 +96,10 @@ public:
     /**
      * Destructor.
      */
-    ~WinProcess() override = default;
-
+    ~WinProcess() override
+    {
+        killInternal();
+    }
 
     /**
      * Start process.
@@ -111,10 +118,7 @@ public:
         std::vector<char> cmd(m_command.begin(), m_command.end());
         cmd.push_back(0);
 
-        BOOL success = CreateProcess(
-                NULL, cmd.data(), NULL, NULL,
-                FALSE, 0, NULL, m_workDir.c_str(),
-                &si, &m_info);
+        BOOL success = CreateProcess(NULL, cmd.data(), NULL, NULL, FALSE, 0, NULL, m_workDir.c_str(), &si, &m_info);
 
         m_running = success == TRUE;
 
@@ -126,6 +130,17 @@ public:
      */
     void kill() override
     {
+        killInternal();
+    }
+
+    /**
+     * Kill the process.
+     */
+    void killInternal()
+    {
+        if (!m_running)
+            return;
+
         std::vector<DWORD> processTree = getProcessTree(m_info.dwProcessId);
         for (auto procId : processTree)
         {
@@ -165,7 +180,7 @@ private:
     /** Working directory. */
     const std::string m_workDir;
 
-    /** Process information. */
+    /** CmdProcess information. */
     PROCESS_INFORMATION m_info;
 };
 

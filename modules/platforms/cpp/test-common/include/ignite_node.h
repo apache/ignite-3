@@ -19,7 +19,7 @@
 
 #include <chrono>
 
-#include "process.h"
+#include "cmd_process.h"
 
 namespace ignite
 {
@@ -64,7 +64,7 @@ public:
 
 private:
     /** Underlying process. */
-    std::unique_ptr<Process> m_process;
+    std::unique_ptr<CmdProcess> m_process;
 };
 
 } // namespace ignite
