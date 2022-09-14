@@ -41,19 +41,16 @@ public class IndexMetaLeafIo extends BplusLeafIo<IndexMeta> implements IndexMeta
         super(IndexPageTypes.T_INDEX_META_LEAF_IO, ver, SIZE_IN_BYTES);
     }
 
-    /** {@inheritDoc} */
     @Override
     public void store(long dstPageAddr, int dstIdx, BplusIo<IndexMeta> srcIo, long srcPageAddr, int srcIdx) {
         IndexMetaIo.super.store(dstPageAddr, dstIdx, srcPageAddr, srcIdx);
     }
 
-    /** {@inheritDoc} */
     @Override
     public void storeByOffset(long pageAddr, int off, IndexMeta row) {
         IndexMetaIo.super.storeByOffset(pageAddr, off, row);
     }
 
-    /** {@inheritDoc} */
     @Override
     public IndexMeta getLookupRow(BplusTree<IndexMeta, ?> tree, long pageAddr, int idx) {
         return getRow(pageAddr, idx);

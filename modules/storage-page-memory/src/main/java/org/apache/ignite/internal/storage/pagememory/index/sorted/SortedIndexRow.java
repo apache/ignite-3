@@ -15,22 +15,35 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.pagememory.index.freelist;
+package org.apache.ignite.internal.storage.pagememory.index.sorted;
 
-import org.apache.ignite.internal.pagememory.datapage.ReadPageMemoryRowValue;
-import org.apache.ignite.internal.storage.pagememory.mv.RowVersion;
+import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.index.IndexRow;
+import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
 
 /**
- * Reads {@link RowVersion#value()} from page-memory.
+ * {@link IndexRow} implementation used in the {@link SortedIndexTree}.
  */
-public class ReadIndexColumnsValue extends ReadPageMemoryRowValue {
-    @Override
-    protected int valueSizeOffsetInFirstSlot() {
-        return IndexColumns.SIZE_OFFSET;
+public class SortedIndexRow extends SortedIndexRowKey {
+    /** Row id. */
+    private final RowId rowId;
+
+    /**
+     * Constructor.
+     *
+     * @param indexColumns Index columns.
+     * @param rowId Row id.
+     */
+    public SortedIndexRow(IndexColumns indexColumns, RowId rowId) {
+        super(indexColumns);
+
+        this.rowId = rowId;
     }
 
-    @Override
-    protected int valueOffsetInFirstSlot() {
-        return IndexColumns.VALUE_OFFSET;
+    /**
+     * Returns a row id of the row.
+     */
+    public RowId rowId() {
+        return rowId;
     }
 }

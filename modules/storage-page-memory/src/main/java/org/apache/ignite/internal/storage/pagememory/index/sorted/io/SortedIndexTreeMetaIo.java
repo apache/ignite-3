@@ -15,22 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.pagememory.index.freelist;
+package org.apache.ignite.internal.storage.pagememory.index.sorted.io;
 
-import org.apache.ignite.internal.pagememory.datapage.ReadPageMemoryRowValue;
-import org.apache.ignite.internal.storage.pagememory.mv.RowVersion;
+import org.apache.ignite.internal.pagememory.io.IoVersions;
+import org.apache.ignite.internal.pagememory.tree.io.BplusMetaIo;
+import org.apache.ignite.internal.storage.pagememory.index.IndexPageTypes;
+import org.apache.ignite.internal.storage.pagememory.index.sorted.SortedIndexTree;
 
 /**
- * Reads {@link RowVersion#value()} from page-memory.
+ * IO routines for {@link SortedIndexTree} meta pages.
  */
-public class ReadIndexColumnsValue extends ReadPageMemoryRowValue {
-    @Override
-    protected int valueSizeOffsetInFirstSlot() {
-        return IndexColumns.SIZE_OFFSET;
-    }
+public class SortedIndexTreeMetaIo extends BplusMetaIo {
+    /** I/O versions. */
+    public static final IoVersions<SortedIndexTreeMetaIo> VERSIONS = new IoVersions<>(new SortedIndexTreeMetaIo(1));
 
-    @Override
-    protected int valueOffsetInFirstSlot() {
-        return IndexColumns.VALUE_OFFSET;
+    /**
+     * Constructor.
+     *
+     * @param ver Page format version.
+     */
+    protected SortedIndexTreeMetaIo(int ver) {
+        super(IndexPageTypes.T_SORTED_INDEX_META_IO, ver);
     }
 }

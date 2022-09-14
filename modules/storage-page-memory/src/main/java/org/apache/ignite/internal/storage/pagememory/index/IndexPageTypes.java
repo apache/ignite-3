@@ -41,4 +41,13 @@ public interface IndexPageTypes {
 
     /** Hash index tree meta IO type. */
     short T_HASH_INDEX_LEAF_IO = 10_002;
+
+    /** Sorted index tree meta IO type. */
+    short T_SORTED_INDEX_META_IO = 10_003;
+
+    /** Sorted index tree inner IO type. */
+    short T_SORTED_INDEX_INNER_IO = 10_004;
+
+    /** Sorted index tree meta IO type. */
+    short T_SORTED_INDEX_LEAF_IO = 10_005;
 }
