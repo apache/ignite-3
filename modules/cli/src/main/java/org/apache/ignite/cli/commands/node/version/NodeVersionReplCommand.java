@@ -17,22 +17,20 @@
 
 package org.apache.ignite.cli.commands.node.version;
 
-import static org.apache.ignite.cli.core.style.component.CommonMessages.CONNECT_OR_USE_NODE_URL_MESSAGE;
-
 import jakarta.inject.Inject;
-import java.util.concurrent.Callable;
 import org.apache.ignite.cli.call.node.version.NodeVersionCall;
 import org.apache.ignite.cli.commands.BaseCommand;
 import org.apache.ignite.cli.commands.node.NodeUrlMixin;
-import org.apache.ignite.cli.core.call.CallExecutionPipeline;
-import org.apache.ignite.cli.core.call.StringCallInput;
+import org.apache.ignite.cli.commands.questions.ConnectToClusterQuestion;
+import org.apache.ignite.cli.core.call.UrlCallInput;
+import org.apache.ignite.cli.core.flow.builder.Flows;
 import org.apache.ignite.cli.core.repl.Session;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 
 /** Display the node version in REPL. */
 @Command(name = "version", description = "Prints the node build version")
-public class NodeVersionReplCommand extends BaseCommand implements Callable<Integer> {
+public class NodeVersionReplCommand extends BaseCommand implements Runnable {
     @Mixin
     private NodeUrlMixin nodeUrl;
 
@@ -42,25 +40,16 @@ public class NodeVersionReplCommand extends BaseCommand implements Callable<Inte
     @Inject
     private Session session;
 
+    @Inject
+    private ConnectToClusterQuestion question;
+
     /** {@inheritDoc} */
     @Override
-    public Integer call() {
-        String inputUrl;
-
-        if (nodeUrl.getNodeUrl() != null) {
-            inputUrl = nodeUrl.getNodeUrl();
-        } else if (session.isConnectedToNode()) {
-            inputUrl = session.nodeUrl();
-        } else {
-            spec.commandLine().getErr().println(CONNECT_OR_USE_NODE_URL_MESSAGE.render());
-            return 2;
-        }
-
-        return CallExecutionPipeline.builder(nodeVersionCall)
-                .inputProvider(() -> new StringCallInput(inputUrl))
-                .output(spec.commandLine().getOut())
-                .errOutput(spec.commandLine().getErr())
-                .build()
-                .runPipeline();
+    public void run() {
+        question.askQuestionIfNotConnected(nodeUrl.getNodeUrl())
+                .map(UrlCallInput::new)
+                .then(Flows.fromCall(nodeVersionCall))
+                .print()
+                .start();
     }
 }

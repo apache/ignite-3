@@ -23,7 +23,7 @@ import org.apache.ignite.cli.call.node.version.NodeVersionCall;
 import org.apache.ignite.cli.commands.BaseCommand;
 import org.apache.ignite.cli.commands.node.NodeUrlProfileMixin;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
-import org.apache.ignite.cli.core.call.StringCallInput;
+import org.apache.ignite.cli.core.call.UrlCallInput;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 
@@ -40,7 +40,7 @@ public class NodeVersionCommand extends BaseCommand implements Callable<Integer>
     @Override
     public Integer call() {
         return CallExecutionPipeline.builder(nodeVersionCall)
-                .inputProvider(() -> new StringCallInput(nodeUrl.getNodeUrl()))
+                .inputProvider(() -> new UrlCallInput(nodeUrl.getNodeUrl()))
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
                 .build()

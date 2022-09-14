@@ -21,7 +21,7 @@ import jakarta.inject.Singleton;
 import org.apache.ignite.cli.core.call.Call;
 import org.apache.ignite.cli.core.call.CallOutput;
 import org.apache.ignite.cli.core.call.DefaultCallOutput;
-import org.apache.ignite.cli.core.call.StringCallInput;
+import org.apache.ignite.cli.core.call.UrlCallInput;
 import org.apache.ignite.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.rest.client.api.NodeManagementApi;
 import org.apache.ignite.rest.client.invoker.ApiClient;
@@ -31,14 +31,14 @@ import org.apache.ignite.rest.client.invoker.ApiException;
  * Call to get node version.
  */
 @Singleton
-public class NodeVersionCall implements Call<StringCallInput, String> {
+public class NodeVersionCall implements Call<UrlCallInput, String> {
 
     @Override
-    public CallOutput<String> execute(StringCallInput input) {
+    public CallOutput<String> execute(UrlCallInput input) {
         try {
-            return DefaultCallOutput.success(getNodeVersion(input.getString()));
+            return DefaultCallOutput.success(getNodeVersion(input.getUrl()));
         } catch (ApiException | IllegalArgumentException e) {
-            return DefaultCallOutput.failure(new IgniteCliApiException(e, input.getString()));
+            return DefaultCallOutput.failure(new IgniteCliApiException(e, input.getUrl()));
         }
     }
 
