@@ -170,6 +170,9 @@ public class ClientUtils {
             case ClientOp.SQL_CURSOR_CLOSE:
                 return null;
 
+            case ClientOp.PARTITION_ASSIGNMENT_GET:
+                return null;
+
             // Do not return null from default arm intentionally, so we don't forget to update this when new ClientOp values are added.
             default:
                 throw new UnsupportedOperationException("Invalid op code: " + opCode);
