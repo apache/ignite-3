@@ -274,15 +274,21 @@ public class ClientTable implements Table {
             T defaultValue,
             Function<ClientSchema, Integer> hashFunction
     ) {
-        return getLatestSchema()
-                .thenCompose(schema -> {
+        CompletableFuture<ClientSchema> schemaFut = getLatestSchema();
+        CompletableFuture<List<String>> partitionsFut = hashFunction == null
+                ? CompletableFuture.completedFuture(null)
+                : getPartitionAssignment();
+
+        return CompletableFuture.allOf(schemaFut, partitionsFut)
+                .thenCompose(v -> {
+                    List<String> partitions = partitionsFut.getNow(null);
+                    ClientSchema schema = schemaFut.getNow(null);
+
                     String preferredNodeId = null;
 
-                    if (hashFunction != null) {
-                        // TODO: Load partition assignment.
+                    if (partitions != null && hashFunction != null) {
                         int hash = hashFunction.apply(schema);
-                        int partition = hash % partitionAssignment.size();
-                        preferredNodeId = partitionAssignment.get(partition);
+                        preferredNodeId = partitions.get(hash % partitions.size());
                     }
 
                     return ch.serviceAsync(opCode,

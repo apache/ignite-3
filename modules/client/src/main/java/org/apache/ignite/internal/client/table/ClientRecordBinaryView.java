@@ -27,6 +27,7 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.internal.util.HashUtils;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
@@ -70,7 +71,9 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET,
                 (s, w) -> ser.writeTuple(tx, keyRec, s, w, true),
-                (s, r) -> ClientTupleSerializer.readValueTuple(s, r, keyRec));
+                (s, r) -> ClientTupleSerializer.readValueTuple(s, r, keyRec),
+                null,
+                schema -> getKeyHash(schema, keyRec));
     }
 
     /** {@inheritDoc} */
@@ -353,5 +356,25 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
             InvokeProcessor<Tuple, Tuple, T> proc
     ) {
         throw new UnsupportedOperationException("Not implemented yet.");
+    }
+
+    private Integer getKeyHash(ClientSchema schema, Tuple keyRec) {
+        if (schema.keyColumnCount() != 1) {
+            // TODO IGNITE-17395: Support multiple key columns.
+            return null;
+        }
+
+        var key = keyRec.value(schema.columns()[0].name());
+
+        if (key instanceof Integer) {
+            return HashUtils.hash32((Integer) key, 0);
+        }
+
+        if (key instanceof Long) {
+            return HashUtils.hash32((Long) key, 0);
+        }
+
+        // TODO IGNITE-17395: Support all column types.
+        return null;
     }
 }
