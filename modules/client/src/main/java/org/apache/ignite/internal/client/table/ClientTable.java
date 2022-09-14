@@ -20,6 +20,8 @@ package org.apache.ignite.internal.client.table;
 import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -329,5 +331,27 @@ public class ClientTable implements Table {
         });
 
         return resFut;
+    }
+
+    private CompletableFuture<List<String>> loadPartitionAssignment(Integer ver) {
+        return ch.serviceAsync(ClientOp.PARTITION_ASSIGNMENT_GET, w -> {
+            w.out().packUuid(id);
+
+            if (ver == null) {
+                w.out().packNil();
+            } else {
+                w.out().packArrayHeader(1);
+                w.out().packInt(ver);
+            }
+        }, r -> {
+            int cnt = r.in().unpackArrayHeader();
+            List<String> res = new ArrayList<>(cnt);
+
+            for (int i = 0; i < cnt; i++) {
+                res.add(r.in().unpackString());
+            }
+
+            return res;
+        });
     }
 }
