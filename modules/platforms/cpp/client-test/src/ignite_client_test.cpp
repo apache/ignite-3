@@ -17,16 +17,18 @@
 
 #include <thread>
 #include <chrono>
+#include <string_view>
 
 #include <gtest/gtest.h>
 
 #include "ignite/ignite_client_configuration.h"
 #include "ignite/ignite_client.h"
 
-#include "ignite_node.h"
 #include "test_logger.h"
 
 using namespace ignite;
+
+static constexpr std::initializer_list<std::string_view> NODE_ADDRS = {"127.0.0.1:10942", "127.0.0.1:10943"};
 
 /**
  * Test suite.
@@ -49,7 +51,7 @@ protected:
 
 TEST_F(ClientTest, GetConfiguration)
 {
-    IgniteClientConfiguration cfg{"127.0.0.1:10942"};
+    IgniteClientConfiguration cfg{NODE_ADDRS};
     cfg.setLogger(getLogger());
     cfg.setConnectionLimit(42);
 
@@ -63,7 +65,7 @@ TEST_F(ClientTest, GetConfiguration)
 
 TEST_F(ClientTest, TablesGetTable)
 {
-    IgniteClientConfiguration cfg{"127.0.0.1:10942"};
+    IgniteClientConfiguration cfg{NODE_ADDRS};
     cfg.setLogger(getLogger());
 
     auto client = IgniteClient::startAsync(cfg, std::chrono::seconds(5)).get();

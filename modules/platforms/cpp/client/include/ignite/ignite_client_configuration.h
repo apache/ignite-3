@@ -50,8 +50,8 @@ public:
      *
      * @param endpoint Endpoints list.
      */
-    IgniteClientConfiguration(std::initializer_list<std::string> endpoints) :
-        m_endpoints(endpoints) { }
+    IgniteClientConfiguration(std::initializer_list<std::string_view> endpoints) :
+        m_endpoints(endpoints.begin(), endpoints.end()) { }
 
     /**
      * Get endpoints.
@@ -82,9 +82,9 @@ public:
      *
      * @param endpoints Endpoints.
      */
-    void setEndpoints(std::initializer_list<std::string> endpoints)
+    void setEndpoints(std::initializer_list<std::string_view> endpoints)
     {
-        IgniteClientConfiguration::m_endpoints = endpoints;
+        IgniteClientConfiguration::m_endpoints.assign(endpoints.begin(), endpoints.end());
     }
 
     /**
