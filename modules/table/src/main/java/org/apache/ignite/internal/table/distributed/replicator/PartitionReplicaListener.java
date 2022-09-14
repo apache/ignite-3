@@ -339,10 +339,11 @@ public class PartitionReplicaListener implements ReplicaListener {
     private CompletableFuture processTxCleanupAction(TxCleanupReplicaRequest request) {
         return raftClient
                 .run(new TxCleanupCommand(request.txId(), request.commit(), request.commitTimestamp()))
-                .thenApply(ignored -> {lockManager.locks(request.txId()).forEachRemaining(lockManager::release);
+                .thenApply(ignored -> {
+                    lockManager.locks(request.txId()).forEachRemaining(lockManager::release);
 
-            return null;
-        });
+                    return null;
+                });
     }
 
     /**

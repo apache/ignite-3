@@ -114,7 +114,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
     private ScheduledThreadPoolExecutor executor;
 
     private final Function<NetworkAddress, ClusterNode> addressToNode = addr -> {
-        for (ClusterService service: cluster) {
+        for (ClusterService service : cluster) {
             ClusterNode clusterNode = service.topologyService().localMember();
 
             if (clusterNode.address().equals(addr)) {
