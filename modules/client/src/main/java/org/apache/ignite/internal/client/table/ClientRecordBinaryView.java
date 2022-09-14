@@ -22,13 +22,11 @@ import static org.apache.ignite.internal.client.ClientUtils.sync;
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
-import org.apache.ignite.internal.util.HashUtils;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
@@ -69,22 +67,10 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
     public @NotNull CompletableFuture<Tuple> getAsync(@Nullable Transaction tx, @NotNull Tuple keyRec) {
         Objects.requireNonNull(keyRec);
 
-        return tbl.getPartitionAssignment().thenCompose(partitionAssignment -> {
-            // TODO: We need schema to get key columns!
-            int key = 123;
-            int hash = HashUtils.hash32(key, 0);
-
-            int partition = hash % partitionAssignment.size();
-            String leaderNodeId = partitionAssignment.get(partition);
-
-            return tbl.doSchemaOutInOpAsync(
-                    ClientOp.TUPLE_GET,
-                    (s, w) -> ser.writeTuple(tx, keyRec, s, w, true),
-                    (s, r) -> ClientTupleSerializer.readValueTuple(s, r, keyRec),
-                    null,
-                    null,
-                    leaderNodeId);
-        });
+        return tbl.doSchemaOutInOpAsync(
+                ClientOp.TUPLE_GET,
+                (s, w) -> ser.writeTuple(tx, keyRec, s, w, true),
+                (s, r) -> ClientTupleSerializer.readValueTuple(s, r, keyRec));
     }
 
     /** {@inheritDoc} */

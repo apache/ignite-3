@@ -29,6 +29,7 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
@@ -36,6 +37,7 @@ import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
 import org.apache.ignite.internal.tostring.IgniteToStringBuilder;
+import org.apache.ignite.internal.util.HashUtils;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.KeyValueView;
@@ -270,16 +272,25 @@ public class ClientTable implements Table {
             BiConsumer<ClientSchema, PayloadOutputChannel> writer,
             BiFunction<ClientSchema, ClientMessageUnpacker, T> reader,
             T defaultValue,
-            String preferredNodeName,
-            String preferredNodeId
+            Function<ClientSchema, Integer> hashFunction
     ) {
         return getLatestSchema()
-                .thenCompose(schema ->
-                        ch.serviceAsync(opCode,
-                                w -> writer.accept(schema, w),
-                                r -> readSchemaAndReadData(schema, r.in(), reader, defaultValue),
-                                preferredNodeName,
-                                preferredNodeId))
+                .thenCompose(schema -> {
+                    String preferredNodeId = null;
+
+                    if (hashFunction != null) {
+                        // TODO: Load partition assignment.
+                        int hash = hashFunction.apply(schema);
+                        int partition = hash % partitionAssignment.size();
+                        preferredNodeId = partitionAssignment.get(partition);
+                    }
+
+                    return ch.serviceAsync(opCode,
+                            w -> writer.accept(schema, w),
+                            r -> readSchemaAndReadData(schema, r.in(), reader, defaultValue),
+                            null,
+                            preferredNodeId);
+                })
                 .thenCompose(t -> loadSchemaAndReadData(t, reader));
     }
 
@@ -353,7 +364,7 @@ public class ClientTable implements Table {
         return resFut;
     }
 
-    CompletableFuture<List<String>> getPartitionAssignment() {
+    private CompletableFuture<List<String>> getPartitionAssignment() {
         var cached = partitionAssignment;
 
         if (cached != null) {
