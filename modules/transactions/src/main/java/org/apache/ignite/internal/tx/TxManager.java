@@ -19,7 +19,7 @@ package org.apache.ignite.internal.tx;
 
 import java.nio.ByteBuffer;
 import java.util.List;
-import java.util.TreeMap;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.hlc.HybridTimestamp;
@@ -47,6 +47,7 @@ public interface TxManager extends IgniteComponent {
      * @param txId Transaction id.
      * @return The state or null if the state is unknown.
      */
+    // TODO sanpwc: remove
     @Nullable TxState state(UUID txId);
 
     /**
@@ -145,8 +146,9 @@ public interface TxManager extends IgniteComponent {
             ClusterNode recipientNode,
             Long term,
             boolean commit,
-            TreeMap<ClusterNode, List<IgniteBiTuple<String, Long>>> groups,
-            UUID txId);
+            Map<ClusterNode, List<IgniteBiTuple<String, Long>>> groups,
+            UUID txId
+    );
 
     /**
      * Sends cleanup request to the specified primary replica.

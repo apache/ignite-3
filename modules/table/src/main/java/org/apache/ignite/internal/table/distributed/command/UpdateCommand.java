@@ -19,19 +19,24 @@ package org.apache.ignite.internal.table.distributed.command;
 
 import java.util.UUID;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.jetbrains.annotations.NotNull;
 
 /**
  * The command updates a row specified by the row id specified.
+ *
  */
 public class UpdateCommand extends PartitionCommand implements WriteCommand {
     /** Id of row that will be updated. */
     private final RowId rowId;
 
     /** Binary row. */
-    private BinaryRow row;
+    private transient BinaryRow row;
+
+    /** Row bytes. */
+    private byte[] rowBytes;
 
     /**
      * Creates a new instance of UpdateCommand with the given row to be updated. The {@code row} or {@code rowId} should not be {@code
@@ -47,6 +52,8 @@ public class UpdateCommand extends PartitionCommand implements WriteCommand {
 
         this.rowId = rowId;
         this.row = row;
+
+        this.rowBytes = CommandUtils.rowToBytes(row);
     }
 
     /**
@@ -64,6 +71,10 @@ public class UpdateCommand extends PartitionCommand implements WriteCommand {
      * @return Binary key.
      */
     public BinaryRow getRow() {
+        if (row == null) {
+            row = new ByteBufferRow(rowBytes);
+        }
+
         return row;
     }
 }

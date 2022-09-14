@@ -23,7 +23,7 @@ import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.nio.ByteBuffer;
 import java.util.List;
-import java.util.TreeMap;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -186,13 +186,14 @@ public class TxManagerImpl implements TxManager {
             ClusterNode recipientNode,
             Long term,
             boolean commit,
-            TreeMap<ClusterNode, List<IgniteBiTuple<String, Long>>> groups,
+            Map<ClusterNode, List<IgniteBiTuple<String, Long>>> groups,
             UUID txId
     ) {
         assert groups != null && !groups.isEmpty();
 
         TxFinishReplicaRequest req = FACTORY.txFinishReplicaRequest()
-                .groupId(groups.firstEntry().getValue().get(0).get1())
+                .txId(txId)
+                .groupId(groups.values().iterator().next().get(0).get1())
                 .groups(groups)
                 .commit(commit)
                 .term(term)

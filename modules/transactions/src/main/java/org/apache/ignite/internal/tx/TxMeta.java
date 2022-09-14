@@ -61,4 +61,13 @@ public class TxMeta implements Serializable {
     public HybridTimestamp commitTimestamp() {
         return commitTimestamp;
     }
+
+    @Override
+    public String toString() {
+        return "TxMeta{" +
+                "txState=" + txState +
+                ", enlistedPartitions=" + enlistedPartitions +
+                ", commitTimestamp=" + commitTimestamp +
+                '}';
+    }
 }

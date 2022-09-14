@@ -201,7 +201,7 @@ public class InternalTableImpl implements InternalTable {
 
         CompletableFuture<R> fut;
 
-        ReplicaRequest request = op.apply(tx0, partGroupId, primaryReplicaAndTerm.get2());
+        ReplicaRequest request = op.apply(tx0, partGroupId, primaryReplicaAndTerm == null ? null : primaryReplicaAndTerm.get2());
 
         if (primaryReplicaAndTerm != null) {
             try {
@@ -212,7 +212,12 @@ public class InternalTableImpl implements InternalTable {
                 throw new TransactionException("Failed to invoke the replica request.");
             }
         } else {
-            fut = enlistWithRetry(tx0, partId, request, ATTEMPTS_TO_ENLIST_PARTITION);
+            fut = enlistWithRetry(
+                    tx0,
+                    partId,
+                    term -> op.apply(tx0, partGroupId, term),
+                    ATTEMPTS_TO_ENLIST_PARTITION
+            );
         }
 
         return postEnlist(fut, implicit, tx0);
@@ -266,7 +271,12 @@ public class InternalTableImpl implements InternalTable {
                     throw new TransactionException("Failed to invoke the replica request.");
                 }
             } else {
-                fut = enlistWithRetry(tx0, partToRows.getIntKey(), request, ATTEMPTS_TO_ENLIST_PARTITION);
+                fut = enlistWithRetry(
+                        tx0,
+                        partToRows.getIntKey(),
+                        term -> op.apply(partToRows.getValue(), tx0, partGroupId, term),
+                        ATTEMPTS_TO_ENLIST_PARTITION
+                );
             }
 
             futures[batchNum++] = fut;
@@ -319,7 +329,8 @@ public class InternalTableImpl implements InternalTable {
                 throw new TransactionException("Failed to invoke the replica request.");
             }
         } else {
-            fut = enlistWithRetry(tx0, partId, request, ATTEMPTS_TO_ENLIST_PARTITION);
+            // TODO: sanpwc use term instead of ignored
+            fut = enlistWithRetry(tx0, partId, ignored -> request, ATTEMPTS_TO_ENLIST_PARTITION);
         }
 
         return postEnlist(fut, implicit, tx0);
@@ -337,7 +348,7 @@ public class InternalTableImpl implements InternalTable {
     private <R> CompletableFuture<R> enlistWithRetry(
             InternalTransaction tx,
             int partId,
-            ReplicaRequest request,
+            Function<Long, ReplicaRequest> requestFunciton,
             int attempts
     ) {
         CompletableFuture<R> result = new CompletableFuture();
@@ -345,7 +356,10 @@ public class InternalTableImpl implements InternalTable {
         enlist(partId, tx).<R>thenCompose(
                         primaryReplicaAndTerm -> {
                             try {
-                                return replicaSvc.invoke(primaryReplicaAndTerm.get1(), request);
+                                return replicaSvc.invoke(
+                                        primaryReplicaAndTerm.get1(),
+                                        requestFunciton.apply(primaryReplicaAndTerm.get2())
+                                );
                             } catch (PrimaryReplicaMissException e) {
                                 throw new TransactionException(e);
                             } catch (Throwable e) {
@@ -361,7 +375,7 @@ public class InternalTableImpl implements InternalTable {
                 .handle((res0, e) -> {
                     if (e != null) {
                         if (e.getCause() instanceof PrimaryReplicaMissException && attempts > 0) {
-                            return enlistWithRetry(tx, partId, request, attempts - 1).handle((r2, e2) -> {
+                            return enlistWithRetry(tx, partId, requestFunciton, attempts - 1).handle((r2, e2) -> {
                                 if (e2 != null) {
                                     return result.completeExceptionally(e2);
                                 } else {

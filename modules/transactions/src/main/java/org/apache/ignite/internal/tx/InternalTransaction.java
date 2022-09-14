@@ -41,6 +41,8 @@ public interface InternalTransaction extends Transaction {
      * @param partGroupId Replication group id.
      * @return Enlisted primary replica node and raft term associated with given replication group.
      */
+    // TODO: IGNITE-17256 IgniteBiTuple along with second parameter term will be removed after introduceing leased based primary replica
+    // TODO: selection and failover engine.
     IgniteBiTuple<ClusterNode, Long> enlistedNodeAndTerm(String partGroupId);
 
     /**

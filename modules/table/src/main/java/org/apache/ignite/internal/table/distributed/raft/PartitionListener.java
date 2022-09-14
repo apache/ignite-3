@@ -23,6 +23,7 @@ import static org.apache.ignite.lang.IgniteStringFormatter.format;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
@@ -45,7 +46,6 @@ import org.apache.ignite.internal.table.distributed.command.InsertAndUpdateAllCo
 import org.apache.ignite.internal.table.distributed.command.InsertCommand;
 import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
-import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
@@ -334,17 +334,14 @@ public class PartitionListener implements RaftGroupListener {
     private void handleTxCleanupCommand(TxCleanupCommand cmd, long commandIndex) {
         UUID txId = cmd.txId();
 
-        Set<RowId> removedRowIds = txsRemovedKeys.get(txId);
+        Set<RowId> removedRowIds = txsRemovedKeys.getOrDefault(txId, Collections.emptySet());
 
-        Set<RowId> insertedRowIds = txsInsertedKeys.get(txId);
+        Set<RowId> insertedRowIds = txsInsertedKeys.getOrDefault(txId, Collections.emptySet());
 
-        Set<RowId> pendingRowIds = txsPendingRowIds.get(txId);
-
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-17577 Use HybridTimestamp instead.
-        Timestamp commitTimestamp = new Timestamp(cmd.commitTimestamp().getPhysical(), cmd.commitTimestamp().getLogical());
+        Set<RowId> pendingRowIds = txsPendingRowIds.getOrDefault(txId, Collections.emptySet());
 
         if (cmd.commit()) {
-            pendingRowIds.forEach(rowId -> storage.commitWrite(rowId, commitTimestamp));
+            pendingRowIds.forEach(rowId -> storage.commitWrite(rowId, cmd.commitTimestamp()));
         } else {
             pendingRowIds.forEach(rowId -> storage.abortWrite(rowId));
         }

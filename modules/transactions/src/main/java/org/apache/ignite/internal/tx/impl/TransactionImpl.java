@@ -18,9 +18,9 @@
 package org.apache.ignite.internal.tx.impl;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
@@ -146,7 +146,7 @@ public class TransactionImpl implements InternalTransaction {
      * @return The future.
      */
     private CompletableFuture<Void> finish(boolean commit) {
-        TreeMap<ClusterNode, List<IgniteBiTuple<String, Long>>> groups = new TreeMap<>();
+        Map<ClusterNode, List<IgniteBiTuple<String, Long>>> groups = new LinkedHashMap<>();
 
         // TODO: sanpwc better conversion required.
         enlisted.forEach((groupId, groupMeta) -> {
@@ -155,7 +155,11 @@ public class TransactionImpl implements InternalTransaction {
             if (groups.containsKey(recipientNode)) {
                 groups.get(recipientNode).add(new IgniteBiTuple<>(groupId, groupMeta.get2()));
             } else {
-                groups.put(recipientNode, new ArrayList<>()).add(new IgniteBiTuple<>(groupId, groupMeta.get2()));
+                List<IgniteBiTuple<String, Long>> items = new ArrayList<>();
+
+                items.add(new IgniteBiTuple<>(groupId, groupMeta.get2()));
+
+                groups.put(recipientNode, items);
             }
         });
 

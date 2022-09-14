@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.tx.message;
 
 import java.util.List;
-import java.util.TreeMap;
+import java.util.Map;
 import java.util.UUID;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
@@ -59,7 +59,7 @@ public interface TxFinishReplicaRequest extends ReplicaRequest, TimestampAware {
      * @return Enlisted partition groups aggregated by expected primary replica nodes.
      */
     @Marshallable
-    TreeMap<ClusterNode, List<IgniteBiTuple<String, Long>>> groups();
+    Map<ClusterNode, List<IgniteBiTuple<String, Long>>> groups();
 
     /**
      * Gets a raft term.

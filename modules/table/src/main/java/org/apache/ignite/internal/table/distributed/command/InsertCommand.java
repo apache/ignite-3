@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table.distributed.command;
 
 import java.util.UUID;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.jetbrains.annotations.NotNull;
 
@@ -27,7 +28,10 @@ import org.jetbrains.annotations.NotNull;
  */
 public class InsertCommand extends PartitionCommand implements WriteCommand {
     /** Binary row. */
-    private BinaryRow row;
+    private transient BinaryRow row;
+
+    /** Row bytes. */
+    private byte[] rowBytes;
 
     /**
      * Creates a new instance of InsertCommand with the given row to be inserted. The {@code row} should not be {@code null}.
@@ -40,6 +44,8 @@ public class InsertCommand extends PartitionCommand implements WriteCommand {
     public InsertCommand(@NotNull BinaryRow row, @NotNull UUID txId) {
         super(txId);
         this.row = row;
+
+        this.rowBytes = CommandUtils.rowToBytes(row);
     }
 
     /**
@@ -48,6 +54,10 @@ public class InsertCommand extends PartitionCommand implements WriteCommand {
      * @return Binary key.
      */
     public BinaryRow getRow() {
+        if (row == null) {
+            row = new ByteBufferRow(rowBytes);
+        }
+
         return row;
     }
 }

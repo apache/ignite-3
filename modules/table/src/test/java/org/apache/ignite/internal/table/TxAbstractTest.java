@@ -18,8 +18,6 @@
 package org.apache.ignite.internal.table;
 
 import static java.util.concurrent.CompletableFuture.allOf;
-import static org.apache.ignite.internal.tx.TxState.ABORTED;
-import static org.apache.ignite.internal.tx.TxState.COMMITED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -323,8 +321,6 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         tx.commit();
 
         assertEquals(200., accounts.recordView().get(null, key).doubleValue("balance"));
-
-        assertEquals(COMMITED, txManager(accounts).state(tx.id()));
     }
 
     @Test
@@ -346,8 +342,6 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         tx.rollback();
 
         assertNull(accounts.recordView().get(null, key));
-
-        assertEquals(ABORTED, txManager(accounts).state(tx.id()));
     }
 
     @Test
@@ -1367,8 +1361,6 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
                             table.upsert(tx, makeValue(acc2, val1 + amount));
 
                             tx.commit();
-
-                            assertTrue(txManager(accounts).state(tx.id()) == COMMITED);
 
                             ops.increment();
                         } catch (Exception e) {

@@ -47,6 +47,7 @@ import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.NetworkMessageHandler;
 import org.apache.ignite.raft.client.service.RaftGroupService;
+import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentHashSet;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -70,11 +71,17 @@ public class ReplicaManager implements IgniteComponent {
     /** Cluster network service. */
     private final ClusterService clusterNetSvc;
 
+    /** Replica message handler. */
+    private final NetworkMessageHandler handler;
+
     /** Replicas. */
     private final ConcurrentHashMap<String, Replica> replicas = new ConcurrentHashMap<>();
 
     /** A hybrid logical clock. */
     private final HybridClock clock;
+
+    // TODO: sanpwc tmp, remove
+    private final ConcurrentHashSet<Class<?>> registeredMessageGroups;
 
     /**
      * Constructor for replica service.
@@ -85,6 +92,44 @@ public class ReplicaManager implements IgniteComponent {
     public ReplicaManager(ClusterService clusterNetSvc, HybridClock clock) {
         this.clusterNetSvc = clusterNetSvc;
         this.clock = clock;
+        this.handler = (message, senderAddr, correlationId) -> {
+            if (!busyLock.enterBusy()) {
+                throw new IgniteException(new NodeStoppingException());
+            }
+
+            try {
+                assert message instanceof ReplicaRequest : IgniteStringFormatter.format("Unexpected message [message={}]", message);
+
+                ReplicaRequest request = (ReplicaRequest) message;
+
+                HybridTimestamp requestTimestamp = extractTimestamp(request);
+
+                Replica replica = replicas.get(request.groupId());
+
+                if (replica == null) {
+                    sendReplicaUnavailableErrorResponse(senderAddr, correlationId, request, requestTimestamp);
+                }
+
+                CompletableFuture<Object> result = replica.processRequest(request);
+
+                result.handle((res, ex) -> {
+                    NetworkMessage msg;
+
+                    if (ex == null) {
+                        msg = prepareReplicaResponse(requestTimestamp, res);
+                    } else {
+                        msg = prepareReplicaErrorResponse(request, requestTimestamp, ex);
+                    }
+
+                    clusterNetSvc.messagingService().respond(senderAddr, msg, correlationId);
+
+                    return null;
+                });
+            } finally {
+                busyLock.leaveBusy();
+            }
+        };
+        this.registeredMessageGroups = new ConcurrentHashSet<>();
     }
 
     /**
@@ -125,6 +170,13 @@ public class ReplicaManager implements IgniteComponent {
         }
 
         try {
+            // TODO: sanpwc tmp, remove
+            listener.messageGroups().forEach(mg -> {
+                if (registeredMessageGroups.add(mg)) {
+                    clusterNetSvc.messagingService().addMessageHandler(mg, handler);
+                }
+            });
+
             return startReplicaInternal(replicaGrpId, raftGroupService, listener);
         } finally {
             busyLock.leaveBusy();
@@ -189,46 +241,7 @@ public class ReplicaManager implements IgniteComponent {
     /** {@inheritDoc} */
     @Override
     public void start() {
-        clusterNetSvc.messagingService().addMessageHandler(ReplicaMessageGroup.class, new NetworkMessageHandler() {
-            @Override
-            public void onReceived(NetworkMessage message, NetworkAddress senderAddr, @Nullable Long correlationId) {
-                if (!busyLock.enterBusy()) {
-                    throw new IgniteException(new NodeStoppingException());
-                }
-
-                try {
-                    assert message instanceof ReplicaRequest : IgniteStringFormatter.format("Unexpected message [message={}]", message);
-
-                    ReplicaRequest request = (ReplicaRequest) message;
-
-                    HybridTimestamp requestTimestamp = extractTimestamp(request);
-
-                    Replica replica = replicas.get(request.groupId());
-
-                    if (replica == null) {
-                        sendReplicaUnavailableErrorResponse(senderAddr, correlationId, request, requestTimestamp);
-                    }
-
-                    CompletableFuture<Object> result = replica.processRequest(request);
-
-                    result.handle((res, ex) -> {
-                        NetworkMessage msg;
-
-                        if (ex == null) {
-                            msg = prepareReplicaResponse(requestTimestamp, res);
-                        } else {
-                            msg = prepareReplicaErrorResponse(request, requestTimestamp, ex);
-                        }
-
-                        clusterNetSvc.messagingService().respond(senderAddr, msg, correlationId);
-
-                        return null;
-                    });
-                } finally {
-                    busyLock.leaveBusy();
-                }
-            }
-        });
+        clusterNetSvc.messagingService().addMessageHandler(ReplicaMessageGroup.class, handler);
     }
 
     /** {@inheritDoc} */
