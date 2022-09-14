@@ -48,6 +48,7 @@ import org.apache.ignite.client.handler.requests.sql.ClientSqlCursorNextPageRequ
 import org.apache.ignite.client.handler.requests.sql.ClientSqlExecuteRequest;
 import org.apache.ignite.client.handler.requests.table.ClientSchemasGetRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTableGetRequest;
+import org.apache.ignite.client.handler.requests.table.ClientTablePartitionAssignmentGetRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTablesGetRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTupleContainsKeyRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTupleDeleteAllExactRequest;
@@ -480,7 +481,10 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
             case ClientOp.SQL_CURSOR_CLOSE:
                 return ClientSqlCursorCloseRequest.process(in, resources);
 
-            // TODO: Handle GetAssignment OP, set assignmentChanged to false - beware race conditions
+            case ClientOp.PARTITION_ASSIGNMENT_GET:
+                assignmentChanged = false; // TODO race condition.
+                return ClientTablePartitionAssignmentGetRequest.process(in, out, igniteTables);
+
             default:
                 throw new IgniteException(PROTOCOL_ERR, "Unexpected operation code: " + opCode);
         }
