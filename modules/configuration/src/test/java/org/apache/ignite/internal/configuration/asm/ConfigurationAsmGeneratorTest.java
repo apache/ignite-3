@@ -646,6 +646,31 @@ public class ConfigurationAsmGeneratorTest {
         assertTrue(rootFromAbstractConfig.configFromAbstract().booleanVal().value());
     }
 
+    @Test
+    void testUuidValueAnnotationField() throws Exception {
+        TestRootConfiguration rootConfig = (TestRootConfiguration) generator.instantiateCfg(TestRootConfiguration.KEY, changer);
+
+        UUID uuid0 = rootConfig.uuid0().value();
+
+        assertNotNull(uuid0);
+
+        UUID newUuid0 = UUID.randomUUID();
+
+        rootConfig.uuid0().update(newUuid0).get(1, SECONDS);
+
+        assertEquals(newUuid0, rootConfig.uuid0().value());
+
+        UUID uuid1 = rootConfig.subCfg().uuid1().value();
+
+        assertNotNull(uuid1);
+
+        UUID newUuid1 = UUID.randomUUID();
+
+        rootConfig.subCfg().uuid1().update(newUuid1).get(1, SECONDS);
+
+        assertEquals(newUuid1, rootConfig.subCfg().uuid1().value());
+    }
+
     /**
      * Test root configuration schema.
      */
@@ -658,6 +683,10 @@ public class ConfigurationAsmGeneratorTest {
         /** String field. */
         @Value(hasDefault = true)
         public String str0 = "str0";
+
+        /** UUID field. */
+        @Value(hasDefault = true)
+        public UUID uuid0 = UUID.randomUUID();
 
         /** Sub configuration field. */
         @ConfigValue
@@ -708,6 +737,10 @@ public class ConfigurationAsmGeneratorTest {
         /** String field. */
         @Value(hasDefault = true)
         public String str2 = "str2";
+
+        /** UUID field. */
+        @Value(hasDefault = true)
+        public UUID uuid1 = UUID.randomUUID();
     }
 
     /**
