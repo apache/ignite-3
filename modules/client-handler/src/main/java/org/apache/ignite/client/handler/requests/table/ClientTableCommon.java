@@ -30,6 +30,7 @@ import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
+import java.util.Set;
 import java.util.UUID;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
@@ -78,14 +79,17 @@ public class ClientTableCommon {
         var colCnt = schema.columnNames().size();
         packer.packArrayHeader(colCnt);
 
+        var colocationCols = Set.of(schema.colocationColumns());
+
         for (var colIdx = 0; colIdx < colCnt; colIdx++) {
             var col = schema.column(colIdx);
 
-            packer.packArrayHeader(4);
+            packer.packArrayHeader(5);
             packer.packString(col.name());
             packer.packInt(getClientDataType(col.type().spec()));
             packer.packBoolean(schema.isKeyColumn(colIdx));
             packer.packBoolean(col.nullable());
+            packer.packBoolean(colocationCols.contains(col));
         }
     }
 
