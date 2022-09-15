@@ -63,11 +63,12 @@ public:
     void writeRawData(BytesView data);
 
     /**
-     * Get buffer.
+     * Get underlying data buffer view.
      *
-     * @return Underlying buffer.
+     * @return Underlying data buffer view.
      */
-    BytesView getBuffer()
+    [[nodiscard]]
+    BytesView getData() const
     {
         return m_buffer;
     }
@@ -81,28 +82,6 @@ public:
      * Write buffer length to previously reserved position.
      */
     void writeLengthHeader();
-
-    /**
-     * Get length.
-     *
-     * @return Packet length.
-     */
-    [[nodiscard]]
-    std::int32_t getLength() const
-    {
-        return std::int32_t(m_buffer.size());
-    }
-
-    /**
-     * Get data.
-     *
-     * @return Data.
-     */
-    [[nodiscard]]
-    const std::int8_t* getData() const
-    {
-        return reinterpret_cast<const std::int8_t*>(m_buffer.data());
-    }
 
 private:
     /**

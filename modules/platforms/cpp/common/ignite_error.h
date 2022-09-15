@@ -77,7 +77,7 @@ public:
      * Get error message.
      */
     [[nodiscard]]
-    char const* what() const override
+    char const* what() const noexcept override
     {
         return m_message.c_str();
     }

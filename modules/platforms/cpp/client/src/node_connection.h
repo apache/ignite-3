@@ -91,16 +91,15 @@ public:
         const std::function<void(protocol::Writer&)>& wr, ResponseHandlerImpl<T> handler)
     {
         auto reqId = generateRequestId();
-        auto buffer = std::make_shared<protocol::Buffer>();
+        protocol::Buffer buffer;
+        buffer.reserveLengthHeader();
 
-        buffer->reserveLengthHeader();
-
-        protocol::Writer writer(*buffer);
+        protocol::Writer writer(buffer);
         writer.write(int32_t(op));
         writer.write(reqId);
         wr(writer);
 
-        buffer->writeLengthHeader();
+        buffer.writeLengthHeader();
 
         auto fut = handler.getFuture();
 
@@ -109,7 +108,7 @@ public:
             m_requestHandlers[reqId] = std::make_shared<ResponseHandlerImpl<T>>(std::move(handler));
         }
 
-        bool sent = m_pool->send(m_id, network::DataBuffer(std::move(buffer)));
+        bool sent = m_pool->send(m_id, network::DataBuffer(buffer.getData()));
         if (!sent)
         {
             std::lock_guard<std::mutex> lock(m_requestHandlersMutex);

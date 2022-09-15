@@ -15,8 +15,6 @@
  * limitations under the License.
  */
 
-#include <cstring>
-
 #include "common/ignite_error.h"
 #include "ignite/network/data_buffer.h"
 
@@ -28,38 +26,33 @@ DataBuffer::DataBuffer() :
     m_length(0),
     m_data() { }
 
-DataBuffer::DataBuffer(std::shared_ptr<protocol::Buffer> data) :
+DataBuffer::DataBuffer(BytesView data) :
     m_position(0),
-    m_length(data->getLength()),
-    m_data(std::move(data)) { }
+    m_length(int32_t(data.size())),
+    m_data(data) { }
 
-DataBuffer::DataBuffer(std::shared_ptr<protocol::Buffer> data, int32_t pos, int32_t len) :
+DataBuffer::DataBuffer(BytesView data, int32_t pos, int32_t len) :
     m_position(pos),
     m_length(len),
-    m_data(std::move(data)) { }
+    m_data(data) { }
 
 void DataBuffer::beConsumed(std::vector<std::byte>& dst, int32_t toCopy)
 {
-    auto bytes = m_data->getBuffer();
-
     int32_t end = m_position + toCopy;
-    if (end > bytes.size())
-        end = int32_t(bytes.size());
+    if (end > m_data.size())
+        end = int32_t(m_data.size());
 
-    dst.insert(dst.end(), bytes.begin() + m_position, bytes.begin() + end);
+    dst.insert(dst.end(), m_data.begin() + m_position, m_data.begin() + end);
     advance(toCopy);
 }
 
 const int8_t *DataBuffer::getData() const
 {
-    return m_data->getData() + m_position;
+    return reinterpret_cast<const int8_t*>(m_data.data() + m_position);
 }
 
 int32_t DataBuffer::getSize() const
 {
-    if (!m_data)
-        return 0;
-
     return m_length - m_position;
 }
 
@@ -79,16 +72,6 @@ DataBuffer DataBuffer::consumeEntirely()
 void DataBuffer::advance(int32_t val)
 {
     m_position += val;
-}
-
-DataBuffer DataBuffer::clone() const
-{
-    if (isEmpty())
-        return {};
-
-    auto copy = std::make_shared<protocol::Buffer>(*m_data);
-
-    return {copy, 0, m_length};
 }
 
 void DataBuffer::skip(int32_t bytes)

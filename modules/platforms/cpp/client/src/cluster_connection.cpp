@@ -196,10 +196,10 @@ void ClusterConnection::handshake(uint64_t id, ProtocolContext& context)
 {
     static constexpr int8_t CLIENT_TYPE = 2;
 
-    auto buffer = std::make_shared<protocol::Buffer>();
-    buffer->writeRawData(BytesView(protocol::MAGIC_BYTES.data(), protocol::MAGIC_BYTES.size()));
+    protocol::Buffer buffer;
+    buffer.writeRawData(BytesView(protocol::MAGIC_BYTES.data(), protocol::MAGIC_BYTES.size()));
 
-    protocol::Writer::writeMessageToBuffer(*buffer, [&context](protocol::Writer& writer) {
+    protocol::Writer::writeMessageToBuffer(buffer, [&context](protocol::Writer& writer) {
         auto ver = context.getVersion();
 
         writer.write(ver.getMajor());
@@ -215,7 +215,7 @@ void ClusterConnection::handshake(uint64_t id, ProtocolContext& context)
         writer.writeMapEmpty();
     });
 
-    network::DataBuffer dataBuffer(buffer);
+    network::DataBuffer dataBuffer(buffer.getData());
 
     try
     {

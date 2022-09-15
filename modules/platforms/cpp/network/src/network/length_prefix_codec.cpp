@@ -74,7 +74,7 @@ DataBuffer LengthPrefixCodec::decode(DataBuffer& data)
     consume(data, m_packetSize + PACKET_HEADER_SIZE);
 
     if (m_packet.size() == m_packetSize + PACKET_HEADER_SIZE)
-        return {std::make_shared<protocol::Buffer>(m_packet), PACKET_HEADER_SIZE, m_packetSize + PACKET_HEADER_SIZE};
+        return {m_packet, PACKET_HEADER_SIZE, m_packetSize + PACKET_HEADER_SIZE};
 
     return {};
 }

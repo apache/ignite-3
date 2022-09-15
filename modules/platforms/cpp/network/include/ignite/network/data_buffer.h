@@ -43,7 +43,7 @@ public:
      *
      * @param data Data.
      */
-    explicit DataBuffer(std::shared_ptr<protocol::Buffer> data);
+    explicit DataBuffer(BytesView data);
 
     /**
      * Constructor.
@@ -52,7 +52,7 @@ public:
      * @param pos Start of data.
      * @param len Length.
      */
-    DataBuffer(std::shared_ptr<protocol::Buffer> data, int32_t pos, int32_t len);
+    DataBuffer(BytesView data, int32_t pos, int32_t len);
 
     /**
      * Destructor.
@@ -99,14 +99,6 @@ public:
     DataBuffer consumeEntirely();
 
     /**
-     * Clone underlying buffer into a new one.
-     *
-     * @return New data buffer.
-     */
-    [[nodiscard]]
-    DataBuffer clone() const;
-
-    /**
      * Skip specified number of bytes.
      *
      * @param bytes Bytes to skip.
@@ -136,7 +128,7 @@ private:
     int32_t m_length;
 
     /** Data. */
-    std::shared_ptr<protocol::Buffer> m_data;
+    const BytesView m_data;
 };
 
 } // namespace ignite::network
