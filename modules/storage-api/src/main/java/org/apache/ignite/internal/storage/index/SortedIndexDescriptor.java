@@ -28,6 +28,8 @@ import org.apache.ignite.configuration.schemas.table.SortedIndexView;
 import org.apache.ignite.configuration.schemas.table.TableIndexView;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
+import org.apache.ignite.internal.schema.BinaryTupleSchema;
+import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.schema.configuration.SchemaDescriptorConverter;
@@ -97,6 +99,8 @@ public class SortedIndexDescriptor {
 
     private final List<ColumnDescriptor> columns;
 
+    private final BinaryTupleSchema binaryTupleSchema;
+
     /**
      * Creates an Index Descriptor from a given Table Configuration.
      *
@@ -132,6 +136,16 @@ public class SortedIndexDescriptor {
                     return new ColumnDescriptor(columnView, indexColumnView);
                 })
                 .collect(toUnmodifiableList());
+
+        this.binaryTupleSchema = createSchema(columns);
+    }
+
+    private static BinaryTupleSchema createSchema(List<ColumnDescriptor> columns) {
+        Element[] elements = columns.stream()
+                .map(columnDescriptor -> new Element(columnDescriptor.type(), columnDescriptor.nullable()))
+                .toArray(Element[]::new);
+
+        return BinaryTupleSchema.create(elements);
     }
 
     /**
@@ -146,5 +160,9 @@ public class SortedIndexDescriptor {
      */
     public List<ColumnDescriptor> indexColumns() {
         return columns;
+    }
+
+    public BinaryTupleSchema binaryTupleSchema() {
+        return binaryTupleSchema;
     }
 }

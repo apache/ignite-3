@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage.pagememory.index.sorted.io;
 
+import static java.nio.ByteOrder.LITTLE_ENDIAN;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.getLong;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putLong;
 import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.PARTITIONLESS_LINK_SIZE_BYTES;
@@ -117,7 +118,7 @@ public interface SortedIndexTreeIo {
 
         dataPageReader.traverse(link, indexColumnsTraversal, null);
 
-        ByteBuffer indexColumnsBuffer = ByteBuffer.wrap(indexColumnsTraversal.result());
+        ByteBuffer indexColumnsBuffer = ByteBuffer.wrap(indexColumnsTraversal.result()).order(LITTLE_ENDIAN);
 
         // TODO: IGNITE-17672 Compare by BinaryTuple
         int cmp = indexColumnsBuffer.compareTo(sortedIndexRow.indexColumns().valueBuffer());
@@ -159,7 +160,7 @@ public interface SortedIndexTreeIo {
 
         dataPageReader.traverse(link, indexColumnsTraversal, null);
 
-        ByteBuffer indexColumnsBuffer = ByteBuffer.wrap(indexColumnsTraversal.result());
+        ByteBuffer indexColumnsBuffer = ByteBuffer.wrap(indexColumnsTraversal.result()).order(LITTLE_ENDIAN);
 
         IndexColumns indexColumns = new IndexColumns(partitionId, link, indexColumnsBuffer);
 

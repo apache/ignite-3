@@ -19,13 +19,16 @@ package org.apache.ignite.internal.storage.pagememory.index.sorted;
 
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
 import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumnsFreeList;
+import org.apache.ignite.internal.storage.pagememory.util.TreeCursorAdapter;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.util.IgniteCursor;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 
@@ -45,6 +48,12 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
     /** Partition id. */
     private final int partitionId;
 
+    /** Lowest possible RowId according to signed long ordering. */
+    private final RowId lowestRowId;
+
+    /** Highest possible RowId according to signed long ordering. */
+    private final RowId highestRowId;
+
     /**
      * Constructor.
      *
@@ -58,6 +67,10 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
         this.sortedIndexTree = sortedIndexTree;
 
         partitionId = sortedIndexTree.partitionId();
+
+        lowestRowId = new RowId(partitionId, Long.MIN_VALUE, Long.MIN_VALUE);
+
+        highestRowId = new RowId(partitionId, Long.MAX_VALUE, Long.MAX_VALUE);
     }
 
     @Override
@@ -100,7 +113,37 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
 
     @Override
     public Cursor<IndexRow> scan(@Nullable BinaryTuple lowerBound, @Nullable BinaryTuple upperBound, int flags) {
-        // TODO: IGNITE-17320 реализовать
-        return null;
+        IgniteCursor<SortedIndexRow> cursor;
+
+        try {
+            cursor = sortedIndexTree.find(
+                    toSortedIndexRow(lowerBound, lowestRowId),
+                    toSortedIndexRow(upperBound, highestRowId),
+                    (flags & GREATER_OR_EQUAL) != 0,
+                    (flags & LESS_OR_EQUAL) != 0,
+                    null,
+                    null
+            );
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException("Failed to create scan cursor", e);
+        }
+
+        // TODO: IGNITE-17320 надо бы тут сделать по нормальному
+
+        return Cursor.fromIterator(new TreeCursorAdapter<>(cursor, sortedIndexRow -> new IndexRow() {
+            @Override
+            public BinaryTuple indexColumns() {
+                return new BinaryTuple(descriptor.binaryTupleSchema(), sortedIndexRow.indexColumns().valueBuffer());
+            }
+
+            @Override
+            public RowId rowId() {
+                return sortedIndexRow.rowId();
+            }
+        }));
+    }
+
+    private @Nullable SortedIndexRow toSortedIndexRow(@Nullable BinaryTuple binaryTuple, RowId rowId) {
+        return binaryTuple == null ? null : new SortedIndexRow(new IndexColumns(partitionId, binaryTuple.byteBuffer()), rowId);
     }
 }
