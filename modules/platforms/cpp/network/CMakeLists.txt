@@ -51,6 +51,7 @@ else()
         os/linux/src/network/linux_async_client_pool.cpp
         os/linux/src/network/linux_async_worker_thread.cpp
         os/linux/src/network/sockets.cpp
+        os/linux/src/network/utils.cpp
     )
 endif()
 

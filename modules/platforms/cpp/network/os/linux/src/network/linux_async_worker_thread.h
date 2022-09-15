@@ -15,16 +15,14 @@
  * limitations under the License.
  */
 
-#ifndef _IGNITE_NETWORK_LINUX_ASYNC_WORKER_THREAD
-#define _IGNITE_NETWORK_LINUX_ASYNC_WORKER_THREAD
+#pragma once
 
-#include <time.h>
+#include <ctime>
+#include <cstdint>
 
-#include <stdint.h>
 #include <memory>
-
-#include <ignite/common/concurrent.h>
-#include <ignite/impl/interop/interop_memory.h>
+#include <thread>
+#include <mutex>
 
 #include <ignite/network/async_handler.h>
 #include <ignite/network/end_point.h>
@@ -33,131 +31,133 @@
 #include "network/linux_async_client.h"
 #include "network/connecting_context.h"
 
-namespace ignite
+namespace ignite::network
 {
-    namespace network
-    {
-        class LinuxAsyncClientPool;
 
-        /**
-         * Async pool working thread.
-         */
-        class LinuxAsyncWorkerThread : protected common::concurrent::Thread
-        {
-        public:
-            /**
-             * Default constructor.
-             */
-            LinuxAsyncWorkerThread(LinuxAsyncClientPool& clientPool);
+class LinuxAsyncClientPool;
 
-            /**
-             * Destructor.
-             */
-            virtual ~LinuxAsyncWorkerThread();
+/**
+ * Async pool working thread.
+ */
+class LinuxAsyncWorkerThread
+{
+public:
+    /**
+     * Default constructor.
+     */
+    explicit LinuxAsyncWorkerThread(LinuxAsyncClientPool& clientPool);
 
-            /**
-             * Start worker thread.
-             *
-             * @param limit Connection limit.
-             * @param addrs Addresses to connect to.
-             */
-            void Start0(size_t limit, std::vector<TcpRange> addrs);
+    /**
+     * Destructor.
+     */
+    virtual ~LinuxAsyncWorkerThread();
 
-            /**
-             * Stop thread.
-             */
-            void stop();
+    /**
+     * Start worker thread.
+     *
+     * @param limit Connection limit.
+     * @param addrs Addresses to connect to.
+     */
+    void start(size_t limit, std::vector<TcpRange> addrs);
 
-        private:
-            /**
-             * Run thread.
-             */
-            virtual void run();
+    /**
+     * Stop thread.
+     */
+    void stop();
 
-            /**
-             * Initiate new connection process if needed.
-             */
-            void HandleNewConnections();
+private:
+    /**
+     * Run thread.
+     */
+    void run();
 
-            /**
-             * Handle epoll events.
-             */
-            void HandleConnectionEvents();
+    /**
+     * Initiate new connection process if needed.
+     */
+    void handleNewConnections();
 
-            /**
-             * Handle network error during connection establishment.
-             *
-             * @param addr End point.
-             * @param msg Error message.
-             */
-            void ReportConnectionError(const EndPoint& addr, const std::string& msg);
+    /**
+     * Handle epoll events.
+     */
+    void handleConnectionEvents();
 
-            /**
-             * Handle failed connection.
-             *
-             * @param msg Error message.
-             */
-            void HandleConnectionFailed(const std::string& msg);
+    /**
+     * Handle network error during connection establishment.
+     *
+     * @param addr End point.
+     * @param msg Error message.
+     */
+    void reportConnectionError(const EndPoint& addr, std::string msg);
 
-            /**
-             * Handle network error on established connection.
-             *
-             * @param client Client instance.
-             */
-            void HandleConnectionClosed(LinuxAsyncClient* client);
+    /**
+     * Handle failed connection.
+     *
+     * @param msg Error message.
+     */
+    void handleConnectionFailed(std::string msg);
 
-            /**
-             * Handle successfully established connection.
-             *
-             * @param client Client instance.
-             */
-            void handleConnectionSuccess(LinuxAsyncClient* client);
+    /**
+     * Handle network error on established connection.
+     *
+     * @param client Client instance.
+     */
+    void handleConnectionClosed(LinuxAsyncClient* client);
 
-            /**
-             * Calculate connection timeout.
-             *
-             * @return Connection timeout.
-             */
-            int CalculateConnectionTimeout() const;
+    /**
+     * Handle successfully established connection.
+     *
+     * @param client Client instance.
+     */
+    void handleConnectionSuccess(LinuxAsyncClient* client);
 
-            /**
-             * Check whether new connection should be initiated.
-             *
-             * @return @c true if new connection should be initiated.
-             */
-            bool ShouldInitiateNewConnection() const;
+    /**
+     * Calculate connection timeout.
+     *
+     * @return Connection timeout.
+     */
+    [[nodiscard]]
+    int calculateConnectionTimeout() const;
 
-            /** Client pool. */
-            LinuxAsyncClientPool& m_clientPool;
+    /**
+     * Check whether new connection should be initiated.
+     *
+     * @return @c true if new connection should be initiated.
+     */
+    [[nodiscard]]
+    bool shouldInitiateNewConnection() const;
 
-            /** Flag indicating that thread is stopping. */
-            bool m_stopping;
+    /** Client pool. */
+    LinuxAsyncClientPool& m_clientPool;
 
-            /** Client epoll file descriptor. */
-            int epoll;
+    /** Flag indicating that thread is stopping. */
+    volatile bool m_stopping;
 
-            /** Stop event file descriptor. */
-            int stopEvent;
+    /** Client epoll file descriptor. */
+    int m_epoll;
 
-            /** Addresses to use for connection establishment. */
-            std::vector<TcpRange> m_nonConnected;
+    /** Stop event file descriptor. */
+    int m_stopEvent;
 
-            /** Connection which is currently in connecting process. */
-            std::auto_ptr<ConnectingContext> currentConnection;
+    /** Addresses to use for connection establishment. */
+    std::vector<TcpRange> m_nonConnected;
 
-            /** Currently connected client. */
-            SP_LinuxAsyncClient currentClient;
+    /** Connection which is currently in connecting process. */
+    std::unique_ptr<ConnectingContext> m_currentConnection;
 
-            /** Failed connection attempts. */
-            size_t m_failedAttempts;
+    /** Currently connected client. */
+    std::shared_ptr<LinuxAsyncClient> m_currentClient;
 
-            /** Last connection time. */
-            timespec lastConnectionTime;
+    /** Failed connection attempts. */
+    size_t m_failedAttempts;
 
-            /** Minimal number of addresses. */
-            size_t m_minAddrs;
-        };
-    }
-}
+    /** Last connection time. */
+    timespec m_lastConnectionTime;
 
-#endif //_IGNITE_NETWORK_LINUX_ASYNC_WORKER_THREAD
+    /** Minimal number of addresses. */
+    size_t m_minAddrs;
+
+    /** Thread. */
+    std::thread m_thread;
+};
+
+} // namespace ignite::network

@@ -15,14 +15,28 @@
  * limitations under the License.
  */
 
-#pragma once
+#include <cstring>
 
-#ifdef _WIN32
-#    ifdef IGNITE_EXPORTS
-#        define IGNITE_API __declspec(dllexport)
-#    else
-#        define IGNITE_API __declspec(dllimport)
-#    endif
-#else
-#    define IGNITE_API
-#endif
+#include "network/utils.h"
+
+namespace ignite::network
+{
+
+std::string getLastSystemError()
+{
+    int errorCode = errno;
+
+    std::string errorDetails;
+    if (errorCode != 0)
+    {
+        char errBuf[1024] = { 0 };
+
+        const char* res = strerror_r(errorCode, errBuf, sizeof(errBuf));
+        if (res)
+            errorDetails.assign(res);
+    }
+
+    return errorDetails;
+}
+
+} // namespace ignite::network

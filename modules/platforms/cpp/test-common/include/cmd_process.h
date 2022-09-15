@@ -20,6 +20,7 @@
 #include <chrono>
 #include <string>
 #include <memory>
+#include <vector>
 
 namespace ignite
 {
@@ -39,10 +40,11 @@ public:
      * Make new process instance.
      *
      * @param command Command.
+     * @param args Arguments.
      * @param workDir Working directory.
      * @return CmdProcess.
      */
-    static std::unique_ptr<CmdProcess> make(std::string command, std::string workDir);
+    static std::unique_ptr<CmdProcess> make(std::string command, std::vector<std::string> args, std::string workDir);
 
     /**
      * Start process.

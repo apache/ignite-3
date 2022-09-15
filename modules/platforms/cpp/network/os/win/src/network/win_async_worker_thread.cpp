@@ -67,7 +67,7 @@ void WinAsyncWorkerThread::run()
 
         if (!ok || (NULL != overlapped && 0 == bytesTransferred))
         {
-            m_clientPool->closeAndRelease(client->GetId(), nullptr);
+            m_clientPool->closeAndRelease(client->getId(), nullptr);
 
             continue;
         }
@@ -75,11 +75,11 @@ void WinAsyncWorkerThread::run()
         if (!overlapped)
         {
             // This mean new client is connected.
-            m_clientPool->handleConnectionSuccess(client->getAddress(), client->GetId());
+            m_clientPool->handleConnectionSuccess(client->getAddress(), client->getId());
 
             bool success = client->receive();
             if (!success)
-                m_clientPool->closeAndRelease(client->GetId(), nullptr);
+                m_clientPool->closeAndRelease(client->getId(), nullptr);
 
             continue;
         }
@@ -94,9 +94,9 @@ void WinAsyncWorkerThread::run()
                     bool success = client->processSent(bytesTransferred);
 
                     if (!success)
-                        m_clientPool->closeAndRelease(client->GetId(), nullptr);
+                        m_clientPool->closeAndRelease(client->getId(), nullptr);
 
-                    m_clientPool->handleMessageSent(client->GetId());
+                    m_clientPool->handleMessageSent(client->getId());
 
                     break;
                 }
@@ -106,12 +106,12 @@ void WinAsyncWorkerThread::run()
                     DataBuffer data = client->processReceived(bytesTransferred);
 
                     if (!data.isEmpty())
-                        m_clientPool->handleMessageReceived(client->GetId(), data);
+                        m_clientPool->handleMessageReceived(client->getId(), data);
 
                     bool success = client->receive();
 
                     if (!success)
-                        m_clientPool->closeAndRelease(client->GetId(), nullptr);
+                        m_clientPool->closeAndRelease(client->getId(), nullptr);
 
                     break;
                 }
@@ -122,7 +122,7 @@ void WinAsyncWorkerThread::run()
         }
         catch (const IgniteError& err)
         {
-            m_clientPool->closeAndRelease(client->GetId(), &err);
+            m_clientPool->closeAndRelease(client->getId(), &err);
         }
     }
 }

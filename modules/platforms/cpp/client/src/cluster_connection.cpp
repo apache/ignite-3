@@ -87,6 +87,7 @@ void ClusterConnection::onConnectionSuccess(const network::EndPoint &addr, uint6
     auto protocolCtx = std::make_shared<ProtocolContext>();
 
     {
+        [[maybe_unused]]
         std::lock_guard<std::recursive_mutex> lock(m_inProgressMutex);
 
         if (m_inProgress.find(id) != m_inProgress.end())
@@ -98,20 +99,21 @@ void ClusterConnection::onConnectionSuccess(const network::EndPoint &addr, uint6
     handshake(id, *protocolCtx);
 }
 
-void ClusterConnection::onConnectionError(const network::EndPoint &addr, const IgniteError &err)
+void ClusterConnection::onConnectionError(const network::EndPoint &addr, IgniteError err)
 {
     m_logger->logWarning("Failed to establish connection with remote host " + addr.toString() +
         ", reason: " + err.what());
 
     if (err.getStatusCode() == StatusCode::OS)
-        handshakeFail(0, err);
+        handshakeFail(0, std::move(err));
 }
 
-void ClusterConnection::onConnectionClosed(uint64_t id, const IgniteError *err)
+void ClusterConnection::onConnectionClosed(uint64_t id, std::optional<IgniteError>)
 {
     m_logger->logDebug("Closed Connection ID " + std::to_string(id));
 
     {
+        [[maybe_unused]]
         std::lock_guard<std::recursive_mutex> lock(m_inProgressMutex);
 
         auto it = m_inProgress.find(id);
@@ -126,6 +128,7 @@ void ClusterConnection::onConnectionClosed(uint64_t id, const IgniteError *err)
     }
 
     {
+        [[maybe_unused]]
         std::lock_guard<std::recursive_mutex> lock(m_connectionsMutex);
 
         m_connections.erase(id);
@@ -139,6 +142,7 @@ void ClusterConnection::onMessageReceived(uint64_t id, const network::DataBuffer
 
     std::shared_ptr<NodeConnection> connection;
     {
+        [[maybe_unused]]
         std::lock_guard<std::recursive_mutex> lock(m_inProgressMutex);
 
         auto it = m_inProgress.find(id);
@@ -164,6 +168,7 @@ void ClusterConnection::onMessageReceived(uint64_t id, const network::DataBuffer
     }
 
     {
+        [[maybe_unused]]
         std::lock_guard<std::recursive_mutex> lock(m_connectionsMutex);
 
         {
@@ -237,6 +242,7 @@ void ClusterConnection::handshake(uint64_t id, ProtocolContext& context)
 
 void ClusterConnection::handshakeFail(uint64_t id, std::optional<IgniteError> err)
 {
+    [[maybe_unused]]
     std::lock_guard<std::recursive_mutex> lock(m_inProgressMutex);
 
     m_inProgress.erase(id);
@@ -279,6 +285,7 @@ void ClusterConnection::handshakeRsp(ProtocolContext& protocolCtx, const network
 
 std::shared_ptr<NodeConnection> ClusterConnection::getRandomChannel()
 {
+    [[maybe_unused]]
     std::lock_guard<std::recursive_mutex> lock(m_connectionsMutex);
 
     if (m_connections.empty())

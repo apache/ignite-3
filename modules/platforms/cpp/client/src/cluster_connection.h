@@ -145,7 +145,7 @@ private:
      * @param addr Connection address.
      * @param err Error.
      */
-    void onConnectionError(const network::EndPoint& addr, const IgniteError& err) override;
+    void onConnectionError(const network::EndPoint& addr, IgniteError err) override;
 
     /**
      * Callback that called on error during connection establishment.
@@ -153,7 +153,7 @@ private:
      * @param id Async client ID.
      * @param err Error. Can be null if connection closed without error.
      */
-    void onConnectionClosed(uint64_t id, const IgniteError* err) override;
+    void onConnectionClosed(uint64_t id, std::optional<IgniteError> err) override;
 
     /**
      * Callback that called when new message is received.

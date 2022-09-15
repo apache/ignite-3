@@ -25,11 +25,11 @@ void ErrorHandlingFilter::onConnectionSuccess(const EndPoint &addr, uint64_t id)
     closeConnectionOnException(id, [this, &addr, id] { DataFilterAdapter::onConnectionSuccess(addr, id); });
 }
 
-void ErrorHandlingFilter::onConnectionError(const EndPoint &addr, const IgniteError &err)
+void ErrorHandlingFilter::onConnectionError(const EndPoint &addr, IgniteError err)
 {
     try
     {
-        DataFilterAdapter::onConnectionError(addr, err);
+        DataFilterAdapter::onConnectionError(addr, std::move(err));
     }
     catch (...)
     {
@@ -37,11 +37,11 @@ void ErrorHandlingFilter::onConnectionError(const EndPoint &addr, const IgniteEr
     }
 }
 
-void ErrorHandlingFilter::onConnectionClosed(uint64_t id, const IgniteError *err)
+void ErrorHandlingFilter::onConnectionClosed(uint64_t id, std::optional<IgniteError> err)
 {
     try
     {
-        DataFilterAdapter::onConnectionClosed(id, err);
+        DataFilterAdapter::onConnectionClosed(id, std::move(err));
     }
     catch (...)
     {
@@ -67,20 +67,20 @@ void ErrorHandlingFilter::closeConnectionOnException(uint64_t id, const std::fun
     }
     catch (const IgniteError& err)
     {
-        DataFilterAdapter::close(id, &err);
+        DataFilterAdapter::close(id, err);
     }
     catch (std::exception& err)
     {
         std::string msg("Standard library exception is thrown: ");
         msg += err.what();
         IgniteError err0(StatusCode::GENERIC, msg);
-        DataFilterAdapter::close(id, &err0);
+        DataFilterAdapter::close(id, std::move(err0));
     }
     catch (...)
     {
         IgniteError err0(StatusCode::UNKNOWN,
             "Unknown error is encountered when processing network event");
-        DataFilterAdapter::close(id, &err0);
+        DataFilterAdapter::close(id, std::move(err0));
     }
 }
 

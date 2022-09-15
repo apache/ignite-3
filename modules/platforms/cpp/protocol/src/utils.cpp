@@ -15,8 +15,6 @@
  * limitations under the License.
  */
 
-#pragma once
-
 #include <mutex>
 
 #include "ignite/protocol/utils.h"

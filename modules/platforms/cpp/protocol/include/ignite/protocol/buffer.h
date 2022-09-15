@@ -53,6 +53,7 @@ public:
      *
      * @param data Data.
      */
+    [[maybe_unused]]
     explicit Buffer(std::vector<std::byte> data);
 
     /**

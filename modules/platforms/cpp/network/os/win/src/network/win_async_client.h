@@ -139,7 +139,7 @@ public:
      * @return Client ID.
      */
     [[nodiscard]]
-    uint64_t GetId() const
+    uint64_t getId() const
     {
         return m_id;
     }

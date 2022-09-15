@@ -82,7 +82,7 @@ public:
      *
      * @param id Client ID.
      */
-    void close(uint64_t id, const IgniteError* err) override;
+    void close(uint64_t id, std::optional<IgniteError> err) override;
 
 private:
     /** Filters. */

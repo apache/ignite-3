@@ -59,7 +59,7 @@ void CodecDataFilter::onConnectionSuccess(const EndPoint &addr, uint64_t id)
     DataFilterAdapter::onConnectionSuccess(addr, id);
 }
 
-void CodecDataFilter::onConnectionClosed(uint64_t id, const IgniteError *err)
+void CodecDataFilter::onConnectionClosed(uint64_t id, std::optional<IgniteError> err)
 {
     {
         std::lock_guard<std::mutex> lock(m_codecsMutex);
@@ -67,7 +67,7 @@ void CodecDataFilter::onConnectionClosed(uint64_t id, const IgniteError *err)
         m_codecs.erase(id);
     }
 
-    DataFilterAdapter::onConnectionClosed(id, err);
+    DataFilterAdapter::onConnectionClosed(id, std::move(err));
 }
 
 void CodecDataFilter::onMessageReceived(uint64_t id, const DataBuffer &msg)

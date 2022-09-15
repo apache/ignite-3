@@ -28,7 +28,7 @@
 
 using namespace ignite;
 
-static constexpr std::initializer_list<std::string_view> NODE_ADDRS = {"127.0.0.1:10942", "127.0.0.1:10943"};
+static const std::initializer_list<std::string_view> NODE_ADDRS = {"127.0.0.1:10942", "127.0.0.1:10943"};
 
 /**
  * Test suite.

@@ -20,13 +20,13 @@
 #include <sys/epoll.h>
 #include <sys/eventfd.h>
 #include <netdb.h>
-#include <netinet/tcp.h>
 #include <unistd.h>
 
 #include <cstring>
 
+#include <algorithm>
+
 #include <network/utils.h>
-#include <ignite/common/utils.h>
 
 #include "network/linux_async_worker_thread.h"
 #include "network/linux_async_client_pool.h"
@@ -36,313 +36,315 @@ namespace
     ignite::network::FibonacciSequence<10> fibonacci10;
 }
 
-namespace ignite
+namespace ignite::network
 {
-    namespace network
+
+LinuxAsyncWorkerThread::LinuxAsyncWorkerThread(LinuxAsyncClientPool &clientPool) :
+    m_clientPool(clientPool),
+    m_stopping(true),
+    m_epoll(-1),
+    m_stopEvent(-1),
+    m_nonConnected(),
+    m_currentConnection(),
+    m_currentClient(),
+    m_failedAttempts(0),
+    m_lastConnectionTime(),
+    m_minAddrs(0),
+    m_thread()
+{
+    memset(&m_lastConnectionTime, 0, sizeof(m_lastConnectionTime));
+}
+
+LinuxAsyncWorkerThread::~LinuxAsyncWorkerThread()
+{
+    stop();
+}
+
+void LinuxAsyncWorkerThread::start(size_t limit, std::vector<TcpRange> addrs)
+{
+    m_epoll = epoll_create(1);
+    if (m_epoll < 0)
+        throwLastSystemError("Failed to create epoll instance");
+
+    m_stopEvent = eventfd(0, EFD_NONBLOCK);
+    if (m_stopEvent < 0)
     {
-        LinuxAsyncWorkerThread::LinuxAsyncWorkerThread(LinuxAsyncClientPool &clientPool) :
-            m_clientPool(clientPool),
-            m_stopping(true),
-            epoll(-1),
-            stopEvent(-1),
-            m_nonConnected(),
-            currentConnection(),
-            currentClient(),
-            m_failedAttempts(0),
-            lastConnectionTime(),
-            m_minAddrs(0)
+        std::string msg = getLastSystemError("Failed to create stop event instance", "");
+        close(m_stopEvent);
+        throw IgniteError(StatusCode::OS,msg);
+    }
+
+    epoll_event event{};
+    memset(&event, 0, sizeof(event));
+
+    event.events = EPOLLIN;
+
+    int res = epoll_ctl(m_epoll, EPOLL_CTL_ADD, m_stopEvent, &event);
+    if (res < 0)
+    {
+        std::string msg = getLastSystemError("Failed to create stop event instance", "");
+        close(m_stopEvent);
+        close(m_epoll);
+        throw IgniteError(StatusCode::OS, msg);
+    }
+
+    m_stopping = false;
+    m_failedAttempts = 0;
+    m_nonConnected = std::move(addrs);
+
+    m_currentConnection.reset();
+    m_currentClient.reset();
+
+    if (!limit || limit > m_nonConnected.size())
+        m_minAddrs = 0;
+    else
+        m_minAddrs = m_nonConnected.size() - limit;
+
+    m_thread = std::thread(&LinuxAsyncWorkerThread::run, this);
+}
+
+void LinuxAsyncWorkerThread::stop()
+{
+    if (m_stopping)
+        return;
+
+    m_stopping = true;
+
+    int64_t value = 1;
+    ssize_t res = write(m_stopEvent, &value, sizeof(value));
+
+    (void) res;
+    assert(res == sizeof(value));
+
+    m_thread.join();
+
+    close(m_stopEvent);
+    close(m_epoll);
+
+    m_nonConnected.clear();
+    m_currentConnection.reset();
+}
+
+void LinuxAsyncWorkerThread::run()
+{
+    while (!m_stopping)
+    {
+        handleNewConnections();
+
+        if (m_stopping)
+            break;
+
+        handleConnectionEvents();
+    }
+}
+
+void LinuxAsyncWorkerThread::handleNewConnections()
+{
+    if (!shouldInitiateNewConnection())
+        return;
+
+    if (calculateConnectionTimeout() > 0)
+        return;
+
+    addrinfo* addr = nullptr;
+    if (m_currentConnection)
+        addr = m_currentConnection->next();
+
+    if (!addr)
+    {
+        // TODO: Use round-robin instead.
+        size_t idx = rand() % m_nonConnected.size();
+        const TcpRange& range = m_nonConnected.at(idx);
+
+        m_currentConnection = std::make_unique<ConnectingContext>(range);
+        addr = m_currentConnection->next();
+        if (!addr)
         {
-            memset(&lastConnectionTime, 0, sizeof(lastConnectionTime));
-        }
-
-        LinuxAsyncWorkerThread::~LinuxAsyncWorkerThread()
-        {
-            stop();
-        }
-
-        void LinuxAsyncWorkerThread::Start0(size_t limit, const std::vector<TcpRange> &addrs)
-        {
-            epoll = epoll_create(1);
-            if (epoll < 0)
-                common::throwLastSystemError("Failed to create epoll instance");
-
-            stopEvent = eventfd(0, EFD_NONBLOCK);
-            if (stopEvent < 0)
-            {
-                std::string msg = common::getLastSystemError("Failed to create stop event instance");
-                close(stopEvent);
-                common::throwSystemError(msg);
-            }
-
-            epoll_event event;
-            memset(&event, 0, sizeof(event));
-
-            event.events = EPOLLIN;
-
-            int res = epoll_ctl(epoll, EPOLL_CTL_ADD, stopEvent, &event);
-            if (res < 0)
-            {
-                std::string msg = common::getLastSystemError("Failed to create stop event instance");
-                close(stopEvent);
-                close(epoll);
-                common::throwSystemError(msg);
-            }
-
-            m_stopping = false;
-            m_failedAttempts = 0;
-            m_nonConnected = addrs;
-
-            currentConnection.reset();
-            currentClient = SP_LinuxAsyncClient();
-
-            if (!limit || limit > addrs.size())
-                m_minAddrs = 0;
-            else
-                m_minAddrs = addrs.size() - limit;
-
-            Thread::start();
-        }
-
-        void LinuxAsyncWorkerThread::stop()
-        {
-            if (m_stopping)
-                return;
-
-            m_stopping = true;
-
-            int64_t value = 1;
-            ssize_t res = write(stopEvent, &value, sizeof(value));
-
-            IGNITE_UNUSED(res);
-            assert(res == sizeof(value));
-
-            Thread::Join();
-
-            close(stopEvent);
-            close(epoll);
-
-            m_nonConnected.clear();
-            currentConnection.reset();
-        }
-
-        void LinuxAsyncWorkerThread::run()
-        {
-            while (!m_stopping)
-            {
-                HandleNewConnections();
-
-                if (m_stopping)
-                    break;
-
-                HandleConnectionEvents();
-            }
-        }
-
-        void LinuxAsyncWorkerThread::HandleNewConnections()
-        {
-            if (!ShouldInitiateNewConnection())
-                return;
-
-            if (CalculateConnectionTimeout() > 0)
-                return;
-
-            addrinfo* addr = 0;
-            if (currentConnection.get())
-                addr = currentConnection->Next();
-
-            if (!addr)
-            {
-                size_t idx = rand() % m_nonConnected.size();
-                const TcpRange& range = m_nonConnected.at(idx);
-
-                currentConnection.reset(new ConnectingContext(range));
-                addr = currentConnection->Next();
-                if (!addr)
-                {
-                    currentConnection.reset();
-                    ReportConnectionError(EndPoint(), "Can not resolve a single address from range: " + range.ToString());
-                    ++m_failedAttempts;
-
-                    return;
-                }
-            }
-
-            // Create a SOCKET for connecting to server
-            int socketFd = socket(addr->ai_family, addr->ai_socktype, addr->ai_protocol);
-            if (SOCKET_ERROR == socketFd)
-            {
-                ReportConnectionError(currentConnection->getAddress(),
-                    "Socket creation failed: " + getLastSocketErrorMessage());
-
-                return;
-            }
-
-            TrySetSocketOptions(socketFd, LinuxAsyncClient::BUFFER_SIZE, true, true, true);
-            bool success = SetNonBlockingMode(socketFd, true);
-            if (!success)
-            {
-                ReportConnectionError(currentConnection->getAddress(),
-                    "Can not make non-blocking socket: " + getLastSocketErrorMessage());
-
-                return;
-            }
-
-            currentClient = currentConnection->ToClient(socketFd);
-            bool ok = currentClient->StartMonitoring(epoll);
-            if (!ok)
-                common::throwLastSystemError("Can not add file descriptor to epoll");
-
-            // Connect to server.
-            int res = connect(socketFd, addr->ai_addr, addr->ai_addrlen);
-            if (SOCKET_ERROR == res)
-            {
-                int lastError = errno;
-
-                clock_gettime(CLOCK_MONOTONIC, &lastConnectionTime);
-
-                if (lastError != EWOULDBLOCK && lastError != EINPROGRESS)
-                {
-                    HandleConnectionFailed("Failed to establish connection with the host: " +
-                        getSocketErrorMessage(lastError));
-
-                    return;
-                }
-            }
-        }
-
-        void LinuxAsyncWorkerThread::HandleConnectionEvents()
-        {
-            enum { MAX_EVENTS = 16 };
-            epoll_event events[MAX_EVENTS];
-
-            int timeout = CalculateConnectionTimeout();
-
-            int res = epoll_wait(epoll, events, MAX_EVENTS, timeout);
-
-            if (res <= 0)
-                return;
-
-            for (int i = 0; i < res; ++i)
-            {
-                epoll_event& currentEvent = events[i];
-                LinuxAsyncClient* client = static_cast<LinuxAsyncClient*>(currentEvent.data.ptr);
-                if (!client)
-                    continue;
-
-                if (client == currentClient.Get())
-                {
-                    if (currentEvent.events & (EPOLLRDHUP | EPOLLERR))
-                    {
-                        HandleConnectionFailed("Can not establish connection");
-
-                        continue;
-                    }
-
-                    handleConnectionSuccess(client);
-                }
-
-                if (currentEvent.events & (EPOLLRDHUP | EPOLLERR | EPOLLHUP))
-                {
-                    HandleConnectionClosed(client);
-
-                    continue;
-                }
-
-                if (currentEvent.events & EPOLLIN)
-                {
-                    DataBuffer msg = client->receive();
-                    if (msg.isEmpty())
-                    {
-                        HandleConnectionClosed(client);
-
-                        continue;
-                    }
-
-                    m_clientPool.handleMessageReceived(client->GetId(), msg);
-                }
-
-                if (currentEvent.events & EPOLLOUT)
-                {
-                    bool ok = client->processSent();
-                    if (!ok)
-                    {
-                        HandleConnectionClosed(client);
-
-                        continue;
-                    }
-                }
-            }
-        }
-
-        void LinuxAsyncWorkerThread::ReportConnectionError(const EndPoint& addr, const std::string& msg)
-        {
-            IgniteError err(IgniteError::IGNITE_ERR_NETWORK_FAILURE, msg.c_str());
-            m_clientPool.handleConnectionError(addr, err);
-        }
-
-        void LinuxAsyncWorkerThread::HandleConnectionFailed(const std::string& msg)
-        {
-            LinuxAsyncClient* client = currentClient.Get();
-            assert(client != 0);
-
-            client->StopMonitoring();
-            client->close();
-
-            ReportConnectionError(client->getAddress(), msg);
-
-            currentClient = SP_LinuxAsyncClient();
+            m_currentConnection.reset();
+            reportConnectionError(EndPoint(), "Can not resolve a single address from range: " + range.toString());
             ++m_failedAttempts;
+
+            return;
         }
+    }
 
-        void LinuxAsyncWorkerThread::HandleConnectionClosed(LinuxAsyncClient *client)
+    // Create a socket for connecting to server
+    int socketFd = socket(addr->ai_family, addr->ai_socktype, addr->ai_protocol);
+    if (SOCKET_ERROR == socketFd)
+    {
+        reportConnectionError(m_currentConnection->getAddress(),
+            "Socket creation failed: " + sockets::getLastSocketErrorMessage());
+
+        return;
+    }
+
+    sockets::trySetSocketOptions(socketFd, LinuxAsyncClient::BUFFER_SIZE, true, true, true);
+    bool success = sockets::setNonBlockingMode(socketFd, true);
+    if (!success)
+    {
+        reportConnectionError(m_currentConnection->getAddress(),
+            "Can not make non-blocking socket: " + sockets::getLastSocketErrorMessage());
+
+        return;
+    }
+
+    m_currentClient = m_currentConnection->toClient(socketFd);
+    bool ok = m_currentClient->startMonitoring(m_epoll);
+    if (!ok)
+        throwLastSystemError("Can not add file descriptor to epoll");
+
+    // Connect to server.
+    int res = connect(socketFd, addr->ai_addr, addr->ai_addrlen);
+    if (SOCKET_ERROR == res)
+    {
+        int lastError = errno;
+
+        clock_gettime(CLOCK_MONOTONIC, &m_lastConnectionTime);
+
+        if (lastError != EWOULDBLOCK && lastError != EINPROGRESS)
         {
-            client->StopMonitoring();
+            handleConnectionFailed("Failed to establish connection with the host: " +
+                sockets::getSocketErrorMessage(lastError));
 
-            m_nonConnected.push_back(client->getRange());
-
-            m_clientPool.closeAndRelease(client->GetId(), 0);
-        }
-
-        void LinuxAsyncWorkerThread::handleConnectionSuccess(LinuxAsyncClient* client)
-        {
-            m_nonConnected.erase(std::find(m_nonConnected.begin(), m_nonConnected.end(), client->getRange()));
-
-            m_clientPool.addClient(currentClient);
-
-            currentClient = SP_LinuxAsyncClient();
-            currentConnection.reset();
-
-            m_failedAttempts = 0;
-
-            clock_gettime(CLOCK_MONOTONIC, &lastConnectionTime);
-        }
-
-        int LinuxAsyncWorkerThread::CalculateConnectionTimeout() const
-        {
-            if (!ShouldInitiateNewConnection())
-                return -1;
-
-            if (lastConnectionTime.tv_sec == 0)
-                return 0;
-
-            int timeout = fibonacci10.getValue(m_failedAttempts) * 1000;
-
-            timespec now;
-            clock_gettime(CLOCK_MONOTONIC, &now);
-
-            int passed = (now.tv_sec - lastConnectionTime.tv_sec) * 1000 +
-                         (now.tv_nsec - lastConnectionTime.tv_nsec) / 1000000;
-
-            timeout -= passed;
-            if (timeout < 0)
-                timeout = 0;
-
-            return timeout;
-        }
-
-        bool LinuxAsyncWorkerThread::ShouldInitiateNewConnection() const
-        {
-            return !currentClient.Get() && m_nonConnected.size() > m_minAddrs;
+            return;
         }
     }
 }
+
+void LinuxAsyncWorkerThread::handleConnectionEvents()
+{
+    enum { MAX_EVENTS = 16 };
+    epoll_event events[MAX_EVENTS];
+
+    int timeout = calculateConnectionTimeout();
+
+    int res = epoll_wait(m_epoll, events, MAX_EVENTS, timeout);
+
+    if (res <= 0)
+        return;
+
+    for (int i = 0; i < res; ++i)
+    {
+        epoll_event& currentEvent = events[i];
+        auto client = static_cast<LinuxAsyncClient*>(currentEvent.data.ptr);
+        if (!client)
+            continue;
+
+        if (client == m_currentClient.get())
+        {
+            if (currentEvent.events & (EPOLLRDHUP | EPOLLERR))
+            {
+                handleConnectionFailed("Can not establish connection");
+
+                continue;
+            }
+
+            handleConnectionSuccess(client);
+        }
+
+        if (currentEvent.events & (EPOLLRDHUP | EPOLLERR | EPOLLHUP))
+        {
+            handleConnectionClosed(client);
+
+            continue;
+        }
+
+        if (currentEvent.events & EPOLLIN)
+        {
+            DataBuffer msg = client->receive();
+            if (msg.isEmpty())
+            {
+                handleConnectionClosed(client);
+
+                continue;
+            }
+
+            m_clientPool.handleMessageReceived(client->getId(), msg);
+        }
+
+        if (currentEvent.events & EPOLLOUT)
+        {
+            bool ok = client->processSent();
+            if (!ok)
+            {
+                handleConnectionClosed(client);
+
+                continue;
+            }
+
+            m_clientPool.handleMessageSent(client->getId());
+        }
+    }
+}
+
+void LinuxAsyncWorkerThread::reportConnectionError(const EndPoint& addr, std::string msg)
+{
+    IgniteError err(StatusCode::NETWORK, std::move(msg));
+    m_clientPool.handleConnectionError(addr, err);
+}
+
+void LinuxAsyncWorkerThread::handleConnectionFailed(std::string msg)
+{
+    assert(m_currentClient);
+
+    m_currentClient->stopMonitoring();
+    m_currentClient->close();
+
+    reportConnectionError(m_currentClient->getAddress(), std::move(msg));
+
+    m_currentClient.reset();
+    ++m_failedAttempts;
+}
+
+void LinuxAsyncWorkerThread::handleConnectionClosed(LinuxAsyncClient *client)
+{
+    client->stopMonitoring();
+
+    m_nonConnected.push_back(client->getRange());
+
+    m_clientPool.closeAndRelease(client->getId(), std::nullopt);
+}
+
+void LinuxAsyncWorkerThread::handleConnectionSuccess(LinuxAsyncClient* client)
+{
+    m_nonConnected.erase(std::find(m_nonConnected.begin(), m_nonConnected.end(), client->getRange()));
+
+    m_clientPool.addClient(std::move(m_currentClient));
+
+    m_currentClient.reset();
+    m_currentConnection.reset();
+
+    m_failedAttempts = 0;
+
+    clock_gettime(CLOCK_MONOTONIC, &m_lastConnectionTime);
+}
+
+int LinuxAsyncWorkerThread::calculateConnectionTimeout() const
+{
+    if (!shouldInitiateNewConnection())
+        return -1;
+
+    if (m_lastConnectionTime.tv_sec == 0)
+        return 0;
+
+    int timeout = int(fibonacci10.getValue(m_failedAttempts) * 1000);
+
+    timespec now{};
+    clock_gettime(CLOCK_MONOTONIC, &now);
+
+    int passed = int((now.tv_sec - m_lastConnectionTime.tv_sec) * 1000 +
+                 (now.tv_nsec - m_lastConnectionTime.tv_nsec) / 1000000);
+
+    timeout -= passed;
+    if (timeout < 0)
+        timeout = 0;
+
+    return timeout;
+}
+
+bool LinuxAsyncWorkerThread::shouldInitiateNewConnection() const
+{
+    return !m_currentClient && m_nonConnected.size() > m_minAddrs;
+}
+
+} // namespace ignite::network

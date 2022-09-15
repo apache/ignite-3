@@ -16,161 +16,99 @@
  */
 
 #include <sys/socket.h>
-#include <sys/types.h>
 #include <netinet/tcp.h>
 #include <netdb.h>
-#include <unistd.h>
 #include <fcntl.h>
-#include <poll.h>
 
-#include <errno.h>
-#include <string.h>
+#include <cerrno>
+#include <cstring>
 
 #include <sstream>
 
 #include "network/sockets.h"
 
-namespace ignite
+namespace ignite::network::sockets
 {
-    namespace network
+
+std::string getSocketErrorMessage(int error)
+{
+    std::stringstream res;
+
+    res << "error_code=" << error;
+
+    if (error == 0)
+        return res.str();
+
+    char errBuf[1024] = { 0 };
+
+    const char* errStr = strerror_r(error, errBuf, sizeof(errBuf));
+    if (errStr)
+        res << ", msg=" << errStr;
+
+    return res.str();
+}
+
+std::string getLastSocketErrorMessage()
+{
+    int lastError = errno;
+
+    return getSocketErrorMessage(lastError);
+}
+
+void trySetSocketOptions(int socketFd, int bufSize, bool noDelay, bool outOfBand, bool keepAlive)
+{
+    setsockopt(socketFd, SOL_SOCKET, SO_SNDBUF, reinterpret_cast<char*>(&bufSize), sizeof(bufSize));
+    setsockopt(socketFd, SOL_SOCKET, SO_RCVBUF, reinterpret_cast<char*>(&bufSize), sizeof(bufSize));
+
+    int iNoDelay = noDelay ? 1 : 0;
+    setsockopt(socketFd, IPPROTO_TCP, TCP_NODELAY, reinterpret_cast<char*>(&iNoDelay), sizeof(iNoDelay));
+
+    int iOutOfBand = outOfBand ? 1 : 0;
+    setsockopt(socketFd, SOL_SOCKET, SO_OOBINLINE,
+        reinterpret_cast<char*>(&iOutOfBand), sizeof(iOutOfBand));
+
+    int iKeepAlive = keepAlive ? 1 : 0;
+    int res = setsockopt(socketFd, SOL_SOCKET, SO_KEEPALIVE,
+        reinterpret_cast<char*>(&iKeepAlive), sizeof(iKeepAlive));
+
+    if (SOCKET_ERROR == res)
     {
-        namespace sockets
-        {
-            int getLastSocketError()
-            {
-                return errno;
-            }
+        // There is no sense in configuring keep alive params if we failed to set up keep alive mode.
+        return;
+    }
 
-            int getLastSocketError(int handle)
-            {
-                int lastError = 0;
-                socklen_t size = sizeof(lastError);
-                int res = getsockopt(handle, SOL_SOCKET, SO_ERROR, reinterpret_cast<char*>(&lastError), &size);
+    // The time in seconds the connection needs to remain idle before starts sending keepalive probes.
+    enum { KEEP_ALIVE_IDLE_TIME = 60 };
 
-                return res == SOCKET_ERROR ? 0 : lastError;
-            }
+    // The time in seconds between individual keepalive probes.
+    enum { KEEP_ALIVE_PROBES_PERIOD = 1 };
 
-            std::string getSocketErrorMessage(int error)
-            {
-                std::stringstream res;
-
-                res << "error_code=" << error;
-
-                if (error == 0)
-                    return res.str();
-
-                char errBuf[1024] = { 0 };
-
-                const char* errStr = strerror_r(error, errBuf, sizeof(errBuf));
-                if (errStr)
-                    res << ", msg=" << errStr;
-
-                return res.str();
-            }
-
-            std::string getLastSocketErrorMessage()
-            {
-                int lastError = errno;
-
-                return getSocketErrorMessage(lastError);
-            }
-
-            int WaitOnSocket(SOCKET socket, int32_t timeout, bool rd)
-            {
-                int32_t timeout0 = timeout == 0 ? -1 : timeout;
-
-                int lastError = 0;
-                int ret;
-
-                do
-                {
-                    struct pollfd fds[1];
-
-                    fds[0].fd = socket;
-                    fds[0].events = rd ? POLLIN : POLLOUT;
-
-                    ret = poll(fds, 1, timeout0 * 1000);
-
-                    if (ret == SOCKET_ERROR)
-                        lastError = getLastSocketError();
-
-                } while (ret == SOCKET_ERROR && isSocketOperationInterrupted(lastError));
-
-                if (ret == SOCKET_ERROR)
-                    return -lastError;
-
-                socklen_t size = sizeof(lastError);
-                int res = getsockopt(socket, SOL_SOCKET, SO_ERROR, reinterpret_cast<char*>(&lastError), &size);
-
-                if (res != SOCKET_ERROR && lastError != 0)
-                    return -lastError;
-
-                if (ret == 0)
-                    return SocketClient::WaitResult::TIMEOUT;
-
-                return SocketClient::WaitResult::SUCCESS;
-            }
-
-            bool isSocketOperationInterrupted(int errorCode)
-            {
-                return errorCode == EINTR;
-            }
-
-            void TrySetSocketOptions(int socketFd, int bufSize, bool noDelay, bool outOfBand, bool keepAlive)
-            {
-                setsockopt(socketFd, SOL_SOCKET, SO_SNDBUF, reinterpret_cast<char*>(&bufSize), sizeof(bufSize));
-                setsockopt(socketFd, SOL_SOCKET, SO_RCVBUF, reinterpret_cast<char*>(&bufSize), sizeof(bufSize));
-
-                int iNoDelay = noDelay ? 1 : 0;
-                setsockopt(socketFd, IPPROTO_TCP, TCP_NODELAY, reinterpret_cast<char*>(&iNoDelay), sizeof(iNoDelay));
-
-                int iOutOfBand = outOfBand ? 1 : 0;
-                setsockopt(socketFd, SOL_SOCKET, SO_OOBINLINE,
-                    reinterpret_cast<char*>(&iOutOfBand), sizeof(iOutOfBand));
-
-                int iKeepAlive = keepAlive ? 1 : 0;
-                int res = setsockopt(socketFd, SOL_SOCKET, SO_KEEPALIVE,
-                    reinterpret_cast<char*>(&iKeepAlive), sizeof(iKeepAlive));
-
-                if (SOCKET_ERROR == res)
-                {
-                    // There is no sense in configuring keep alive params if we faileed to set up keep alive mode.
-                    return;
-                }
-
-                // The time in seconds the connection needs to remain idle before starts sending keepalive probes.
-                enum { KEEP_ALIVE_IDLE_TIME = 60 };
-
-                // The time in seconds between individual keepalive probes.
-                enum { KEEP_ALIVE_PROBES_PERIOD = 1 };
-
-                int idleOpt = KEEP_ALIVE_IDLE_TIME;
-                int idleRetryOpt = KEEP_ALIVE_PROBES_PERIOD;
+    int idleOpt = KEEP_ALIVE_IDLE_TIME;
+    int idleRetryOpt = KEEP_ALIVE_PROBES_PERIOD;
 #ifdef __APPLE__
-                setsockopt(socketFd, IPPROTO_TCP, TCP_KEEPALIVE, reinterpret_cast<char*>(&idleOpt), sizeof(idleOpt));
+    setsockopt(socketFd, IPPROTO_TCP, TCP_KEEPALIVE, reinterpret_cast<char*>(&idleOpt), sizeof(idleOpt));
 #else
-                setsockopt(socketFd, IPPROTO_TCP, TCP_KEEPIDLE, reinterpret_cast<char*>(&idleOpt), sizeof(idleOpt));
+    setsockopt(socketFd, IPPROTO_TCP, TCP_KEEPIDLE, reinterpret_cast<char*>(&idleOpt), sizeof(idleOpt));
 #endif
 
-                setsockopt(socketFd, IPPROTO_TCP, TCP_KEEPINTVL,
-                    reinterpret_cast<char*>(&idleRetryOpt), sizeof(idleRetryOpt));
-            }
-
-            bool SetNonBlockingMode(int socketFd, bool nonBlocking)
-            {
-                int flags = fcntl(socketFd, F_GETFL, 0);
-                if (flags == -1)
-                    return false;
-
-                bool currentNonBlocking = flags & O_NONBLOCK;
-                if (nonBlocking == currentNonBlocking)
-                    return true;
-
-                flags ^= O_NONBLOCK;
-                int res = fcntl(socketFd, F_SETFL, flags);
-
-                return res != -1;
-            }
-        }
-    }
+    setsockopt(socketFd, IPPROTO_TCP, TCP_KEEPINTVL,
+        reinterpret_cast<char*>(&idleRetryOpt), sizeof(idleRetryOpt));
 }
+
+bool setNonBlockingMode(int socketFd, bool nonBlocking)
+{
+    int flags = fcntl(socketFd, F_GETFL, 0);
+    if (flags == -1)
+        return false;
+
+    bool currentNonBlocking = flags & O_NONBLOCK;
+    if (nonBlocking == currentNonBlocking)
+        return true;
+
+    flags ^= O_NONBLOCK;
+    int res = fcntl(socketFd, F_SETFL, flags);
+
+    return res != -1;
+}
+
+} // namespace ignite::network::sockets

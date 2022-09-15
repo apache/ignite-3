@@ -53,7 +53,7 @@ std::string getLastSocketErrorMessage();
  * @param outOfBand Set out-of-Band mode.
  * @param keepAlive Keep alive mode.
  */
-void TrySetSocketOptions(SOCKET socket, int bufSize, BOOL noDelay, BOOL outOfBand, BOOL keepAlive);
+void trySetSocketOptions(SOCKET socket, int bufSize, BOOL noDelay, BOOL outOfBand, BOOL keepAlive);
 
 /**
  * Init windows sockets.

@@ -203,7 +203,7 @@ SOCKET WinAsyncConnectingThread::tryConnect(const EndPoint& addr)
         if (socket == INVALID_SOCKET)
             throw IgniteError(StatusCode::NETWORK, "Socket creation failed: " + getLastSocketErrorMessage());
 
-        TrySetSocketOptions(socket, BUFFER_SIZE, TRUE, TRUE, TRUE);
+        trySetSocketOptions(socket, BUFFER_SIZE, TRUE, TRUE, TRUE);
 
         // Connect to server.
         res = WSAConnect(socket, it->ai_addr, static_cast<int>(it->ai_addrlen), NULL, NULL, NULL, NULL);

@@ -15,12 +15,11 @@
  * limitations under the License.
  */
 
-#ifndef _IGNITE_NETWORK_CONNECTING_CONTEXT
-#define _IGNITE_NETWORK_CONNECTING_CONTEXT
+#pragma once
 
 #include <netdb.h>
 
-#include <stdint.h>
+#include <cstdint>
 #include <memory>
 
 #include <ignite/network/end_point.h>
@@ -28,69 +27,74 @@
 
 #include "network/linux_async_client.h"
 
-namespace ignite
+namespace ignite::network
 {
-    namespace network
-    {
-        /**
-         * Connecting context.
-         */
-        class ConnectingContext
-        {
-        public:
-            /**
-             * Constructor.
-             */
-            ConnectingContext(const TcpRange& range);
 
-            /**
-             * Destructor.
-             */
-            ~ConnectingContext();
+/**
+ * Connecting context.
+ */
+class ConnectingContext
+{
+public:
+    // Deleted
+    ConnectingContext() = delete;
+    ConnectingContext(const ConnectingContext&) = delete;
+    ConnectingContext& operator=(const ConnectingContext&) = delete;
 
-            /**
-             * Reset connection context to it's initial state.
-             */
-            void Reset();
+    // Default
+    ConnectingContext(ConnectingContext&&) = default;
+    ConnectingContext& operator=(ConnectingContext&&) = default;
 
-            /**
-             * Next address in range.
-             *
-             * @return Next addrinfo for connection.
-             */
-            addrinfo* Next();
+    /**
+     * Constructor.
+     */
+    explicit ConnectingContext(TcpRange range);
+    
 
-            /**
-             * Get lastaddress.
-             *
-             * @return Address.
-             */
-            EndPoint getAddress() const;
+    /**
+     * Destructor.
+     */
+    ~ConnectingContext();
 
-            /**
-             * Make client.
-             *
-             * @param fd Socket file descriptor.
-             * @return Client instance from current internal state.
-             */
-            SP_LinuxAsyncClient ToClient(int fd);
+    /**
+     * Reset connection context to it's initial state.
+     */
+    void reset();
 
-        private:
-            IGNITE_NO_COPY_ASSIGNMENT(ConnectingContext);
+    /**
+     * Next address in range.
+     *
+     * @return Next address info for connection.
+     */
+    addrinfo* next();
 
-            /** Range. */
-            const TcpRange range;
+    /**
+     * Get last address.
+     *
+     * @return Address.
+     */
+    EndPoint getAddress() const;
 
-            /** Next port. */
-            uint16_t nextPort;
+    /**
+     * Make client.
+     *
+     * @param fd Socket file descriptor.
+     * @return Client instance from current internal state.
+     */
+    std::shared_ptr<LinuxAsyncClient> toClient(int fd);
 
-            /** Current addrinfo. */
-            addrinfo* info;
+private:
+    /** Range. */
+    TcpRange m_range;
 
-            /** Addrinfo which is currently used for connection */
-            addrinfo* currentInfo;
-        };
-    }
-}
+    /** Next port. */
+    uint16_t m_nextPort;
 
-#endif //_IGNITE_NETWORK_CONNECTING_CONTEXT
+    /** Current address info. */
+    addrinfo* m_info;
+
+    /** Address info which is currently used for connection */
+    addrinfo* m_currentInfo;
+};
+
+} // namespace ignite::network

@@ -15,235 +15,227 @@
  * limitations under the License.
  */
 
-#ifndef _IGNITE_NETWORK_LINUX_ASYNC_CLIENT
-#define _IGNITE_NETWORK_LINUX_ASYNC_CLIENT
+#pragma once
 
 #include "network/sockets.h"
 
-#include <stdint.h>
+#include <cstdint>
 #include <deque>
-
-#include <ignite/common/concurrent.h>
-#include <ignite/impl/interop/interop_memory.h>
+#include <memory>
+#include <mutex>
 
 #include <ignite/network/async_handler.h>
 #include <ignite/network/codec.h>
 #include <ignite/network/end_point.h>
 #include <ignite/network/tcp_range.h>
 
-namespace ignite
+namespace ignite::network
 {
-    namespace network
+
+/**
+ * Linux-specific implementation of async network client.
+ */
+class LinuxAsyncClient
+{
+    /**
+     * State.
+     */
+    struct State
     {
-        /**
-         * Linux-specific implementation of async network client.
-         */
-        class LinuxAsyncClient
+        enum Type
         {
-            /**
-             * State.
-             */
-            struct State
-            {
-                enum Type
-                {
-                    CONNECTED,
+            CONNECTED,
 
-                    SHUTDOWN,
+            SHUTDOWN,
 
-                    CLOSED,
-                };
-            };
-
-        public:
-            enum { BUFFER_SIZE = 0x10000 };
-
-            /**
-             * Constructor.
-             *
-             * @param fd Socket file descriptor.
-             * @param addr Address.
-             * @param range Range.
-             */
-            LinuxAsyncClient(int fd, const EndPoint& addr, const TcpRange& range);
-
-            /**
-             * Destructor.
-             *
-             * Should not be destructed from external threads.
-             * Can be destructed from WorkerThread.
-             */
-            ~LinuxAsyncClient();
-
-            /**
-             * Shutdown client.
-             *
-             * Can be called from external threads.
-             * Can be called from WorkerThread.
-             *
-             * @param err Error message. Can be null.
-             * @return @c true if shutdown performed successfully.
-             */
-            bool shutdown(const IgniteError* err);
-
-            /**
-             * Close client.
-             *
-             * Should not be called from external threads.
-             * Can be called from WorkerThread.
-             *
-             * @return @c true if shutdown performed successfully.
-             */
-            bool close();
-
-            /**
-             * Send packet using client.
-             *
-             * @param data Data to send.
-             * @return @c true on success.
-             */
-            bool send(const DataBuffer& data);
-
-            /**
-             * Initiate next receive of data.
-             *
-             * @return @c true on success.
-             */
-            DataBuffer receive();
-
-            /**
-             * Process sent data.
-             *
-             * @return @c true on success.
-             */
-            bool processSent();
-
-            /**
-             * Start monitoring client.
-             *
-             * @param epoll Epoll file descriptor.
-             * @return @c true on success.
-             */
-            bool StartMonitoring(int epoll);
-
-            /**
-             * Stop monitoring client.
-             */
-            void StopMonitoring();
-
-            /**
-             * Enable epoll notifications.
-             */
-            void EnableSendNotifications();
-
-            /**
-             * Disable epoll notifications.
-             */
-            void DisableSendNotifications();
-
-            /**
-             * Get client ID.
-             *
-             * @return Client ID.
-             */
-            uint64_t GetId() const
-            {
-                return id;
-            }
-
-            /**
-             * Set ID.
-             *
-             * @param id ID to set.
-             */
-            void setId(uint64_t id)
-            {
-                this->id = id;
-            }
-
-            /**
-             * Get address.
-             *
-             * @return Address.
-             */
-            const EndPoint& getAddress() const
-            {
-                return addr;
-            }
-
-            /**
-             * Get range.
-             *
-             * @return Range.
-             */
-            const TcpRange& getRange() const
-            {
-                return range;
-            }
-
-            /**
-             * Check whether client is closed.
-             *
-             * @return @c true if closed.
-             */
-            bool isClosed() const
-            {
-                return m_state == State::CLOSED;
-            }
-
-            /**
-             * Get closing error for the connection. Can be IGNITE_SUCCESS.
-             *
-             * @return Connection error.
-             */
-            const IgniteError& getCloseError() const
-            {
-                return m_closeErr;
-            }
-
-        private:
-            /**
-             * Send next packet in queue.
-             *
-             * @warning Can only be called when holding m_sendMutex lock.
-             * @return @c true on success.
-             */
-            bool sendNextPacketLocked();
-
-            /** State. */
-            State::Type m_state;
-
-            /** Socket file descriptor. */
-            int fd;
-
-            /** Epoll file descriptor. */
-            int epoll;
-
-            /** Connection ID. */
-            uint64_t id;
-
-            /** Server end point. */
-            EndPoint addr;
-
-            /** Address range associated with current connection. */
-            TcpRange range;
-
-            /** Packets that should be sent. */
-            std::deque<DataBuffer> m_sendPackets;
-
-            /** Send critical section. */
-            common::concurrent::CriticalSection m_sendMutex;
-
-            /** Packet that is currently received. */
-            impl::interop::SP_InteropMemory m_recvPacket;
-
-            /** Closing error. */
-            IgniteError m_closeErr;
+            CLOSED,
         };
+    };
 
-        /** Shared pointer to async client. */
-        typedef common::concurrent::SharedPointer<LinuxAsyncClient> SP_LinuxAsyncClient;
+public:
+    static constexpr size_t BUFFER_SIZE = 0x10000;
+
+    /**
+     * Constructor.
+     *
+     * @param fd Socket file descriptor.
+     * @param addr Address.
+     * @param range Range.
+     */
+    LinuxAsyncClient(int fd, EndPoint addr, TcpRange range);
+
+    /**
+     * Destructor.
+     *
+     * Should not be destructed from external threads.
+     * Can be destructed from WorkerThread.
+     */
+    ~LinuxAsyncClient();
+
+    /**
+     * Shutdown client.
+     *
+     * Can be called from external threads.
+     * Can be called from WorkerThread.
+     *
+     * @param err Error message. Can be null.
+     * @return @c true if shutdown performed successfully.
+     */
+    bool shutdown(std::optional<IgniteError> err);
+
+    /**
+     * Close client.
+     *
+     * Should not be called from external threads.
+     * Can be called from WorkerThread.
+     *
+     * @return @c true if shutdown performed successfully.
+     */
+    bool close();
+
+    /**
+     * Send packet using client.
+     *
+     * @param data Data to send.
+     * @return @c true on success.
+     */
+    bool send(const DataBuffer& data);
+
+    /**
+     * Initiate next receive of data.
+     *
+     * @return @c true on success.
+     */
+    DataBuffer receive();
+
+    /**
+     * Process sent data.
+     *
+     * @return @c true on success.
+     */
+    bool processSent();
+
+    /**
+     * Start monitoring client.
+     *
+     * @param epoll Epoll file descriptor.
+     * @return @c true on success.
+     */
+    bool startMonitoring(int epoll);
+
+    /**
+     * Stop monitoring client.
+     */
+    void stopMonitoring();
+
+    /**
+     * Enable epoll notifications.
+     */
+    void enableSendNotifications();
+
+    /**
+     * Disable epoll notifications.
+     */
+    void disableSendNotifications();
+
+    /**
+     * Get client ID.
+     *
+     * @return Client ID.
+     */
+    uint64_t getId() const
+    {
+        return m_id;
     }
-}
 
-#endif //_IGNITE_NETWORK_LINUX_ASYNC_CLIENT
+    /**
+     * Set ID.
+     *
+     * @param id ID to set.
+     */
+    void setId(uint64_t id)
+    {
+        m_id = id;
+    }
+
+    /**
+     * Get address.
+     *
+     * @return Address.
+     */
+    const EndPoint& getAddress() const
+    {
+        return m_addr;
+    }
+
+    /**
+     * Get range.
+     *
+     * @return Range.
+     */
+    const TcpRange& getRange() const
+    {
+        return m_range;
+    }
+
+    /**
+     * Check whether client is closed.
+     *
+     * @return @c true if closed.
+     */
+    bool isClosed() const
+    {
+        return m_state == State::CLOSED;
+    }
+
+    /**
+     * Get closing error for the connection. Can be IGNITE_SUCCESS.
+     *
+     * @return Connection error.
+     */
+    const IgniteError& getCloseError() const
+    {
+        return m_closeErr;
+    }
+
+private:
+    /**
+     * Send next packet in queue.
+     *
+     * @warning Can only be called when holding m_sendMutex lock.
+     * @return @c true on success.
+     */
+    bool sendNextPacketLocked();
+
+    /** State. */
+    State::Type m_state;
+
+    /** Socket file descriptor. */
+    int m_fd;
+
+    /** Epoll file descriptor. */
+    int m_epoll;
+
+    /** Connection ID. */
+    uint64_t m_id;
+
+    /** Server end point. */
+    EndPoint m_addr;
+
+    /** Address range associated with current connection. */
+    TcpRange m_range;
+
+    /** Packets that should be sent. */
+    std::deque<DataBuffer> m_sendPackets;
+
+    /** Send critical section. */
+    std::mutex m_sendMutex;
+
+    /** Packet that is currently received. */
+    std::vector<std::byte> m_recvPacket;
+
+    /** Closing error. */
+    IgniteError m_closeErr;
+};
+
+} // namespace ignite::network

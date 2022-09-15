@@ -30,7 +30,8 @@ namespace
 /**
  * System shell command string.
  */
-constexpr std::string_view SYSTEM_SHELL = SWITCH_WIN_OTHER("cmd.exe /c ", "/bin/bash -c ");
+constexpr std::string_view SYSTEM_SHELL = SWITCH_WIN_OTHER("cmd.exe", "/bin/bash");
+constexpr std::string_view SYSTEM_SHELL_ARG_0 = SWITCH_WIN_OTHER("/c ", "-c");
 
 } // anonymous namespace
 
@@ -44,23 +45,26 @@ void IgniteNode::start(bool dryRun)
         throw std::runtime_error(
                 "Can not resolve Ignite home directory. Try setting IGNITE_HOME explicitly");
 
-    std::string command = std::string(SYSTEM_SHELL) + getMavenPath() + " exec:java@platform-test-node-runner";
+    std::vector<std::string> args;
+    args.emplace_back(SYSTEM_SHELL_ARG_0);
+    args.emplace_back(getMavenPath());
+    args.emplace_back("exec:java@platform-test-node-runner");
 
     if (dryRun)
-        command += " -Dexec.args=dry-run";
+        args.emplace_back("-Dexec.args=dry-run");
 
     auto workDir = std::filesystem::path(home) / "modules" / "runner";
 
-    std::cout << "IGNITE_HOME=" << home << std::endl;
-    std::cout << "working dir=" << workDir << std::endl;
-    std::cout << "command=" << command << std::endl;
-
-    m_process = CmdProcess::make(command, workDir.string());
+    m_process = CmdProcess::make(std::string(SYSTEM_SHELL), args, workDir.string());
     if (!m_process->start())
     {
         m_process.reset();
 
-        throw std::runtime_error("Failed to invoke Ignite command: '" + command + "'");
+        std::stringstream command;
+        for (auto& arg: args)
+            command << arg << " ";
+
+        throw std::runtime_error("Failed to invoke Ignite command: '" + command.str() + "'");
     }
 }
 

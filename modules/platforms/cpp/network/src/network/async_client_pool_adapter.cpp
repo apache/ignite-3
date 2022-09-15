@@ -62,9 +62,9 @@ bool AsyncClientPoolAdapter::send(uint64_t id, const DataBuffer& data)
     return m_sink->send(id, data);
 }
 
-void AsyncClientPoolAdapter::close(uint64_t id, const IgniteError* err)
+void AsyncClientPoolAdapter::close(uint64_t id, std::optional<IgniteError> err)
 {
-    m_sink->close(id, err);
+    m_sink->close(id, std::move(err));
 }
 
 } // namespace ignite::network
