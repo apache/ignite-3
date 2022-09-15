@@ -92,7 +92,6 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
         });
     }
 
-    /** {@inheritDoc} */
     @Override
     public Cursor<IndexRow> scan(
             @Nullable BinaryTuple lowerBound,
