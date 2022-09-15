@@ -75,7 +75,7 @@ public:
         {
             // Setting the group ID to be killed easily.
             int res = setpgid(0, 0);
-            if (!res)
+            if (res)
             {
                 std::cout << "Failed set group ID of the forked process: " + std::to_string(res) << std::endl;
                 exit(1);
@@ -83,7 +83,7 @@ public:
 
             // Route for the forked process.
             res = chdir(m_workDir.c_str());
-            if (!res)
+            if (res)
             {
                 std::cout << "Failed to change directory of the forked process: " + std::to_string(res) << std::endl;
                 exit(1);

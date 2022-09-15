@@ -47,11 +47,13 @@ void IgniteNode::start(bool dryRun)
 
     std::vector<std::string> args;
     args.emplace_back(SYSTEM_SHELL_ARG_0);
-    args.emplace_back(getMavenPath());
-    args.emplace_back("exec:java@platform-test-node-runner");
+
+    std::string command = getMavenPath() + " exec:java@platform-test-node-runner";
 
     if (dryRun)
-        args.emplace_back("-Dexec.args=dry-run");
+        command += " -Dexec.args=dry-run";
+
+    args.emplace_back(command);
 
     auto workDir = std::filesystem::path(home) / "modules" / "runner";
 
@@ -60,11 +62,11 @@ void IgniteNode::start(bool dryRun)
     {
         m_process.reset();
 
-        std::stringstream command;
+        std::stringstream argsStr;
         for (auto& arg: args)
-            command << arg << " ";
+            argsStr << arg << " ";
 
-        throw std::runtime_error("Failed to invoke Ignite command: '" + command.str() + "'");
+        throw std::runtime_error("Failed to invoke Ignite command: '" + argsStr.str() + "'");
     }
 }
 
