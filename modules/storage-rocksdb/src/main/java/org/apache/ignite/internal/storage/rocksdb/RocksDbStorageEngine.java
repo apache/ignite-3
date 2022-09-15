@@ -40,6 +40,8 @@ import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDa
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageView;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.tx.storage.state.TxnStateTableStorage;
+import org.apache.ignite.internal.tx.storage.state.rocksdb.TxnStateRocksDbTableStorage;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.rocksdb.RocksDB;
 
@@ -52,6 +54,9 @@ public class RocksDbStorageEngine implements StorageEngine {
 
     /** Prefix for table directories. */
     private static final String TABLE_DIR_PREFIX = "table-";
+
+    /** Name of transaction state directory. */
+    private static final String TXN_STATE_DIR = "txn-state";
 
     private static final IgniteLogger LOG = Loggers.forClass(RocksDbStorageEngine.class);
 
@@ -164,5 +169,18 @@ public class RocksDbStorageEngine implements StorageEngine {
         }
 
         return new RocksDbTableStorage(this, tablePath, tableCfg, dataRegion);
+    }
+
+    /** {@inheritDoc} */
+    @Override public TxnStateTableStorage createTxnStateTableStorage(TableConfiguration tableCfg) {
+        Path path = storagePath.resolve(TABLE_DIR_PREFIX + tableCfg.value().tableId()).resolve(TXN_STATE_DIR);
+
+        try {
+            Files.createDirectories(path);
+        } catch (IOException e) {
+            throw new StorageException("Failed to create transaction state storage directory for " + tableCfg.value().name(), e);
+        }
+
+        return new TxnStateRocksDbTableStorage(tableCfg, path, scheduledPool, threadPool, configuration().value()::flushDelayMillis);
     }
 }

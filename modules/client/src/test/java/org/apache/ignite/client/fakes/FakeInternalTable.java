@@ -31,6 +31,7 @@ import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.storage.state.TxnStateTableStorage;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.client.service.RaftGroupService;
@@ -284,6 +285,11 @@ public class FakeInternalTable implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public RaftGroupService partitionRaftGroupService(int partition) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public TxnStateTableStorage txnStateStorage() {
         return null;
     }
 

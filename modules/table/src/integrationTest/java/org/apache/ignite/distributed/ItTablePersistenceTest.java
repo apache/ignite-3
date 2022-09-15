@@ -50,6 +50,8 @@ import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.internal.tx.storage.state.TxnStateTableStorage;
+import org.apache.ignite.internal.tx.storage.state.test.TestConcurrentHashMapTxnStateStorage;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
@@ -118,6 +120,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 addressToNode,
                 txManager,
                 mock(MvTableStorage.class),
+                mock(TxnStateTableStorage.class),
                 mock(ReplicaService.class),
                 mock(HybridClock.class)
         );
@@ -144,6 +147,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 addressToNode,
                 txManager,
                 mock(MvTableStorage.class),
+                mock(TxnStateTableStorage.class),
                 mock(ReplicaService.class),
                 mock(HybridClock.class)
         );
@@ -176,6 +180,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 addressToNode,
                 txManager,
                 mock(MvTableStorage.class),
+                mock(TxnStateTableStorage.class),
                 mock(ReplicaService.class),
                 mock(HybridClock.class)
         );
@@ -230,7 +235,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
                     PartitionListener listener = new PartitionListener(
                             testMpPartStorage,
-                            null,
+                            new TestConcurrentHashMapTxnStateStorage(),
                             txManager,
                             new ConcurrentHashMap<>());
 

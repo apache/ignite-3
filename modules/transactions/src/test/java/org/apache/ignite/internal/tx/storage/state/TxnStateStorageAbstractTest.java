@@ -38,6 +38,7 @@ import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteBiTuple;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -45,14 +46,19 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Tx storage test.
  */
 @ExtendWith(WorkDirectoryExtension.class)
-public abstract class TxStateStorageAbstractTest {
+public abstract class TxnStateStorageAbstractTest {
     @WorkDirectory
     protected Path workDir;
 
+    @AfterEach
+    public void afterTest() {
+        destroyStorage();
+    }
+
     @Test
     public void testPutGetRemove() throws Exception {
-        try (TxStateStorage storage = createStorage()) {
-            storage.start();
+        try (TxnStateTableStorage tableStorage = createStorage()) {
+            TxnStateStorage storage = tableStorage.getOrCreateTxnStateStorage(0);
 
             List<UUID> txIds = new ArrayList<>();
 
@@ -106,8 +112,8 @@ public abstract class TxStateStorageAbstractTest {
 
     @Test
     public void testCas() throws Exception {
-        try (TxStateStorage storage = createStorage()) {
-            storage.start();
+        try (TxnStateTableStorage tableStorage = createStorage()) {
+            TxnStateStorage storage = tableStorage.getOrCreateTxnStateStorage(0);
 
             UUID txId = UUID.randomUUID();
 
@@ -128,8 +134,8 @@ public abstract class TxStateStorageAbstractTest {
 
     @Test
     public void testScan() throws Exception {
-        try (TxStateStorage storage = createStorage()) {
-            storage.start();
+        try (TxnStateTableStorage tableStorage = createStorage()) {
+            TxnStateStorage storage = tableStorage.getOrCreateTxnStateStorage(0);
 
             Map<UUID, TxMeta> txs = new HashMap<>();
 
@@ -165,5 +171,15 @@ public abstract class TxStateStorageAbstractTest {
         assertEquals(txMeta0.enlistedPartitions(), txMeta1.enlistedPartitions());
     }
 
-    protected abstract TxStateStorage createStorage();
+    /**
+     * Creates {@link TxnStateStorage} to test.
+     *
+     * @return Tx state storage.
+     */
+    protected abstract TxnStateTableStorage createStorage();
+
+    /**
+     * Destroy storage, for proper clean-up.
+     */
+    protected abstract void destroyStorage();
 }

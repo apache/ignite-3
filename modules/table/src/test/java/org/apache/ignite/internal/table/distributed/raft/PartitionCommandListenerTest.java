@@ -57,6 +57,7 @@ import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.internal.tx.storage.state.test.TestConcurrentHashMapTxnStateStorage;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
@@ -111,7 +112,7 @@ public class PartitionCommandListenerTest {
 
         commandListener = new PartitionListener(
                 mvPartitionStorage,
-                null,
+                new TestConcurrentHashMapTxnStateStorage(),
                 txManager,
                 primaryIndex
         );

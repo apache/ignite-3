@@ -18,65 +18,24 @@
 package org.apache.ignite.internal.tx.storage.state.test;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_DESTROY_ERR;
 
-import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import org.apache.ignite.internal.configuration.storage.StorageException;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
-import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
+import org.apache.ignite.internal.tx.storage.state.TxnStateStorage;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteBiTuple;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * Test implementation of {@link TxStateStorage} based on {@link ConcurrentHashMap}.
+ * Test implementation of {@link TxnStateStorage} based on {@link ConcurrentHashMap}.
  */
-public class TestConcurrentHashMapTxStateStorage implements TxStateStorage {
+public class TestConcurrentHashMapTxnStateStorage implements TxnStateStorage {
+    /** Storage. */
     private final ConcurrentHashMap<UUID, TxMeta> storage = new ConcurrentHashMap<>();
-
-    private volatile boolean isStarted;
-
-    /** Snapshot restore lock. */
-    private final Object snapshotRestoreLock = new Object();
-
-    private final Map<Path, List<Map.Entry<UUID, TxMeta>>> snapshots = new ConcurrentHashMap<>();
-
-    /** {@inheritDoc} */
-    @Override public void start() {
-        isStarted = true;
-    }
-
-    /** {@inheritDoc} */
-    @Override public boolean isStarted() {
-        return isStarted;
-    }
-
-    /** {@inheritDoc} */
-    @Override public void stop() throws Exception {
-        isStarted = false;
-    }
-
-    /** {@inheritDoc} */
-    @Override public CompletableFuture<Void> flush() {
-        return completedFuture(null);
-    }
-
-    /** {@inheritDoc} */
-    @Override public long lastAppliedIndex() {
-        return 0;
-    }
-
-    /** {@inheritDoc} */
-    @Override public long persistedIndex() {
-        return 0;
-    }
 
     /** {@inheritDoc} */
     @Override public TxMeta get(UUID txId) {
@@ -123,12 +82,17 @@ public class TestConcurrentHashMapTxStateStorage implements TxStateStorage {
 
             storage.clear();
         } catch (Exception e) {
-            throw new IgniteInternalException(TX_STATE_STORAGE_DESTROY_ERR, "Failed to destroy the transaction state storage", e);
+            throw new StorageException("Failed to destroy the transaction state storage");
         }
     }
 
     /** {@inheritDoc} */
+    @Override public CompletableFuture<Void> flush() {
+        return completedFuture(null);
+    }
+
+    /** {@inheritDoc} */
     @Override public void close() throws Exception {
-        stop();
+        // No-op.
     }
 }

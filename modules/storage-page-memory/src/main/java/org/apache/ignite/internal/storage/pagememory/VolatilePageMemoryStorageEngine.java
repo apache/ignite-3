@@ -35,6 +35,7 @@ import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryDataStorageView;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
+import org.apache.ignite.internal.tx.storage.state.TxnStateTableStorage;
 
 /**
  * Storage engine implementation based on {@link PageMemory} for in-memory case.
@@ -100,6 +101,11 @@ public class VolatilePageMemoryStorageEngine implements StorageEngine {
         VolatilePageMemoryDataStorageView dataStorageView = (VolatilePageMemoryDataStorageView) tableView.dataStorage();
 
         return new VolatilePageMemoryTableStorage(tableCfg, regions.get(dataStorageView.dataRegion()));
+    }
+
+    /** {@inheritDoc} */
+    @Override public TxnStateTableStorage createTxnStateTableStorage(TableConfiguration tableCfg) {
+        throw new UnsupportedOperationException("Transaction state storage can be created only using RocksDb storage engine.");
     }
 
     /**

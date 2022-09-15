@@ -71,6 +71,7 @@ import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.internal.tx.storage.state.TxnStateTableStorage;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterNode;
@@ -163,6 +164,7 @@ public class ItColocationTest {
                 null,
                 txManager,
                 Mockito.mock(MvTableStorage.class),
+                Mockito.mock(TxnStateTableStorage.class),
                 Mockito.mock(ReplicaService.class),
                 Mockito.mock(HybridClock.class)
         );

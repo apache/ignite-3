@@ -36,7 +36,6 @@ import static org.apache.ignite.internal.utils.RebalanceUtil.stablePartAssignmen
 import static org.apache.ignite.internal.utils.RebalanceUtil.updatePendingAssignmentsKeys;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -51,7 +50,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
@@ -120,7 +118,7 @@ import org.apache.ignite.internal.table.event.TableEventParameters;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
-import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbStorage;
+import org.apache.ignite.internal.tx.storage.state.TxnStateTableStorage;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteObjectName;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -162,6 +160,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private static final long TABLES_COMPLETE_TIMEOUT = 120;
 
     private static final long QUERY_DATA_NODES_COUNT_TIMEOUT = TimeUnit.SECONDS.toMillis(3);
+
+    /** Name of RocksDb engine, which is needed to create transaction state storage. */
+    private static final String ROCKSDB_ENGINE_NAME = "rocksdb";
 
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(TableManager.class);
@@ -690,13 +691,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                 newPartAssignment,
                                                 new PartitionListener(
                                                     partitionStorage,
-                                                    // TODO: https://issues.apache.org/jira/browse/IGNITE-17579 TxStateStorage management.
-                                                    new TxStateRocksDbStorage(
-                                                        Paths.get("tx_state_storage" + tblId + partId),
-                                                        Executors.newSingleThreadScheduledExecutor(),
-                                                        Executors.newFixedThreadPool(1),
-                                                        () -> 1000
-                                                    ),
+                                                    internalTbl.txnStateStorage().getOrCreateTxnStateStorage(partId),
                                                     txManager,
                                                     new ConcurrentHashMap<>()
                                             ),
@@ -858,6 +853,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 }
 
                 table.internalTable().storage().stop();
+                table.internalTable().txnStateStorage().stop();
                 table.internalTable().close();
             } catch (Exception e) {
                 LOG.info("Unable to stop table [name={}]", e, table.name());
@@ -901,10 +897,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         MvTableStorage tableStorage = dataStorageMgr.engine(tableCfg.dataStorage()).createMvTable(tableCfg);
 
+        TxnStateTableStorage txnStateStorage = dataStorageMgr.engine(ROCKSDB_ENGINE_NAME).createTxnStateTableStorage(tableCfg);
+
         tableStorage.start();
 
         InternalTableImpl internalTable = new InternalTableImpl(name, tblId, new Int2ObjectOpenHashMap<>(partitions),
-                partitions, netAddrResolver, clusterNodeResolver, txManager, tableStorage, replicaSvc, clock);
+                partitions, netAddrResolver, clusterNodeResolver, txManager, tableStorage, txnStateStorage, replicaSvc, clock);
 
         var table = new TableImpl(internalTable);
 
@@ -1667,13 +1665,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                             RaftGroupListener raftGrpLsnr = new PartitionListener(
                                     partitionStorage,
-                                    // TODO: https://issues.apache.org/jira/browse/IGNITE-17579 TxStateStorage management.
-                                    new TxStateRocksDbStorage(
-                                        Paths.get("tx_state_storage" + tblId + partId),
-                                        Executors.newSingleThreadScheduledExecutor(),
-                                        Executors.newFixedThreadPool(1),
-                                        () -> 1000
-                                    ),
+                                    tbl.internalTable().txnStateStorage().getTxnStateStorage(part),
                                     txManager,
                                     new ConcurrentHashMap<>()
                             );

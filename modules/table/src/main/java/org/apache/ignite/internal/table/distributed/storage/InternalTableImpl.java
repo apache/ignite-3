@@ -54,6 +54,7 @@ import org.apache.ignite.internal.table.distributed.replicator.action.RequestTyp
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.internal.tx.storage.state.TxnStateTableStorage;
 import org.apache.ignite.lang.Function3;
 import org.apache.ignite.lang.Function4;
 import org.apache.ignite.lang.IgniteBiTuple;
@@ -104,6 +105,9 @@ public class InternalTableImpl implements InternalTable {
     /** Storage for table data. */
     private final MvTableStorage tableStorage;
 
+    /** Storage for txn states. */
+    private final TxnStateTableStorage txnStateStorage;
+
     /** Replica service. */
     protected final ReplicaService replicaSvc;
 
@@ -125,6 +129,7 @@ public class InternalTableImpl implements InternalTable {
      * @param partitions Partitions.
      * @param txManager Transaction manager.
      * @param tableStorage Table storage.
+     * @param txnStateStorage Txn state storage.
      * @param replicaSvc Replica service.
      * @param clock A hybrid logical clock.
      */
@@ -137,6 +142,7 @@ public class InternalTableImpl implements InternalTable {
             Function<NetworkAddress, ClusterNode> clusterNodeResolver,
             TxManager txManager,
             MvTableStorage tableStorage,
+            TxnStateTableStorage txnStateStorage,
             ReplicaService replicaSvc,
             HybridClock clock
     ) {
@@ -148,6 +154,7 @@ public class InternalTableImpl implements InternalTable {
         this.clusterNodeResolver = clusterNodeResolver;
         this.txManager = txManager;
         this.tableStorage = tableStorage;
+        this.txnStateStorage = txnStateStorage;
         this.replicaSvc = replicaSvc;
         this.tableMessagesFactory = new TableMessagesFactory();
         this.clock = clock;
@@ -755,6 +762,11 @@ public class InternalTableImpl implements InternalTable {
         }
 
         return raftGroupService;
+    }
+
+    /** {@inheritDoc} */
+    @Override public TxnStateTableStorage txnStateStorage() {
+        return txnStateStorage;
     }
 
     private void awaitLeaderInitialization() {

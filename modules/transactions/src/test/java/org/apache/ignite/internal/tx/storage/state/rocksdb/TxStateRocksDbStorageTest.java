@@ -17,18 +17,50 @@
 
 package org.apache.ignite.internal.tx.storage.state.rocksdb;
 
-import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
-import org.apache.ignite.internal.tx.storage.state.TxStateStorageAbstractTest;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
-import static java.util.concurrent.Executors.newSingleThreadExecutor;
-import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import org.apache.ignite.configuration.schemas.table.TableConfiguration;
+import org.apache.ignite.configuration.schemas.table.TableView;
+import org.apache.ignite.internal.tx.storage.state.TxnStateStorageAbstractTest;
+import org.apache.ignite.internal.tx.storage.state.TxnStateTableStorage;
 
 /**
  * Tx storage test for RocksDB implementation.
  */
-public class TxStateRocksDbStorageTest extends TxStateStorageAbstractTest {
+public class TxStateRocksDbStorageTest extends TxnStateStorageAbstractTest {
+    private TxnStateTableStorage txnStateTableStorage = null;
+
     /** {@inheritDoc} */
-    @Override protected TxStateStorage createStorage() {
-        return new TxStateRocksDbStorage(workDir, newSingleThreadScheduledExecutor(), newSingleThreadExecutor(), () -> 100);
+    @Override protected TxnStateTableStorage createStorage() {
+        if (txnStateTableStorage != null) {
+            return txnStateTableStorage;
+        }
+
+        TableView tableView = mock(TableView.class);
+        when(tableView.name()).thenReturn("testTable");
+        when(tableView.partitions()).thenReturn(1);
+
+        TableConfiguration tableCfg = mock(TableConfiguration.class);
+        when(tableCfg.value()).thenReturn(tableView);
+
+        txnStateTableStorage = new TxnStateRocksDbTableStorage(
+                tableCfg,
+                workDir,
+                new ScheduledThreadPoolExecutor(1),
+                Executors.newFixedThreadPool(1),
+                () -> 1000
+        );
+
+        txnStateTableStorage.start();
+
+        return txnStateTableStorage;
+    }
+
+    /** {@inheritDoc} */
+    @Override protected void destroyStorage() {
+        txnStateTableStorage.destroy();
     }
 }
