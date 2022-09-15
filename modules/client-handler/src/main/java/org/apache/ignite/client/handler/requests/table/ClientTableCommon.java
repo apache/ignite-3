@@ -40,6 +40,7 @@ import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.DecimalNativeType;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.SchemaAware;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -86,6 +87,12 @@ public class ClientTableCommon {
             packer.packInt(getClientDataType(col.type().spec()));
             packer.packBoolean(schema.isKeyColumn(colIdx));
             packer.packBoolean(col.nullable());
+
+            if (col.type() instanceof DecimalNativeType) {
+                packer.packInt(((DecimalNativeType) col.type()).scale());
+            } else {
+                packer.packInt(0);
+            }
         }
     }
 
