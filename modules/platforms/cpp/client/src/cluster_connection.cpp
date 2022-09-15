@@ -108,9 +108,9 @@ void ClusterConnection::onConnectionError(const network::EndPoint &addr, IgniteE
         handshakeFail(0, std::move(err));
 }
 
-void ClusterConnection::onConnectionClosed(uint64_t id, std::optional<IgniteError>)
+void ClusterConnection::onConnectionClosed(uint64_t id, std::optional<IgniteError> err)
 {
-    m_logger->logDebug("Closed Connection ID " + std::to_string(id));
+    m_logger->logDebug("Closed Connection ID " + std::to_string(id) + ", error=" + (err ? err->what() : "none"));
 
     {
         [[maybe_unused]]

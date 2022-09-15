@@ -123,14 +123,14 @@ bool LinuxAsyncClientPool::addClient(std::shared_ptr<LinuxAsyncClient> client)
         return false;
 
     auto clientAddr = client->getAddress();
-    auto clientId = client->getId();
+    uint64_t clientId;
     {
         std::lock_guard<std::mutex> lock(m_clientsMutex);
 
-        uint64_t id = ++m_idGen;
-        client->setId(id);
+        clientId = ++m_idGen;
+        client->setId(clientId);
 
-        m_clientIdMap[id] = std::move(client);
+        m_clientIdMap[clientId] = std::move(client);
     }
 
     handleConnectionSuccess(clientAddr, clientId);
