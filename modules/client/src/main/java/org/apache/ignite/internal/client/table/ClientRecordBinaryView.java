@@ -28,7 +28,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.internal.util.HashCalculator;
 import org.apache.ignite.internal.util.HashUtils;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
@@ -360,24 +362,13 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
     }
 
     private Integer getKeyHash(ClientSchema schema, Tuple keyRec) {
-        // TODO: keyColumns may be different from colocationColumns - extend ClientSchema.
-        if (schema.keyColumnCount() != 1) {
-            // TODO IGNITE-17395: Support multiple key columns.
-            return null;
+        var hashCalc = new HashCalculator();
+
+        for (ClientColumn col : schema.colocationColumns()) {
+            hashCalc.append(keyRec.value(col.name()));
         }
 
-        var key = keyRec.value(schema.columns()[0].name());
-
-        if (key instanceof Integer) {
-            return HashUtils.hash32((Integer) key, 0);
-        }
-
-        if (key instanceof Long) {
-            return HashUtils.hash32((Long) key, 0);
-        }
-
-        // TODO IGNITE-17395: Support all column types.
-        return null;
+        return hashCalc.hash();
     }
 
     @Nullable

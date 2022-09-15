@@ -33,7 +33,9 @@ import static org.apache.ignite.internal.client.proto.ClientDataType.STRING;
 import static org.apache.ignite.internal.client.proto.ClientDataType.TIME;
 import static org.apache.ignite.internal.client.proto.ClientDataType.TIMESTAMP;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import org.apache.ignite.internal.client.proto.ClientDataType;
 import org.apache.ignite.internal.client.proto.TuplePart;
@@ -60,6 +62,9 @@ public class ClientSchema {
     /** Columns. */
     private final ClientColumn[] columns;
 
+    /** Colocation columns. */
+    private final List<ClientColumn> colocationColumns;
+
     /** Columns map by name. */
     private final Map<String, ClientColumn> map = new HashMap<>();
 
@@ -75,6 +80,7 @@ public class ClientSchema {
 
         this.ver = ver;
         this.columns = columns;
+        this.colocationColumns = new ArrayList<>();
 
         var keyCnt = 0;
 
@@ -84,6 +90,10 @@ public class ClientSchema {
             }
 
             map.put(col.name(), col);
+
+            if (col.colocation()) {
+                colocationColumns.add(col);
+            }
         }
 
         keyColumnCount = keyCnt;
@@ -105,6 +115,15 @@ public class ClientSchema {
      */
     public @NotNull ClientColumn[] columns() {
         return columns;
+    }
+
+    /**
+     * Returns colocation columns.
+     *
+     * @return Colocation columns.
+     */
+    public List<ClientColumn> colocationColumns() {
+        return colocationColumns;
     }
 
     /**
