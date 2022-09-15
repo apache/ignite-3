@@ -131,6 +131,7 @@ namespace Apache.Ignite.Tests
 
             writer.Write(0); // Message type.
             writer.Write(requestId);
+            writer.Write(0); // Flags.
 
             if (!isError)
             {
