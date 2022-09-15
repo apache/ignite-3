@@ -92,7 +92,7 @@ public:
      *
      * @param id Client ID.
      */
-    void close(uint64_t id, const IgniteError* err) override;
+    void close(uint64_t id, std::optional<IgniteError> err) override;
 
     /**
      * Closes and releases memory allocated for client with specified ID.
@@ -102,7 +102,7 @@ public:
      * @param err Error to report. May be null.
      * @return @c true if connection with specified ID was found.
      */
-    void closeAndRelease(uint64_t id, const IgniteError* err);
+    void closeAndRelease(uint64_t id, std::optional<IgniteError> err);
 
     /**
      * Add client to connection map. Notify user.
@@ -134,7 +134,7 @@ public:
      * @param id Async client ID.
      * @param err Error. Can be null if connection closed without error.
      */
-    void handleConnectionClosed(uint64_t id, const IgniteError* err);
+    void handleConnectionClosed(uint64_t id, std::optional<IgniteError> err);
 
     /**
      * Handle new message.

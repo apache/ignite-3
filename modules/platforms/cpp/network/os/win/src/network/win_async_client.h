@@ -99,7 +99,7 @@ public:
      * @param err Error message. Can be null.
      * @return @c true if shutdown performed successfully.
      */
-    bool shutdown(const IgniteError* err);
+    bool shutdown(std::optional<IgniteError> err);
 
     /**
      * Close client.

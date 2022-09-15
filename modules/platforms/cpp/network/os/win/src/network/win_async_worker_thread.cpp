@@ -67,7 +67,7 @@ void WinAsyncWorkerThread::run()
 
         if (!ok || (NULL != overlapped && 0 == bytesTransferred))
         {
-            m_clientPool->closeAndRelease(client->getId(), nullptr);
+            m_clientPool->closeAndRelease(client->getId(), std::nullopt);
 
             continue;
         }
@@ -79,7 +79,7 @@ void WinAsyncWorkerThread::run()
 
             bool success = client->receive();
             if (!success)
-                m_clientPool->closeAndRelease(client->getId(), nullptr);
+                m_clientPool->closeAndRelease(client->getId(), std::nullopt);
 
             continue;
         }
@@ -94,7 +94,7 @@ void WinAsyncWorkerThread::run()
                     bool success = client->processSent(bytesTransferred);
 
                     if (!success)
-                        m_clientPool->closeAndRelease(client->getId(), nullptr);
+                        m_clientPool->closeAndRelease(client->getId(), std::nullopt);
 
                     m_clientPool->handleMessageSent(client->getId());
 
@@ -111,7 +111,7 @@ void WinAsyncWorkerThread::run()
                     bool success = client->receive();
 
                     if (!success)
-                        m_clientPool->closeAndRelease(client->getId(), nullptr);
+                        m_clientPool->closeAndRelease(client->getId(), std::nullopt);
 
                     break;
                 }
@@ -122,7 +122,7 @@ void WinAsyncWorkerThread::run()
         }
         catch (const IgniteError& err)
         {
-            m_clientPool->closeAndRelease(client->getId(), &err);
+            m_clientPool->closeAndRelease(client->getId(), err);
         }
     }
 }

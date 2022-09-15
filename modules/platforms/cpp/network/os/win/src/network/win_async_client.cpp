@@ -44,20 +44,20 @@ WinAsyncClient::WinAsyncClient(SOCKET socket, EndPoint addr, TcpRange range, int
 WinAsyncClient::~WinAsyncClient()
 {
     if (State::IN_POOL == m_state)
-        shutdown(nullptr);
+        shutdown(std::nullopt);
 
     if (State::CLOSED != m_state)
         close();
 }
 
-bool WinAsyncClient::shutdown(const IgniteError* err)
+bool WinAsyncClient::shutdown(std::optional<IgniteError> err)
 {
     std::lock_guard<std::mutex> lock(m_sendMutex);
 
     if (State::CONNECTED != m_state && State::IN_POOL != m_state)
         return false;
 
-    m_closeErr = err ? *err : IgniteError("Connection closed by application");
+    m_closeErr = err ? std::move(*err) : IgniteError("Connection closed by application");
 
     ::shutdown(m_socket, SD_BOTH);
 

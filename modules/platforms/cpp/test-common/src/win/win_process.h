@@ -25,6 +25,7 @@
 #include <vector>
 #include <chrono>
 #include <string>
+#include <sstream>
 
 #include "cmd_process.h"
 
@@ -84,14 +85,15 @@ public:
      * Constructor.
      *
      * @param command Command.
+     * @param args Arguments.
      * @param workDir Working directory.
      */
-    WinProcess(std::string command, std::string workDir) :
-            m_running(false),
-            m_command(std::move(command)),
-            m_workDir(std::move(workDir)),
-            m_info{}
-    { }
+    WinProcess(std::string command, std::vector<std::string> args, std::string workDir) :
+        m_running(false),
+        m_command(std::move(command)),
+        m_args(std::move(args)),
+        m_workDir(std::move(workDir)),
+        m_info{} { }
 
     /**
      * Destructor.
@@ -115,7 +117,16 @@ public:
         si.cb = sizeof(si);
         std::memset(&m_info, 0, sizeof(m_info));
 
-        std::vector<char> cmd(m_command.begin(), m_command.end());
+        std::stringstream fullCmd;
+        fullCmd << m_command;
+        for (auto& arg : m_args)
+        {
+            fullCmd << " " << arg;
+        }
+
+        auto fullCmdStr = fullCmd.str();
+
+        std::vector<char> cmd(fullCmdStr.begin(), fullCmdStr.end());
         cmd.push_back(0);
 
         BOOL success = CreateProcess(NULL, cmd.data(), NULL, NULL, FALSE, 0, NULL, m_workDir.c_str(), &si, &m_info);
@@ -154,8 +165,10 @@ public:
 
         TerminateProcess(m_info.hProcess, 1);
 
-        CloseHandle(m_info.hProcess );
-        CloseHandle(m_info.hThread );
+        CloseHandle(m_info.hProcess);
+        CloseHandle(m_info.hThread);
+
+        m_running = false;
     }
 
     /**
@@ -176,6 +189,9 @@ private:
 
     /** Command. */
     const std::string m_command;
+
+    /** Arguments. */
+    const std::vector<std::string> m_args;
 
     /** Working directory. */
     const std::string m_workDir;

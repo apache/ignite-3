@@ -18,6 +18,7 @@
 #include <filesystem>
 #include <stdexcept>
 #include <iostream>
+#include <sstream>
 
 #include "common/Platform.h"
 
