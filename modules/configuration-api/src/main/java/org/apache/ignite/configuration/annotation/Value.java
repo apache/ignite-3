@@ -23,6 +23,7 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
+import java.util.UUID;
 
 /**
  * This annotation marks configuration schema field as a configuration tree leaf. Every field annotated with this annotation will produce a
@@ -35,6 +36,7 @@ import java.lang.annotation.Target;
  *     <li>long</li>
  *     <li>double</li>
  *     <li>String</li>
+ *     <li>{@link UUID}</li>
  * </ul>
  */
 @Target(FIELD)

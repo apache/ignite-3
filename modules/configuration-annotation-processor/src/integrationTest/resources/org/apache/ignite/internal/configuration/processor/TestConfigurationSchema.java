@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.configuration.processor;
 
+import java.util.UUID;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.Value;
 
@@ -33,4 +34,10 @@ public class TestConfigurationSchema {
 
     @Value
     public String[] stringArray;
+
+    @Value
+    public UUID uuidValue;
+
+    @Value
+    public UUID[] uuidArray;
 }
