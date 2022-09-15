@@ -20,12 +20,11 @@ package org.apache.ignite.internal.table.distributed.command;
 import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.hlc.HybridTimestamp;
-import org.apache.ignite.raft.client.WriteCommand;
 
 /**
  * State machine command to finish the transaction on commit or rollback.
  */
-public class FinishTxCommand extends PartitionCommand implements WriteCommand {
+public class FinishTxCommand extends PartitionCommand {
     /**
      * Commit or rollback state.
      */

@@ -553,7 +553,7 @@ public class InternalTableImpl implements InternalTable {
                         .binaryRow(row)
                         .transactionId(txo.id())
                         .term(term)
-                        .requestType(RequestType.RW_REPLACE)
+                        .requestType(RequestType.RW_REPLACE_IF_EXIST)
                         .timestamp(clock.now())
                         .build()
         );
@@ -571,7 +571,7 @@ public class InternalTableImpl implements InternalTable {
                         .binaryRow(newRow)
                         .transactionId(txo.id())
                         .term(term)
-                        .requestType(RequestType.RW_REPLACE_IF_EXIST)
+                        .requestType(RequestType.RW_REPLACE)
                         .timestamp(clock.now())
                         .build()
         );

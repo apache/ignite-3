@@ -61,9 +61,7 @@ import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
-import org.apache.ignite.internal.table.distributed.command.DeleteAllCommand;
-import org.apache.ignite.internal.table.distributed.command.InsertAndUpdateAllCommand;
-import org.apache.ignite.internal.table.distributed.command.InsertCommand;
+import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
 import org.apache.ignite.internal.table.distributed.command.response.MultiRowsResponse;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
@@ -144,7 +142,7 @@ public class ItColocationTest {
                     return set;
                 });
 
-                if (cmd instanceof DeleteAllCommand || cmd instanceof InsertAndUpdateAllCommand) {
+                if (cmd instanceof UpdateAllCommand) {
                     return CompletableFuture.completedFuture(new MultiRowsResponse(List.of()));
                 } else {
                     return CompletableFuture.completedFuture(true);
@@ -288,7 +286,7 @@ public class ItColocationTest {
 
             int part = INT_TABLE.partition(r);
 
-            assertThat(CollectionUtils.first(CMDS_MAP.get(part)), is(instanceOf(InsertCommand.class)));
+            assertThat(CollectionUtils.first(CMDS_MAP.get(part)), is(instanceOf(UpdateAllCommand.class)));
         }
     }
 
@@ -318,10 +316,10 @@ public class ItColocationTest {
         assertEquals(partsMap.size(), CMDS_MAP.size());
 
         CMDS_MAP.forEach((p, set) -> {
-            InsertAndUpdateAllCommand cmd = (InsertAndUpdateAllCommand) CollectionUtils.first(set);
-            assertEquals(partsMap.get(p), cmd.getRows().size(), () -> "part=" + p + ", set=" + set);
+            UpdateAllCommand cmd = (UpdateAllCommand) CollectionUtils.first(set);
+            assertEquals(partsMap.get(p), cmd.getRowsToUpdate().size(), () -> "part=" + p + ", set=" + set);
 
-            cmd.getRows().forEach(binRow -> {
+            cmd.getRowsToUpdate().values().forEach(binRow -> {
                 Row r = new Row(schema, binRow);
 
                 assertEquals(INT_TABLE.partition(r), p);

@@ -17,11 +17,11 @@
 
 package org.apache.ignite.internal.tx.storage.state.rocksdb;
 
-import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
-import org.apache.ignite.internal.tx.storage.state.TxStateStorageAbstractTest;
-
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
+
+import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorageAbstractTest;
 
 /**
  * Tx storage test for RocksDB implementation.

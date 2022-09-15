@@ -43,12 +43,9 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
-import org.apache.ignite.internal.table.distributed.command.DeleteAllCommand;
-import org.apache.ignite.internal.table.distributed.command.DeleteCommand;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
-import org.apache.ignite.internal.table.distributed.command.InsertAndUpdateAllCommand;
-import org.apache.ignite.internal.table.distributed.command.InsertCommand;
 import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
+import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteMultiRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteReplicaRequest;
@@ -79,6 +76,9 @@ import org.jetbrains.annotations.Nullable;
 public class PartitionReplicaListener implements ReplicaListener {
     /** Replication group id. */
     private final String replicationGroupId;
+
+    /** Partition id. */
+    private final int partId;
 
     /** Primary key id. */
     public final UUID indexPkId;
@@ -130,6 +130,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             RaftGroupService raftClient,
             TxManager txManager,
             LockManager lockManager,
+            int partId,
             String replicationGroupId,
             UUID tableId,
             ConcurrentHashMap<ByteBuffer, RowId> primaryIndex,
@@ -139,6 +140,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         this.raftClient = raftClient;
         this.txManager = txManager;
         this.lockManager = lockManager;
+        this.partId = partId;
         this.replicationGroupId = replicationGroupId;
         this.tableId = tableId;
         this.primaryIndex = primaryIndex;
@@ -449,7 +451,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     deleteLockFuts[i++] = takeLocksForDelete(searchKey, indexId, txId);
                 }
 
-                return CompletableFuture.allOf(deleteLockFuts).thenApply(ignore -> {
+                return CompletableFuture.allOf(deleteLockFuts).thenCompose(ignore -> {
                     Collection<RowId> rowIdsToDelete = new ArrayList<>();
                     Collection<BinaryRow> result = new ArrayList<>();
 
@@ -466,7 +468,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     }
 
                     CompletableFuture raftFut = rowIdsToDelete.isEmpty() ? CompletableFuture.completedFuture(null)
-                            : applyCmdWithExceptionHandling(new DeleteAllCommand(rowIdsToDelete, txId));
+                            : applyCmdWithExceptionHandling(new UpdateAllCommand(rowIdsToDelete, txId));
 
                     return raftFut.thenApply(ignored -> result);
                 });
@@ -480,7 +482,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     deleteExactLockFuts[i++] = takeLocksForDeleteExact(searchKey, keyToRows.get(searchKey), indexId, txId);
                 }
 
-                return CompletableFuture.allOf(deleteExactLockFuts).thenApply(ignore -> {
+                return CompletableFuture.allOf(deleteExactLockFuts).thenCompose(ignore -> {
                     Collection<RowId> rowIdsToDelete = new ArrayList<>();
                     Collection<BinaryRow> result = new ArrayList<>();
 
@@ -497,7 +499,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     }
 
                     CompletableFuture raftFut = rowIdsToDelete.isEmpty() ? CompletableFuture.completedFuture(null)
-                            : applyCmdWithExceptionHandling(new DeleteAllCommand(rowIdsToDelete, txId));
+                            : applyCmdWithExceptionHandling(new UpdateAllCommand(rowIdsToDelete, txId));
 
                     return raftFut.thenApply(ignored -> result);
                 });
@@ -511,9 +513,9 @@ public class PartitionReplicaListener implements ReplicaListener {
                     insertLockFuts[i++] = takeLocksForInsert(searchKey, indexId, txId);
                 }
 
-                return CompletableFuture.allOf(insertLockFuts).thenApply(ignore -> {
+                return CompletableFuture.allOf(insertLockFuts).thenCompose(ignore -> {
                     Collection<BinaryRow> result = new ArrayList<>();
-                    Collection<BinaryRow> rowsToInsert = new ArrayList<>();
+                    Map<RowId, BinaryRow> rowsToInsert = new HashMap<>();
 
                     int futNum = 0;
 
@@ -523,12 +525,12 @@ public class PartitionReplicaListener implements ReplicaListener {
                         if (lockedRow != null) {
                             result.add(keyToRows.get(searchKey));
                         } else {
-                            rowsToInsert.add(keyToRows.get(searchKey));
+                            rowsToInsert.put(new RowId(partId), keyToRows.get(searchKey));
                         }
                     }
 
                     CompletableFuture raftFut = rowsToInsert.isEmpty() ? CompletableFuture.completedFuture(null)
-                            : applyCmdWithExceptionHandling(new InsertAndUpdateAllCommand(rowsToInsert, null, txId));
+                            : applyCmdWithExceptionHandling(new UpdateAllCommand(rowsToInsert, txId));
 
                     return raftFut.thenApply(ignored -> result);
                 });
@@ -542,8 +544,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     upsertLockFuts[i++] = takeLocksForUpsert(searchKey, indexId, txId);
                 }
 
-                return CompletableFuture.allOf(upsertLockFuts).thenApply(ignore -> {
-                    Collection<BinaryRow> rowsToInsert = new ArrayList<>();
+                return CompletableFuture.allOf(upsertLockFuts).thenCompose(ignore -> {
                     Map<RowId, BinaryRow> rowsToUpdate = new HashMap<>();
 
                     int futNum = 0;
@@ -554,12 +555,12 @@ public class PartitionReplicaListener implements ReplicaListener {
                         if (lockedRow != null) {
                             rowsToUpdate.put(lockedRow, keyToRows.get(searchKey));
                         } else {
-                            rowsToInsert.add(keyToRows.get(searchKey));
+                            rowsToUpdate.put(new RowId(partId), keyToRows.get(searchKey));
                         }
                     }
 
-                    CompletableFuture raftFut = rowsToInsert.isEmpty() ? CompletableFuture.completedFuture(null)
-                            : applyCmdWithExceptionHandling(new InsertAndUpdateAllCommand(rowsToInsert, rowsToUpdate, txId));
+                    CompletableFuture raftFut = rowsToUpdate.isEmpty() ? CompletableFuture.completedFuture(null)
+                            : applyCmdWithExceptionHandling(new UpdateAllCommand(rowsToUpdate, txId));
 
                     return raftFut.thenApply(ignored -> null);
                 });
@@ -626,7 +627,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 return lockFut.thenCompose(lockedRowId -> {
                     boolean removed = lockedRowId != null;
 
-                    CompletableFuture raftFut = removed ? applyCmdWithExceptionHandling(new DeleteCommand(lockedRowId, txId)) :
+                    CompletableFuture raftFut = removed ? applyCmdWithExceptionHandling(new UpdateCommand(lockedRowId, txId)) :
                             CompletableFuture.completedFuture(null);
 
                     return raftFut.thenApply(ignored -> removed);
@@ -638,7 +639,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 return lockFut.thenCompose(lockedRowId -> {
                     BinaryRow lockedRow = lockedRowId != null ? mvDataStorage.read(lockedRowId, txId) : null;
 
-                    CompletableFuture raftFut = lockedRowId != null ? applyCmdWithExceptionHandling(new DeleteCommand(lockedRowId, txId)) :
+                    CompletableFuture raftFut = lockedRowId != null ? applyCmdWithExceptionHandling(new UpdateCommand(lockedRowId, txId)) :
                             CompletableFuture.completedFuture(null);
 
                     return raftFut.thenApply(ignored -> lockedRow);
@@ -650,7 +651,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 return lockFut.thenCompose(lockedRow -> {
                     boolean removed = lockedRow != null;
 
-                    CompletableFuture raftFut = removed ? applyCmdWithExceptionHandling(new DeleteCommand(lockedRow, txId)) :
+                    CompletableFuture raftFut = removed ? applyCmdWithExceptionHandling(new UpdateCommand(lockedRow, txId)) :
                             CompletableFuture.completedFuture(null);
 
                     return raftFut.thenApply(ignored -> removed);
@@ -659,11 +660,12 @@ public class PartitionReplicaListener implements ReplicaListener {
             case RW_INSERT: {
                 CompletableFuture<RowId> lockFut = takeLocksForInsert(searchKey, indexId, txId);
 
-                return lockFut.thenApply(lockedRowId -> {
+                return lockFut.thenCompose(lockedRowId -> {
                     boolean inserted = lockedRowId == null;
 
-                    CompletableFuture raftFut = lockedRowId == null ? applyCmdWithExceptionHandling(new InsertCommand(searchRow, txId)) :
-                            CompletableFuture.completedFuture(null);
+                    CompletableFuture raftFut =
+                            lockedRowId == null ? applyCmdWithExceptionHandling(new UpdateCommand(new RowId(partId), searchRow, txId)) :
+                                    CompletableFuture.completedFuture(null);
 
                     return raftFut.thenApply(ignored -> inserted);
                 });
@@ -671,10 +673,10 @@ public class PartitionReplicaListener implements ReplicaListener {
             case RW_UPSERT: {
                 CompletableFuture<RowId> lockFut = takeLocksForUpsert(searchKey, indexId, txId);
 
-                return lockFut.thenApply(lockedRowId -> {
+                return lockFut.thenCompose(lockedRowId -> {
                     CompletableFuture raftFut =
                             lockedRowId != null ? applyCmdWithExceptionHandling(new UpdateCommand(lockedRowId, searchRow, txId)) :
-                                    applyCmdWithExceptionHandling(new InsertCommand(searchRow, txId));
+                                    applyCmdWithExceptionHandling(new UpdateCommand(new RowId(partId), searchRow, txId));
 
                     return raftFut.thenApply(ignored -> null);
                 });
@@ -691,12 +693,13 @@ public class PartitionReplicaListener implements ReplicaListener {
                                                 // X lock on RowId
                                                 : CompletableFuture.completedFuture(null);
 
-                                        return rowLockFut.thenApply(rowLock -> {
+                                        return rowLockFut.thenCompose(rowLock -> {
                                             BinaryRow result = rowId != null ? mvDataStorage.read(rowId, txId) : null;
 
                                             CompletableFuture raftFut =
                                                     rowId != null ? applyCmdWithExceptionHandling(new UpdateCommand(rowId, searchRow, txId))
-                                                            : applyCmdWithExceptionHandling(new InsertCommand(searchRow, txId));
+                                                            : applyCmdWithExceptionHandling(
+                                                                    new UpdateCommand(new RowId(partId), searchRow, txId));
 
                                             return raftFut.thenApply(ignored -> result);
                                         });
@@ -730,7 +733,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                     rowLockFut = CompletableFuture.completedFuture(null);
                                 }
 
-                                return rowLockFut.thenApply(lockedRow -> {
+                                return rowLockFut.thenCompose(lockedRow -> {
                                     CompletableFuture raftFut = lockedRow == null ? CompletableFuture.completedFuture(null) :
                                             applyCmdWithExceptionHandling(new UpdateCommand(lockedRowId, lockedRow, txId));
 
@@ -742,7 +745,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             case RW_REPLACE_IF_EXIST: {
                 CompletableFuture<RowId> lockFut = takeLocksForReplaceIfExist(searchKey, indexId, txId);
 
-                return lockFut.thenApply(lockedRowId -> {
+                return lockFut.thenCompose(lockedRowId -> {
                     boolean replaced = lockedRowId != null;
 
                     CompletableFuture raftFut = replaced ? applyCmdWithExceptionHandling(new UpdateCommand(lockedRowId, searchRow, txId)) :
@@ -942,7 +945,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             case RW_REPLACE: {
                 CompletableFuture<RowId> lockFut = takeLocsForReplace(searchKey, oldRow, indexId, txId);
 
-                return lockFut.thenApply(lockedRowId -> {
+                return lockFut.thenCompose(lockedRowId -> {
                     boolean replaced = lockedRowId != null;
 
                     CompletableFuture raftFut = replaced ? applyCmdWithExceptionHandling(new UpdateCommand(lockedRowId, searchRow, txId)) :

@@ -848,7 +848,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testCrossTable() throws TransactionException {
+    public void testCrossTable() throws Exception {
         customers.recordView().upsert(null, makeValue(1, "test"));
         accounts.recordView().upsert(null, makeValue(1, 100.));
 
@@ -880,12 +880,12 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         assertEquals("test2", customers.recordView().get(null, makeKey(1)).stringValue("name"));
         assertEquals(200., accounts.recordView().get(null, makeKey(1)).doubleValue("balance"));
 
-        assertTrue(lockManager(accounts).isEmpty());
-        assertTrue(lockManager(customers).isEmpty());
+        assertTrue(IgniteTestUtils.waitForCondition(() -> lockManager(accounts).isEmpty(), 10_000));
+        assertTrue(IgniteTestUtils.waitForCondition(() -> lockManager(customers).isEmpty(), 10_000));
     }
 
     @Test
-    public void testTwoTables() throws TransactionException {
+    public void testTwoTables() throws Exception {
         customers.recordView().upsert(null, makeValue(1, "test"));
         accounts.recordView().upsert(null, makeValue(1, 100.));
 
@@ -919,11 +919,11 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         assertEquals("test2", customers.recordView().get(null, makeKey(1)).stringValue("name"));
         assertEquals(200., accounts.recordView().get(null, makeKey(1)).doubleValue("balance"));
 
-        assertTrue(lockManager(accounts).isEmpty());
+        assertTrue(IgniteTestUtils.waitForCondition(() -> lockManager(accounts).isEmpty(), 10_000));
     }
 
     @Test
-    public void testCrossTableKeyValueView() throws TransactionException {
+    public void testCrossTableKeyValueView() throws Exception {
         customers.recordView().upsert(null, makeValue(1L, "test"));
         accounts.recordView().upsert(null, makeValue(1L, 100.));
 
@@ -957,11 +957,11 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         assertEquals("test2", customers.recordView().get(null, makeKey(1)).stringValue("name"));
         assertEquals(200., accounts.recordView().get(null, makeKey(1)).doubleValue("balance"));
 
-        assertTrue(lockManager(accounts).isEmpty());
+        assertTrue(IgniteTestUtils.waitForCondition(() -> lockManager(accounts).isEmpty(), 10_000));
     }
 
     @Test
-    public void testCrossTableAsync() throws TransactionException {
+    public void testCrossTableAsync() throws Exception {
         customers.recordView().upsert(null, makeValue(1, "test"));
         accounts.recordView().upsert(null, makeValue(1, 100.));
 
@@ -975,11 +975,11 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         assertEquals("test2", customers.recordView().get(null, makeKey(1)).stringValue("name"));
         assertEquals(200., accounts.recordView().get(null, makeKey(1)).doubleValue("balance"));
 
-        assertTrue(lockManager(accounts).isEmpty());
+        assertTrue(IgniteTestUtils.waitForCondition(() -> lockManager(accounts).isEmpty(), 10_000));
     }
 
     @Test
-    public void testCrossTableAsyncRollback() throws TransactionException {
+    public void testCrossTableAsyncRollback() throws Exception {
         customers.recordView().upsert(null, makeValue(1, "test"));
         accounts.recordView().upsert(null, makeValue(1, 100.));
 
@@ -993,11 +993,11 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         assertEquals("test", customers.recordView().get(null, makeKey(1)).stringValue("name"));
         assertEquals(100., accounts.recordView().get(null, makeKey(1)).doubleValue("balance"));
 
-        assertTrue(lockManager(accounts).isEmpty());
+        assertTrue(IgniteTestUtils.waitForCondition(() -> lockManager(accounts).isEmpty(), 10_000));
     }
 
     @Test
-    public void testCrossTableAsyncKeyValueView() throws TransactionException {
+    public void testCrossTableAsyncKeyValueView() throws Exception {
         customers.recordView().upsert(null, makeValue(1, "test"));
         accounts.recordView().upsert(null, makeValue(1, 100.));
 
@@ -1012,11 +1012,11 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         assertEquals("test2", customers.recordView().get(null, makeKey(1)).stringValue("name"));
         assertEquals(200., accounts.recordView().get(null, makeKey(1)).doubleValue("balance"));
 
-        assertTrue(lockManager(accounts).isEmpty());
+        assertTrue(IgniteTestUtils.waitForCondition(() -> lockManager(accounts).isEmpty(), 10_000));
     }
 
     @Test
-    public void testCrossTableAsyncKeyValueViewRollback() throws TransactionException {
+    public void testCrossTableAsyncKeyValueViewRollback() throws Exception {
         customers.recordView().upsert(null, makeValue(1, "test"));
         accounts.recordView().upsert(null, makeValue(1, 100.));
 
@@ -1031,7 +1031,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         assertEquals("test", customers.recordView().get(null, makeKey(1)).stringValue("name"));
         assertEquals(100., accounts.recordView().get(null, makeKey(1)).doubleValue("balance"));
 
-        assertTrue(lockManager(accounts).isEmpty());
+        assertTrue(IgniteTestUtils.waitForCondition(() -> lockManager(accounts).isEmpty(), 10_000));
     }
 
     @Test

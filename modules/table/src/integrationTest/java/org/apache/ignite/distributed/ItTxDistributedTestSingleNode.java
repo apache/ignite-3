@@ -377,6 +377,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                                 raftGroupSvc,
                                 txManagers.get(node),
                                 txManagers.get(node).lockManager(),
+                                partId,
                                 grpId,
                                 tblId,
                                 primaryIndex,

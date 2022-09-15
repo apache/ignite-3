@@ -25,7 +25,6 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * This class represents a response object message that contains a single {@link BinaryRow}.
- *
  */
 public class SingleRowResponse implements Serializable {
     /** Binary row. */

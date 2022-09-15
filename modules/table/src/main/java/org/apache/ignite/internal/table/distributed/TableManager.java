@@ -689,16 +689,16 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                 grpId,
                                                 newPartAssignment,
                                                 new PartitionListener(
-                                                    partitionStorage,
-                                                    // TODO: https://issues.apache.org/jira/browse/IGNITE-17579 TxStateStorage management.
-                                                    new TxStateRocksDbStorage(
-                                                        Paths.get("tx_state_storage" + tblId + partId),
-                                                        Executors.newSingleThreadScheduledExecutor(),
-                                                        Executors.newFixedThreadPool(1),
-                                                        () -> 1000
-                                                    ),
-                                                    txManager,
-                                                    new ConcurrentHashMap<>()
+                                                        partitionStorage,
+                                                        // TODO: https://issues.apache.org/jira/browse/IGNITE-17579 TxStateStorage management.
+                                                        new TxStateRocksDbStorage(
+                                                                Paths.get("tx_state_storage" + tblId + partId),
+                                                                Executors.newSingleThreadScheduledExecutor(),
+                                                                Executors.newFixedThreadPool(1),
+                                                                () -> 1000
+                                                        ),
+                                                        txManager,
+                                                        new ConcurrentHashMap<>()
                                             ),
                                                 new RebalanceRaftGroupEventsListener(
                                                         metaStorageMgr,
@@ -745,6 +745,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                             updatedRaftGroupService,
                                                             txManager,
                                                             lockMgr,
+                                                            partId,
                                                             grpId,
                                                             tblId,
                                                             new ConcurrentHashMap<>(),
@@ -1669,10 +1670,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                     partitionStorage,
                                     // TODO: https://issues.apache.org/jira/browse/IGNITE-17579 TxStateStorage management.
                                     new TxStateRocksDbStorage(
-                                        Paths.get("tx_state_storage" + tblId + partId),
-                                        Executors.newSingleThreadScheduledExecutor(),
-                                        Executors.newFixedThreadPool(1),
-                                        () -> 1000
+                                            Paths.get("tx_state_storage" + tblId + partId),
+                                            Executors.newSingleThreadScheduledExecutor(),
+                                            Executors.newFixedThreadPool(1),
+                                            () -> 1000
                                     ),
                                     txManager,
                                     new ConcurrentHashMap<>()
@@ -1708,6 +1709,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                             tbl.internalTable().partitionRaftGroupService(part),
                                             txManager,
                                             lockMgr,
+                                            part,
                                             partId,
                                             tblId,
                                             new ConcurrentHashMap<>(),
