@@ -83,7 +83,7 @@ public class ClientTableCommon {
         for (var colIdx = 0; colIdx < colCnt; colIdx++) {
             var col = schema.column(colIdx);
 
-            packer.packArrayHeader(4);
+            packer.packArrayHeader(5);
             packer.packString(col.name());
             packer.packInt(getClientDataType(col.type().spec()));
             packer.packBoolean(schema.isKeyColumn(colIdx));
