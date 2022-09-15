@@ -361,6 +361,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
     }
 
     private Integer getKeyHash(ClientSchema schema, Tuple keyRec) {
+        // TODO: keyColumns may be different from colocationColumns - extend ClientSchema.
         if (schema.keyColumnCount() != 1) {
             // TODO IGNITE-17395: Support multiple key columns.
             return null;
