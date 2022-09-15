@@ -56,7 +56,6 @@ public class IndexMeta {
         return metaPageId;
     }
 
-    /** {@inheritDoc} */
     @Override
     public String toString() {
         return S.toString(IndexMeta.class, this, "metaPageId", IgniteUtils.hexLong(metaPageId));

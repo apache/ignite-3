@@ -17,9 +17,7 @@
 
 package org.apache.ignite.internal.client.table;
 
-import static org.apache.ignite.internal.client.proto.ClientDataType.BIGINTEGER;
 import static org.apache.ignite.internal.client.proto.ClientDataType.BITMASK;
-import static org.apache.ignite.internal.client.proto.ClientDataType.BOOLEAN;
 import static org.apache.ignite.internal.client.proto.ClientDataType.BYTES;
 import static org.apache.ignite.internal.client.proto.ClientDataType.DATE;
 import static org.apache.ignite.internal.client.proto.ClientDataType.DATETIME;
@@ -174,9 +172,6 @@ public class ClientSchema {
 
     private static BinaryMode mode(int dataType) {
         switch (dataType) {
-            case BOOLEAN:
-                throw new IgniteException("TODO: " + dataType);
-
             case INT8:
                 return BinaryMode.BYTE;
 
@@ -207,8 +202,6 @@ public class ClientSchema {
             case DECIMAL:
                 return BinaryMode.DECIMAL;
 
-            // Falls through.
-            case BIGINTEGER:
             case NUMBER:
                 return BinaryMode.NUMBER;
 

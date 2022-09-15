@@ -17,19 +17,16 @@
 
 package org.apache.ignite.cli.commands.cluster.config;
 
-import static org.apache.ignite.cli.commands.OptionsConstants.CLUSTER_URL_DESC;
-import static org.apache.ignite.cli.commands.OptionsConstants.CLUSTER_URL_KEY;
-import static org.apache.ignite.cli.commands.OptionsConstants.CLUSTER_URL_OPTION;
-
 import jakarta.inject.Inject;
 import org.apache.ignite.cli.call.configuration.ClusterConfigUpdateCall;
 import org.apache.ignite.cli.call.configuration.ClusterConfigUpdateCallInput;
 import org.apache.ignite.cli.commands.BaseCommand;
+import org.apache.ignite.cli.commands.cluster.ClusterUrlMixin;
 import org.apache.ignite.cli.commands.questions.ConnectToClusterQuestion;
-import org.apache.ignite.cli.core.flow.Flowable;
+import org.apache.ignite.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
 import org.apache.ignite.cli.core.flow.builder.Flows;
 import picocli.CommandLine.Command;
-import picocli.CommandLine.Option;
+import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Parameters;
 
 /**
@@ -38,8 +35,8 @@ import picocli.CommandLine.Parameters;
 @Command(name = "update", description = "Updates cluster configuration")
 public class ClusterConfigUpdateReplCommand extends BaseCommand implements Runnable {
     /** Cluster endpoint URL option. */
-    @Option(names = {CLUSTER_URL_OPTION}, description = CLUSTER_URL_DESC, descriptionKey = CLUSTER_URL_KEY)
-    private String clusterUrl;
+    @Mixin
+    private ClusterUrlMixin clusterUrl;
 
     /** Configuration that will be updated. */
     @Parameters(index = "0")
@@ -54,12 +51,12 @@ public class ClusterConfigUpdateReplCommand extends BaseCommand implements Runna
     /** {@inheritDoc} */
     @Override
     public void run() {
-        question.askQuestionIfNotConnected(clusterUrl)
+        question.askQuestionIfNotConnected(clusterUrl.getClusterUrl())
                 .map(this::configUpdateCallInput)
                 .then(Flows.fromCall(call))
-                .toOutput(spec.commandLine().getOut(), spec.commandLine().getErr())
-                .build()
-                .start(Flowable.empty());
+                .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot update cluster config", "cluster init"))
+                .print()
+                .start();
     }
 
     private ClusterConfigUpdateCallInput configUpdateCallInput(String clusterUrl) {

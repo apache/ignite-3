@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine;
 
-import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsSubPlan;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -155,7 +154,7 @@ public class ItDmlTest extends AbstractBasicIntegrationTest {
                 + "WHEN MATCHED THEN UPDATE SET b = 100 * src.b "
                 + "WHEN NOT MATCHED THEN INSERT (k1, k2, a, b) VALUES (src.k1, src.k2, 10 * src.a, src.b)";
 
-        assertQuery(sql).matches(containsSubPlan("IgniteTableSpool")).check();
+        sql(sql);
 
         assertQuery("SELECT * FROM test2 ORDER BY k1")
                 .returns(222, 222, 10, 300, null)

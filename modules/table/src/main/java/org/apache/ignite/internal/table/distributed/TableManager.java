@@ -51,6 +51,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
@@ -690,7 +691,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                 new PartitionListener(
                                                     partitionStorage,
                                                     // TODO: https://issues.apache.org/jira/browse/IGNITE-17579 TxStateStorage management.
-                                                    new TxStateRocksDbStorage(Paths.get("tx_state_storage" + tblId + partId)),
+                                                    new TxStateRocksDbStorage(
+                                                        Paths.get("tx_state_storage" + tblId + partId),
+                                                        Executors.newSingleThreadScheduledExecutor(),
+                                                        Executors.newFixedThreadPool(1),
+                                                        () -> 1000
+                                                    ),
                                                     txManager,
                                                     new ConcurrentHashMap<>()
                                             ),
@@ -807,7 +813,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         //TODO Revisit peers String representation: https://issues.apache.org/jira/browse/IGNITE-17420
         raftGroupOptions.snapshotStorageFactory(new PartitionSnapshotStorageFactory(
-                partitionStorage,
+                //TODO IGNITE-17302 Use miniumum from mv storage and tx state storage.
+                partitionStorage::persistedIndex,
                 peers.stream().map(n -> new Peer(n.address())).map(PeerId::fromPeer).map(Object::toString).collect(Collectors.toList()),
                 List.of()
         ));
@@ -1661,7 +1668,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             RaftGroupListener raftGrpLsnr = new PartitionListener(
                                     partitionStorage,
                                     // TODO: https://issues.apache.org/jira/browse/IGNITE-17579 TxStateStorage management.
-                                    new TxStateRocksDbStorage(Paths.get("tx_state_storage" + tblId + partId)),
+                                    new TxStateRocksDbStorage(
+                                        Paths.get("tx_state_storage" + tblId + partId),
+                                        Executors.newSingleThreadScheduledExecutor(),
+                                        Executors.newFixedThreadPool(1),
+                                        () -> 1000
+                                    ),
                                     txManager,
                                     new ConcurrentHashMap<>()
                             );

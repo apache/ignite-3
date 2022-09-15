@@ -52,7 +52,7 @@ public abstract class RocksIteratorAdapter<T> implements Cursor<T> {
 
         if (!isValid) {
             // check the status first. This operation is guaranteed to throw if an internal error has occurred during
-            // the iteration. Otherwise we've exhausted the data range.
+            // the iteration. Otherwise, we've exhausted the data range.
             RocksUtils.checkIterator(it);
         }
 

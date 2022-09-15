@@ -33,6 +33,9 @@ public class ErrorGroups {
         /** Node stopping error. */
         public static final int NODE_STOPPING_ERR = COMMON_ERR_GROUP.registerErrorCode(2);
 
+        /** Component not started error. */
+        public static final int COMPONENT_NOT_STARTED_ERR = COMMON_ERR_GROUP.registerErrorCode(3);
+
         /** Unknown error. */
         @Deprecated
         public static final int UNKNOWN_ERR = COMMON_ERR_GROUP.registerErrorCode(0xFFFF);
@@ -173,7 +176,7 @@ public class ErrorGroups {
     /** Transactions error group. */
     public static class Transactions {
         /** Transactions error group. */
-        public static final ErrorGroup TX_ERR_GROUP = ErrorGroup.newGroup("TX", 3);
+        public static final ErrorGroup TX_ERR_GROUP = ErrorGroup.newGroup("TX", 7);
 
         /** Error on creation of tx state storage. */
         public static final int TX_STATE_STORAGE_CREATE_ERR = TX_ERR_GROUP.registerErrorCode(1);
@@ -184,23 +187,26 @@ public class ErrorGroups {
         /** Error of tx state storage. */
         public static final int TX_STATE_STORAGE_ERR = TX_ERR_GROUP.registerErrorCode(3);
 
+        /** Tx state storage is stopped. */
+        public static final int TX_STATE_STORAGE_STOPPED_ERR = TX_ERR_GROUP.registerErrorCode(4);
+
         /** Error of unexpected tx state on state change. */
-        public static final int TX_UNEXPECTED_STATE = TX_ERR_GROUP.registerErrorCode(4);
+        public static final int TX_UNEXPECTED_STATE = TX_ERR_GROUP.registerErrorCode(5);
 
         /** Failed to release a lock on a key. */
-        public static final int RELEASE_LOCK_ERR = TX_ERR_GROUP.registerErrorCode(5);
+        public static final int RELEASE_LOCK_ERR = TX_ERR_GROUP.registerErrorCode(6);
 
         /** Failed to acquire a lock on a key due to a conflict. */
-        public static final int ACQUIRE_LOCK_ERR = TX_ERR_GROUP.registerErrorCode(6);
+        public static final int ACQUIRE_LOCK_ERR = TX_ERR_GROUP.registerErrorCode(7);
 
         /** Failed to downgrade a lock on a key due to a conflict. */
-        public static final int DOWNGRADE_LOCK_ERR = TX_ERR_GROUP.registerErrorCode(7);
+        public static final int DOWNGRADE_LOCK_ERR = TX_ERR_GROUP.registerErrorCode(8);
 
         /** Failed to commit a transaction. */
-        public static final int TX_COMMIT_ERR = TX_ERR_GROUP.registerErrorCode(8);
+        public static final int TX_COMMIT_ERR = TX_ERR_GROUP.registerErrorCode(9);
 
         /** Failed to rollback a transaction. */
-        public static final int TX_ROLLBACK_ERR = TX_ERR_GROUP.registerErrorCode(9);
+        public static final int TX_ROLLBACK_ERR = TX_ERR_GROUP.registerErrorCode(10);
     }
 
     /** Replicator error group. */

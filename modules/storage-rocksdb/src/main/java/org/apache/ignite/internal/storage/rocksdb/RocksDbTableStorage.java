@@ -27,22 +27,20 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
-import java.util.Map.Entry;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
+import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
+import org.apache.ignite.internal.rocksdb.flush.RocksDbFlusher;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
@@ -84,17 +82,14 @@ public class RocksDbTableStorage implements MvTableStorage {
     /** Data region for the table. */
     private final RocksDbDataRegion dataRegion;
 
+    /** RocksDB flusher instance. */
+    private volatile RocksDbFlusher flusher;
+
     /** Rocks DB instance. */
     private volatile RocksDB db;
 
     /** Write options for write operations. */
     private final WriteOptions writeOptions = new WriteOptions().setDisableWAL(true);
-
-    /**
-     * Flush options to be used to asynchronously flush the Rocks DB memtable. It needs to be cached, because
-     * {@link RocksDB#flush(FlushOptions)} contract requires this object to not be GC-ed.
-     */
-    private final FlushOptions flushOptions = new FlushOptions().setWaitForFlush(false);
 
     /** Meta information. */
     private volatile RocksDbMetaStorage meta;
@@ -105,30 +100,11 @@ public class RocksDbTableStorage implements MvTableStorage {
     /** Column Family handle for Hash Index data. */
     private volatile ColumnFamily hashIndexCf;
 
-    /** List of all existing Column Family handles. */
-    private volatile List<ColumnFamilyHandle> allCfHandles;
-
     /** Partition storages. */
     private volatile AtomicReferenceArray<RocksDbMvPartitionStorage> partitions;
 
     /** Hash Index storages by Index IDs. */
     private final ConcurrentMap<UUID, HashIndices> hashIndices = new ConcurrentHashMap<>();
-
-    /** Map with flush futures by sequence number at the time of the {@link #awaitFlush(boolean)} call. */
-    private final ConcurrentMap<Long, CompletableFuture<Void>> flushFuturesBySequenceNumber = new ConcurrentHashMap<>();
-
-    /** Latest known sequence number for persisted data. Not volatile, protected by explicit synchronization. */
-    private long latestPersistedSequenceNumber;
-
-    /** Mutex for {@link #latestPersistedSequenceNumber} modifications. */
-    private final Object latestPersistedSequenceNumberMux = new Object();
-
-    /**
-     * Instance of the latest scheduled flush closure.
-     *
-     * @see #scheduleFlush()
-     */
-    private volatile Runnable latestFlushClosure;
 
     /** Busy lock to stop synchronously. */
     final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -193,6 +169,14 @@ public class RocksDbTableStorage implements MvTableStorage {
     /** {@inheritDoc} */
     @Override
     public void start() throws StorageException {
+        flusher = new RocksDbFlusher(
+                busyLock,
+                engine.scheduledPool(),
+                engine().threadPool(),
+                engine.configuration().flushDelayMillis()::value,
+                this::refreshPersistedIndexes
+        );
+
         try {
             Files.createDirectories(tablePath);
         } catch (IOException e) {
@@ -208,7 +192,7 @@ public class RocksDbTableStorage implements MvTableStorage {
                 .setCreateMissingColumnFamilies(true)
                 // Atomic flush must be enabled to guarantee consistency between different column families when WAL is disabled.
                 .setAtomicFlush(true)
-                .setListeners(List.of(new RocksDbFlushListener(this)))
+                .setListeners(List.of(flusher.listener()))
                 .setWriteBufferManager(dataRegion.writeBufferManager());
 
         try {
@@ -243,12 +227,7 @@ public class RocksDbTableStorage implements MvTableStorage {
             assert partitionCf != null;
             assert hashIndexCf != null;
 
-            allCfHandles = List.copyOf(cfHandles);
-
-            // Pointless synchronization, but without it there would be a warning in the code.
-            synchronized (latestPersistedSequenceNumberMux) {
-                latestPersistedSequenceNumber = db.getLatestSequenceNumber();
-            }
+            flusher.init(db, cfHandles);
         } catch (RocksDBException e) {
             throw new StorageException("Failed to initialize RocksDB instance", e);
         }
@@ -265,82 +244,39 @@ public class RocksDbTableStorage implements MvTableStorage {
      * achieve this.
      *
      * @param schedule {@code true} if {@link RocksDB#flush(FlushOptions)} should be explicitly triggerred in the near future.
-     *
-     * @see #scheduleFlush()
      */
     public CompletableFuture<Void> awaitFlush(boolean schedule) {
-        CompletableFuture<Void> future;
-
-        long dbSequenceNumber = db.getLatestSequenceNumber();
-
-        synchronized (latestPersistedSequenceNumberMux) {
-            if (dbSequenceNumber <= latestPersistedSequenceNumber) {
-                return CompletableFuture.completedFuture(null);
-            }
-
-            future = flushFuturesBySequenceNumber.computeIfAbsent(dbSequenceNumber, l -> new CompletableFuture<>());
-        }
-
-        if (schedule) {
-            scheduleFlush();
-        }
-
-        return future;
+        return flusher.awaitFlush(schedule);
     }
 
-    /**
-     * Completes all futures in {@link #flushFuturesBySequenceNumber} up to a given sequence number.
-     */
-    void completeFutures(long sequenceNumber) {
-        synchronized (latestPersistedSequenceNumberMux) {
-            if (sequenceNumber <= latestPersistedSequenceNumber) {
-                return;
-            }
-
-            latestPersistedSequenceNumber = sequenceNumber;
+    private void refreshPersistedIndexes() {
+        if (!busyLock.enterBusy()) {
+            return;
         }
 
-        Set<Entry<Long, CompletableFuture<Void>>> entries = flushFuturesBySequenceNumber.entrySet();
+        try {
+            TableView tableCfgView = configuration().value();
 
-        for (Iterator<Entry<Long, CompletableFuture<Void>>> iterator = entries.iterator(); iterator.hasNext(); ) {
-            Entry<Long, CompletableFuture<Void>> entry = iterator.next();
+            for (int partitionId = 0; partitionId < tableCfgView.partitions(); partitionId++) {
+                RocksDbMvPartitionStorage partition = getMvPartition(partitionId);
 
-            if (sequenceNumber >= entry.getKey()) {
-                entry.getValue().complete(null);
-
-                iterator.remove();
-            }
-        }
-    }
-
-    /**
-     * Schedules a flush of the table. If run several times within a small amount of time, only the last scheduled flush will be executed.
-     */
-    void scheduleFlush() {
-        Runnable newClosure = new Runnable() {
-            @Override
-            public void run() {
-                if (latestFlushClosure != this) {
-                    return;
-                }
-
-                try {
-                    // Explicit list of CF handles is mandatory!
-                    // Default flush is buggy and only invokes listener methods for a single random CF.
-                    db.flush(flushOptions, allCfHandles);
-                } catch (RocksDBException e) {
-                    LOG.error("Error occurred during the explicit flush for table '{}'", e, tableCfg.name());
+                if (partition != null) {
+                    try {
+                        partition.refreshPersistedIndex();
+                    } catch (StorageException storageException) {
+                        LOG.error(
+                                "Filed to refresh persisted applied index value for table {} partition {}",
+                                storageException,
+                                configuration().name().value(),
+                                partitionId
+                        );
+                    }
                 }
             }
-        };
-
-        latestFlushClosure = newClosure;
-
-        int delay = engine.configuration().flushDelayMillis().value();
-
-        engine.scheduledPool().schedule(newClosure, delay, TimeUnit.MILLISECONDS);
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
-
 
     /** {@inheritDoc} */
     @Override
@@ -351,17 +287,17 @@ public class RocksDbTableStorage implements MvTableStorage {
 
         busyLock.block();
 
-        for (CompletableFuture<Void> future : flushFuturesBySequenceNumber.values()) {
-            future.cancel(false);
-        }
-
         List<AutoCloseable> resources = new ArrayList<>();
+
+        resources.add(flusher::stop);
+
+        resources.add(meta.columnFamily().handle());
+        resources.add(partitionCf.handle());
+        resources.add(hashIndexCf.handle());
 
         resources.add(db);
 
         resources.add(writeOptions);
-
-        resources.add(flushOptions);
 
         for (int i = 0; i < partitions.length(); i++) {
             MvPartitionStorage partition = partitions.get(i);

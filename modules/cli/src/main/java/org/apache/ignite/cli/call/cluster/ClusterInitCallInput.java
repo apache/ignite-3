@@ -18,6 +18,7 @@
 package org.apache.ignite.cli.call.cluster;
 
 import java.util.List;
+import org.apache.ignite.cli.commands.cluster.init.ClusterInitOptions;
 import org.apache.ignite.cli.core.call.CallInput;
 
 /**
@@ -102,18 +103,16 @@ public class ClusterInitCallInput implements CallInput {
             return this;
         }
 
-        public ClusterInitCallInputBuilder metaStorageNodes(List<String> metaStorageNodes) {
-            this.metaStorageNodes = metaStorageNodes;
-            return this;
-        }
-
-        public ClusterInitCallInputBuilder cmgNodes(List<String> cmgNodes) {
-            this.cmgNodes = cmgNodes;
-            return this;
-        }
-
-        public ClusterInitCallInputBuilder clusterName(String clusterName) {
-            this.clusterName = clusterName;
+        /**
+         * Extract cluster initialization options.
+         *
+         * @param clusterInitOptions mixin class with options
+         * @return this builder
+         */
+        public ClusterInitCallInputBuilder fromClusterInitOptions(ClusterInitOptions clusterInitOptions) {
+            this.metaStorageNodes = clusterInitOptions.getMetaStorageNodes();
+            this.cmgNodes = clusterInitOptions.getCmgNodes();
+            this.clusterName = clusterInitOptions.getClusterName();
             return this;
         }
 

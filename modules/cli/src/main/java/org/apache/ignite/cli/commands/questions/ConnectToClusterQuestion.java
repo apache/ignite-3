@@ -29,7 +29,6 @@ import org.apache.ignite.cli.core.flow.Flowable;
 import org.apache.ignite.cli.core.flow.builder.FlowBuilder;
 import org.apache.ignite.cli.core.flow.builder.Flows;
 import org.apache.ignite.cli.core.repl.Session;
-import org.apache.ignite.cli.core.repl.context.CommandLineContextProvider;
 import org.apache.ignite.cli.core.style.component.QuestionUiComponent;
 import org.apache.ignite.cli.core.style.element.UiElements;
 
@@ -70,7 +69,7 @@ public class ConnectToClusterQuestion {
                 .ifThen(Objects::isNull, Flows.<String, ConnectCallInput>acceptQuestion(questionUiComponent,
                                 () -> new ConnectCallInput(defaultUrl))
                         .then(Flows.fromCall(connectCall))
-                        .toOutput(CommandLineContextProvider.getContext())
+                        .print()
                         .build())
                 .then(prevUrl -> {
                     // If inner flow from ifThen is interrupted we should interrupt outer flow as well.
@@ -108,9 +107,9 @@ public class ConnectToClusterQuestion {
 
         Flows.acceptQuestion(question, () -> new ConnectCallInput(clusterUrl))
                 .then(Flows.fromCall(connectCall))
-                .toOutput(CommandLineContextProvider.getContext())
+                .print()
                 .ifThen(s -> !Objects.equals(clusterUrl, defaultUrl) && session.isConnectedToNode(),
-                        defaultUrlQuestion(clusterUrl).toOutput(CommandLineContextProvider.getContext()).build())
+                        defaultUrlQuestion(clusterUrl).print().build())
                 .build().start(Flowable.empty());
     }
 

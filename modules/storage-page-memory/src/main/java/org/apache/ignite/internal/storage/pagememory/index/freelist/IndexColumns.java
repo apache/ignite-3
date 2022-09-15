@@ -52,7 +52,6 @@ public class IndexColumns implements Storable {
      * @param partitionId Partition ID.
      * @param valueBuffer Value buffer.
      */
-
     public IndexColumns(int partitionId, @Nullable ByteBuffer valueBuffer) {
         this.partitionId = partitionId;
         this.valueBuffer = valueBuffer;

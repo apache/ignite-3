@@ -22,10 +22,10 @@ import java.util.Collection;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
-import org.apache.ignite.internal.cluster.management.rest.exception.ClusterNotInitializedException;
 import org.apache.ignite.internal.rest.api.cluster.ClusterNodeDto;
 import org.apache.ignite.internal.rest.api.cluster.NetworkAddressDto;
 import org.apache.ignite.internal.rest.api.cluster.TopologyApi;
+import org.apache.ignite.internal.rest.exception.ClusterNotInitializedException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.TopologyService;
 

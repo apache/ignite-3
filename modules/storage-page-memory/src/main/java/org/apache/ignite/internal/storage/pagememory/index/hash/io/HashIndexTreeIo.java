@@ -35,16 +35,16 @@ import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns
 import org.apache.ignite.internal.storage.pagememory.index.freelist.ReadIndexColumnsValue;
 import org.apache.ignite.internal.storage.pagememory.index.hash.HashIndexRow;
 import org.apache.ignite.internal.storage.pagememory.index.hash.HashIndexRowKey;
-import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMeta;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
- * Interface for {@link IndexMeta} B+Tree-related IO.
+ * Interface for {@link HashIndexRow} B+Tree-related IO.
  *
  * <p>Defines a following data layout:
  * <ul>
- *     <li>Index ID - {@link UUID} (16 bytes);</li>
- *     <li>Index root page ID - long (8 bytes).</li>
+ *     <li>Index columns hash - int (4 bytes);</li>
+ *     <li>Index columns link - long (6 bytes);</li>
+ *     <li>Row ID - {@link UUID} (16 bytes).</li>
  * </ul>
  */
 public interface HashIndexTreeIo {

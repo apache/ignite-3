@@ -20,12 +20,15 @@ package org.apache.ignite.internal.tx.storage.state.rocksdb;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorageAbstractTest;
 
+import static java.util.concurrent.Executors.newSingleThreadExecutor;
+import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
+
 /**
  * Tx storage test for RocksDB implementation.
  */
 public class TxStateRocksDbStorageTest extends TxStateStorageAbstractTest {
     /** {@inheritDoc} */
     @Override protected TxStateStorage createStorage() {
-        return new TxStateRocksDbStorage(workDir);
+        return new TxStateRocksDbStorage(workDir, newSingleThreadScheduledExecutor(), newSingleThreadExecutor(), () -> 100);
     }
 }

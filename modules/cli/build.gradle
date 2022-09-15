@@ -1,0 +1,152 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+import org.openapitools.generator.gradle.plugin.tasks.GenerateTask
+
+plugins {
+    alias(libs.plugins.openapiGenerator)
+    id 'idea'
+    id 'application'
+}
+
+apply from: "$rootDir/buildscripts/java-library.gradle"
+apply from: "$rootDir/buildscripts/java-junit5.gradle"
+apply from: "$rootDir/buildscripts/java-integration-test.gradle"
+
+description = 'ignite-cli'
+
+dependencies {
+    annotationProcessor libs.picocli.annotation.processor
+    annotationProcessor libs.micronaut.inject.annotation.processor
+    annotationProcessor libs.micronaut.validation.annotation.processor
+
+    implementation project(':ignite-cli-common')
+    implementation project(':ignite-core')
+    implementation project(':ignite-api')
+    implementation project(':ignite-client')
+
+    implementation libs.fliptables
+    implementation libs.jline.core
+    implementation libs.jline.console
+    implementation libs.micronaut.inject
+    implementation libs.micronaut.validation
+    implementation libs.micronaut.runtime
+    implementation libs.micronaut.picocli
+    implementation libs.jansi.core
+    implementation libs.picocli.shell.jline3
+    implementation libs.picocli.core
+    implementation libs.jackson.databind
+    implementation libs.apache.ivy
+    implementation libs.typesafe.config
+    implementation libs.slf4j.jdk14
+    implementation libs.gson.core
+    implementation libs.gson.fire
+    implementation libs.jsr305
+    implementation libs.okhttp.core
+    implementation libs.okhttp.logging
+    implementation libs.threetenbp
+    implementation libs.swagger.legacy.annotations
+
+    testAnnotationProcessor libs.picocli.annotation.processor
+    testAnnotationProcessor libs.micronaut.inject.annotation.processor
+    testAnnotationProcessor libs.micronaut.validation.annotation.processor
+
+    testImplementation project(':ignite-runner')
+    testImplementation project(':ignite-schema')
+    testImplementation project(':ignite-core')
+    testImplementation project(':ignite-sql-engine')
+    testImplementation(testFixtures(project(":ignite-core")))
+    testImplementation libs.hamcrest.core
+    testImplementation libs.hamcrest.optional
+    testImplementation libs.mockito.junit
+    testImplementation libs.micronaut.junit5
+    testImplementation libs.micronaut.test
+    testImplementation libs.assertj.core
+    testImplementation libs.mock.server.netty
+    testImplementation libs.mock.server.junit
+
+    integrationTestAnnotationProcessor libs.micronaut.inject.annotation.processor
+    integrationTestImplementation project(':ignite-runner')
+    integrationTestImplementation project(':ignite-schema')
+    integrationTestImplementation project(':ignite-sql-engine')
+    integrationTestImplementation(testFixtures(project(":ignite-core")))
+    integrationTestImplementation(testFixtures(project(":ignite-schema")))
+    integrationTestImplementation libs.mock.server.netty
+    integrationTestImplementation libs.mock.server.junit
+    integrationTestImplementation libs.micronaut.junit5
+    integrationTestImplementation libs.micronaut.test
+    integrationTestImplementation libs.assertj.core
+}
+
+ext.generatedClientDir = layout.buildDirectory.dir("swagger/client")
+
+task copyOpenapiDefinition(type: Copy) {
+    from("$rootDir/modules/rest/openapi")
+    into("$buildDir/customOpenapiDefinition/")
+}
+
+task generateApiClient(type: GenerateTask) {
+    generatorName="java"
+    inputs.dir file("$buildDir/customOpenapiDefinition/")
+    inputSpec="$buildDir/customOpenapiDefinition/openapi.yaml"
+    apiPackage="org.apache.ignite.rest.client.api"
+    invokerPackage="org.apache.ignite.rest.client.invoker"
+    modelPackage="org.apache.ignite.rest.client.model"
+    outputDir = generatedClientDir.get().asFile.toString()
+    generateModelTests=false
+    generateApiTests=false
+    languageSpecificPrimitives=["boolean", "int", "float", "double", "char", "byte", "short", "long"]
+    configOptions = [
+        "openApiNullable": "false",
+        "supportStreaming": "false",
+        "library": "okhttp-gson"
+    ]
+}
+
+generateApiClient.dependsOn copyOpenapiDefinition
+
+task generateAutocompletionScript(type: JavaExec) {
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass.set("picocli.AutoComplete")
+    systemProperty("picocli.autocomplete.systemExitOnError", "")
+    args = ["--force",
+            "--completionScript",
+            "${buildDir}/ignite_completion.sh",
+            "-n",
+            "ignite",
+            "org.apache.ignite.cli.commands.TopLevelCliCommand"]
+}
+
+build.dependsOn generateAutocompletionScript
+
+application {
+    mainClass = 'org.apache.ignite.cli.Main'
+}
+
+idea.module {
+    sourceDirs += generatedClientDir.get().dir('src/main/java').asFile
+    resourceDirs += generatedClientDir.get().dir('src/main/resources').asFile
+    generatedSourceDirs += generatedClientDir.get().dir('src/main/java').asFile
+    resourceDirs += sourceSets.main.output.resourcesDir
+}
+
+compileJava {
+    dependsOn generateApiClient
+    source generatedClientDir.get().dir('src/main/java')
+}
+
+

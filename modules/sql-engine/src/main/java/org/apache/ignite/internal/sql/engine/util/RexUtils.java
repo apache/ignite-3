@@ -331,6 +331,86 @@ public class RexUtils {
     /**
      * Builds index conditions.
      */
+    public static IndexConditions buildHashIndexConditions(
+            RelOptCluster cluster,
+            List<String> indexedColumns,
+            RexNode condition,
+            RelDataType rowType,
+            ImmutableBitSet requiredColumns
+    ) {
+        if (condition == null) {
+            return new IndexConditions();
+        }
+
+        condition = RexUtil.toCnf(builder(cluster), condition);
+
+        Int2ObjectOpenHashMap<List<RexCall>> fieldsToPredicates = mapPredicatesToFields(condition, cluster);
+
+        if (nullOrEmpty(fieldsToPredicates)) {
+            return new IndexConditions();
+        }
+
+        List<RexNode> searchCondition = new ArrayList<>();
+
+        Mappings.TargetMapping toTrimmedRowMapping = null;
+        if (requiredColumns != null) {
+            toTrimmedRowMapping = Commons.mapping(requiredColumns, rowType.getFieldCount());
+        }
+
+        for (String columnName : indexedColumns) {
+            RelDataTypeField field = rowType.getField(columnName, true, false);
+
+            if (field == null) {
+                return new IndexConditions();
+            }
+
+            int collFldIdx = toTrimmedRowMapping == null ? field.getIndex() : toTrimmedRowMapping.getTargetOpt(field.getIndex());
+
+            List<RexCall> collFldPreds = fieldsToPredicates.get(collFldIdx);
+
+            if (nullOrEmpty(collFldPreds)) {
+                return new IndexConditions();
+            }
+
+            RexNode columnPred = null;
+
+            for (RexCall pred : collFldPreds) {
+                if (IgniteUtils.assertionsEnabled()) {
+                    RexNode cond = RexUtil.removeCast(pred.operands.get(1));
+
+                    assert idxOpSupports(cond) : cond;
+                }
+
+                SqlOperator op = pred.getOperator();
+
+                if (op.kind == EQUALS) {
+                    columnPred = pred;
+
+                    break;
+                }
+            }
+
+            if (columnPred == null) {
+                return new IndexConditions();
+            }
+
+            searchCondition.add(columnPred);
+        }
+
+        Mappings.TargetMapping mapping = null;
+
+        if (requiredColumns != null) {
+            mapping = Commons.inverseMapping(requiredColumns, rowType.getFieldCount());
+        }
+
+        List<RexNode> searchRow = asBound(cluster, searchCondition, rowType, mapping);
+
+        return new IndexConditions(null, null, searchRow, searchRow);
+    }
+
+    /**
+     * Builds index conditions.
+     */
     public static List<RexNode> buildHashSearchRow(
             RelOptCluster cluster,
             RexNode condition,

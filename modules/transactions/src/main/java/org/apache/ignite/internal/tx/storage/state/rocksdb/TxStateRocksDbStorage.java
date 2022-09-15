@@ -18,31 +18,41 @@
 package org.apache.ignite.internal.tx.storage.state.rocksdb;
 
 import static java.util.Objects.requireNonNull;
-import static org.apache.ignite.internal.rocksdb.snapshot.ColumnFamilyRange.fullRange;
+import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
+import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_CREATE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_DESTROY_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_STOPPED_ERR;
+import static org.rocksdb.ReadTier.PERSISTED_TIER;
 
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-import org.apache.ignite.internal.rocksdb.ColumnFamily;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
-import org.apache.ignite.internal.rocksdb.snapshot.RocksSnapshotManager;
+import java.util.function.IntSupplier;
+import org.apache.ignite.internal.rocksdb.BusyRocksIteratorAdapter;
+import org.apache.ignite.internal.rocksdb.flush.RocksDbFlusher;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
+import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.rocksdb.Options;
 import org.rocksdb.ReadOptions;
@@ -57,9 +67,19 @@ import org.rocksdb.WriteOptions;
 /**
  * Tx state storage implementation based on RocksDB.
  */
-public class TxStateRocksDbStorage implements TxStateStorage, AutoCloseable {
+public class TxStateRocksDbStorage implements TxStateStorage {
+    static {
+        RocksDB.loadLibrary();
+    }
+
+    /** Key for the applied index. */
+    private static final byte[] APPLIED_INDEX_KEY = ArrayUtils.BYTE_EMPTY_ARRAY;
+
     /** Database path. */
     private final Path dbPath;
+
+    /** RocksDB flusher instance. */
+    private volatile RocksDbFlusher flusher;
 
     /** RocksDB database. */
     private volatile TransactionDB db;
@@ -71,44 +91,121 @@ public class TxStateRocksDbStorage implements TxStateStorage, AutoCloseable {
     /** Database options. */
     private volatile TransactionDBOptions txDbOptions;
 
+    /** Write options. */
+    private final WriteOptions writeOptions = new WriteOptions().setDisableWAL(true);
+
+    /** Read options for regular reads. */
+    private final ReadOptions readOptions = new ReadOptions();
+
+    /** Read options for reading persisted data. */
+    private final ReadOptions persistedTierReadOptions = new ReadOptions().setReadTier(PERSISTED_TIER);
+
+    /** Scheduled pool for {@link RocksDbFlusher}. */
+    private final ScheduledExecutorService scheduledPool;
+
     /** Thread-pool for snapshot operations execution. */
-    private final ExecutorService snapshotExecutor = Executors.newFixedThreadPool(2);
+    private final ExecutorService threadPool;
 
-    /** Snapshot manager. */
-    private volatile RocksSnapshotManager snapshotManager;
+    /** Delay supplier for {@link RocksDbFlusher}. */
+    private final IntSupplier delaySupplier;
 
-    /** Snapshot restore lock. */
-    private final Object snapshotRestoreLock = new Object();
+    /** On-heap-cached last applied index value. */
+    private volatile long lastAppliedIndex;
+
+    /** The value of {@link #lastAppliedIndex} persisted to the device at this moment. */
+    private volatile long persistedIndex;
 
     /** Whether is started. */
     private boolean isStarted;
+
+    /** Collection of opened RocksDB iterators. */
+    private final Set<RocksIterator> iterators = ConcurrentHashMap.newKeySet();
+
+    /** Busy lock to stop synchronously. */
+    final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
+
+    /** Prevents double stopping the component. */
+    private final AtomicBoolean stopGuard = new AtomicBoolean();
 
     /**
      * The constructor.
      *
      * @param dbPath Database path.
+     * @param scheduledPool Scheduled thread pool.
+     * @param threadPool Thread pool.
+     * @param delaySupplier Supplier of delay values to batch independent flush requests. Please refer to {@link RocksDbFlusher} for
+     *      details.
      */
-    public TxStateRocksDbStorage(Path dbPath) {
+    public TxStateRocksDbStorage(
+            Path dbPath,
+            ScheduledExecutorService scheduledPool,
+            ExecutorService threadPool,
+            IntSupplier delaySupplier
+    ) {
         this.dbPath = dbPath;
+        this.scheduledPool = scheduledPool;
+        this.threadPool = threadPool;
+        this.delaySupplier = delaySupplier;
     }
 
     /** {@inheritDoc} */
     @Override public void start() {
         try {
-            this.options = new Options().setCreateIfMissing(true);
+            flusher = new RocksDbFlusher(
+                    busyLock,
+                    scheduledPool,
+                    threadPool,
+                    delaySupplier,
+                    this::refreshPersistedIndex
+            );
 
-            this.txDbOptions = new TransactionDBOptions();
+            options = new Options()
+                    .setCreateIfMissing(true)
+                    .setAtomicFlush(true)
+                    .setListeners(List.of(flusher.listener()));
 
-            this.db = TransactionDB.open(options, txDbOptions, dbPath.toString());
+            txDbOptions = new TransactionDBOptions();
 
-            ColumnFamily defaultCf = ColumnFamily.wrap(db, db.getDefaultColumnFamily());
+            db = TransactionDB.open(options, txDbOptions, dbPath.toString());
 
-            snapshotManager = new RocksSnapshotManager(db, List.of(fullRange(defaultCf)), snapshotExecutor);
+            lastAppliedIndex = readLastAppliedIndex(readOptions);
+
+            persistedIndex = lastAppliedIndex;
 
             isStarted = true;
         } catch (RocksDBException e) {
             throw new IgniteInternalException(TX_STATE_STORAGE_CREATE_ERR, "Failed to start transaction state storage", e);
         }
+    }
+
+    private void refreshPersistedIndex() {
+        if (!busyLock.enterBusy()) {
+            return;
+        }
+
+        try {
+            persistedIndex = readLastAppliedIndex(persistedTierReadOptions);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    /**
+     * Reads the value of {@link #lastAppliedIndex} from the storage.
+     *
+     * @param readOptions Read options to be used for reading.
+     * @return The value of last applied index.
+     */
+    private long readLastAppliedIndex(ReadOptions readOptions) {
+        byte[] appliedIndexBytes;
+
+        try {
+            appliedIndexBytes = db.get(readOptions, APPLIED_INDEX_KEY);
+        } catch (RocksDBException e) {
+            throw new IgniteInternalException(TX_STATE_STORAGE_ERR, "Failed to read applied index value from transaction state storage", e);
+        }
+
+        return appliedIndexBytes == null ? 0 : bytesToLong(appliedIndexBytes);
     }
 
     /** {@inheritDoc} */
@@ -118,9 +215,22 @@ public class TxStateRocksDbStorage implements TxStateStorage, AutoCloseable {
 
     /** {@inheritDoc} */
     @Override public void stop() throws Exception {
-        IgniteUtils.shutdownAndAwaitTermination(snapshotExecutor, 10, TimeUnit.SECONDS);
+        if (!stopGuard.compareAndSet(false, true)) {
+            return;
+        }
 
-        IgniteUtils.closeAll(options, txDbOptions, db);
+        busyLock.block();
+
+        List<AutoCloseable> closeables = new ArrayList<>(iterators);
+
+        closeables.add(persistedTierReadOptions);
+        closeables.add(readOptions);
+        closeables.add(writeOptions);
+        closeables.add(options);
+        closeables.add(txDbOptions);
+        closeables.add(db);
+
+        IgniteUtils.closeAll(closeables);
 
         db = null;
         options = null;
@@ -130,92 +240,159 @@ public class TxStateRocksDbStorage implements TxStateStorage, AutoCloseable {
     }
 
     /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Void> flush() {
+        return flusher.awaitFlush(true);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public long lastAppliedIndex() {
+        return lastAppliedIndex;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public long persistedIndex() {
+        return persistedIndex;
+    }
+
+    /** {@inheritDoc} */
     @Override public TxMeta get(UUID txId) {
+        if (!busyLock.enterBusy()) {
+            throwStorageStoppedException();
+        }
+
         try {
-            byte[] txMetaBytes = db.get(toBytes(txId));
+            byte[] txMetaBytes = db.get(uuidToBytes(txId));
 
             return txMetaBytes == null ? null : (TxMeta) fromBytes(txMetaBytes);
         } catch (RocksDBException e) {
             throw new IgniteInternalException(TX_STATE_STORAGE_ERR, "Failed to get a value from the transaction state storage", e);
+        } finally {
+            busyLock.leaveBusy();
         }
     }
 
     /** {@inheritDoc} */
     @Override public void put(UUID txId, TxMeta txMeta) {
+        if (!busyLock.enterBusy()) {
+            throwStorageStoppedException();
+        }
+
         try {
-            db.put(toBytes(txId), toBytes(txMeta));
+            db.put(uuidToBytes(txId), toBytes(txMeta));
         } catch (RocksDBException e) {
             throw new IgniteInternalException(TX_STATE_STORAGE_ERR, "Failed to put a value into the transaction state storage", e);
+        } finally {
+            busyLock.leaveBusy();
         }
     }
 
     /** {@inheritDoc} */
-    @Override public boolean compareAndSet(UUID txId, TxState txStateExpected, @NotNull TxMeta txMeta) {
+    @Override public boolean compareAndSet(UUID txId, TxState txStateExpected, TxMeta txMeta, long commandIndex) {
+        requireNonNull(txStateExpected);
         requireNonNull(txMeta);
 
-        byte[] txIdBytes = toBytes(txId);
+        if (!busyLock.enterBusy()) {
+            throwStorageStoppedException();
+        }
 
-        try (Transaction rocksTx = db.beginTransaction(new WriteOptions())) {
-            byte[] txMetaExistingBytes = rocksTx.get(new ReadOptions(), toBytes(txId));
+        byte[] txIdBytes = uuidToBytes(txId);
 
-            if (txStateExpected == null) {
-                if (txMetaExistingBytes == null) {
-                    rocksTx.put(txIdBytes, toBytes(txMeta));
+        try (Transaction rocksTx = db.beginTransaction(writeOptions)) {
+            byte[] txMetaExistingBytes = rocksTx.get(readOptions, uuidToBytes(txId));
+            TxMeta txMetaExisting = fromBytes(txMetaExistingBytes);
 
-                    rocksTx.commit();
-
-                    return true;
-                } else {
-                    return false;
-                }
-            }
-
-            TxMeta txMetaExisting = (TxMeta) fromBytes(txMetaExistingBytes);
+            boolean result;
 
             if (txMetaExisting.txState() == txStateExpected) {
                 rocksTx.put(txIdBytes, toBytes(txMeta));
 
-                rocksTx.commit();
-
-                return true;
+                result = true;
             } else {
-                rocksTx.rollback();
-
-                return false;
+                result = false;
             }
+
+            rocksTx.put(APPLIED_INDEX_KEY, longToBytes(commandIndex));
+
+            rocksTx.commit();
+
+            return result;
         } catch (RocksDBException e) {
             throw new IgniteInternalException(
                 TX_STATE_STORAGE_ERR,
                 "Failed perform CAS operation over a value in transaction state storage",
                 e
             );
+        } finally {
+            busyLock.leaveBusy();
         }
     }
 
     /** {@inheritDoc} */
     @Override public void remove(UUID txId) {
+        if (!busyLock.enterBusy()) {
+            throwStorageStoppedException();
+        }
+
         try {
-            db.delete(toBytes(txId));
+            db.delete(uuidToBytes(txId));
         } catch (RocksDBException e) {
             throw new IgniteInternalException(TX_STATE_STORAGE_ERR, "Failed to remove a value from the transaction state storage", e);
+        } finally {
+            busyLock.leaveBusy();
         }
     }
 
     /** {@inheritDoc} */
     @Override public Cursor<IgniteBiTuple<UUID, TxMeta>> scan() {
-        RocksIterator rocksIterator = db.newIterator();
-        rocksIterator.seekToFirst();
+        if (!busyLock.enterBusy()) {
+            throwStorageStoppedException();
+        }
 
-        RocksIteratorAdapter<IgniteBiTuple<UUID, TxMeta>> iteratorAdapter = new RocksIteratorAdapter<>(rocksIterator) {
-            @Override protected IgniteBiTuple<UUID, TxMeta> decodeEntry(byte[] keyBytes, byte[] valueBytes) {
-                UUID key = (UUID) fromBytes(keyBytes);
-                TxMeta txMeta = (TxMeta) fromBytes(valueBytes);
+        try {
+            RocksIterator rocksIterator = db.newIterator();
 
-                return new IgniteBiTuple<>(key, txMeta);
+            iterators.add(rocksIterator);
+
+            try {
+                // Skip applied index value.
+                rocksIterator.seek(new byte[1]);
+            } catch (Exception e) {
+                // Unlikely, but what if...
+                iterators.remove(rocksIterator);
+
+                rocksIterator.close();
+
+                throw e;
             }
-        };
 
-        return Cursor.fromIterator(iteratorAdapter);
+            RocksIteratorAdapter<IgniteBiTuple<UUID, TxMeta>> iteratorAdapter = new BusyRocksIteratorAdapter<>(busyLock, rocksIterator) {
+                @Override protected IgniteBiTuple<UUID, TxMeta> decodeEntry(byte[] keyBytes, byte[] valueBytes) {
+                    UUID key = bytesToUuid(keyBytes);
+                    TxMeta txMeta = fromBytes(valueBytes);
+
+                    return new IgniteBiTuple<>(key, txMeta);
+                }
+
+                @Override
+                protected void handleBusy() {
+                    throwStorageStoppedException();
+                }
+
+                @Override
+                public void close() throws Exception {
+                    iterators.remove(rocksIterator);
+
+                    super.close();
+                }
+            };
+
+            return Cursor.fromIterator(iteratorAdapter);
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 
     /** {@inheritDoc} */
@@ -229,20 +406,22 @@ public class TxStateRocksDbStorage implements TxStateStorage, AutoCloseable {
         }
     }
 
-    /** {@inheritDoc} */
-    @Override public CompletableFuture<Void> snapshot(Path snapshotPath) {
-        return snapshotManager.createSnapshot(snapshotPath);
+    private static void throwStorageStoppedException() {
+        throw new IgniteInternalException(TX_STATE_STORAGE_STOPPED_ERR, "Transaction state storage is stopped");
     }
 
-    /** {@inheritDoc} */
-    @Override public void restoreSnapshot(Path snapshotPath) {
-        synchronized (snapshotRestoreLock) {
-            destroy();
+    private byte[] uuidToBytes(UUID uuid) {
+        return ByteBuffer.allocate(2 * Long.BYTES).order(ByteOrder.BIG_ENDIAN)
+                .putLong(uuid.getMostSignificantBits())
+                .putLong(uuid.getLeastSignificantBits())
+                .array();
+    }
 
-            start();
+    private UUID bytesToUuid(byte[] bytes) {
+        long msb = bytesToLong(bytes, 0);
+        long lsb = bytesToLong(bytes, Long.BYTES);
 
-            snapshotManager.restoreSnapshot(snapshotPath);
-        }
+        return new UUID(msb, lsb);
     }
 
     /** {@inheritDoc} */

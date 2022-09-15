@@ -17,9 +17,7 @@
 
 package org.apache.ignite.cli.core.style.element;
 
-/**
- * Can represent UI Element as an ANSI string.
- */
+/** Can represent UI Element as an ANSI string. */
 public interface UiElement {
     /** Represents the UI Element as ansi String. For example '@|fg(1) text |@'. */
     String represent();

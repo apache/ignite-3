@@ -19,13 +19,12 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 {
     using System;
     using System.Diagnostics;
-    using System.Text;
     using Buffers;
 
     /// <summary>
     /// Binary tuple builder.
     /// </summary>
-    internal sealed class BinaryTupleBuilder : IDisposable // TODO: Support all types (IGNITE-15431).
+    internal ref struct BinaryTupleBuilder // TODO: Support all types (IGNITE-15431).
     {
         /** Number of elements in the tuple. */
         private readonly int _numElements;
@@ -40,7 +39,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         private readonly int _valueBase;
 
         /** Buffer for tuple content. */
-        private readonly PooledArrayBufferWriter _buffer = new();
+        private readonly PooledArrayBufferWriter _buffer;
 
         /** Flag indicating if any NULL values were really put here. */
         private bool _hasNullValues;
@@ -49,16 +48,19 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         private int _elementIndex;
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="BinaryTupleBuilder"/> class.
+        /// Initializes a new instance of the <see cref="BinaryTupleBuilder"/> struct.
         /// </summary>
         /// <param name="numElements">Capacity.</param>
         /// <param name="allowNulls">Whether nulls are allowed.</param>
         /// <param name="totalValueSize">Total value size, -1 when unknown.</param>
         public BinaryTupleBuilder(int numElements, bool allowNulls = true, int totalValueSize = -1)
         {
-            Debug.Assert(numElements > 0, "numElements > 0");
+            Debug.Assert(numElements >= 0, "numElements >= 0");
 
             _numElements = numElements;
+            _buffer = new();
+            _elementIndex = 0;
+            _hasNullValues = false;
 
             int baseOffset = BinaryTupleCommon.HeaderSize;
             if (allowNulls)
@@ -105,6 +107,14 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
             _buffer.GetSpan(nullIndex, 1)[0] |= nullMask;
 
+            OnWrite();
+        }
+
+        /// <summary>
+        /// Appends a default value.
+        /// </summary>
+        public void AppendDefault()
+        {
             OnWrite();
         }
 
@@ -230,6 +240,23 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         }
 
         /// <summary>
+        /// Appends a string.
+        /// </summary>
+        /// <param name="value">Value.</param>
+        public void AppendStringNullable(string? value)
+        {
+            if (value == null)
+            {
+                AppendNull();
+                return;
+            }
+
+            PutString(value);
+
+            OnWrite();
+        }
+
+        /// <summary>
         /// Appends bytes.
         /// </summary>
         /// <param name="value">Value.</param>
@@ -251,6 +278,65 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             }
 
             OnWrite();
+        }
+
+        /// <summary>
+        /// Appends an object.
+        /// </summary>
+        /// <param name="value">Value.</param>
+        /// <param name="colType">Column type.</param>
+        public void AppendObject(object? value, ClientDataType colType)
+        {
+            if (value == null)
+            {
+                AppendNull();
+                return;
+            }
+
+            switch (colType)
+            {
+                case ClientDataType.Int8:
+                    AppendByte((sbyte)value);
+                    break;
+
+                case ClientDataType.Int16:
+                    AppendShort((short)value);
+                    break;
+
+                case ClientDataType.Int32:
+                    AppendInt((int)value);
+                    break;
+
+                case ClientDataType.Int64:
+                    AppendLong((long)value);
+                    break;
+
+                case ClientDataType.Float:
+                    AppendFloat((float)value);
+                    break;
+
+                case ClientDataType.Double:
+                    AppendDouble((double)value);
+                    break;
+
+                case ClientDataType.Uuid:
+                    AppendGuid((Guid)value);
+                    break;
+
+                case ClientDataType.String:
+                    AppendString((string)value);
+                    break;
+
+                case ClientDataType.Bytes:
+                    AppendBytes((byte[])value);
+                    break;
+
+                case ClientDataType.BitMask:
+                case ClientDataType.Decimal:
+                default:
+                    // TODO: Support all types (IGNITE-15431).
+                    throw new IgniteClientException("Unsupported type: " + colType);
+            }
         }
 
         /// <summary>
@@ -328,7 +414,9 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             return _buffer.GetWrittenMemory().Slice(offset);
         }
 
-        /// <inheritdoc/>
+        /// <summary>
+        /// Disposes this instance.
+        /// </summary>
         public void Dispose()
         {
             _buffer.Dispose();
@@ -355,10 +443,10 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                 return;
             }
 
-            var maxByteCount = Encoding.UTF8.GetMaxByteCount(value.Length);
+            var maxByteCount = BinaryTupleCommon.StringEncoding.GetMaxByteCount(value.Length);
             var span = _buffer.GetSpan(maxByteCount);
 
-            var actualBytes = Encoding.UTF8.GetBytes(value, span);
+            var actualBytes = BinaryTupleCommon.StringEncoding.GetBytes(value, span);
 
             _buffer.Advance(actualBytes);
         }

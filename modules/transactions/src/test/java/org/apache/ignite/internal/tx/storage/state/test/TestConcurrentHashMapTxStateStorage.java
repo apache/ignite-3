@@ -64,6 +64,21 @@ public class TestConcurrentHashMapTxStateStorage implements TxStateStorage {
     }
 
     /** {@inheritDoc} */
+    @Override public CompletableFuture<Void> flush() {
+        return completedFuture(null);
+    }
+
+    /** {@inheritDoc} */
+    @Override public long lastAppliedIndex() {
+        return 0;
+    }
+
+    /** {@inheritDoc} */
+    @Override public long persistedIndex() {
+        return 0;
+    }
+
+    /** {@inheritDoc} */
     @Override public TxMeta get(UUID txId) {
         return storage.get(txId);
     }
@@ -74,7 +89,7 @@ public class TestConcurrentHashMapTxStateStorage implements TxStateStorage {
     }
 
     /** {@inheritDoc} */
-    @Override public boolean compareAndSet(UUID txId, TxState txStateExpected, @NotNull TxMeta txMeta) {
+    @Override public boolean compareAndSet(UUID txId, TxState txStateExpected, @NotNull TxMeta txMeta, long commandIndex) {
         while (true) {
             TxMeta old = storage.get(txId);
 
@@ -109,28 +124,6 @@ public class TestConcurrentHashMapTxStateStorage implements TxStateStorage {
             storage.clear();
         } catch (Exception e) {
             throw new IgniteInternalException(TX_STATE_STORAGE_DESTROY_ERR, "Failed to destroy the transaction state storage", e);
-        }
-    }
-
-    /** {@inheritDoc} */
-    @Override public CompletableFuture<Void> snapshot(Path snapshotPath) {
-        snapshots.put(snapshotPath, new ArrayList<>(storage.entrySet()));
-
-        return completedFuture(null);
-    }
-
-    /** {@inheritDoc} */
-    @Override public void restoreSnapshot(Path snapshotPath) {
-        synchronized (snapshotRestoreLock) {
-            destroy();
-
-            start();
-
-            List<Map.Entry<UUID, TxMeta>> snapshot = snapshots.get(snapshotPath);
-
-            assert snapshot != null;
-
-            snapshot.forEach(e -> storage.put(e.getKey(), e.getValue()));
         }
     }
 

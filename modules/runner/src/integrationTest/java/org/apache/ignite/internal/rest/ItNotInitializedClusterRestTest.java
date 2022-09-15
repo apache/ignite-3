@@ -24,14 +24,18 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.io.IOException;
 import java.net.http.HttpResponse;
 import java.net.http.HttpResponse.BodyHandlers;
+import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
@@ -39,6 +43,15 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(WorkDirectoryExtension.class)
 public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
+
+    private ObjectMapper objectMapper;
+
+    @BeforeEach
+    @Override
+    void setUp(TestInfo testInfo) throws IOException, InterruptedException {
+        super.setUp(testInfo);
+        objectMapper = new ObjectMapper();
+    }
 
     @Test
     @DisplayName("Node configuration is available when the cluster in not initialized")
@@ -85,10 +98,13 @@ public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
         HttpResponse<String> response = client.send(get("/management/v1/configuration/cluster"), BodyHandlers.ofString());
 
         // Expect cluster configuration is not available
-        assertThat(response.statusCode(), is(500));
-        // todo: check that human-readable problem json is returned
-        // "{\"message\":\"Internal Server Error\",\"_embedded\":{\"errors\":[{\"message\":\"Internal Server Error: null\"}]},
-        // \"_links\":{\"self\":{\"href\":\"/management/v1/configuration/cluster\",\"templated\":false}}}"
+        Problem problem = objectMapper.readValue(response.body(), Problem.class);
+        assertAll(
+                () -> assertThat(problem.status(), is(404)),
+                () -> assertThat(problem.title(), is("Not Found")),
+                () -> assertThat(problem.detail(),
+                        is("Cluster not initialized. Call /management/v1/cluster/init in order to initialize cluster"))
+        );
     }
 
     @Test
@@ -100,8 +116,14 @@ public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
                 BodyHandlers.ofString()
         );
 
-        // Expect
-        assertThat(response.statusCode(), is(500)); //todo
+        // Expect cluster configuration could not be updated
+        Problem problem = objectMapper.readValue(response.body(), Problem.class);
+        assertAll(
+                () -> assertThat(problem.status(), is(404)),
+                () -> assertThat(problem.title(), is("Not Found")),
+                () -> assertThat(problem.detail(),
+                        is("Cluster not initialized. Call /management/v1/cluster/init in order to initialize cluster"))
+        );
     }
 
     @Test
@@ -111,7 +133,13 @@ public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
         HttpResponse<String> response = client.send(get("/management/v1/cluster/topology/logical"), BodyHandlers.ofString());
 
         // Then
-        assertThat(response.statusCode(), is(404));
+        Problem problem = objectMapper.readValue(response.body(), Problem.class);
+        assertAll(
+                () -> assertThat(problem.status(), is(404)),
+                () -> assertThat(problem.title(), is("Not Found")),
+                () -> assertThat(problem.detail(),
+                        is("Cluster not initialized. Call /management/v1/cluster/init in order to initialize cluster"))
+        );
     }
 
     @Test
@@ -152,6 +180,12 @@ public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
         HttpResponse<String> response = client.send(get("/management/v1/cluster/state"), BodyHandlers.ofString());
 
         // Then
-        assertThat(response.statusCode(), is(404));
+        Problem problem = objectMapper.readValue(response.body(), Problem.class);
+        assertAll(
+                () -> assertThat(problem.status(), is(404)),
+                () -> assertThat(problem.title(), is("Not Found")),
+                () -> assertThat(problem.detail(),
+                        is("Cluster not initialized. Call /management/v1/cluster/init in order to initialize cluster"))
+        );
     }
 }

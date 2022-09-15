@@ -22,9 +22,9 @@ import java.util.concurrent.Callable;
 import org.apache.ignite.cli.call.configuration.ClusterConfigShowCall;
 import org.apache.ignite.cli.call.configuration.ClusterConfigShowCallInput;
 import org.apache.ignite.cli.commands.BaseCommand;
-import org.apache.ignite.cli.commands.cluster.ClusterUrlOptions;
+import org.apache.ignite.cli.commands.cluster.ClusterUrlProfileMixin;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
-import org.apache.ignite.cli.core.exception.handler.ShowConfigExceptionHandler;
+import org.apache.ignite.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
 import org.apache.ignite.cli.decorators.JsonDecorator;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
@@ -39,7 +39,7 @@ public class ClusterConfigShowCommand extends BaseCommand implements Callable<In
      * Cluster endpoint URL option.
      */
     @Mixin
-    private ClusterUrlOptions clusterUrl;
+    private ClusterUrlProfileMixin clusterUrl;
 
     /** Configuration selector option. */
     @Parameters(arity = "0..1", description = "Configuration path selector")
@@ -56,7 +56,9 @@ public class ClusterConfigShowCommand extends BaseCommand implements Callable<In
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
                 .decorator(new JsonDecorator())
-                .exceptionHandler(new ShowConfigExceptionHandler())
+                .exceptionHandler(new ClusterNotInitializedExceptionHandler(
+                        "Cannot show cluster config", "ignite cluster init"
+                ))
                 .build()
                 .runPipeline();
     }

@@ -17,58 +17,41 @@
 
 package org.apache.ignite.cli.commands.topology;
 
-import static org.apache.ignite.cli.commands.OptionsConstants.CLUSTER_URL_DESC;
-import static org.apache.ignite.cli.commands.OptionsConstants.CLUSTER_URL_KEY;
-import static org.apache.ignite.cli.commands.OptionsConstants.CLUSTER_URL_OPTION;
-import static org.apache.ignite.cli.core.style.component.CommonMessages.CONNECT_OR_USE_NODE_URL_MESSAGE;
-
 import jakarta.inject.Inject;
-import java.util.concurrent.Callable;
 import org.apache.ignite.cli.call.cluster.topology.LogicalTopologyCall;
-import org.apache.ignite.cli.call.cluster.topology.TopologyCallInput;
-import org.apache.ignite.cli.call.cluster.topology.TopologyCallInput.TopologyCallInputBuilder;
 import org.apache.ignite.cli.commands.BaseCommand;
-import org.apache.ignite.cli.core.call.CallExecutionPipeline;
-import org.apache.ignite.cli.core.repl.Session;
+import org.apache.ignite.cli.commands.cluster.ClusterUrlMixin;
+import org.apache.ignite.cli.commands.questions.ConnectToClusterQuestion;
+import org.apache.ignite.cli.core.call.UrlCallInput;
+import org.apache.ignite.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
+import org.apache.ignite.cli.core.flow.builder.Flows;
 import org.apache.ignite.cli.decorators.TopologyDecorator;
 import picocli.CommandLine.Command;
-import picocli.CommandLine.Option;
+import picocli.CommandLine.Mixin;
 
 /**
  * Command that show logical cluster topology in REPL mode.
  */
 @Command(name = "logical")
-public class LogicalTopologyReplCommand extends BaseCommand implements Callable<Integer> {
+public class LogicalTopologyReplCommand extends BaseCommand implements Runnable {
     /** Cluster endpoint URL option. */
-    @Option(names = {CLUSTER_URL_OPTION}, description = CLUSTER_URL_DESC, descriptionKey = CLUSTER_URL_KEY)
-    private String clusterUrl;
-
-    @Inject
-    private Session session;
+    @Mixin
+    private ClusterUrlMixin clusterUrl;
 
     @Inject
     private LogicalTopologyCall call;
 
+    @Inject
+    private ConnectToClusterQuestion question;
+
     /** {@inheritDoc} */
     @Override
-    public Integer call() {
-        TopologyCallInputBuilder inputBuilder = TopologyCallInput.builder();
-
-        if (clusterUrl != null) {
-            inputBuilder.clusterUrl(clusterUrl);
-        } else if (session.isConnectedToNode()) {
-            inputBuilder.clusterUrl(session.nodeUrl());
-        } else {
-            spec.commandLine().getErr().println(CONNECT_OR_USE_NODE_URL_MESSAGE.render());
-            return 2;
-        }
-
-        return CallExecutionPipeline.builder(call)
-                .inputProvider(inputBuilder::build)
-                .output(spec.commandLine().getOut())
-                .errOutput(spec.commandLine().getErr())
-                .decorator(new TopologyDecorator())
-                .build()
-                .runPipeline();
+    public void run() {
+        question.askQuestionIfNotConnected(clusterUrl.getClusterUrl())
+                .map(UrlCallInput::new)
+                .then(Flows.fromCall(call))
+                .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot show logical topology", "cluster init"))
+                .print(new TopologyDecorator())
+                .start();
     }
 }

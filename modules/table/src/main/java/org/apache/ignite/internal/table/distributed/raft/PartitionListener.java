@@ -304,7 +304,8 @@ public class PartitionListener implements RaftGroupListener {
                         stateToSet,
                         cmd.replicationGroupIds(),
                         cmd.commitTimestamp()
-                )
+                ),
+                commandIndex
         );
 
         if (!txStateChangeRes) {

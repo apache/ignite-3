@@ -37,7 +37,11 @@ public interface ExceptionWriter {
      * @return {@link ExceptionWriter} instance based on {@param pw}.
      */
     static ExceptionWriter fromPrintWriter(PrintWriter pw) {
-        return pw::println;
+        if (pw != null) {
+            return pw::println;
+        } else {
+            return nullWriter();
+        }
     }
 
 

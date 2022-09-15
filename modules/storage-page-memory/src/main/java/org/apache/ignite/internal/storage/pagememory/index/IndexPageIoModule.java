@@ -29,6 +29,9 @@ import org.apache.ignite.internal.storage.pagememory.index.hash.io.HashIndexTree
 import org.apache.ignite.internal.storage.pagememory.index.meta.io.IndexMetaInnerIo;
 import org.apache.ignite.internal.storage.pagememory.index.meta.io.IndexMetaLeafIo;
 import org.apache.ignite.internal.storage.pagememory.index.meta.io.IndexMetaTreeMetaIo;
+import org.apache.ignite.internal.storage.pagememory.index.sorted.io.SortedIndexTreeInnerIo;
+import org.apache.ignite.internal.storage.pagememory.index.sorted.io.SortedIndexTreeLeafIo;
+import org.apache.ignite.internal.storage.pagememory.index.sorted.io.SortedIndexTreeMetaIo;
 
 /**
  * {@link PageIoModule} related to {@link PageMemory} based indexes.
@@ -46,7 +49,11 @@ public class IndexPageIoModule implements PageIoModule {
                 // Hash index IO.
                 HashIndexTreeMetaIo.VERSIONS,
                 HashIndexTreeInnerIo.VERSIONS,
-                HashIndexTreeLeafIo.VERSIONS
+                HashIndexTreeLeafIo.VERSIONS,
+                // Sorted index IO.
+                SortedIndexTreeMetaIo.VERSIONS,
+                SortedIndexTreeInnerIo.VERSIONS,
+                SortedIndexTreeLeafIo.VERSIONS
         );
     }
 }

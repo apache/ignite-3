@@ -105,19 +105,18 @@ public class IgniteSqlApiTest {
                 .property("memoryQuota", 10 * Constants.MiB) // Set default quota.
                 .build();
 
-        // Statement with params. Prepared statement.
-        Statement preparedStatement = igniteSql.statementBuilder()
+        // Statement with params.
+        Statement statementWipParams = igniteSql.statementBuilder()
                 .query("SELECT id, val FROM tbl WHERE id > ?")
                 .defaultSchema("PUBLIC")
-                .prepared(true)
                 .build();
 
         // Execute statement.
         session.execute(null, simpleStatement,  /* args */ 1);
 
         // Execute same statement in different sessions is allowed.
-        session.execute(null, preparedStatement,  /* args */ 1);
-        sessionWithParams.execute(null, preparedStatement,  /* args */ 1);
+        session.execute(null, statementWipParams,  /* args */ 1);
+        sessionWithParams.execute(null, statementWipParams,  /* args */ 1);
 
         // Releasing session resources.
         session.close();
@@ -421,7 +420,6 @@ public class IgniteSqlApiTest {
         Mockito.when(stmtBuilder.pageSize(Mockito.anyInt())).thenAnswer(Answers.RETURNS_SELF);
         Mockito.when(stmtBuilder.queryTimeout(Mockito.anyLong(), Mockito.any(TimeUnit.class))).thenAnswer(Answers.RETURNS_SELF);
         Mockito.when(stmtBuilder.property(Mockito.anyString(), Mockito.any())).thenAnswer(Answers.RETURNS_SELF);
-        Mockito.when(stmtBuilder.prepared(Mockito.anyBoolean())).thenAnswer(Answers.RETURNS_SELF);
         Mockito.when(stmtBuilder.build()).thenReturn(statement);
 
         Mockito.when(igniteSql.createSession()).thenReturn(session);

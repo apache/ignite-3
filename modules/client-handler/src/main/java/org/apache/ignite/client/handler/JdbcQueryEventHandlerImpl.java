@@ -57,6 +57,7 @@ import org.apache.ignite.internal.sql.engine.QueryValidator;
 import org.apache.ignite.internal.sql.engine.exec.QueryValidationException;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan.Type;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.sql.ResultSetMetadata;
@@ -272,10 +273,11 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
      * @return StringWriter filled with exception.
      */
     private StringWriter getWriterWithStackTrace(Throwable t) {
+        String message = ExceptionUtils.unwrapCause(t).getMessage();
         StringWriter sw = new StringWriter();
         PrintWriter pw = new PrintWriter(sw);
 
-        t.printStackTrace(pw);
+        pw.print(message);
         return sw;
     }
 

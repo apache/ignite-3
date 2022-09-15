@@ -40,6 +40,16 @@ class InFlightFuturesTest {
         assertThat(currentFutures(inFlightFutures), is(singleton(incompleteFuture)));
     }
 
+
+    @Test
+    void removesAlreadyCompletedFutureOnRegistration() {
+        CompletableFuture<Object> completedFuture = CompletableFuture.completedFuture("Completed");
+
+        inFlightFutures.registerFuture(completedFuture);
+
+        assertThat(inFlightFutures, is(emptyIterable()));
+    }
+
     private Set<CompletableFuture<?>> currentFutures(InFlightFutures inFlightFutures) {
         return StreamSupport.stream(inFlightFutures.spliterator(), false).collect(toSet());
     }

@@ -19,9 +19,7 @@ package org.apache.ignite.cli.core.style.element;
 
 import org.apache.ignite.cli.core.style.AnsiStringSupport.Marker;
 
-/**
- * IU element that is marked with provided ANSI marker.
- */
+/** IU element that is marked with provided ANSI marker. */
 public class MarkedUiElement implements UiElement {
     private final String content;
 

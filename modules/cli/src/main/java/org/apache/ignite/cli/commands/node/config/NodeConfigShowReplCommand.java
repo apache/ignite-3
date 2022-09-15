@@ -17,19 +17,15 @@
 
 package org.apache.ignite.cli.commands.node.config;
 
-import static org.apache.ignite.cli.commands.OptionsConstants.CLUSTER_URL_KEY;
-import static org.apache.ignite.cli.commands.OptionsConstants.NODE_URL_DESC;
-import static org.apache.ignite.cli.commands.OptionsConstants.NODE_URL_OPTION;
-
 import jakarta.inject.Inject;
 import org.apache.ignite.cli.call.configuration.NodeConfigShowCall;
 import org.apache.ignite.cli.call.configuration.NodeConfigShowCallInput;
 import org.apache.ignite.cli.commands.BaseCommand;
+import org.apache.ignite.cli.commands.node.NodeUrlMixin;
 import org.apache.ignite.cli.commands.questions.ConnectToClusterQuestion;
-import org.apache.ignite.cli.core.flow.Flowable;
 import org.apache.ignite.cli.core.flow.builder.Flows;
 import picocli.CommandLine.Command;
-import picocli.CommandLine.Option;
+import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Parameters;
 
 /**
@@ -37,15 +33,11 @@ import picocli.CommandLine.Parameters;
  */
 @Command(name = "show", description = "Shows node configuration")
 public class NodeConfigShowReplCommand extends BaseCommand implements Runnable {
-    /**
-     * Node URL option.
-     */
-    @Option(names = {NODE_URL_OPTION}, description = NODE_URL_DESC, descriptionKey = CLUSTER_URL_KEY)
-    private String nodeUrl;
+    /** Node URL option. */
+    @Mixin
+    private NodeUrlMixin nodeUrl;
 
-    /**
-     * Configuration selector option.
-     */
+    /** Configuration selector option. */
     @Parameters(arity = "0..1", description = "Configuration path selector")
     private String selector;
 
@@ -58,12 +50,11 @@ public class NodeConfigShowReplCommand extends BaseCommand implements Runnable {
     /** {@inheritDoc} */
     @Override
     public void run() {
-        question.askQuestionIfNotConnected(nodeUrl)
+        question.askQuestionIfNotConnected(nodeUrl.getNodeUrl())
                 .map(this::nodeConfigShowCallInput)
                 .then(Flows.fromCall(call))
-                .toOutput(spec.commandLine().getOut(), spec.commandLine().getErr())
-                .build()
-                .start(Flowable.empty());
+                .print()
+                .start();
     }
 
     private NodeConfigShowCallInput nodeConfigShowCallInput(String nodeUrl) {

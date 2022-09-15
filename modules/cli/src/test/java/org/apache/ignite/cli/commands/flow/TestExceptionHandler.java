@@ -17,20 +17,19 @@
 
 package org.apache.ignite.cli.commands.flow;
 
-import jdk.jshell.spi.ExecutionControl.RunException;
 import org.apache.ignite.cli.core.exception.ExceptionHandler;
 import org.apache.ignite.cli.core.exception.ExceptionWriter;
 
-class TestExceptionHandler implements ExceptionHandler<RunException> {
+class TestExceptionHandler implements ExceptionHandler<RuntimeException> {
     @Override
-    public int handle(ExceptionWriter err, RunException e) {
+    public int handle(ExceptionWriter err, RuntimeException e) {
         err.write(e.getMessage());
 
         return 0;
     }
 
     @Override
-    public Class<RunException> applicableException() {
-        return RunException.class;
+    public Class<RuntimeException> applicableException() {
+        return RuntimeException.class;
     }
 }

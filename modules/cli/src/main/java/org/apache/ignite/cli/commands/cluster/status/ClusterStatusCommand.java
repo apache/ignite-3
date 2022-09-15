@@ -21,9 +21,9 @@ import jakarta.inject.Inject;
 import java.util.concurrent.Callable;
 import org.apache.ignite.cli.call.cluster.status.ClusterStatusCall;
 import org.apache.ignite.cli.commands.BaseCommand;
-import org.apache.ignite.cli.commands.cluster.ClusterUrlOptions;
+import org.apache.ignite.cli.commands.cluster.ClusterUrlProfileMixin;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
-import org.apache.ignite.cli.core.call.StatusCallInput;
+import org.apache.ignite.cli.core.call.UrlCallInput;
 import org.apache.ignite.cli.decorators.ClusterStatusDecorator;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
@@ -37,16 +37,16 @@ import picocli.CommandLine.Mixin;
 public class ClusterStatusCommand extends BaseCommand implements Callable<Integer> {
     /** Cluster endpoint URL option. */
     @Mixin
-    private ClusterUrlOptions clusterUrl;
+    private ClusterUrlProfileMixin clusterUrl;
 
     @Inject
-    private ClusterStatusCall clusterStatusCall;
+    private ClusterStatusCall call;
 
     /** {@inheritDoc} */
     @Override
     public Integer call() {
-        return CallExecutionPipeline.builder(clusterStatusCall)
-                .inputProvider(() -> new StatusCallInput(clusterUrl.getClusterUrl()))
+        return CallExecutionPipeline.builder(call)
+                .inputProvider(() -> new UrlCallInput(clusterUrl.getClusterUrl()))
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
                 .decorator(new ClusterStatusDecorator())

@@ -36,7 +36,7 @@ class ItClusterConfigCommandNotInitializedTest extends CliCommandTestNotInitiali
                 this::assertOutputIsEmpty,
                 () -> assertExitCodeIs(1),
                 () -> assertErrOutputContains("Cannot show cluster config" + System.lineSeparator()
-                + "Probably, you have not initialized the cluster, try to run cluster init command")
+                + "Probably, you have not initialized the cluster, try to run ignite cluster init command")
         );
     }
 }

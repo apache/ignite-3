@@ -17,9 +17,13 @@
 
 package org.apache.ignite.internal.cluster.management.raft;
 
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
+
 /**
  * Tests for {@link RaftStorageManager} based on {@link RocksDbClusterStateStorage}.
  */
+@DisabledOnOs(value = OS.WINDOWS, disabledReason = "https://issues.apache.org/jira/browse/IGNITE-17601")
 public class RocksDbClusterStateStorageManagerTest extends AbstractClusterStateStorageManagerTest {
     @Override
     ClusterStateStorage clusterStateStorage() {

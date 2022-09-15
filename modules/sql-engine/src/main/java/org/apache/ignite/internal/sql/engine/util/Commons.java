@@ -19,6 +19,8 @@ package org.apache.ignite.internal.sql.engine.util;
 
 import static org.apache.ignite.internal.sql.engine.util.BaseQueryContext.CLUSTER;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
+import static org.apache.ignite.internal.util.ExceptionUtils.withCauseAndCode;
+import static org.apache.ignite.lang.ErrorGroup.extractCauseMessage;
 import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_INVALID_ERR;
 
 import it.unimi.dsi.fastutil.ints.IntArrayList;
@@ -815,7 +817,11 @@ public final class Commons {
         try {
             return parse(new SourceStringReader(qry), parserCfg);
         } catch (SqlParseException e) {
-            throw new SqlException(QUERY_INVALID_ERR, "Failed to parse query", e);
+            throw withCauseAndCode(
+                    SqlException::new,
+                    QUERY_INVALID_ERR,
+                    "Failed to parse query: " + extractCauseMessage(e.getMessage()),
+                    e);
         }
     }
 

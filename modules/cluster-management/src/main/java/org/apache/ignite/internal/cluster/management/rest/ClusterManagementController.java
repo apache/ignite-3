@@ -25,7 +25,6 @@ import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.cluster.management.ClusterInitializer;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.ClusterState;
-import org.apache.ignite.internal.cluster.management.rest.exception.ClusterNotInitializedException;
 import org.apache.ignite.internal.cluster.management.rest.exception.InvalidArgumentClusterInitializationException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -34,6 +33,7 @@ import org.apache.ignite.internal.rest.api.cluster.ClusterStateDto;
 import org.apache.ignite.internal.rest.api.cluster.ClusterTagDto;
 import org.apache.ignite.internal.rest.api.cluster.IgniteProductVersionDto;
 import org.apache.ignite.internal.rest.api.cluster.InitCommand;
+import org.apache.ignite.internal.rest.exception.ClusterNotInitializedException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 

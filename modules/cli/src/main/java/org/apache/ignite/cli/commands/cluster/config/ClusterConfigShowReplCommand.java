@@ -17,20 +17,16 @@
 
 package org.apache.ignite.cli.commands.cluster.config;
 
-import static org.apache.ignite.cli.commands.OptionsConstants.CLUSTER_URL_DESC;
-import static org.apache.ignite.cli.commands.OptionsConstants.CLUSTER_URL_KEY;
-import static org.apache.ignite.cli.commands.OptionsConstants.CLUSTER_URL_OPTION;
-
 import jakarta.inject.Inject;
 import org.apache.ignite.cli.call.configuration.ClusterConfigShowCall;
 import org.apache.ignite.cli.call.configuration.ClusterConfigShowCallInput;
 import org.apache.ignite.cli.commands.BaseCommand;
+import org.apache.ignite.cli.commands.cluster.ClusterUrlMixin;
 import org.apache.ignite.cli.commands.questions.ConnectToClusterQuestion;
-import org.apache.ignite.cli.core.exception.handler.ShowConfigExceptionHandler;
-import org.apache.ignite.cli.core.flow.Flowable;
+import org.apache.ignite.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
 import org.apache.ignite.cli.core.flow.builder.Flows;
 import picocli.CommandLine.Command;
-import picocli.CommandLine.Option;
+import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Parameters;
 
 /**
@@ -41,8 +37,8 @@ public class ClusterConfigShowReplCommand extends BaseCommand implements Runnabl
     /**
      * Cluster endpoint URL option.
      */
-    @Option(names = {CLUSTER_URL_OPTION}, description = CLUSTER_URL_DESC, descriptionKey = CLUSTER_URL_KEY)
-    private String clusterUrl;
+    @Mixin
+    private ClusterUrlMixin clusterUrl;
 
     /**
      * Configuration selector option.
@@ -58,13 +54,12 @@ public class ClusterConfigShowReplCommand extends BaseCommand implements Runnabl
 
     @Override
     public void run() {
-        question.askQuestionIfNotConnected(clusterUrl)
-                .exceptionHandler(new ShowConfigExceptionHandler())
+        question.askQuestionIfNotConnected(clusterUrl.getClusterUrl())
                 .map(this::configShowCallInput)
                 .then(Flows.fromCall(call))
-                .toOutput(spec.commandLine().getOut(), spec.commandLine().getErr())
-                .build()
-                .start(Flowable.empty());
+                .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot show cluster config", "cluster init"))
+                .print()
+                .start();
     }
 
     private ClusterConfigShowCallInput configShowCallInput(String clusterUrl) {
