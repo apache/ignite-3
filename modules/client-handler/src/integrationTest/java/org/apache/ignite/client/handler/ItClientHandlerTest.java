@@ -45,7 +45,6 @@ import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.sql.IgniteSql;
-import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -230,8 +229,8 @@ public class ItClientHandlerTest {
         Mockito.when(clusterService.topologyService().localMember().id()).thenReturn("id");
         Mockito.when(clusterService.topologyService().localMember().name()).thenReturn("consistent-id");
 
-        var module = new ClientHandlerModule(mock(QueryProcessor.class), mock(IgniteTablesInternal.class), mock(IgniteTransactions.class), registry,
-                mock(IgniteCompute.class), clusterService, bootstrapFactory, mock(IgniteSql.class));
+        var module = new ClientHandlerModule(mock(QueryProcessor.class), mock(IgniteTablesInternal.class), mock(IgniteTransactions.class),
+                registry, mock(IgniteCompute.class), clusterService, bootstrapFactory, mock(IgniteSql.class));
 
         module.start();
 

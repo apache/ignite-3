@@ -23,7 +23,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
-
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
@@ -171,7 +170,7 @@ public class ItThinClientConnectionTest extends ItAbstractThinClientTest {
         System.out.println();
 
         // New table gets assigned to all nodes.
-        List<String> newTableAssignments = tblMgr.assignments(((TableImpl)newTable).tableId());
+        List<String> newTableAssignments = tblMgr.assignments(((TableImpl) newTable).tableId());
         for (String assignment : newTableAssignments) {
             System.out.println(assignment);
         }

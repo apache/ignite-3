@@ -17,14 +17,13 @@
 
 package org.apache.ignite.client.handler.requests.table;
 
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NodeStoppingException;
-
-import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Client partition assignment retrieval request.

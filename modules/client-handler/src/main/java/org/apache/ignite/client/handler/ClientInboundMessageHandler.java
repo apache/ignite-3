@@ -30,7 +30,6 @@ import java.util.BitSet;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
-
 import org.apache.ignite.client.handler.requests.cluster.ClientClusterGetNodesRequest;
 import org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteColocatedRequest;
 import org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteRequest;
@@ -357,11 +356,6 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
         }
     }
 
-    private void writeFlags(ClientMessagePacker out) {
-        var flags = ResponseFlags.getFlags(partitionAssignmentChanged.compareAndSet(true, false));
-        out.packInt(flags);
-    }
-
     private CompletableFuture processOperation(
             ClientMessageUnpacker in,
             ClientMessagePacker out,
@@ -491,6 +485,11 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
             default:
                 throw new IgniteException(PROTOCOL_ERR, "Unexpected operation code: " + opCode);
         }
+    }
+
+    private void writeFlags(ClientMessagePacker out) {
+        var flags = ResponseFlags.getFlags(partitionAssignmentChanged.compareAndSet(true, false));
+        out.packInt(flags);
     }
 
     /** {@inheritDoc} */
