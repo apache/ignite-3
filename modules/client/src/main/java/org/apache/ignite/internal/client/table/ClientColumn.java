@@ -115,4 +115,13 @@ public class ClientColumn {
     public int schemaIndex() {
         return schemaIndex;
     }
+
+    /**
+     * Gets the decimal scale of the column, if applicable.
+     *
+     * @return Decimal scale.
+     */
+    public int scale() {
+        return scale;
+    }
 }
