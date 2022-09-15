@@ -41,6 +41,5 @@ public class DefaultDecoratorRegistry extends DecoratorRegistry {
         add(SqlQueryResult.class, new SqlQueryResultDecorator());
         add(ClusterStatus.class, new ClusterStatusDecorator());
         add(NodeStatus.class, new NodeStatusDecorator());
-
     }
 }

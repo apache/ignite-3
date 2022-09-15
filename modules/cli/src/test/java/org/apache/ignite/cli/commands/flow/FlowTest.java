@@ -21,7 +21,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.emptyString;
 import static org.hamcrest.Matchers.equalTo;
 
-import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import java.io.FileDescriptor;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -32,25 +31,27 @@ import java.nio.file.Path;
 import java.util.List;
 import org.apache.ignite.cli.core.flow.Flow;
 import org.apache.ignite.cli.core.flow.Flowable;
+import org.apache.ignite.cli.core.flow.builder.FlowBuilder;
 import org.apache.ignite.cli.core.flow.builder.Flows;
 import org.apache.ignite.cli.core.flow.question.JlineQuestionWriterReader;
 import org.apache.ignite.cli.core.flow.question.QuestionAnswer;
 import org.apache.ignite.cli.core.flow.question.QuestionAskerFactory;
+import org.apache.ignite.cli.core.repl.context.CommandLineContextProvider;
 import org.jline.reader.impl.LineReaderImpl;
 import org.jline.terminal.Terminal;
 import org.jline.terminal.impl.DumbTerminal;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-@MicronautTest
 class FlowTest {
     private Terminal terminal;
 
     private Path input;
+    private StringWriter out;
+    private StringWriter errOut;
 
     @BeforeEach
     public void setup() throws IOException {
@@ -59,6 +60,9 @@ class FlowTest {
         terminal = new DumbTerminal(Files.newInputStream(input), new FileOutputStream(FileDescriptor.out));
         LineReaderImpl reader = new LineReaderImpl(terminal);
         QuestionAskerFactory.setReadWriter(new JlineQuestionWriterReader(reader));
+        out = new StringWriter();
+        errOut = new StringWriter();
+        CommandLineContextProvider.setWriters(new PrintWriter(out), new PrintWriter(errOut));
     }
 
     @AfterEach
@@ -100,55 +104,37 @@ class FlowTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17519")
-    void printsToOutput() throws IOException {
+    @DisplayName("exceptionHandler -> then -> print")
+    void handlerThenPrint() throws IOException {
         // Given
         bindAnswers("no"); // we don't care about answer in this test
 
-        StringWriter out = new StringWriter();
-        PrintWriter output = new PrintWriter(out);
-        StringWriter errOut = new StringWriter();
-        PrintWriter errOutput = new PrintWriter(errOut);
-
         // When build flow
-        Flow<Object, String> build = Flows.question("Do you like this?",
-                        List.of(new QuestionAnswer<>("yes"::equals, (a, i) -> 1),
-                                new QuestionAnswer<>("no"::equals, (a, i) -> 2))
-                )
-                .map(String::valueOf)
+        Flow<Object, String> flow = askQuestion()
                 .exceptionHandler(new TestExceptionHandler())
                 .then(Flows.fromCall(new ThrowingStrCall(), StrCallInput::new))
-                .toOutput(output, errOutput)
+                .print()
                 .build();
 
         // Then the output is empty
         assertThat(errOut.toString(), emptyString());
 
         // When start flow
-        build.start(Flowable.empty());
+        flow.start(Flowable.empty());
 
         // Then output equals to the message from the exception because we use TestExceptionHandler
-        assertThat(errOut.toString(), equalTo("Ooops!")); // BUT there is the message taken from default exception handler
+        assertThat(errOut.toString(), equalTo("Ooops!" + System.lineSeparator()));
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17519")
-    void printsToOutputThatWorks() throws IOException {
+    @DisplayName("print -> then -> exceptionHandler")
+    void printThenHandler() throws IOException {
         // Given
         bindAnswers("no"); // we don't care about answer in this test
 
-        StringWriter out = new StringWriter();
-        PrintWriter output = new PrintWriter(out);
-        StringWriter errOut = new StringWriter();
-        PrintWriter errOutput = new PrintWriter(errOut);
-
         // When build flow
-        Flow<Object, String> build = Flows.question("Do you like this?",
-                        List.of(new QuestionAnswer<>("yes"::equals, (a, i) -> 1),
-                                new QuestionAnswer<>("no"::equals, (a, i) -> 2))
-                )
-                .map(String::valueOf)
-                .toOutput(output, errOutput)
+        Flow<Object, String> flow = askQuestion()
+                .print()
                 .then(Flows.fromCall(new ThrowingStrCall(), StrCallInput::new))
                 .exceptionHandler(new TestExceptionHandler())
                 .build();
@@ -157,24 +143,148 @@ class FlowTest {
         assertThat(errOut.toString(), emptyString());
 
         // When start flow
-        build.start(Flowable.empty());
+        flow.start(Flowable.empty());
+
+        // Then output is empty because print was used before the call
+        assertThat(errOut.toString(), emptyString());
+    }
+
+    @Test
+    @DisplayName("then -> exceptionHandler -> print")
+    void thenHandlerPrint() throws IOException {
+        // Given
+        bindAnswers("no"); // we don't care about answer in this test
+
+        // When build flow
+        Flow<Object, String> flow = askQuestion()
+                .then(Flows.fromCall(new ThrowingStrCall(), StrCallInput::new))
+                .exceptionHandler(new TestExceptionHandler())
+                .print()
+                .build();
+
+        // Then the output is empty
+        assertThat(errOut.toString(), emptyString());
+
+        // When start flow
+        flow.start(Flowable.empty());
 
         // Then output equals to the message from the exception because we use TestExceptionHandler
-        assertThat(errOut.toString(), equalTo("Ooops!")); // BUT it is empty
+        assertThat(errOut.toString(), equalTo("Ooops!" + System.lineSeparator()));
+    }
+
+    @Test
+    void multiplePrints() throws IOException {
+        // Given
+        bindAnswers("no");
+
+        // When build flow
+        Flow<Object, String> flow = askQuestion()
+                .print()
+                .print()
+                .build();
+
+        // Then the output is empty
+        assertThat(out.toString(), emptyString());
+        assertThat(errOut.toString(), emptyString());
+
+        // When start flow
+        flow.start(Flowable.empty());
+
+        // Then output equals to 2 messages from print operations
+        assertThat(out.toString(), equalTo("2" + System.lineSeparator()
+                        + "2" + System.lineSeparator()));
+        assertThat(errOut.toString(), emptyString());
+    }
+
+    @Test
+    void multiplePrintsWithError() throws IOException {
+        // Given
+        bindAnswers("no");
+
+        // When build flow
+        Flow<Object, String> flow = askQuestion()
+                .then(Flows.fromCall(new ThrowingStrCall(), StrCallInput::new))
+                .exceptionHandler(new TestExceptionHandler())
+                .print()
+                .print()
+                .build();
+
+        // Then the output is empty
+        assertThat(out.toString(), emptyString());
+        assertThat(errOut.toString(), emptyString());
+
+        // When start flow
+        flow.start(Flowable.empty());
+
+        // Then error output equals to 2 messages from exception handler
+        assertThat(out.toString(), emptyString());
+        assertThat(errOut.toString(), equalTo("Ooops!" + System.lineSeparator()
+                        + "Ooops!" + System.lineSeparator()));
+    }
+
+    @Test
+    void printAndStart() throws IOException {
+        // Given
+        bindAnswers("no");
+
+        // When start flow with print
+        askQuestion()
+                .print()
+                .start();
+
+        // Then error output equals to the message from answer
+        assertThat(out.toString(), equalTo("2" + System.lineSeparator()));
+        assertThat(errOut.toString(), emptyString());
+    }
+
+    @Test
+    void printAndStartError() throws IOException {
+        // Given
+        bindAnswers("no");
+
+        // When start flow with print
+        askQuestion()
+                .then(Flows.fromCall(new ThrowingStrCall(), StrCallInput::new))
+                .exceptionHandler(new TestExceptionHandler())
+                .print()
+                .start();
+
+        // Then error output equals to the message from exception
+        assertThat(out.toString(), emptyString());
+        assertThat(errOut.toString(), equalTo("Ooops!" + System.lineSeparator()));
+    }
+
+    @Test
+    void customDecorator() throws IOException {
+        // Given
+        bindAnswers("no");
+
+        // When start flow with print
+        askQuestion()
+                .print(data -> () -> "*" + data + "*")
+                .start();
+
+        // Then error output equals to the message from exception
+        assertThat(out.toString(), equalTo("*2*" + System.lineSeparator()));
+        assertThat(errOut.toString(), emptyString());
     }
 
     private static Flow<Object, Integer> createFlow() {
-        return Flows.question("Do you like this?",
-                        List.of(new QuestionAnswer<>("yes"::equals, (a, i) -> 1),
-                                new QuestionAnswer<>("no"::equals, (a, i) -> 2))
-                )
-                .map(String::valueOf)
+        return askQuestion()
                 .question(s -> "Here is your number " + s + ":, would you like to multiply it by 2?",
                         List.of(new QuestionAnswer<>("yes"::equals, (a, i) -> Integer.parseInt(i) * 2),
                                 new QuestionAnswer<>("no"::equals, (a, i) -> Integer.parseInt(i))))
                 .ifThen(num -> num == 1, Flows.fromCall(new IntCall(), IntCallInput::new))
                 .ifThen(num -> num > 1, Flows.fromCall(new StrCall(), integer -> new StrCallInput(String.valueOf(integer))))
                 .build();
+    }
+
+    private static FlowBuilder<Object, String> askQuestion() {
+        return Flows.question("Do you like this?",
+                        List.of(new QuestionAnswer<>("yes"::equals, (a, i) -> 1),
+                                new QuestionAnswer<>("no"::equals, (a, i) -> 2))
+                )
+                .map(String::valueOf);
     }
 
     private void bindAnswers(String... answers) throws IOException {
