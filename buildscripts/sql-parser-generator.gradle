@@ -1,0 +1,93 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+buildscript {
+    repositories {
+        maven {
+            url "https://plugins.gradle.org/m2/"
+        }
+    }
+    dependencies {
+        classpath 'net.sourceforge.fmpp:fmpp:0.9.16'
+    }
+}
+
+import fmpp.setting.Settings
+
+apply plugin: "com.intershop.gradle.javacc"
+apply plugin: 'idea'
+
+
+configurations {
+    calcite
+}
+
+dependencies {
+    calcite(libs.calcite.core)
+}
+
+pmdMain {
+    excludes = [
+            "**/org/apache/ignite/internal/generated/query/calcite/sql/IgniteSqlParserImplTokenManager.java",
+            "**/org/apache/ignite/internal/generated/query/calcite/sql/IgniteSqlParserImpl.java"
+    ]
+}
+
+task copyFmppResources(type: Copy) {
+    from("$rootDir/modules/sql-engine/src/main/codegen")
+    into("$buildDir/codegen")
+}
+
+task extractParserTemplate(type: Copy) {
+    from({ zipTree(configurations.calcite.files[0]) }) {
+        include 'codegen/templates/Parser.jj'
+    }
+    into("${buildDir}")
+}
+
+task generateFmppSources() {
+    doLast {
+        Settings settings = new Settings(temporaryDir)
+        settings.set("sourceRoot", file("${buildDir}/codegen/templates").absolutePath)
+        settings.set("outputRoot", file("$buildDir/generated-sources/fmpp").absolutePath)
+
+        settings.load(file("${buildDir}/codegen/config.fmpp"))
+        settings.execute()
+    }
+}
+
+
+javacc {
+    configs {
+        template {
+            inputFile = file("${buildDir}/generated-sources/fmpp/javacc/Parser.jj")
+            outputDir = file("${buildDir}/generated-sources/javacc")
+            packageName = 'org.apache.ignite.internal.generated.query.calcite.sql'
+            lookahead = 2
+            staticParam = false
+        }
+    }
+}
+
+extractParserTemplate.dependsOn copyFmppResources
+generateFmppSources.dependsOn extractParserTemplate
+javaccTemplate.dependsOn generateFmppSources
+compileJava.dependsOn javaccTemplate
+
+idea.module {
+    sourceDirs += file("${buildDir}/generated-sources/javacc")
+}
