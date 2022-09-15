@@ -39,6 +39,11 @@ public class MarshallerColumn {
     private final BinaryMode type;
 
     /**
+     * Scale.
+     */
+    private final int scale;
+
+    /**
      * Default value supplier.
      */
     @IgniteToStringExclude
@@ -51,7 +56,7 @@ public class MarshallerColumn {
      * @param type      An instance of column data type.
      */
     public MarshallerColumn(String name, BinaryMode type) {
-        this(name, type, null);
+        this(name, type, null, 0);
     }
 
     /**
@@ -61,10 +66,11 @@ public class MarshallerColumn {
      * @param type      An instance of column data type.
      * @param defValSup Default value supplier.
      */
-    public MarshallerColumn(String name, BinaryMode type, @Nullable Supplier<Object> defValSup) {
+    public MarshallerColumn(String name, BinaryMode type, @Nullable Supplier<Object> defValSup, int scale) {
         this.name = name;
         this.type = type;
         this.defValSup = defValSup == null ? NULL_SUPPLIER : defValSup;
+        this.scale = scale;
     }
 
     public String name() {
@@ -77,5 +83,9 @@ public class MarshallerColumn {
 
     public Object defaultValue() {
         return defValSup.get();
+    }
+
+    public int scale() {
+        return scale;
     }
 }

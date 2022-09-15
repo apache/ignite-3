@@ -159,7 +159,7 @@ public interface MarshallerReader {
      *
      * @return Value.
      */
-    BigDecimal readBigDecimal();
+    BigDecimal readBigDecimal(int scale);
 
     /**
      * Reads a date.

@@ -296,7 +296,7 @@ public class FieldAccessorTest {
         Mockito.doAnswer(rowAnswer).when(mockedRow).readString();
         Mockito.doAnswer(rowAnswer).when(mockedRow).readBytes();
         Mockito.doAnswer(rowAnswer).when(mockedRow).readBigInt();
-        Mockito.doAnswer(rowAnswer).when(mockedRow).readBigDecimal();
+        Mockito.doAnswer(rowAnswer).when(mockedRow).readBigDecimal(100);
 
         return new Pair<>(mockedAsm, mockedRow);
     }

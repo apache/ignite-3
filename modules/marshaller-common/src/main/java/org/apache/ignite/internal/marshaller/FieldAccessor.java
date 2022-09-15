@@ -45,6 +45,9 @@ abstract class FieldAccessor {
      */
     protected final int colIdx;
 
+    /** Scale. */
+    protected final int scale;
+
     public Object get(Object obj) {
         return varHandle.get(obj);
     }
@@ -112,7 +115,7 @@ abstract class FieldAccessor {
                 case DATE:
                 case DATETIME:
                 case TIMESTAMP:
-                    return new ReferenceFieldAccessor(varHandle, colIdx, mode);
+                    return new ReferenceFieldAccessor(varHandle, colIdx, mode, col.scale());
 
                 default:
                     assert false : "Invalid mode " + mode;
@@ -176,7 +179,7 @@ abstract class FieldAccessor {
      * @param mode   Binary read mode.
      * @return Read value object.
      */
-    private static Object readRefValue(MarshallerReader reader, int colIdx, BinaryMode mode) {
+    private static Object readRefValue(MarshallerReader reader, int colIdx, BinaryMode mode, int scale) {
         assert reader != null;
         assert colIdx >= 0;
 
@@ -239,7 +242,7 @@ abstract class FieldAccessor {
                 break;
 
             case DECIMAL:
-                val = reader.readBigDecimal();
+                val = reader.readBigDecimal(scale);
 
                 break;
 
@@ -378,13 +381,26 @@ abstract class FieldAccessor {
      * @param varHandle Field var-handle.
      * @param colIdx    Column index.
      * @param mode      Read/write mode.
+     * @param scale     Scale.
      */
-    protected FieldAccessor(VarHandle varHandle, int colIdx, BinaryMode mode) {
+    protected FieldAccessor(VarHandle varHandle, int colIdx, BinaryMode mode, int scale) {
         assert colIdx >= 0;
 
         this.colIdx = colIdx;
         this.mode = Objects.requireNonNull(mode);
         this.varHandle = Objects.requireNonNull(varHandle);
+        this.scale = scale;
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param varHandle Field var-handle.
+     * @param colIdx    Column index.
+     * @param mode      Read/write mode.
+     */
+    protected FieldAccessor(VarHandle varHandle, int colIdx, BinaryMode mode) {
+        this(varHandle, colIdx, mode, 0);
     }
 
     /**
@@ -399,6 +415,7 @@ abstract class FieldAccessor {
         this.colIdx = colIdx;
         this.mode = mode;
         varHandle = null;
+        scale = 0;
     }
 
     /**
@@ -534,7 +551,7 @@ abstract class FieldAccessor {
         /** {@inheritDoc} */
         @Override
         public Object read(MarshallerReader reader) {
-            return readRefValue(reader, colIdx, mode);
+            return readRefValue(reader, colIdx, mode, scale);
         }
 
         /** {@inheritDoc} */
@@ -741,8 +758,8 @@ abstract class FieldAccessor {
          * @param colIdx    Column index.
          * @param mode      Read/write mode.
          */
-        ReferenceFieldAccessor(VarHandle varHandle, int colIdx, BinaryMode mode) {
-            super(Objects.requireNonNull(varHandle), colIdx, mode);
+        ReferenceFieldAccessor(VarHandle varHandle, int colIdx, BinaryMode mode, int scale) {
+            super(Objects.requireNonNull(varHandle), colIdx, mode, scale);
         }
 
         /** {@inheritDoc} */
@@ -765,7 +782,7 @@ abstract class FieldAccessor {
         /** {@inheritDoc} */
         @Override
         public void read0(MarshallerReader reader, Object obj) {
-            Object val = readRefValue(reader, colIdx, mode);
+            Object val = readRefValue(reader, colIdx, mode, scale);
 
             varHandle.set(obj, val);
         }
