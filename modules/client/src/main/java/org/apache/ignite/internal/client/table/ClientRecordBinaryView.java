@@ -29,8 +29,6 @@ import java.util.function.Function;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.util.HashCalculator;
-import org.apache.ignite.internal.util.HashUtils;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
