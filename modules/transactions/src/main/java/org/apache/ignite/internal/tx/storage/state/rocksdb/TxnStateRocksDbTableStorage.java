@@ -182,8 +182,7 @@ public class TxnStateRocksDbTableStorage implements TxnStateTableStorage {
         if (storage != null) {
             try {
                 storage.close();
-            }
-            catch (Exception e) {
+            } catch (Exception e) {
                 throw new StorageException("Couldn't close the transaction state storage of partition "
                         + partitionId + ", table " + tableCfg.value().name());
             }
