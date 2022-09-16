@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -186,13 +186,15 @@ public class ConfigurationProcessor extends AbstractProcessor {
 
                 Value valueAnnotation = field.getAnnotation(Value.class);
                 if (valueAnnotation != null) {
-                    // Must be a primitive or an array of the primitives (including java.lang.String)
-                    if (!isPrimitiveOrArray(field.asType())) {
-                        throw new ConfigurationProcessorException(
-                                "@Value " + clazz.getQualifiedName() + "." + field.getSimpleName() + " field must"
-                                        + " have one of the following types: boolean, int, long, double, String or an array of "
-                                        + "aforementioned type."
-                        );
+                    // Must be a primitive or an array of the primitives (including java.lang.String, java.util.UUID).
+                    if (!isValidValueAnnotationFieldType(field.asType())) {
+                        throw new ConfigurationProcessorException(String.format(
+                                "%s %s.%s field must have one of the following types: "
+                                        + "boolean, int, long, double, String, UUID or an array of aforementioned type.",
+                                simpleName(Value.class),
+                                clazz.getQualifiedName(),
+                                field.getSimpleName()
+                        ));
                     }
                 }
 
@@ -460,7 +462,7 @@ public class ConfigurationProcessor extends AbstractProcessor {
             TypeMirror schemaFieldType = field.asType();
             TypeName schemaFieldTypeName = TypeName.get(schemaFieldType);
 
-            boolean leafField = isPrimitiveOrArray(schemaFieldType)
+            boolean leafField = isValidValueAnnotationFieldType(schemaFieldType)
                     || !((ClassName) schemaFieldTypeName).simpleName().contains(CONFIGURATION_SCHEMA_POSTFIX);
 
             boolean namedListField = field.getAnnotation(NamedConfigValue.class) != null;
@@ -566,12 +568,13 @@ public class ConfigurationProcessor extends AbstractProcessor {
     }
 
     /**
-     * Checks whether the given type is a primitive (or String) or an array of primitives (or Strings).
+     * Checks that the type of the field with {@link Value} is valid: primitive, {@link String}, or {@link UUID} (or an array of one of
+     * these).
      *
-     * @param type type
-     * @return {@code true} if type is a primitive or a String or an array of primitives or Strings
+     * @param type Field type with {@link Value}.
+     * @return {@code True} if the field type is valid.
      */
-    private boolean isPrimitiveOrArray(TypeMirror type) {
+    private boolean isValidValueAnnotationFieldType(TypeMirror type) {
         if (type.getKind() == TypeKind.ARRAY) {
             type = ((ArrayType) type).getComponentType();
         }
@@ -580,12 +583,7 @@ public class ConfigurationProcessor extends AbstractProcessor {
             return true;
         }
 
-        TypeMirror stringType = processingEnv
-                .getElementUtils()
-                .getTypeElement(String.class.getCanonicalName())
-                .asType();
-
-        return processingEnv.getTypeUtils().isSameType(type, stringType);
+        return isClass(type, String.class) || isClass(type, UUID.class);
     }
 
     /**
