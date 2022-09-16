@@ -230,6 +230,9 @@ public class TxStateRocksDbStorage implements TxStateStorage {
         closeables.add(txDbOptions);
         closeables.add(db);
 
+        closeables.add(threadPool::shutdown);
+        closeables.add(scheduledPool::shutdown);
+
         IgniteUtils.closeAll(closeables);
 
         db = null;
