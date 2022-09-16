@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.tx.storage.state.rocksdb;
 
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newSingleThreadExecutor;
+import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
@@ -32,6 +34,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -121,6 +124,9 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     /** Collection of opened RocksDB iterators. */
     private final Set<RocksIterator> iterators = ConcurrentHashMap.newKeySet();
 
+    /** List of resources to close on {@link #stop()}. */
+    private final List<AutoCloseable> closeables = new ArrayList<>();
+
     /** Busy lock to stop synchronously. */
     final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
@@ -131,21 +137,24 @@ public class TxStateRocksDbStorage implements TxStateStorage {
      * The constructor.
      *
      * @param dbPath Database path.
-     * @param scheduledPool Scheduled thread pool.
-     * @param threadPool Thread pool.
      * @param delaySupplier Supplier of delay values to batch independent flush requests. Please refer to {@link RocksDbFlusher} for
      *      details.
      */
     public TxStateRocksDbStorage(
             Path dbPath,
-            ScheduledExecutorService scheduledPool,
-            ExecutorService threadPool,
             IntSupplier delaySupplier
     ) {
         this.dbPath = dbPath;
-        this.threadPool = threadPool;
-        this.scheduledPool = scheduledPool;
         this.delaySupplier = delaySupplier;
+
+        threadPool = newSingleThreadExecutor();
+        scheduledPool = newSingleThreadScheduledExecutor();
+
+        closeables.add(writeOptions);
+        closeables.add(readOptions);
+        closeables.add(persistedTierReadOptions);
+        closeables.add(threadPool::shutdown);
+        closeables.add(scheduledPool::shutdown);
     }
 
     /** {@inheritDoc} */
@@ -158,15 +167,19 @@ public class TxStateRocksDbStorage implements TxStateStorage {
                     delaySupplier,
                     this::refreshPersistedIndex
             );
+            closeables.add(flusher::stop);
 
             options = new Options()
                     .setCreateIfMissing(true)
                     .setAtomicFlush(true)
                     .setListeners(List.of(flusher.listener()));
+            closeables.add(options);
 
             txDbOptions = new TransactionDBOptions();
+            closeables.add(txDbOptions);
 
             db = TransactionDB.open(options, txDbOptions, dbPath.toString());
+            closeables.add(db);
 
             lastAppliedIndex = readLastAppliedIndex(readOptions);
 
@@ -174,6 +187,12 @@ public class TxStateRocksDbStorage implements TxStateStorage {
 
             isStarted = true;
         } catch (RocksDBException e) {
+            try {
+                stop();
+            } catch (Exception ex) {
+                e.addSuppressed(ex);
+            }
+
             throw new IgniteInternalException(TX_STATE_STORAGE_CREATE_ERR, "Failed to start transaction state storage", e);
         }
     }
@@ -221,14 +240,9 @@ public class TxStateRocksDbStorage implements TxStateStorage {
 
         busyLock.block();
 
-        List<AutoCloseable> closeables = new ArrayList<>(iterators);
+        closeables.addAll(iterators);
 
-        closeables.add(persistedTierReadOptions);
-        closeables.add(readOptions);
-        closeables.add(writeOptions);
-        closeables.add(options);
-        closeables.add(txDbOptions);
-        closeables.add(db);
+        Collections.reverse(closeables);
 
         IgniteUtils.closeAll(closeables);
 
