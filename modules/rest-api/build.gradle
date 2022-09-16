@@ -24,7 +24,6 @@ dependencies {
     implementation project(':ignite-core')
     implementation project(':ignite-configuration-api')
     implementation libs.jetbrains.annotations
-    implementation libs.jsr305
     implementation libs.jackson.annotations
     implementation libs.jackson.databind
     implementation libs.jakarta.annotations
