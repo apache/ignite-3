@@ -98,7 +98,7 @@ public class ConfigurationSerializationUtil {
             }
 
             case UUID: {
-                java.util.UUID uuid = (UUID) value;
+                UUID uuid = (UUID) value;
 
                 return allocateBuffer(Long.BYTES * 2 + 1)
                         .put(header)
@@ -222,13 +222,13 @@ public class ConfigurationSerializationUtil {
             }
 
             case UUID | ARRAY: {
-                java.util.UUID[] uuids = (UUID[]) value;
+                UUID[] uuids = (UUID[]) value;
 
                 ByteBuffer buf = allocateBuffer(1 + Long.BYTES * 2 * uuids.length);
 
                 buf.put(header);
 
-                for (java.util.UUID uuid : uuids) {
+                for (UUID uuid : uuids) {
                     buf.putLong(uuid.getMostSignificantBits()).putLong(uuid.getLeastSignificantBits());
                 }
 
@@ -368,7 +368,7 @@ public class ConfigurationSerializationUtil {
             }
 
             case UUID | ARRAY: {
-                java.util.UUID[] uuids = new UUID[bytes.length / (Long.BYTES * 2)];
+                UUID[] uuids = new UUID[bytes.length / (Long.BYTES * 2)];
 
                 for (int i = 0; i < uuids.length; i++) {
                     uuids[i] = new UUID(buf.getLong(), buf.getLong());
@@ -405,7 +405,7 @@ public class ConfigurationSerializationUtil {
             return DOUBLE;
         } else if (clazz == String.class) {
             return STRING;
-        } else if (clazz == java.util.UUID.class) {
+        } else if (clazz == UUID.class) {
             return UUID;
         } else if (clazz == boolean[].class) {
             return BOOLEAN | ARRAY;
@@ -425,7 +425,7 @@ public class ConfigurationSerializationUtil {
             return DOUBLE | ARRAY;
         } else if (clazz == String[].class) {
             return STRING | ARRAY;
-        } else if (clazz == java.util.UUID[].class) {
+        } else if (clazz == UUID[].class) {
             return UUID | ARRAY;
         } else {
             throw new IllegalArgumentException(clazz.getName());
