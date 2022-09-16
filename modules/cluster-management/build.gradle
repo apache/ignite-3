@@ -62,4 +62,3 @@ dependencies {
     integrationTestImplementation libs.micronaut.http.client
     integrationTestImplementation libs.micronaut.http.server.netty
 }
-

@@ -147,7 +147,6 @@
             -Djava.util.logging.config.file=../../config/java.util.logging.properties
         </common.test.argLine>
 
-
         <checkstyle.header.file>${root.directory}/check-rules/LICENSE.txt</checkstyle.header.file>
     </properties>
 

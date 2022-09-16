@@ -57,4 +57,3 @@ dependencies {
     testFixturesImplementation libs.typesafe.config
     testFixturesImplementation libs.hamcrest.core
 }
-

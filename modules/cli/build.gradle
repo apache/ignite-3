@@ -152,5 +152,3 @@ compileJava {
     dependsOn generateApiClient
     source generatedClientDir.get().dir('src/main/java')
 }
-
-

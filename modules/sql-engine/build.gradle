@@ -71,4 +71,3 @@ dependencies {
     testImplementation libs.hamcrest.core
     testImplementation libs.slf4j.jdk14
 }
-
