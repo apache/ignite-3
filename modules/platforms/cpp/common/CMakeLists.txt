@@ -19,7 +19,7 @@ project(ignite-common)
 
 set(TARGET ${PROJECT_NAME})
 
-set(HEADERS Bits.h Bytes.h Config.h Types.h Vector.h)
+set(HEADERS Bits.h Bytes.h Config.h Types.h)
 
 add_library(${TARGET} INTERFACE)
 
