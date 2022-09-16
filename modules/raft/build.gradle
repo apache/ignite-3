@@ -52,8 +52,12 @@ dependencies {
     testFixturesImplementation project(':ignite-core')
     testFixturesImplementation project(':ignite-network')
     testFixturesImplementation project(':ignite-raft-client')
+    testFixturesImplementation(testFixtures(project(':ignite-core')))
+    testFixturesImplementation(testFixtures(project(':ignite-network')))
     testFixturesImplementation libs.mockito.core
     testFixturesImplementation libs.junit5.api
+    testFixturesImplementation libs.junit5.params
+    testFixturesImplementation libs.jetbrains.annotations
 
     integrationTestImplementation(testFixtures(project(':ignite-core')))
     integrationTestImplementation(testFixtures(project(':ignite-network')))

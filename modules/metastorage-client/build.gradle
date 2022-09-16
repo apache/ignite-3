@@ -25,6 +25,7 @@ dependencies {
     implementation project(':ignite-metastorage-common')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
+
     testImplementation project(':ignite-raft')
     testImplementation project(':ignite-network')
     testImplementation project(':ignite-network')
@@ -36,6 +37,17 @@ dependencies {
     testImplementation libs.hamcrest.core
     testImplementation libs.classgraph
     testImplementation libs.slf4j.jdk14
+
+    integrationTestImplementation(testFixtures(project(':ignite-core')))
+    integrationTestImplementation(testFixtures(project(':ignite-raft')))
+    integrationTestImplementation(testFixtures(project(':ignite-network')))
+    integrationTestImplementation project(':ignite-metastorage-server')
+    integrationTestImplementation project(':ignite-api')
+    integrationTestImplementation project(':ignite-raft')
+    integrationTestImplementation libs.mockito.junit
+    integrationTestImplementation libs.hamcrest.core
+    integrationTestImplementation libs.classgraph
+    integrationTestImplementation libs.slf4j.jdk14
 }
 
 description = 'ignite-metastorage-client'

@@ -28,6 +28,10 @@ dependencies {
     testImplementation libs.compileTesting
     testImplementation libs.hamcrest.core
     testImplementation libs.spoon.core
+
+    integrationTestImplementation libs.compileTesting
+    integrationTestImplementation libs.hamcrest.core
+    integrationTestImplementation libs.spoon.core
 }
 
 description = 'ignite-configuration-annotation-processor'

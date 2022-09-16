@@ -34,6 +34,9 @@ dependencies {
     testImplementation(testFixtures(project(':ignite-configuration')))
     testImplementation libs.mockito.core
     testImplementation libs.hamcrest.core
+
+    integrationTestImplementation(testFixtures(project(':ignite-core')))
+    integrationTestImplementation(testFixtures(project(':ignite-configuration')))
 }
 
 description = 'ignite-page-memory'
