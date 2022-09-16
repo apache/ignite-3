@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -44,7 +44,6 @@ public class IndexColumnsDataIo extends AbstractDataPageIo<IndexColumns> {
         super(IndexPageTypes.T_VALUE_VERSION_DATA_IO, ver);
     }
 
-    /** {@inheritDoc} */
     @Override
     protected void writeRowData(long pageAddr, int dataOff, int payloadSize, IndexColumns row, boolean newRow) {
         assertPageType(pageAddr);
@@ -58,7 +57,6 @@ public class IndexColumnsDataIo extends AbstractDataPageIo<IndexColumns> {
         putByteBuffer(pageAddr, dataOff + IndexColumns.VALUE_OFFSET, row.valueBuffer());
     }
 
-    /** {@inheritDoc} */
     @Override
     protected void writeFragmentData(IndexColumns row, ByteBuffer pageBuf, int rowOff, int payloadSize) {
         assertPageType(pageBuf);
@@ -78,7 +76,6 @@ public class IndexColumnsDataIo extends AbstractDataPageIo<IndexColumns> {
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     protected void printPage(long addr, int pageSize, IgniteStringBuilder sb) {
         sb.app("IndexColumnsDataIo [\n");

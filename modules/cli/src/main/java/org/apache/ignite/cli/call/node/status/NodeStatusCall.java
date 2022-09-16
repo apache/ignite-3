@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -21,7 +21,7 @@ import jakarta.inject.Singleton;
 import org.apache.ignite.cli.core.call.Call;
 import org.apache.ignite.cli.core.call.CallOutput;
 import org.apache.ignite.cli.core.call.DefaultCallOutput;
-import org.apache.ignite.cli.core.call.StatusCallInput;
+import org.apache.ignite.cli.core.call.UrlCallInput;
 import org.apache.ignite.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.rest.client.api.NodeManagementApi;
 import org.apache.ignite.rest.client.invoker.ApiClient;
@@ -32,12 +32,13 @@ import org.apache.ignite.rest.client.model.NodeState;
  * Call to get node status.
  */
 @Singleton
-public class NodeStatusCall implements Call<StatusCallInput, NodeStatus> {
+public class NodeStatusCall implements Call<UrlCallInput, NodeStatus> {
 
     @Override
-    public CallOutput<NodeStatus> execute(StatusCallInput input) {
+    public CallOutput<NodeStatus> execute(UrlCallInput input) {
+        String clusterUrl = input.getUrl();
         try {
-            NodeState nodeState = fetchNodeState(input.getClusterUrl());
+            NodeState nodeState = fetchNodeState(clusterUrl);
             return DefaultCallOutput.success(
                     NodeStatus.builder()
                             .name(nodeState.getName())
@@ -45,7 +46,7 @@ public class NodeStatusCall implements Call<StatusCallInput, NodeStatus> {
                             .build()
             );
         } catch (ApiException | IllegalArgumentException e) {
-            return DefaultCallOutput.failure(new IgniteCliApiException(e, input.getClusterUrl()));
+            return DefaultCallOutput.failure(new IgniteCliApiException(e, clusterUrl));
         }
     }
 

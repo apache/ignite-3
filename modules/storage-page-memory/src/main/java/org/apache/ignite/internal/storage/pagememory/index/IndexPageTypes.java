@@ -4,7 +4,7 @@
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -41,4 +41,13 @@ public interface IndexPageTypes {
 
     /** Hash index tree meta IO type. */
     short T_HASH_INDEX_LEAF_IO = 10_002;
+
+    /** Sorted index tree meta IO type. */
+    short T_SORTED_INDEX_META_IO = 10_003;
+
+    /** Sorted index tree inner IO type. */
+    short T_SORTED_INDEX_INNER_IO = 10_004;
+
+    /** Sorted index tree meta IO type. */
+    short T_SORTED_INDEX_LEAF_IO = 10_005;
 }

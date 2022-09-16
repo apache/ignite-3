@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,16 +17,13 @@
 
 package org.apache.ignite.cli.commands.cluster.status;
 
-import static org.apache.ignite.cli.core.style.component.CommonMessages.CONNECT_OR_USE_CLUSTER_URL_MESSAGE;
-
 import jakarta.inject.Inject;
 import org.apache.ignite.cli.call.cluster.status.ClusterStatusCall;
 import org.apache.ignite.cli.commands.BaseCommand;
 import org.apache.ignite.cli.commands.cluster.ClusterUrlMixin;
-import org.apache.ignite.cli.core.call.CallExecutionPipeline;
-import org.apache.ignite.cli.core.call.StatusCallInput;
-import org.apache.ignite.cli.core.repl.Session;
-import org.apache.ignite.cli.decorators.ClusterStatusDecorator;
+import org.apache.ignite.cli.commands.questions.ConnectToClusterQuestion;
+import org.apache.ignite.cli.core.call.UrlCallInput;
+import org.apache.ignite.cli.core.flow.builder.Flows;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 
@@ -40,31 +37,18 @@ public class ClusterStatusReplCommand extends BaseCommand implements Runnable {
     private ClusterUrlMixin clusterUrl;
 
     @Inject
-    private ClusterStatusCall clusterStatusReplCall;
+    private ClusterStatusCall call;
 
     @Inject
-    private Session session;
+    private ConnectToClusterQuestion question;
 
     /** {@inheritDoc} */
     @Override
     public void run() {
-        String inputUrl;
-
-        if (clusterUrl.getClusterUrl() != null) {
-            inputUrl = clusterUrl.getClusterUrl();
-        } else if (session.isConnectedToNode()) {
-            inputUrl = session.nodeUrl();
-        } else {
-            spec.commandLine().getErr().println(CONNECT_OR_USE_CLUSTER_URL_MESSAGE.render());
-            return;
-        }
-
-        CallExecutionPipeline.builder(clusterStatusReplCall)
-                .inputProvider(() -> new StatusCallInput(inputUrl))
-                .output(spec.commandLine().getOut())
-                .errOutput(spec.commandLine().getErr())
-                .decorator(new ClusterStatusDecorator())
-                .build()
-                .runPipeline();
+        question.askQuestionIfNotConnected(clusterUrl.getClusterUrl())
+                .map(UrlCallInput::new)
+                .then(Flows.fromCall(call))
+                .print()
+                .start();
     }
 }

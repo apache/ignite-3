@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -29,6 +29,9 @@ import org.apache.ignite.internal.storage.pagememory.index.hash.io.HashIndexTree
 import org.apache.ignite.internal.storage.pagememory.index.meta.io.IndexMetaInnerIo;
 import org.apache.ignite.internal.storage.pagememory.index.meta.io.IndexMetaLeafIo;
 import org.apache.ignite.internal.storage.pagememory.index.meta.io.IndexMetaTreeMetaIo;
+import org.apache.ignite.internal.storage.pagememory.index.sorted.io.SortedIndexTreeInnerIo;
+import org.apache.ignite.internal.storage.pagememory.index.sorted.io.SortedIndexTreeLeafIo;
+import org.apache.ignite.internal.storage.pagememory.index.sorted.io.SortedIndexTreeMetaIo;
 
 /**
  * {@link PageIoModule} related to {@link PageMemory} based indexes.
@@ -46,7 +49,11 @@ public class IndexPageIoModule implements PageIoModule {
                 // Hash index IO.
                 HashIndexTreeMetaIo.VERSIONS,
                 HashIndexTreeInnerIo.VERSIONS,
-                HashIndexTreeLeafIo.VERSIONS
+                HashIndexTreeLeafIo.VERSIONS,
+                // Sorted index IO.
+                SortedIndexTreeMetaIo.VERSIONS,
+                SortedIndexTreeInnerIo.VERSIONS,
+                SortedIndexTreeLeafIo.VERSIONS
         );
     }
 }

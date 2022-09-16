@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -27,7 +27,7 @@ import picocli.CommandLine;
 //Tech Debt: IGNITE-17484
 public class CommandLineContextProvider {
 
-    private static volatile CommandLine cmd;
+    private static volatile CommandLineContext context;
 
     private static volatile Consumer<Runnable> printWrapper = Runnable::run;
 
@@ -37,7 +37,16 @@ public class CommandLineContextProvider {
      * @return context instance.
      */
     public static CommandLineContext getContext() {
-        return new CommandLineContext() {
+        return context;
+    }
+
+    /**
+     * Sets a context from {@link CommandLine} instance.
+     *
+     * @param cmd {@link CommandLine} instance
+     */
+    public static void setCmd(CommandLine cmd) {
+        context = new CommandLineContext() {
             @Override
             public PrintWriter out() {
                 return cmd.getOut();
@@ -50,8 +59,24 @@ public class CommandLineContextProvider {
         };
     }
 
-    public static void setCmd(CommandLine cmd) {
-        CommandLineContextProvider.cmd = cmd;
+    /**
+     * Sets a context from {@link PrintWriter}.
+     *
+     * @param out output writer
+     * @param err error output writer
+     */
+    public static void setWriters(PrintWriter out, PrintWriter err) {
+        context = new CommandLineContext() {
+            @Override
+            public PrintWriter out() {
+                return out;
+            }
+
+            @Override
+            public PrintWriter err() {
+                return err;
+            }
+        };
     }
 
     /**

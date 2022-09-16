@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -34,7 +34,6 @@ import org.apache.ignite.cli.call.cluster.ClusterInitCall;
 import org.apache.ignite.cli.call.cluster.ClusterInitCallInput;
 import org.apache.ignite.cli.call.cluster.topology.LogicalTopologyCall;
 import org.apache.ignite.cli.call.cluster.topology.PhysicalTopologyCall;
-import org.apache.ignite.cli.call.cluster.topology.TopologyCallInput;
 import org.apache.ignite.cli.call.configuration.ClusterConfigShowCall;
 import org.apache.ignite.cli.call.configuration.ClusterConfigShowCallInput;
 import org.apache.ignite.cli.call.configuration.ClusterConfigUpdateCall;
@@ -47,7 +46,7 @@ import org.apache.ignite.cli.call.node.status.NodeStatusCall;
 import org.apache.ignite.cli.core.call.Call;
 import org.apache.ignite.cli.core.call.CallInput;
 import org.apache.ignite.cli.core.call.DefaultCallOutput;
-import org.apache.ignite.cli.core.call.StatusCallInput;
+import org.apache.ignite.cli.core.call.UrlCallInput;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -179,8 +178,8 @@ public class ProfileMixinTest {
                 arguments(
                         "node status",
                         NodeStatusCall.class,
-                        StatusCallInput.class,
-                        (Function<StatusCallInput, String>) StatusCallInput::getClusterUrl
+                        UrlCallInput.class,
+                        (Function<UrlCallInput, String>) UrlCallInput::getUrl
                 )
         );
     }
@@ -208,14 +207,14 @@ public class ProfileMixinTest {
                 arguments(
                         "cluster topology physical",
                         PhysicalTopologyCall.class,
-                        TopologyCallInput.class,
-                        (Function<TopologyCallInput, String>) TopologyCallInput::getClusterUrl
+                        UrlCallInput.class,
+                        (Function<UrlCallInput, String>) UrlCallInput::getUrl
                 ),
                 arguments(
                         "cluster topology logical",
                         LogicalTopologyCall.class,
-                        TopologyCallInput.class,
-                        (Function<TopologyCallInput, String>) TopologyCallInput::getClusterUrl
+                        UrlCallInput.class,
+                        (Function<UrlCallInput, String>) UrlCallInput::getUrl
                 )
         );
     }

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -41,19 +41,16 @@ public class IndexMetaLeafIo extends BplusLeafIo<IndexMeta> implements IndexMeta
         super(IndexPageTypes.T_INDEX_META_LEAF_IO, ver, SIZE_IN_BYTES);
     }
 
-    /** {@inheritDoc} */
     @Override
     public void store(long dstPageAddr, int dstIdx, BplusIo<IndexMeta> srcIo, long srcPageAddr, int srcIdx) {
         IndexMetaIo.super.store(dstPageAddr, dstIdx, srcPageAddr, srcIdx);
     }
 
-    /** {@inheritDoc} */
     @Override
     public void storeByOffset(long pageAddr, int off, IndexMeta row) {
         IndexMetaIo.super.storeByOffset(pageAddr, off, row);
     }
 
-    /** {@inheritDoc} */
     @Override
     public IndexMeta getLookupRow(BplusTree<IndexMeta, ?> tree, long pageAddr, int idx) {
         return getRow(pageAddr, idx);

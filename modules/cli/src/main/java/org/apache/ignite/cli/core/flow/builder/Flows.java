@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -73,7 +73,7 @@ public final class Flows {
      * @return {@link FlowBuilder} which started from constant flow.
      */
     public static <T> FlowBuilder<Void, T> from(T value) {
-        return new FlowBuilderImpl<>(mono(unused -> value));
+        return from(unused -> value);
     }
 
     /**
@@ -137,7 +137,7 @@ public final class Flows {
                         List.of(new AcceptedQuestionAnswer<>((a, i) -> null),
                                 new InterruptQuestionAnswer<>())
                 )
-                .then(Flows.mono(unused -> onAccept.get()));
+                .then(mono(unused -> onAccept.get()));
     }
 
     /**
