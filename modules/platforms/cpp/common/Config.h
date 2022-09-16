@@ -34,7 +34,7 @@
 # define IGNITE_EXPORT __declspec(dllexport)
 # define IGNITE_IMPORT __declspec(dllimport)
 #else
-# define IGNITE_CALL __stdcall
+# define IGNITE_CALL
 # if __has_attribute(visibility) || (defined(__GNUC__) && ((__GNUC__ > 4) || (__GNUC__ == 4) && (__GNUC_MINOR__ > 2)))
 #  define IGNITE_EXPORT __attribute__((visibility("default")))
 #  define IGNITE_IMPORT __attribute__((visibility("default")))
