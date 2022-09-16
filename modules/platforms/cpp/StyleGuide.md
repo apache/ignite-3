@@ -29,11 +29,12 @@ Header files are included in order from more specific to less specific:
 * Standard C++, C, and system headers.
 * Conditionally included headers.
 
-These groups are separated by an empty line. Inside each group files are sorted in alphabetical order.
+These groups are separated by an empty line. Inside each group files are sorted in alphabetical
+order.
 
 ## Drop-in Replacements for Standard Library Сlasses
 
-Sometimes we can provide a class that that is intended as a drop-in replacement for
-a class from the standard C++ library. For example we can provide a a container to
-replace some standard container. In such cases it is preferred to switch from our
-naming conventions (`pushBack()`) to the standard library conventions (`push_back()`).
+Sometimes we can provide a class intended as a drop-in replacement for a class from the standard
+C++ library. For example we can provide a a container to replace some standard container. In such
+cases it is preferred to switch from our naming conventions (`pushBack()`) to the standard library
+conventions (`push_back()`).
