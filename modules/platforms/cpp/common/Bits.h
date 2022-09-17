@@ -32,8 +32,12 @@
 # include <bit>
 #endif
 
-#if !IGNITE_STD_BITOPS
+#if !IGNITE_STD_BITOPS || !IGNITE_STD_INT_POW2
 # include <limits>
+#endif
+
+#if !IGNITE_STD_BITOPS && defined(_MSC_VER)
+# include <intrin.h>
 #endif
 
 namespace ignite {
@@ -59,6 +63,13 @@ int countRZero(T value) noexcept {
         return __builtin_ctzl(value);
     } else {
         return __builtin_ctzll(value);
+    }
+#elif defined(_MSC_VER)
+    unsigned long index;
+    if constexpr (sizeof(T) <= sizeof(unsigned long)) {
+        return _BitScanForward(&index, value) ? index : std::numeric_limits<T>::digits;
+    } else {
+        return _BitScanForward64(&index, value) ? index : std::numeric_limits<T>::digits;
     }
 #else
 # error "TODO: implement countRZero() for other compilers"
@@ -89,6 +100,15 @@ int countLZero(T value) noexcept {
     } else {
         constexpr auto extraBits = std::numeric_limits<unsigned long long>::digits - std::numeric_limits<T>::digits;
         return __builtin_clzll(value) - extraBits;
+    }
+#elif defined(_MSC_VER)
+    unsigned long index;
+    if constexpr (sizeof(T) <= sizeof(unsigned long)) {
+        constexpr auto extraBits = std::numeric_limits<unsigned long>::digits - std::numeric_limits<T>::digits;
+        return _BitScanReverse(&index, value) ? index - extraBits : std::numeric_limits<T>::digits;
+    } else {
+        constexpr auto extraBits = std::numeric_limits<__int64>::digits - std::numeric_limits<T>::digits;
+        return _BitScanReverse64(&index, value) ? index - extraBits : std::numeric_limits<T>::digits;
     }
 #else
 # error "TODO: implement countLZero() for other compilers"
