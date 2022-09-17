@@ -36,6 +36,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
@@ -46,6 +47,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -70,11 +72,18 @@ import org.apache.ignite.raft.client.service.CommandClosure;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
 import org.apache.ignite.raft.jraft.core.StateMachineAdapter;
+import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftException;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupServiceImpl;
 import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
+import org.apache.ignite.raft.server.counter.CounterListener;
+import org.apache.ignite.raft.server.counter.GetValueCommand;
+import org.apache.ignite.raft.server.counter.IncrementAndGetCommand;
+import org.apache.ignite.raft.server.snasphot.SnapshotInMemoryStorageFactory;
+import org.apache.ignite.raft.server.snasphot.TestWriteCommand;
+import org.apache.ignite.raft.server.snasphot.UpdateCountRaftListener;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -161,6 +170,16 @@ class ItJraftCounterServerTest extends RaftServerAbstractTest {
     protected void after() throws Exception {
         super.after();
 
+        shutdownCluster();
+
+        IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
+
+        TestUtils.assertAllJraftThreadsStopped();
+
+        LOG.info(">>>>>>>>>>>>>>> End test method: {}", testInfo.getTestMethod().orElseThrow().getName());
+    }
+
+    private void shutdownCluster() throws Exception {
         LOG.info("Start client shutdown");
 
         Iterator<RaftGroupService> iterClients = clients.iterator();
@@ -172,6 +191,8 @@ class ItJraftCounterServerTest extends RaftServerAbstractTest {
 
             client.shutdown();
         }
+
+        clients.clear();
 
         LOG.info("Start server shutdown servers={}", servers.size());
 
@@ -193,20 +214,15 @@ class ItJraftCounterServerTest extends RaftServerAbstractTest {
             server.stop();
         }
 
-        IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
-
-        TestUtils.assertAllJraftThreadsStopped();
-
-        LOG.info(">>>>>>>>>>>>>>> End test method: {}", testInfo.getTestMethod().orElseThrow().getName());
+        servers.clear();
     }
 
     /**
      * Starts server.
      *
-     * @param idx The index.
-     * @param clo Init closure.
+     * @param idx  The index.
+     * @param clo  Init closure.
      * @param cons Node options updater.
-     *
      * @return Raft server instance.
      */
     private JraftServerImpl startServer(int idx, Consumer<RaftServer> clo, Consumer<NodeOptions> cons) {
@@ -276,6 +292,8 @@ class ItJraftCounterServerTest extends RaftServerAbstractTest {
         startClient(COUNTER_GROUP_0);
         startClient(COUNTER_GROUP_1);
     }
+
+
 
     /**
      * Checks that the number of Disruptor threads does not depend on  count started RAFT nodes.
@@ -656,9 +674,12 @@ class ItJraftCounterServerTest extends RaftServerAbstractTest {
     /** Tests if a starting a new group in shared pools mode doesn't increases timer threads count. */
     @Test
     public void testTimerThreadsCount() {
-        JraftServerImpl srv0 = startServer(0, x -> {}, opts -> opts.setTimerPoolSize(1));
-        JraftServerImpl srv1 = startServer(1, x -> {}, opts -> opts.setTimerPoolSize(1));
-        JraftServerImpl srv2 = startServer(2, x -> {}, opts -> opts.setTimerPoolSize(1));
+        JraftServerImpl srv0 = startServer(0, x -> {
+        }, opts -> opts.setTimerPoolSize(1));
+        JraftServerImpl srv1 = startServer(1, x -> {
+        }, opts -> opts.setTimerPoolSize(1));
+        JraftServerImpl srv2 = startServer(2, x -> {
+        }, opts -> opts.setTimerPoolSize(1));
 
         waitForTopology(srv0.clusterService(), 3, 5_000);
 
@@ -672,7 +693,8 @@ class ItJraftCounterServerTest extends RaftServerAbstractTest {
             for (int i = 0; i < groupsCnt; i++) {
                 int finalI = i;
                 futs.add(svc.submit(new Runnable() {
-                    @Override public void run() {
+                    @Override
+                    public void run() {
                         String grp = "counter" + finalI;
 
                         srv0.startRaftGroup(grp, listenerFactory.get(), INITIAL_CONF, defaults());
@@ -707,6 +729,95 @@ class ItJraftCounterServerTest extends RaftServerAbstractTest {
 
         assertTrue(timerThreads.size() <= 15, // This is a maximum possible number of a timer threads for 3 nodes in this test.
                 "All timer threads: " + timerThreads.toString());
+    }
+
+    /**
+     * The test shows that all committed updates are applied after a RAFT group restart automatically.
+     * Actual data be available to read from state storage (not a state machine) directly just after the RAFT node started.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    public void testApplyUpdatesOutOfSnapshot() throws Exception {
+        HashMap<Integer, AtomicInteger> counters = new HashMap<>(3);
+        HashMap<Path, Integer> snapshotDataStorage = new HashMap<>(3);
+        HashMap<String, SnapshotMeta> snapshotMetaStorage = new HashMap<>(3);
+
+        for (int i = 0; i < 3; i++) {
+            AtomicInteger counter;
+
+            counters.put(i, counter = new AtomicInteger());
+
+            startServer(i, raftServer -> {
+                raftServer.startRaftGroup("test_raft_group", new UpdateCountRaftListener(counter, snapshotDataStorage), INITIAL_CONF,
+                        defaults().snapshotStorageFactory(new SnapshotInMemoryStorageFactory(snapshotMetaStorage)));
+            }, opts -> {});
+        }
+
+        var raftClient = startClient("test_raft_group");
+
+        raftClient.refreshMembers(true).get();
+        var peers = raftClient.peers();
+
+        raftClient.run(new TestWriteCommand());
+
+        assertTrue(TestUtils.waitForCondition(() -> counters.get(0).get() == 1, 10_000));
+
+        raftClient.snapshot(peers.get(0)).get();
+
+        raftClient.run(new TestWriteCommand());
+
+        assertTrue(TestUtils.waitForCondition(() -> counters.get(1).get() == 2, 10_000));
+
+        raftClient.snapshot(peers.get(1)).get();
+
+        raftClient.run(new TestWriteCommand());
+
+        for (AtomicInteger counter : counters.values()) {
+            assertTrue(TestUtils.waitForCondition(() -> counter.get() == 3, 10_000));
+        }
+
+        shutdownCluster();
+
+        Path peer0SnapPath = snapshotPath(peers.get(0).address());
+        Path peer1SnapPath = snapshotPath(peers.get(1).address());
+        Path peer2SnapPath = snapshotPath(peers.get(2).address());
+
+        assertEquals(1, snapshotDataStorage.get(peer0SnapPath));
+        assertEquals(2, snapshotDataStorage.get(peer1SnapPath));
+        assertNull(snapshotDataStorage.get(peer2SnapPath));
+
+        assertNotNull(snapshotMetaStorage.get(peer0SnapPath.toString()));
+        assertNotNull(snapshotMetaStorage.get(peer1SnapPath.toString()));
+        assertNull(snapshotMetaStorage.get(peer2SnapPath.toString()));
+
+        for (int i = 0; i < 3; i++) {
+            var counter = counters.get(i);
+
+            startServer(i, raftServer -> {
+                counter.set(0);
+
+                raftServer.startRaftGroup("test_raft_group", new UpdateCountRaftListener(counter, snapshotDataStorage), INITIAL_CONF,
+                        defaults().snapshotStorageFactory(new SnapshotInMemoryStorageFactory(snapshotMetaStorage)));
+            }, opts -> {});
+        }
+
+        for (AtomicInteger counter : counters.values()) {
+            assertEquals(3, counter.get());
+        }
+    }
+
+    /**
+     * Builds a snapshot path by the peer address of RAFT node.
+     *
+     * @param peerAddress Raft node peer address.
+     * @return Path to snapshot.
+     */
+    private Path snapshotPath(NetworkAddress peerAddress) {
+        int nodeId = peerAddress.port() - PORT;
+
+        return dataPath.resolve("node" + nodeId).resolve("test_raft_group" + "_" + peerAddress.toString().replace(':', '_'))
+                .resolve("snapshot");
     }
 
     /**
@@ -832,8 +943,8 @@ class ItJraftCounterServerTest extends RaftServerAbstractTest {
      * Applies increments.
      *
      * @param client The client
-     * @param start Start element.
-     * @param stop Stop element.
+     * @param start  Start element.
+     * @param stop   Stop element.
      * @return The counter value.
      * @throws Exception If failed.
      */
@@ -863,8 +974,8 @@ class ItJraftCounterServerTest extends RaftServerAbstractTest {
      * Validates state machine.
      *
      * @param expected Expected value.
-     * @param server The server.
-     * @param groupId Group id.
+     * @param server   The server.
+     * @param groupId  Group id.
      * @return Validation result.
      */
     private static boolean validateStateMachine(long expected, JraftServerImpl server, String groupId) {

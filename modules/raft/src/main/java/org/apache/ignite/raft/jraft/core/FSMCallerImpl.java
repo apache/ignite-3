@@ -215,6 +215,11 @@ public class FSMCallerImpl implements FSMCaller {
         this.lastAppliedLogIndexListeners.add(listener);
     }
 
+    @Override
+    public void removeLastAppliedLogIndexListener(final LastAppliedLogIndexListener listener) {
+        this.lastAppliedLogIndexListeners.remove(listener);
+    }
+
     private boolean enqueueTask(final EventTranslator<ApplyTask> tpl) {
         if (this.shutdownLatch != null) {
             // Shutting down
