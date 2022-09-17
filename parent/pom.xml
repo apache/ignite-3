@@ -83,7 +83,7 @@
         <hamcrest.optional.version>2.0.0</hamcrest.optional.version>
         <hamcrest.path.version>1.0.1</hamcrest.path.version>
         <scalecube.version>2.6.12</scalecube.version>
-        <calcite.version>1.31.0</calcite.version>
+        <calcite.version>1.32.0</calcite.version>
         <immutables.version>2.8.8</immutables.version>
         <janino.version>3.1.6</janino.version>
         <avatica.version>1.22.0</avatica.version>
