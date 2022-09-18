@@ -47,7 +47,7 @@ public class SchemaValidationUtils {
     }
 
     /**
-     * Validate indices.
+     * Validate indexes.
      *
      * @param index Table index.
      * @param cols Table columns.

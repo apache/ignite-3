@@ -261,6 +261,12 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     }
 
     private static RuntimeException convertDdlException(Throwable e) {
+        if (e instanceof ConfigurationChangeException) {
+            assert e.getCause() != null;
+            // Cut off upper configuration error`s as uninformative.
+            e = e.getCause();
+        }
+
         if (e instanceof CompletionException) {
             e = e.getCause();
         }
@@ -268,12 +274,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         if (e instanceof IgniteInternalCheckedException) {
             return new IgniteInternalException("Failed to execute DDL statement [stmt=" /*+ qry.sql()*/
                     + ", err=" + e.getMessage() + ']', e);
-        }
-
-        if (e instanceof ConfigurationChangeException) {
-            assert e.getCause() != null;
-            // Cut off upper configuration error`s as uninformative.
-            e = e.getCause();
         }
 
         return (e instanceof RuntimeException) ? (RuntimeException) e : new IgniteException(e);
