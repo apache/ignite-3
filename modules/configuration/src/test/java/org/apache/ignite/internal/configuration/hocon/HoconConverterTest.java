@@ -34,6 +34,7 @@ import com.typesafe.config.ConfigValue;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -105,6 +106,9 @@ public class HoconConverterTest {
 
         @Value(hasDefault = true)
         public String[] strings = {""};
+
+        @Value(hasDefault = true)
+        public UUID[] uuids = {new UUID(1111, 2222)};
     }
 
     /**
@@ -138,6 +142,9 @@ public class HoconConverterTest {
 
         @Value(hasDefault = true)
         public String stringVal = "";
+
+        @Value(hasDefault = true)
+        public UUID uuidVal = new UUID(100, 200);
     }
 
     /**
@@ -272,7 +279,7 @@ public class HoconConverterTest {
     }
 
     /**
-     * Tests that the {@code HoconConverter} supports serialization of Strings and primitives.
+     * Tests that the {@code HoconConverter} supports serialization of {@link String}, {@link UUID} and primitives.
      */
     @Test
     public void testHoconPrimitivesSerialization() throws Exception {
@@ -286,7 +293,8 @@ public class HoconConverterTest {
         var basePath = List.of("root", "primitivesList", "name");
 
         assertEquals(
-                "booleanVal=false,byteVal=0,charVal=\"\\u0000\",doubleVal=0.0,floatVal=0,intVal=0,longVal=0,shortVal=0,stringVal=\"\"",
+                "booleanVal=false,byteVal=0,charVal=\"\\u0000\",doubleVal=0.0,floatVal=0,intVal=0,longVal=0,shortVal=0,stringVal=\"\""
+                        + ",uuidVal=\"" + new UUID(100, 200) + "\"",
                 asHoconStr(basePath)
         );
 
@@ -299,10 +307,11 @@ public class HoconConverterTest {
         assertEquals("0", asHoconStr(basePath, "floatVal"));
         assertEquals("0.0", asHoconStr(basePath, "doubleVal"));
         assertEquals("\"\"", asHoconStr(basePath, "stringVal"));
+        assertEquals("\"" + new UUID(100, 200) + "\"", asHoconStr(basePath, "uuidVal"));
     }
 
     /**
-     * Tests that the {@code HoconConverter} supports serialization of arrays of Strings and primitives.
+     * Tests that the {@code HoconConverter} supports serialization of arrays of {@link String}, {@link UUID} and primitives.
      */
     @Test
     public void testHoconArraysSerialization() throws Exception {
@@ -316,7 +325,8 @@ public class HoconConverterTest {
         var basePath = List.of("root", "arraysList", "name");
 
         assertEquals(
-                "booleans=[false],bytes=[0],chars=[\"\\u0000\"],doubles=[0.0],floats=[0],ints=[0],longs=[0],shorts=[0],strings=[\"\"]",
+                "booleans=[false],bytes=[0],chars=[\"\\u0000\"],doubles=[0.0],floats=[0],ints=[0],longs=[0],shorts=[0],strings=[\"\"]"
+                        + ",uuids=[\"" + new UUID(1111, 2222) + "\"]",
                 asHoconStr(basePath)
         );
 
@@ -329,6 +339,7 @@ public class HoconConverterTest {
         assertEquals("[0]", asHoconStr(basePath, "floats"));
         assertEquals("[0.0]", asHoconStr(basePath, "doubles"));
         assertEquals("[\"\"]", asHoconStr(basePath, "strings"));
+        assertEquals("[\"" + new UUID(1111, 2222) + "\"]", asHoconStr(basePath, "uuids"));
     }
 
     /**
@@ -394,7 +405,7 @@ public class HoconConverterTest {
     }
 
     /**
-     * Tests that the {@code HoconConverter} supports deserialization of Strings and primitives.
+     * Tests that the {@code HoconConverter} supports deserialization of {@link String}, {@link UUID} and primitives.
      */
     @Test
     public void testHoconPrimitivesDeserialization() throws Throwable {
@@ -429,6 +440,11 @@ public class HoconConverterTest {
 
         change("root.primitivesList.name.stringVal = foo");
         assertThat(primitives.stringVal().value(), is("foo"));
+
+        UUID newUuid = UUID.randomUUID();
+
+        change("root.primitivesList.name.uuidVal = " + newUuid);
+        assertThat(primitives.uuidVal().value(), is(newUuid));
     }
 
     /**
@@ -498,7 +514,7 @@ public class HoconConverterTest {
     }
 
     /**
-     * Tests that the {@code HoconConverter} supports deserialization of arrays of Strings and primitives.
+     * Tests that the {@code HoconConverter} supports deserialization of arrays of {@link String}, {@link UUID} and primitives.
      */
     @Test
     public void testHoconArraysDeserialization() throws Throwable {
@@ -533,6 +549,11 @@ public class HoconConverterTest {
 
         change("root.arraysList.name.strings = [foo]");
         assertThat(arrays.strings().value(), is(new String[]{"foo"}));
+
+        UUID newUuid = UUID.randomUUID();
+
+        change("root.arraysList.name.uuids = [" + newUuid + "]");
+        assertThat(arrays.uuids().value(), is(new UUID[]{newUuid}));
     }
 
     /**
