@@ -25,6 +25,7 @@ import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
@@ -40,12 +41,9 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
-import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.configuration.NamedConfigurationTree;
-import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema;
 import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.ColumnDefaultConfigurationSchema;
@@ -54,18 +52,19 @@ import org.apache.ignite.configuration.schemas.table.EntryCountBudgetConfigurati
 import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexChange;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.HashIndexView;
 import org.apache.ignite.configuration.schemas.table.LogStorageBudgetConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.SortedIndexChange;
 import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableChange;
+import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableIndexConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableIndexConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.TableIndexView;
+import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
+import org.apache.ignite.internal.configuration.NamedListConfiguration;
 import org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -272,7 +271,7 @@ public class IndexManagerTest {
     }
 
     @Test
-    public void IndexValidatorImplcreateIndexForNonExistingColumn() {
+    public void createIndexForNonExistingColumn() {
         var tableManagerMock = mock(TableManager.class);
         var canonicalName = parseCanonicalName(canonicalName("sName", "tName"));
         var tableMock = mock(TableImpl.class);
@@ -344,24 +343,11 @@ public class IndexManagerTest {
 
     @Test
     @SuppressWarnings("ConstantConditions")
-    public void eventIsFiredWhenIndexCreated() throws ExecutionException, InterruptedException {
+    public void eventIsFiredWhenIndexCreated() throws Exception {
         var tableManagerMock = mock(TableManager.class);
-        var indexId = UUID.randomUUID();
-        var tableId = UUID.randomUUID();
-        var indexName = "idxName";
-        var canonicalName = canonicalName("sName", "tName");
+        var indexName = "schema.indexName";
 
-        TablesConfiguration tablesCfg = mock(TablesConfiguration.class);
-        NamedConfigurationTree cfgTree = mock(NamedConfigurationTree.class);
-
-        when(tablesCfg.indexes()).thenReturn(cfgTree);
-
-        var indexManager = new IndexManager(tableManagerMock, tablesCfg);
-
-        TableImpl tblImp = mock(TableImpl.class);
-
-        when(tableManagerMock.tableImpl(any())).thenReturn(tblImp);
-        when(tblImp.tableId()).thenReturn(tableId);
+        var indexManager = new IndexManager(tableManagerMock, tablesConfig);
 
         AtomicReference<IndexEventParameters> holder = new AtomicReference<>();
 
@@ -373,10 +359,24 @@ public class IndexManagerTest {
 
         indexManager.start();
 
-        ConfigurationNotificationEvent<TableIndexView> evt0 =
-                createConfigurationEventIndexAddedMock(indexId, indexName, tableId);
+        tablesConfig.tables().change(c -> c.create("schema.tbl", tblChg -> tblChg.changeTableId(1))).get();
 
-        indexManager.onIndexCreate(evt0);
+        NamedConfigurationTree<TableConfiguration, TableView, TableChange> cfg0 = tablesConfig.tables();
+
+        List<UUID> ids = ((NamedListConfiguration<TableConfiguration, ?, ?>) cfg0).internalIds();
+
+        assertEquals(1, ids.size());
+
+        UUID tableId = ids.get(0);
+
+        tablesConfig.indexes().change(c -> c.create("schema.indexName", idxChg -> idxChg.convert(SortedIndexChange.class)
+                .changeTableId(tableId))).get();
+
+        ids = ((NamedListConfiguration<TableIndexConfiguration, ?, ?>) tablesConfig.indexes()).internalIds();
+
+        assertEquals(1, ids.size());
+
+        UUID indexId = ids.get(0);
 
         assertThat(holder.get(), notNullValue());
         assertThat(holder.get().index().id(), equalTo(indexId));
@@ -390,31 +390,6 @@ public class IndexManagerTest {
         SchemaDescriptor schDesc = mock(SchemaDescriptor.class);
         when(schView.schema()).thenReturn(schDesc);
         when(schDesc.columnNames()).thenReturn(columns);
-    }
-
-    @SuppressWarnings("unchecked")
-    private ConfigurationNotificationEvent<TableIndexView> createConfigurationEventIndexAddedMock(
-            UUID indexId,
-            String canonicalIndexName,
-            UUID tableId
-    ) {
-        ConfigurationValue<UUID> confValueMock = mock(ConfigurationValue.class);
-        when(confValueMock.value()).thenReturn(tableId).getMock();
-
-        TableIndexConfiguration extendedConfMock = mock(TableIndexConfiguration.class);
-        when(extendedConfMock.tableId()).thenReturn(confValueMock);
-
-        HashIndexView indexViewMock = mock(HashIndexView.class);
-        when(indexViewMock.id()).thenReturn(indexId);
-        when(indexViewMock.tableId()).thenReturn(tableId);
-        when(indexViewMock.name()).thenReturn(canonicalIndexName);
-        when(indexViewMock.columnNames()).thenReturn(new String[] {"c1", "c2"});
-
-        ConfigurationNotificationEvent<TableIndexView> configurationEventMock = mock(ConfigurationNotificationEvent.class);
-        when(configurationEventMock.config(any())).thenReturn(extendedConfMock);
-        when(configurationEventMock.newValue()).thenReturn(indexViewMock);
-
-        return configurationEventMock;
     }
 
     /** Creates configuration node for given *SchemaConfiguration class. */

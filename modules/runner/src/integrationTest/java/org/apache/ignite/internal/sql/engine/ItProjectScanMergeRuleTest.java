@@ -28,7 +28,6 @@ import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.TableDefinition;
-import org.apache.ignite.schema.definition.index.SortedIndexDefinition;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;

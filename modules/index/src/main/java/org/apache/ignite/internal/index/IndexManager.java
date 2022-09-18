@@ -365,7 +365,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
      * @param evt Index configuration changed event.
      * @return A future.
      */
-    CompletableFuture<?> onIndexCreate(ConfigurationNotificationEvent<TableIndexView> evt) {
+    private CompletableFuture<?> onIndexCreate(ConfigurationNotificationEvent<TableIndexView> evt) {
         if (!busyLock.enterBusy()) {
             UUID idxId = evt.newValue().id();
 
