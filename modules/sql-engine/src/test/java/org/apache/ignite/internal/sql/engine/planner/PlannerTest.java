@@ -34,7 +34,23 @@ import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelRoot;
+import org.apache.calcite.rel.RelShuttle;
+import org.apache.calcite.rel.RelShuttleImpl;
 import org.apache.calcite.rel.RelVisitor;
+import org.apache.calcite.rel.core.Snapshot;
+import org.apache.calcite.rel.core.TableScan;
+import org.apache.calcite.rel.core.Window;
+import org.apache.calcite.rel.hint.HintStrategyTable;
+import org.apache.calcite.rel.logical.LogicalAggregate;
+import org.apache.calcite.rel.logical.LogicalCorrelate;
+import org.apache.calcite.rel.logical.LogicalFilter;
+import org.apache.calcite.rel.logical.LogicalIntersect;
+import org.apache.calcite.rel.logical.LogicalJoin;
+import org.apache.calcite.rel.logical.LogicalMinus;
+import org.apache.calcite.rel.logical.LogicalProject;
+import org.apache.calcite.rel.logical.LogicalSort;
+import org.apache.calcite.rel.logical.LogicalUnion;
+import org.apache.calcite.rel.logical.LogicalValues;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.sql.SqlNode;
@@ -858,6 +874,180 @@ public class PlannerTest extends AbstractPlannerTest {
 
         // just check for planning completeness for finite time.
         assertPlan(sql, publicSchema, (k) -> true);
+    }
+
+    /** */
+    @Test
+    public void checkTableHints() throws Exception {
+        IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
+
+        TestTable tbl = new TestTable(
+            new RelDataTypeFactory.Builder(f)
+                .add("PK", f.createJavaType(Integer.class))
+                .add("COL0", f.createJavaType(Integer.class))
+                .add("COL1", f.createJavaType(Float.class))
+                .add("COL2", f.createJavaType(String.class))
+                .add("COL3", f.createJavaType(Integer.class))
+                .add("COL4", f.createJavaType(Float.class))
+                .build()) {
+
+            @Override public IgniteDistribution distribution() {
+                return IgniteDistributions.affinity(0, "tab0", "hash");
+            }
+        };
+
+        IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
+
+        SchemaPlus schema = createRootSchema(false)
+            .add("PUBLIC", publicSchema);
+
+        publicSchema.addTable("TEST", tbl);
+
+        String sql = "SELECT * FROM test /*+ use_index('qqq') */ t1";
+
+        PlanningContext ctx = PlanningContext.builder()
+            .parentContext(BaseQueryContext.builder()
+                .logger(log)
+                .parameters(2)
+                .frameworkConfig(newConfigBuilder(FRAMEWORK_CONFIG)
+                    .defaultSchema(schema)
+                    .sqlToRelConverterConfig(FRAMEWORK_CONFIG.getSqlToRelConverterConfig().withHintStrategyTable(
+                        HintStrategyTable.builder().hintStrategy("use_index", (hint, rel) -> true).build()
+                    ))
+                    .build())
+                .build())
+            .query(sql)
+            .build();
+
+        IgniteRel phys = physicalPlan(sql, ctx);
+
+        List<String> hints = new ArrayList<>();
+
+        RelShuttle hintCollector = new HintCollector(hints);
+
+        phys.accept(hintCollector);
+
+        assertEquals(1, hints.size());
+    }
+
+    /** A shuttle to collect all the hints within the relational expression into a collection. */
+    private static class HintCollector extends RelShuttleImpl {
+        private final List<String> hintsCollect;
+
+        HintCollector(List<String> hintsCollect) {
+            this.hintsCollect = hintsCollect;
+        }
+
+        /** {@inheritDoc} */
+        @Override public RelNode visit(TableScan scan) {
+            if (!scan.getHints().isEmpty()) {
+                this.hintsCollect.add("TableScan:" + scan.getHints());
+            }
+
+            return super.visit(scan);
+        }
+
+        /** {@inheritDoc} */
+        @Override public RelNode visit(LogicalJoin join) {
+            if (!join.getHints().isEmpty()) {
+                this.hintsCollect.add("LogicalJoin:" + join.getHints());
+            }
+
+            return super.visit(join);
+        }
+
+        /** {@inheritDoc} */
+        @Override public RelNode visit(LogicalProject project) {
+            if (!project.getHints().isEmpty()) {
+                this.hintsCollect.add("Project:" + project.getHints());
+            }
+
+            return super.visit(project);
+        }
+
+        /** {@inheritDoc} */
+        @Override public RelNode visit(LogicalAggregate aggregate) {
+            if (!aggregate.getHints().isEmpty()) {
+                this.hintsCollect.add("Aggregate:" + aggregate.getHints());
+            }
+
+            return super.visit(aggregate);
+        }
+
+        /** {@inheritDoc} */
+        @Override public RelNode visit(LogicalCorrelate correlate) {
+            if (!correlate.getHints().isEmpty()) {
+                this.hintsCollect.add("Correlate:" + correlate.getHints());
+            }
+
+            return super.visit(correlate);
+        }
+
+        /** {@inheritDoc} */
+        @Override public RelNode visit(LogicalFilter filter) {
+            if (!filter.getHints().isEmpty()) {
+                this.hintsCollect.add("Filter:" + filter.getHints());
+            }
+
+            return super.visit(filter);
+        }
+
+        /** {@inheritDoc} */
+        @Override public RelNode visit(LogicalUnion union) {
+            if (!union.getHints().isEmpty()) {
+                this.hintsCollect.add("Union:" + union.getHints());
+            }
+
+            return super.visit(union);
+        }
+
+        /** {@inheritDoc} */
+        @Override public RelNode visit(LogicalIntersect intersect) {
+            if (!intersect.getHints().isEmpty()) {
+                this.hintsCollect.add("Intersect:" + intersect.getHints());
+            }
+
+            return super.visit(intersect);
+        }
+
+        /** {@inheritDoc} */
+        @Override public RelNode visit(LogicalMinus minus) {
+            if (!minus.getHints().isEmpty()) {
+                this.hintsCollect.add("Minus:" + minus.getHints());
+            }
+
+            return super.visit(minus);
+        }
+
+        /** {@inheritDoc} */
+        @Override public RelNode visit(LogicalSort sort) {
+            if (!sort.getHints().isEmpty()) {
+                this.hintsCollect.add("Sort:" + sort.getHints());
+            }
+
+            return super.visit(sort);
+        }
+
+        /** {@inheritDoc} */
+        @Override public RelNode visit(LogicalValues values) {
+            if (!values.getHints().isEmpty()) {
+                this.hintsCollect.add("Values:" + values.getHints());
+            }
+
+            return super.visit(values);
+        }
+
+        /** {@inheritDoc} */
+        @Override public RelNode visit(RelNode other) {
+            if (other instanceof Window) {
+                Window window = (Window) other;
+                if (!window.getHints().isEmpty()) {
+                    this.hintsCollect.add("Window:" + window.getHints());
+                }
+            }
+
+            return super.visit(other);
+        }
     }
 
     /**
