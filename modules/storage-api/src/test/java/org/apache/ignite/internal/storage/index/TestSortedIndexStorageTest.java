@@ -68,6 +68,6 @@ public class TestSortedIndexStorageTest extends AbstractSortedIndexStorageTest {
             TablesConfiguration tablesConfig) {
         initialize(tableCfg, tablesConfig);
 
-        initializeStorage(new TestConcurrentHashMapMvTableStorage(tableCfg.value(), tablesConfig));
+        initializeStorage(new TestConcurrentHashMapMvTableStorage(tableCfg, tablesConfig));
     }
 }

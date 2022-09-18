@@ -124,7 +124,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
         PageMemory pageMemory = tableStorage.dataRegion().pageMemory();
 
-        groupId = tableStorage.configuration().tableId();
+        groupId = tableStorage.configuration().value().tableId();
 
         rowVersionDataPageReader = new DataPageReader(pageMemory, groupId, IoStatisticsHolderNoOp.INSTANCE);
     }
@@ -168,7 +168,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     }
 
     private PageMemoryHashIndexStorage createOrRestoreHashIndex(IndexMeta indexMeta) {
-        TableView tableView = tableStorage.configuration();
+        TableView tableView = tableStorage.configuration().value();
 
         var indexDescriptor = new HashIndexDescriptor(indexMeta.id(), tableView, tablesConfiguration.value());
 

@@ -63,6 +63,6 @@ public class TestHashIndexStorageTest extends AbstractHashIndexStorageTest {
             })
             TablesConfiguration tablesConfig
     ) {
-        initialize(new TestConcurrentHashMapMvTableStorage(tableCfg.value(), tablesConfig), tablesConfig);
+        initialize(new TestConcurrentHashMapMvTableStorage(tableCfg, tablesConfig), tablesConfig);
     }
 }

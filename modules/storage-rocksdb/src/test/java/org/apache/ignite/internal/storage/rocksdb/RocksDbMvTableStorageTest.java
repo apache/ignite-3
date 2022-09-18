@@ -74,7 +74,7 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
                     UnlimitedBudgetConfigurationSchema.class
             }
     )
-    private TableConfiguration tableCfg;
+    private TableConfiguration tableCfg0;
 
     @WorkDirectory
     private Path workDir;
@@ -82,12 +82,17 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
     private ConfigurationRegistry confRegistry;
 
     @Override
+    protected void setUp() {
+        super.tableConfig = tableCfg0;
+    }
+
+    @Override
     protected MvTableStorage tableStorage(TableIndexView sortedIdx, TableIndexView hashIdx, TablesConfiguration tablesCfg) {
         engine = new RocksDbStorageEngine(rocksDbEngineConfig, workDir);
 
         engine.start();
 
-        MvTableStorage storage = engine.createMvTable(tableCfg.value(), tablesCfg);
+        MvTableStorage storage = engine.createMvTable(tableConfig, tablesCfg);
 
         assertThat(storage, is(instanceOf(RocksDbTableStorage.class)));
 
@@ -145,7 +150,7 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
 
         tableStorage.stop();
 
-        tableStorage = engine.createMvTable(tableCfg.value(), null);
+        tableStorage = engine.createMvTable(tableConfig, null);
 
         tableStorage.start();
 

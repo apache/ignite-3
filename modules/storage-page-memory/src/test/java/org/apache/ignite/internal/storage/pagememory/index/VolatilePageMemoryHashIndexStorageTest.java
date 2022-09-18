@@ -91,7 +91,7 @@ class VolatilePageMemoryHashIndexStorageTest extends AbstractHashIndexStorageTes
 
         engine.start();
 
-        table = engine.createMvTable(tableCfg.value(), tablesConfig);
+        table = engine.createMvTable(tableCfg, tablesConfig);
 
         table.start();
 

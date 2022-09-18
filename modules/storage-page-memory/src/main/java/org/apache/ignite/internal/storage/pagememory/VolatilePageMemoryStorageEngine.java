@@ -25,6 +25,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
+import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.pagememory.PageMemory;
@@ -92,13 +93,15 @@ public class VolatilePageMemoryStorageEngine implements StorageEngine {
 
     /** {@inheritDoc} */
     @Override
-    public VolatilePageMemoryTableStorage createMvTable(TableView tableView, TablesConfiguration tablesCfg)
+    public VolatilePageMemoryTableStorage createMvTable(TableConfiguration tableCfg, TablesConfiguration tablesCfg)
             throws StorageException {
+        TableView tableView = tableCfg.value();
+
         assert tableView.dataStorage().name().equals(ENGINE_NAME) : tableView.dataStorage().name();
 
         VolatilePageMemoryDataStorageView dataStorageView = (VolatilePageMemoryDataStorageView) tableView.dataStorage();
 
-        return new VolatilePageMemoryTableStorage(tableView, tablesCfg, regions.get(dataStorageView.dataRegion()));
+        return new VolatilePageMemoryTableStorage(tableCfg, tablesCfg, regions.get(dataStorageView.dataRegion()));
     }
 
     /**

@@ -32,6 +32,7 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.schema.configuration.schema.TestDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.index.AbstractHashIndexStorageTest;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryTableStorage;
@@ -71,16 +72,22 @@ class PersistentPageMemoryHashIndexStorageTest extends AbstractHashIndexStorageT
     )
     private TableConfiguration tableCfg;
 
-    @InjectConfiguration(polymorphicExtensions = {
-            HashIndexConfigurationSchema.class,
-            SortedIndexConfigurationSchema.class,
-            UnknownDataStorageConfigurationSchema.class,
-            ConstantValueDefaultConfigurationSchema.class,
-            FunctionCallDefaultConfigurationSchema.class,
-            NullValueDefaultConfigurationSchema.class,
-            UnlimitedBudgetConfigurationSchema.class,
-            EntryCountBudgetConfigurationSchema.class
-    })
+    @InjectConfiguration(
+            name = "tables",
+            polymorphicExtensions = {
+                    HashIndexConfigurationSchema.class,
+                    PersistentPageMemoryDataStorageConfigurationSchema.class,
+                    HashIndexConfigurationSchema.class,
+                    SortedIndexConfigurationSchema.class,
+                    UnknownDataStorageConfigurationSchema.class,
+                    TestDataStorageConfigurationSchema.class,
+                    ConstantValueDefaultConfigurationSchema.class,
+                    FunctionCallDefaultConfigurationSchema.class,
+                    NullValueDefaultConfigurationSchema.class,
+                    UnlimitedBudgetConfigurationSchema.class,
+                    EntryCountBudgetConfigurationSchema.class
+            }
+    )
     TablesConfiguration tablesConfig;
 
     private PersistentPageMemoryStorageEngine engine;
@@ -97,7 +104,7 @@ class PersistentPageMemoryHashIndexStorageTest extends AbstractHashIndexStorageT
 
         engine.start();
 
-        table = engine.createMvTable(tableCfg.value(), tablesConfig);
+        table = engine.createMvTable(tableCfg, tablesConfig);
 
         table.start();
 

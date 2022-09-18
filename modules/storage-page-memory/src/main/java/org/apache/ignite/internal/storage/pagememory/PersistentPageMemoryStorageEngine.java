@@ -27,6 +27,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
+import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
@@ -186,13 +187,15 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
 
     /** {@inheritDoc} */
     @Override
-    public PersistentPageMemoryTableStorage createMvTable(TableView tableView, TablesConfiguration tablesCfg)
+    public PersistentPageMemoryTableStorage createMvTable(TableConfiguration tableCfg, TablesConfiguration tablesCfg)
             throws StorageException {
-        assert tableView.dataStorage().name().equals(ENGINE_NAME) : tableView.dataStorage().name();
+        TableView tableView = tableCfg.value();
+
+        assert tableView.dataStorage().name().equals(ENGINE_NAME) : tableCfg.dataStorage().name();
 
         PersistentPageMemoryDataStorageView dataStorageView = (PersistentPageMemoryDataStorageView) tableView.dataStorage();
 
-        return new PersistentPageMemoryTableStorage(this, tableView, regions.get(dataStorageView.dataRegion()), tablesCfg);
+        return new PersistentPageMemoryTableStorage(this, tableCfg, regions.get(dataStorageView.dataRegion()), tablesCfg);
     }
 
     /**

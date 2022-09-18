@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.util.IgniteObjectName.parseCanonicalNam
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -44,10 +45,12 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.manager.Producer;
 import org.apache.ignite.internal.table.distributed.TableManager;
+import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.lang.ErrorGroups.Common;
+import org.apache.ignite.lang.ErrorGroups.Table;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IndexAlreadyExistsException;
 import org.apache.ignite.lang.IndexNotFoundException;
@@ -91,7 +94,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
     public void start() {
         LOG.debug("Index manager is about to start");
 
-        tablesCfg.indexes().any().listen(new ConfigurationListener());
+        tablesCfg.indexes().listenElements(new ConfigurationListener());
 
         LOG.info("Index manager started");
     }
@@ -164,6 +167,12 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                     }
 
                     indexListChange.create(canonicalIndexName, chg);
+
+                    TableIndexView indexView = indexListChange.get(canonicalIndexName);
+
+                    Set<String> columnNames = Set.copyOf(table.schemaView().schema().columnNames());
+
+                    validateColumns(indexView, columnNames);
                 }).whenComplete((index, th) -> {
                     if (th != null) {
                         LOG.info("Unable to create index [schema={}, table={}, index={}]",
@@ -290,6 +299,36 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                     ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
                     "Index name should be at least 1 character long"
             );
+        }
+    }
+
+    private void validateColumns(TableIndexView indexView, Set<String> tableColumns) {
+        if (indexView instanceof SortedIndexView) {
+            var sortedIndexView = (SortedIndexView) indexView;
+
+            validateColumns(sortedIndexView.columns().namedListKeys(), tableColumns);
+        } else if (indexView instanceof HashIndexView) {
+            validateColumns(Arrays.asList(((HashIndexView) indexView).columnNames()), tableColumns);
+        } else {
+            throw new AssertionError("Unknown index type [type=" + (indexView != null ? indexView.getClass() : null) + ']');
+        }
+    }
+
+    private void validateColumns(Iterable<String> indexedColumns, Set<String> tableColumns) {
+        if (CollectionUtils.nullOrEmpty(indexedColumns)) {
+            throw new IgniteInternalException(
+                    ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
+                    "At least one column should be specified by index definition"
+            );
+        }
+
+        for (var columnName : indexedColumns) {
+            if (!tableColumns.contains(columnName)) {
+                throw new IgniteInternalException(
+                        Table.COLUMN_NOT_FOUND_ERR,
+                        "Column not found [name=" + columnName + ']'
+                );
+            }
         }
     }
 

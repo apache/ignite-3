@@ -47,10 +47,15 @@ public class ConcurrentHashMapMvTableStorageTest extends AbstractMvTableStorageT
             },
             value = "mock.dataStorage.name = " + TestConcurrentHashMapStorageEngine.ENGINE_NAME
     )
-    private TableConfiguration tableConfig;
+    private TableConfiguration tableConfig0;
+
+    @Override
+    protected void setUp() {
+        super.tableConfig = tableConfig0;
+    }
 
     @Override
     protected MvTableStorage tableStorage(TableIndexView sortedIdx, TableIndexView hashIdx, TablesConfiguration tablesCfg) {
-        return new TestConcurrentHashMapMvTableStorage(tableConfig.value(), tablesCfg);
+        return new TestConcurrentHashMapMvTableStorage(tableConfig, tablesCfg);
     }
 }

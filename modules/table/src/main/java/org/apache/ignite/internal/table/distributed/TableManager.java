@@ -837,7 +837,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         TableConfiguration tableCfg = tablesCfg.tables().get(name);
 
-        MvTableStorage tableStorage = dataStorageMgr.engine(tableCfg.dataStorage()).createMvTable(tableCfg.value(), tablesCfg);
+        MvTableStorage tableStorage = dataStorageMgr.engine(tableCfg.dataStorage()).createMvTable(tableCfg, tablesCfg);
 
         tableStorage.start();
 

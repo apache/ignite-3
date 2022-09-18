@@ -41,6 +41,7 @@ import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigur
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableIndexView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
@@ -80,7 +81,11 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
     protected TableIndexView hashIdx;
 
+    protected TableConfiguration tableConfig;
+
     protected abstract MvTableStorage tableStorage(TableIndexView sortedIdx, TableIndexView hashIdx, TablesConfiguration tablesCfg);
+
+    protected abstract void setUp();
 
     /** Configuration registry with one table for each test. */
     private ConfigurationRegistry confRegistry;
@@ -96,11 +101,13 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         sortedIdx = tablesCfg.indexes().get(SORTED_INDEX_NAME).value();
         hashIdx = tablesCfg.indexes().get(HASH_INDEX_NAME).value();
 
+        setUp();
+
+        createTestTable();
+
         tableStorage = tableStorage(sortedIdx, hashIdx, tablesCfg);
 
         tableStorage.start();
-
-        createTestTable();
     }
 
     @AfterEach
@@ -336,6 +343,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 )
                 .withPrimaryKey("ID")
                 .build();
+
+        tableConfig.change(tblChg -> SchemaConfigurationConverter.convert(tableDefinition, tblChg));
 
         CompletableFuture<Void> createTableFuture = confRegistry.getConfiguration(TablesConfiguration.KEY).tables()
                 .change(chg -> chg.create(tableDefinition.canonicalName(),

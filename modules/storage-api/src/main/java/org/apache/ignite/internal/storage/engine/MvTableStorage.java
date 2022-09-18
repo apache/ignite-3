@@ -19,7 +19,7 @@ package org.apache.ignite.internal.storage.engine;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.configuration.schemas.table.TableView;
+import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
@@ -103,7 +103,7 @@ public interface MvTableStorage {
     /**
      * Returns the table configuration view.
      */
-    TableView configuration();
+    TableConfiguration configuration();
 
     /**
      * Starts the storage.

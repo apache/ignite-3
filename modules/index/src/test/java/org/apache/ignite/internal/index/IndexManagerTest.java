@@ -272,7 +272,7 @@ public class IndexManagerTest {
     }
 
     @Test
-    public void createIndexForNonExistingColumn() {
+    public void IndexValidatorImplcreateIndexForNonExistingColumn() {
         var tableManagerMock = mock(TableManager.class);
         var canonicalName = parseCanonicalName(canonicalName("sName", "tName"));
         var tableMock = mock(TableImpl.class);

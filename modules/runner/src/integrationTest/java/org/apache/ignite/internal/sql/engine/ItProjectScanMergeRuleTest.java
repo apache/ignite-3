@@ -63,9 +63,6 @@ public class ItProjectScanMergeRuleTest extends AbstractBasicIntegrationTest {
                         .changePartitions(10)
         );
 
-        SortedIndexDefinition idx = SchemaBuilders.sortedIndex(IDX_CAT_ID)
-                .addIndexColumn("CAT_ID").done().build();
-
         insertData(tbl, new String[]{"ID", "CATEGORY", "CAT_ID", "SUBCATEGORY", "SUBCAT_ID", "NAME"}, new Object[][]{
                 {1, "prod1", 1, "cat1", 11, "noname1"},
                 {2, "prod2", 2, "cat1", 11, "noname2"},

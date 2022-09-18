@@ -31,9 +31,9 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableIndexConfiguration;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
-import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
@@ -67,7 +67,7 @@ public abstract class AbstractHashIndexStorageTest {
     protected void initialize(MvTableStorage tableStorage, TablesConfiguration tablesCfg) {
         this.tableStorage = tableStorage;
 
-        createTestTable(tablesCfg);
+        createTestTable(tableStorage.configuration());
 
         this.partitionStorage = tableStorage.getOrCreateMvPartition(TEST_PARTITION);
         this.indexStorage = createIndex(tableStorage, tablesCfg);
@@ -77,7 +77,7 @@ public abstract class AbstractHashIndexStorageTest {
     /**
      * Configures a test table with some indexed columns.
      */
-    private static void createTestTable(TablesConfiguration tablesCfg) {
+    private static void createTestTable(TableConfiguration tableCfg) {
         ColumnDefinition pkColumn = column("pk", ColumnType.INT32).asNullable(false).build();
 
         ColumnDefinition[] allColumns = {
@@ -86,14 +86,12 @@ public abstract class AbstractHashIndexStorageTest {
                 column(STR_COLUMN_NAME, ColumnType.string()).asNullable(true).build()
         };
 
-        TableDefinition tableDefinition = tableBuilder("test", "foo")
+        TableDefinition tableDefinition = tableBuilder("schema", "table")
                 .columns(allColumns)
                 .withPrimaryKey(pkColumn.name())
                 .build();
 
-        CompletableFuture<Void> createTableFuture = tablesCfg.tables()
-                .change(chg -> chg.create(tableDefinition.canonicalName(),
-                        tblChg -> SchemaConfigurationConverter.convert(tableDefinition, tblChg)));
+        CompletableFuture<Void> createTableFuture = tableCfg.change(cfg -> convert(tableDefinition, cfg));
 
         assertThat(createTableFuture, willCompleteSuccessfully());
     }

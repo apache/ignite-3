@@ -20,6 +20,7 @@ package org.apache.ignite.internal.storage.pagememory;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 
 import java.util.concurrent.atomic.AtomicLong;
+import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
@@ -38,15 +39,15 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
     /**
      * Constructor.
      *
-     * @param tableView – Table configuration.
+     * @param tableCfg – Table configuration.
      * @param dataRegion – Data region for the table.
      */
     public VolatilePageMemoryTableStorage(
-            TableView tableView,
+            TableConfiguration tableCfg,
             TablesConfiguration tablesCfg,
             VolatilePageMemoryDataRegion dataRegion
     ) {
-        super(tableView, tablesCfg);
+        super(tableCfg, tablesCfg);
 
         this.dataRegion = dataRegion;
     }
@@ -59,9 +60,9 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
     /** {@inheritDoc} */
     @Override
     public VolatilePageMemoryMvPartitionStorage createMvPartitionStorage(int partitionId) throws StorageException {
-        VersionChainTree versionChainTree = createVersionChainTree(partitionId, tableView);
+        VersionChainTree versionChainTree = createVersionChainTree(partitionId, tableCfg.value());
 
-        IndexMetaTree indexMetaTree = createIndexMetaTree(partitionId, tableView);
+        IndexMetaTree indexMetaTree = createIndexMetaTree(partitionId, tableCfg.value());
 
         return new VolatilePageMemoryMvPartitionStorage(
                 this,

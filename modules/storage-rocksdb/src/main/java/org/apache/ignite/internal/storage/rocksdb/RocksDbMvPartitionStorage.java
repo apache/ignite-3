@@ -33,7 +33,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiConsumer;
 import java.util.function.Predicate;
-import org.apache.ignite.configuration.schemas.table.TableView;
+import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
@@ -774,9 +774,9 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
             db.write(writeOpts, writeBatch);
         } catch (RocksDBException e) {
-            TableView tableCfgView = tableStorage.configuration();
+            TableConfiguration tableCfg = tableStorage.configuration();
 
-            throw new StorageException("Failed to destroy partition " + partitionId + " of table " + tableCfgView.name(), e);
+            throw new StorageException("Failed to destroy partition " + partitionId + " of table " + tableCfg.name(), e);
         }
     }
 

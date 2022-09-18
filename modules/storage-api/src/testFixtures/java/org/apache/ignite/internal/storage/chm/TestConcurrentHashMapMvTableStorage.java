@@ -21,7 +21,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import org.apache.ignite.configuration.schemas.table.TableView;
+import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
@@ -38,7 +38,7 @@ import org.jetbrains.annotations.Nullable;
  * Test table storage implementation.
  */
 public class TestConcurrentHashMapMvTableStorage implements MvTableStorage {
-    private final TableView tableView;
+    private final TableConfiguration tableCfg;
 
     private final Map<Integer, MvPartitionStorage> partitions = new ConcurrentHashMap<>();
 
@@ -83,8 +83,8 @@ public class TestConcurrentHashMapMvTableStorage implements MvTableStorage {
     }
 
     /** Costructor. */
-    public TestConcurrentHashMapMvTableStorage(TableView tableView, TablesConfiguration tablesCfg) {
-        this.tableView = tableView;
+    public TestConcurrentHashMapMvTableStorage(TableConfiguration tableCfg, TablesConfiguration tablesCfg) {
+        this.tableCfg = tableCfg;
         this.tablesCfg = tablesCfg;
     }
 
@@ -119,7 +119,7 @@ public class TestConcurrentHashMapMvTableStorage implements MvTableStorage {
 
         SortedIndices sortedIndices = sortedIndicesById.computeIfAbsent(
                 indexId,
-                id -> new SortedIndices(new SortedIndexDescriptor(id, tableView, tablesCfg.value()))
+                id -> new SortedIndices(new SortedIndexDescriptor(id, tableCfg.value(), tablesCfg.value()))
         );
 
         return sortedIndices.getOrCreateStorage(partitionId);
@@ -133,7 +133,7 @@ public class TestConcurrentHashMapMvTableStorage implements MvTableStorage {
 
         HashIndices sortedIndices = hashIndicesById.computeIfAbsent(
                 indexId,
-                id -> new HashIndices(new HashIndexDescriptor(id, tableView, tablesCfg.value()))
+                id -> new HashIndices(new HashIndexDescriptor(id, tableCfg.value(), tablesCfg.value()))
         );
 
         return sortedIndices.getOrCreateStorage(partitionId);
@@ -158,8 +158,8 @@ public class TestConcurrentHashMapMvTableStorage implements MvTableStorage {
     }
 
     @Override
-    public TableView configuration() {
-        return tableView;
+    public TableConfiguration configuration() {
+        return tableCfg;
     }
 
     @Override

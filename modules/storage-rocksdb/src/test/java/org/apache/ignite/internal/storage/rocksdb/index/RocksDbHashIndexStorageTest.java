@@ -82,7 +82,7 @@ public class RocksDbHashIndexStorageTest extends AbstractHashIndexStorageTest {
 
         engine.start();
 
-        tableStorage = engine.createMvTable(tableCfg.value(), tablesConfig);
+        tableStorage = engine.createMvTable(tableCfg, tablesConfig);
 
         tableStorage.start();
 

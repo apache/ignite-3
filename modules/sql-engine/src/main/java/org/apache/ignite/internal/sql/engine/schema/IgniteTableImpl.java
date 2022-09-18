@@ -492,7 +492,7 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
         @Override
         public Double getRowCount() {
             if (statReqCnt.getAndIncrement() % STATS_CLI_UPDATE_THRESHOLD == 0) {
-                int parts = table.storage().configuration().partitions();
+                int parts = table.storage().configuration().partitions().value();
 
                 long size = 0L;
 
