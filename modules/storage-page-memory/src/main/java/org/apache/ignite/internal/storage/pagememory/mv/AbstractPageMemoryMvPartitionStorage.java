@@ -136,12 +136,12 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         try {
             IgniteCursor<IndexMeta> cursor = indexMetaTree.find(null, null);
 
-            NamedListView<TableIndexView> indicesCfgView = tablesConfiguration.indexes().value();
+            NamedListView<TableIndexView> indexesCfgView = tablesConfiguration.indexes().value();
 
             while (cursor.next()) {
                 IndexMeta indexMeta = cursor.get();
 
-                TableIndexView indexCfgView = getByInternalId(indicesCfgView, indexMeta.id());
+                TableIndexView indexCfgView = getByInternalId(indexesCfgView, indexMeta.id());
 
                 if (indexCfgView instanceof HashIndexView) {
                     createOrRestoreHashIndex(indexMeta);

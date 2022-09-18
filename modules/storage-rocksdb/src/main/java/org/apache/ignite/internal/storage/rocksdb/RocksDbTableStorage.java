@@ -108,7 +108,7 @@ public class RocksDbTableStorage implements MvTableStorage {
     private volatile AtomicReferenceArray<RocksDbMvPartitionStorage> partitions;
 
     /** Hash Index storages by Index IDs. */
-    private final ConcurrentMap<UUID, HashIndices> hashIndices = new ConcurrentHashMap<>();
+    private final ConcurrentMap<UUID, HashIndexes> hashIndices = new ConcurrentHashMap<>();
 
     /** Busy lock to stop synchronously. */
     final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -390,10 +390,10 @@ public class RocksDbTableStorage implements MvTableStorage {
 
     @Override
     public HashIndexStorage getOrCreateHashIndex(int partitionId, UUID indexId) {
-        HashIndices storages = hashIndices.computeIfAbsent(indexId, id -> {
+        HashIndexes storages = hashIndices.computeIfAbsent(indexId, id -> {
             var indexDescriptor = new HashIndexDescriptor(id, tableCfg.value(), tablesCfg.value());
 
-            return new HashIndices(indexDescriptor);
+            return new HashIndexes(indexDescriptor);
         });
 
         RocksDbMvPartitionStorage partitionStorage = getMvPartition(partitionId);
@@ -408,7 +408,7 @@ public class RocksDbTableStorage implements MvTableStorage {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> destroyIndex(UUID indexId) {
-        HashIndices storages = hashIndices.remove(indexId);
+        HashIndexes storages = hashIndices.remove(indexId);
 
         if (storages == null) {
             return CompletableFuture.completedFuture(null);

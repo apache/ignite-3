@@ -53,7 +53,7 @@ public class SchemaValidationUtils {
      * @param cols Table columns.
      * @param colocationColNames Colocation columns names.
      */
-    public static void validateIndices(
+    public static void validateIndexes(
             IndexDefinition index,
             Collection<ColumnDefinition> cols,
             List<String> colocationColNames) {

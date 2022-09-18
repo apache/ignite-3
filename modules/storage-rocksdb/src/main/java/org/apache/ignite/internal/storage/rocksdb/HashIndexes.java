@@ -24,12 +24,12 @@ import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.rocksdb.index.RocksDbHashIndexStorage;
 
-class HashIndices {
+class HashIndexes {
     private final HashIndexDescriptor descriptor;
 
     private final ConcurrentMap<Integer, HashIndexStorage> storages = new ConcurrentHashMap<>();
 
-    HashIndices(HashIndexDescriptor descriptor) {
+    HashIndexes(HashIndexDescriptor descriptor) {
         this.descriptor = descriptor;
     }
 

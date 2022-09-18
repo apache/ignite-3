@@ -70,7 +70,7 @@ public class IndexValidatorImpl implements Validator<IndexValidator, NamedListVi
             List<String> tableColocationColumns = tbl.colocationColumns();
 
             try {
-                SchemaValidationUtils.validateIndices(index, tableColumns, tableColocationColumns);
+                SchemaValidationUtils.validateIndexes(index, tableColumns, tableColocationColumns);
             } catch (IllegalStateException e) {
                 ctx.addIssue(new ValidationIssue(key, e.getMessage()));
             }
