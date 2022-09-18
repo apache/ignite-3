@@ -137,6 +137,8 @@ public class RocksDbStorageEngine implements StorageEngine {
     public void stop() throws StorageException {
         IgniteUtils.shutdownAndAwaitTermination(threadPool, 10, TimeUnit.SECONDS);
 
+        IgniteUtils.shutdownAndAwaitTermination(scheduledPool, 10, TimeUnit.SECONDS);
+
         try {
             IgniteUtils.closeAll(regions.values().stream().map(region -> region::stop));
         } catch (Exception e) {
