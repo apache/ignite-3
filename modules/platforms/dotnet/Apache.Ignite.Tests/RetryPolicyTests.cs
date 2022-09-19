@@ -54,7 +54,7 @@ namespace Apache.Ignite.Tests
             using var server = new FakeServer(reqId => reqId % 2 == 0);
             using var client = await server.ConnectClientAsync(cfg);
 
-            var ex = Assert.ThrowsAsync<IgniteClientException>(async () => await client.Tables.GetTableAsync("bad-table"));
+            var ex = Assert.ThrowsAsync<IgniteException>(async () => await client.Tables.GetTableAsync("bad-table"));
             StringAssert.Contains(FakeServer.Err, ex!.Message);
         }
 
@@ -69,7 +69,7 @@ namespace Apache.Ignite.Tests
 
             var tx = await client.Transactions.BeginAsync();
 
-            Assert.ThrowsAsync<IgniteClientException>(async () => await tx.CommitAsync());
+            Assert.ThrowsAsync<IgniteClientConnectionException>(async () => await tx.CommitAsync());
             Assert.IsEmpty(testRetryPolicy.Invocations);
         }
 
@@ -86,7 +86,7 @@ namespace Apache.Ignite.Tests
 
             await client.Tables.GetTablesAsync();
 
-            var ex = Assert.ThrowsAsync<IgniteClientException>(async () => await client.Tables.GetTablesAsync());
+            var ex = Assert.ThrowsAsync<IgniteClientConnectionException>(async () => await client.Tables.GetTablesAsync());
             Assert.AreEqual("Operation failed after 5 retries, examine InnerException for details.", ex!.Message);
         }
 
@@ -98,7 +98,7 @@ namespace Apache.Ignite.Tests
 
             await client.Tables.GetTablesAsync();
 
-            var ex = Assert.ThrowsAsync<IgniteClientException>(async () => await client.Tables.GetTablesAsync());
+            var ex = Assert.ThrowsAsync<IgniteClientConnectionException>(async () => await client.Tables.GetTablesAsync());
             Assert.AreEqual("Operation failed after 16 retries, examine InnerException for details.", ex!.Message);
         }
 
@@ -130,7 +130,7 @@ namespace Apache.Ignite.Tests
 
             await client.Tables.GetTablesAsync();
 
-            Assert.ThrowsAsync<IgniteClientException>(async () => await client.Tables.GetTablesAsync());
+            Assert.ThrowsAsync<IgniteClientConnectionException>(async () => await client.Tables.GetTablesAsync());
         }
 
         [Test]
@@ -146,7 +146,7 @@ namespace Apache.Ignite.Tests
 
             await client.Tables.GetTablesAsync();
 
-            Assert.ThrowsAsync<IgniteClientException>(async () => await client.Tables.GetTablesAsync());
+            Assert.ThrowsAsync<IgniteClientConnectionException>(async () => await client.Tables.GetTablesAsync());
         }
 
         [Test]
@@ -210,7 +210,7 @@ namespace Apache.Ignite.Tests
 
             var table = await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
 
-            var ex = Assert.ThrowsAsync<IgniteClientException>(async () => await table!.RecordBinaryView.UpsertAsync(tx, new IgniteTuple()));
+            var ex = Assert.ThrowsAsync<IgniteClientConnectionException>(async () => await table!.RecordBinaryView.UpsertAsync(tx, new IgniteTuple()));
             StringAssert.StartsWith("Socket is closed due to an error", ex!.Message);
         }
 
@@ -244,7 +244,7 @@ namespace Apache.Ignite.Tests
             using var client = await server.ConnectClientAsync(cfg);
 
             var table = await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
-            Assert.ThrowsAsync<IgniteClientException>(async () => await table!.RecordBinaryView.UpsertAsync(null, new IgniteTuple()));
+            Assert.ThrowsAsync<IgniteClientConnectionException>(async () => await table!.RecordBinaryView.UpsertAsync(null, new IgniteTuple()));
         }
 
         private class TestRetryPolicy : RetryLimitPolicy

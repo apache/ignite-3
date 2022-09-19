@@ -44,12 +44,6 @@ public interface SortedIndexStorage {
     /** Include upper bound. */
     int LESS_OR_EQUAL = 1 << 1;
 
-    /** Forward scan. */
-    int FORWARD = 0;
-
-    /** Backwards scan. */
-    int BACKWARDS = 1 << 2;
-
     /**
      * Returns the Index Descriptor of this storage.
      */
@@ -74,8 +68,8 @@ public interface SortedIndexStorage {
      *      {@code null} means unbounded.
      * @param upperBound Upper bound. Exclusivity is controlled by a {@link #LESS} or {@link #LESS_OR_EQUAL} flag.
      *      {@code null} means unbounded.
-     * @param flags Control flags. {@link #GREATER} | {@link #LESS} | {@link #FORWARD} by default. Other available values
-     *      are {@link #GREATER_OR_EQUAL}, {@link #LESS_OR_EQUAL} and {@link #BACKWARDS}.
+     * @param flags Control flags. {@link #GREATER} | {@link #LESS} by default. Other available values
+     *      are {@link #GREATER_OR_EQUAL}, {@link #LESS_OR_EQUAL}.
      * @return Cursor with fetched index rows.
      * @throws IllegalArgumentException If backwards flag is passed and backwards iteration is not supported by the storage.
      */

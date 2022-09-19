@@ -17,17 +17,13 @@
 
 package org.apache.ignite.internal.storage.index;
 
-import java.util.UUID;
-import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.EntryCountBudgetConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
-import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapMvTableStorage;
 import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapStorageEngine;
 import org.apache.ignite.internal.storage.chm.schema.TestConcurrentHashMapDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
@@ -44,20 +40,12 @@ public class TestSortedIndexStorageTest extends AbstractSortedIndexStorageTest {
             polymorphicExtensions = {
                     SortedIndexConfigurationSchema.class,
                     TestConcurrentHashMapDataStorageConfigurationSchema.class,
-                    ConstantValueDefaultConfigurationSchema.class,
-                    FunctionCallDefaultConfigurationSchema.class,
                     NullValueDefaultConfigurationSchema.class,
-                    UnlimitedBudgetConfigurationSchema.class,
-                    EntryCountBudgetConfigurationSchema.class
+                    UnlimitedBudgetConfigurationSchema.class
             },
             // This value only required for configuration validity, it's not used otherwise.
             value = "mock.dataStorage.name = " + TestConcurrentHashMapStorageEngine.ENGINE_NAME
     ) TableConfiguration tableCfg) {
-        initialize(tableCfg);
-    }
-
-    @Override
-    protected SortedIndexStorage createIndexStorage(UUID indexId, TableView tableCfg) {
-        return new TestSortedIndexStorage(new SortedIndexDescriptor(indexId, tableCfg));
+        initialize(new TestConcurrentHashMapMvTableStorage(tableCfg));
     }
 }

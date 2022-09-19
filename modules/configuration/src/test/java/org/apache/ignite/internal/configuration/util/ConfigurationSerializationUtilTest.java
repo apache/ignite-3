@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.io.Serializable;
 import java.lang.reflect.Array;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 class ConfigurationSerializationUtilTest {
@@ -46,6 +47,8 @@ class ConfigurationSerializationUtilTest {
         assertSingleValue(0.3d);
 
         assertSingleValue("foo");
+
+        assertSingleValue(UUID.randomUUID());
     }
 
     @Test
@@ -67,6 +70,8 @@ class ConfigurationSerializationUtilTest {
         assertArray(new double[]{0.1d, -0.1d});
 
         assertArray(new String[]{"foo", "bar"});
+
+        assertArray(new UUID[]{UUID.randomUUID(), UUID.randomUUID()});
     }
 
     private void assertSingleValue(Object value) {

@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.jo
 
 import com.typesafe.config.ConfigValue;
 import java.util.List;
+import java.util.UUID;
 import org.apache.ignite.internal.configuration.TypeUtils;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
@@ -163,6 +164,12 @@ class HoconPrimitiveConfigurationSource implements ConfigurationSource {
             } else if (clazz == Double.class) {
                 return clazz.cast(numberValue.doubleValue());
             }
+        } else if (clazz == UUID.class) {
+            if (hoconCfgValue.valueType() != STRING) {
+                throw wrongTypeException(clazz, path, idx);
+            }
+
+            return clazz.cast(UUID.fromString(hoconCfgValue.unwrapped().toString()));
         }
 
         throw new IllegalArgumentException("Unsupported type: " + clazz);

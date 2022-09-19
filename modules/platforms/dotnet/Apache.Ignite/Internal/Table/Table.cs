@@ -182,7 +182,7 @@ namespace Apache.Ignite.Internal.Table
 
                 if (schemaCount == 0)
                 {
-                    throw new IgniteClientException("Schema not found: " + version);
+                    throw new IgniteClientException(ErrorGroups.Client.Protocol, "Schema not found: " + version);
                 }
 
                 Schema last = null!;

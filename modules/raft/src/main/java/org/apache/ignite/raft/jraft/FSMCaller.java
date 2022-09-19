@@ -47,6 +47,11 @@ public interface FSMCaller extends Lifecycle<FSMCallerOptions>, Describer {
     void addLastAppliedLogIndexListener(final LastAppliedLogIndexListener listener);
 
     /**
+     * Removes a LastAppliedLogIndexListener.
+     */
+    void removeLastAppliedLogIndexListener(final LastAppliedLogIndexListener listener);
+
+    /**
      * Called when log entry committed
      *
      * @param committedIndex committed log index

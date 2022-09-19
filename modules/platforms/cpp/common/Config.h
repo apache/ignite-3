@@ -15,12 +15,37 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.raft.server;
+#pragma once
 
-import org.apache.ignite.raft.client.ReadCommand;
+#ifndef __has_include
+# define __has_include(x) 0
+#endif
 
-/**
- * Get a value command.
- */
-public class GetValueCommand implements ReadCommand {
-}
+#if __has_include(<version>)
+# include <version>
+#endif
+
+#ifndef __has_attribute
+# define __has_attribute(x) 0
+#endif
+
+#if defined(_WIN32)
+# define IGNITE_CALL __stdcall
+# define IGNITE_EXPORT __declspec(dllexport)
+# define IGNITE_IMPORT __declspec(dllimport)
+#else
+# define IGNITE_CALL
+# if __has_attribute(visibility) || (defined(__GNUC__) && ((__GNUC__ > 4) || (__GNUC__ == 4) && (__GNUC_MINOR__ > 2)))
+#  define IGNITE_EXPORT __attribute__((visibility("default")))
+#  define IGNITE_IMPORT __attribute__((visibility("default")))
+# else
+#  define IGNITE_EXPORT
+#  define IGNITE_IMPORT
+# endif
+#endif
+
+#ifdef IGNITE_IMPL
+# define IGNITE_API IGNITE_EXPORT
+#else
+# define IGNITE_API IGNITE_IMPORT
+#endif
