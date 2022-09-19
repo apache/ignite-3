@@ -26,8 +26,8 @@ include_directories(include src ${GTEST_INCLUDE_DIR})
 enable_testing()
 
 set(SOURCES
-	src/ignite_client_test.cpp
-	src/main.cpp
+    src/ignite_client_test.cpp
+    src/main.cpp
 )
 
 add_executable(${TARGET} ${SOURCES})
