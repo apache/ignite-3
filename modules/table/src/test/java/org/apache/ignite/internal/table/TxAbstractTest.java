@@ -1055,7 +1055,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
         CountDownLatch l = new CountDownLatch(1);
 
-        pub.subscribe(new Flow.Subscriber<BinaryRow>() {
+        pub.subscribe(new Flow.Subscriber<>() {
             @Override
             public void onSubscribe(Flow.Subscription subscription) {
                 subscription.request(3);

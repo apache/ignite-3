@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table.distributed.storage;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_COMMIT_ERR;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
@@ -54,6 +55,7 @@ import org.apache.ignite.internal.table.distributed.replicator.action.RequestTyp
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.Function3;
 import org.apache.ignite.lang.Function4;
 import org.apache.ignite.lang.IgniteBiTuple;
@@ -64,6 +66,7 @@ import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.tx.TransactionException;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -298,24 +301,20 @@ public class InternalTableImpl implements InternalTable {
      * @return Batch of retrieved rows.
      */
     private CompletableFuture<Collection<BinaryRow>> enlistCursorInTx(
-            InternalTransaction tx,
+            @NotNull InternalTransaction tx,
             int partId,
             long scanId,
             int batchSize
     ) {
-        final boolean implicit = tx == null;
-
-        final InternalTransaction tx0 = implicit ? txManager.begin() : tx;
-
         String partGroupId = partitionMap.get(partId).groupId();
 
-        IgniteBiTuple<ClusterNode, Long> primaryReplicaAndTerm = tx0.enlistedNodeAndTerm(partGroupId);
+        IgniteBiTuple<ClusterNode, Long> primaryReplicaAndTerm = tx.enlistedNodeAndTerm(partGroupId);
 
         CompletableFuture<Collection<BinaryRow>> fut;
 
         ReadWriteScanRetrieveBatchReplicaRequestBuilder requestBuilder = tableMessagesFactory.readWriteScanRetrieveBatchReplicaRequest()
                 .groupId(partGroupId)
-                .transactionId(tx0.id())
+                .transactionId(tx.id())
                 .scanId(scanId)
                 .batchSize(batchSize)
                 .timestamp(clock.now());
@@ -331,10 +330,10 @@ public class InternalTableImpl implements InternalTable {
                 throw new TransactionException("Failed to invoke the replica request.");
             }
         } else {
-            fut = enlistWithRetry(tx0, partId, term -> requestBuilder.term(term).build(), ATTEMPTS_TO_ENLIST_PARTITION);
+            fut = enlistWithRetry(tx, partId, term -> requestBuilder.term(term).build(), ATTEMPTS_TO_ENLIST_PARTITION);
         }
 
-        return postEnlist(fut, implicit, tx0);
+        return postEnlist(fut, false, tx);
     }
 
     /**
@@ -696,7 +695,22 @@ public class InternalTableImpl implements InternalTable {
             );
         }
 
-        return new PartitionScanPublisher((scanId, batchSize) -> enlistCursorInTx(tx, p, scanId, batchSize));
+        final boolean implicit = tx == null;
+
+        final InternalTransaction tx0 = implicit ? txManager.begin() : tx;
+
+        return new PartitionScanPublisher(
+                (scanId, batchSize) -> enlistCursorInTx(tx0, p, scanId, batchSize),
+                () -> {
+                    if (implicit) {
+                        try {
+                            tx0.commitAsync().get();
+                        } catch (Exception e) {
+                            ExceptionUtils.withCause(TransactionException::new, TX_COMMIT_ERR, e);
+                        }
+                    }
+                }
+        );
     }
 
     /**
@@ -862,6 +876,9 @@ public class InternalTableImpl implements InternalTable {
         /** The closure enlists a partition, that is scanned, to the transaction context and retrieves a batch rows. */
         private final BiFunction<Long, Integer, CompletableFuture<Collection<BinaryRow>>> retrieveBatch;
 
+        /** The closure will be invoked before the cursor closed. */
+        Runnable whenClose;
+
         /** True when the publisher has a subscriber, false otherwise. */
         private AtomicBoolean subscribed;
 
@@ -869,9 +886,14 @@ public class InternalTableImpl implements InternalTable {
          * The constructor.
          *
          * @param retrieveBatch Closure that gets a new batch from the remote replica.
+         * @param whenClose The closure will be applied when {@link Subscription#cancel} is invoked directly or the cursor is finished.
          */
-        PartitionScanPublisher(BiFunction<Long, Integer, CompletableFuture<Collection<BinaryRow>>> retrieveBatch) {
+        PartitionScanPublisher(
+                BiFunction<Long, Integer, CompletableFuture<Collection<BinaryRow>>> retrieveBatch,
+                Runnable whenClose
+        ) {
             this.retrieveBatch = retrieveBatch;
+            this.whenClose = whenClose;
 
             this.subscribed = new AtomicBoolean(false);
         }
@@ -904,7 +926,6 @@ public class InternalTableImpl implements InternalTable {
              * Scan id to uniquely identify it on server side.
              */
             private final Long scanId;
-
 
             private final AtomicLong requestedItemsCnt;
 
@@ -957,6 +978,8 @@ public class InternalTableImpl implements InternalTable {
                 if (!canceled.compareAndSet(false, true)) {
                     return;
                 }
+
+                whenClose.run();
             }
 
             /**
