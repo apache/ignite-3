@@ -361,6 +361,24 @@ public class BinaryTupleTest {
     }
 
     /**
+     * Test big decimal value encoding with different scale in value and schema.
+     */
+    @Test
+    public void decimalScaleTest() {
+        int schemaScale = 10;
+        int valueScale = 3;
+        BigDecimal value = BigDecimal.valueOf(123456, valueScale);
+
+        BinaryTupleBuilder builder = BinaryTupleBuilder.create(1, false);
+        ByteBuffer bytes = builder.appendDecimal(value, schemaScale).build();
+
+        BinaryTupleReader reader = new BinaryTupleReader(1, bytes);
+        BigDecimal res = reader.decimalValue(0, schemaScale);
+
+        assertEquals(value.doubleValue(), res.doubleValue());
+    }
+
+    /**
      * Test string value encoding.
      */
     @Test
