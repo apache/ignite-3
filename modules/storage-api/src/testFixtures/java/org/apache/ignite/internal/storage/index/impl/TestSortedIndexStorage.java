@@ -4,7 +4,7 @@
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -104,20 +104,6 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
 
         NavigableMap<BinaryTuple, Set<RowId>> index = this.index;
         int direction = 1;
-
-        // Swap bounds and flip index for backwards scan.
-        if ((flags & BACKWARDS) != 0) {
-            index = index.descendingMap();
-            direction = -1;
-
-            boolean tempBoolean = includeLower;
-            includeLower = includeUpper;
-            includeUpper = tempBoolean;
-
-            BinaryTuple tempBound = lowerBound;
-            lowerBound = upperBound;
-            upperBound = tempBound;
-        }
 
         ToIntFunction<BinaryTuple> lowerCmp = lowerBound == null ? row -> 1 : boundComparator(lowerBound, direction, includeLower ? 0 : -1);
         ToIntFunction<BinaryTuple> upperCmp = upperBound == null ? row -> -1 : boundComparator(upperBound, direction, includeUpper ? 0 : 1);

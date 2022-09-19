@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -54,7 +54,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
@@ -332,10 +331,10 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
                 throw new NoSuchElementException(prefixJoiner + KEY_SEPARATOR + escape(keyPathNode.key));
             }
 
-            assert resolvedName instanceof String : resolvedName;
+            assert resolvedName instanceof UUID : resolvedName;
 
             // Resolved internal id from the map.
-            String internalId = (String) resolvedName;
+            UUID internalId = (UUID) resolvedName;
 
             // There's a chance that this is exactly what user wants. If their request ends with
             // `*.get("resourceName").internalId()` then the result can be returned straight away.
@@ -343,10 +342,10 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
                 assert !lastPathNode.unresolvedName : path;
 
                 // Despite the fact that this cast looks very stupid, it is correct. Internal ids are always UUIDs.
-                return (T) UUID.fromString(internalId);
+                return (T) internalId;
             }
 
-            prefixJoiner.add(internalId);
+            prefixJoiner.add(internalId.toString());
 
             String prefix = prefixJoiner + KEY_SEPARATOR;
 
@@ -385,7 +384,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
             Map<String, ? extends Serializable> storageData = get(storage.readAllLatest(prefix));
 
-            return (T) storageData.values().stream().map(String.class::cast).map(UUID::fromString).collect(Collectors.toList());
+            return (T) List.copyOf(storageData.values());
         }
 
         if (lastPathNode.key.equals(INTERNAL_ID) && !path.get(pathSize - 2).namedListEntry) {

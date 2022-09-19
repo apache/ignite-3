@@ -240,8 +240,47 @@ namespace Apache.Ignite.Tests.Sql
         [Test]
         public void TestInvalidSqlThrowsException()
         {
-            var ex = Assert.ThrowsAsync<IgniteClientException>(async () => await Client.Sql.ExecuteAsync(null, "select x from bad"));
+            var ex = Assert.ThrowsAsync<IgniteException>(async () => await Client.Sql.ExecuteAsync(null, "select x from bad"));
             StringAssert.Contains("From line 1, column 15 to line 1, column 17: Object 'BAD' not found", ex!.Message);
+        }
+
+        [Test]
+        public void TestCreateTableExistsThrowsException()
+        {
+            var ex = Assert.ThrowsAsync<TableAlreadyExistsException>(
+                async () => await Client.Sql.ExecuteAsync(null, "CREATE TABLE TEST(ID INT PRIMARY KEY)"));
+
+            StringAssert.EndsWith("Table already exists [name=PUBLIC.TEST]", ex!.Message);
+            StringAssert.StartsWith("IGN-TBL-1", ex.Message);
+            StringAssert.StartsWith("IGN-TBL-1", ex.CodeAsString);
+            StringAssert.StartsWith("TBL", ex.GroupName);
+            Assert.AreEqual(ErrorGroups.Table.TableAlreadyExists, ex.Code);
+        }
+
+        [Test]
+        public void TestAlterTableNotFoundThrowsException()
+        {
+            var ex = Assert.ThrowsAsync<TableNotFoundException>(
+                async () => await Client.Sql.ExecuteAsync(null, "ALTER TABLE NOT_EXISTS_TABLE ADD COLUMN VAL1 VARCHAR"));
+
+            StringAssert.EndsWith("Table does not exist [name=PUBLIC.NOT_EXISTS_TABLE]", ex!.Message);
+            StringAssert.StartsWith("IGN-TBL-2", ex.Message);
+            StringAssert.StartsWith("IGN-TBL-2", ex.CodeAsString);
+            StringAssert.StartsWith("TBL", ex.GroupName);
+            Assert.AreEqual(ErrorGroups.Table.TableNotFound, ex.Code);
+        }
+
+        [Test]
+        public void TestAlterTableColumnExistsThrowsException()
+        {
+            var ex = Assert.ThrowsAsync<ColumnAlreadyExistsException>(
+                async () => await Client.Sql.ExecuteAsync(null, "ALTER TABLE TEST ADD COLUMN ID INT"));
+
+            StringAssert.EndsWith("Column already exists [name=ID]", ex!.Message);
+            StringAssert.StartsWith("IGN-TBL-3", ex.Message);
+            StringAssert.StartsWith("IGN-TBL-3", ex.CodeAsString);
+            StringAssert.StartsWith("TBL", ex.GroupName);
+            Assert.AreEqual(ErrorGroups.Table.ColumnAlreadyExists, ex.Code);
         }
 
         [Test]
