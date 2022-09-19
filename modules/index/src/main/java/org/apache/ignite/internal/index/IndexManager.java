@@ -161,8 +161,12 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
 
                 Consumer<TableIndexChange> chg = indexChange.andThen(c -> c.changeTableId(table.tableId()));
 
+                AtomicBoolean idxExist = new AtomicBoolean(false);
+
                 tablesCfg.indexes().change(indexListChange -> {
                     if (indexListChange.get(canonicalIndexName) != null) {
+                        idxExist.set(true);
+
                         throw new IndexAlreadyExistsException(canonicalIndexName);
                     }
 
@@ -173,12 +177,14 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                     Set<String> columnNames = Set.copyOf(table.schemaView().schema().columnNames());
 
                     validateColumns(indexView, columnNames);
+
+                    idxExist.set(false);
                 }).whenComplete((index, th) -> {
                     if (th != null) {
                         LOG.info("Unable to create index [schema={}, table={}, index={}]",
                                 th, schemaName, tableName, indexName);
 
-                        if (!failIfExists) {
+                        if (!failIfExists && idxExist.get()) {
                             future.complete(false);
                         } else {
                             future.completeExceptionally(th);

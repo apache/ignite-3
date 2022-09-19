@@ -261,13 +261,13 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     }
 
     private static RuntimeException convertDdlException(Throwable e) {
-        if (e instanceof ConfigurationChangeException) {
-            assert e.getCause() != null;
-            // Cut off upper configuration error`s as uninformative.
+        if (e instanceof CompletionException) {
             e = e.getCause();
         }
 
-        if (e instanceof CompletionException) {
+        if (e instanceof ConfigurationChangeException) {
+            assert e.getCause() != null;
+            // Cut off upper configuration error`s as uninformative.
             e = e.getCause();
         }
 
