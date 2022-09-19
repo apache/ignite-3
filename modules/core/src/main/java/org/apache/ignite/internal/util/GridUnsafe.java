@@ -73,8 +73,8 @@ public abstract class GridUnsafe {
     /** Per-byte copy threshold. */
     private static final long PER_BYTE_THRESHOLD = 0L;
 
-    /** Big endian. */
-    public static final boolean BIG_ENDIAN = ByteOrder.nativeOrder() == ByteOrder.BIG_ENDIAN;
+    /** Flag indicating whether system's native order is big endian. */
+    public static final boolean IS_BIG_ENDIAN = ByteOrder.nativeOrder() == ByteOrder.BIG_ENDIAN;
 
     /** Address size. */
     public static final int ADDR_SIZE = UNSAFE.addressSize();
@@ -571,7 +571,7 @@ public abstract class GridUnsafe {
      * @return Short value from byte array.
      */
     public static short getShort(byte[] arr, long off) {
-        return UNALIGNED ? UNSAFE.getShort(arr, off) : getShortByByte(arr, off, BIG_ENDIAN);
+        return UNALIGNED ? UNSAFE.getShort(arr, off) : getShortByByte(arr, off, IS_BIG_ENDIAN);
     }
 
     /**
@@ -581,7 +581,7 @@ public abstract class GridUnsafe {
      * @return Short value from given address.
      */
     public static short getShort(long addr) {
-        return UNALIGNED ? UNSAFE.getShort(addr) : getShortByByte(addr, BIG_ENDIAN);
+        return UNALIGNED ? UNSAFE.getShort(addr) : getShortByByte(addr, IS_BIG_ENDIAN);
     }
 
     /**
@@ -595,7 +595,7 @@ public abstract class GridUnsafe {
         if (UNALIGNED) {
             UNSAFE.putShort(arr, off, val);
         } else {
-            putShortByByte(arr, off, val, BIG_ENDIAN);
+            putShortByByte(arr, off, val, IS_BIG_ENDIAN);
         }
     }
 
@@ -609,7 +609,7 @@ public abstract class GridUnsafe {
         if (UNALIGNED) {
             UNSAFE.putShort(addr, val);
         } else {
-            putShortByByte(addr, val, BIG_ENDIAN);
+            putShortByByte(addr, val, IS_BIG_ENDIAN);
         }
     }
 
@@ -621,7 +621,7 @@ public abstract class GridUnsafe {
      * @return Char value from byte array.
      */
     public static char getChar(byte[] arr, long off) {
-        return UNALIGNED ? UNSAFE.getChar(arr, off) : getCharByByte(arr, off, BIG_ENDIAN);
+        return UNALIGNED ? UNSAFE.getChar(arr, off) : getCharByByte(arr, off, IS_BIG_ENDIAN);
     }
 
     /**
@@ -631,7 +631,7 @@ public abstract class GridUnsafe {
      * @return Char value from given address.
      */
     public static char getChar(long addr) {
-        return UNALIGNED ? UNSAFE.getChar(addr) : getCharByByte(addr, BIG_ENDIAN);
+        return UNALIGNED ? UNSAFE.getChar(addr) : getCharByByte(addr, IS_BIG_ENDIAN);
     }
 
     /**
@@ -645,7 +645,7 @@ public abstract class GridUnsafe {
         if (UNALIGNED) {
             UNSAFE.putChar(arr, off, val);
         } else {
-            putCharByByte(arr, off, val, BIG_ENDIAN);
+            putCharByByte(arr, off, val, IS_BIG_ENDIAN);
         }
     }
 
@@ -659,7 +659,7 @@ public abstract class GridUnsafe {
         if (UNALIGNED) {
             UNSAFE.putChar(addr, val);
         } else {
-            putCharByByte(addr, val, BIG_ENDIAN);
+            putCharByByte(addr, val, IS_BIG_ENDIAN);
         }
     }
 
@@ -671,7 +671,7 @@ public abstract class GridUnsafe {
      * @return Integer value from byte array.
      */
     public static int getInt(byte[] arr, long off) {
-        return UNALIGNED ? UNSAFE.getInt(arr, off) : getIntByByte(arr, off, BIG_ENDIAN);
+        return UNALIGNED ? UNSAFE.getInt(arr, off) : getIntByByte(arr, off, IS_BIG_ENDIAN);
     }
 
     /**
@@ -681,7 +681,7 @@ public abstract class GridUnsafe {
      * @return Integer value from given address.
      */
     public static int getInt(long addr) {
-        return UNALIGNED ? UNSAFE.getInt(addr) : getIntByByte(addr, BIG_ENDIAN);
+        return UNALIGNED ? UNSAFE.getInt(addr) : getIntByByte(addr, IS_BIG_ENDIAN);
     }
 
     /**
@@ -695,7 +695,7 @@ public abstract class GridUnsafe {
         if (UNALIGNED) {
             UNSAFE.putInt(arr, off, val);
         } else {
-            putIntByByte(arr, off, val, BIG_ENDIAN);
+            putIntByByte(arr, off, val, IS_BIG_ENDIAN);
         }
     }
 
@@ -709,7 +709,7 @@ public abstract class GridUnsafe {
         if (UNALIGNED) {
             UNSAFE.putInt(addr, val);
         } else {
-            putIntByByte(addr, val, BIG_ENDIAN);
+            putIntByByte(addr, val, IS_BIG_ENDIAN);
         }
     }
 
@@ -721,7 +721,7 @@ public abstract class GridUnsafe {
      * @return Long value from byte array.
      */
     public static long getLong(byte[] arr, long off) {
-        return UNALIGNED ? UNSAFE.getLong(arr, off) : getLongByByte(arr, off, BIG_ENDIAN);
+        return UNALIGNED ? UNSAFE.getLong(arr, off) : getLongByByte(arr, off, IS_BIG_ENDIAN);
     }
 
     /**
@@ -731,7 +731,7 @@ public abstract class GridUnsafe {
      * @return Long value from given address.
      */
     public static long getLong(long addr) {
-        return UNALIGNED ? UNSAFE.getLong(addr) : getLongByByte(addr, BIG_ENDIAN);
+        return UNALIGNED ? UNSAFE.getLong(addr) : getLongByByte(addr, IS_BIG_ENDIAN);
     }
 
     /**
@@ -745,7 +745,7 @@ public abstract class GridUnsafe {
         if (UNALIGNED) {
             UNSAFE.putLong(arr, off, val);
         } else {
-            putLongByByte(arr, off, val, BIG_ENDIAN);
+            putLongByByte(arr, off, val, IS_BIG_ENDIAN);
         }
     }
 
@@ -759,7 +759,7 @@ public abstract class GridUnsafe {
         if (UNALIGNED) {
             UNSAFE.putLong(addr, val);
         } else {
-            putLongByByte(addr, val, BIG_ENDIAN);
+            putLongByByte(addr, val, IS_BIG_ENDIAN);
         }
     }
 
@@ -771,7 +771,7 @@ public abstract class GridUnsafe {
      * @return Float value from byte array.
      */
     public static float getFloat(byte[] arr, long off) {
-        return UNALIGNED ? UNSAFE.getFloat(arr, off) : Float.intBitsToFloat(getIntByByte(arr, off, BIG_ENDIAN));
+        return UNALIGNED ? UNSAFE.getFloat(arr, off) : Float.intBitsToFloat(getIntByByte(arr, off, IS_BIG_ENDIAN));
     }
 
     /**
@@ -781,7 +781,7 @@ public abstract class GridUnsafe {
      * @return Float value from given address.
      */
     public static float getFloat(long addr) {
-        return UNALIGNED ? UNSAFE.getFloat(addr) : Float.intBitsToFloat(getIntByByte(addr, BIG_ENDIAN));
+        return UNALIGNED ? UNSAFE.getFloat(addr) : Float.intBitsToFloat(getIntByByte(addr, IS_BIG_ENDIAN));
     }
 
     /**
@@ -795,7 +795,7 @@ public abstract class GridUnsafe {
         if (UNALIGNED) {
             UNSAFE.putFloat(arr, off, val);
         } else {
-            putIntByByte(arr, off, Float.floatToIntBits(val), BIG_ENDIAN);
+            putIntByByte(arr, off, Float.floatToIntBits(val), IS_BIG_ENDIAN);
         }
     }
 
@@ -809,7 +809,7 @@ public abstract class GridUnsafe {
         if (UNALIGNED) {
             UNSAFE.putFloat(addr, val);
         } else {
-            putIntByByte(addr, Float.floatToIntBits(val), BIG_ENDIAN);
+            putIntByByte(addr, Float.floatToIntBits(val), IS_BIG_ENDIAN);
         }
     }
 
@@ -821,7 +821,7 @@ public abstract class GridUnsafe {
      * @return Double value from byte array. Alignment aware.
      */
     public static double getDouble(byte[] arr, long off) {
-        return UNALIGNED ? UNSAFE.getDouble(arr, off) : Double.longBitsToDouble(getLongByByte(arr, off, BIG_ENDIAN));
+        return UNALIGNED ? UNSAFE.getDouble(arr, off) : Double.longBitsToDouble(getLongByByte(arr, off, IS_BIG_ENDIAN));
     }
 
     /**
@@ -831,7 +831,7 @@ public abstract class GridUnsafe {
      * @return Double value from given address.
      */
     public static double getDouble(long addr) {
-        return UNALIGNED ? UNSAFE.getDouble(addr) : Double.longBitsToDouble(getLongByByte(addr, BIG_ENDIAN));
+        return UNALIGNED ? UNSAFE.getDouble(addr) : Double.longBitsToDouble(getLongByByte(addr, IS_BIG_ENDIAN));
     }
 
     /**
@@ -845,7 +845,7 @@ public abstract class GridUnsafe {
         if (UNALIGNED) {
             UNSAFE.putDouble(arr, off, val);
         } else {
-            putLongByByte(arr, off, Double.doubleToLongBits(val), BIG_ENDIAN);
+            putLongByByte(arr, off, Double.doubleToLongBits(val), IS_BIG_ENDIAN);
         }
     }
 
@@ -859,7 +859,7 @@ public abstract class GridUnsafe {
         if (UNALIGNED) {
             UNSAFE.putDouble(addr, val);
         } else {
-            putLongByByte(addr, Double.doubleToLongBits(val), BIG_ENDIAN);
+            putLongByByte(addr, Double.doubleToLongBits(val), IS_BIG_ENDIAN);
         }
     }
 

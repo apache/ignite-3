@@ -17,12 +17,12 @@
 
 package org.apache.ignite.internal.util.io;
 
-import static org.apache.ignite.internal.util.GridUnsafe.BIG_ENDIAN;
 import static org.apache.ignite.internal.util.GridUnsafe.BYTE_ARR_OFF;
 import static org.apache.ignite.internal.util.GridUnsafe.CHAR_ARR_OFF;
 import static org.apache.ignite.internal.util.GridUnsafe.DOUBLE_ARR_OFF;
 import static org.apache.ignite.internal.util.GridUnsafe.FLOAT_ARR_OFF;
 import static org.apache.ignite.internal.util.GridUnsafe.INT_ARR_OFF;
+import static org.apache.ignite.internal.util.GridUnsafe.IS_BIG_ENDIAN;
 import static org.apache.ignite.internal.util.GridUnsafe.LONG_ARR_OFF;
 import static org.apache.ignite.internal.util.GridUnsafe.SHORT_ARR_OFF;
 
@@ -274,7 +274,7 @@ public class IgniteUnsafeDataInput extends InputStream implements IgniteDataInpu
 
         long off = BYTE_ARR_OFF + advanceOffset(bytesToCp);
 
-        if (BIG_ENDIAN) {
+        if (IS_BIG_ENDIAN) {
             for (int i = 0; i < arr.length; i++) {
                 arr[i] = GridUnsafe.getShortLittleEndian(buf, off);
 
@@ -298,7 +298,7 @@ public class IgniteUnsafeDataInput extends InputStream implements IgniteDataInpu
 
         long off = BYTE_ARR_OFF + advanceOffset(bytesToCp);
 
-        if (BIG_ENDIAN) {
+        if (IS_BIG_ENDIAN) {
             for (int i = 0; i < arr.length; i++) {
                 arr[i] = GridUnsafe.getIntLittleEndian(buf, off);
 
@@ -322,7 +322,7 @@ public class IgniteUnsafeDataInput extends InputStream implements IgniteDataInpu
 
         long off = BYTE_ARR_OFF + advanceOffset(bytesToCp);
 
-        if (BIG_ENDIAN) {
+        if (IS_BIG_ENDIAN) {
             for (int i = 0; i < arr.length; i++) {
                 arr[i] = GridUnsafe.getDoubleLittleEndian(buf, off);
 
@@ -358,7 +358,7 @@ public class IgniteUnsafeDataInput extends InputStream implements IgniteDataInpu
 
         long off = BYTE_ARR_OFF + advanceOffset(bytesToCp);
 
-        if (BIG_ENDIAN) {
+        if (IS_BIG_ENDIAN) {
             for (int i = 0; i < arr.length; i++) {
                 arr[i] = GridUnsafe.getCharLittleEndian(buf, off);
 
@@ -382,7 +382,7 @@ public class IgniteUnsafeDataInput extends InputStream implements IgniteDataInpu
 
         long off = BYTE_ARR_OFF + advanceOffset(bytesToCp);
 
-        if (BIG_ENDIAN) {
+        if (IS_BIG_ENDIAN) {
             for (int i = 0; i < arr.length; i++) {
                 arr[i] = GridUnsafe.getLongLittleEndian(buf, off);
 
@@ -406,7 +406,7 @@ public class IgniteUnsafeDataInput extends InputStream implements IgniteDataInpu
 
         long off = BYTE_ARR_OFF + advanceOffset(bytesToCp);
 
-        if (BIG_ENDIAN) {
+        if (IS_BIG_ENDIAN) {
             for (int i = 0; i < arr.length; i++) {
                 arr[i] = GridUnsafe.getFloatLittleEndian(buf, off);
 
@@ -495,7 +495,7 @@ public class IgniteUnsafeDataInput extends InputStream implements IgniteDataInpu
 
         long off = BYTE_ARR_OFF + advanceOffset(2);
 
-        return BIG_ENDIAN ? GridUnsafe.getShortLittleEndian(buf, off) : GridUnsafe.getShort(buf, off);
+        return IS_BIG_ENDIAN ? GridUnsafe.getShortLittleEndian(buf, off) : GridUnsafe.getShort(buf, off);
     }
 
     /** {@inheritDoc} */
@@ -511,7 +511,7 @@ public class IgniteUnsafeDataInput extends InputStream implements IgniteDataInpu
 
         long off = BYTE_ARR_OFF + this.off;
 
-        char v = BIG_ENDIAN ? GridUnsafe.getCharLittleEndian(buf, off) : GridUnsafe.getChar(buf, off);
+        char v = IS_BIG_ENDIAN ? GridUnsafe.getCharLittleEndian(buf, off) : GridUnsafe.getChar(buf, off);
 
         advanceOffset(2);
 
@@ -525,7 +525,7 @@ public class IgniteUnsafeDataInput extends InputStream implements IgniteDataInpu
 
         long off = BYTE_ARR_OFF + advanceOffset(4);
 
-        return BIG_ENDIAN ? GridUnsafe.getIntLittleEndian(buf, off) : GridUnsafe.getInt(buf, off);
+        return IS_BIG_ENDIAN ? GridUnsafe.getIntLittleEndian(buf, off) : GridUnsafe.getInt(buf, off);
     }
 
     /** {@inheritDoc} */
@@ -535,7 +535,7 @@ public class IgniteUnsafeDataInput extends InputStream implements IgniteDataInpu
 
         long off = BYTE_ARR_OFF + advanceOffset(8);
 
-        return BIG_ENDIAN ? GridUnsafe.getLongLittleEndian(buf, off) : GridUnsafe.getLong(buf, off);
+        return IS_BIG_ENDIAN ? GridUnsafe.getLongLittleEndian(buf, off) : GridUnsafe.getLong(buf, off);
     }
 
     /** {@inheritDoc} */

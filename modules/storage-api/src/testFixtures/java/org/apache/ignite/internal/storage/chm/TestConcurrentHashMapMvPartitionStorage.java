@@ -29,6 +29,7 @@ import java.util.function.Predicate;
 import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
@@ -51,27 +52,34 @@ public class TestConcurrentHashMapMvPartitionStorage implements MvPartitionStora
 
     private static class VersionChain {
         final @Nullable BinaryRow row;
-        final @Nullable HybridTimestamp begin;
+        final @Nullable HybridTimestamp ts;
         final @Nullable UUID txId;
+        final @Nullable UUID commitTableId;
+        final int commitPartitionId;
         final @Nullable VersionChain next;
 
-        VersionChain(@Nullable BinaryRow row, @Nullable HybridTimestamp begin, @Nullable UUID txId, @Nullable VersionChain next) {
+        VersionChain(@Nullable BinaryRow row, @Nullable HybridTimestamp ts, @Nullable UUID txId, @Nullable UUID commitTableId,
+                int commitPartitionId, @Nullable VersionChain next) {
             this.row = row;
-            this.begin = begin;
+            this.ts = ts;
             this.txId = txId;
+            this.commitTableId = commitTableId;
+            this.commitPartitionId = commitPartitionId;
             this.next = next;
         }
 
-        static VersionChain createUncommitted(@Nullable BinaryRow row, @Nullable UUID txId, @Nullable VersionChain next) {
-            return new VersionChain(row, null, txId, next);
+        static VersionChain forWriteIntent(@Nullable BinaryRow row, @Nullable UUID txId, @Nullable UUID commitTableId,
+                int commitPartitionId, @Nullable VersionChain next) {
+            return new VersionChain(row, null, txId, commitTableId, commitPartitionId, next);
         }
 
-        static VersionChain createCommitted(@Nullable HybridTimestamp timestamp, VersionChain uncommittedVersionChain) {
-            return new VersionChain(uncommittedVersionChain.row, timestamp, null, uncommittedVersionChain.next);
+        static VersionChain forCommitted(@Nullable HybridTimestamp timestamp, VersionChain uncommittedVersionChain) {
+            return new VersionChain(uncommittedVersionChain.row, timestamp, null, null,
+                    ReadResult.UNDEFINED_COMMIT_PARTITION_ID, uncommittedVersionChain.next);
         }
 
-        boolean notContainsWriteIntent() {
-            return begin != null && txId == null;
+        boolean isWriteIntent() {
+            return ts == null && txId != null;
         }
     }
 
@@ -108,32 +116,34 @@ public class TestConcurrentHashMapMvPartitionStorage implements MvPartitionStora
     }
 
     /** {@inheritDoc} */
+    @Deprecated
     @Override
     public RowId insert(BinaryRow row, UUID txId) throws StorageException {
         RowId rowId = new RowId(partitionId);
 
-        addWrite(rowId, row, txId);
+        addWrite(rowId, row, txId, UUID.randomUUID(), 0);
 
         return rowId;
     }
 
     /** {@inheritDoc} */
     @Override
-    public @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId) throws TxIdMismatchException {
+    public @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, UUID commitTableId, int commitPartitionId)
+            throws TxIdMismatchException {
         BinaryRow[] res = {null};
 
         map.compute(rowId, (ignored, versionChain) -> {
-            if (versionChain != null && versionChain.begin == null) {
+            if (versionChain != null && versionChain.ts == null) {
                 if (!txId.equals(versionChain.txId)) {
                     throw new TxIdMismatchException(txId, versionChain.txId);
                 }
 
                 res[0] = versionChain.row;
 
-                return VersionChain.createUncommitted(row, txId, versionChain.next);
+                return VersionChain.forWriteIntent(row, txId, commitTableId, commitPartitionId, versionChain.next);
             }
 
-            return VersionChain.createUncommitted(row, txId, versionChain);
+            return VersionChain.forWriteIntent(row, txId, commitTableId, commitPartitionId, versionChain);
         });
 
         return res[0];
@@ -145,11 +155,11 @@ public class TestConcurrentHashMapMvPartitionStorage implements MvPartitionStora
         BinaryRow[] res = {null};
 
         map.computeIfPresent(rowId, (ignored, versionChain) -> {
-            if (versionChain.notContainsWriteIntent()) {
+            if (!versionChain.isWriteIntent()) {
                 return versionChain;
             }
 
-            assert versionChain.begin == null;
+            assert versionChain.ts == null;
 
             res[0] = versionChain.row;
 
@@ -165,32 +175,41 @@ public class TestConcurrentHashMapMvPartitionStorage implements MvPartitionStora
         map.compute(rowId, (ignored, versionChain) -> {
             assert versionChain != null;
 
-            if (versionChain.notContainsWriteIntent()) {
+            if (!versionChain.isWriteIntent()) {
                 return versionChain;
             }
 
-            return VersionChain.createCommitted(timestamp, versionChain);
+            return VersionChain.forCommitted(timestamp, versionChain);
         });
     }
 
     /** {@inheritDoc} */
     @Override
     public @Nullable BinaryRow read(RowId rowId, UUID txId) throws TxIdMismatchException, StorageException {
+        if (rowId.partitionId() != partitionId) {
+            throw new IllegalArgumentException(
+                    String.format("RowId partition [%d] is not equal to storage partition [%d].", rowId.partitionId(), partitionId));
+        }
+
         VersionChain versionChain = map.get(rowId);
 
-        return read(versionChain, null, txId, null);
+        return read(versionChain, null, txId, null).binaryRow();
     }
 
     /** {@inheritDoc} */
     @Override
-    public @Nullable BinaryRow read(RowId rowId, @Nullable HybridTimestamp timestamp) {
+    public ReadResult read(RowId rowId, @Nullable HybridTimestamp timestamp) {
+        if (rowId.partitionId() != partitionId) {
+            throw new IllegalArgumentException(
+                    String.format("RowId partition [%d] is not equal to storage partition [%d].", rowId.partitionId(), partitionId));
+        }
+
         VersionChain versionChain = map.get(rowId);
 
         return read(versionChain, timestamp, null, null);
     }
 
-    @Nullable
-    private static BinaryRow read(
+    private static ReadResult read(
             VersionChain versionChain,
             @Nullable HybridTimestamp timestamp,
             @Nullable UUID txId,
@@ -199,44 +218,95 @@ public class TestConcurrentHashMapMvPartitionStorage implements MvPartitionStora
         assert timestamp == null ^ txId == null;
 
         if (versionChain == null) {
-            return null;
+            return ReadResult.empty();
         }
 
         if (timestamp == null) {
             BinaryRow binaryRow = versionChain.row;
 
             if (filter != null && !filter.test(binaryRow)) {
-                return null;
+                return ReadResult.empty();
             }
 
             if (versionChain.txId != null && !versionChain.txId.equals(txId)) {
                 throw new TxIdMismatchException(txId, versionChain.txId);
             }
 
-            return binaryRow;
+            boolean isWriteIntent = versionChain.ts == null;
+
+            if (isWriteIntent) {
+                return ReadResult.createFromWriteIntent(
+                        binaryRow,
+                        versionChain.txId,
+                        versionChain.commitTableId,
+                        versionChain.next != null ? versionChain.next.ts : null,
+                        versionChain.commitPartitionId
+                );
+            }
+
+            return ReadResult.createFromCommitted(binaryRow);
         }
 
         VersionChain cur = versionChain;
 
-        if (cur.begin == null) {
-            cur = cur.next;
-        }
-
-        while (cur != null) {
-            if (timestamp.compareTo(cur.begin) >= 0) {
+        if (cur.ts == null) {
+            if (cur.next == null) {
+                // We only have a write-intent.
                 BinaryRow binaryRow = cur.row;
 
                 if (filter != null && !filter.test(binaryRow)) {
-                    return null;
+                    return ReadResult.empty();
                 }
 
-                return binaryRow;
+                return ReadResult.createFromWriteIntent(binaryRow, cur.txId, cur.commitTableId, null,
+                        cur.commitPartitionId);
             }
 
             cur = cur.next;
         }
 
-        return null;
+        return walkVersionChain(versionChain, timestamp, filter, cur);
+    }
+
+    private static ReadResult walkVersionChain(VersionChain chainHead, HybridTimestamp timestamp, @Nullable Predicate<BinaryRow> filter,
+            VersionChain firstCommit) {
+        boolean hasWriteIntent = chainHead.ts == null;
+
+        if (hasWriteIntent && timestamp.compareTo(firstCommit.ts) > 0) {
+            // It's the latest commit in chain, query ts is greater than commit ts and there is a write-intent.
+            // So we just return write-intent.
+            BinaryRow binaryRow = chainHead.row;
+
+            if (filter != null && !filter.test(binaryRow)) {
+                return ReadResult.empty();
+            }
+
+            HybridTimestamp latestCommitTs = chainHead.next != null ? firstCommit.ts : null;
+
+            return ReadResult.createFromWriteIntent(binaryRow, chainHead.txId, chainHead.commitTableId, latestCommitTs,
+                    chainHead.commitPartitionId);
+        }
+
+        VersionChain cur = firstCommit;
+
+        while (cur != null) {
+            int compareResult = timestamp.compareTo(cur.ts);
+
+            if (compareResult >= 0) {
+                // This commit has timestamp matching the query ts, meaning that commit is the one we are looking for.
+                BinaryRow binaryRow = cur.row;
+
+                if (filter != null && !filter.test(binaryRow)) {
+                    return ReadResult.empty();
+                }
+
+                return ReadResult.createFromCommitted(binaryRow);
+            }
+
+            cur = cur.next;
+        }
+
+        return ReadResult.empty();
     }
 
     /** {@inheritDoc} */
@@ -244,6 +314,7 @@ public class TestConcurrentHashMapMvPartitionStorage implements MvPartitionStora
     public Cursor<BinaryRow> scan(Predicate<BinaryRow> filter, UUID txId) {
         Iterator<BinaryRow> iterator = map.values().stream()
                 .map(versionChain -> read(versionChain, null, txId, filter))
+                .map(ReadResult::binaryRow)
                 .filter(Objects::nonNull)
                 .iterator();
 
@@ -255,6 +326,7 @@ public class TestConcurrentHashMapMvPartitionStorage implements MvPartitionStora
     public Cursor<BinaryRow> scan(Predicate<BinaryRow> filter, HybridTimestamp timestamp) {
         Iterator<BinaryRow> iterator = map.values().stream()
                 .map(versionChain -> read(versionChain, timestamp, null, filter))
+                .map(ReadResult::binaryRow)
                 .filter(Objects::nonNull)
                 .iterator();
 

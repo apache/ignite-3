@@ -20,6 +20,7 @@ package org.apache.ignite.internal.storage.pagememory.mv;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
 
 import java.util.UUID;
+import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
@@ -32,22 +33,41 @@ import org.jetbrains.annotations.Nullable;
 public class VersionChain extends VersionChainKey {
     public static final long NULL_UUID_COMPONENT = 0;
 
-    private final @Nullable UUID transactionId;
-
     /** Link to the most recent version. */
     private final long headLink;
 
-    /** Link to the newest committed {@link RowVersion} if head is not yet committed, or {@link RowVersion#NULL_LINK} otherwise. */
+    /** Link to the newest committed {@link RowVersion} if head is not yet committed, or {@link PageIdUtils#NULL_LINK} otherwise. */
     private final long nextLink;
+
+    /** Transaction id (part of transaction state). */
+    private final @Nullable UUID transactionId;
+
+    /** Commit table id (part of transaction state). */
+    private final @Nullable UUID commitTableId;
+
+    /** Commit partition id (part of transaction state). */
+    private final int commitPartitionId;
 
     /**
      * Constructor.
      */
-    public VersionChain(RowId rowId, @Nullable UUID transactionId, long headLink, long nextLink) {
+    private VersionChain(RowId rowId, @Nullable UUID transactionId, @Nullable UUID commitTableId, int commitPartitionId, long headLink,
+            long nextLink) {
         super(rowId);
         this.transactionId = transactionId;
+        this.commitTableId = commitTableId;
+        this.commitPartitionId = commitPartitionId;
         this.headLink = headLink;
         this.nextLink = nextLink;
+    }
+
+    public static VersionChain createCommitted(RowId rowId, long headLink, long nextLink) {
+        return new VersionChain(rowId, null, null, -1, headLink, nextLink);
+    }
+
+    public static VersionChain createUncommitted(RowId rowId, UUID transactionId, UUID commitTableId, int commitPartitionId, long headLink,
+            long nextLink) {
+        return new VersionChain(rowId, transactionId, commitTableId, commitPartitionId, headLink, nextLink);
     }
 
     /**
@@ -58,6 +78,20 @@ public class VersionChain extends VersionChainKey {
     }
 
     /**
+     * Returns a commit table id, associated with a chain's head, or {@code null} if head is already committed.
+     */
+    public @Nullable UUID commitTableId() {
+        return commitTableId;
+    }
+
+    /**
+     * Returns a commit partition id, associated with a chain's head, or {@code -1} if head is already committed.
+     */
+    public int commitPartitionId() {
+        return commitPartitionId;
+    }
+
+    /**
      * Returns a link to the newest {@link RowVersion} in the chain.
      */
     public long headLink() {
@@ -65,7 +99,7 @@ public class VersionChain extends VersionChainKey {
     }
 
     /**
-     * Returns a link to the newest committed {@link RowVersion} if head is not yet committed, or {@link RowVersion#NULL_LINK} otherwise.
+     * Returns a link to the newest committed {@link RowVersion} if head is not yet committed, or {@link PageIdUtils#NULL_LINK} otherwise.
      *
      * @see #isUncommitted()
      * @see #newestCommittedLink()

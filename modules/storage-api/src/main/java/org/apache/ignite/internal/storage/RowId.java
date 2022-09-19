@@ -53,6 +53,8 @@ public final class RowId {
     }
 
     private RowId(int partitionId, UUID uuid) {
+        assert (uuid.getMostSignificantBits() | uuid.getLeastSignificantBits()) != 0L : "Nil UUID is not allowed";
+
         this.partitionId = (short) partitionId;
         this.uuid = uuid;
     }
