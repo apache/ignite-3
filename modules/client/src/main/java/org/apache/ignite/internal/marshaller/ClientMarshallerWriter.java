@@ -129,8 +129,8 @@ public class ClientMarshallerWriter implements MarshallerWriter {
 
     /** {@inheritDoc} */
     @Override
-    public void writeBigDecimal(BigDecimal val) {
-        packer.appendDecimal(val);
+    public void writeBigDecimal(BigDecimal val, int scale) {
+        packer.appendDecimal(val, scale);
     }
 
     /** {@inheritDoc} */

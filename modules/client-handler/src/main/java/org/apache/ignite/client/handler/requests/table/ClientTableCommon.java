@@ -464,7 +464,7 @@ public class ClientTableCommon {
                 break;
 
             case DECIMAL:
-                builder.appendDecimalNotNull((BigDecimal) val);
+                builder.appendDecimalNotNull((BigDecimal) val, getDecimalScale(col.type()));
                 break;
 
             case NUMBER:

@@ -354,7 +354,7 @@ public class BinaryTupleTest {
         BigDecimal value = new BigDecimal(BigInteger.valueOf(12345), 100);
 
         BinaryTupleBuilder builder = BinaryTupleBuilder.create(1, false);
-        ByteBuffer bytes = builder.appendDecimal(value).build();
+        ByteBuffer bytes = builder.appendDecimal(value, 100).build();
 
         BinaryTupleReader reader = new BinaryTupleReader(1, bytes);
         assertEquals(value, reader.decimalValue(0, 100));

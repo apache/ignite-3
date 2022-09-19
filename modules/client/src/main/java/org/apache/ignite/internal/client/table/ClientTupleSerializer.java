@@ -393,7 +393,7 @@ public class ClientTupleSerializer {
                     return;
 
                 case ClientDataType.DECIMAL:
-                    builder.appendDecimalNotNull((BigDecimal) v);
+                    builder.appendDecimalNotNull((BigDecimal) v, col.scale());
                     return;
 
                 case ClientDataType.UUID:
