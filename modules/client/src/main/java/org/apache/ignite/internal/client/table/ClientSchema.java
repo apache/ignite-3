@@ -164,7 +164,7 @@ public class ClientSchema {
         for (int i = 0; i < colCount; i++) {
             var col = columns[i  + firstColIdx];
 
-            cols[i] = new MarshallerColumn(col.name(), mode(col.type()));
+            cols[i] = new MarshallerColumn(col.name(), mode(col.type()), null, col.scale());
         }
 
         return Marshaller.createMarshaller(cols, mapper, part == TuplePart.KEY);

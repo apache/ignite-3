@@ -187,7 +187,7 @@ public class BinaryTupleRowSerializer {
             case NUMBER:
                 return builder.appendNumberNotNull((BigInteger) value);
             case DECIMAL:
-                return builder.appendDecimalNotNull((BigDecimal) value);
+                return builder.appendDecimalNotNull((BigDecimal) value, element.decimalScale());
             case UUID:
                 return builder.appendUuidNotNull((UUID) value);
             case BYTES:

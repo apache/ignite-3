@@ -41,7 +41,8 @@ public class ClientBinaryTupleUtils {
             int readerIndex,
             Tuple tuple,
             String columnName,
-            int clientDataType) {
+            int clientDataType,
+            int decimalScale) {
         if (reader.hasNullValue(readerIndex)) {
             tuple.set(columnName, null);
             return;
@@ -73,8 +74,7 @@ public class ClientBinaryTupleUtils {
                 break;
 
             case ClientDataType.DECIMAL:
-                // TODO IGNITE-17632: Get scale from schema.
-                tuple.set(columnName, reader.decimalValue(readerIndex, 100));
+                tuple.set(columnName, reader.decimalValue(readerIndex, decimalScale));
                 break;
 
             case ClientDataType.UUID:

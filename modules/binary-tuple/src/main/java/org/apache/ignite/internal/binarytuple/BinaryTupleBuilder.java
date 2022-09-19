@@ -19,6 +19,7 @@ package org.apache.ignite.internal.binarytuple;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.math.RoundingMode;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.CharBuffer;
@@ -313,10 +314,11 @@ public class BinaryTupleBuilder {
      * Append a value for the current element.
      *
      * @param value Element value.
+     * @param scale Decimal scale.
      * @return {@code this} for chaining.
      */
-    public BinaryTupleBuilder appendDecimalNotNull(BigDecimal value) {
-        putBytes(value.unscaledValue().toByteArray());
+    public BinaryTupleBuilder appendDecimalNotNull(BigDecimal value, int scale) {
+        putBytes(value.setScale(scale, RoundingMode.HALF_UP).unscaledValue().toByteArray());
         return proceed();
     }
 
@@ -324,10 +326,11 @@ public class BinaryTupleBuilder {
      * Append a value for the current element.
      *
      * @param value Element value.
+     * @param scale Decimal scale.
      * @return {@code this} for chaining.
      */
-    public BinaryTupleBuilder appendDecimal(BigDecimal value) {
-        return value == null ? appendNull() : appendDecimalNotNull(value);
+    public BinaryTupleBuilder appendDecimal(BigDecimal value, int scale) {
+        return value == null ? appendNull() : appendDecimalNotNull(value, scale);
     }
 
     /**

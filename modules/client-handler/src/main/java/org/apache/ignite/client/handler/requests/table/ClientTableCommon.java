@@ -40,6 +40,8 @@ import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.DecimalNativeType;
+import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.SchemaAware;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -81,11 +83,12 @@ public class ClientTableCommon {
         for (var colIdx = 0; colIdx < colCnt; colIdx++) {
             var col = schema.column(colIdx);
 
-            packer.packArrayHeader(4);
+            packer.packArrayHeader(5);
             packer.packString(col.name());
             packer.packInt(getClientDataType(col.type().spec()));
             packer.packBoolean(schema.isKeyColumn(colIdx));
             packer.packBoolean(col.nullable());
+            packer.packInt(getDecimalScale(col.type()));
         }
     }
 
@@ -285,7 +288,7 @@ public class ClientTableCommon {
 
             Column column = schema.column(i);
             ClientBinaryTupleUtils.readAndSetColumnValue(
-                    binaryTupleReader, i, tuple, column.name(), getClientDataType(column.type().spec()));
+                    binaryTupleReader, i, tuple, column.name(), getClientDataType(column.type().spec()), getDecimalScale(column.type()));
         }
 
         return tuple;
@@ -461,7 +464,7 @@ public class ClientTableCommon {
                 break;
 
             case DECIMAL:
-                builder.appendDecimalNotNull((BigDecimal) val);
+                builder.appendDecimalNotNull((BigDecimal) val, getDecimalScale(col.type()));
                 break;
 
             case NUMBER:
@@ -516,5 +519,9 @@ public class ClientTableCommon {
     private static void packBinary(ClientMessagePacker packer, ByteBuffer buf) {
         packer.packBinaryHeader(buf.limit() - buf.position());
         packer.writePayload(buf);
+    }
+
+    private static int getDecimalScale(NativeType type) {
+        return type instanceof DecimalNativeType ? ((DecimalNativeType) type).scale() : 0;
     }
 }
