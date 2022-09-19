@@ -271,7 +271,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
             Cursor<BinaryRow> cursor = cursors.computeIfAbsent(cursorId, id -> mvDataStorage.scan(request.rowFilter(), txId));
 
-            for (int i = 0; i < batchCount || !cursor.hasNext(); i++) {
+            for (int i = 0; i < batchCount && cursor.hasNext(); i++) {
                 batchRows.add(cursor.next());
             }
 
