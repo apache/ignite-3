@@ -145,9 +145,4 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
             return compare == 0 ? equals : compare;
         };
     }
-
-    @Override
-    public void destroy() {
-        index.clear();
-    }
 }

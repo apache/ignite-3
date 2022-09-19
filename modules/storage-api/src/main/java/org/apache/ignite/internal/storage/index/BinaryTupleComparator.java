@@ -47,30 +47,14 @@ public class BinaryTupleComparator implements Comparator<ByteBuffer> {
     public int compare(ByteBuffer buffer1, ByteBuffer buffer2) {
         assert buffer1.order() == ByteOrder.LITTLE_ENDIAN;
         assert buffer2.order() == ByteOrder.LITTLE_ENDIAN;
+        assert !(isPrefix(buffer1) && isPrefix(buffer2));
 
         BinaryTupleSchema schema = descriptor.binaryTupleSchema();
 
-        InternalTuple tuple1;
-        InternalTuple tuple2;
-        int columnsToCompare;
+        InternalTuple tuple1 = isPrefix(buffer1) ? new BinaryTuplePrefix(schema, buffer1) : new BinaryTuple(schema, buffer1);
+        InternalTuple tuple2 = isPrefix(buffer2) ? new BinaryTuplePrefix(schema, buffer2) : new BinaryTuple(schema, buffer2);
 
-        if (isPrefix(buffer1)) {
-            assert !isPrefix(buffer2);
-
-            tuple1 = new BinaryTuplePrefix(schema, buffer1);
-            tuple2 = new BinaryTuple(schema, buffer2);
-            columnsToCompare = tuple1.count();
-        } else if (isPrefix(buffer2)) {
-            assert !isPrefix(buffer1);
-
-            tuple1 = new BinaryTuple(schema, buffer1);
-            tuple2 = new BinaryTuplePrefix(schema, buffer2);
-            columnsToCompare = tuple2.count();
-        } else {
-            tuple1 = new BinaryTuple(schema, buffer1);
-            tuple2 = new BinaryTuple(schema, buffer2);
-            columnsToCompare = descriptor.indexColumns().size();
-        }
+        int columnsToCompare = Math.min(tuple1.count(), tuple2.count());
 
         assert columnsToCompare <= descriptor.indexColumns().size();
 

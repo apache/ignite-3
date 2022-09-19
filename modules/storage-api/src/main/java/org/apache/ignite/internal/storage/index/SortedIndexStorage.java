@@ -78,9 +78,4 @@ public interface SortedIndexStorage {
             @Nullable BinaryTuplePrefix upperBound,
             @MagicConstant(flagsFromClass = SortedIndexStorage.class) int flags
     );
-
-    /**
-     * Removes all data from this index.
-     */
-    void destroy();
 }
