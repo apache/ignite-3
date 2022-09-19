@@ -738,7 +738,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                                 return rowLockFut.thenCompose(lockedRow -> {
                                     CompletableFuture raftFut = lockedRow == null ? CompletableFuture.completedFuture(null) :
-                                            applyCmdWithExceptionHandling(new UpdateCommand(lockedRowId, lockedRow, txId));
+                                            applyCmdWithExceptionHandling(new UpdateCommand(lockedRowId, searchRow, txId));
 
                                     return raftFut.thenApply(ignored -> lockedRow);
                                 });
