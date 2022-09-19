@@ -292,9 +292,11 @@ public class HoconConverterTest {
 
         var basePath = List.of("root", "primitivesList", "name");
 
+        UUID uuid = new UUID(100, 200);
+
         assertEquals(
                 "booleanVal=false,byteVal=0,charVal=\"\\u0000\",doubleVal=0.0,floatVal=0,intVal=0,longVal=0,shortVal=0,stringVal=\"\""
-                        + ",uuidVal=\"" + new UUID(100, 200) + "\"",
+                        + ",uuidVal=\"" + uuid + "\"",
                 asHoconStr(basePath)
         );
 
@@ -307,7 +309,7 @@ public class HoconConverterTest {
         assertEquals("0", asHoconStr(basePath, "floatVal"));
         assertEquals("0.0", asHoconStr(basePath, "doubleVal"));
         assertEquals("\"\"", asHoconStr(basePath, "stringVal"));
-        assertEquals("\"" + new UUID(100, 200) + "\"", asHoconStr(basePath, "uuidVal"));
+        assertEquals("\"" + uuid + "\"", asHoconStr(basePath, "uuidVal"));
     }
 
     /**
@@ -324,9 +326,11 @@ public class HoconConverterTest {
 
         var basePath = List.of("root", "arraysList", "name");
 
+        UUID uuid = new UUID(1111, 2222);
+
         assertEquals(
                 "booleans=[false],bytes=[0],chars=[\"\\u0000\"],doubles=[0.0],floats=[0],ints=[0],longs=[0],shorts=[0],strings=[\"\"]"
-                        + ",uuids=[\"" + new UUID(1111, 2222) + "\"]",
+                        + ",uuids=[\"" + uuid + "\"]",
                 asHoconStr(basePath)
         );
 
@@ -339,7 +343,7 @@ public class HoconConverterTest {
         assertEquals("[0]", asHoconStr(basePath, "floats"));
         assertEquals("[0.0]", asHoconStr(basePath, "doubles"));
         assertEquals("[\"\"]", asHoconStr(basePath, "strings"));
-        assertEquals("[\"" + new UUID(1111, 2222) + "\"]", asHoconStr(basePath, "uuids"));
+        assertEquals("[\"" + uuid + "\"]", asHoconStr(basePath, "uuids"));
     }
 
     /**
@@ -441,10 +445,14 @@ public class HoconConverterTest {
         change("root.primitivesList.name.stringVal = foo");
         assertThat(primitives.stringVal().value(), is("foo"));
 
-        UUID newUuid = UUID.randomUUID();
+        UUID newUuid0 = UUID.randomUUID();
+        UUID newUuid1 = UUID.randomUUID();
 
-        change("root.primitivesList.name.uuidVal = " + newUuid);
-        assertThat(primitives.uuidVal().value(), is(newUuid));
+        change("root.primitivesList.name.uuidVal = " + newUuid0);
+        assertThat(primitives.uuidVal().value(), is(newUuid0));
+
+        change("root.primitivesList.name.uuidVal = \"" + newUuid1 + "\"");
+        assertThat(primitives.uuidVal().value(), is(newUuid1));
     }
 
     /**
@@ -511,6 +519,11 @@ public class HoconConverterTest {
                 () -> change("root.primitivesList.name.stringVal = 10"),
                 "'String' is expected as a type for the 'root.primitivesList.name.stringVal' configuration value"
         );
+
+        assertThrowsIllegalArgException(
+                () -> change("root.primitivesList.name.uuidVal = 123"),
+                "'UUID' is expected as a type for the 'root.primitivesList.name.uuidVal' configuration value"
+        );
     }
 
     /**
@@ -550,10 +563,14 @@ public class HoconConverterTest {
         change("root.arraysList.name.strings = [foo]");
         assertThat(arrays.strings().value(), is(new String[]{"foo"}));
 
-        UUID newUuid = UUID.randomUUID();
+        UUID newUuid0 = UUID.randomUUID();
+        UUID newUuid1 = UUID.randomUUID();
 
-        change("root.arraysList.name.uuids = [" + newUuid + "]");
-        assertThat(arrays.uuids().value(), is(new UUID[]{newUuid}));
+        change("root.arraysList.name.uuids = [" + newUuid0 + "]");
+        assertThat(arrays.uuids().value(), is(new UUID[]{newUuid0}));
+
+        change("root.arraysList.name.uuids = [\"" + newUuid1 + "\"]");
+        assertThat(arrays.uuids().value(), is(new UUID[]{newUuid1}));
     }
 
     /**
@@ -629,6 +646,11 @@ public class HoconConverterTest {
         assertThrowsIllegalArgException(
                 () -> change("root.arraysList.name.strings = 10"),
                 "'String[]' is expected as a type for the 'root.arraysList.name.strings' configuration value"
+        );
+
+        assertThrowsIllegalArgException(
+                () -> change("root.arraysList.name.uuids = uuids"),
+                "'UUID[]' is expected as a type for the 'root.arraysList.name.uuids' configuration value"
         );
     }
 
