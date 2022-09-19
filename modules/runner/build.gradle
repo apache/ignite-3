@@ -97,6 +97,24 @@ dependencies {
 
 }
 
+def sqlIntegrationTest = tasks.register("sqlIntegratioTest", Test) {
+    description = 'Runs sql integration tests.'
+    group = 'verification'
+    useJUnitPlatform {
+        includeTags "sqllogic"
+    }
+    maxHeapSize = "16g"
+
+    testClassesDirs = sourceSets.integrationTest.output.classesDirs
+    classpath = sourceSets.integrationTest.runtimeClasspath
+}
+
+integrationTest {
+    useJUnitPlatform {
+        excludeTags "sqllogic"
+    }
+}
+
 checkstyleMain {
     enabled = false
 }
