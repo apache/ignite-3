@@ -187,11 +187,11 @@ public class BinaryTupleComparatorTest {
 
             case DECIMAL: {
                 tuple1 = new BinaryTupleBuilder(1, false)
-                        .appendDecimal(BigDecimal.valueOf(-1))
+                        .appendDecimal(BigDecimal.valueOf(-1), 4)
                         .build();
 
                 tuple2 = new BinaryTupleBuilder(1, false)
-                        .appendDecimal(BigDecimal.valueOf(123456789.1234))
+                        .appendDecimal(BigDecimal.valueOf(123456789.1234), 4)
                         .build();
 
                 break;
