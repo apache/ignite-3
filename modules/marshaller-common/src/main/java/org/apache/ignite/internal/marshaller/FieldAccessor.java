@@ -280,7 +280,7 @@ abstract class FieldAccessor {
      * @param writer Writer.
      * @param mode   Write binary mode.
      */
-    private static void writeRefObject(Object val, MarshallerWriter writer, BinaryMode mode) {
+    private static void writeRefObject(Object val, MarshallerWriter writer, BinaryMode mode, int scale) {
         assert writer != null;
 
         if (val == null) {
@@ -346,7 +346,7 @@ abstract class FieldAccessor {
                 break;
 
             case DECIMAL:
-                writer.writeBigDecimal((BigDecimal) val);
+                writer.writeBigDecimal((BigDecimal) val, scale);
 
                 break;
 
@@ -539,7 +539,7 @@ abstract class FieldAccessor {
         /** {@inheritDoc} */
         @Override
         protected void write0(MarshallerWriter writer, Object obj) {
-            writeRefObject(obj, writer, mode);
+            writeRefObject(obj, writer, mode, scale);
         }
 
         /** {@inheritDoc} */
@@ -776,7 +776,7 @@ abstract class FieldAccessor {
                 return;
             }
 
-            writeRefObject(val, writer, mode);
+            writeRefObject(val, writer, mode, scale);
         }
 
         /** {@inheritDoc} */

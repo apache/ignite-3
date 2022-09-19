@@ -266,7 +266,7 @@ public class FieldAccessorTest {
         Mockito.doAnswer(asmAnswer).when(mockedAsm).writeString(Mockito.anyString());
         Mockito.doAnswer(asmAnswer).when(mockedAsm).writeBytes(Mockito.any(byte[].class));
         Mockito.doAnswer(asmAnswer).when(mockedAsm).writeBigInt(Mockito.any(BigInteger.class));
-        Mockito.doAnswer(asmAnswer).when(mockedAsm).writeBigDecimal(Mockito.any(BigDecimal.class));
+        Mockito.doAnswer(asmAnswer).when(mockedAsm).writeBigDecimal(Mockito.any(BigDecimal.class), Mockito.anyInt());
 
         Mockito.doAnswer(asmAnswer).when(mockedAsm).writeDate(Mockito.any(LocalDate.class));
         Mockito.doAnswer(asmAnswer).when(mockedAsm).writeDateTime(Mockito.any(LocalDateTime.class));
@@ -296,7 +296,7 @@ public class FieldAccessorTest {
         Mockito.doAnswer(rowAnswer).when(mockedRow).readString();
         Mockito.doAnswer(rowAnswer).when(mockedRow).readBytes();
         Mockito.doAnswer(rowAnswer).when(mockedRow).readBigInt();
-        Mockito.doAnswer(rowAnswer).when(mockedRow).readBigDecimal(100);
+        Mockito.doAnswer(rowAnswer).when(mockedRow).readBigDecimal(0);
 
         return new Pair<>(mockedAsm, mockedRow);
     }
