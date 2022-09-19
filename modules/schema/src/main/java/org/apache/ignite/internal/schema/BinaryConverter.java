@@ -154,7 +154,7 @@ public class BinaryConverter {
                     builder.appendNumberNotNull(row.numberValue(columnIndex));
                     break;
                 case DECIMAL:
-                    builder.appendDecimalNotNull(row.decimalValue(columnIndex));
+                    builder.appendDecimalNotNull(row.decimalValue(columnIndex), elt.decimalScale);
                     break;
                 case STRING:
                 case BYTES:

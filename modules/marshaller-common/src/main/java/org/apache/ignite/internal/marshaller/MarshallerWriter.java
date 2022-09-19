@@ -125,7 +125,7 @@ public interface MarshallerWriter {
      *
      * @param val Value.
      */
-    void writeBigDecimal(BigDecimal val);
+    void writeBigDecimal(BigDecimal val, int scale);
 
     /**
      * Writes date.
@@ -245,7 +245,7 @@ public interface MarshallerWriter {
                 break;
             }
             case DECIMAL: {
-                writeBigDecimal((BigDecimal) val);
+                writeBigDecimal((BigDecimal) val, col.scale());
 
                 break;
             }
