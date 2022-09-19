@@ -20,6 +20,7 @@ plugins {
 }
 
 apply from: "$rootDir/buildscripts/java-core.gradle"
+apply from: "$rootDir/buildscripts/publishing.gradle"
 apply from: "$rootDir/buildscripts/java-junit5.gradle"
 apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
 
@@ -53,7 +54,7 @@ test {
 
 shadowJar {
     archiveAppendix.set('shaded')
-    archiveClassifier.set('')
+    archiveClassifier.set('shaded')
 
     minimize()
 

@@ -33,7 +33,9 @@ namespace Apache.Ignite.Tests
     {
         private const int DefaultClientPort = 10942;
 
-        private const int ConnectTimeoutSeconds = 20;
+        private const int ConnectTimeoutSeconds = 120;
+
+        private const string GradleCommandExec = ":ignite-runner:runnerPlatformTest";
 
         /** Maven command to execute the main class. */
         private const string MavenCommandExec = "exec:java@platform-test-node-runner";
@@ -41,8 +43,14 @@ namespace Apache.Ignite.Tests
         /** Maven arg to perform a dry run to ensure that code is compiled and all artifacts are downloaded. */
         private const string MavenCommandDryRunArg = " -Dexec.args=dry-run";
 
+        /** Gradle arg to perform a dry run to ensure that code is compiled and all artifacts are downloaded. */
+        private const string GradleCommandDryRunArg = " --dry-run";
+
         /** Full path to Maven binary. */
         private static readonly string MavenPath = GetMaven();
+
+         /** Full path to Gradle binary. */
+        private static readonly string GradlePath = GetGradle();
 
         private static volatile bool _dryRunComplete;
 
@@ -183,7 +191,7 @@ namespace Apache.Ignite.Tests
                     ArgumentList =
                     {
                         TestUtils.IsWindows ? "/c" : "-c",
-                        $"{MavenPath} {MavenCommandExec}" + (dryRun ? MavenCommandDryRunArg : string.Empty)
+                        $"{GradlePath} {GradleCommandExec}" + (dryRun ? GradleCommandDryRunArg : string.Empty)
                     },
                     CreateNoWindow = true,
                     UseShellExecute = false,
@@ -260,6 +268,15 @@ namespace Apache.Ignite.Tests
                 .SelectMany(x => extensions.Select(ext => x + ext))
                 .Where(File.Exists)
                 .FirstOrDefault() ?? "mvn";
+        }
+
+        private static string GetGradle()
+        {
+            var gradleWrapper = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+                ? "gradlew.bat"
+                : "gradlew";
+
+            return Path.Combine(TestUtils.RepoRootDir, gradleWrapper);
         }
     }
 }
