@@ -18,13 +18,13 @@
 package org.apache.ignite.internal.index;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.getByInternalId;
 import static org.apache.ignite.internal.schema.SchemaUtils.canonicalName;
 import static org.apache.ignite.internal.util.IgniteObjectName.parseCanonicalName;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Objects;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -37,20 +37,20 @@ import org.apache.ignite.configuration.schemas.table.SortedIndexView;
 import org.apache.ignite.configuration.schemas.table.TableIndexChange;
 import org.apache.ignite.configuration.schemas.table.TableIndexConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableIndexView;
+import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
+import org.apache.ignite.internal.configuration.schema.ExtendedTableConfiguration;
+import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.index.event.IndexEvent;
 import org.apache.ignite.internal.index.event.IndexEventParameters;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.manager.Producer;
-import org.apache.ignite.internal.table.distributed.TableManager;
-import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.lang.ErrorGroups.Common;
-import org.apache.ignite.lang.ErrorGroups.Table;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IndexAlreadyExistsException;
 import org.apache.ignite.lang.IndexNotFoundException;
@@ -65,8 +65,6 @@ import org.jetbrains.annotations.NotNull;
 public class IndexManager extends Producer<IndexEvent, IndexEventParameters> implements IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(IndexManager.class);
 
-    private final TableManager tableManager;
-
     /** Indexes configuration. */
     private final TablesConfiguration tablesCfg;
 
@@ -79,13 +77,9 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
     /**
      * Constructor.
      *
-     * @param tableManager Table manager.
+     * @param tablesCfg Tables configuration.
      */
-    public IndexManager(
-            TableManager tableManager,
-            TablesConfiguration tablesCfg
-    ) {
-        this.tableManager = Objects.requireNonNull(tableManager, "tableManager");
+    public IndexManager(TablesConfiguration tablesCfg) {
         this.tablesCfg = Objects.requireNonNull(tablesCfg, "tablesCfg");
     }
 
@@ -145,10 +139,17 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
 
             CompletableFuture<Boolean> future = new CompletableFuture<>();
 
-            var canonicalName = parseCanonicalName(canonicalName(schemaName, tableName));
+            String canonicalName = parseCanonicalName(canonicalName(schemaName, tableName));
 
-            tableManager.tableAsyncInternal(canonicalName).thenAccept((table) -> {
-                if (table == null) {
+            // Check index existence flag, avoid usage of hasCause + IndexAlreadyExistsException.
+            AtomicBoolean idxExist = new AtomicBoolean(false);
+
+            tablesCfg.indexes().change(indexListChange -> {
+                UUID tableId;
+
+                try {
+                    tableId = ConfigurationUtil.getInternalId(tablesCfg.tables().value(), canonicalName);
+                } catch (IllegalArgumentException e) {
                     var exception = new TableNotFoundException(canonicalName);
 
                     LOG.info("Unable to create index [schema={}, table={}, index={}]",
@@ -159,55 +160,45 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                     return;
                 }
 
-                Consumer<TableIndexChange> chg = indexChange.andThen(c -> c.changeTableId(table.tableId()));
+                Consumer<TableIndexChange> chg = indexChange.andThen(c -> c.changeTableId(tableId));
 
-                AtomicBoolean idxExist = new AtomicBoolean(false);
+                if (indexListChange.get(canonicalIndexName) != null) {
+                    idxExist.set(true);
 
-                tablesCfg.indexes().change(indexListChange -> {
-                    if (indexListChange.get(canonicalIndexName) != null) {
-                        idxExist.set(true);
+                    throw new IndexAlreadyExistsException(canonicalIndexName);
+                }
 
-                        throw new IndexAlreadyExistsException(canonicalIndexName);
+                indexListChange.create(canonicalIndexName, chg);
+
+                idxExist.set(false);
+            }).whenComplete((index, th) -> {
+                if (th != null) {
+                    LOG.info("Unable to create index [schema={}, table={}, index={}]",
+                            th, schemaName, tableName, indexName);
+
+                    if (!failIfExists && idxExist.get()) {
+                        future.complete(false);
+                    } else {
+                        future.completeExceptionally(th);
                     }
+                } else if (!future.isDone()) {
+                    TableIndexConfiguration idxCfg = tablesCfg.indexes().get(canonicalIndexName);
 
-                    indexListChange.create(canonicalIndexName, chg);
+                    if (idxCfg != null && idxCfg.value() != null) {
+                        LOG.info("Index created [schema={}, table={}, index={}, indexId={}]",
+                                schemaName, tableName, indexName, idxCfg.id().value());
 
-                    TableIndexView indexView = indexListChange.get(canonicalIndexName);
+                        future.complete(true);
+                    } else {
+                        var exception = new IgniteInternalException(
+                                Common.UNEXPECTED_ERR, "Looks like the index was concurrently deleted");
 
-                    Set<String> columnNames = Set.copyOf(table.schemaView().schema().columnNames());
-
-                    validateColumns(indexView, columnNames);
-
-                    idxExist.set(false);
-                }).whenComplete((index, th) -> {
-                    if (th != null) {
                         LOG.info("Unable to create index [schema={}, table={}, index={}]",
-                                th, schemaName, tableName, indexName);
+                                exception, schemaName, tableName, indexName);
 
-                        if (!failIfExists && idxExist.get()) {
-                            future.complete(false);
-                        } else {
-                            future.completeExceptionally(th);
-                        }
-                    } else if (!future.isDone()) {
-                        TableIndexConfiguration idxCfg = tablesCfg.indexes().get(canonicalIndexName);
-
-                        if (idxCfg != null && idxCfg.value() != null) {
-                            LOG.info("Index created [schema={}, table={}, index={}, indexId={}]",
-                                    schemaName, tableName, indexName, idxCfg.id().value());
-
-                            future.complete(true);
-                        } else {
-                            var exception = new IgniteInternalException(
-                                    Common.UNEXPECTED_ERR, "Looks like the index was concurrently deleted");
-
-                            LOG.info("Unable to create index [schema={}, table={}, index={}]",
-                                    exception, schemaName, tableName, indexName);
-
-                            future.completeExceptionally(exception);
-                        }
+                        future.completeExceptionally(exception);
                     }
-                });
+                }
             });
 
             return future;
@@ -254,8 +245,20 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
 
             UUID tableId = idxCfg.tableId().value();
 
-            tableManager.tableAsyncInternal(tableId, false).thenAccept((table) -> {
-                if (table == null) {
+            tablesCfg.indexes().change(indexListChange -> {
+                TableView tableView = getByInternalId(tablesCfg.tables().value(), tableId);
+
+                if (tableView == null) {
+                    var exception = new TableNotFoundException(canonicalName);
+
+                    LOG.info("Table with [id={}] not found.", exception, tableId);
+
+                    future.completeExceptionally(exception);
+
+                    return;
+                }
+
+                if (indexListChange.get(canonicalName) == null) {
                     var exception = new IndexNotFoundException(canonicalName);
 
                     LOG.info("Unable to drop index [schema={}, index={}]",
@@ -266,31 +269,18 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                     return;
                 }
 
-                tablesCfg.indexes().change(indexListChange -> {
-                    if (indexListChange.get(canonicalName) == null) {
-                        var exception = new IndexNotFoundException(canonicalName);
+                indexListChange.delete(canonicalName);
+            }).whenComplete((ignored, th) -> {
+                if (th != null) {
+                    LOG.info("Unable to drop index [schema={}, index={}]",
+                            th, schemaName, indexName);
 
-                        LOG.info("Unable to drop index [schema={}, index={}]",
-                                exception, schemaName, indexName);
+                    future.completeExceptionally(th);
+                } else if (!future.isDone()) {
+                    LOG.info("Index dropped [schema={}, index={}]", schemaName, indexName);
 
-                        future.completeExceptionally(exception);
-
-                        return;
-                    }
-
-                    indexListChange.delete(canonicalName);
-                }).whenComplete((ignored, th) -> {
-                    if (th != null) {
-                        LOG.info("Unable to drop index [schema={}, index={}]",
-                                th, schemaName, indexName);
-
-                        future.completeExceptionally(th);
-                    } else if (!future.isDone()) {
-                        LOG.info("Index dropped [schema={}, index={}]", schemaName, indexName);
-
-                        future.complete(true);
-                    }
-                });
+                    future.complete(true);
+                }
             });
 
             return future;
@@ -305,36 +295,6 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                     ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
                     "Index name should be at least 1 character long"
             );
-        }
-    }
-
-    private void validateColumns(TableIndexView indexView, Set<String> tableColumns) {
-        if (indexView instanceof SortedIndexView) {
-            var sortedIndexView = (SortedIndexView) indexView;
-
-            validateColumns(sortedIndexView.columns().namedListKeys(), tableColumns);
-        } else if (indexView instanceof HashIndexView) {
-            validateColumns(Arrays.asList(((HashIndexView) indexView).columnNames()), tableColumns);
-        } else {
-            throw new AssertionError("Unknown index type [type=" + (indexView != null ? indexView.getClass() : null) + ']');
-        }
-    }
-
-    private void validateColumns(Iterable<String> indexedColumns, Set<String> tableColumns) {
-        if (CollectionUtils.nullOrEmpty(indexedColumns)) {
-            throw new IgniteInternalException(
-                    ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
-                    "At least one column should be specified by index definition"
-            );
-        }
-
-        for (var columnName : indexedColumns) {
-            if (!tableColumns.contains(columnName)) {
-                throw new IgniteInternalException(
-                        Table.COLUMN_NOT_FOUND_ERR,
-                        "Column not found [name=" + columnName + ']'
-                );
-            }
         }
     }
 

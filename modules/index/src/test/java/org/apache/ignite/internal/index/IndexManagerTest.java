@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.index;
 
+import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 import static org.apache.ignite.internal.schema.SchemaUtils.canonicalName;
 import static org.apache.ignite.internal.util.IgniteObjectName.parseCanonicalName;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
@@ -27,11 +28,8 @@ import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -42,45 +40,40 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Consumer;
 import org.apache.ignite.configuration.NamedConfigurationTree;
-import org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema;
 import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.ColumnDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.EntryCountBudgetConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexChange;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.LogStorageBudgetConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.IndexValidator;
 import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.SortedIndexChange;
 import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
-import org.apache.ignite.configuration.schemas.table.TableConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableIndexConfiguration;
-import org.apache.ignite.configuration.schemas.table.TableIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
+import org.apache.ignite.configuration.validation.ConfigurationValidationException;
+import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.NamedListConfiguration;
-import org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator;
+import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
-import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.tree.ConverterToMapVisitor;
 import org.apache.ignite.internal.configuration.tree.TraversableTreeNode;
 import org.apache.ignite.internal.index.event.IndexEvent;
 import org.apache.ignite.internal.index.event.IndexEventParameters;
-import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.SchemaRegistry;
-import org.apache.ignite.internal.table.TableImpl;
-import org.apache.ignite.internal.table.distributed.TableManager;
+import org.apache.ignite.internal.schema.configuration.IndexValidatorImpl;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.lang.ErrorGroups.Table;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IndexNotFoundException;
 import org.apache.ignite.lang.TableNotFoundException;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -89,79 +82,69 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(ConfigurationExtension.class)
 public class IndexManagerTest {
-    @InjectConfiguration(polymorphicExtensions = {
-            HashIndexConfigurationSchema.class,
-            SortedIndexConfigurationSchema.class,
-            UnknownDataStorageConfigurationSchema.class,
-            ConstantValueDefaultConfigurationSchema.class,
-            FunctionCallDefaultConfigurationSchema.class,
-            NullValueDefaultConfigurationSchema.class,
-            UnlimitedBudgetConfigurationSchema.class,
-            EntryCountBudgetConfigurationSchema.class
-    })
-    TablesConfiguration tablesConfig;
+    /** Configuration registry with one table for each test. */
+    private ConfigurationRegistry confRegistry;
+
+    /**
+     * Prepare configuration registry for test.
+     */
+    @BeforeEach
+    public void createRegistry() {
+        confRegistry = new ConfigurationRegistry(
+                List.of(TablesConfiguration.KEY),
+                Map.of(IndexValidator.class, Set.of(IndexValidatorImpl.INSTANCE)),
+                new TestConfigurationStorage(DISTRIBUTED),
+                List.of(),
+                List.of(
+                        HashIndexConfigurationSchema.class,
+                        SortedIndexConfigurationSchema.class,
+
+                        UnknownDataStorageConfigurationSchema.class,
+                        ConstantValueDefaultConfigurationSchema.class,
+                        FunctionCallDefaultConfigurationSchema.class,
+                        NullValueDefaultConfigurationSchema.class,
+                        UnlimitedBudgetConfigurationSchema.class,
+                        EntryCountBudgetConfigurationSchema.class
+                )
+        );
+
+        confRegistry.start();
+    }
 
     @Test
-    void configurationChangedWhenCreateIsInvoked() {
-        var tableManagerMock = mock(TableManager.class);
-        var canonicalName = canonicalName("sName", "tName");
+    void configurationChangedWhenCreateIsInvoked() throws Exception {
+        TablesConfiguration tablesConfig = confRegistry.getConfiguration(TablesConfiguration.KEY);
 
-        TableChange tableChange = createNode(TableConfigurationSchema.class);
-
-        tableChange.changeColumns(columnListChange -> {
-            columnListChange.create("c1", columnChange -> {});
-            columnListChange.create("c2", columnChange -> {});
-        });
-
-        var successfulCompletion = new RuntimeException("This is expected");
-
-        TableImpl tbl = mock(TableImpl.class);
-
-        when(tableManagerMock.tableAsyncInternal(eq(parseCanonicalName(canonicalName))))
-                .thenReturn(CompletableFuture.completedFuture(tbl));
-
-        UUID tableId = UUID.randomUUID();
-
-        mockColumns(tbl, List.of("c1", "c2"));
-        when(tableManagerMock.tableImpl(any())).thenReturn(tbl);
-        when(tbl.tableId()).thenReturn(tableId);
-
-        when(tableManagerMock.alterTableAsync(any(), any())).thenAnswer(answer -> {
-            Consumer<TableChange> changeConsumer = answer.getArgument(1);
-
-            try {
-                changeConsumer.accept(tableChange);
-            } catch (Throwable th) {
-                return CompletableFuture.failedFuture(th);
-            }
-
-            // return failed future here to prevent index manager to further process the
-            // create request, because after returned future is competed, index manager expects
-            // to all configuration listeners to be executed, but no one have configured them
-            // for this test
-            return CompletableFuture.failedFuture(successfulCompletion);
-        });
-
-        var indexManager = new IndexManager(tableManagerMock, tablesConfig);
-
+        var indexManager = new IndexManager(tablesConfig);
         indexManager.start();
 
-        try {
-            indexManager.createIndexAsync("sName", "idx", "tName", true, indexChange -> {
-                SortedIndexChange sortedIndexChange = indexChange.convert(SortedIndexChange.class);
+        tablesConfig.tables().change(tableChange -> tableChange.create("SNAME.TNAME", chg -> {
+            chg.changeColumns(cols ->
+                    cols.create("c1", col -> col.changeType(t -> t.changeType("STRING")))
+                            .create("c2", col -> col.changeType(t -> t.changeType("STRING"))));
 
-                sortedIndexChange.changeColumns(columns -> {
-                    columns.create("c1", columnChange -> columnChange.changeAsc(true));
-                    columns.create("c2", columnChange -> columnChange.changeAsc(false));
-                });
+            chg.changePrimaryKey(pk -> pk.changeColumns("c1").changeColocationColumns("c1"));
+        })).get();
 
-                sortedIndexChange.changeTableId(tableId);
-            }).join();
-        } catch (CompletionException ex) {
-            if (ex.getCause() != successfulCompletion) {
-                throw ex;
-            }
-        }
+        NamedConfigurationTree<TableConfiguration, TableView, TableChange> cfg0 = tablesConfig.tables();
+
+        List<UUID> ids = ((NamedListConfiguration<TableConfiguration, ?, ?>) cfg0).internalIds();
+
+        assertEquals(1, ids.size());
+
+        UUID tableId = ids.get(0);
+
+        indexManager.createIndexAsync("sName", "idx", "tName", true, indexChange -> {
+            SortedIndexChange sortedIndexChange = indexChange.convert(SortedIndexChange.class);
+
+            sortedIndexChange.changeColumns(columns -> {
+                columns.create("c1", columnChange -> columnChange.changeAsc(true));
+                columns.create("c2", columnChange -> columnChange.changeAsc(false));
+            });
+
+            sortedIndexChange.changeTableId(tableId);
+        }).join();
+
 
         String awaitIdxName = parseCanonicalName(canonicalName("sName", "idx"));
 
@@ -189,12 +172,11 @@ public class IndexManagerTest {
 
     @Test
     public void createIndexForNonExistingTable() {
-        var tableManagerMock = mock(TableManager.class);
         var canonicalName = parseCanonicalName(canonicalName("sName", "tName"));
 
-        when(tableManagerMock.tableAsyncInternal(eq(canonicalName))).thenReturn(CompletableFuture.completedFuture(null));
+        TablesConfiguration tablesConfig = confRegistry.getConfiguration(TablesConfiguration.KEY);
 
-        var indexManager = new IndexManager(tableManagerMock, tablesConfig);
+        var indexManager = new IndexManager(tablesConfig);
         indexManager.start();
 
         CompletionException completionException = assertThrows(
@@ -208,9 +190,9 @@ public class IndexManagerTest {
 
     @Test
     public void createIndexWithEmptyName() {
-        var tableManagerMock = mock(TableManager.class);
+        TablesConfiguration tablesConfig = confRegistry.getConfiguration(TablesConfiguration.KEY);
 
-        var indexManager = new IndexManager(tableManagerMock, tablesConfig);
+        var indexManager = new IndexManager(tablesConfig);
         indexManager.start();
 
         CompletionException completionException = assertThrows(
@@ -226,35 +208,18 @@ public class IndexManagerTest {
     }
 
     @Test
-    public void createIndexWithEmptyColumnList() {
-        var tableManagerMock = mock(TableManager.class);
-        var tableMock = mock(TableImpl.class);
-        TableChange tableChange = createNode(TableConfigurationSchema.class);
+    public void createIndexWithEmptyColumnList() throws Exception {
+        TablesConfiguration tablesConfig = confRegistry.getConfiguration(TablesConfiguration.KEY);
 
-        when(tableManagerMock.tableAsyncInternal(any())).thenReturn(CompletableFuture.completedFuture(tableMock));
-        when(tableManagerMock.alterTableAsync(any(), any())).thenAnswer(answer -> {
-            Consumer<TableChange> changeConsumer = answer.getArgument(1);
-
-            Throwable exception = null;
-            try {
-                changeConsumer.accept(tableChange);
-            } catch (Exception ex) {
-                exception = ex;
-            }
-
-            if (exception == null) {
-                // consumer expected to fail on validation
-                exception = new AssertionError();
-            }
-
-            return CompletableFuture.failedFuture(exception);
-        });
-
-        var indexManager = new IndexManager(tableManagerMock, tablesConfig);
+        var indexManager = new IndexManager(tablesConfig);
         indexManager.start();
 
-        mockColumns(tableMock, List.of());
-        when(tableMock.tableId()).thenReturn(UUID.randomUUID());
+        tablesConfig.tables().change(tableChange -> tableChange.create("SNAME.TNAME", chg -> {
+            chg.changeColumns(cols ->
+                    cols.create("id", col -> col.changeType(t -> t.changeType("STRING"))));
+
+            chg.changePrimaryKey(pk -> pk.changeColumns("id").changeColocationColumns("id"));
+        })).get();
 
         CompletionException completionException = assertThrows(
                 CompletionException.class,
@@ -263,44 +228,28 @@ public class IndexManagerTest {
                                 .changeTableId(UUID.randomUUID())).join()
         );
 
-        assertThat(completionException.getCause(), instanceOf(IgniteInternalException.class));
+        assertTrue(IgniteTestUtils.hasCause(completionException, ConfigurationValidationException.class,
+                "At least one column should be specified"));
+
         assertThat(
-                ((IgniteInternalException) completionException.getCause()).code(),
-                equalTo(ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR)
+                (IgniteTestUtils.cause(completionException, ConfigurationValidationException.class)).getMessage(),
+                containsString(ErrorGroups.Index.INDEX_ERR_GROUP.name())
         );
     }
 
     @Test
-    public void createIndexForNonExistingColumn() {
-        var tableManagerMock = mock(TableManager.class);
-        var canonicalName = parseCanonicalName(canonicalName("sName", "tName"));
-        var tableMock = mock(TableImpl.class);
-        TableChange tableChange = createNode(TableConfigurationSchema.class);
+    public void createIndexForNonExistingColumn() throws Exception {
+        TablesConfiguration tablesConfig = confRegistry.getConfiguration(TablesConfiguration.KEY);
 
-        when(tableManagerMock.tableAsyncInternal(eq(canonicalName))).thenReturn(CompletableFuture.completedFuture(tableMock));
-        when(tableManagerMock.alterTableAsync(any(), any())).thenAnswer(answer -> {
-            Consumer<TableChange> changeConsumer = answer.getArgument(1);
-
-            Throwable exception = null;
-            try {
-                changeConsumer.accept(tableChange);
-            } catch (Exception ex) {
-                exception = ex;
-            }
-
-            if (exception == null) {
-                // consumer expected to fail on validation
-                exception = new AssertionError();
-            }
-
-            return CompletableFuture.failedFuture(exception);
-        });
-
-        var indexManager = new IndexManager(tableManagerMock, tablesConfig);
+        var indexManager = new IndexManager(tablesConfig);
         indexManager.start();
 
-        mockColumns(tableMock, List.of());
-        when(tableMock.tableId()).thenReturn(UUID.randomUUID());
+        tablesConfig.tables().change(tableChange -> tableChange.create("SNAME.TNAME", chg -> {
+            chg.changeColumns(cols ->
+                    cols.create("id", col -> col.changeType(t -> t.changeType("STRING"))));
+
+            chg.changePrimaryKey(pk -> pk.changeColumns("id").changeColocationColumns("id"));
+        })).get();
 
         CompletionException completionException = assertThrows(
                 CompletionException.class,
@@ -310,24 +259,28 @@ public class IndexManagerTest {
                                         .changeTableId(UUID.randomUUID())).join()
         );
 
-        assertThat(completionException.getCause(), instanceOf(IgniteInternalException.class));
+        assertTrue(IgniteTestUtils.hasCause(completionException, ConfigurationValidationException.class,
+                "column must exist in the schema"));
+
         assertThat(
-                ((IgniteInternalException) completionException.getCause()).code(),
-                equalTo(Table.COLUMN_NOT_FOUND_ERR)
+                (IgniteTestUtils.cause(completionException, ConfigurationValidationException.class)).getMessage(),
+                containsString(Table.TABLE_ERR_GROUP.name())
         );
     }
 
     @Test
-    public void dropNonExistingIndex() {
-        var tableManagerMock = mock(TableManager.class);
-        var tblsConfigMock = mock(TablesConfiguration.class);
+    public void dropNonExistingIndex() throws Exception {
+        TablesConfiguration tablesConfig = confRegistry.getConfiguration(TablesConfiguration.KEY);
 
-        NamedConfigurationTree cfgTree = mock(NamedConfigurationTree.class);
-        when(tblsConfigMock.indexes()).thenReturn(cfgTree);
+        var indexManager = new IndexManager(tablesConfig);
+        indexManager.start();
 
-        when(cfgTree.get(any())).thenReturn(null);
+        tablesConfig.tables().change(tableChange -> tableChange.create("SNAME.TNAME", chg -> {
+            chg.changeColumns(cols ->
+                    cols.create("id", col -> col.changeType(t -> t.changeType("STRING"))));
 
-        var indexManager = new IndexManager(tableManagerMock, tblsConfigMock);
+            chg.changePrimaryKey(pk -> pk.changeColumns("id").changeColocationColumns("id"));
+        })).get();
 
         CompletionException completionException = assertThrows(
                 CompletionException.class,
@@ -344,10 +297,19 @@ public class IndexManagerTest {
     @Test
     @SuppressWarnings("ConstantConditions")
     public void eventIsFiredWhenIndexCreated() throws Exception {
-        var tableManagerMock = mock(TableManager.class);
-        var indexName = "schema.indexName";
+        var indexName = "SCHEMA.INDEXNAME";
 
-        var indexManager = new IndexManager(tableManagerMock, tablesConfig);
+        TablesConfiguration tablesConfig = confRegistry.getConfiguration(TablesConfiguration.KEY);
+
+        var indexManager = new IndexManager(tablesConfig);
+        indexManager.start();
+
+        tablesConfig.tables().change(tableChange -> tableChange.create("SCHEMA.TNAME", chg -> {
+            chg.changeColumns(cols ->
+                    cols.create("id", col -> col.changeType(t -> t.changeType("STRING"))));
+
+            chg.changePrimaryKey(pk -> pk.changeColumns("id").changeColocationColumns("id"));
+        })).get();
 
         AtomicReference<IndexEventParameters> holder = new AtomicReference<>();
 
@@ -359,8 +321,6 @@ public class IndexManagerTest {
 
         indexManager.start();
 
-        tablesConfig.tables().change(c -> c.create("schema.tbl", tblChg -> tblChg.changeTableId(1))).get();
-
         NamedConfigurationTree<TableConfiguration, TableView, TableChange> cfg0 = tablesConfig.tables();
 
         List<UUID> ids = ((NamedListConfiguration<TableConfiguration, ?, ?>) cfg0).internalIds();
@@ -369,8 +329,15 @@ public class IndexManagerTest {
 
         UUID tableId = ids.get(0);
 
-        tablesConfig.indexes().change(c -> c.create("schema.indexName", idxChg -> idxChg.convert(SortedIndexChange.class)
-                .changeTableId(tableId))).get();
+        indexManager.createIndexAsync("SCHEMA", "indexName", "tName", true, indexChange -> {
+            SortedIndexChange sortedIndexChange = indexChange.convert(SortedIndexChange.class);
+
+            sortedIndexChange.changeColumns(columns -> {
+                columns.create("id", columnChange -> columnChange.changeAsc(true));
+            });
+
+            sortedIndexChange.changeTableId(tableId);
+        }).join();
 
         ids = ((NamedListConfiguration<TableIndexConfiguration, ?, ?>) tablesConfig.indexes()).internalIds();
 
@@ -382,47 +349,6 @@ public class IndexManagerTest {
         assertThat(holder.get().index().id(), equalTo(indexId));
         assertThat(holder.get().index().tableId(), equalTo(tableId));
         assertThat(holder.get().index().name(), equalTo(indexName));
-    }
-
-    private void mockColumns(TableImpl tbl, List<String> columns) {
-        SchemaRegistry schView = mock(SchemaRegistry.class);
-        when(tbl.schemaView()).thenReturn(schView);
-        SchemaDescriptor schDesc = mock(SchemaDescriptor.class);
-        when(schView.schema()).thenReturn(schDesc);
-        when(schDesc.columnNames()).thenReturn(columns);
-    }
-
-    /** Creates configuration node for given *SchemaConfiguration class. */
-    @SuppressWarnings({"unchecked", "SameParameterValue"})
-    private <T> T createNode(Class<?> cls) {
-        var cgen = new ConfigurationAsmGenerator();
-
-        Map<Class<?>, Set<Class<?>>> polymorphicExtensions = Map.of(
-                DataStorageConfigurationSchema.class,
-                Set.of(
-                        UnknownDataStorageConfigurationSchema.class
-                ),
-                TableIndexConfigurationSchema.class,
-                Set.of(
-                        HashIndexConfigurationSchema.class,
-                        SortedIndexConfigurationSchema.class
-                ),
-                ColumnDefaultConfigurationSchema.class,
-                Set.of(
-                        ConstantValueDefaultConfigurationSchema.class,
-                        NullValueDefaultConfigurationSchema.class,
-                        FunctionCallDefaultConfigurationSchema.class
-                ),
-                LogStorageBudgetConfigurationSchema.class,
-                Set.of(
-                        UnlimitedBudgetConfigurationSchema.class,
-                        EntryCountBudgetConfigurationSchema.class
-                )
-        );
-
-        cgen.compileRootSchema(TablesConfiguration.KEY.schemaClass(), Map.of(), polymorphicExtensions);
-
-        return (T) cgen.instantiateNode(cls);
     }
 
     private static Object toMap(Object obj) {

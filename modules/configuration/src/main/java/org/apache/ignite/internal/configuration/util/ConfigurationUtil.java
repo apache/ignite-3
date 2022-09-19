@@ -1163,6 +1163,10 @@ public class ConfigurationUtil {
         return node.get(((NamedListNode<?>) node).keyByInternalId(internalId));
     }
 
+    public static <N> UUID getInternalId(NamedListView<N> node, String name) {
+        return ((NamedListNode<?>) node).internalId(name);
+    }
+
     /**
      * Returns all internal ids of the elements from the list.
      */

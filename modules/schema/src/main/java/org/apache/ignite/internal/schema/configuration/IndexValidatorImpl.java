@@ -20,7 +20,9 @@ package org.apache.ignite.internal.schema.configuration;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.getByInternalId;
 
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.schemas.table.IndexValidator;
 import org.apache.ignite.configuration.schemas.table.TableIndexView;
@@ -32,6 +34,7 @@ import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.schema.definition.SchemaValidationUtils;
 import org.apache.ignite.internal.schema.definition.TableDefinitionImpl;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.schema.definition.ColumnDefinition;
 import org.apache.ignite.schema.definition.index.IndexDefinition;
 
@@ -59,19 +62,27 @@ public class IndexValidatorImpl implements Validator<IndexValidator, NamedListVi
 
             TableView tableView = getByInternalId(tablesView, tableId);
 
-            assert tableView != null;
+            if (tableView == null) {
+                ctx.addIssue(new ValidationIssue(key, "Unable to create index [name=" + key + "]. Table not found."));
+            }
 
             IndexDefinition index = SchemaConfigurationConverter.convert(idxView);
 
             TableDefinitionImpl tbl = SchemaConfigurationConverter.convert(tableView);
 
-            List<ColumnDefinition> tableColumns = tbl.columns();
+            Set<String> tableColumns = tbl.columns().stream().map(ColumnDefinition::name).collect(Collectors.toSet());
 
             List<String> tableColocationColumns = tbl.colocationColumns();
 
             try {
                 SchemaValidationUtils.validateIndexes(index, tableColumns, tableColocationColumns);
             } catch (IllegalStateException e) {
+                ctx.addIssue(new ValidationIssue(key, e.getMessage()));
+            }
+
+            try {
+                SchemaValidationUtils.validateColumns(idxView, tableColumns);
+            } catch (IgniteInternalException e) {
                 ctx.addIssue(new ValidationIssue(key, e.getMessage()));
             }
         }

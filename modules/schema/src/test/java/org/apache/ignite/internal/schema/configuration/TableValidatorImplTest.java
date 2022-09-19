@@ -22,66 +22,21 @@ import static org.apache.ignite.internal.configuration.validation.TestValidation
 import static org.mockito.Mockito.mock;
 
 import org.apache.ignite.configuration.NamedListView;
-import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.EntryCountBudgetConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableValidator;
 import org.apache.ignite.configuration.schemas.table.TableView;
-import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
-import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
 import org.apache.ignite.configuration.validation.ValidationContext;
-import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
-import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.schema.configuration.schema.TestDataStorageConfigurationSchema;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * TableValidatorImplTest.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
-@ExtendWith(ConfigurationExtension.class)
-public class TableValidatorImplTest {
-    /** Basic table configuration to mutate and then validate. */
-    @InjectConfiguration(
-            value = "mock {tables = [{\n"
-                    + "    name = schema.table,\n"
-                    + "    columns.id {type.type = STRING, nullable = true},\n"
-                    + "    primaryKey {columns = [id], colocationColumns = [id]},\n"
-                    + "}], indexes = [{name = idx_name, type = HASH, columnNames = [id]}] }",
-            polymorphicExtensions = {
-                    HashIndexConfigurationSchema.class,
-                    SortedIndexConfigurationSchema.class,
-                    UnknownDataStorageConfigurationSchema.class,
-                    TestDataStorageConfigurationSchema.class,
-                    ConstantValueDefaultConfigurationSchema.class,
-                    FunctionCallDefaultConfigurationSchema.class,
-                    NullValueDefaultConfigurationSchema.class,
-                    UnlimitedBudgetConfigurationSchema.class,
-                    EntryCountBudgetConfigurationSchema.class
-            }
-    )
-    private TablesConfiguration tablesCfg;
-
+public class TableValidatorImplTest extends AbstractTableIndexValidatorTest {
     /** Tests that validator finds no issues in a simple valid configuration. */
     @Test
     public void testNoIssues() {
         ValidationContext<NamedListView<TableView>> ctx = mockValidationContext(null, tablesCfg.tables().value());
 
         validate(TableValidatorImpl.INSTANCE, mock(TableValidator.class), ctx, null);
-
-        // TODO use UUID in mock
-        /*ValidationContext<NamedListView<TableIndexView>> ctxIdx = mock(ValidationContext.class);
-
-        TablesView view = tablesCfg.value();
-
-        when(ctxIdx.getNewRoot(any())).thenReturn(view);
-
-        validate(IndexValidatorImpl.INSTANCE, mock(IndexValidator.class), ctxIdx, null);*/
-
     }
 }
