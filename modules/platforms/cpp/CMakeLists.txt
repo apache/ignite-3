@@ -56,7 +56,8 @@ option(WARNINGS_AS_ERRORS "Treat warning as errors" OFF)
 add_compile_definitions(IGNITE_IMPL)
 
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "GNU")
-    include(GNUInstallDirs)if (ENABLE_ADDRESS_SANITIZER)
+    include(GNUInstallDirs)
+    if (ENABLE_ADDRESS_SANITIZER)
         add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-fsanitize=address>)
         add_link_options($<$<COMPILE_LANGUAGE:CXX>:-fsanitize=address>)
     endif()
@@ -79,12 +80,10 @@ if (${WARNINGS_AS_ERRORS})
     endif()
 endif()
 
-add_subdirectory(common)
-add_subdirectory(schema)
-
 enable_testing()
 
-add_subdirectory(tests)
+add_subdirectory(common)
+add_subdirectory(schema)
 
 if (${ENABLE_CLIENT})
     add_subdirectory(protocol)
@@ -93,6 +92,7 @@ if (${ENABLE_CLIENT})
 endif()
 
 if (${ENABLE_TESTS})
+    add_subdirectory(tests)
     if (${ENABLE_CLIENT})
         add_subdirectory(test-common)
         add_subdirectory(client-test)

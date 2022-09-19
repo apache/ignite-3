@@ -325,7 +325,7 @@ BOOST_AUTO_TEST_CASE(genericAccessFloat) {
     using namespace ignite::bytes;
 
     {
-        float x = 0.1234;
+        float x = 0.1234f;
         std::array<std::byte, sizeof(x)> buf1 {std::byte{0}};
         std::array<std::byte, sizeof(x)> buf2 {std::byte{0}};
         constexpr auto E1 = ignite::Endian::LITTLE;
