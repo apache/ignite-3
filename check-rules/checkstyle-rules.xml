@@ -385,7 +385,7 @@
     </module>
   </module>
   <module name="Header">
-    <property name="headerFile" value="${checkstyle.header.file}"/>
+    <property name="headerFile" value="${checkstyle.header.file}" default="LICENSE.txt"/>
     <property name="fileExtensions" value="java"/>
   </module>
 </module>

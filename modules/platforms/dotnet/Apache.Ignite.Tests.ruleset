@@ -55,5 +55,8 @@
 
     <!-- Validate parameters. -->
     <Rule Id="CA1062" Action="None" />
+
+    <!-- Normalize to upper case -->
+    <Rule Id="CA1308" Action="None" />
   </Rules>
 </RuleSet>

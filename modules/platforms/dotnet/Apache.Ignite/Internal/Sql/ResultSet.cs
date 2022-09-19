@@ -19,6 +19,7 @@ namespace Apache.Ignite.Internal.Sql
 {
     using System;
     using System.Collections.Generic;
+    using System.Diagnostics;
     using System.Diagnostics.CodeAnalysis;
     using System.Threading;
     using System.Threading.Tasks;
@@ -349,10 +350,7 @@ namespace Apache.Ignite.Internal.Sql
         {
             var resourceId = _resourceId;
 
-            if (resourceId == null)
-            {
-                throw new IgniteClientException("Query has no result set.");
-            }
+            Debug.Assert(resourceId != null, "resourceId != null");
 
             if (_resourceClosed)
             {
@@ -367,12 +365,12 @@ namespace Apache.Ignite.Internal.Sql
         {
             if (!HasRowSet)
             {
-                throw new IgniteClientException("Query has no result set.");
+                throw new IgniteClientException(ErrorGroups.Sql.QueryNoResultSet, "Query has no result set.");
             }
 
             if (_iterated)
             {
-                throw new IgniteClientException("Query result set can not be iterated more than once.");
+                throw new IgniteClientException(ErrorGroups.Sql.CursorClosed, "Query result set can not be iterated more than once.");
             }
 
             _iterated = true;
