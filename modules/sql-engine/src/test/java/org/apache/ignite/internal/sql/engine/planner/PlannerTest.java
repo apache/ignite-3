@@ -921,22 +921,24 @@ public class PlannerTest extends AbstractPlannerTest {
 
         IgniteRel plan = physicalPlan(sql, ctx);
 
-        Map<String, Integer> hints = new HashMap<>(Map.of("PERSON", 0, "COMPANY", 0));
+        Map<String, Integer> hintsMap = new HashMap<>();
 
         plan.accept(new RelShuttleImpl() {
             @Override public RelNode visit(TableScan scan) {
                 if (!scan.getHints().isEmpty()) {
                     String tblName = Util.last(scan.getTable().getQualifiedName());
+                    Integer currCnt = hintsMap.get(tblName);
 
-                    hints.put(tblName, hints.get(tblName) + scan.getHints().size());
+                    hintsMap.put(tblName, (currCnt == null ? 0 : currCnt) + scan.getHints().size());
                 }
 
                 return super.visit(scan);
             }
         });
 
-        assertEquals(2, hints.get("PERSON"));
-        assertEquals(1, hints.get("COMPANY"));
+        assertEquals(2, hintsMap.size());
+        assertEquals(2, hintsMap.get("PERSON"));
+        assertEquals(1, hintsMap.get("COMPANY"));
     }
 
     /**
