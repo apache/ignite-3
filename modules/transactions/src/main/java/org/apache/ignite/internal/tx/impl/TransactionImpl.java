@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.tx.impl;
 
+import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_COMMIT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ROLLBACK_ERR;
 
@@ -32,7 +33,6 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
-import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.TransactionException;
@@ -105,7 +105,7 @@ public class TransactionImpl implements InternalTransaction {
         try {
             commitAsync().get();
         } catch (Exception e) {
-            throw ExceptionUtils.withCause(TransactionException::new, TX_COMMIT_ERR, e);
+            throw withCause(TransactionException::new, TX_COMMIT_ERR, e);
         }
     }
 
@@ -121,7 +121,7 @@ public class TransactionImpl implements InternalTransaction {
         try {
             rollbackAsync().get();
         } catch (Exception e) {
-            throw ExceptionUtils.withCause(TransactionException::new, TX_ROLLBACK_ERR, e);
+            throw withCause(TransactionException::new, TX_ROLLBACK_ERR, e);
         }
     }
 
@@ -155,28 +155,23 @@ public class TransactionImpl implements InternalTransaction {
             }
         });
 
-        return CompletableFuture.allOf(enlistedResults.toArray(new CompletableFuture[0])).handle(
-                (ignored, ex) -> {
-                    if (ex != null && commit) {
-                        throw new TransactionException(
-                                TX_COMMIT_ERR,
-                                "Unable to commit the transaction with partially failed operations.",
-                                ex);
-                    } else {
-                        if (!enlisted.isEmpty()) {
-                            txManager.finish(
-                                    enlisted.entrySet().iterator().next().getValue().get1(),
-                                    enlisted.entrySet().iterator().next().getValue().get2(),
-                                    commit,
-                                    groups,
-                                    id
-                            );
+        // TODO: add proper exception handling.
+        return CompletableFuture
+                .allOf(enlistedResults.toArray(new CompletableFuture[0]))
+                .thenCompose(ignored -> {
+                            if (!enlisted.isEmpty()) {
+                                return txManager.finish(
+                                        enlisted.entrySet().iterator().next().getValue().get1(),
+                                        enlisted.entrySet().iterator().next().getValue().get2(),
+                                        commit,
+                                        groups,
+                                        id
+                                );
+                            } else {
+                                return CompletableFuture.completedFuture(null);
+                            }
                         }
-
-                        return null;
-                    }
-                }
-        );
+                );
         // TODO: sanpwc add debug log.
     }
 

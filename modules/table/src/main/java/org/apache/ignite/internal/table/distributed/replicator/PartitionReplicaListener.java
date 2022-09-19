@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.table.distributed.replicator;
 
+import static java.util.concurrent.CompletableFuture.allOf;
+
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -30,6 +32,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.hlc.HybridTimestamp;
@@ -309,19 +312,23 @@ public class PartitionReplicaListener implements ReplicaListener {
         );
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-17578
-        chaneStateFuture.thenRun(
-                () -> request.groups().forEach(
-                        (recipientNode, replicationGroupIds) -> txManager.cleanup(
-                                recipientNode,
-                                replicationGroupIds,
-                                txId,
-                                commit,
-                                commitTimestamp
+        CompletableFuture[] cleanupFutures = new CompletableFuture[request.groups().size()];
+        AtomicInteger cleanupFuturesCnt = new AtomicInteger(0);
+
+        request.groups().forEach(
+                (recipientNode, replicationGroupIds) ->
+                        cleanupFutures[cleanupFuturesCnt.getAndIncrement()] = chaneStateFuture.thenCompose(ignored ->
+                                txManager.cleanup(
+                                        recipientNode,
+                                        replicationGroupIds,
+                                        txId,
+                                        commit,
+                                        commitTimestamp
+                                )
                         )
-                )
         );
 
-        return chaneStateFuture;
+        return allOf(cleanupFutures).thenApply(ignored -> null);
     }
 
 
@@ -341,11 +348,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     private CompletableFuture processTxCleanupAction(TxCleanupReplicaRequest request) {
         return raftClient
                 .run(new TxCleanupCommand(request.txId(), request.commit(), request.commitTimestamp()))
-                .thenApply(ignored -> {
-                    lockManager.locks(request.txId()).forEachRemaining(lockManager::release);
-
-                    return null;
-                });
+                .thenRun(() -> lockManager.locks(request.txId()).forEachRemaining(lockManager::release));
     }
 
     /**
@@ -430,7 +433,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     getLockFuts[i++] = takeLocsForGet(searchKey, indexId, txId);
                 }
 
-                return CompletableFuture.allOf(getLockFuts).thenApply(ignore -> {
+                return allOf(getLockFuts).thenApply(ignore -> {
                     ArrayList<BinaryRow> result = new ArrayList<>(keyRows.size());
 
                     for (int futNum = 0; futNum < keyRows.size(); futNum++) {
@@ -451,7 +454,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     deleteLockFuts[i++] = takeLocksForDelete(searchKey, indexId, txId);
                 }
 
-                return CompletableFuture.allOf(deleteLockFuts).thenCompose(ignore -> {
+                return allOf(deleteLockFuts).thenCompose(ignore -> {
                     Collection<RowId> rowIdsToDelete = new ArrayList<>();
                     Collection<BinaryRow> result = new ArrayList<>();
 
@@ -482,7 +485,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     deleteExactLockFuts[i++] = takeLocksForDeleteExact(searchKey, keyToRows.get(searchKey), indexId, txId);
                 }
 
-                return CompletableFuture.allOf(deleteExactLockFuts).thenCompose(ignore -> {
+                return allOf(deleteExactLockFuts).thenCompose(ignore -> {
                     Collection<RowId> rowIdsToDelete = new ArrayList<>();
                     Collection<BinaryRow> result = new ArrayList<>();
 
@@ -513,7 +516,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     insertLockFuts[i++] = takeLocksForInsert(searchKey, indexId, txId);
                 }
 
-                return CompletableFuture.allOf(insertLockFuts).thenCompose(ignore -> {
+                return allOf(insertLockFuts).thenCompose(ignore -> {
                     Collection<BinaryRow> result = new ArrayList<>();
                     Map<RowId, BinaryRow> rowsToInsert = new HashMap<>();
 
@@ -544,7 +547,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     upsertLockFuts[i++] = takeLocksForUpsert(searchKey, indexId, txId);
                 }
 
-                return CompletableFuture.allOf(upsertLockFuts).thenCompose(ignore -> {
+                return allOf(upsertLockFuts).thenCompose(ignore -> {
                     Map<RowId, BinaryRow> rowsToUpdate = new HashMap<>();
 
                     int futNum = 0;
