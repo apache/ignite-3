@@ -744,12 +744,12 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         /** {@inheritDoc} */
         @Override
         public IgniteLogicalTableScan toRel(
-            RelOptCluster cluster,
-            RelOptTable relOptTbl,
-            List<RelHint> hints,
-            @Nullable List<RexNode> proj,
-            @Nullable RexNode cond,
-            @Nullable ImmutableBitSet requiredColumns
+                RelOptCluster cluster,
+                RelOptTable relOptTbl,
+                List<RelHint> hints,
+                @Nullable List<RexNode> proj,
+                @Nullable RexNode cond,
+                @Nullable ImmutableBitSet requiredColumns
         ) {
             return IgniteLogicalTableScan.create(cluster, cluster.traitSet(), relOptTbl, hints, proj, cond, requiredColumns);
         }

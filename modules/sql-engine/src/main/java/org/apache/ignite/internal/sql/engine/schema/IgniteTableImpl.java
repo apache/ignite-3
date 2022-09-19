@@ -172,12 +172,12 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
     /** {@inheritDoc} */
     @Override
     public IgniteLogicalTableScan toRel(
-        RelOptCluster cluster,
-        RelOptTable relOptTbl,
-        List<RelHint> hints,
-        @Nullable List<RexNode> proj,
-        @Nullable RexNode cond,
-        @Nullable ImmutableBitSet requiredColumns
+            RelOptCluster cluster,
+            RelOptTable relOptTbl,
+            List<RelHint> hints,
+            @Nullable List<RexNode> proj,
+            @Nullable RexNode cond,
+            @Nullable ImmutableBitSet requiredColumns
     ) {
         RelTraitSet traitSet = cluster.traitSetOf(distribution())
                 .replace(RewindabilityTrait.REWINDABLE);

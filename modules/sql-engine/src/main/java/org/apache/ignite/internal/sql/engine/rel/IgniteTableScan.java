@@ -52,20 +52,20 @@ public class IgniteTableScan extends ProjectableFilterableTableScan implements S
         }
     }
 
-//    /**
-//     * Creates a TableScan.
-//     *
-//     * @param cluster Cluster that this relational expression belongs to.
-//     * @param traits  Traits of this relational expression.
-//     * @param tbl     Table definition.
-//     */
-//    public IgniteTableScan(
-//            RelOptCluster cluster,
-//            RelTraitSet traits,
-//            RelOptTable tbl
-//    ) {
-//        this(cluster, traits, tbl, null, null, null);
-//    }
+    /**
+     * Creates a TableScan.
+     *
+     * @param cluster Cluster that this relational expression belongs to.
+     * @param traits  Traits of this relational expression.
+     * @param tbl     Table definition.
+     */
+    public IgniteTableScan(
+            RelOptCluster cluster,
+            RelTraitSet traits,
+            RelOptTable tbl
+    ) {
+        this(cluster, traits, tbl, List.of(), null, null, null);
+    }
 
     /**
      * Creates a TableScan.
@@ -79,13 +79,13 @@ public class IgniteTableScan extends ProjectableFilterableTableScan implements S
      * @param requiredColumns Participating columns.
      */
     public IgniteTableScan(
-        RelOptCluster cluster,
-        RelTraitSet traits,
-        RelOptTable tbl,
-        List<RelHint> hints,
-        @Nullable List<RexNode> proj,
-        @Nullable RexNode cond,
-        @Nullable ImmutableBitSet requiredColumns
+            RelOptCluster cluster,
+            RelTraitSet traits,
+            RelOptTable tbl,
+            List<RelHint> hints,
+            @Nullable List<RexNode> proj,
+            @Nullable RexNode cond,
+            @Nullable ImmutableBitSet requiredColumns
     ) {
         this(-1L, cluster, traits, tbl, hints, proj, cond, requiredColumns);
     }
@@ -102,14 +102,14 @@ public class IgniteTableScan extends ProjectableFilterableTableScan implements S
      * @param requiredColumns Participating columns.
      */
     public IgniteTableScan(
-        long sourceId,
-        RelOptCluster cluster,
-        RelTraitSet traits,
-        RelOptTable tbl,
-        List<RelHint> hints,
-        @Nullable List<RexNode> proj,
-        @Nullable RexNode cond,
-        @Nullable ImmutableBitSet requiredColumns
+            long sourceId,
+            RelOptCluster cluster,
+            RelTraitSet traits,
+            RelOptTable tbl,
+            List<RelHint> hints,
+            @Nullable List<RexNode> proj,
+            @Nullable RexNode cond,
+            @Nullable ImmutableBitSet requiredColumns
     ) {
         super(cluster, traits, hints, tbl, proj, cond, requiredColumns);
         this.sourceId = sourceId;

@@ -34,13 +34,13 @@ import org.jetbrains.annotations.Nullable;
 public class IgniteLogicalTableScan extends ProjectableFilterableTableScan {
     /** Creates a IgniteTableScan. */
     public static IgniteLogicalTableScan create(
-        RelOptCluster cluster,
-        RelTraitSet traits,
-        RelOptTable tbl,
-        List<RelHint> hints,
-        @Nullable List<RexNode> proj,
-        @Nullable RexNode cond,
-        @Nullable ImmutableBitSet requiredColumns
+            RelOptCluster cluster,
+            RelTraitSet traits,
+            RelOptTable tbl,
+            List<RelHint> hints,
+            @Nullable List<RexNode> proj,
+            @Nullable RexNode cond,
+            @Nullable ImmutableBitSet requiredColumns
     ) {
         return new IgniteLogicalTableScan(cluster, traits, tbl, hints, proj, cond, requiredColumns);
     }
@@ -57,13 +57,13 @@ public class IgniteLogicalTableScan extends ProjectableFilterableTableScan {
      * @param requiredColumns Participating columns.
      */
     private IgniteLogicalTableScan(
-        RelOptCluster cluster,
-        RelTraitSet traits,
-        RelOptTable tbl,
-        List<RelHint> hints,
-        @Nullable List<RexNode> proj,
-        @Nullable RexNode cond,
-        @Nullable ImmutableBitSet requiredColumns
+            RelOptCluster cluster,
+            RelTraitSet traits,
+            RelOptTable tbl,
+            List<RelHint> hints,
+            @Nullable List<RexNode> proj,
+            @Nullable RexNode cond,
+            @Nullable ImmutableBitSet requiredColumns
     ) {
         super(cluster, traits, hints, tbl, proj, cond, requiredColumns);
     }

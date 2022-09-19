@@ -61,12 +61,12 @@ public interface InternalIgniteTable extends IgniteTable {
      * Converts table into table scan relational expression.
      */
     IgniteLogicalTableScan toRel(
-        RelOptCluster cluster,
-        RelOptTable relOptTbl,
-        List<RelHint> hints,
-        @Nullable List<RexNode> proj,
-        @Nullable RexNode cond,
-        @Nullable ImmutableBitSet requiredColumns
+            RelOptCluster cluster,
+            RelOptTable relOptTbl,
+            List<RelHint> hints,
+            @Nullable List<RexNode> proj,
+            @Nullable RexNode cond,
+            @Nullable ImmutableBitSet requiredColumns
     );
 
     /**
