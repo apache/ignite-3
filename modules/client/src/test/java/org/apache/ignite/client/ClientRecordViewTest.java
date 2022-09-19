@@ -137,7 +137,7 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
         assertEquals("foo", res.zstring);
         assertArrayEquals(new byte[]{1, 2}, res.zbytes);
         assertEquals(BitSet.valueOf(new byte[]{32}), res.zbitmask);
-        assertEquals(21, res.zdecimal.longValue()); // TODO: IGNITE-17632 check correct round-trip
+        assertEquals(21, res.zdecimal.longValue());
         assertEquals(22, res.znumber.longValue());
         assertEquals(uuid, res.zuuid);
     }

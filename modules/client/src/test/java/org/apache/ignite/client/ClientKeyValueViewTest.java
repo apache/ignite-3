@@ -136,7 +136,7 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
         assertEquals("foo", res.zstring);
         assertArrayEquals(new byte[]{1, 2}, res.zbytes);
         assertEquals(BitSet.valueOf(new byte[]{32}), res.zbitmask);
-        assertEquals(21, res.zdecimal.unscaledValue().longValue()); // TODO: IGNITE-17632 check correct round-trip
+        assertEquals(21, res.zdecimal.longValue());
         assertEquals(22, res.znumber.longValue());
         assertEquals(uuid, res.zuuid);
     }
@@ -191,7 +191,7 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
         assertEquals("119", res.stringValue("zstring"));
         assertEquals(120, ((byte[]) res.value("zbytes"))[0]);
         assertEquals(BitSet.valueOf(new byte[]{121}), res.bitmaskValue("zbitmask"));
-        assertEquals(122, ((BigDecimal) res.value("zdecimal")).unscaledValue().longValue()); // TODO: IGNITE-17632 check correct round-trip
+        assertEquals(122, ((BigDecimal) res.value("zdecimal")).longValue());
         assertEquals(BigInteger.valueOf(123), res.value("znumber"));
         assertEquals(uuid, res.uuidValue("zuuid"));
     }
