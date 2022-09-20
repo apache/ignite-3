@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table.distributed.replicator;
 
 import static java.util.concurrent.CompletableFuture.allOf;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 
 import java.nio.ByteBuffer;
@@ -41,6 +42,7 @@ import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutExcepti
 import org.apache.ignite.internal.replicator.exception.UnsupportedReplicaRequestException;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.replicator.message.SafeTimeSyncRequest;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
@@ -105,6 +107,12 @@ public class PartitionReplicaListener implements ReplicaListener {
     /** Dummy primary index. */
     private final ConcurrentHashMap<ByteBuffer, RowId> primaryIndex;
 
+    /** Hybrid clock. */
+    private final HybridClock hybridClock;
+
+    /** Safe time clock. */
+    private final HybridClock safeTimeClock;
+
     /**
      * Cursors map. The key of the map is internal Ignite uuid which consists of a transaction id ({@link UUID}) and a cursor id ({@link
      * Long}).
@@ -131,7 +139,8 @@ public class PartitionReplicaListener implements ReplicaListener {
             String replicationGroupId,
             UUID tableId,
             ConcurrentHashMap<ByteBuffer, RowId> primaryIndex,
-            HybridClock hybridClock
+            HybridClock hybridClock,
+            HybridClock safeTimeClock
     ) {
         this.mvDataStorage = mvDataStorage;
         this.raftClient = raftClient;
@@ -141,6 +150,8 @@ public class PartitionReplicaListener implements ReplicaListener {
         this.replicationGroupId = replicationGroupId;
         this.tableId = tableId;
         this.primaryIndex = primaryIndex;
+        this.hybridClock = hybridClock;
+        this.safeTimeClock = safeTimeClock;
 
         //TODO: IGNITE-17479 Integrate indexes into replicaListener command handlers
         this.indexScanId = new UUID(tableId.getMostSignificantBits(), tableId.getLeastSignificantBits() + 1);
@@ -177,11 +188,13 @@ public class PartitionReplicaListener implements ReplicaListener {
                     } else if (request instanceof ReadWriteScanCloseReplicaRequest) {
                         processScanCloseAction((ReadWriteScanCloseReplicaRequest) request);
 
-                        return CompletableFuture.completedFuture(null);
+                        return completedFuture(null);
                     } else if (request instanceof TxFinishReplicaRequest) {
                         return processTxFinishAction((TxFinishReplicaRequest) request);
                     } else if (request instanceof TxCleanupReplicaRequest) {
                         return processTxCleanupAction((TxCleanupReplicaRequest) request);
+                    } else if (request instanceof SafeTimeSyncRequest) {
+                        return processSafeTimeSyncRequest((SafeTimeSyncRequest) request);
                     } else {
                         throw new UnsupportedReplicaRequestException(request.getClass());
                     }
@@ -268,7 +281,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 batchRows.add(cursor.next());
             }
 
-            return CompletableFuture.completedFuture(batchRows);
+            return completedFuture(batchRows);
         });
     }
 
@@ -345,6 +358,12 @@ public class PartitionReplicaListener implements ReplicaListener {
         return raftClient
                 .run(new TxCleanupCommand(request.txId(), request.commit(), request.commitTimestamp()))
                 .thenRun(() -> lockManager.locks(request.txId()).forEachRemaining(lockManager::release));
+    }
+
+    private CompletableFuture processSafeTimeSyncRequest(SafeTimeSyncRequest request) {
+        safeTimeClock.sync(request.safeTimestamp());
+
+        return completedFuture(null);
     }
 
     /**
@@ -687,7 +706,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                         CompletableFuture<Lock> rowLockFut = (rowId != null)
                                                 ? lockManager.acquire(txId, new LockKey(tableId, rowId), LockMode.X)
                                                 // X lock on RowId
-                                                : CompletableFuture.completedFuture(null);
+                                                : completedFuture(null);
 
                                         return rowLockFut.thenCompose(rowLock -> {
                                             BinaryRow result = rowId != null ? mvDataStorage.read(rowId, txId) : null;
@@ -712,7 +731,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                         .thenApply(exclusiveIdxLock -> rowId); // Index X lock
                             }
 
-                            return CompletableFuture.completedFuture(null);
+                            return completedFuture(null);
                         });
 
                 return idxLockFut.thenCompose(lockedRowId -> {
@@ -726,7 +745,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                                     mvDataStorage.read(lockedRowId, txId)
                                             );
                                 } else {
-                                    rowLockFut = CompletableFuture.completedFuture(null);
+                                    rowLockFut = completedFuture(null);
                                 }
 
                                 return rowLockFut.thenCompose(lockedRow -> {
@@ -745,7 +764,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     boolean replaced = lockedRowId != null;
 
                     CompletableFuture raftFut = replaced ? applyCmdWithExceptionHandling(new UpdateCommand(lockedRowId, searchRow, txId)) :
-                            CompletableFuture.completedFuture(null);
+                            completedFuture(null);
 
                     return raftFut.thenApply(ignored -> replaced);
                 });
@@ -771,7 +790,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
             CompletableFuture<Lock> idxLockFut = rowId != null
                     ? lockManager.acquire(txId, new LockKey(indexId, searchKey), LockMode.X) // Index X lock
-                    : CompletableFuture.completedFuture(null);
+                    : completedFuture(null);
 
             return idxLockFut.thenCompose(exclusiveIdxLock -> lockManager.acquire(txId, new LockKey(tableId), LockMode.IX)
                     .thenCompose(tblLock -> { // IX lock on table
@@ -782,7 +801,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                     .thenApply(rowLock -> rowIdToLock); // X lock on RowId
                         }
 
-                        return CompletableFuture.completedFuture(null);
+                        return completedFuture(null);
                     }));
         });
     }
@@ -806,7 +825,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                     .thenApply(rowLock -> rowId); // X lock on RowId
                         }
 
-                        return CompletableFuture.completedFuture(null);
+                        return completedFuture(null);
                     });
         });
     }
@@ -831,7 +850,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                                 .thenApply(tblLock -> null));
                     }
 
-                    return CompletableFuture.completedFuture(rowId);
+                    return completedFuture(rowId);
                 });
     }
 
@@ -863,10 +882,10 @@ public class PartitionReplicaListener implements ReplicaListener {
                                                     .thenApply(exclusiveRowLock -> rowId);
                                         }
 
-                                        return CompletableFuture.completedFuture(null);
+                                        return completedFuture(null);
                                     });
                         } else {
-                            rowLockFut = CompletableFuture.completedFuture(null);
+                            rowLockFut = completedFuture(null);
                         }
 
                         return rowLockFut;
@@ -903,7 +922,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                     });
                         }
 
-                        return CompletableFuture.completedFuture(null);
+                        return completedFuture(null);
                     });
         });
     }
@@ -926,7 +945,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                             .thenApply(rowLock -> rowId);
                 }
 
-                return CompletableFuture.completedFuture(null);
+                return completedFuture(null);
             });
         });
     }
@@ -955,7 +974,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     boolean replaced = lockedRowId != null;
 
                     CompletableFuture raftFut = replaced ? applyCmdWithExceptionHandling(new UpdateCommand(lockedRowId, searchRow, txId)) :
-                            CompletableFuture.completedFuture(null);
+                            completedFuture(null);
 
                     return raftFut.thenApply(ignored -> replaced);
                 });
@@ -982,7 +1001,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
             CompletableFuture<Lock> idxLockFut = rowId != null
                     ? lockManager.acquire(txId, new LockKey(indexId, searchKey), LockMode.X) // Index X lock
-                    : CompletableFuture.completedFuture(null);
+                    : completedFuture(null);
 
             return idxLockFut.thenCompose(exclusiveIdxLock -> lockManager.acquire(txId, new LockKey(tableId), LockMode.IX)
                     .thenCompose(tblLock -> { // IX lock on table
@@ -999,10 +1018,10 @@ public class PartitionReplicaListener implements ReplicaListener {
                                                     .thenApply(rowLock -> rowId);
                                         }
 
-                                        return CompletableFuture.completedFuture(null);
+                                        return completedFuture(null);
                                     });
                         } else {
-                            rowLockFut = CompletableFuture.completedFuture(null);
+                            rowLockFut = completedFuture(null);
                         }
 
                         return rowLockFut;
@@ -1041,14 +1060,14 @@ public class PartitionReplicaListener implements ReplicaListener {
                                 Long currentTerm = replicaAndTerm.get2();
 
                                 if (expectedTerm.equals(currentTerm)) {
-                                    return CompletableFuture.completedFuture(null);
+                                    return completedFuture(null);
                                 } else {
                                     return CompletableFuture.failedFuture(new PrimaryReplicaMissException(expectedTerm, currentTerm));
                                 }
                             }
                     );
         } else {
-            return CompletableFuture.completedFuture(null);
+            return completedFuture(null);
         }
     }
 }

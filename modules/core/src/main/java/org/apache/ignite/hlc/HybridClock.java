@@ -82,18 +82,35 @@ public class HybridClock {
      * @return The hybrid timestamp.
      */
     public HybridTimestamp update(HybridTimestamp requestTime) {
+        return update(requestTime, true);
+    }
+
+    /**
+     * Creates a timestamp for a received event.
+     *
+     * @param requestTime Timestamp from request.
+     * @param addTick Whether to add a tick to the time.
+     * @return The hybrid timestamp.
+     */
+    private HybridTimestamp update(HybridTimestamp requestTime, boolean addTick) {
         while (true) {
             HybridTimestamp now = new HybridTimestamp(Clock.systemUTC().instant().toEpochMilli(), -1);
 
             // Read the latest time after accessing UTC time to reduce contention.
             HybridTimestamp latestTime = this.latestTime;
 
-            HybridTimestamp newLatestTime = HybridTimestamp.max(now, requestTime, latestTime).addTicks(1);
+            HybridTimestamp maxLatestTime = HybridTimestamp.max(now, requestTime, latestTime);
+
+            HybridTimestamp newLatestTime = addTick ? maxLatestTime.addTicks(1) : maxLatestTime;
 
             if (LATEST_TIME.compareAndSet(this, latestTime, newLatestTime)) {
                 return newLatestTime;
             }
         }
+    }
+
+    public HybridTimestamp sync(HybridTimestamp requestTime) {
+        return update(requestTime, false);
     }
 
     /** {@inheritDoc} */

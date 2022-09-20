@@ -120,11 +120,11 @@ public class ReplicaManager implements IgniteComponent {
                     NetworkMessage msg;
 
                     if (ex == null) {
-                        msg = prepareReplicaResponse(requestTimestamp, res);
+                        msg = prepareReplicaResponse(requestTimestamp, replica.safeTimestamp(), res);
                     } else {
                         LOG.warn("Failed to process replica request [request={}]", ex, request);
 
-                        msg = prepareReplicaErrorResponse(requestTimestamp, ex);
+                        msg = prepareReplicaErrorResponse(requestTimestamp, replica.safeTimestamp(), ex);
                     }
 
                     clusterNetSvc.messagingService().respond(senderAddr, msg, correlationId);
@@ -161,19 +161,21 @@ public class ReplicaManager implements IgniteComponent {
      *
      * @param replicaGrpId Replication group id.
      * @param listener Replica listener.
+     * @param replicaSafeTime
      * @return New replica.
      * @throws NodeStoppingException If node is stopping.
      * @throws ReplicaIsAlreadyStartedException Is thrown when a replica with the same replication group id has already been started.
      */
     public Replica startReplica(
             String replicaGrpId,
-            ReplicaListener listener) throws NodeStoppingException {
+            ReplicaListener listener,
+            HybridClock replicaSafeTime) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
         }
 
         try {
-            return startReplicaInternal(replicaGrpId, listener);
+            return startReplicaInternal(replicaGrpId, listener, replicaSafeTime);
         } finally {
             busyLock.leaveBusy();
         }
@@ -186,8 +188,8 @@ public class ReplicaManager implements IgniteComponent {
      * @param listener Replica listener.
      * @return New replica.
      */
-    private Replica startReplicaInternal(String replicaGrpId, ReplicaListener listener) {
-        var replica = new Replica(replicaGrpId, listener);
+    private Replica startReplicaInternal(String replicaGrpId, ReplicaListener listener, HybridClock replicaSafeTime) {
+        var replica = new Replica(replicaGrpId, listener, replicaSafeTime);
 
         Replica previous = replicas.putIfAbsent(replicaGrpId, replica);
 
@@ -307,12 +309,15 @@ public class ReplicaManager implements IgniteComponent {
     /**
      * Prepares replica response.
      */
-    private NetworkMessage prepareReplicaResponse(HybridTimestamp requestTimestamp, Object result) {
+    private NetworkMessage prepareReplicaResponse(HybridTimestamp requestTimestamp, HybridTimestamp safeTimestamp, Object result) {
         if (requestTimestamp != null) {
+            assert safeTimestamp != null;
+
             return REPLICA_MESSAGES_FACTORY
                     .timestampAwareReplicaResponse()
                     .result(result)
                     .timestamp(clock.update(requestTimestamp))
+                    .safeTimestamp(safeTimestamp)
                     .build();
         } else {
             return REPLICA_MESSAGES_FACTORY
@@ -325,12 +330,15 @@ public class ReplicaManager implements IgniteComponent {
     /**
      * Prepares replica error response.
      */
-    private NetworkMessage prepareReplicaErrorResponse(HybridTimestamp requestTimestamp, Throwable ex) {
+    private NetworkMessage prepareReplicaErrorResponse(HybridTimestamp requestTimestamp, HybridTimestamp safeTimestamp, Throwable ex) {
         if (requestTimestamp != null) {
+            assert safeTimestamp != null;
+
             return REPLICA_MESSAGES_FACTORY
                     .errorTimestampAwareReplicaResponse()
                     .throwable(ex)
                     .timestamp(clock.update(requestTimestamp))
+                    .safeTimestamp(safeTimestamp)
                     .build();
         } else {
             return REPLICA_MESSAGES_FACTORY

@@ -33,6 +33,7 @@ import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
+import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
@@ -122,6 +123,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 mock(MvTableStorage.class),
                 mock(TxStateTableStorage.class),
                 mock(ReplicaService.class),
+                mock(ReplicaManager.class),
                 mock(HybridClock.class)
         );
 
@@ -149,6 +151,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 mock(MvTableStorage.class),
                 mock(TxStateTableStorage.class),
                 mock(ReplicaService.class),
+                mock(ReplicaManager.class),
                 mock(HybridClock.class)
         );
 
@@ -182,6 +185,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 mock(MvTableStorage.class),
                 mock(TxStateTableStorage.class),
                 mock(ReplicaService.class),
+                mock(ReplicaManager.class),
                 mock(HybridClock.class)
         );
 

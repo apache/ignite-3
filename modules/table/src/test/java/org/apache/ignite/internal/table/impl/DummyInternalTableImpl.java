@@ -31,6 +31,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import javax.naming.OperationNotSupportedException;
 import org.apache.ignite.hlc.HybridClock;
+import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -131,6 +132,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 mock(MvTableStorage.class),
                 mock(TxStateTableStorage.class),
                 replicaSvc,
+                mock(ReplicaManager.class),
                 mock(HybridClock.class)
         );
         RaftGroupService svc = partitionMap.get(0);
@@ -209,6 +211,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 groupId,
                 tableId(),
                 primaryIndex,
+                new HybridClock(),
                 new HybridClock()
         );
 

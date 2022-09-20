@@ -138,6 +138,8 @@ public class NodeImpl implements Node, RaftServerService {
 
     private volatile HybridClock clock;
 
+    private volatile HybridClock safeTimeClock;
+
     /**
      * Internal states
      */
@@ -562,6 +564,18 @@ public class NodeImpl implements Node, RaftServerService {
         return clock.update(timestamp);
     }
 
+    public HybridTimestamp safeTimeNow() {
+        return safeTimeClock.now();
+    }
+
+    public HybridTimestamp safeTimeClockUpdate(HybridTimestamp safeTimestamp) {
+        return safeTimeClock.update(safeTimestamp);
+    }
+
+    public HybridTimestamp safeTimeClockSync(HybridTimestamp safeTimestamp) {
+        return safeTimeClock.sync(safeTimestamp);
+    }
+
     private boolean initSnapshotStorage() {
         if (StringUtils.isEmpty(this.options.getSnapshotUri())) {
             LOG.warn("Do not set snapshot uri, ignore initSnapshotStorage.");
@@ -858,6 +872,7 @@ public class NodeImpl implements Node, RaftServerService {
         Requires.requireNonNull(opts.getServiceFactory(), "Null jraft service factory");
         this.serviceFactory = opts.getServiceFactory();
         this.clock = opts.getNodeOptions().getClock();
+        this.safeTimeClock = opts.getNodeOptions().getSafeTimeClock();
         // Term is not an option since changing it is very dangerous
         final long bootstrapLogTerm = opts.getLastLogIndex() > 0 ? 1 : 0;
         final LogId bootstrapId = new LogId(opts.getLastLogIndex(), bootstrapLogTerm);
@@ -956,6 +971,7 @@ public class NodeImpl implements Node, RaftServerService {
         Requires.requireNonNull(opts.getServiceFactory(), "Null jraft service factory");
         this.serviceFactory = opts.getServiceFactory();
         this.clock = opts.getClock();
+        this.safeTimeClock = opts.getSafeTimeClock();
         this.options = opts;
         this.raftOptions = opts.getRaftOptions();
         this.metrics = new NodeMetrics(opts.isEnableMetrics());

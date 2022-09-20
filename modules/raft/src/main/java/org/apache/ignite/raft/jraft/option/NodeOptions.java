@@ -236,6 +236,9 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     /** A hybrid clock */
     private HybridClock clock = new HybridClock();
 
+    /** A hybrid clock for safe time. */
+    private HybridClock safeTimeClock = new HybridClock();
+
     /**
      * Amount of Disruptors that will handle the RAFT server.
      */
@@ -597,6 +600,14 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
         this.clock = clock;
     }
 
+    public HybridClock getSafeTimeClock() {
+        return safeTimeClock;
+    }
+
+    public void setSafeTimeClock(HybridClock safeTimeClock) {
+        this.safeTimeClock = safeTimeClock;
+    }
+
     @Override
     public NodeOptions copy() {
         final NodeOptions nodeOptions = new NodeOptions();
@@ -633,6 +644,7 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
         nodeOptions.setRpcConnectTimeoutMs(this.getRpcConnectTimeoutMs());
         nodeOptions.setElectionTimeoutStrategy(this.getElectionTimeoutStrategy());
         nodeOptions.setClock(this.getClock());
+        nodeOptions.setSafeTimeClock(this.getSafeTimeClock());
 
         return nodeOptions;
     }

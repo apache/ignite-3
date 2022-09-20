@@ -98,6 +98,7 @@ import org.apache.ignite.internal.metastorage.client.WatchListener;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.server.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
+import org.apache.ignite.internal.raft.server.ReplicationGroupOptions;
 import org.apache.ignite.internal.raft.storage.impl.LogStorageFactoryCreator;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
@@ -682,6 +683,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 ConcurrentHashMap<ByteBuffer, RowId> primaryIndex = new ConcurrentHashMap<>();
 
+                HybridClock safeTimeClock = new HybridClock();
+
                 if (raftMgr.shouldHaveRaftGroupLocally(nodes)) {
                     startGroupFut = CompletableFuture
                             .supplyAsync(() -> internalTbl.storage().getOrCreateMvPartition(partId), ioExecutor)
@@ -725,7 +728,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                     }
 
                                     RaftGroupOptions groupOptions = groupOptionsForPartition(internalTbl, tblCfg, partitionStorage,
-                                            newPartAssignment);
+                                            newPartAssignment, safeTimeClock);
 
                                     try {
                                         raftMgr.startRaftGroupNode(
@@ -785,8 +788,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                             grpId,
                                                             tblId,
                                                             primaryIndex,
-                                                            clock
-                                                    )
+                                                            clock,
+                                                            safeTimeClock
+                                                    ),
+                                                    safeTimeClock
                                             );
                                         } catch (NodeStoppingException ex) {
                                             throw new AssertionError("Loza was stopped before Table manager", ex);
@@ -836,7 +841,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             InternalTable internalTbl,
             ExtendedTableConfiguration tableConfig,
             MvPartitionStorage partitionStorage,
-            Set<ClusterNode> peers
+            Set<ClusterNode> peers,
+            HybridClock safeTimeClock
     ) {
         RaftGroupOptions raftGroupOptions;
 
@@ -855,6 +861,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 peers.stream().map(n -> new Peer(n.address())).map(PeerId::fromPeer).map(Object::toString).collect(Collectors.toList()),
                 List.of()
         ));
+
+        raftGroupOptions.replicationGroupOptions(new ReplicationGroupOptions().safeTimeClock(safeTimeClock));
 
         return raftGroupOptions;
     }
@@ -955,7 +963,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         tableStorage.start();
 
         InternalTableImpl internalTable = new InternalTableImpl(name, tblId, new Int2ObjectOpenHashMap<>(partitions),
-                partitions, netAddrResolver, clusterNodeResolver, txManager, tableStorage, txStateStorage, replicaSvc, clock);
+                partitions, netAddrResolver, clusterNodeResolver, txManager, tableStorage, txStateStorage, replicaSvc, replicaMgr, clock);
 
         var table = new TableImpl(internalTable);
 
@@ -1704,6 +1712,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                     ConcurrentHashMap<ByteBuffer, RowId> primaryIndex = new ConcurrentHashMap<>();
 
+                    HybridClock safeTimeClock = new HybridClock();
+
                     try {
                         LOG.info("Received update on pending assignments. Check if new raft group should be started"
                                         + " [key={}, partition={}, table={}, localMemberAddress={}]",
@@ -1716,7 +1726,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                     tbl.internalTable(),
                                     tblCfg,
                                     partitionStorage,
-                                    assignments
+                                    assignments,
+                                    safeTimeClock
                             );
 
                             RaftGroupListener raftGrpLsnr = new PartitionListener(
@@ -1759,8 +1770,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                             partId,
                                             tblId,
                                             primaryIndex,
-                                            clock
-                                    )
+                                            clock,
+                                            safeTimeClock
+                                    ),
+                                    safeTimeClock
                             );
                         }
                     } catch (NodeStoppingException e) {

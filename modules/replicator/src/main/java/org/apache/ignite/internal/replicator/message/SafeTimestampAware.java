@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
+ * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,19 +18,20 @@
 package org.apache.ignite.internal.replicator.message;
 
 import org.apache.ignite.hlc.HybridTimestamp;
+import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Message with a timestamp to adjust a hybrid logical clock.
+ * Message with safe timestamp to adjust safe time clock for replication group.
  */
-@Transferable(ReplicaMessageGroup.TIMESTAMP_AWARE)
-public interface TimestampAware extends SafeTimestampAware {
+@Transferable(ReplicaMessageGroup.SAFE_TIMESTAMP_AWARE)
+public interface SafeTimestampAware extends NetworkMessage {
     /**
-     * Gets a hybrid timestamp.
+     * Gets a hybrid timestamp, which corresponds to th applied index of replicated entry.
      *
-     * @return Gets a hybrid timestamp.
+     * @return Safe timestamp.
      */
     @Marshallable
-    HybridTimestamp timestamp();
+    HybridTimestamp safeTimestamp();
 }
