@@ -189,7 +189,7 @@ public class ClientTable implements Table {
             var scale = in.unpackInt();
 
             // Skip unknown extra properties, if any.
-            in.skipValues(propCnt - 5);
+            in.skipValues(propCnt - 6);
 
             var column = new ClientColumn(name, type, isNullable, isKey, isColocation, i, scale);
             columns[i] = column;
