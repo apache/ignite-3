@@ -103,7 +103,7 @@ public:
      * @param index Tuple element index.
      * @return Mask to extract the required null-bit.
      */
-    static constexpr std::byte getNullMask(IntT index) noexcept { return std::byte{1} << (index % 8); }
+    static constexpr std::byte getNullMask(IntT index) noexcept { return std::byte {1} << (index % 8); }
 
     /**
      * @brief Checks if a null-bit is set for a given tuple element.

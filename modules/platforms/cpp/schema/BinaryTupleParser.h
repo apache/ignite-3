@@ -19,6 +19,13 @@
 
 #include "BinaryTupleSchema.h"
 #include "common/types.h"
+#include "common/uuid.h"
+#include "schema/BigDecimal.h"
+#include "schema/BigInteger.h"
+#include "schema/Date.h"
+#include "schema/DateTime.h"
+#include "schema/Time.h"
+#include "schema/Timestamp.h"
 
 namespace ignite {
 
@@ -156,6 +163,54 @@ public:
      * @return Element value.
      */
     static double getDouble(bytes_view bytes);
+
+    /**
+     * @brief Reads value of specified element.
+     *
+     * @param bytes Binary view of the element.
+     * @return Element value.
+     */
+    static BigInteger getNumber(bytes_view bytes);
+
+    /**
+     * @brief Reads value of specified element.
+     *
+     * @param bytes Binary view of the element.
+     * @return Element value.
+     */
+    static uuid getUuid(bytes_view bytes);
+
+    /**
+     * @brief Reads value of specified element.
+     *
+     * @param bytes Binary view of the element.
+     * @return Element value.
+     */
+    static Date getDate(bytes_view bytes);
+
+    /**
+     * @brief Reads value of specified element.
+     *
+     * @param bytes Binary view of the element.
+     * @return Element value.
+     */
+    static Time getTime(bytes_view bytes);
+
+    /**
+     * @brief Reads value of specified element.
+     *
+     * @param bytes Binary view of the element.
+     * @return Element value.
+     */
+    static DateTime getDateTime(bytes_view bytes);
+
+    /**
+     * @brief Reads value of specified element.
+     *
+     * @param bytes Binary view of the element.
+     * @return Element value.
+     */
+    static Timestamp getTimestamp(bytes_view bytes);
 };
 
 } // namespace ignite

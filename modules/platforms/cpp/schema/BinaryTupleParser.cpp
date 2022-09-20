@@ -18,22 +18,61 @@
 #include "BinaryTupleParser.h"
 #include "common/platform.h"
 
+#include "common/bytes.h"
+
 #include <cassert>
 #include <cstring>
 #include <stdexcept>
 
+namespace ignite {
+
 namespace {
 
 template <typename T>
-T as(ignite::bytes_view bytes) noexcept {
-    T value;
-    std::memcpy(&value, bytes.data(), sizeof(T));
-    return value;
+T loadBytesAs(bytes_view bytes, std::size_t offset = 0) noexcept {
+    return bytes::load<Endian::LITTLE, T>(bytes.data() + offset);
+}
+
+Date loadBytesAsDate(bytes_view bytes) {
+    std::int32_t date = loadBytesAs<std::uint16_t>(bytes);
+    date |= std::int32_t(loadBytesAs<std::int8_t>(bytes, 2)) << 16;
+
+    std::int32_t day = date & 31;
+    std::int32_t month = (date >> 5) & 15;
+    std::int32_t year = (date >> 9); // Sign matters.
+
+    return Date(year, month, day);
+}
+
+Time loadBytesAsTime(bytes_view bytes) {
+    uint64_t time = loadBytesAs<std::uint32_t>(bytes);
+
+    int nano;
+    switch (bytes.size()) {
+        case 4:
+            nano = ((int)time & ((1 << 10) - 1)) * 1000 * 1000;
+            time >>= 10;
+            break;
+        case 5:
+            time |= std::uint64_t(loadBytesAs<std::uint8_t>(bytes, 4)) << 32;
+            nano = ((int)time & ((1 << 20) - 1)) * 1000;
+            time >>= 20;
+            break;
+        case 6:
+            time |= std::uint64_t(loadBytesAs<std::uint16_t>(bytes, 4)) << 32;
+            nano = ((int)time & ((1 << 30) - 1));
+            time >>= 30;
+            break;
+    }
+
+    int second = ((int)time) & 63;
+    int minute = ((int)time >> 6) & 63;
+    int hour = ((int)time >> 12) & 31;
+
+    return Time(hour, minute, second, nano);
 }
 
 } // namespace
-
-namespace ignite {
 
 BinaryTupleParser::BinaryTupleParser(IntT numElements, bytes_view data)
     : binaryTuple(data)
@@ -127,7 +166,7 @@ std::int8_t BinaryTupleParser::getInt8(bytes_view bytes) {
         case 0:
             return 0;
         case 1:
-            return as<std::int8_t>(bytes);
+            return loadBytesAs<std::int8_t>(bytes);
         default:
             throw std::out_of_range("Bad element size");
     }
@@ -138,9 +177,9 @@ std::int16_t BinaryTupleParser::getInt16(bytes_view bytes) {
         case 0:
             return 0;
         case 1:
-            return as<std::int8_t>(bytes);
+            return loadBytesAs<std::int8_t>(bytes);
         case 2:
-            return as<std::int16_t>(bytes);
+            return loadBytesAs<std::int16_t>(bytes);
         default:
             throw std::out_of_range("Bad element size");
     }
@@ -151,11 +190,11 @@ std::int32_t BinaryTupleParser::getInt32(bytes_view bytes) {
         case 0:
             return 0;
         case 1:
-            return as<std::int8_t>(bytes);
+            return loadBytesAs<std::int8_t>(bytes);
         case 2:
-            return as<std::int16_t>(bytes);
+            return loadBytesAs<std::int16_t>(bytes);
         case 4:
-            return as<std::int32_t>(bytes);
+            return loadBytesAs<std::int32_t>(bytes);
         default:
             throw std::out_of_range("Bad element size");
     }
@@ -166,13 +205,13 @@ std::int64_t BinaryTupleParser::getInt64(bytes_view bytes) {
         case 0:
             return 0;
         case 1:
-            return as<std::int8_t>(bytes);
+            return loadBytesAs<std::int8_t>(bytes);
         case 2:
-            return as<std::int16_t>(bytes);
+            return loadBytesAs<std::int16_t>(bytes);
         case 4:
-            return as<std::int32_t>(bytes);
+            return loadBytesAs<std::int32_t>(bytes);
         case 8:
-            return as<std::int64_t>(bytes);
+            return loadBytesAs<std::int64_t>(bytes);
         default:
             throw std::out_of_range("Bad element size");
     }
@@ -183,7 +222,7 @@ float BinaryTupleParser::getFloat(bytes_view bytes) {
         case 0:
             return 0.0f;
         case 4:
-            return as<float>(bytes);
+            return loadBytesAs<float>(bytes);
         default:
             throw std::out_of_range("Bad element size");
     }
@@ -194,9 +233,79 @@ double BinaryTupleParser::getDouble(bytes_view bytes) {
         case 0:
             return 0.0f;
         case 4:
-            return as<float>(bytes);
+            return loadBytesAs<float>(bytes);
         case 8:
-            return as<double>(bytes);
+            return loadBytesAs<double>(bytes);
+        default:
+            throw std::out_of_range("Bad element size");
+    }
+}
+
+BigInteger BinaryTupleParser::getNumber(bytes_view bytes) {
+    return BigInteger(bytes.data(), bytes.size());
+}
+
+uuid BinaryTupleParser::getUuid(bytes_view bytes) {
+    switch (bytes.size()) {
+        case 0:
+            return uuid();
+        case 16:
+            return uuid(loadBytesAs<std::int64_t>(bytes), loadBytesAs<std::int64_t>(bytes, 8));
+        default:
+            throw std::out_of_range("Bad element size");
+    }
+}
+
+Date BinaryTupleParser::getDate(bytes_view bytes) {
+    switch (bytes.size()) {
+        case 0:
+            return Date();
+        case 3:
+            return loadBytesAsDate(bytes);
+        default:
+            throw std::out_of_range("Bad element size");
+    }
+}
+
+Time BinaryTupleParser::getTime(bytes_view bytes) {
+    switch (bytes.size()) {
+        case 0:
+            return Time();
+        case 4:
+        case 5:
+        case 6:
+            return loadBytesAsTime(bytes);
+        default:
+            throw std::out_of_range("Bad element size");
+    }
+}
+
+DateTime BinaryTupleParser::getDateTime(bytes_view bytes) {
+    switch (bytes.size()) {
+        case 0:
+            return DateTime();
+        case 7:
+        case 8:
+        case 9:
+            return DateTime(loadBytesAsDate(bytes), loadBytesAsTime(bytes.substr(3)));
+        default:
+            throw std::out_of_range("Bad element size");
+    }
+}
+
+Timestamp BinaryTupleParser::getTimestamp(bytes_view bytes) {
+    switch (bytes.size()) {
+        case 0:
+            return Timestamp();
+        case 8: {
+            std::int64_t seconds = loadBytesAs<std::int64_t>(bytes);
+            return Timestamp(seconds, 0);
+        }
+        case 12: {
+            std::int64_t seconds = loadBytesAs<std::int64_t>(bytes);
+            std::int32_t nanos = loadBytesAs<std::int32_t>(bytes);
+            return Timestamp(seconds, nanos);
+        }
         default:
             throw std::out_of_range("Bad element size");
     }

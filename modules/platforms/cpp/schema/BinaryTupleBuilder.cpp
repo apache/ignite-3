@@ -18,6 +18,8 @@
 #include "BinaryTupleBuilder.h"
 #include "BinaryTupleParser.h"
 
+#include "common/bytes.h"
+
 #include <stdexcept>
 #include <string>
 
@@ -110,21 +112,21 @@ void BinaryTupleBuilder::putInt8(bytes_view bytes) {
 void BinaryTupleBuilder::putInt16(bytes_view bytes) {
     SizeT size = sizeOfInt16(BinaryTupleParser::getInt16(bytes));
     assert(size <= bytes.size());
-    static_assert(platform::ByteOrder::littleEndian);
+    static_assert(is_little_endian_platform());
     putBytes(bytes_view{bytes.data(), size});
 }
 
 void BinaryTupleBuilder::putInt32(bytes_view bytes) {
     SizeT size = sizeOfInt32(BinaryTupleParser::getInt32(bytes));
     assert(size <= bytes.size());
-    static_assert(platform::ByteOrder::littleEndian);
+    static_assert(is_little_endian_platform());
     putBytes(bytes_view{bytes.data(), size});
 }
 
 void BinaryTupleBuilder::putInt64(bytes_view bytes) {
     SizeT size = sizeOfInt64(BinaryTupleParser::getInt64(bytes));
     assert(size <= bytes.size());
-    static_assert(platform::ByteOrder::littleEndian);
+    static_assert(is_little_endian_platform());
     putBytes(bytes_view{bytes.data(), size});
 }
 
