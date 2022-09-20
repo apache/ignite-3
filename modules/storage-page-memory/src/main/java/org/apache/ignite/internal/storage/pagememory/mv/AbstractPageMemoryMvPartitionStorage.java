@@ -306,16 +306,6 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         return scanByTimestamp.result();
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public RowId insert(BinaryRow row, UUID txId) throws StorageException {
-        RowId rowId = new RowId(partitionId);
-
-        addWrite(rowId, row, txId);
-
-        return rowId;
-    }
-
     private RowVersion insertRowVersion(@Nullable BinaryRow row, long nextPartitionlessLink) {
         // TODO IGNITE-16913 Add proper way to write row bytes into array without allocations.
         byte[] rowBytes = row == null ? TOMBSTONE_PAYLOAD : row.bytes();

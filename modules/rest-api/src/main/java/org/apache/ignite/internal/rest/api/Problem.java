@@ -23,9 +23,9 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Collection;
 import java.util.Objects;
 import java.util.UUID;
-import javax.annotation.Nullable;
 import org.apache.ignite.internal.rest.constants.HttpCode;
 import org.apache.ignite.internal.rest.problem.Builder;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Implements application/problem+json schema defined in <a href="https://www.rfc-editor.org/rfc/rfc7807.html">RFC-7807</a>.

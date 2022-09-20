@@ -65,6 +65,7 @@ import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.tx.TransactionException;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -305,24 +306,20 @@ public class InternalTableImpl implements InternalTable {
      * @return Batch of retrieved rows.
      */
     private CompletableFuture<Collection<BinaryRow>> enlistCursorInTx(
-            InternalTransaction tx,
+            @NotNull InternalTransaction tx,
             int partId,
             long scanId,
             int batchSize
     ) {
-        final boolean implicit = tx == null;
-
-        final InternalTransaction tx0 = implicit ? txManager.begin() : tx;
-
         String partGroupId = partitionMap.get(partId).groupId();
 
-        IgniteBiTuple<ClusterNode, Long> primaryReplicaAndTerm = tx0.enlistedNodeAndTerm(partGroupId);
+        IgniteBiTuple<ClusterNode, Long> primaryReplicaAndTerm = tx.enlistedNodeAndTerm(partGroupId);
 
         CompletableFuture<Collection<BinaryRow>> fut;
 
         ReadWriteScanRetrieveBatchReplicaRequestBuilder requestBuilder = tableMessagesFactory.readWriteScanRetrieveBatchReplicaRequest()
                 .groupId(partGroupId)
-                .transactionId(tx0.id())
+                .transactionId(tx.id())
                 .scanId(scanId)
                 .batchSize(batchSize)
                 .timestamp(clock.now());
@@ -338,10 +335,10 @@ public class InternalTableImpl implements InternalTable {
                 throw new TransactionException("Failed to invoke the replica request.");
             }
         } else {
-            fut = enlistWithRetry(tx0, partId, term -> requestBuilder.term(term).build(), ATTEMPTS_TO_ENLIST_PARTITION);
+            fut = enlistWithRetry(tx, partId, term -> requestBuilder.term(term).build(), ATTEMPTS_TO_ENLIST_PARTITION);
         }
 
-        return postEnlist(fut, implicit, tx0);
+        return postEnlist(fut, false, tx);
     }
 
     /**
@@ -560,7 +557,7 @@ public class InternalTableImpl implements InternalTable {
                         .binaryRow(row)
                         .transactionId(txo.id())
                         .term(term)
-                        .requestType(RequestType.RW_REPLACE)
+                        .requestType(RequestType.RW_REPLACE_IF_EXIST)
                         .timestamp(clock.now())
                         .build()
         );
@@ -578,7 +575,7 @@ public class InternalTableImpl implements InternalTable {
                         .binaryRow(newRow)
                         .transactionId(txo.id())
                         .term(term)
-                        .requestType(RequestType.RW_REPLACE_IF_EXIST)
+                        .requestType(RequestType.RW_REPLACE)
                         .timestamp(clock.now())
                         .build()
         );
@@ -703,7 +700,14 @@ public class InternalTableImpl implements InternalTable {
             );
         }
 
-        return new PartitionScanPublisher((scanId, batchSize) -> enlistCursorInTx(tx, p, scanId, batchSize));
+        final boolean implicit = tx == null;
+
+        final InternalTransaction tx0 = implicit ? txManager.begin() : tx;
+
+        return new PartitionScanPublisher(
+                (scanId, batchSize) -> enlistCursorInTx(tx0, p, scanId, batchSize),
+                fut -> postEnlist(fut, implicit, tx0)
+        );
     }
 
     /**
@@ -874,6 +878,9 @@ public class InternalTableImpl implements InternalTable {
         /** The closure enlists a partition, that is scanned, to the transaction context and retrieves a batch rows. */
         private final BiFunction<Long, Integer, CompletableFuture<Collection<BinaryRow>>> retrieveBatch;
 
+        /** The closure will be invoked before the cursor closed. */
+        Function<CompletableFuture<Void>, CompletableFuture<Void>> onClose;
+
         /** True when the publisher has a subscriber, false otherwise. */
         private AtomicBoolean subscribed;
 
@@ -881,9 +888,14 @@ public class InternalTableImpl implements InternalTable {
          * The constructor.
          *
          * @param retrieveBatch Closure that gets a new batch from the remote replica.
+         * @param onClose The closure will be applied when {@link Subscription#cancel} is invoked directly or the cursor is finished.
          */
-        PartitionScanPublisher(BiFunction<Long, Integer, CompletableFuture<Collection<BinaryRow>>> retrieveBatch) {
+        PartitionScanPublisher(
+                BiFunction<Long, Integer, CompletableFuture<Collection<BinaryRow>>> retrieveBatch,
+                Function<CompletableFuture<Void>, CompletableFuture<Void>> onClose
+        ) {
             this.retrieveBatch = retrieveBatch;
+            this.onClose = onClose;
 
             this.subscribed = new AtomicBoolean(false);
         }
@@ -916,7 +928,6 @@ public class InternalTableImpl implements InternalTable {
              * Scan id to uniquely identify it on server side.
              */
             private final Long scanId;
-
 
             private final AtomicLong requestedItemsCnt;
 
@@ -966,9 +977,28 @@ public class InternalTableImpl implements InternalTable {
             /** {@inheritDoc} */
             @Override
             public void cancel() {
+                cancel(null);
+            }
+
+            /**
+             * After the method is called, a subscriber won't be received updates from the publisher.
+             *
+             * @param t An exception which was thrown when entries were retrieving from the cursor.
+             */
+            public void cancel(Throwable t) {
                 if (!canceled.compareAndSet(false, true)) {
                     return;
                 }
+
+                onClose.apply(t == null ? completedFuture(null) : CompletableFuture.failedFuture(t)).handle((ignore, th) -> {
+                    if (th != null) {
+                        subscriber.onError(th);
+                    } else {
+                        subscriber.onComplete();
+                    }
+
+                    return null;
+                });
             }
 
             /**
@@ -985,8 +1015,6 @@ public class InternalTableImpl implements InternalTable {
                     if (binaryRows == null) {
                         cancel();
 
-                        subscriber.onComplete();
-
                         return;
                     } else {
                         binaryRows.forEach(subscriber::onNext);
@@ -994,15 +1022,11 @@ public class InternalTableImpl implements InternalTable {
 
                     if (binaryRows.size() < n) {
                         cancel();
-
-                        subscriber.onComplete();
                     } else if (requestedItemsCnt.addAndGet(Math.negateExact(binaryRows.size())) > 0) {
                         scanBatch(INTERNAL_BATCH_SIZE);
                     }
                 }).exceptionally(t -> {
-                    cancel();
-
-                    subscriber.onError(t);
+                    cancel(t);
 
                     return null;
                 });

@@ -19,12 +19,11 @@ package org.apache.ignite.internal.table.distributed.command;
 
 import java.util.UUID;
 import org.apache.ignite.hlc.HybridTimestamp;
-import org.apache.ignite.raft.client.WriteCommand;
 
 /**
  * State machine command to cleanup on transaction commit.
  */
-public class TxCleanupCommand extends PartitionCommand implements WriteCommand {
+public class TxCleanupCommand extends PartitionCommand {
     /**
      * Commit or rollback state.
      */

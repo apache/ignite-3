@@ -236,7 +236,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
 
             try {
                 // Skip applied index value.
-                rocksIterator.seek(new byte[1]);
+                rocksIterator.seek(lastAppliedIndexKey);
             } catch (Exception e) {
                 // Unlikely, but what if...
                 iterators.remove(rocksIterator);

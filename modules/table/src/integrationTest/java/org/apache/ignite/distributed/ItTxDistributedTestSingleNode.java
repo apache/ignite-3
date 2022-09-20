@@ -357,7 +357,6 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 // TODO: sanpwc add todo for index integration ticket.
                 ConcurrentHashMap<ByteBuffer, RowId> primaryIndex = new ConcurrentHashMap<>();
 
-                // TODO: sanpwc is it ok to await future here?
                 RaftGroupService raftGroupSvc = raftServers.get(node).prepareRaftGroup(
                         grpId,
                         partNodes,
@@ -380,6 +379,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                                 raftGroupSvc,
                                 txManagers.get(node),
                                 txManagers.get(node).lockManager(),
+                                partId,
                                 grpId,
                                 tblId,
                                 primaryIndex,

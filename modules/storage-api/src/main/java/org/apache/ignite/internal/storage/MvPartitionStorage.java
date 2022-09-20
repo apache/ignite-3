@@ -135,20 +135,6 @@ public interface MvPartitionStorage extends AutoCloseable {
     BinaryRow read(RowId rowId, HybridTimestamp timestamp) throws StorageException;
 
     /**
-     * Creates an uncommitted version, assigning a new row id to it.
-     *
-     * @param binaryRow Binary row to insert. Not null.
-     * @param txId Transaction id.
-     * @return Row id.
-     * @throws StorageException If failed to write data into the storage.
-     *
-     * @deprecated Generates different ids for each replica. {@link #addWrite(RowId, BinaryRow, UUID)} with explicit replicated id must be
-     *      used instead.
-     */
-    @Deprecated
-    RowId insert(BinaryRow binaryRow, UUID txId) throws StorageException;
-
-    /**
      * Creates (or replaces) an uncommitted (aka pending) version, assigned to the given transaction id.
      * In details:
      * - if there is no uncommitted version, a new uncommitted version is added

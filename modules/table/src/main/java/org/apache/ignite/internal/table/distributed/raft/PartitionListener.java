@@ -17,13 +17,17 @@
 
 package org.apache.ignite.internal.table.distributed.raft;
 
+import static org.apache.ignite.internal.tx.TxState.ABORTED;
+import static org.apache.ignite.internal.tx.TxState.COMMITED;
+import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_UNEXPECTED_STATE;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
-import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
@@ -39,12 +43,9 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.basic.BinarySearchRow;
 import org.apache.ignite.internal.storage.basic.DelegatingDataRow;
-import org.apache.ignite.internal.table.distributed.command.DeleteAllCommand;
-import org.apache.ignite.internal.table.distributed.command.DeleteCommand;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
-import org.apache.ignite.internal.table.distributed.command.InsertAndUpdateAllCommand;
-import org.apache.ignite.internal.table.distributed.command.InsertCommand;
 import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
+import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
@@ -57,7 +58,6 @@ import org.apache.ignite.raft.client.ReadCommand;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.apache.ignite.raft.client.service.CommandClosure;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
-import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentHashSet;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.TestOnly;
 
@@ -82,13 +82,13 @@ public class PartitionListener implements RaftGroupListener {
     private final ConcurrentHashMap<ByteBuffer, RowId> primaryIndex;
 
     /** Keys that were inserted by the transaction. */
-    private ConcurrentHashMap<UUID, Set<RowId>> txsInsertedKeys = new ConcurrentHashMap<>();
+    private HashMap<UUID, Set<RowId>> txsInsertedKeys = new HashMap<>();
 
     /** Keys that were removed by the transaction. */
-    private ConcurrentHashMap<UUID, Set<RowId>> txsRemovedKeys = new ConcurrentHashMap<>();
+    private HashMap<UUID, Set<RowId>> txsRemovedKeys = new HashMap<>();
 
     /** Rows that were inserted, updated or removed. */
-    private ConcurrentHashMap<UUID, Set<RowId>> txsPendingRowIds = new ConcurrentHashMap<>();
+    private HashMap<UUID, Set<RowId>> txsPendingRowIds = new HashMap<>();
 
     /**
      * The constructor.
@@ -134,161 +134,89 @@ public class PartitionListener implements RaftGroupListener {
                     : "Pending write command has a higher index than already processed commands [commandIndex=" + commandIndex
                     + ", storageAppliedIndex=" + storageAppliedIndex + ']';
 
-            if (command instanceof InsertCommand) {
-                handleInsertCommand((InsertCommand) command, commandIndex);
-
-                clo.result(null);
-            } else if (command instanceof DeleteCommand) {
-                handleDeleteCommand((DeleteCommand) command, commandIndex);
-
-                clo.result(null);
-            } else if (command instanceof UpdateCommand) {
-                handleUpdateCommand((UpdateCommand) command, commandIndex);
-
-                clo.result(null);
-            } else if (command instanceof InsertAndUpdateAllCommand) {
-                handleInsertAndUpdateAllCommand((InsertAndUpdateAllCommand) command, commandIndex);
-
-                clo.result(null);
-            } else if (command instanceof DeleteAllCommand) {
-                handleDeleteAllCommand((DeleteAllCommand) command, commandIndex);
-
-                clo.result(null);
-            } else if (command instanceof FinishTxCommand) {
-                try {
+            try {
+                if (command instanceof UpdateCommand) {
+                    handleUpdateCommand((UpdateCommand) command);
+                } else if (command instanceof UpdateAllCommand) {
+                    handleUpdateAllCommand((UpdateAllCommand) command);
+                } else if (command instanceof FinishTxCommand) {
                     handleFinishTxCommand((FinishTxCommand) command, commandIndex);
-                } catch (IgniteInternalException e) {
-                    clo.result(e);
+
+                    clo.result(null);
+
+                    return;
+                } else if (command instanceof TxCleanupCommand) {
+                    handleTxCleanupCommand((TxCleanupCommand) command);
+                } else {
+                    assert false : "Command was not found [cmd=" + command + ']';
                 }
 
-                clo.result(null);
-            } else if (command instanceof TxCleanupCommand) {
-                handleTxCleanupCommand((TxCleanupCommand) command, commandIndex);
+                storage.lastAppliedIndex(commandIndex);
 
                 clo.result(null);
-            } else {
-                assert false : "Command was not found [cmd=" + command + ']';
+            } catch (IgniteInternalException e) {
+                clo.result(e);
             }
         });
-    }
-
-    /**
-     * Handler for the {@link InsertCommand}.
-     *
-     * @param cmd Command.
-     * @param commandIndex Index of the RAFT command.
-     */
-    private void handleInsertCommand(InsertCommand cmd, long commandIndex) {
-        BinaryRow row = cmd.getRow();
-        UUID txId = cmd.txId();
-
-        RowId rowId = storage.insert(row,  txId);
-
-        primaryIndex.put(row.keySlice(), rowId);
-
-        txsInsertedKeys.computeIfAbsent(txId, entry -> new ConcurrentHashSet<>()).add(rowId);
-
-        txsPendingRowIds.computeIfAbsent(txId, entry -> new ConcurrentHashSet<>()).add(rowId);
-
-        storage.lastAppliedIndex(commandIndex);
-    }
-
-    /**
-     * Handler for the {@link DeleteCommand}.
-     *
-     * @param cmd Command.
-     * @param commandIndex Index of the RAFT command.
-     */
-    private void handleDeleteCommand(DeleteCommand cmd, long commandIndex) {
-        RowId rowId = cmd.getRowId();
-        UUID txId = cmd.txId();
-
-        storage.addWrite(rowId, null, txId);
-
-        txsRemovedKeys.computeIfAbsent(txId, entry -> new ConcurrentHashSet<>()).add(rowId);
-
-        txsPendingRowIds.computeIfAbsent(txId, entry -> new ConcurrentHashSet<>()).add(rowId);
-
-        storage.lastAppliedIndex(commandIndex);
     }
 
     /**
      * Handler for the {@link UpdateCommand}.
      *
      * @param cmd Command.
-     * @param commandIndex Index of the RAFT command.
      */
-    private void handleUpdateCommand(UpdateCommand cmd, long commandIndex) {
+    private void handleUpdateCommand(UpdateCommand cmd) {
         BinaryRow row = cmd.getRow();
         RowId rowId = cmd.getRowId();
         UUID txId = cmd.txId();
 
         storage.addWrite(rowId, row,  txId);
 
-        txsPendingRowIds.computeIfAbsent(txId, entry -> new ConcurrentHashSet<>()).add(rowId);
+        txsPendingRowIds.computeIfAbsent(txId, entry -> new HashSet<>()).add(rowId);
 
-        storage.lastAppliedIndex(commandIndex);
+        if (row == null) {
+            // Remove entry.
+            txsRemovedKeys.computeIfAbsent(txId, entry -> new HashSet<>()).add(rowId);
+        } else if (!primaryIndex.contains(row.keySlice())) {
+            // Insert entry.
+            txsInsertedKeys.computeIfAbsent(txId, entry -> new HashSet<>()).add(rowId);
+
+            primaryIndex.put(row.keySlice(), rowId);
+        }
     }
 
     /**
-     * Handler for the {@link InsertAndUpdateAllCommand}.
+     * Handler for the {@link UpdateAllCommand}.
      *
      * @param cmd Command.
-     * @param commandIndex Index of the RAFT command.
      */
-    private void handleInsertAndUpdateAllCommand(InsertAndUpdateAllCommand cmd, long commandIndex) {
+    private void handleUpdateAllCommand(UpdateAllCommand cmd) {
         UUID txId = cmd.txId();
-        Collection<BinaryRow> rowsToInsert = cmd.getRows();
         Map<RowId, BinaryRow> rowsToUpdate = cmd.getRowsToUpdate();
-
-        if (!CollectionUtils.nullOrEmpty(rowsToInsert)) {
-            for (BinaryRow row : rowsToInsert) {
-                RowId rowId = storage.insert(row,  txId);
-
-                primaryIndex.put(row.keySlice(), rowId);
-
-                txsInsertedKeys.computeIfAbsent(txId, entry -> new ConcurrentHashSet<>()).add(rowId);
-
-                txsPendingRowIds.computeIfAbsent(txId, entry -> new ConcurrentHashSet<>()).add(rowId);
-            }
-        }
 
         if (!CollectionUtils.nullOrEmpty(rowsToUpdate)) {
             for (Map.Entry<RowId, BinaryRow> entry : rowsToUpdate.entrySet()) {
                 storage.addWrite(entry.getKey(), entry.getValue(), txId);
 
-                txsPendingRowIds.computeIfAbsent(txId, entry0 -> new ConcurrentHashSet<>()).add(entry.getKey());
+                txsPendingRowIds.computeIfAbsent(txId, entry0 -> new HashSet<>()).add(entry.getKey());
+
+                if (entry.getValue() == null) {
+                    // Remove entry.
+                    txsRemovedKeys.computeIfAbsent(txId, entry0 -> new HashSet<>()).add(entry.getKey());
+                } else if (!primaryIndex.contains(entry.getValue().keySlice())) {
+                    // Insert entry.
+                    txsInsertedKeys.computeIfAbsent(txId, entry0 -> new HashSet<>()).add(entry.getKey());
+
+                    primaryIndex.put(entry.getValue().keySlice(), entry.getKey());
+                }
             }
         }
-
-        storage.lastAppliedIndex(commandIndex);
-    }
-
-    /**
-     * Handler for the {@link DeleteAllCommand}.
-     *
-     * @param cmd Command.
-     * @param commandIndex Index of the RAFT command.
-     */
-    private void handleDeleteAllCommand(DeleteAllCommand cmd, long commandIndex) {
-        UUID txId = cmd.txId();
-        Collection<RowId> rowIds = cmd.getRowIds();
-
-        for (RowId rowId : rowIds) {
-            storage.addWrite(rowId, null, txId);
-
-            txsRemovedKeys.computeIfAbsent(txId, entry -> new ConcurrentHashSet<>()).add(rowId);
-
-            txsPendingRowIds.computeIfAbsent(txId, entry -> new ConcurrentHashSet<>()).add(rowId);
-        }
-
-        storage.lastAppliedIndex(commandIndex);
     }
 
     /**
      * Handler for the {@link FinishTxCommand}.
      *
-     * @param cmd Command.
+     * @param cmd          Command.
      * @param commandIndex Index of the RAFT command.
      * @throws IgniteInternalException if exception occurred during txn state change.
      */
@@ -321,8 +249,6 @@ public class PartitionListener implements RaftGroupListener {
 
             throw stateChangeException;
         }
-
-        storage.lastAppliedIndex(commandIndex);
     }
 
 
@@ -330,9 +256,8 @@ public class PartitionListener implements RaftGroupListener {
      * Handler for the {@link TxCleanupCommand}.
      *
      * @param cmd Command.
-     * @param commandIndex Index of the RAFT command.
      */
-    private void handleTxCleanupCommand(TxCleanupCommand cmd, long commandIndex) {
+    private void handleTxCleanupCommand(TxCleanupCommand cmd) {
         UUID txId = cmd.txId();
 
         Set<RowId> removedRowIds = txsRemovedKeys.getOrDefault(txId, Collections.emptySet());
@@ -361,22 +286,19 @@ public class PartitionListener implements RaftGroupListener {
         txsInsertedKeys.remove(txId);
         txsPendingRowIds.remove(txId);
 
-        storage.lastAppliedIndex(commandIndex);
+        // TODO: IGNITE-17638 TestOnly code, let's consider using Txn state map instead of states.
+        txManager.changeState(txId, PENDING, cmd.commit() ? COMMITED : ABORTED);
     }
 
     /** {@inheritDoc} */
     @Override
     public void onSnapshotSave(Path path, Consumer<Throwable> doneClo) {
-        // TODO: IGNITE-16644 Support snapshots.
-        CompletableFuture.completedFuture(null).whenComplete((unused, throwable) -> {
-            doneClo.accept(throwable);
-        });
+        storage.flush();
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean onSnapshotLoad(Path path) {
-        // TODO: IGNITE-16644 Support snapshots.
         return true;
     }
 

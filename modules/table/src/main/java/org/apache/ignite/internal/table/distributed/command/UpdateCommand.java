@@ -21,14 +21,14 @@ import java.util.UUID;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.raft.client.WriteCommand;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * The command updates a row specified by the row id specified.
  *
  */
-public class UpdateCommand extends PartitionCommand implements WriteCommand {
+public class UpdateCommand extends PartitionCommand {
     /** Id of row that will be updated. */
     private final RowId rowId;
 
@@ -39,21 +39,30 @@ public class UpdateCommand extends PartitionCommand implements WriteCommand {
     private byte[] rowBytes;
 
     /**
-     * Creates a new instance of UpdateCommand with the given row to be updated. The {@code row} or {@code rowId} should not be {@code
-     * null}.
+     * Creates a new instance of UpdateCommand with the given row to be updated. The {@code rowId} should not be {@code null}.
      *
      * @param rowId Row id.
      * @param row   Binary row.
      * @param txId  The transaction id.
      * @see PartitionCommand
      */
-    public UpdateCommand(@NotNull RowId rowId, @NotNull BinaryRow row, @NotNull UUID txId) {
+    public UpdateCommand(@NotNull RowId rowId, @Nullable BinaryRow row, @NotNull UUID txId) {
         super(txId);
 
         this.rowId = rowId;
         this.row = row;
 
         this.rowBytes = CommandUtils.rowToBytes(row);
+    }
+
+    /**
+     * Constructor for remove operation.
+     *
+     * @param rowId Row id.
+     * @param txId Transaction id.
+     */
+    public UpdateCommand(@NotNull RowId rowId, @NotNull UUID txId) {
+        this(rowId, null, txId);
     }
 
     /**
@@ -71,7 +80,7 @@ public class UpdateCommand extends PartitionCommand implements WriteCommand {
      * @return Binary key.
      */
     public BinaryRow getRow() {
-        if (row == null) {
+        if (row == null && rowBytes != null) {
             row = new ByteBufferRow(rowBytes);
         }
 
