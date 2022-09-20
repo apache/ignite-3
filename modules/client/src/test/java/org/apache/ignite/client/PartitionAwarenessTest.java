@@ -43,6 +43,8 @@ public class PartitionAwarenessTest extends AbstractClientTest {
      */
     @BeforeAll
     public static void beforeAll() {
+        AbstractClientTest.beforeAll();
+
         ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.PARANOID);
 
         server2 = new FakeIgnite();
@@ -57,6 +59,8 @@ public class PartitionAwarenessTest extends AbstractClientTest {
      */
     @AfterAll
     public static void afterAll() throws Exception {
+        AbstractClientTest.afterAll();
+
         testServer2.close();
     }
 
