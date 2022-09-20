@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -41,6 +41,8 @@ import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.DecimalNativeType;
+import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.SchemaAware;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -90,6 +92,7 @@ public class ClientTableCommon {
             packer.packBoolean(schema.isKeyColumn(colIdx));
             packer.packBoolean(col.nullable());
             packer.packBoolean(colocationCols.contains(col));
+            packer.packInt(getDecimalScale(col.type()));
         }
     }
 
@@ -289,7 +292,7 @@ public class ClientTableCommon {
 
             Column column = schema.column(i);
             ClientBinaryTupleUtils.readAndSetColumnValue(
-                    binaryTupleReader, i, tuple, column.name(), getClientDataType(column.type().spec()));
+                    binaryTupleReader, i, tuple, column.name(), getClientDataType(column.type().spec()), getDecimalScale(column.type()));
         }
 
         return tuple;
@@ -465,7 +468,7 @@ public class ClientTableCommon {
                 break;
 
             case DECIMAL:
-                builder.appendDecimalNotNull((BigDecimal) val);
+                builder.appendDecimalNotNull((BigDecimal) val, getDecimalScale(col.type()));
                 break;
 
             case NUMBER:
@@ -520,5 +523,9 @@ public class ClientTableCommon {
     private static void packBinary(ClientMessagePacker packer, ByteBuffer buf) {
         packer.packBinaryHeader(buf.limit() - buf.position());
         packer.writePayload(buf);
+    }
+
+    private static int getDecimalScale(NativeType type) {
+        return type instanceof DecimalNativeType ? ((DecimalNativeType) type).scale() : 0;
     }
 }

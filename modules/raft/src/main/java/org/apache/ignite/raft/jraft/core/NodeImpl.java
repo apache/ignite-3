@@ -1,12 +1,12 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -40,6 +40,7 @@ import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.FSMCaller;
+import org.apache.ignite.raft.jraft.FSMCaller.LastAppliedLogIndexListener;
 import org.apache.ignite.raft.jraft.JRaftServiceFactory;
 import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.Node;
@@ -1032,6 +1033,33 @@ public class NodeImpl implements Node, RaftServerService {
 
         // Adds metric registry to RPC service.
         this.options.setMetricRegistry(this.metrics.getMetricRegistry());
+
+        // Wait committed.
+        long commitIdx = logManager.getLastLogIndex();
+
+        if (commitIdx > fsmCaller.getLastAppliedIndex()) {
+            CountDownLatch applyCommitLatch = new CountDownLatch(1);
+
+            LastAppliedLogIndexListener lnsr = lastAppliedLogIndex -> {
+                if (lastAppliedLogIndex >= commitIdx) {
+                    applyCommitLatch.countDown();
+                }
+            };
+
+            fsmCaller.addLastAppliedLogIndexListener(lnsr);
+
+            fsmCaller.onCommitted(commitIdx);
+
+            try {
+                applyCommitLatch.await();
+
+                fsmCaller.removeLastAppliedLogIndexListener(lnsr);
+            } catch (InterruptedException e) {
+                LOG.error("Fail to apply committed updates.", e);
+
+                return false;
+            }
+        }
 
         if (!this.rpcClientService.init(this.options)) {
             LOG.error("Fail to init rpc service.");

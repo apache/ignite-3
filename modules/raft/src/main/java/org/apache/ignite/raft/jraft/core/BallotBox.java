@@ -1,12 +1,12 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -175,8 +175,6 @@ public class BallotBox implements Lifecycle<BallotBoxOptions>, Describer {
                 return false;
             }
             this.pendingIndex = newPendingIndex;
-            //TODO Fix it properly: https://issues.apache.org/jira/browse/IGNITE-17445
-            this.lastCommittedIndex = newPendingIndex - 1;
             this.closureQueue.resetFirstIndex(newPendingIndex);
             return true;
         }

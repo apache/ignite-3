@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -186,11 +186,12 @@ public class ClientTable implements Table {
             var isKey = in.unpackBoolean();
             var isNullable = in.unpackBoolean();
             var isColocation = in.unpackBoolean();
+            var scale = in.unpackInt();
 
             // Skip unknown extra properties, if any.
             in.skipValues(propCnt - 5);
 
-            var column = new ClientColumn(name, type, isNullable, isKey, isColocation, i);
+            var column = new ClientColumn(name, type, isNullable, isKey, isColocation, i, scale);
             columns[i] = column;
         }
 

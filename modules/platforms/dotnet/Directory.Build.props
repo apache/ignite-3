@@ -18,7 +18,7 @@
 <Project>
     <PropertyGroup>
         <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-        <WarningsAsErrors/>
+        <WarningsAsErrors>CS8785</WarningsAsErrors>
         <LangVersion>9</LangVersion>
         <Nullable>enable</Nullable>
         <Version>3.0.0-alpha3</Version>

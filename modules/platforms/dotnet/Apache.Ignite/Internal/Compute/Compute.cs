@@ -190,7 +190,7 @@ namespace Apache.Ignite.Internal.Compute
 
             _tableCache.TryRemove(tableName, out _);
 
-            throw new IgniteClientException($"Table '{tableName}' does not exist.");
+            throw new IgniteClientException(ErrorGroups.Client.TableIdNotFound, $"Table '{tableName}' does not exist.");
         }
 
         private async Task<T> ExecuteColocatedAsync<T, TKey>(
@@ -213,14 +213,13 @@ namespace Apache.Ignite.Internal.Compute
 
                 using var bufferWriter = Write(table, schema);
 
-                // TODO: IGNITE-17390 replace magic ErrorCode number with constant.
                 try
                 {
                     using var res = await _socket.DoOutInOpAsync(ClientOp.ComputeExecuteColocated, bufferWriter).ConfigureAwait(false);
 
                     return Read(res);
                 }
-                catch (IgniteClientException e) when (e.ErrorCode == 196612)
+                catch (IgniteException e) when (e.Code == ErrorGroups.Client.TableIdNotFound)
                 {
                     // Table was dropped - remove from cache.
                     // Try again in case a new table with the same name exists.

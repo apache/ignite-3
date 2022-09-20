@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -26,6 +26,7 @@ import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -54,7 +55,7 @@ public class ConverterToMapVisitor implements ConfigurationVisitor<Object> {
     public Object visitLeafNode(String key, Serializable val) {
         Object valObj = val;
 
-        if (val instanceof Character) {
+        if (val instanceof Character || val instanceof UUID) {
             valObj = val.toString();
         } else if (val != null && val.getClass().isArray()) {
             valObj = toListOfObjects(val);
@@ -126,7 +127,7 @@ public class ConverterToMapVisitor implements ConfigurationVisitor<Object> {
     private List<?> toListOfObjects(Serializable val) {
         Stream<?> stream = IntStream.range(0, Array.getLength(val)).mapToObj(i -> Array.get(val, i));
 
-        if (val.getClass().getComponentType() == char.class) {
+        if (val.getClass().getComponentType() == char.class || val.getClass().getComponentType() == UUID.class) {
             stream = stream.map(Object::toString);
         }
 

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -41,6 +41,9 @@ public class ClientColumn {
     /** Index of the column in the schema. */
     private final int schemaIndex;
 
+    /** value scale, if applicable. */
+    private final int scale;
+
     /**
      * Constructor.
      *
@@ -52,6 +55,20 @@ public class ClientColumn {
      * @param schemaIndex  Index of the column in the schema.
      */
     public ClientColumn(String name, int type, boolean nullable, boolean isKey, boolean isColocation, int schemaIndex) {
+        this(name, type, nullable, isKey, isColocation, schemaIndex, 0);
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param name        Column name.
+     * @param type        Column type code.
+     * @param nullable    Nullable flag.
+     * @param isKey       Key column flag.
+     * @param schemaIndex Index of the column in the schema.
+     * @param scale       Scale of the column, if applicable.
+     */
+    public ClientColumn(String name, int type, boolean nullable, boolean isKey, boolean isColocation, int schemaIndex, int scale) {
         assert name != null;
         assert schemaIndex >= 0;
 
@@ -61,6 +78,7 @@ public class ClientColumn {
         this.isKey = isKey;
         this.isColocation = isColocation;
         this.schemaIndex = schemaIndex;
+        this.scale = scale;
     }
 
     public String name() {
@@ -110,5 +128,14 @@ public class ClientColumn {
      */
     public int schemaIndex() {
         return schemaIndex;
+    }
+
+    /**
+     * Gets the decimal scale of the column, if applicable.
+     *
+     * @return Decimal scale.
+     */
+    public int scale() {
+        return scale;
     }
 }

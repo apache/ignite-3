@@ -76,7 +76,7 @@ namespace Apache.Ignite.Tests.Table
         [Test]
         public void TestUpsertEmptyTupleThrowsException()
         {
-            var ex = Assert.ThrowsAsync<IgniteClientException>(async () => await TupleView.UpsertAsync(null, new IgniteTuple()));
+            var ex = Assert.ThrowsAsync<IgniteException>(async () => await TupleView.UpsertAsync(null, new IgniteTuple()));
 
             StringAssert.Contains(
                 "Missed key column: KEY",
