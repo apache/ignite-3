@@ -118,8 +118,7 @@ public class BinaryConverter {
         }
 
         // Now compose the tuple.
-        BinaryTupleBuilder builder = BinaryTupleBuilder.create(
-                tupleSchema.elementCount(), hasNulls, estimatedValueSize);
+        BinaryTupleBuilder builder = new BinaryTupleBuilder(tupleSchema.elementCount(), hasNulls, estimatedValueSize);
 
         for (int elementIndex = 0; elementIndex < tupleSchema.elementCount(); elementIndex++) {
             BinaryTupleSchema.Element elt = tupleSchema.element(elementIndex);
@@ -154,7 +153,7 @@ public class BinaryConverter {
                     builder.appendNumberNotNull(row.numberValue(columnIndex));
                     break;
                 case DECIMAL:
-                    builder.appendDecimalNotNull(row.decimalValue(columnIndex));
+                    builder.appendDecimalNotNull(row.decimalValue(columnIndex), elt.decimalScale);
                     break;
                 case STRING:
                 case BYTES:

@@ -26,6 +26,7 @@ import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.schemas.table.ColumnTypeValidator;
 import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.IndexValidator;
 import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableValidator;
 import org.apache.ignite.configuration.validation.Validator;
@@ -46,7 +47,8 @@ public class SchemaDistributedConfigurationModule implements ConfigurationModule
     public Map<Class<? extends Annotation>, Set<Validator<? extends Annotation, ?>>> validators() {
         return Map.of(
                 TableValidator.class, Set.of(TableValidatorImpl.INSTANCE),
-                ColumnTypeValidator.class, Set.of(ColumnTypeValidatorImpl.INSTANCE)
+                ColumnTypeValidator.class, Set.of(ColumnTypeValidatorImpl.INSTANCE),
+                IndexValidator.class, Set.of(IndexValidatorImpl.INSTANCE)
         );
     }
 

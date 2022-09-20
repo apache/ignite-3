@@ -32,7 +32,10 @@ import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchem
 import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
+import org.apache.ignite.configuration.schemas.table.TableIndexView;
+import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
+import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.storage.AbstractMvTableStorageTest;
@@ -45,7 +48,6 @@ import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -71,18 +73,25 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
                     UnlimitedBudgetConfigurationSchema.class
             }
     )
-    private TableConfiguration tableCfg;
+    private TableConfiguration tableCfg0;
 
     @WorkDirectory
     private Path workDir;
 
+    private ConfigurationRegistry confRegistry;
+
     @Override
-    protected MvTableStorage tableStorage() {
+    protected void setUp() {
+        super.tableConfig = tableCfg0;
+    }
+
+    @Override
+    protected MvTableStorage tableStorage(TableIndexView sortedIdx, TableIndexView hashIdx, TablesConfiguration tablesCfg) {
         engine = new RocksDbStorageEngine(rocksDbEngineConfig, workDir);
 
         engine.start();
 
-        MvTableStorage storage = engine.createMvTable(tableCfg);
+        MvTableStorage storage = engine.createMvTable(tableConfig, tablesCfg);
 
         assertThat(storage, is(instanceOf(RocksDbTableStorage.class)));
 
@@ -140,7 +149,7 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
 
         tableStorage.stop();
 
-        tableStorage = engine.createMvTable(tableCfg);
+        tableStorage = engine.createMvTable(tableConfig, null);
 
         tableStorage.start();
 
@@ -152,23 +161,5 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
     @Test
     void storageAdvertisesItIsPersistent() {
         assertThat(tableStorage.isVolatile(), is(false));
-    }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17318")
-    @Override
-    public void testCreateSortedIndex() {
-        super.testCreateSortedIndex();
-    }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17318")
-    @Override
-    public void testDestroyIndex() {
-        super.testDestroyIndex();
-    }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17318")
-    @Override
-    public void testMisconfiguredIndices() {
-        super.testMisconfiguredIndices();
     }
 }

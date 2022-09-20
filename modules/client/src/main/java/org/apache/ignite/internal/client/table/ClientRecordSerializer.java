@@ -105,7 +105,7 @@ public class ClientRecordSerializer<R> {
      */
     static <R> void writeRecRaw(@Nullable R rec, ClientMessagePacker out, Marshaller marshaller, int columnCount) {
         try {
-            var builder = BinaryTupleBuilder.create(columnCount, true);
+            var builder = new BinaryTupleBuilder(columnCount, true);
             var noValueSet = new BitSet();
 
             var writer = new ClientMarshallerWriter(builder, noValueSet);

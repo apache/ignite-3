@@ -15,32 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.index.impl;
+package org.apache.ignite.configuration.schemas.table;
 
-import org.apache.ignite.internal.schema.BinaryTuple;
-import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.storage.index.IndexRow;
+import static java.lang.annotation.ElementType.FIELD;
+import static java.lang.annotation.ElementType.PARAMETER;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
+
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
 
 /**
- * {@link IndexRow} implementation that simply stores the provided parameters.
+ * Annotation to validate whole index configuration.
+ *
+ * <p>Activate IndexValidatorImpl in configuration engine for {@link TablesConfigurationSchema#indexes}.
  */
-class IndexRowImpl implements IndexRow {
-    private final BinaryTuple indexColumns;
+@Target({FIELD, PARAMETER})
+@Retention(RUNTIME)
+public @interface IndexValidator {
 
-    private final RowId rowId;
-
-    IndexRowImpl(BinaryTuple indexColumns, RowId rowId) {
-        this.indexColumns = indexColumns;
-        this.rowId = rowId;
-    }
-
-    @Override
-    public BinaryTuple indexColumns() {
-        return indexColumns;
-    }
-
-    @Override
-    public RowId rowId() {
-        return rowId;
-    }
 }

@@ -1164,6 +1164,13 @@ public class ConfigurationUtil {
     }
 
     /**
+     * Returns internal id for the value associated with the passed key.
+     */
+    public static <N> UUID getInternalId(NamedListView<N> node, String name) {
+        return ((NamedListNode<?>) node).internalId(name);
+    }
+
+    /**
      * Returns all internal ids of the elements from the list.
      */
     public static List<UUID> internalIds(NamedConfigurationTree<?, ?, ?> cfg) {

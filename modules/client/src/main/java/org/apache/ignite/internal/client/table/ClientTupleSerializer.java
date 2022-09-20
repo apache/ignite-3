@@ -134,7 +134,7 @@ public class ClientTupleSerializer {
         var columns = schema.columns();
         var count = keyOnly ? schema.keyColumnCount() : columns.length;
 
-        var builder = BinaryTupleBuilder.create(count, true);
+        var builder = new BinaryTupleBuilder(count, true);
         var noValueSet = new BitSet(count);
 
         for (var i = 0; i < count; i++) {
@@ -172,7 +172,7 @@ public class ClientTupleSerializer {
 
         var columns = schema.columns();
         var noValueSet = new BitSet(columns.length);
-        var builder = BinaryTupleBuilder.create(columns.length, true);
+        var builder = new BinaryTupleBuilder(columns.length, true);
 
         for (var i = 0; i < columns.length; i++) {
             var col = columns[i];
@@ -241,7 +241,7 @@ public class ClientTupleSerializer {
 
         for (var i = 0; i < colCnt; i++) {
             ClientColumn column = schema.columns()[i];
-            ClientBinaryTupleUtils.readAndSetColumnValue(binTuple, i, tuple, column.name(), column.type());
+            ClientBinaryTupleUtils.readAndSetColumnValue(binTuple, i, tuple, column.name(), column.type(), column.scale());
         }
 
         return tuple;
@@ -257,7 +257,8 @@ public class ClientTupleSerializer {
             if (i < schema.keyColumnCount()) {
                 tuple.setInternal(i, keyTuple.value(col.name()));
             } else {
-                ClientBinaryTupleUtils.readAndSetColumnValue(binTuple, i - schema.keyColumnCount(), tuple, col.name(), col.type());
+                ClientBinaryTupleUtils.readAndSetColumnValue(
+                        binTuple, i - schema.keyColumnCount(), tuple, col.name(), col.type(), col.scale());
             }
         }
 
@@ -274,7 +275,7 @@ public class ClientTupleSerializer {
         for (var i = keyColCnt; i < colCnt; i++) {
             ClientColumn col = schema.columns()[i];
             ClientBinaryTupleUtils.readAndSetColumnValue(
-                    binTupleReader, i - keyColCnt, valTuple, col.name(), col.type());
+                    binTupleReader, i - keyColCnt, valTuple, col.name(), col.type(), col.scale());
         }
 
         return valTuple;
@@ -291,12 +292,9 @@ public class ClientTupleSerializer {
 
         for (var i = 0; i < colCnt; i++) {
             ClientColumn col = schema.columns()[i];
+            var targetTuple = i < keyColCnt ? keyTuple : valTuple;
 
-            if (i < keyColCnt) {
-                ClientBinaryTupleUtils.readAndSetColumnValue(binTuple, i, keyTuple, col.name(), col.type());
-            } else {
-                ClientBinaryTupleUtils.readAndSetColumnValue(binTuple, i, valTuple, col.name(), col.type());
-            }
+            ClientBinaryTupleUtils.readAndSetColumnValue(binTuple, i, targetTuple, col.name(), col.type(), col.scale());
         }
 
         return new IgniteBiTuple<>(keyTuple, valTuple);
@@ -395,7 +393,7 @@ public class ClientTupleSerializer {
                     return;
 
                 case ClientDataType.DECIMAL:
-                    builder.appendDecimalNotNull((BigDecimal) v);
+                    builder.appendDecimalNotNull((BigDecimal) v, col.scale());
                     return;
 
                 case ClientDataType.UUID:

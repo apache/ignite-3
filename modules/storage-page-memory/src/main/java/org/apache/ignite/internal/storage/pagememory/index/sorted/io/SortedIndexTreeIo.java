@@ -29,7 +29,9 @@ import java.util.UUID;
 import org.apache.ignite.internal.pagememory.datapage.DataPageReader;
 import org.apache.ignite.internal.pagememory.tree.io.BplusIo;
 import org.apache.ignite.internal.pagememory.util.PageUtils;
+import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.index.BinaryTupleComparator;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.ReadIndexColumnsValue;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.SortedIndexRow;
@@ -98,13 +100,23 @@ public interface SortedIndexTreeIo {
     /**
      * Compare the {@link SortedIndexRowKey} from the page with passed {@link SortedIndexRowKey}.
      *
+     * @param dataPageReader Data page reader.
+     * @param binaryTupleComparator Comparator of index columns {@link BinaryTuple}s.
+     * @param partitionId Partition ID.
      * @param pageAddr Page address.
      * @param idx Element's index.
      * @param rowKey Lookup index row key.
      * @return Comparison result.
+     * @throws IgniteInternalCheckedException If failed.
      */
-    default int compare(DataPageReader dataPageReader, int partitionId, long pageAddr, int idx, SortedIndexRowKey rowKey)
-            throws IgniteInternalCheckedException {
+    default int compare(
+            DataPageReader dataPageReader,
+            BinaryTupleComparator binaryTupleComparator,
+            int partitionId,
+            long pageAddr,
+            int idx,
+            SortedIndexRowKey rowKey
+    ) throws IgniteInternalCheckedException {
         assert rowKey instanceof SortedIndexRow;
 
         SortedIndexRow sortedIndexRow = (SortedIndexRow) rowKey;
@@ -120,8 +132,7 @@ public interface SortedIndexTreeIo {
 
         ByteBuffer indexColumnsBuffer = ByteBuffer.wrap(indexColumnsTraversal.result()).order(LITTLE_ENDIAN);
 
-        // TODO: IGNITE-17672 Compare by BinaryTuple
-        int cmp = indexColumnsBuffer.compareTo(sortedIndexRow.indexColumns().valueBuffer());
+        int cmp = binaryTupleComparator.compare(indexColumnsBuffer, sortedIndexRow.indexColumns().valueBuffer());
 
         if (cmp != 0) {
             return cmp;

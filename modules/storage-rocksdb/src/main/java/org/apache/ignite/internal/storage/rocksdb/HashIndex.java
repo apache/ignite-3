@@ -24,22 +24,34 @@ import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.rocksdb.index.RocksDbHashIndexStorage;
 
-class HashIndices {
+/**
+ * Class that represents a Hash Index defined for all partitions of a Table.
+ */
+class HashIndex {
+    private final ColumnFamily indexCf;
+
     private final HashIndexDescriptor descriptor;
 
     private final ConcurrentMap<Integer, HashIndexStorage> storages = new ConcurrentHashMap<>();
 
-    HashIndices(HashIndexDescriptor descriptor) {
+    HashIndex(ColumnFamily indexCf, HashIndexDescriptor descriptor) {
+        this.indexCf = indexCf;
         this.descriptor = descriptor;
     }
 
-    HashIndexStorage getOrCreateStorage(ColumnFamily indexCf, RocksDbMvPartitionStorage partitionStorage) {
+    /**
+     * Creates a new Hash Index storage or returns an existing one.
+     */
+    HashIndexStorage getOrCreateStorage(RocksDbMvPartitionStorage partitionStorage) {
         return storages.computeIfAbsent(
                 partitionStorage.partitionId(),
                 partId -> new RocksDbHashIndexStorage(descriptor, indexCf, partitionStorage)
         );
     }
 
+    /**
+     * Removes all data associated with the index.
+     */
     void destroy() {
         storages.forEach((partitionId, storage) -> storage.destroy());
     }

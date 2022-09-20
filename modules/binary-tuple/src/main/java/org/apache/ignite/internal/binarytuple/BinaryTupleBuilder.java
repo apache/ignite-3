@@ -19,6 +19,7 @@ package org.apache.ignite.internal.binarytuple;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.math.RoundingMode;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.CharBuffer;
@@ -32,7 +33,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.UUID;
-import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Utility to construct a binary tuple.
@@ -66,13 +67,23 @@ public class BinaryTupleBuilder {
     private boolean hasNullValues = false;
 
     /**
-     * Constructor.
+     * Creates a builder.
+     *
+     * @param numElements Number of tuple elements.
+     * @param allowNulls True if NULL values are possible, false otherwise.
+     */
+    public BinaryTupleBuilder(int numElements, boolean allowNulls) {
+        this(numElements, allowNulls, -1);
+    }
+
+    /**
+     * Creates a builder.
      *
      * @param numElements Number of tuple elements.
      * @param allowNulls True if NULL values are possible, false otherwise.
      * @param totalValueSize Total estimated length of non-NULL values, -1 if not known.
      */
-    private BinaryTupleBuilder(int numElements, boolean allowNulls, int totalValueSize) {
+    public BinaryTupleBuilder(int numElements, boolean allowNulls, int totalValueSize) {
         this.numElements = numElements;
 
         int base = BinaryTupleCommon.HEADER_SIZE;
@@ -91,29 +102,6 @@ public class BinaryTupleBuilder {
         valueBase = base + entrySize * numElements;
 
         allocate(totalValueSize);
-    }
-
-    /**
-     * Creates a builder.
-     *
-     * @param numElements Number of tuple elements.
-     * @param allowNulls True if NULL values are possible, false otherwise.
-     * @return Tuple builder.
-     */
-    public static BinaryTupleBuilder create(int numElements, boolean allowNulls) {
-        return create(numElements, allowNulls, -1);
-    }
-
-    /**
-     * Creates a builder.
-     *
-     * @param numElements Number of tuple elements.
-     * @param allowNulls True if NULL values are possible, false otherwise.
-     * @param totalValueSize Total estimated length of non-NULL values, -1 if not known.
-     * @return Tuple builder.
-     */
-    public static BinaryTupleBuilder create(int numElements, boolean allowNulls, int totalValueSize) {
-        return new BinaryTupleBuilder(numElements, allowNulls, totalValueSize);
     }
 
     /**
@@ -222,7 +210,7 @@ public class BinaryTupleBuilder {
      * @param value Element value.
      * @return {@code this} for chaining.
      */
-    public BinaryTupleBuilder appendInt(Integer value) {
+    public BinaryTupleBuilder appendInt(@Nullable Integer value) {
         return value == null ? appendNull() : appendInt(value.intValue());
     }
 
@@ -307,7 +295,7 @@ public class BinaryTupleBuilder {
      * @param value Element value.
      * @return {@code this} for chaining.
      */
-    public BinaryTupleBuilder appendNumberNotNull(@NotNull BigInteger value) {
+    public BinaryTupleBuilder appendNumberNotNull(BigInteger value) {
         putBytes(value.toByteArray());
         return proceed();
     }
@@ -326,10 +314,11 @@ public class BinaryTupleBuilder {
      * Append a value for the current element.
      *
      * @param value Element value.
+     * @param scale Decimal scale.
      * @return {@code this} for chaining.
      */
-    public BinaryTupleBuilder appendDecimalNotNull(@NotNull BigDecimal value) {
-        putBytes(value.unscaledValue().toByteArray());
+    public BinaryTupleBuilder appendDecimalNotNull(BigDecimal value, int scale) {
+        putBytes(value.setScale(scale, RoundingMode.HALF_UP).unscaledValue().toByteArray());
         return proceed();
     }
 
@@ -337,10 +326,11 @@ public class BinaryTupleBuilder {
      * Append a value for the current element.
      *
      * @param value Element value.
+     * @param scale Decimal scale.
      * @return {@code this} for chaining.
      */
-    public BinaryTupleBuilder appendDecimal(BigDecimal value) {
-        return value == null ? appendNull() : appendDecimalNotNull(value);
+    public BinaryTupleBuilder appendDecimal(BigDecimal value, int scale) {
+        return value == null ? appendNull() : appendDecimalNotNull(value, scale);
     }
 
     /**
@@ -349,7 +339,7 @@ public class BinaryTupleBuilder {
      * @param value Element value.
      * @return {@code this} for chaining.
      */
-    public BinaryTupleBuilder appendStringNotNull(@NotNull String value) {
+    public BinaryTupleBuilder appendStringNotNull(String value) {
         try {
             putString(value);
         } catch (CharacterCodingException e) {
@@ -364,7 +354,7 @@ public class BinaryTupleBuilder {
      * @param value Element value.
      * @return {@code this} for chaining.
      */
-    public BinaryTupleBuilder appendString(String value) {
+    public BinaryTupleBuilder appendString(@Nullable String value) {
         return value == null ? appendNull() : appendStringNotNull(value);
     }
 
@@ -374,7 +364,7 @@ public class BinaryTupleBuilder {
      * @param value Element value.
      * @return {@code this} for chaining.
      */
-    public BinaryTupleBuilder appendBytesNotNull(@NotNull byte[] value) {
+    public BinaryTupleBuilder appendBytesNotNull(byte[] value) {
         putBytes(value);
         return proceed();
     }
@@ -395,7 +385,7 @@ public class BinaryTupleBuilder {
      * @param value Element value.
      * @return {@code this} for chaining.
      */
-    public BinaryTupleBuilder appendUuidNotNull(@NotNull UUID value) {
+    public BinaryTupleBuilder appendUuidNotNull(UUID value) {
         long lsb = value.getLeastSignificantBits();
         long msb = value.getMostSignificantBits();
         if ((lsb | msb) != 0L) {
@@ -421,7 +411,7 @@ public class BinaryTupleBuilder {
      * @param value Element value.
      * @return {@code this} for chaining.
      */
-    public BinaryTupleBuilder appendBitmaskNotNull(@NotNull BitSet value) {
+    public BinaryTupleBuilder appendBitmaskNotNull(BitSet value) {
         putBytes(value.toByteArray());
         return proceed();
     }
@@ -442,7 +432,7 @@ public class BinaryTupleBuilder {
      * @param value Element value.
      * @return {@code this} for chaining.
      */
-    public BinaryTupleBuilder appendDateNotNull(@NotNull LocalDate value) {
+    public BinaryTupleBuilder appendDateNotNull(LocalDate value) {
         if (value != BinaryTupleCommon.DEFAULT_DATE) {
             putDate(value);
         }
@@ -465,7 +455,7 @@ public class BinaryTupleBuilder {
      * @param value Element value.
      * @return {@code this} for chaining.
      */
-    public BinaryTupleBuilder appendTimeNotNull(@NotNull LocalTime value) {
+    public BinaryTupleBuilder appendTimeNotNull(LocalTime value) {
         if (value != BinaryTupleCommon.DEFAULT_TIME) {
             putTime(value);
         }
@@ -488,7 +478,7 @@ public class BinaryTupleBuilder {
      * @param value Element value.
      * @return {@code this} for chaining.
      */
-    public BinaryTupleBuilder appendDateTimeNotNull(@NotNull LocalDateTime value) {
+    public BinaryTupleBuilder appendDateTimeNotNull(LocalDateTime value) {
         if (value != BinaryTupleCommon.DEFAULT_DATE_TIME) {
             putDate(value.toLocalDate());
             putTime(value.toLocalTime());
@@ -512,7 +502,7 @@ public class BinaryTupleBuilder {
      * @param value Element value.
      * @return {@code this} for chaining.
      */
-    public BinaryTupleBuilder appendTimestampNotNull(@NotNull Instant value) {
+    public BinaryTupleBuilder appendTimestampNotNull(Instant value) {
         if (value != BinaryTupleCommon.DEFAULT_TIMESTAMP) {
             long seconds = value.getEpochSecond();
             int nanos = value.getNano();
@@ -540,7 +530,7 @@ public class BinaryTupleBuilder {
      * @param bytes Buffer with element raw bytes.
      * @return {@code this} for chaining.
      */
-    public BinaryTupleBuilder appendElementBytes(@NotNull ByteBuffer bytes) {
+    public BinaryTupleBuilder appendElementBytes(ByteBuffer bytes) {
         putElement(bytes);
         return proceed();
     }
@@ -553,7 +543,7 @@ public class BinaryTupleBuilder {
      * @param length Length of the element in the buffer.
      * @return {@code this} for chaining.
      */
-    public BinaryTupleBuilder appendElementBytes(@NotNull ByteBuffer bytes, int offset, int length) {
+    public BinaryTupleBuilder appendElementBytes(ByteBuffer bytes, int offset, int length) {
         putElement(bytes, offset, length);
         return proceed();
     }
@@ -565,6 +555,15 @@ public class BinaryTupleBuilder {
      */
     public int elementIndex() {
         return elementIndex;
+    }
+
+    /**
+     * Gets the expected number of tuple elements.
+     *
+     * @return Expected number of tuple elements.
+     */
+    public int numElements() {
+        return numElements;
     }
 
     /**

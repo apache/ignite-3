@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.storage.index;
 
-import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.util.Cursor;
 import org.intellij.lang.annotations.MagicConstant;
@@ -74,8 +74,8 @@ public interface SortedIndexStorage {
      * @throws IllegalArgumentException If backwards flag is passed and backwards iteration is not supported by the storage.
      */
     Cursor<IndexRow> scan(
-            @Nullable BinaryTuple lowerBound,
-            @Nullable BinaryTuple upperBound,
+            @Nullable BinaryTuplePrefix lowerBound,
+            @Nullable BinaryTuplePrefix upperBound,
             @MagicConstant(flagsFromClass = SortedIndexStorage.class) int flags
     );
 }

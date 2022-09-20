@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage.pagememory.mv;
 
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
@@ -41,6 +42,7 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
      */
     public VolatilePageMemoryMvPartitionStorage(
             VolatilePageMemoryTableStorage tableStorage,
+            TablesConfiguration tablesCfg,
             int partitionId,
             VersionChainTree versionChainTree,
             IndexMetaTree indexMetaTree
@@ -51,7 +53,8 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
                 tableStorage.dataRegion().rowVersionFreeList(),
                 tableStorage.dataRegion().indexColumnsFreeList(),
                 versionChainTree,
-                indexMetaTree
+                indexMetaTree,
+                tablesCfg
         );
     }
 

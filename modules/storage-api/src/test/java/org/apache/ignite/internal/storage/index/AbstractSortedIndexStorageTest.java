@@ -49,9 +49,10 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableIndexView;
+import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.internal.schema.testutils.builder.SortedIndexDefinitionBuilder;
@@ -86,6 +87,8 @@ public abstract class AbstractSortedIndexStorageTest {
 
     private static final int TEST_PARTITION = 0;
 
+    private Random random;
+
     private static List<ColumnDefinition> allTypesColumnDefinitions() {
         Stream<ColumnType> allColumnTypes = Stream.of(
                 ColumnType.INT8,
@@ -111,11 +114,11 @@ public abstract class AbstractSortedIndexStorageTest {
                 .collect(toUnmodifiableList());
     }
 
-    private final Random random;
-
     private MvTableStorage tableStorage;
 
     private MvPartitionStorage partitionStorage;
+
+    private TablesConfiguration tablesCfg;
 
     protected AbstractSortedIndexStorageTest() {
         long seed = System.currentTimeMillis();
@@ -130,9 +133,9 @@ public abstract class AbstractSortedIndexStorageTest {
      *
      * <p>This method *MUST* always be called in either subclass' constructor or setUp method.
      */
-    protected final void initialize(MvTableStorage tableStorage) {
+    protected final void initialize(MvTableStorage tableStorage, TablesConfiguration tablesCfg) {
+        this.tablesCfg = tablesCfg;
         this.tableStorage = tableStorage;
-
         this.partitionStorage = tableStorage.getOrCreateMvPartition(TEST_PARTITION);
 
         createTestTable(tableStorage.configuration());
@@ -184,15 +187,12 @@ public abstract class AbstractSortedIndexStorageTest {
      * Creates a Sorted Index using the given index definition.
      */
     private SortedIndexStorage createIndexStorage(ColumnarIndexDefinition indexDefinition) {
-        TableConfiguration tableCfg = tableStorage.configuration();
-
-        CompletableFuture<Void> createIndexFuture = tableCfg.change(cfg ->
-                cfg.changeIndices(idxList ->
-                        idxList.create(indexDefinition.name(), idx -> convert(indexDefinition, idx))));
+        CompletableFuture<Void> createIndexFuture =
+                tablesCfg.indexes().change(chg -> chg.create(indexDefinition.name(), idx -> convert(indexDefinition, idx)));
 
         assertThat(createIndexFuture, willBe(nullValue(Void.class)));
 
-        TableIndexView indexConfig = tableCfg.value().indices().get(indexDefinition.name());
+        TableIndexView indexConfig = tablesCfg.indexes().get(indexDefinition.name()).value();
 
         return tableStorage.getOrCreateSortedIndex(0, indexConfig.id());
     }
@@ -235,7 +235,7 @@ public abstract class AbstractSortedIndexStorageTest {
     }
 
     /**
-     * Tests that it adding a row that already exists does not do anything.
+     * Tests that appending an already existing row does no harm.
      */
     @Test
     void testPutIdempotence() throws Exception {
@@ -261,7 +261,7 @@ public abstract class AbstractSortedIndexStorageTest {
         put(index, row);
         put(index, row);
 
-        IndexRow actualRow = getSingle(index, row.indexColumns());
+        IndexRow actualRow = getSingle(index, serializer.serializeRowPrefix(columnValues));
 
         assertThat(actualRow.rowId(), is(equalTo(row.rowId())));
     }
@@ -397,8 +397,8 @@ public abstract class AbstractSortedIndexStorageTest {
                 .limit(lastIndex - firstIndex + 1)
                 .collect(toList());
 
-        BinaryTuple first = entries.get(firstIndex).prefix(3);
-        BinaryTuple last = entries.get(lastIndex).prefix(5);
+        BinaryTuplePrefix first = entries.get(firstIndex).prefix(3);
+        BinaryTuplePrefix last = entries.get(lastIndex).prefix(5);
 
         try (Cursor<IndexRow> cursor = indexStorage.scan(first, last, GREATER_OR_EQUAL | LESS_OR_EQUAL)) {
             List<IndexRow> actual = cursor.stream().collect(toList());
@@ -522,7 +522,7 @@ public abstract class AbstractSortedIndexStorageTest {
         put(indexStorage, entry1);
         put(indexStorage, entry2);
 
-        try (Cursor<IndexRow> cursor = indexStorage.scan(entry2.indexColumns(), entry1.indexColumns(), 0)) {
+        try (Cursor<IndexRow> cursor = indexStorage.scan(entry2.prefix(indexSchema.size()), entry1.prefix(indexSchema.size()), 0)) {
             assertThat(cursor.stream().collect(toList()), is(empty()));
         }
     }
@@ -551,10 +551,10 @@ public abstract class AbstractSortedIndexStorageTest {
             entry1 = t;
         }
 
-        try (Cursor<IndexRow> cursor = storage.scan(entry1.indexColumns(), entry2.indexColumns(), GREATER_OR_EQUAL | LESS_OR_EQUAL)) {
+        try (Cursor<IndexRow> cursor = storage.scan(entry1.prefix(1), entry2.prefix(1), GREATER_OR_EQUAL | LESS_OR_EQUAL)) {
             assertThat(
-                    cursor.stream().map(IndexRow::indexColumns).collect(toList()),
-                    contains(entry1.indexColumns(), entry2.indexColumns())
+                    cursor.stream().map(row -> row.indexColumns().byteBuffer()).collect(toList()),
+                    contains(entry1.indexColumns().byteBuffer(), entry2.indexColumns().byteBuffer())
             );
         }
     }
@@ -606,25 +606,25 @@ public abstract class AbstractSortedIndexStorageTest {
         put(indexStorage, entry2);
 
         assertThat(
-                getSingle(indexStorage, entry1.indexColumns()).rowId(),
+                getSingle(indexStorage, entry1.prefix(indexSchema.size())).rowId(),
                 is(equalTo(entry1.rowId()))
         );
 
         assertThat(
-                getSingle(indexStorage, entry2.indexColumns()).rowId(),
+                getSingle(indexStorage, entry2.prefix(indexSchema.size())).rowId(),
                 is(equalTo(entry2.rowId()))
         );
 
         remove(indexStorage, entry1);
 
-        assertThat(getSingle(indexStorage, entry1.indexColumns()), is(nullValue()));
+        assertThat(getSingle(indexStorage, entry1.prefix(indexSchema.size())), is(nullValue()));
     }
 
     /**
      * Extracts a single value by a given key or {@code null} if it does not exist.
      */
     @Nullable
-    private static IndexRow getSingle(SortedIndexStorage indexStorage, BinaryTuple fullPrefix) throws Exception {
+    private static IndexRow getSingle(SortedIndexStorage indexStorage, BinaryTuplePrefix fullPrefix) throws Exception {
         try (Cursor<IndexRow> cursor = indexStorage.scan(fullPrefix, fullPrefix, GREATER_OR_EQUAL | LESS_OR_EQUAL)) {
             List<IndexRow> values = cursor.stream().collect(toList());
 
@@ -634,7 +634,7 @@ public abstract class AbstractSortedIndexStorageTest {
         }
     }
 
-    private static BinaryTuple prefix(SortedIndexStorage index, Object... vals) {
+    private static BinaryTuplePrefix prefix(SortedIndexStorage index, Object... vals) {
         var serializer = new BinaryTupleRowSerializer(index.indexDescriptor());
 
         return serializer.serializeRowPrefix(vals);
@@ -642,8 +642,8 @@ public abstract class AbstractSortedIndexStorageTest {
 
     private static List<Object[]> scan(
             SortedIndexStorage index,
-            @Nullable BinaryTuple lowerBound,
-            @Nullable BinaryTuple upperBound,
+            @Nullable BinaryTuplePrefix lowerBound,
+            @Nullable BinaryTuplePrefix upperBound,
             @MagicConstant(flagsFromClass = SortedIndexStorage.class) int flags
     ) throws Exception {
         var serializer = new BinaryTupleRowSerializer(index.indexDescriptor());

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage.rocksdb;
 
 import java.nio.charset.StandardCharsets;
+import java.util.UUID;
 import org.rocksdb.RocksDB;
 
 /**
@@ -40,10 +41,15 @@ class ColumnFamilyUtils {
     static final String HASH_INDEX_CF_NAME = "cf-hash";
 
     /**
+     * Prefix for SQL indexes column family names.
+     */
+    static final String SORTED_INDEX_CF_PREFIX = "cf-sorted-";
+
+    /**
      * Utility enum to describe a type of the column family - meta or partition.
      */
     enum ColumnFamilyType {
-        META, PARTITION, HASH_INDEX, UNKNOWN;
+        META, PARTITION, HASH_INDEX, SORTED_INDEX, UNKNOWN;
 
         /**
          * Determines column family type by its name.
@@ -58,9 +64,35 @@ class ColumnFamilyUtils {
                 return PARTITION;
             } else if (HASH_INDEX_CF_NAME.equals(cfName)) {
                 return HASH_INDEX;
+            } else if (cfName.startsWith(SORTED_INDEX_CF_PREFIX)) {
+                return SORTED_INDEX;
             } else {
                 return UNKNOWN;
             }
         }
+    }
+
+    /**
+     * Creates a column family name by index ID.
+     *
+     * @param indexId Index ID.
+     * @return Column family name.
+     *
+     * @see #sortedIndexId
+     */
+    static String sortedIndexCfName(UUID indexId) {
+        return SORTED_INDEX_CF_PREFIX + indexId;
+    }
+
+    /**
+     * Extracts a Sorted Index ID from the given Column Family name.
+     *
+     * @param cfName Column Family name.
+     * @return Sorted Index ID.
+     *
+     * @see #sortedIndexCfName
+     */
+    static UUID sortedIndexId(String cfName) {
+        return UUID.fromString(cfName.substring(SORTED_INDEX_CF_PREFIX.length()));
     }
 }

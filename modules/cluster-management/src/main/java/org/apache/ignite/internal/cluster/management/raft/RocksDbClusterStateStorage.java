@@ -135,7 +135,7 @@ public class RocksDbClusterStateStorage implements ClusterStateStorage {
 
     @Override
     public <T> Cursor<T> getWithPrefix(byte[] prefix, BiFunction<byte[], byte[], T> entryTransformer) {
-        byte[] upperBound = RocksUtils.rangeEnd(prefix);
+        byte[] upperBound = RocksUtils.incrementArray(prefix);
 
         Slice upperBoundSlice = upperBound == null ? null : new Slice(upperBound);
 

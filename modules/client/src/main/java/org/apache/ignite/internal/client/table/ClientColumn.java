@@ -38,6 +38,9 @@ public class ClientColumn {
     /** Index of the column in the schema. */
     private final int schemaIndex;
 
+    /** value scale, if applicable. */
+    private final int scale;
+
     /**
      * Constructor.
      *
@@ -48,6 +51,20 @@ public class ClientColumn {
      * @param schemaIndex Index of the column in the schema.
      */
     public ClientColumn(String name, int type, boolean nullable, boolean isKey, int schemaIndex) {
+        this(name, type, nullable, isKey, schemaIndex, 0);
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param name        Column name.
+     * @param type        Column type code.
+     * @param nullable    Nullable flag.
+     * @param isKey       Key column flag.
+     * @param schemaIndex Index of the column in the schema.
+     * @param scale       Scale of the column, if applicable.
+     */
+    public ClientColumn(String name, int type, boolean nullable, boolean isKey, int schemaIndex, int scale) {
         assert name != null;
         assert schemaIndex >= 0;
 
@@ -56,6 +73,7 @@ public class ClientColumn {
         this.nullable = nullable;
         this.isKey = isKey;
         this.schemaIndex = schemaIndex;
+        this.scale = scale;
     }
 
     public String name() {
@@ -96,5 +114,14 @@ public class ClientColumn {
      */
     public int schemaIndex() {
         return schemaIndex;
+    }
+
+    /**
+     * Gets the decimal scale of the column, if applicable.
+     *
+     * @return Decimal scale.
+     */
+    public int scale() {
+        return scale;
     }
 }
