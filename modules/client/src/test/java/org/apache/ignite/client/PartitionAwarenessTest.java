@@ -21,6 +21,7 @@ import io.netty.util.ResourceLeakDetector;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.table.RecordView;
+import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -31,8 +32,6 @@ import org.junit.jupiter.api.Test;
  */
 public class PartitionAwarenessTest extends AbstractClientTest {
     protected static TestServer testServer2;
-
-    protected static Ignite server2;
 
     protected static IgniteClient client2;
 
@@ -47,8 +46,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
         ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.PARANOID);
 
-        server2 = new FakeIgnite();
-        testServer2 = startServer(10800, 10, 0, server2);
+        testServer2 = startServer(10800, 10, 0, server);
         serverPort2 = testServer2.port();
 
         client2 = startClient("127.0.0.1:" + serverPort, "127.0.0.1:" + serverPort2);
@@ -66,9 +64,15 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
     @Test
     public void testGetRoutesRequestToPrimaryNode() {
-        RecordView<Tuple> recordView = client2.tables().table(DEFAULT_TABLE).recordView();
+        RecordView<Tuple> recordView = defaultTable().recordView();
 
         recordView.get(null, Tuple.create().set("key", 1));
         recordView.get(null, Tuple.create().set("key", 2));
+    }
+
+    protected Table defaultTable() {
+        server.tables().createTable(DEFAULT_TABLE, tbl -> tbl.changeReplicas(1));
+
+        return client2.tables().table(DEFAULT_TABLE);
     }
 }
