@@ -169,7 +169,7 @@ public class IndexManagerTest {
                         "name", awaitIdxName,
                         "type", "SORTED",
                         "uniq", false,
-                        "tableId", tableId
+                        "tableId", tableId.toString()
                 )
         );
 
