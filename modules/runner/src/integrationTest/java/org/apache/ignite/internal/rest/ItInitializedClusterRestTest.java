@@ -30,7 +30,6 @@ import com.typesafe.config.ConfigFactory;
 import java.io.IOException;
 import java.net.http.HttpResponse;
 import java.net.http.HttpResponse.BodyHandlers;
-import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
