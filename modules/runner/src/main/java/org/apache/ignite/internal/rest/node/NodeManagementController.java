@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.rest.node;
 
 import io.micronaut.http.annotation.Controller;
-import org.apache.ignite.internal.properties.IgniteProperties;
+import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.rest.api.node.NodeManagementApi;
 import org.apache.ignite.internal.rest.api.node.NodeState;
 
@@ -43,6 +43,6 @@ public class NodeManagementController implements NodeManagementApi {
 
     @Override
     public String version() {
-        return IgniteProperties.get(IgniteProperties.VERSION);
+        return IgniteProductVersion.CURRENT_VERSION.toString();
     }
 }

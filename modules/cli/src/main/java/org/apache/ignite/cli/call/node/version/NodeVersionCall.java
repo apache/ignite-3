@@ -27,9 +27,7 @@ import org.apache.ignite.rest.client.api.NodeManagementApi;
 import org.apache.ignite.rest.client.invoker.ApiClient;
 import org.apache.ignite.rest.client.invoker.ApiException;
 
-/**
- * Call to get node version.
- */
+/** Call to get node version. */
 @Singleton
 public class NodeVersionCall implements Call<UrlCallInput, String> {
 
