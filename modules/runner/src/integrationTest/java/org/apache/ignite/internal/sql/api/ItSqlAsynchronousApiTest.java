@@ -189,6 +189,8 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
                 ses,
                 "DROP TABLE TEST"
         );
+
+        checkDdl(false, ses, "DROP INDEX IF EXISTS TEST_IDX");
     }
 
     @Test

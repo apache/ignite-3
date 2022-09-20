@@ -190,8 +190,8 @@ public class IndexManagerTest {
                 () -> indexManager.createIndexAsync("sName", "idx", "tName", true, indexChange -> {/* doesn't matter */}).join()
         );
 
-        assertThat(completionException.getCause(), instanceOf(TableNotFoundException.class));
-        assertThat(completionException.getCause().getMessage(), containsString(canonicalName));
+        assertTrue(IgniteTestUtils.hasCause(completionException, TableNotFoundException.class,
+                "The table does not exist [name=SNAME.TNAME]"));
     }
 
     @Test

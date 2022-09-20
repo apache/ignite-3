@@ -34,11 +34,13 @@ import org.apache.ignite.configuration.notifications.ConfigurationNotificationEv
 import org.apache.ignite.configuration.schemas.table.HashIndexView;
 import org.apache.ignite.configuration.schemas.table.IndexColumnView;
 import org.apache.ignite.configuration.schemas.table.SortedIndexView;
+import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableIndexChange;
 import org.apache.ignite.configuration.schemas.table.TableIndexConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableIndexView;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
+import org.apache.ignite.internal.configuration.schema.ExtendedTableConfiguration;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.index.event.IndexEvent;
 import org.apache.ignite.internal.index.event.IndexEventParameters;
@@ -56,6 +58,7 @@ import org.apache.ignite.lang.IndexNotFoundException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * An Ignite component that is responsible for handling index-related commands like CREATE or DROP
@@ -137,28 +140,23 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
             // TODO: IGNITE-17677 Refactoring of usage IgniteObjectName utility class
             String canonicalIndexName = parseCanonicalName(canonicalName(schemaName, indexName));
 
-            CompletableFuture<Boolean> future = new CompletableFuture<>();
-
             // TODO: IGNITE-17677 Refactoring of usage IgniteObjectName utility class
             String canonicalName = parseCanonicalName(canonicalName(schemaName, tableName));
+
+            CompletableFuture<Boolean> future = new CompletableFuture<>();
 
             // Check index existence flag, avoid usage of hasCause + IndexAlreadyExistsException.
             AtomicBoolean idxExist = new AtomicBoolean(false);
 
             tablesCfg.indexes().change(indexListChange -> {
+                idxExist.set(false);
+                
                 UUID tableId;
 
                 try {
                     tableId = ConfigurationUtil.getInternalId(tablesCfg.tables().value(), canonicalName);
                 } catch (IllegalArgumentException e) {
-                    var exception = new TableNotFoundException(canonicalName);
-
-                    LOG.info("Unable to create index [schema={}, table={}, index={}]",
-                            exception, schemaName, tableName, indexName);
-
-                    future.completeExceptionally(exception);
-
-                    return;
+                    throw new TableNotFoundException(canonicalName);
                 }
 
                 if (indexListChange.get(canonicalIndexName) != null) {
@@ -170,8 +168,6 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                 Consumer<TableIndexChange> chg = indexChange.andThen(c -> c.changeTableId(tableId));
 
                 indexListChange.create(canonicalIndexName, chg);
-
-                idxExist.set(false);
             }).whenComplete((index, th) -> {
                 if (th != null) {
                     LOG.info("Unable to create index [schema={}, table={}, index={}]",
@@ -250,26 +246,18 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                 TableView tableView = getByInternalId(tablesCfg.tables().value(), tableId);
 
                 if (tableView == null) {
-                    var exception = new TableNotFoundException(canonicalName);
-
-                    LOG.info("Table with [id={}] not found.", exception, tableId);
-
-                    future.completeExceptionally(exception);
-
-                    return;
+                    if (failIfNotExists) {
+                        throw new TableNotFoundException(canonicalName);
+                    } else {
+                        future.complete(true);
+                    }
                 }
 
                 if (indexListChange.get(canonicalName) == null) {
-                    var exception = new IndexNotFoundException(canonicalName);
-
-                    LOG.info("Unable to drop index [schema={}, index={}]", exception, schemaName, indexName);
-
-                    future.completeExceptionally(exception);
-
-                    return;
+                    throw new IndexNotFoundException(canonicalName);
+                } else if (tableView != null) {
+                    indexListChange.delete(canonicalName);
                 }
-
-                indexListChange.delete(canonicalName);
             }).whenComplete((ignored, th) -> {
                 if (th != null) {
                     LOG.info("Unable to drop index [schema={}, index={}]", th, schemaName, indexName);
