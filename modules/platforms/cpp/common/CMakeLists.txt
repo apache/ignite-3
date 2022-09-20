@@ -26,6 +26,7 @@ set(HEADERS
     guid.h
     Export.h
     ignite_error.h
+    ignite_result.h
     Types.h
     Uuid.h
     Platform.h

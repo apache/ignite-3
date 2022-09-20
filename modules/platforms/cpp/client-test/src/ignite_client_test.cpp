@@ -28,7 +28,8 @@
 
 using namespace ignite;
 
-static const std::initializer_list<std::string_view> NODE_ADDRS = {"127.0.0.1:10942", "127.0.0.1:10943"};
+//static const std::initializer_list<std::string_view> NODE_ADDRS = {"127.0.0.1:10942", "127.0.0.1:10943"};
+static const std::initializer_list<std::string_view> NODE_ADDRS = {"127.0.0.1:10942"};
 
 /**
  * Test suite.
@@ -45,7 +46,7 @@ protected:
      */
     static std::shared_ptr<TestLogger> getLogger()
     {
-        return std::make_shared<TestLogger>(false, true);
+        return std::make_shared<TestLogger>(true, true);
     }
 };
 
@@ -68,7 +69,10 @@ TEST_F(ClientTest, TablesGetTable)
     IgniteClientConfiguration cfg{NODE_ADDRS};
     cfg.setLogger(getLogger());
 
-    auto client = IgniteClient::startAsync(cfg, std::chrono::seconds(5)).get();
+    auto promise = std::make_shared<std::promise<IgniteClient>>();
+    IgniteClient::startAsync(cfg, std::chrono::seconds(5), IgniteResult<IgniteClient>::promiseSetter(promise));
+
+    auto client = promise->get_future().get();
 
     auto tables = client.getTables();
     auto tableUnknown = tables.getTableAsync("PUB.some_unknown").get();

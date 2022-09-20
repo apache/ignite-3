@@ -24,11 +24,14 @@
 namespace ignite
 {
 
-std::future<IgniteClient> IgniteClient::startAsync(IgniteClientConfiguration configuration,
-    std::chrono::milliseconds timeout)
+void IgniteClient::startAsync(IgniteClientConfiguration configuration, std::chrono::milliseconds timeout,
+    std::function<void(IgniteResult<IgniteClient>)> callback)
 {
-    return std::async(std::launch::async, [cfg = std::move(configuration), timeout] () mutable {
-        return IgniteClient::start(cfg, timeout);
+    (void) std::async([cfg = std::move(configuration), timeout, callback = std::move(callback)]() mutable {
+        auto res = IgniteResult<IgniteClient>::ofOperation([cfg = std::move(cfg), timeout] () {
+            return start(cfg, timeout);
+        });
+        callback(std::move(res));
     });
 }
 
@@ -36,39 +39,44 @@ IgniteClient IgniteClient::start(IgniteClientConfiguration configuration, std::c
 {
     auto impl = std::make_shared<impl::IgniteClientImpl>(std::move(configuration));
 
-    try {
-        auto res = impl->start();
-        if (res.wait_for(timeout) != std::future_status::ready)
-            throw IgniteError("Can not establish connection within timeout");
+    auto promise = std::make_shared<std::promise<void>>();
+    auto future = promise->get_future();
 
-        return IgniteClient(impl);
-    }
-    catch (...) {
+    impl->start([impl, promise] (IgniteResult<void> res) mutable {
+        auto err = res.getError();
+        if (err) {
+            impl->stop();
+            promise->set_exception(std::make_exception_ptr(err));
+        }
+        else
+            promise->set_value();
+    });
+
+    auto status = future.wait_for(timeout);
+    if (status == std::future_status::timeout) {
         impl->stop();
-        throw;
+        throw IgniteError("Can not establish connection within timeout");
     }
+
+    return IgniteClient(std::move(impl));
 }
 
 IgniteClient::IgniteClient(std::shared_ptr<void> impl) :
     m_impl(std::move(impl)) { }
 
-const IgniteClientConfiguration &IgniteClient::getConfiguration() const
-{
+const IgniteClientConfiguration &IgniteClient::getConfiguration() const {
     return getImpl().getConfiguration();
 }
 
-Tables IgniteClient::getTables() const
-{
+Tables IgniteClient::getTables() const {
     return Tables(getImpl().getTablesImpl());
 }
 
-impl::IgniteClientImpl &IgniteClient::getImpl()
-{
+impl::IgniteClientImpl &IgniteClient::getImpl() {
     return *((impl::IgniteClientImpl*)(m_impl.get()));
 }
 
-const impl::IgniteClientImpl &IgniteClient::getImpl() const
-{
+const impl::IgniteClientImpl &IgniteClient::getImpl() const {
     return *((impl::IgniteClientImpl*)(m_impl.get()));
 }
 

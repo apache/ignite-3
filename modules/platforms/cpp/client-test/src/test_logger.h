@@ -40,26 +40,21 @@ public:
         m_includeTs(includeTs),
         m_debug(debug) { }
 
-    void logError(std::string_view message) override
-    {
-        std::cout << getTimestamp() << " [ERROR]   " << message << std::endl;
+    void logError(std::string_view message) override {
+        std::cout << getTimestamp() << "[ERROR]   " << message << std::endl;
     }
 
-    void logWarning(std::string_view message) override
-    {
-        std::cout << getTimestamp() << " [WARNING] " << message << std::endl;
+    void logWarning(std::string_view message) override {
+        std::cout << getTimestamp() << "[WARNING] " << message << std::endl;
     }
 
-    void logInfo(std::string_view message) override
-    {
-        std::cout << getTimestamp() << " [INFO]    " << message << std::endl;
+    void logInfo(std::string_view message) override {
+        std::cout << getTimestamp() << "[INFO]    " << message << std::endl;
     }
 
-    void logDebug(std::string_view message) override
-    {
-        if (m_debug)
-        {
-            std::cout << getTimestamp() << " [DEBUG]  " << message << std::endl;
+    void logDebug(std::string_view message) override {
+        if (m_debug) {
+            std::cout << getTimestamp() << "[DEBUG]  " << message << std::endl;
         }
     }
 
@@ -83,7 +78,7 @@ private:
         auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch());
 
         std::stringstream ss;
-        ss << std::put_time(std::localtime(&cTime), "%H:%M:%S.") << std::setw(3) << std::setfill('0') << (ms.count() % 1000);
+        ss << std::put_time(std::localtime(&cTime), "%H:%M:%S.") << std::setw(3) << std::setfill('0') << (ms.count() % 1000) << " ";
         return ss.str();
     }
 

@@ -25,6 +25,8 @@
 #include <functional>
 #include <random>
 
+#include "common/ignite_result.h"
+
 #include "ignite/protocol/reader.h"
 #include "ignite/protocol/writer.h"
 #include "ignite/network/async_client_pool.h"
@@ -80,9 +82,9 @@ public:
     /**
      * Start establishing connection.
      *
-     * @return Future representing finishing of the connection process.
+     * @param callback Callback.
      */
-    std::future<void> start();
+    void start(std::function<void(IgniteResult<void>)> callback);
 
     /**
      * Stop connection.
@@ -187,6 +189,13 @@ private:
     void handshakeFail(uint64_t id, std::optional<IgniteError> err);
 
     /**
+     * Report handshake result.
+     *
+     * @param err Error. If set, connection is stopped and failed.
+     */
+    void handshakeResult(std::optional<IgniteError> err);
+
+    /**
      * Process handshake response.
      *
      * @param protocolCtx Handshake context.
@@ -197,8 +206,11 @@ private:
     /** Configuration. */
     const IgniteClientConfiguration m_configuration;
 
-    /** Initial connect promise. */
-    std::promise<void> m_initialConnect;
+    /** Callback to call on initial connect. */
+    std::function<void(IgniteResult<void>)> m_onInitialConnect;
+
+    /** Initial connect mutex. */
+    std::mutex m_onInitialConnectMutex;
 
     /** Connection pool. */
     std::shared_ptr<network::AsyncClientPool> m_pool;

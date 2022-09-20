@@ -39,12 +39,12 @@ ClusterConnection::ClusterConnection(IgniteClientConfiguration configuration) :
     m_logger(m_configuration.getLogger()),
     m_generator(std::random_device()()) { }
 
-std::future<void> ClusterConnection::start()
+void ClusterConnection::start(std::function<void(IgniteResult<void>)> callback)
 {
     using namespace network;
 
     if (m_pool)
-        return makeFutureError<void>(IgniteError("Client is already started"));
+        throw IgniteError("Client is already started");
 
     std::vector<TcpRange> addrs;
     addrs.reserve(m_configuration.getEndpoints().size());
@@ -67,9 +67,9 @@ std::future<void> ClusterConnection::start()
 
     m_pool->setHandler(shared_from_this());
 
-    m_pool->start(addrs, m_configuration.getConnectionLimit());
+    m_onInitialConnect = std::move(callback);
 
-    return m_initialConnect.get_future();
+    m_pool->start(addrs, m_configuration.getConnectionLimit());
 }
 
 void ClusterConnection::stop()
@@ -88,7 +88,7 @@ void ClusterConnection::onConnectionSuccess(const network::EndPoint &addr, uint6
 
     {
         [[maybe_unused]]
-        std::lock_guard<std::recursive_mutex> lock(m_inProgressMutex);
+        std::unique_lock<std::recursive_mutex> lock(m_inProgressMutex);
 
         if (m_inProgress.find(id) != m_inProgress.end())
             m_logger->logError("Unknown error: connecting is already in progress. Connection ID: " + std::to_string(id));
@@ -114,7 +114,7 @@ void ClusterConnection::onConnectionClosed(uint64_t id, std::optional<IgniteErro
 
     {
         [[maybe_unused]]
-        std::lock_guard<std::recursive_mutex> lock(m_inProgressMutex);
+        std::unique_lock<std::recursive_mutex> lock(m_inProgressMutex);
 
         auto it = m_inProgress.find(id);
         if (it != m_inProgress.end())
@@ -129,7 +129,7 @@ void ClusterConnection::onConnectionClosed(uint64_t id, std::optional<IgniteErro
 
     {
         [[maybe_unused]]
-        std::lock_guard<std::recursive_mutex> lock(m_connectionsMutex);
+        std::unique_lock<std::recursive_mutex> lock(m_connectionsMutex);
 
         m_connections.erase(id);
     }
@@ -143,7 +143,7 @@ void ClusterConnection::onMessageReceived(uint64_t id, const network::DataBuffer
     std::shared_ptr<NodeConnection> connection;
     {
         [[maybe_unused]]
-        std::lock_guard<std::recursive_mutex> lock(m_inProgressMutex);
+        std::unique_lock<std::recursive_mutex> lock(m_inProgressMutex);
 
         auto it = m_inProgress.find(id);
         if (it != m_inProgress.end())
@@ -169,23 +169,24 @@ void ClusterConnection::onMessageReceived(uint64_t id, const network::DataBuffer
 
     {
         [[maybe_unused]]
-        std::lock_guard<std::recursive_mutex> lock(m_connectionsMutex);
+        std::unique_lock<std::recursive_mutex> lock(m_connectionsMutex);
 
+        auto it = m_connections.find(id);
+        if (connection)
         {
-            auto it = m_connections.find(id);
-            if (connection)
-            {
-                if (it != m_connections.end())
-                    m_logger->logError("Unknown error: connection already established. Connection ID: " + std::to_string(id));
+            if (it != m_connections.end())
+                m_logger->logError("Unknown error: connection already established. Connection ID: " + std::to_string(id));
 
-                m_connections[id] = connection;
-                m_initialConnect.set_value();
+            m_connections[id] = connection;
 
-                return;
-            }
-            else
-                connection = it->second;
+            lock.unlock();
+
+            handshakeResult(std::nullopt);
+
+            return;
         }
+        else
+            connection = it->second;
     }
 
     if (connection)
@@ -242,13 +243,31 @@ void ClusterConnection::handshake(uint64_t id, ProtocolContext& context)
 
 void ClusterConnection::handshakeFail(uint64_t id, std::optional<IgniteError> err)
 {
-    [[maybe_unused]]
-    std::lock_guard<std::recursive_mutex> lock(m_inProgressMutex);
+    {
+        [[maybe_unused]]
+        std::unique_lock<std::recursive_mutex> lock(m_inProgressMutex);
 
-    m_inProgress.erase(id);
+        m_inProgress.erase(id);
+    }
 
     if (err)
-        m_initialConnect.set_exception(std::make_exception_ptr<IgniteError>(std::move(err.value())));
+        handshakeResult(std::move(err));
+}
+
+void ClusterConnection::handshakeResult(std::optional<IgniteError> err)
+{
+    [[maybe_unused]]
+    std::lock_guard<std::mutex> lock(m_onInitialConnectMutex);
+
+    if (!m_onInitialConnect)
+        return;
+
+    IgniteResult<void> res;
+    if (err)
+        res = {std::move(err.value())};
+
+    m_onInitialConnect(std::move(res));
+    m_onInitialConnect = {};
 }
 
 void ClusterConnection::handshakeRsp(ProtocolContext& protocolCtx, const network::DataBuffer& buffer)
@@ -286,7 +305,7 @@ void ClusterConnection::handshakeRsp(ProtocolContext& protocolCtx, const network
 std::shared_ptr<NodeConnection> ClusterConnection::getRandomChannel()
 {
     [[maybe_unused]]
-    std::lock_guard<std::recursive_mutex> lock(m_connectionsMutex);
+    std::unique_lock<std::recursive_mutex> lock(m_connectionsMutex);
 
     if (m_connections.empty())
         return {};

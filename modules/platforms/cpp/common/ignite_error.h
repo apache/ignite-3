@@ -57,22 +57,35 @@ public:
     /**
      * Constructor.
      *
+     * @param message Message.
+     */
+    explicit IgniteError(std::string message) :
+        m_statusCode(StatusCode::GENERIC),
+        m_message(std::move(message)),
+        m_cause() { } // NOLINT(bugprone-throw-keyword-missing)
+
+    /**
+     * Constructor.
+     *
      * @param statusCode Status code.
      * @param message Message.
      */
     explicit IgniteError(StatusCode statusCode, std::string message) :
         m_statusCode(statusCode),
-        m_message(std::move(message)) { }
+        m_message(std::move(message)),
+        m_cause() { } // NOLINT(bugprone-throw-keyword-missing)
 
     /**
      * Constructor.
      *
+     * @param statusCode Status code.
      * @param message Message.
+     * @param cause Error cause.
      */
-    explicit IgniteError(std::string message) :
-        m_statusCode(StatusCode::GENERIC),
-        m_message(std::move(message)) { }
-
+    explicit IgniteError(StatusCode statusCode, std::string message, const std::exception_ptr& cause) :
+        m_statusCode(statusCode),
+        m_message(std::move(message)),
+        m_cause(cause) { } // NOLINT(bugprone-throw-keyword-missing)
     /**
      * Get error message.
      */
@@ -101,12 +114,26 @@ public:
         return m_statusCode;
     }
 
+    /**
+     * Get error cause.
+     *
+     * @return Error cause. Can be empty.
+     */
+    [[nodiscard]]
+    std::exception_ptr getCause()
+    {
+        return m_cause;
+    }
+
 private:
     /** Status code. */
     StatusCode m_statusCode{StatusCode::SUCCESS};
 
     /** Message. */
     std::string m_message;
+
+    /** Cause. */
+    std::exception_ptr m_cause;
 };
 
 } // namespace ignite

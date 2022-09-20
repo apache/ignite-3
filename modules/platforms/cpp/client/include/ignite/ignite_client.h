@@ -17,10 +17,12 @@
 
 #pragma once
 
-#include <future>
+#include <functional>
 #include <memory>
 
 #include "common/Export.h"
+#include "common/ignite_result.h"
+
 #include "ignite/ignite_client_configuration.h"
 #include "ignite/table/tables.h"
 
@@ -66,10 +68,10 @@ public:
      *
      * @param configuration Client configuration.
      * @param timeout Operation timeout.
-     * @return Future with either Ignite client or exception.
+     * @param callback Callback to be called once operation is complete.
      */
-    IGNITE_API static std::future<IgniteClient> startAsync(IgniteClientConfiguration configuration,
-        std::chrono::milliseconds timeout);
+    IGNITE_API static void startAsync(IgniteClientConfiguration configuration, std::chrono::milliseconds timeout,
+        std::function<void(IgniteResult<IgniteClient>)> callback);
 
     /**
      * Start client synchronously.

@@ -20,6 +20,7 @@
 #include <future>
 #include <memory>
 
+#include "common/ignite_result.h"
 #include "ignite/ignite_client_configuration.h"
 
 #include "cluster_connection.h"
@@ -57,11 +58,12 @@ public:
     /**
      * Start client.
      *
-     * @return Execution future,
+     * @param timeout Timeout.
+     * @param callback Callback.
      */
-    std::future<void> start()
+    void start(std::function<void(IgniteResult<void>)> callback)
     {
-        return m_connection->start();
+        m_connection->start(std::move(callback));
     }
 
     /**
