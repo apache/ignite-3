@@ -66,8 +66,8 @@ public class PartitionAwarenessTest extends AbstractClientTest {
     public void testGetRoutesRequestToPrimaryNode() {
         RecordView<Tuple> recordView = defaultTable().recordView();
 
-        recordView.get(null, Tuple.create().set("key", 1));
-        recordView.get(null, Tuple.create().set("key", 2));
+        recordView.get(null, Tuple.create().set("id", 1L));
+        recordView.get(null, Tuple.create().set("id", 2L));
     }
 
     protected Table defaultTable() {
