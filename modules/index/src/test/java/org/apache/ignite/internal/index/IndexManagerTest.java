@@ -73,6 +73,7 @@ import org.apache.ignite.lang.ErrorGroups.Table;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IndexNotFoundException;
 import org.apache.ignite.lang.TableNotFoundException;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -109,6 +110,11 @@ public class IndexManagerTest {
         );
 
         confRegistry.start();
+    }
+
+    @AfterEach
+    void tearDown() throws Exception {
+        confRegistry.stop();
     }
 
     @Test
