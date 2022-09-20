@@ -4,7 +4,7 @@
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -19,6 +19,7 @@ package org.apache.ignite.internal.storage.pagememory.index.sorted;
 
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
 import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.IndexRow;
@@ -112,7 +113,7 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
     }
 
     @Override
-    public Cursor<IndexRow> scan(@Nullable BinaryTuple lowerBound, @Nullable BinaryTuple upperBound, int flags) {
+    public Cursor<IndexRow> scan(@Nullable BinaryTuplePrefix lowerBound, @Nullable BinaryTuplePrefix upperBound, int flags) {
         IgniteCursor<SortedIndexRow> cursor;
 
         try {
@@ -143,7 +144,7 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
         }));
     }
 
-    private @Nullable SortedIndexRow toSortedIndexRow(@Nullable BinaryTuple binaryTuple, RowId rowId) {
+    private @Nullable SortedIndexRow toSortedIndexRow(@Nullable BinaryTuplePrefix binaryTuple, RowId rowId) {
         return binaryTuple == null ? null : new SortedIndexRow(new IndexColumns(partitionId, binaryTuple.byteBuffer()), rowId);
     }
 }

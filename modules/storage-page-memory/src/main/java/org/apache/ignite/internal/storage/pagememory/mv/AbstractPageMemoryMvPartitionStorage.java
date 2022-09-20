@@ -46,6 +46,7 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
+import org.apache.ignite.internal.storage.index.BinaryTupleComparator;
 import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.pagememory.AbstractPageMemoryTableStorage;
@@ -221,7 +222,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     private PageMemorySortedIndexStorage createOrRestoreSortedIndex(IndexMeta indexMeta) {
         TableView tableView = tableStorage.configuration().value();
 
-        var indexDescriptor = new SortedIndexDescriptor(indexMeta.id(), tableView);
+        var indexDescriptor = new SortedIndexDescriptor(indexMeta.id(), tableView, tablesConfiguration.value());
 
         try {
             PageMemory pageMemory = tableStorage.dataRegion().pageMemory();
@@ -241,7 +242,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                     new AtomicLong(),
                     metaPageId,
                     rowVersionFreeList,
-                    initNew
+                    initNew,
+                    new BinaryTupleComparator(indexDescriptor)
             );
 
             if (initNew) {
