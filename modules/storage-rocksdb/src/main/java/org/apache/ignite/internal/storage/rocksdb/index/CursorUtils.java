@@ -41,7 +41,7 @@ class CursorUtils {
         private Predicate<T> predicate;
 
         @Nullable
-        private T skippedElement;
+        private T firstNotMatchedElement;
 
         DropWhileCursor(Cursor<T> cursor, Predicate<T> predicate) {
             this.cursor = cursor;
@@ -56,13 +56,13 @@ class CursorUtils {
         @Override
         public boolean hasNext() {
             if (predicate == null) {
-                return skippedElement != null || cursor.hasNext();
+                return firstNotMatchedElement != null || cursor.hasNext();
             }
 
             while (cursor.hasNext()) {
-                skippedElement = cursor.next();
+                firstNotMatchedElement = cursor.next();
 
-                if (!predicate.test(skippedElement)) {
+                if (!predicate.test(firstNotMatchedElement)) {
                     predicate = null;
 
                     break;
@@ -78,10 +78,10 @@ class CursorUtils {
                 throw new NoSuchElementException();
             }
 
-            if (skippedElement != null) {
-                T next = skippedElement;
+            if (firstNotMatchedElement != null) {
+                T next = firstNotMatchedElement;
 
-                skippedElement = null;
+                firstNotMatchedElement = null;
 
                 return next;
             } else {

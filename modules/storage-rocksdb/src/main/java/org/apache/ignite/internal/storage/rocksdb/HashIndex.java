@@ -20,36 +20,39 @@ package org.apache.ignite.internal.storage.rocksdb;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
-import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
-import org.apache.ignite.internal.storage.index.SortedIndexStorage;
-import org.apache.ignite.internal.storage.rocksdb.index.RocksDbSortedIndexStorage;
-import org.rocksdb.RocksDBException;
+import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
+import org.apache.ignite.internal.storage.index.HashIndexStorage;
+import org.apache.ignite.internal.storage.rocksdb.index.RocksDbHashIndexStorage;
 
-class SortedIndices {
-    private final SortedIndexDescriptor descriptor;
+/**
+ * Class that represents a Hash Index defined for all partitions of a Table.
+ */
+class HashIndex {
+    private final ColumnFamily indexCf;
 
-    private final ColumnFamily columnFamily;
+    private final HashIndexDescriptor descriptor;
 
-    private final ConcurrentMap<Integer, SortedIndexStorage> storages = new ConcurrentHashMap<>();
+    private final ConcurrentMap<Integer, HashIndexStorage> storages = new ConcurrentHashMap<>();
 
-    SortedIndices(SortedIndexDescriptor descriptor, ColumnFamily columnFamily) {
+    HashIndex(ColumnFamily indexCf, HashIndexDescriptor descriptor) {
+        this.indexCf = indexCf;
         this.descriptor = descriptor;
-        this.columnFamily = columnFamily;
     }
 
-    SortedIndexStorage getOrCreateStorage(RocksDbMvPartitionStorage partitionStorage) {
+    /**
+     * Creates a new Hash Index storage or returns an existing one.
+     */
+    HashIndexStorage getOrCreateStorage(RocksDbMvPartitionStorage partitionStorage) {
         return storages.computeIfAbsent(
                 partitionStorage.partitionId(),
-                partId -> new RocksDbSortedIndexStorage(descriptor, columnFamily, partitionStorage)
+                partId -> new RocksDbHashIndexStorage(descriptor, indexCf, partitionStorage)
         );
     }
 
+    /**
+     * Removes all data associated with the index.
+     */
     void destroy() {
-        try {
-            columnFamily.destroy();
-        } catch (RocksDBException e) {
-            throw new StorageException("Unable to destroy index " + descriptor.id(), e);
-        }
+        storages.forEach((partitionId, storage) -> storage.destroy());
     }
 }

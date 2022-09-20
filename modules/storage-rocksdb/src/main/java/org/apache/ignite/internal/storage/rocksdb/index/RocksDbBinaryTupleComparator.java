@@ -78,8 +78,8 @@ public class RocksDbBinaryTupleComparator extends AbstractComparator {
     }
 
     private static int compareRowIds(ByteBuffer a, ByteBuffer b) {
-        long firstMostSignBits = a.getLong(a.remaining() - Long.BYTES * 2);
-        long secondMostSignBits = b.getLong(b.remaining() - Long.BYTES * 2);
+        long firstMostSignBits = a.getLong(a.limit() - Long.BYTES * 2);
+        long secondMostSignBits = b.getLong(b.limit() - Long.BYTES * 2);
 
         int compare = Long.compare(firstMostSignBits, secondMostSignBits);
 
@@ -87,8 +87,8 @@ public class RocksDbBinaryTupleComparator extends AbstractComparator {
             return compare;
         }
 
-        long firstLeastSignBits = a.getLong(a.remaining() - Long.BYTES);
-        long secondLeastSignBits = b.getLong(b.remaining() - Long.BYTES);
+        long firstLeastSignBits = a.getLong(a.limit() - Long.BYTES);
+        long secondLeastSignBits = b.getLong(b.limit() - Long.BYTES);
 
         return Long.compare(firstLeastSignBits, secondLeastSignBits);
     }
