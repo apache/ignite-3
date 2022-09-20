@@ -39,7 +39,6 @@ import org.apache.ignite.configuration.schemas.table.TableIndexConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableIndexView;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
-import org.apache.ignite.internal.configuration.schema.ExtendedTableConfiguration;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.index.event.IndexEvent;
 import org.apache.ignite.internal.index.event.IndexEventParameters;
@@ -65,7 +64,7 @@ import org.jetbrains.annotations.NotNull;
 public class IndexManager extends Producer<IndexEvent, IndexEventParameters> implements IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(IndexManager.class);
 
-    /** Indexes configuration. */
+    /** Common tables and indexes configuration. */
     private final TablesConfiguration tablesCfg;
 
     /** Busy lock to stop synchronously. */
@@ -77,7 +76,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
     /**
      * Constructor.
      *
-     * @param tablesCfg Tables configuration.
+     * @param tablesCfg Tables and indexes configuration.
      */
     public IndexManager(TablesConfiguration tablesCfg) {
         this.tablesCfg = Objects.requireNonNull(tablesCfg, "tablesCfg");
@@ -135,10 +134,12 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         try {
             validateName(indexName);
 
+            // TODO: IGNITE-17677 Refactoring of usage IgniteObjectName utility class
             String canonicalIndexName = parseCanonicalName(canonicalName(schemaName, indexName));
 
             CompletableFuture<Boolean> future = new CompletableFuture<>();
 
+            // TODO: IGNITE-17677 Refactoring of usage IgniteObjectName utility class
             String canonicalName = parseCanonicalName(canonicalName(schemaName, tableName));
 
             // Check index existence flag, avoid usage of hasCause + IndexAlreadyExistsException.
@@ -160,13 +161,13 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                     return;
                 }
 
-                Consumer<TableIndexChange> chg = indexChange.andThen(c -> c.changeTableId(tableId));
-
                 if (indexListChange.get(canonicalIndexName) != null) {
                     idxExist.set(true);
 
                     throw new IndexAlreadyExistsException(canonicalIndexName);
                 }
+
+                Consumer<TableIndexChange> chg = indexChange.andThen(c -> c.changeTableId(tableId));
 
                 indexListChange.create(canonicalIndexName, chg);
 
@@ -241,9 +242,9 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                         : CompletableFuture.completedFuture(false);
             }
 
-            CompletableFuture<Boolean> future = new CompletableFuture<>();
+            final CompletableFuture<Boolean> future = new CompletableFuture<>();
 
-            UUID tableId = idxCfg.tableId().value();
+            final UUID tableId = idxCfg.tableId().value();
 
             tablesCfg.indexes().change(indexListChange -> {
                 TableView tableView = getByInternalId(tablesCfg.tables().value(), tableId);
@@ -261,8 +262,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                 if (indexListChange.get(canonicalName) == null) {
                     var exception = new IndexNotFoundException(canonicalName);
 
-                    LOG.info("Unable to drop index [schema={}, index={}]",
-                            exception, schemaName, indexName);
+                    LOG.info("Unable to drop index [schema={}, index={}]", exception, schemaName, indexName);
 
                     future.completeExceptionally(exception);
 
@@ -272,8 +272,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                 indexListChange.delete(canonicalName);
             }).whenComplete((ignored, th) -> {
                 if (th != null) {
-                    LOG.info("Unable to drop index [schema={}, index={}]",
-                            th, schemaName, indexName);
+                    LOG.info("Unable to drop index [schema={}, index={}]", th, schemaName, indexName);
 
                     future.completeExceptionally(th);
                 } else if (!future.isDone()) {

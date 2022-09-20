@@ -110,7 +110,7 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
         checkDdl(true, ses, "ALTER TABLE TEST ADD COLUMN IF NOT EXISTS VAL1 VARCHAR");
         checkError(
                 TableNotFoundException.class,
-                "Table does not exist [name=PUBLIC.NOT_EXISTS_TABLE]",
+                "The table does not exist [name=PUBLIC.NOT_EXISTS_TABLE]",
                 ses,
                 "ALTER TABLE NOT_EXISTS_TABLE ADD COLUMN VAL1 VARCHAR"
         );
@@ -140,7 +140,7 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
         checkDdl(true, ses, "ALTER TABLE TEST DROP COLUMN VAL1");
         checkError(
                 TableNotFoundException.class,
-                "Table does not exist [name=PUBLIC.NOT_EXISTS_TABLE]",
+                "The table does not exist [name=PUBLIC.NOT_EXISTS_TABLE]",
                 ses,
                 "ALTER TABLE NOT_EXISTS_TABLE DROP COLUMN VAL1"
         );
@@ -161,7 +161,7 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
         checkDdl(true, ses, "DROP TABLE TEST");
         checkError(
                 TableNotFoundException.class,
-                "Table does not exist [name=PUBLIC.TEST]",
+                "The table does not exist [name=PUBLIC.TEST]",
                 ses,
                 "DROP TABLE TEST"
         );
