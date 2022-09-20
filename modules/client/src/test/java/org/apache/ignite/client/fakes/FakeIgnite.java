@@ -33,6 +33,8 @@ import org.apache.ignite.tx.TransactionException;
  * Fake Ignite.
  */
 public class FakeIgnite implements Ignite {
+    private String name;
+    
     /**
      * Default constructor.
      */

@@ -25,6 +25,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Flow.Publisher;
+import java.util.function.BiConsumer;
 import javax.naming.OperationNotSupportedException;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
@@ -48,6 +49,9 @@ public class FakeInternalTable implements InternalTable {
 
     /** Table data. */
     private final ConcurrentHashMap<ByteBuffer, BinaryRow> data = new ConcurrentHashMap<>();
+
+    /** Data access listener. */
+    private BiConsumer<String, Object> dataAccessListener;
 
     /**
      * The constructor.
@@ -87,6 +91,8 @@ public class FakeInternalTable implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<BinaryRow> get(BinaryRowEx keyRow, @Nullable InternalTransaction tx) {
+        onDataAccess("get", keyRow);
+
         return CompletableFuture.completedFuture(data.get(keyRow.keySlice()));
     }
 
@@ -297,5 +303,20 @@ public class FakeInternalTable implements InternalTable {
     @Override
     public void close() throws Exception {
         // No-op.
+    }
+
+    /**
+     * Sets the data access operation listener.
+     *
+     * @param dataAccessListener Data access operation listener.
+     */
+    public void setDataAccessListener(BiConsumer<String, Object> dataAccessListener) {
+        this.dataAccessListener = dataAccessListener;
+    }
+
+    private void onDataAccess(String operation, Object arg) {
+        if (dataAccessListener != null) {
+            dataAccessListener.accept(operation, arg);
+        }
     }
 }

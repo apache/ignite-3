@@ -21,6 +21,7 @@ import io.netty.util.ResourceLeakDetector;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
+import org.apache.ignite.client.fakes.FakeInternalTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
@@ -31,6 +32,9 @@ import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.UUID;
+import java.util.function.BiConsumer;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Tests partition awareness.
@@ -43,6 +47,14 @@ public class PartitionAwarenessTest extends AbstractClientTest {
     protected static IgniteClient client2;
 
     protected static int serverPort2;
+
+    private TableImpl table1;
+
+    private TableImpl table2;
+
+    private String lastOp;
+
+    private String lastOpServerName;
 
     /**
      * Before all.
@@ -75,19 +87,25 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         RecordView<Tuple> recordView = defaultTable().recordView();
 
         recordView.get(null, Tuple.create().set("id", 1L));
+        assertEquals("server-1", lastOpServerName);
+        assertEquals("get", lastOp);
+
         recordView.get(null, Tuple.create().set("id", 2L));
+        assertEquals("server-2", lastOpServerName);
+        assertEquals("get", lastOp);
     }
 
     protected Table defaultTable() {
         // Create table on both servers with the same ID.
         var tableId = UUID.randomUUID();
-        createTable(server, tableId);
-        createTable(server2, tableId);
+
+        table1 = createTable(server, tableId);
+        table2 = createTable(server2, tableId);
 
         return client2.tables().table(DEFAULT_TABLE);
     }
 
-    private static void createTable(Ignite ignite, UUID id) {
+    private TableImpl createTable(Ignite ignite, UUID id) {
         FakeIgniteTables tables = (FakeIgniteTables) ignite.tables();
         TableImpl tableImpl = tables.createTable(DEFAULT_TABLE, id);
 
@@ -98,5 +116,12 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         assignments.add(testServer2.nodeId());
 
         tables.setPartitionAssignments(tableImpl.tableId(), assignments);
+
+        ((FakeInternalTable)tableImpl.internalTable()).setDataAccessListener((op, data) -> {
+            lastOp = op;
+            lastOpServerName = ignite.name();
+        });
+
+        return tableImpl;
     }
 }
