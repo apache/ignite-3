@@ -20,12 +20,17 @@ package org.apache.ignite.client;
 import io.netty.util.ResourceLeakDetector;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.client.fakes.FakeIgnite;
+import org.apache.ignite.client.fakes.FakeIgniteTables;
+import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.table.manager.IgniteTables;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+
+import java.util.ArrayList;
 
 /**
  * Tests partition awareness.
@@ -71,7 +76,16 @@ public class PartitionAwarenessTest extends AbstractClientTest {
     }
 
     protected Table defaultTable() {
-        server.tables().createTable(DEFAULT_TABLE, tbl -> tbl.changeReplicas(1));
+        FakeIgniteTables tables = (FakeIgniteTables) server.tables();
+        TableImpl tableImpl = (TableImpl) tables.createTable(DEFAULT_TABLE, tbl -> tbl.changeReplicas(1));
+
+        ArrayList<String> assignments = new ArrayList<>();
+        assignments.add(testServer.nodeName());
+        assignments.add(testServer2.nodeName());
+        assignments.add(testServer.nodeName());
+        assignments.add(testServer2.nodeName());
+
+        tables.setPartitionAssignments(tableImpl.tableId(), assignments);
 
         return client2.tables().table(DEFAULT_TABLE);
     }

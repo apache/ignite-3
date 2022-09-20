@@ -56,6 +56,8 @@ public class TestServer implements AutoCloseable {
 
     private final NettyBootstrapFactory bootstrapFactory;
 
+    private final String nodeName;
+
     /**
      * Constructor.
      *
@@ -108,8 +110,10 @@ public class TestServer implements AutoCloseable {
         bootstrapFactory.start();
 
         if (nodeName == null) {
-            nodeName = "consistent-id";
+            nodeName = "server-1";
         }
+
+        this.nodeName = nodeName;
 
         ClusterService clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
         Mockito.when(clusterService.topologyService().localMember().id()).thenReturn(nodeName + "-id");
@@ -150,6 +154,15 @@ public class TestServer implements AutoCloseable {
                 : ((TestClientHandlerModule) module).localAddress();
 
         return ((InetSocketAddress) Objects.requireNonNull(addr)).getPort();
+    }
+
+    /**
+     * Gets the node name.
+     *
+     * @return Node name.
+     */
+    public String nodeName() {
+        return nodeName;
     }
 
     /** {@inheritDoc} */
