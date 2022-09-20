@@ -17,18 +17,50 @@
 
 package org.apache.ignite.internal.tx.storage.state.rocksdb;
 
-import static java.util.concurrent.Executors.newSingleThreadExecutor;
-import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
-import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import org.apache.ignite.configuration.schemas.table.TableConfiguration;
+import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorageAbstractTest;
+import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 
 /**
  * Tx storage test for RocksDB implementation.
  */
 public class TxStateRocksDbStorageTest extends TxStateStorageAbstractTest {
+    private TxStateTableStorage txStateTableStorage = null;
+
     /** {@inheritDoc} */
-    @Override protected TxStateStorage createStorage() {
-        return new TxStateRocksDbStorage(workDir, newSingleThreadScheduledExecutor(), newSingleThreadExecutor(), () -> 100);
+    @Override protected TxStateTableStorage createStorage() {
+        if (txStateTableStorage != null) {
+            return txStateTableStorage;
+        }
+
+        TableView tableView = mock(TableView.class);
+        when(tableView.name()).thenReturn("testTable");
+        when(tableView.partitions()).thenReturn(2);
+
+        TableConfiguration tableCfg = mock(TableConfiguration.class);
+        when(tableCfg.value()).thenReturn(tableView);
+
+        txStateTableStorage = new TxStateRocksDbTableStorage(
+                tableCfg,
+                workDir,
+                new ScheduledThreadPoolExecutor(1),
+                Executors.newFixedThreadPool(1),
+                () -> 1000
+        );
+
+        txStateTableStorage.start();
+
+        return txStateTableStorage;
+    }
+
+    /** {@inheritDoc} */
+    @Override protected void destroyStorage() {
+        txStateTableStorage.destroy();
     }
 }

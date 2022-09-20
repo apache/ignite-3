@@ -785,6 +785,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                 ts,
                 tm,
                 dsm = createDataStorageManager(configRegistry, workDir, rocksDbEngineConfig),
+                workDir,
                 msm,
                 sm = new SchemaManager(revisionUpdater, tblsCfg),
                 budgetView -> new LocalLogStorageFactory(),

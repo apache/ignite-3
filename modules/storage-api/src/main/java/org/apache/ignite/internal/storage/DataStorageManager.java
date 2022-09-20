@@ -88,6 +88,15 @@ public class DataStorageManager implements IgniteComponent {
     }
 
     /**
+     * Returns the data storage engine by name.
+     *
+     * @param name Storage engine name.
+     */
+    public @Nullable StorageEngine engine(String name) {
+        return engines.get(name);
+    }
+
+    /**
      * Returns a consumer that will set the default {@link TableConfigurationSchema#dataStorage table data storage} depending on the {@link
      * StorageEngine engine}.
      *

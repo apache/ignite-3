@@ -487,6 +487,8 @@ public class ItRebalanceDistributedTest {
             DataStorageModules dataStorageModules = new DataStorageModules(List.of(
                     new RocksDbDataStorageModule(), new VolatilePageMemoryDataStorageModule()));
 
+            Path storagePath = dir.resolve("storage");
+
             dataStorageMgr = new DataStorageManager(
                     tablesCfg,
                     dataStorageModules.createStorageEngines(
@@ -514,6 +516,7 @@ public class ItRebalanceDistributedTest {
                     clusterService.topologyService(),
                     txManager,
                     dataStorageMgr,
+                    storagePath,
                     metaStorageManager,
                     schemaManager,
                     view -> new LocalLogStorageFactory(),

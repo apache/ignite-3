@@ -38,6 +38,7 @@ import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteBiTuple;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -49,10 +50,15 @@ public abstract class TxStateStorageAbstractTest {
     @WorkDirectory
     protected Path workDir;
 
+    @AfterEach
+    public void afterTest() {
+        destroyStorage();
+    }
+
     @Test
     public void testPutGetRemove() throws Exception {
-        try (TxStateStorage storage = createStorage()) {
-            storage.start();
+        try (TxStateTableStorage tableStorage = createStorage()) {
+            TxStateStorage storage = tableStorage.getOrCreateTxStateStorage(0);
 
             List<UUID> txIds = new ArrayList<>();
 
@@ -106,8 +112,8 @@ public abstract class TxStateStorageAbstractTest {
 
     @Test
     public void testCas() throws Exception {
-        try (TxStateStorage storage = createStorage()) {
-            storage.start();
+        try (TxStateTableStorage tableStorage = createStorage()) {
+            TxStateStorage storage = tableStorage.getOrCreateTxStateStorage(0);
 
             UUID txId = UUID.randomUUID();
 
@@ -128,8 +134,9 @@ public abstract class TxStateStorageAbstractTest {
 
     @Test
     public void testScan() throws Exception {
-        try (TxStateStorage storage = createStorage()) {
-            storage.start();
+        try (TxStateTableStorage tableStorage = createStorage()) {
+            TxStateStorage storage0 = tableStorage.getOrCreateTxStateStorage(0);
+            TxStateStorage storage1 = tableStorage.getOrCreateTxStateStorage(1);
 
             Map<UUID, TxMeta> txs = new HashMap<>();
 
@@ -137,11 +144,16 @@ public abstract class TxStateStorageAbstractTest {
                 UUID txId = UUID.randomUUID();
                 TxMeta txMeta = new TxMeta(TxState.PENDING, generateEnlistedPartitions(i), generateTimestamp(txId));
                 txs.put(txId, txMeta);
-                storage.put(txId, txMeta);
-                storage.compareAndSet(txId, TxState.PENDING, txMeta, i);
+                storage0.put(txId, txMeta);
+                storage0.compareAndSet(txId, TxState.PENDING, txMeta, i);
             }
 
-            try (Cursor<IgniteBiTuple<UUID, TxMeta>> scanCursor = storage.scan()) {
+            UUID txId1 = UUID.randomUUID();
+            TxMeta txMeta1 = new TxMeta(TxState.PENDING, generateEnlistedPartitions(0), generateTimestamp(txId1));
+            storage1.put(txId1, txMeta1);
+            storage1.compareAndSet(txId1, TxState.PENDING, txMeta1, 0);
+
+            try (Cursor<IgniteBiTuple<UUID, TxMeta>> scanCursor = storage0.scan()) {
                 assertTrue(scanCursor.hasNext());
 
                 while (scanCursor.hasNext()) {
@@ -165,5 +177,15 @@ public abstract class TxStateStorageAbstractTest {
         assertEquals(txMeta0.enlistedPartitions(), txMeta1.enlistedPartitions());
     }
 
-    protected abstract TxStateStorage createStorage();
+    /**
+     * Creates {@link TxStateStorage} to test.
+     *
+     * @return Tx state storage.
+     */
+    protected abstract TxStateTableStorage createStorage();
+
+    /**
+     * Destroy storage, for proper clean-up.
+     */
+    protected abstract void destroyStorage();
 }

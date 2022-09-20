@@ -71,6 +71,7 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -211,6 +212,7 @@ public class ItInternalTableScanTest {
                 addressToNode,
                 txManager,
                 mock(MvTableStorage.class),
+                mock(TxStateTableStorage.class),
                 mock(ReplicaService.class),
                 mock(HybridClock.class)
         );
