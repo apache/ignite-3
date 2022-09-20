@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.tx.storage.state.rocksdb;
 
 import static java.util.Objects.requireNonNull;
+import static org.apache.ignite.internal.rocksdb.RocksUtils.checkIterator;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
@@ -27,15 +28,15 @@ import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_S
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import org.apache.ignite.internal.rocksdb.BusyRocksIteratorAdapter;
-import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
@@ -77,7 +78,10 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     private final Set<RocksIterator> iterators = ConcurrentHashMap.newKeySet();
 
     /** Busy lock to stop synchronously. */
-    private final IgniteSpinBusyLock busyLock;
+    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
+
+    /** Prevents double closing the component. */
+    private final AtomicBoolean closeGuard = new AtomicBoolean();
 
     /** On-heap-cached last applied index value. */
     private volatile long lastAppliedIndex;
@@ -92,7 +96,6 @@ public class TxStateRocksDbStorage implements TxStateStorage {
      * The constructor.
      *
      * @param db Database..
-     * @param busyLock Busy lock, provided by table storage.
      * @param partitionId Partition id.
      * @param tableStorage Table storage.
      */
@@ -101,7 +104,6 @@ public class TxStateRocksDbStorage implements TxStateStorage {
             WriteOptions writeOptions,
             ReadOptions readOptions,
             ReadOptions persistedTierReadOptions,
-            IgniteSpinBusyLock busyLock,
             int partitionId,
             TxStateRocksDbTableStorage tableStorage
     ) {
@@ -109,10 +111,11 @@ public class TxStateRocksDbStorage implements TxStateStorage {
         this.writeOptions = writeOptions;
         this.readOptions = readOptions;
         this.persistedTierReadOptions = persistedTierReadOptions;
-        this.busyLock = busyLock;
         this.partitionId = partitionId;
         this.tableStorage = tableStorage;
-        this.lastAppliedIndexKey = String.valueOf(partitionId).getBytes(StandardCharsets.UTF_8);
+        this.lastAppliedIndexKey = ByteBuffer.allocate(Integer.BYTES).order(ByteOrder.BIG_ENDIAN)
+                .putInt(partitionId)
+                .array();
 
         lastAppliedIndex = readLastAppliedIndex(readOptions);
 
@@ -126,7 +129,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
         }
 
         try {
-            byte[] txMetaBytes = db.get(uuidToBytes(txId));
+            byte[] txMetaBytes = db.get(txIdToKey(txId));
 
             return txMetaBytes == null ? null : (TxMeta) fromBytes(txMetaBytes);
         } catch (RocksDBException e) {
@@ -148,7 +151,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
         }
 
         try {
-            db.put(uuidToBytes(txId), toBytes(txMeta));
+            db.put(txIdToKey(txId), toBytes(txMeta));
         } catch (RocksDBException e) {
             throw new IgniteInternalException(
                 TX_STATE_STORAGE_ERR,
@@ -170,10 +173,10 @@ public class TxStateRocksDbStorage implements TxStateStorage {
             throwStorageStoppedException();
         }
 
-        byte[] txIdBytes = uuidToBytes(txId);
+        byte[] txIdBytes = txIdToKey(txId);
 
         try (Transaction rocksTx = db.beginTransaction(writeOptions)) {
-            byte[] txMetaExistingBytes = rocksTx.get(readOptions, uuidToBytes(txId));
+            byte[] txMetaExistingBytes = rocksTx.get(readOptions, txIdToKey(txId));
             TxMeta txMetaExisting = fromBytes(txMetaExistingBytes);
 
             boolean result;
@@ -210,7 +213,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
         }
 
         try {
-            db.delete(uuidToBytes(txId));
+            db.delete(txIdToKey(txId));
         } catch (RocksDBException e) {
             throw new IgniteInternalException(
                 TX_STATE_STORAGE_ERR,
@@ -236,7 +239,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
 
             try {
                 // Skip applied index value.
-                rocksIterator.seek(lastAppliedIndexKey);
+                rocksIterator.seekToFirst();
             } catch (Exception e) {
                 // Unlikely, but what if...
                 iterators.remove(rocksIterator);
@@ -246,28 +249,9 @@ public class TxStateRocksDbStorage implements TxStateStorage {
                 throw e;
             }
 
-            RocksIteratorAdapter<IgniteBiTuple<UUID, TxMeta>> iteratorAdapter = new BusyRocksIteratorAdapter<>(busyLock, rocksIterator) {
-                @Override protected IgniteBiTuple<UUID, TxMeta> decodeEntry(byte[] keyBytes, byte[] valueBytes) {
-                    UUID key = bytesToUuid(keyBytes);
-                    TxMeta txMeta = fromBytes(valueBytes);
+            StorageIterator iter = new StorageIterator(busyLock, rocksIterator);
 
-                    return new IgniteBiTuple<>(key, txMeta);
-                }
-
-                @Override
-                protected void handleBusy() {
-                    throwStorageStoppedException();
-                }
-
-                @Override
-                public void close() throws Exception {
-                    iterators.remove(rocksIterator);
-
-                    super.close();
-                }
-            };
-
-            return Cursor.fromIterator(iteratorAdapter);
+            return Cursor.fromIterator(iter);
         } finally {
             busyLock.leaveBusy();
         }
@@ -320,24 +304,157 @@ public class TxStateRocksDbStorage implements TxStateStorage {
         throw new IgniteInternalException(TX_STATE_STORAGE_STOPPED_ERR, "Transaction state storage is stopped");
     }
 
-    private byte[] uuidToBytes(UUID uuid) {
-        return ByteBuffer.allocate(2 * Long.BYTES).order(ByteOrder.BIG_ENDIAN)
-                .putLong(uuid.getMostSignificantBits())
-                .putLong(uuid.getLeastSignificantBits())
+    private byte[] txIdToKey(UUID txId) {
+        return ByteBuffer.allocate(Integer.BYTES + 2 * Long.BYTES).order(ByteOrder.BIG_ENDIAN)
+                .putInt(partitionId)
+                .putLong(txId.getMostSignificantBits())
+                .putLong(txId.getLeastSignificantBits())
                 .array();
     }
 
-    private UUID bytesToUuid(byte[] bytes) {
-        long msb = bytesToLong(bytes, 0);
-        long lsb = bytesToLong(bytes, Long.BYTES);
+    private UUID keyToTxId(byte[] bytes) {
+        long msb = bytesToLong(bytes, Integer.BYTES);
+        long lsb = bytesToLong(bytes, Integer.BYTES + Long.BYTES);
 
         return new UUID(msb, lsb);
     }
 
     /** {@inheritDoc} */
     @Override public void close() throws Exception {
+        if (!closeGuard.compareAndSet(false, true)) {
+            return;
+        }
+
+        busyLock.block();
+
         List<AutoCloseable> resources = new ArrayList<>(iterators);
 
         IgniteUtils.closeAll(resources);
+    }
+
+    /**
+     * Iterator for partition's transaction state storage that has shared underlying database.
+     */
+    private class StorageIterator implements Iterator<IgniteBiTuple<UUID, TxMeta>>, AutoCloseable {
+        /** Busy lock. */
+        private final IgniteSpinBusyLock busyLock;
+
+        /** Rocks iterator. */
+        private final RocksIterator rocksIterator;
+
+        /** Current value. */
+        private IgniteBiTuple<UUID, TxMeta> cur;
+
+        /** Whether this iterator is valid. It becomes invalid when reaches data that belongs to abother partition. */
+        private boolean isValid = true;
+
+        /**
+         * Constructor.
+         *
+         * @param busyLock Busy lock.
+         * @param iterator RocksDB iterator.
+         */
+        private StorageIterator(IgniteSpinBusyLock busyLock, RocksIterator iterator) {
+            this.busyLock = busyLock;
+            rocksIterator = iterator;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public boolean hasNext() {
+            if (!busyLock.enterBusy()) {
+                throwStorageStoppedException();
+            }
+
+            try {
+                if (!isValid) {
+                    return false;
+                }
+
+                advance();
+
+                return cur != null;
+            } finally {
+                busyLock.leaveBusy();
+            }
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public IgniteBiTuple<UUID, TxMeta> next() {
+            if (!busyLock.enterBusy()) {
+                throwStorageStoppedException();
+            }
+
+            try {
+                if (!isValid) {
+                    throw new NoSuchElementException();
+                }
+
+                advance();
+
+                if (cur != null) {
+                    IgniteBiTuple<UUID, TxMeta> temp = cur;
+
+                    cur = null;
+
+                    return temp;
+                } else {
+                    throw new NoSuchElementException();
+                }
+            } finally {
+                busyLock.leaveBusy();
+            }
+        }
+
+        private void advance() {
+            if (cur != null) {
+                return;
+            }
+
+            boolean isRocksIteratorValid = rocksIterator.isValid();
+
+            if (!isRocksIteratorValid) {
+                checkIterator(rocksIterator);
+
+                return;
+            }
+
+            while (true) {
+                rocksIterator.next();
+
+                byte[] keyBytes = rocksIterator.key();
+                byte[] valueBytes = rocksIterator.value();
+
+                if (keyBytes.length == Integer.BYTES) {
+                    int p = ByteBuffer.wrap(keyBytes).getInt();
+
+                    if (p == partitionId) {
+                        // Skip this entry, it's last applied index.
+                        continue;
+                    } else {
+                        // The data range is over, this is last applied index of the next partition.
+                        isValid = false;
+
+                        break;
+                    }
+                }
+
+                UUID key = keyToTxId(keyBytes);
+                TxMeta txMeta = fromBytes(valueBytes);
+
+                cur = new IgniteBiTuple<>(key, txMeta);
+
+                break;
+            }
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public void close() throws Exception {
+            iterators.remove(rocksIterator);
+
+            rocksIterator.close();
+        }
     }
 }

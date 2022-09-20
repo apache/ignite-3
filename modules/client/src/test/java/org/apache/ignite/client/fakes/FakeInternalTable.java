@@ -289,7 +289,7 @@ public class FakeInternalTable implements InternalTable {
     }
 
     /** {@inheritDoc} */
-    @Override public TxStateTableStorage txnStateStorage() {
+    @Override public TxStateTableStorage txStateStorage() {
         return null;
     }
 

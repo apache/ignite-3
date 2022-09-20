@@ -41,7 +41,7 @@ public class TxStateRocksDbStorageTest extends TxStateStorageAbstractTest {
 
         TableView tableView = mock(TableView.class);
         when(tableView.name()).thenReturn("testTable");
-        when(tableView.partitions()).thenReturn(1);
+        when(tableView.partitions()).thenReturn(2);
 
         TableConfiguration tableCfg = mock(TableConfiguration.class);
         when(tableCfg.value()).thenReturn(tableView);

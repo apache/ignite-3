@@ -724,7 +724,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                 newPartAssignment,
                                                 new PartitionListener(
                                                     partitionStorage,
-                                                    internalTbl.txnStateStorage().getOrCreateTxStateStorage(partId),
+                                                    internalTbl.txStateStorage().getOrCreateTxStateStorage(partId),
                                                     txManager,
                                                     new ConcurrentHashMap<>()
                                             ),
@@ -887,7 +887,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 }
 
                 table.internalTable().storage().stop();
-                table.internalTable().txnStateStorage().stop();
+                table.internalTable().txStateStorage().stop();
                 table.internalTable().close();
             } catch (Exception e) {
                 LOG.info("Unable to stop table [name={}]", e, table.name());
@@ -931,12 +931,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         MvTableStorage tableStorage = dataStorageMgr.engine(tableCfg.dataStorage()).createMvTable(tableCfg);
 
-        TxStateTableStorage txnStateStorage = createTxStateTableStorage(tableCfg);
+        TxStateTableStorage txStateStorage = createTxStateTableStorage(tableCfg);
 
         tableStorage.start();
 
         InternalTableImpl internalTable = new InternalTableImpl(name, tblId, new Int2ObjectOpenHashMap<>(partitions),
-                partitions, netAddrResolver, clusterNodeResolver, txManager, tableStorage, txnStateStorage, replicaSvc, clock);
+                partitions, netAddrResolver, clusterNodeResolver, txManager, tableStorage, txStateStorage, replicaSvc, clock);
 
         var table = new TableImpl(internalTable);
 
@@ -1723,7 +1723,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                             RaftGroupListener raftGrpLsnr = new PartitionListener(
                                     partitionStorage,
-                                    tbl.internalTable().txnStateStorage().getOrCreateTxStateStorage(part),
+                                    tbl.internalTable().txStateStorage().getOrCreateTxStateStorage(part),
                                     txManager,
                                     new ConcurrentHashMap<>()
                             );

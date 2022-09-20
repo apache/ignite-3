@@ -135,7 +135,8 @@ public abstract class TxStateStorageAbstractTest {
     @Test
     public void testScan() throws Exception {
         try (TxStateTableStorage tableStorage = createStorage()) {
-            TxStateStorage storage = tableStorage.getOrCreateTxStateStorage(0);
+            TxStateStorage storage0 = tableStorage.getOrCreateTxStateStorage(0);
+            TxStateStorage storage1 = tableStorage.getOrCreateTxStateStorage(1);
 
             Map<UUID, TxMeta> txs = new HashMap<>();
 
@@ -143,11 +144,16 @@ public abstract class TxStateStorageAbstractTest {
                 UUID txId = UUID.randomUUID();
                 TxMeta txMeta = new TxMeta(TxState.PENDING, generateEnlistedPartitions(i), generateTimestamp(txId));
                 txs.put(txId, txMeta);
-                storage.put(txId, txMeta);
-                storage.compareAndSet(txId, TxState.PENDING, txMeta, i);
+                storage0.put(txId, txMeta);
+                storage0.compareAndSet(txId, TxState.PENDING, txMeta, i);
             }
 
-            try (Cursor<IgniteBiTuple<UUID, TxMeta>> scanCursor = storage.scan()) {
+            UUID txId1 = UUID.randomUUID();
+            TxMeta txMeta1 = new TxMeta(TxState.PENDING, generateEnlistedPartitions(0), generateTimestamp(txId1));
+            storage1.put(txId1, txMeta1);
+            storage1.compareAndSet(txId1, TxState.PENDING, txMeta1, 0);
+
+            try (Cursor<IgniteBiTuple<UUID, TxMeta>> scanCursor = storage0.scan()) {
                 assertTrue(scanCursor.hasNext());
 
                 while (scanCursor.hasNext()) {

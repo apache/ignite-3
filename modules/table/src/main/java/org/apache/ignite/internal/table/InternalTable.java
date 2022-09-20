@@ -253,7 +253,7 @@ public interface InternalTable extends AutoCloseable {
      *
      * @return Transaction states' storage.
      */
-    TxStateTableStorage txnStateStorage();
+    TxStateTableStorage txStateStorage();
 
     //TODO: IGNITE-14488. Add invoke() methods.
 }

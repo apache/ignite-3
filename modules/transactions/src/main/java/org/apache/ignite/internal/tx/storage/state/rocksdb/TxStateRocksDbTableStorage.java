@@ -20,7 +20,6 @@ package org.apache.ignite.internal.tx.storage.state.rocksdb;
 import static java.util.Collections.reverse;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.rocksdb.ReadTier.PERSISTED_TIER;
 
 import java.nio.charset.StandardCharsets;
@@ -153,7 +152,6 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
             writeOptions,
             readOptions,
             persistedTierReadOptions,
-            busyLock,
             partitionId,
             this
         );

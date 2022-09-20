@@ -106,8 +106,8 @@ public class InternalTableImpl implements InternalTable {
     /** Storage for table data. */
     private final MvTableStorage tableStorage;
 
-    /** Storage for txn states. */
-    private final TxStateTableStorage txnStateStorage;
+    /** Storage for transaction states. */
+    private final TxStateTableStorage txStateStorage;
 
     /** Replica service. */
     protected final ReplicaService replicaSvc;
@@ -130,7 +130,7 @@ public class InternalTableImpl implements InternalTable {
      * @param partitions Partitions.
      * @param txManager Transaction manager.
      * @param tableStorage Table storage.
-     * @param txnStateStorage Txn state storage.
+     * @param txStateStorage Txn state storage.
      * @param replicaSvc Replica service.
      * @param clock A hybrid logical clock.
      */
@@ -143,7 +143,7 @@ public class InternalTableImpl implements InternalTable {
             Function<NetworkAddress, ClusterNode> clusterNodeResolver,
             TxManager txManager,
             MvTableStorage tableStorage,
-            TxStateTableStorage txnStateStorage,
+            TxStateTableStorage txStateStorage,
             ReplicaService replicaSvc,
             HybridClock clock
     ) {
@@ -155,7 +155,7 @@ public class InternalTableImpl implements InternalTable {
         this.clusterNodeResolver = clusterNodeResolver;
         this.txManager = txManager;
         this.tableStorage = tableStorage;
-        this.txnStateStorage = txnStateStorage;
+        this.txStateStorage = txStateStorage;
         this.replicaSvc = replicaSvc;
         this.tableMessagesFactory = new TableMessagesFactory();
         this.clock = clock;
@@ -769,8 +769,8 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /** {@inheritDoc} */
-    @Override public TxStateTableStorage txnStateStorage() {
-        return txnStateStorage;
+    @Override public TxStateTableStorage txStateStorage() {
+        return txStateStorage;
     }
 
     private void awaitLeaderInitialization() {
