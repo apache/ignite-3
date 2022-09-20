@@ -27,6 +27,7 @@ import org.apache.ignite.configuration.schemas.table.IndexColumnView;
 import org.apache.ignite.configuration.schemas.table.SortedIndexView;
 import org.apache.ignite.configuration.schemas.table.TableIndexView;
 import org.apache.ignite.configuration.schemas.table.TableView;
+import org.apache.ignite.configuration.schemas.table.TablesView;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
@@ -128,8 +129,9 @@ public class SortedIndexDescriptor {
      * @param indexId Index ID.
      * @param tableConfig Table configuration.
      */
-    public SortedIndexDescriptor(UUID indexId, TableView tableConfig) {
-        this(indexId, extractIndexColumnsConfiguration(indexId, tableConfig));
+    // TODO: IGNITE-17727 Fix redundant param.
+    public SortedIndexDescriptor(UUID indexId, TableView tableConfig, TablesView tablesConfig) {
+        this(indexId, extractIndexColumnsConfiguration(indexId, tableConfig, tablesConfig));
     }
 
     /**
@@ -144,8 +146,12 @@ public class SortedIndexDescriptor {
         this.binaryTupleSchema = createSchema(columns);
     }
 
-    private static List<ColumnDescriptor> extractIndexColumnsConfiguration(UUID indexId, TableView tableConfig) {
-        TableIndexView indexConfig = ConfigurationUtil.getByInternalId(tableConfig.indices(), indexId);
+    private static List<ColumnDescriptor> extractIndexColumnsConfiguration(
+            UUID indexId,
+            TableView tableConfig,
+            TablesView tablesConfig
+    ) {
+        TableIndexView indexConfig = ConfigurationUtil.getByInternalId(tablesConfig.indexes(), indexId);
 
         if (indexConfig == null) {
             throw new StorageException(String.format("Index configuration for \"%s\" could not be found", indexId));

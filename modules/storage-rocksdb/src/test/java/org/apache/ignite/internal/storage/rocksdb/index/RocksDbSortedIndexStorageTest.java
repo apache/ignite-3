@@ -18,9 +18,11 @@
 package org.apache.ignite.internal.storage.rocksdb.index;
 
 import java.nio.file.Path;
+import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
+import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -60,17 +62,26 @@ public class RocksDbSortedIndexStorageTest extends AbstractSortedIndexStorageTes
                     },
                     value = "mock.dataStorage.name = " + RocksDbStorageEngine.ENGINE_NAME
             )
-            TableConfiguration tableCfg
+            TableConfiguration tableCfg,
+            @InjectConfiguration(
+                    polymorphicExtensions = {
+                            SortedIndexConfigurationSchema.class,
+                            UnknownDataStorageConfigurationSchema.class,
+                            NullValueDefaultConfigurationSchema.class,
+                            UnlimitedBudgetConfigurationSchema.class
+                    }
+            )
+            TablesConfiguration tablesConfig
     ) {
         engine = new RocksDbStorageEngine(rocksDbEngineConfig, workDir);
 
         engine.start();
 
-        tableStorage = engine.createMvTable(tableCfg);
+        tableStorage = engine.createMvTable(tableCfg, tablesConfig);
 
         tableStorage.start();
 
-        initialize(tableStorage);
+        initialize(tableStorage, tablesConfig);
     }
 
     @AfterEach

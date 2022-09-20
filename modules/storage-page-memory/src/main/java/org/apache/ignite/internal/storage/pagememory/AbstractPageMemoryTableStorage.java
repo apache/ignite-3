@@ -24,6 +24,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableView;
+import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -43,6 +44,8 @@ import org.jetbrains.annotations.Nullable;
 public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
     protected final TableConfiguration tableCfg;
 
+    protected TablesConfiguration tablesConfiguration;
+
     protected volatile boolean started;
 
     protected volatile AtomicReferenceArray<AbstractPageMemoryMvPartitionStorage> mvPartitions;
@@ -52,8 +55,9 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
      *
      * @param tableCfg Table configuration.
      */
-    protected AbstractPageMemoryTableStorage(TableConfiguration tableCfg) {
+    protected AbstractPageMemoryTableStorage(TableConfiguration tableCfg, TablesConfiguration tablesCfg) {
         this.tableCfg = tableCfg;
+        tablesConfiguration = tablesCfg;
     }
 
     /** {@inheritDoc} */
@@ -117,7 +121,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
         if (partitionId < 0 || partitionId >= mvPartitions.length()) {
             throw new IllegalArgumentException(S.toString(
                     "Unable to access partition with id outside of configured range",
-                    "table", tableCfg.name().value(), false,
+                    "table", tableCfg.value().name(), false,
                     "partitionId", partitionId, false,
                     "partitions", mvPartitions.length(), false
             ));

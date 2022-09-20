@@ -27,6 +27,7 @@ import static org.hamcrest.CoreMatchers.anyOf;
 import static org.hamcrest.Matchers.not;
 
 import java.util.List;
+import java.util.Map;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnType;
@@ -71,19 +72,13 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                         .changePartitions(10)
         );
 
-        CLUSTER_NODES.get(0).tables().alterTable(tlbDef.canonicalName(), tblCh ->
-                List.of(SchemaBuilders.sortedIndex(DEPID_IDX).addIndexColumn("DEPID").done().build(),
-                        SchemaBuilders.sortedIndex(NAME_CITY_IDX)
-                                .addIndexColumn("DEPID").desc().done()
-                                .addIndexColumn("CITY").desc().done()
-                                .build(),
-                        SchemaBuilders.sortedIndex(NAME_DEPID_CITY_IDX)
-                                .addIndexColumn("NAME").done()
-                                .addIndexColumn("DEPID").desc().done()
-                                .addIndexColumn("CITY").desc().done()
-                                .build()
-                ).forEach(idxDef -> SchemaConfigurationConverter.addIndex(idxDef, tblCh))
+        Map<String, List<String>> idxs = Map.of(
+                DEPID_IDX, List.of("DEPID"),
+                NAME_CITY_IDX, List.of("DEPID desc", "CITY desc"),
+                NAME_DEPID_CITY_IDX, List.of("NAME", "DEPID desc", "CITY desc")
         );
+
+        addIndexes(CLUSTER_NODES.get(0), idxs, tlbDef.canonicalName());
 
         insertData(dev0, new String[]{"ID", "NAME", "DEPID", "CITY", "AGE"}, new Object[][]{
                 {1, "Mozart", 3, "Vienna", 33},
@@ -127,13 +122,9 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 SchemaConfigurationConverter.convert(schema1, tblCh)
                         .changeReplicas(2)
                         .changePartitions(10)
-        );
-
-        CLUSTER_NODES.get(0).tables().alterTable(tlbDef.canonicalName(), tblCh ->
-                SchemaConfigurationConverter.addIndex(SchemaBuilders.sortedIndex(PK_IDX)
-                        .addIndexColumn("F2").done()
-                        .addIndexColumn("F1").done()
-                        .build(), tblCh)
+                        .changePrimaryKey(primaryKeyChange -> {
+                            primaryKeyChange.changeColumns("F2", "F1");
+                        })
         );
 
         insertData(dev1, new String[]{"F1", "F2", "F3", "F4"}, new Object[][]{

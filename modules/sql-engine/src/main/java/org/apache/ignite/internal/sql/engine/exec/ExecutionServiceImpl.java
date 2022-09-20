@@ -37,6 +37,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import org.apache.calcite.tools.Frameworks;
+import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -261,6 +262,12 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
     private static RuntimeException convertDdlException(Throwable e) {
         if (e instanceof CompletionException) {
+            e = e.getCause();
+        }
+
+        if (e instanceof ConfigurationChangeException) {
+            assert e.getCause() != null;
+            // Cut off upper configuration error`s as uninformative.
             e = e.getCause();
         }
 

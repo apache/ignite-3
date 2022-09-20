@@ -17,9 +17,15 @@
 
 package org.apache.ignite.internal.storage.index;
 
+import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.EntryCountBudgetConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
+import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -36,16 +42,32 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(ConfigurationExtension.class)
 public class TestSortedIndexStorageTest extends AbstractSortedIndexStorageTest {
     @BeforeEach
-    void setUp(@InjectConfiguration(
-            polymorphicExtensions = {
+    void setUp(
+            @InjectConfiguration(
+                    polymorphicExtensions = {
+                            TestConcurrentHashMapDataStorageConfigurationSchema.class,
+                            HashIndexConfigurationSchema.class,
+                            SortedIndexConfigurationSchema.class,
+                            NullValueDefaultConfigurationSchema.class,
+                            UnlimitedBudgetConfigurationSchema.class
+                    },
+                    value = "mock.dataStorage.name = " + TestConcurrentHashMapStorageEngine.ENGINE_NAME
+            )
+            TableConfiguration tableCfg,
+
+            @InjectConfiguration(polymorphicExtensions = {
+                    HashIndexConfigurationSchema.class,
                     SortedIndexConfigurationSchema.class,
-                    TestConcurrentHashMapDataStorageConfigurationSchema.class,
+                    UnknownDataStorageConfigurationSchema.class,
+                    ConstantValueDefaultConfigurationSchema.class,
+                    FunctionCallDefaultConfigurationSchema.class,
                     NullValueDefaultConfigurationSchema.class,
-                    UnlimitedBudgetConfigurationSchema.class
-            },
-            // This value only required for configuration validity, it's not used otherwise.
-            value = "mock.dataStorage.name = " + TestConcurrentHashMapStorageEngine.ENGINE_NAME
-    ) TableConfiguration tableCfg) {
-        initialize(new TestConcurrentHashMapMvTableStorage(tableCfg));
+                    UnlimitedBudgetConfigurationSchema.class,
+                    EntryCountBudgetConfigurationSchema.class
+            })
+            TablesConfiguration tablesConfig) {
+        var storage = new TestConcurrentHashMapMvTableStorage(tableCfg, tablesConfig);
+
+        initialize(storage, tablesConfig);
     }
 }

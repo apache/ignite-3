@@ -56,6 +56,7 @@ import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.TableDefinition;
 import org.apache.ignite.sql.ColumnMetadata;
+import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -162,6 +163,22 @@ public class AbstractBasicIntegrationTest extends BaseIgniteAbstractTest {
     protected void dropAllTables() {
         for (Table t : CLUSTER_NODES.get(0).tables().tables()) {
             sql("DROP TABLE " + t.name());
+        }
+    }
+
+    /**
+     * Appends indexes.
+     *
+     * @param node Execution cluster node.
+     * @param idxs Map with index representation.
+     * @param tblCanonicalName Canonical table name to create index in.
+     */
+    protected static void addIndexes(Ignite node, Map<String, List<String>> idxs, String tblCanonicalName) {
+        try (Session ses = node.sql().createSession()) {
+            for (Map.Entry<String, List<String>> idx : idxs.entrySet()) {
+                ses.execute(null, String.format("CREATE INDEX %s ON %s (%s)", idx.getKey(), tblCanonicalName,
+                        String.join(",", idx.getValue())));
+            }
         }
     }
 

@@ -39,6 +39,7 @@ import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableView;
+import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
@@ -82,6 +83,9 @@ public class RocksDbTableStorage implements MvTableStorage {
 
     /** Table configuration. */
     private final TableConfiguration tableCfg;
+
+    /** Indexes configuration. */
+    private final TablesConfiguration tablesCfg;
 
     /** Data region for the table. */
     private final RocksDbDataRegion dataRegion;
@@ -131,12 +135,14 @@ public class RocksDbTableStorage implements MvTableStorage {
             RocksDbStorageEngine engine,
             Path tablePath,
             TableConfiguration tableCfg,
-            RocksDbDataRegion dataRegion
+            RocksDbDataRegion dataRegion,
+            TablesConfiguration tablesCfg
     ) {
         this.engine = engine;
         this.tablePath = tablePath;
         this.tableCfg = tableCfg;
         this.dataRegion = dataRegion;
+        this.tablesCfg = tablesCfg;
     }
 
     /**
@@ -228,14 +234,15 @@ public class RocksDbTableStorage implements MvTableStorage {
                     case SORTED_INDEX:
                         UUID indexId = sortedIndexId(cf.name());
 
-                        var indexDescriptor = new SortedIndexDescriptor(indexId, tableCfg.value());
+                        var indexDescriptor = new SortedIndexDescriptor(indexId, tableCfg.value(), tablesCfg.value());
 
                         sortedIndices.put(indexId, new SortedIndex(cf, indexDescriptor));
 
                         break;
 
                     default:
-                        throw new StorageException("Unidentified column family [name=" + cf.name() + ", table=" + tableCfg.name() + ']');
+                        throw new StorageException("Unidentified column family [name=" + cf.name() + ", table="
+                                + tableCfg.value().name() + ']');
                 }
             }
 
@@ -407,7 +414,7 @@ public class RocksDbTableStorage implements MvTableStorage {
     }
 
     private SortedIndex createSortedIndex(UUID indexId) {
-        var indexDescriptor = new SortedIndexDescriptor(indexId, tableCfg.value());
+        var indexDescriptor = new SortedIndexDescriptor(indexId, tableCfg.value(), tablesCfg.value());
 
         ColumnFamilyDescriptor cfDescriptor = sortedIndexCfDescriptor(sortedIndexCfName(indexId), indexDescriptor);
 
@@ -426,7 +433,7 @@ public class RocksDbTableStorage implements MvTableStorage {
     @Override
     public HashIndexStorage getOrCreateHashIndex(int partitionId, UUID indexId) {
         HashIndex storages = hashIndices.computeIfAbsent(indexId, id -> {
-            var indexDescriptor = new HashIndexDescriptor(indexId, tableCfg.value());
+            var indexDescriptor = new HashIndexDescriptor(indexId, tableCfg.value(), tablesCfg.value());
 
             return new HashIndex(hashIndexCf, indexDescriptor);
         });
@@ -477,7 +484,7 @@ public class RocksDbTableStorage implements MvTableStorage {
         if (partId < 0 || partId >= partitions.length()) {
             throw new IllegalArgumentException(S.toString(
                     "Unable to access partition with id outside of configured range",
-                    "table", tableCfg.name().value(), false,
+                    "table", tableCfg.value().name(), false,
                     "partitionId", partId, false,
                     "partitions", partitions.length(), false
             ));
@@ -539,12 +546,12 @@ public class RocksDbTableStorage implements MvTableStorage {
                 );
 
             case SORTED_INDEX:
-                var indexDescriptor = new SortedIndexDescriptor(sortedIndexId(cfName), tableCfg.value());
+                var indexDescriptor = new SortedIndexDescriptor(sortedIndexId(cfName), tableCfg.value(), tablesCfg.value());
 
                 return sortedIndexCfDescriptor(cfName, indexDescriptor);
 
             default:
-                throw new StorageException("Unidentified column family [name=" + cfName + ", table=" + tableCfg.name() + ']');
+                throw new StorageException("Unidentified column family [name=" + cfName + ", table=" + tableCfg.value().name() + ']');
         }
     }
 

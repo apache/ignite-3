@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableView;
+import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
@@ -41,8 +42,12 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
      * @param tableCfg – Table configuration.
      * @param dataRegion – Data region for the table.
      */
-    public VolatilePageMemoryTableStorage(TableConfiguration tableCfg, VolatilePageMemoryDataRegion dataRegion) {
-        super(tableCfg);
+    public VolatilePageMemoryTableStorage(
+            TableConfiguration tableCfg,
+            TablesConfiguration tablesCfg,
+            VolatilePageMemoryDataRegion dataRegion
+    ) {
+        super(tableCfg, tablesCfg);
 
         this.dataRegion = dataRegion;
     }
@@ -61,6 +66,7 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
 
         return new VolatilePageMemoryMvPartitionStorage(
                 this,
+                tablesConfiguration,
                 partitionId,
                 versionChainTree,
                 indexMetaTree
