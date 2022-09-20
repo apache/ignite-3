@@ -179,7 +179,7 @@ public class ClientTable implements Table {
         for (int i = 0; i < colCnt; i++) {
             var propCnt = in.unpackArrayHeader();
 
-            assert propCnt >= 5;
+            assert propCnt >= 6;
 
             var name = in.unpackString();
             var type = in.unpackInt();
