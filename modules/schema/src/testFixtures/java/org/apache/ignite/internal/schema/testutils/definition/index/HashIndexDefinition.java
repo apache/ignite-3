@@ -15,8 +15,15 @@
  * limitations under the License.
  */
 
-/**
- * Contains table schema definition interfaces and classes.
- */
+package org.apache.ignite.internal.schema.testutils.definition.index;
 
-package org.apache.ignite.schema.definition;
+/**
+ * Hash index descriptor.
+ */
+public interface HashIndexDefinition extends ColumnarIndexDefinition {
+    /** {@inheritDoc} */
+    @Override
+    default String type() {
+        return "HASH";
+    }
+}

@@ -21,12 +21,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.schema.definition.index.SortedIndexColumnDefinitionImpl;
-import org.apache.ignite.internal.schema.definition.index.SortedIndexDefinitionImpl;
+import org.apache.ignite.internal.schema.testutils.definition.index.SortOrder;
+import org.apache.ignite.internal.schema.testutils.definition.index.SortedIndexColumnDefinition;
+import org.apache.ignite.internal.schema.testutils.definition.index.SortedIndexColumnDefinitionImpl;
+import org.apache.ignite.internal.schema.testutils.definition.index.SortedIndexDefinition;
+import org.apache.ignite.internal.schema.testutils.definition.index.SortedIndexDefinitionImpl;
 import org.apache.ignite.internal.util.IgniteObjectName;
-import org.apache.ignite.schema.definition.index.SortOrder;
-import org.apache.ignite.schema.definition.index.SortedIndexColumnDefinition;
-import org.apache.ignite.schema.definition.index.SortedIndexDefinition;
 
 /**
  * Sorted index builder.

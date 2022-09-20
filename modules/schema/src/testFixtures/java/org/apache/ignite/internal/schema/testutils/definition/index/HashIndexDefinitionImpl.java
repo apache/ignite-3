@@ -15,64 +15,48 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.definition.index;
+package org.apache.ignite.internal.schema.testutils.definition.index;
 
-import java.util.Collections;
 import java.util.List;
-import org.apache.ignite.internal.schema.definition.AbstractSchemaObject;
+import java.util.stream.Collectors;
+import org.apache.ignite.internal.schema.testutils.definition.AbstractSchemaObject;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.schema.definition.index.SortedIndexColumnDefinition;
-import org.apache.ignite.schema.definition.index.SortedIndexDefinition;
 
 /**
- * Sorted index.
+ * Hash index.
  */
-public class SortedIndexDefinitionImpl extends AbstractSchemaObject implements SortedIndexDefinition {
-    /** Columns. */
+public class HashIndexDefinitionImpl extends AbstractSchemaObject implements HashIndexDefinition {
+    /** Index columns. */
     @IgniteToStringInclude
-    private final List<SortedIndexColumnDefinition> cols;
-
-    /** Unique flag. */
-    private final boolean unique;
+    private final List<IndexColumnDefinition> columns;
 
     /**
      * Constructor.
      *
-     * @param name   Index name.
-     * @param cols   Index columns.
-     * @param unique Unique flag.
+     * @param name Index name.
+     * @param columns Index columns.
      */
-    public SortedIndexDefinitionImpl(String name, List<SortedIndexColumnDefinition> cols, boolean unique) {
+    public HashIndexDefinitionImpl(String name, List<String> columns) {
         super(name);
 
-        this.cols = Collections.unmodifiableList(cols);
-        this.unique = unique;
+        this.columns = columns.stream().map(IndexColumnDefinitionImpl::new).collect(Collectors.toUnmodifiableList());
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public boolean unique() {
-        return unique;
-    }
 
     /** {@inheritDoc} */
+    @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
     @Override
-    public List<SortedIndexColumnDefinition> columns() {
-        return cols;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public List<SortedIndexColumnDefinition> indexedColumns() {
-        return cols;
+    public List<IndexColumnDefinition> columns() {
+        return columns;
     }
 
     /** {@inheritDoc} */
     @Override
     public String toString() {
-        return S.toString(SortedIndexDefinition.class, this,
+        return S.toString(org.apache.ignite.internal.schema.testutils.definition.index.HashIndexDefinitionImpl.class, this,
                 "type", type(),
                 "name", name());
     }
+
 }

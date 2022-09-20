@@ -15,31 +15,38 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.definition.index;
+package org.apache.ignite.internal.schema.testutils.definition;
 
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.schema.definition.index.SortOrder;
-import org.apache.ignite.schema.definition.index.SortedIndexColumnDefinition;
 
 /**
- * Ordered index column.
+ * Table column.
  */
-public class SortedIndexColumnDefinitionImpl implements SortedIndexColumnDefinition {
-    /** Schema object name. */
+public class ColumnDefinitionImpl implements ColumnDefinition {
+    /** Column name. */
     private final String name;
 
-    /** Sort order. */
-    private final SortOrder sortOrder;
+    /** Column type. */
+    private final ColumnType type;
+
+    /** Nullable flag. */
+    private final boolean nullable;
+
+    private final DefaultValueDefinition defaultValueDefinition;
 
     /**
      * Constructor.
      *
-     * @param name      Column name.
-     * @param sortOrder Sort order flag.
+     * @param name Column name.
+     * @param type Column type.
+     * @param nullable Nullability flag.
+     * @param defaultValueDefinition Default value.
      */
-    public SortedIndexColumnDefinitionImpl(String name, SortOrder sortOrder) {
+    public ColumnDefinitionImpl(String name, ColumnType type, boolean nullable, DefaultValueDefinition defaultValueDefinition) {
         this.name = name;
-        this.sortOrder = sortOrder;
+        this.type = type;
+        this.nullable = nullable;
+        this.defaultValueDefinition = defaultValueDefinition;
     }
 
     /** {@inheritDoc} */
@@ -50,13 +57,26 @@ public class SortedIndexColumnDefinitionImpl implements SortedIndexColumnDefinit
 
     /** {@inheritDoc} */
     @Override
-    public SortOrder sortOrder() {
-        return sortOrder;
+    public ColumnType type() {
+        return type;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean nullable() {
+        return nullable;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    @SuppressWarnings("unchecked")
+    public <T extends DefaultValueDefinition> T defaultValueDefinition() {
+        return (T) defaultValueDefinition;
     }
 
     /** {@inheritDoc} */
     @Override
     public String toString() {
-        return S.toString(SortedIndexColumnDefinitionImpl.class, this);
+        return S.toString(ColumnDefinitionImpl.class, this);
     }
 }

@@ -15,38 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.schema.definition.index;
+package org.apache.ignite.internal.schema.testutils.definition;
 
-import org.apache.ignite.schema.definition.SchemaObject;
+import java.util.List;
+import java.util.Set;
 
 /**
- * Index base interface.
+ * Primary key constraint.
  */
-public interface IndexDefinition extends SchemaObject {
-    /**
-     * Returns index name.
-     *
-     * @return Index name.
-     */
-    @Override
-    String name();
+public interface PrimaryKeyDefinition extends SchemaObject {
+    /** Default primary key name. */
+    String PRIMARY_KEY_NAME = "PK";
 
     /**
-     * Unique index flag.
+     * Returns key columns.
      *
-     * <p>Limitation: Index MUST have all affinity columns declared explicitly. This requirement allows omitting cluster wide constraint
-     * checks.
-     *
-     * @return Unique flag.
+     * @return Key columns.
      */
-    default boolean unique() {
-        return false;
-    }
+    Set<String> columns();
 
     /**
-     * Returns index type.
+     * Returns colocation columns.
      *
-     * @return Index type.
+     * @return Colocation columns.
      */
-    String type();
+    List<String> colocationColumns();
 }

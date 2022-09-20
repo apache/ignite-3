@@ -17,13 +17,14 @@
 
 package org.apache.ignite.internal.schema.configuration;
 
+import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
+
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.schemas.table.TableValidator;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
-import org.apache.ignite.internal.schema.definition.TableDefinitionImpl;
 
 /**
  * Table schema configuration validator implementation.
@@ -41,10 +42,9 @@ public class TableValidatorImpl implements Validator<TableValidator, NamedListVi
             TableView newTable = newTables.get(tableName);
 
             try {
-                TableDefinitionImpl tbl = SchemaConfigurationConverter.convert(newTable);
-
-                assert !tbl.keyColumns().isEmpty();
-                assert !tbl.colocationColumns().isEmpty();
+                assert newTable.primaryKey() != null;
+                assert !nullOrEmpty(newTable.primaryKey().columns());
+                assert !nullOrEmpty(newTable.primaryKey().colocationColumns());
             } catch (IllegalArgumentException e) {
                 ctx.addIssue(new ValidationIssue(
                         ctx.currentKey(),

@@ -15,37 +15,38 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.schema.definition;
+package org.apache.ignite.internal.schema.testutils.definition.index;
+
+import org.apache.ignite.internal.schema.testutils.definition.SchemaObject;
 
 /**
- * Schema object.
+ * Index base interface.
  */
-public interface SchemaObject {
-    /** Default schema name. */
-    String DEFAULT_DATABASE_SCHEMA_NAME = "PUBLIC";
-
+public interface IndexDefinition extends SchemaObject {
     /**
-     * Returns name of schema object.
+     * Returns index name.
      *
-     * @return Object name.
+     * @return Index name.
      */
+    @Override
     String name();
 
     /**
-     * Returns database schema name this object belongs to.
+     * Unique index flag.
      *
-     * @return Database schema name.
+     * <p>Limitation: Index MUST have all affinity columns declared explicitly. This requirement allows omitting cluster wide constraint
+     * checks.
+     *
+     * @return Unique flag.
      */
-    default String schemaName() {
-        return DEFAULT_DATABASE_SCHEMA_NAME;
+    default boolean unique() {
+        return false;
     }
 
     /**
-     * Returns object`s canonical name.
+     * Returns index type.
      *
-     * @return Canonical name.
+     * @return Index type.
      */
-    default String canonicalName() {
-        return schemaName() + '.' + name();
-    }
+    String type();
 }

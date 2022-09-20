@@ -15,16 +15,38 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.schema.definition.index;
+package org.apache.ignite.internal.schema.testutils.definition;
 
 /**
- * Index column descriptor.
+ * Table column descriptor.
  */
-public interface IndexColumnDefinition {
+public interface ColumnDefinition {
     /**
      * Returns column name.
      *
      * @return Column name.
      */
     String name();
+
+    /**
+     * Returns column type.
+     *
+     * @return Column type.
+     */
+    ColumnType type();
+
+    /**
+     * Returns {@code Nullable} flag value.
+     *
+     * @return {@code True} if null-values is allowed, {@code false} otherwise.
+     */
+    boolean nullable();
+
+    /**
+     * Returns default value definition.
+     *
+     * @param <T> Desired subtype of the definition.
+     * @return Default value definition.
+     */
+    <T extends DefaultValueDefinition> T defaultValueDefinition();
 }

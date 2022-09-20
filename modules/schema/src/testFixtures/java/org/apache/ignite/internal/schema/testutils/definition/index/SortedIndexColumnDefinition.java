@@ -15,15 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.schema.definition.index;
+package org.apache.ignite.internal.schema.testutils.definition.index;
 
 /**
- * Hash index descriptor.
+ * Sorted index column.
  */
-public interface HashIndexDefinition extends ColumnarIndexDefinition {
-    /** {@inheritDoc} */
-    @Override
-    default String type() {
-        return "HASH";
-    }
+public interface SortedIndexColumnDefinition extends IndexColumnDefinition {
+    /**
+     * Returns column sort order.
+     *
+     * @return Column sort order.
+     */
+    SortOrder sortOrder();
 }

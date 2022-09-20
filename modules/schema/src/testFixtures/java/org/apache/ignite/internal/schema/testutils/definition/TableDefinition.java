@@ -15,13 +15,41 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.schema.definition;
+package org.apache.ignite.internal.schema.testutils.definition;
+
+import java.util.List;
+import java.util.Set;
 
 /**
- * Enumeration of all supported value generators that could be used as a default value provider
- * (i.e. could be specified as a default in column definition).
+ * Table schema configuration.
  */
-public class DefaultValueGenerators {
-    /** Generator that generates random UUID string. */
-    public static final String GEN_RANDOM_UUID = "GEN_RANDOM_UUID";
+public interface TableDefinition extends SchemaObject {
+    /**
+     * Returns table name.
+     *
+     * @return Table name.
+     */
+    @Override
+    String name();
+
+    /**
+     * Returns key columns.
+     *
+     * @return List of columns.
+     */
+    Set<String> keyColumns();
+
+    /**
+     * Returns affinity columns.
+     *
+     * @return List of columns.
+     */
+    List<String> colocationColumns();
+
+    /**
+     * Returns table columns in user-defined order.
+     *
+     * @return List of columns.
+     */
+    List<ColumnDefinition> columns();
 }

@@ -15,16 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.schema.definition.index;
+package org.apache.ignite.internal.schema.testutils.definition;
 
 /**
- * Sorted index column.
+ * Enumeration of all supported value generators that could be used as a default value provider
+ * (i.e. could be specified as a default in column definition).
  */
-public interface SortedIndexColumnDefinition extends IndexColumnDefinition {
-    /**
-     * Returns column sort order.
-     *
-     * @return Column sort order.
-     */
-    SortOrder sortOrder();
+public class DefaultValueGenerators {
+    /** Generator that generates random UUID string. */
+    public static final String GEN_RANDOM_UUID = "GEN_RANDOM_UUID";
 }

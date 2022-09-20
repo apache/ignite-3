@@ -15,41 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.schema.definition;
+package org.apache.ignite.internal.schema.testutils.definition.index;
 
 import java.util.List;
-import java.util.Set;
 
 /**
- * Table schema configuration.
+ * Sorted index descriptor.
  */
-public interface TableDefinition extends SchemaObject {
-    /**
-     * Returns table name.
-     *
-     * @return Table name.
-     */
+public interface SortedIndexDefinition extends ColumnarIndexDefinition {
+    /** {@inheritDoc} */
     @Override
-    String name();
+    List<SortedIndexColumnDefinition> columns();
 
-    /**
-     * Returns key columns.
-     *
-     * @return List of columns.
-     */
-    Set<String> keyColumns();
+    /** {@inheritDoc} */
+    @Override
+    List<SortedIndexColumnDefinition> indexedColumns();
 
-    /**
-     * Returns affinity columns.
-     *
-     * @return List of columns.
-     */
-    List<String> colocationColumns();
-
-    /**
-     * Returns table columns in user-defined order.
-     *
-     * @return List of columns.
-     */
-    List<ColumnDefinition> columns();
+    /** {@inheritDoc} */
+    @Override
+    default String type() {
+        return "SORTED";
+    }
 }

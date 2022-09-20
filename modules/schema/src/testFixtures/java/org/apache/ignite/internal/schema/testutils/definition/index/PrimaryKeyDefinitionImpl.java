@@ -15,15 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.definition.index;
+package org.apache.ignite.internal.schema.testutils.definition.index;
 
 import java.util.List;
 import java.util.Set;
-import org.apache.ignite.internal.schema.definition.AbstractSchemaObject;
+import org.apache.ignite.internal.schema.testutils.definition.AbstractSchemaObject;
+import org.apache.ignite.internal.schema.testutils.definition.PrimaryKeyDefinition;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.CollectionUtils;
-import org.apache.ignite.schema.definition.PrimaryKeyDefinition;
 
 /**
  * Primary key index.

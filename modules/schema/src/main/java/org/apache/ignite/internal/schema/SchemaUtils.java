@@ -21,12 +21,10 @@ import java.util.Optional;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.schemas.table.ColumnView;
 import org.apache.ignite.configuration.schemas.table.TableView;
-import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
-import org.apache.ignite.internal.schema.configuration.SchemaDescriptorConverter;
+import org.apache.ignite.internal.schema.configuration.ConfigurationToSchemaDescriptorConverter;
 import org.apache.ignite.internal.schema.mapping.ColumnMapper;
 import org.apache.ignite.internal.schema.mapping.ColumnMapping;
 import org.apache.ignite.lang.IgniteStringFormatter;
-import org.apache.ignite.schema.definition.TableDefinition;
 
 /**
  * Stateless schema utils that produces helper methods for schema preparation.
@@ -36,13 +34,11 @@ public class SchemaUtils {
      * Creates schema descriptor for the table with specified configuration.
      *
      * @param schemaVer Schema version.
-     * @param tblCfg    Table configuration.
+     * @param tableView    Table configuration.
      * @return Schema descriptor.
      */
-    public static SchemaDescriptor prepareSchemaDescriptor(int schemaVer, TableView tblCfg) {
-        TableDefinition tableDef = SchemaConfigurationConverter.convert(tblCfg);
-
-        return SchemaDescriptorConverter.convert(schemaVer, tableDef);
+    public static SchemaDescriptor prepareSchemaDescriptor(int schemaVer, TableView tableView) {
+        return ConfigurationToSchemaDescriptorConverter.convert(schemaVer, tableView);
     }
 
     /**

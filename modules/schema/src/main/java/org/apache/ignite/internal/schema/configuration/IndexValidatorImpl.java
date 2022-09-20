@@ -19,12 +19,15 @@ package org.apache.ignite.internal.schema.configuration;
 
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.getByInternalId;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 import org.apache.ignite.configuration.NamedListView;
+import org.apache.ignite.configuration.schemas.table.HashIndexView;
 import org.apache.ignite.configuration.schemas.table.IndexValidator;
+import org.apache.ignite.configuration.schemas.table.SortedIndexView;
 import org.apache.ignite.configuration.schemas.table.TableIndexView;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
@@ -32,11 +35,6 @@ import org.apache.ignite.configuration.schemas.table.TablesView;
 import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
-import org.apache.ignite.internal.schema.definition.SchemaValidationUtils;
-import org.apache.ignite.internal.schema.definition.TableDefinitionImpl;
-import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.schema.definition.ColumnDefinition;
-import org.apache.ignite.schema.definition.index.IndexDefinition;
 
 /**
  * Index configuration validator implementation.
@@ -55,7 +53,7 @@ public class IndexValidatorImpl implements Validator<IndexValidator, NamedListVi
 
         NamedListView<? extends TableView> tablesView = tablesConfig.tables();
 
-        for (String key : indexView.namedListKeys()) {
+        for (String key : newKeys(ctx.getOldValue(), ctx.getNewValue())) {
             TableIndexView idxView = indexView.get(key);
 
             UUID tableId = idxView.tableId();
@@ -64,28 +62,77 @@ public class IndexValidatorImpl implements Validator<IndexValidator, NamedListVi
 
             if (tableView == null) {
                 ctx.addIssue(new ValidationIssue(key, "Unable to create index [name=" + key + "]. Table not found."));
+
+                // no further validation required for current index
+                continue;
             }
 
-            IndexDefinition index = SchemaConfigurationConverter.convert(idxView);
-
-            TableDefinitionImpl tbl = SchemaConfigurationConverter.convert(tableView);
-
-            Set<String> tableColumns = tbl.columns().stream().map(ColumnDefinition::name).collect(Collectors.toSet());
-
-            List<String> tableColocationColumns = tbl.colocationColumns();
-
-            try {
-                SchemaValidationUtils.validateIndexes(index, tableColumns, tableColocationColumns);
-            } catch (IllegalStateException e) {
-                ctx.addIssue(new ValidationIssue(key, e.getMessage()));
+            List<String> colocationColumns;
+            if (tableView.primaryKey() != null) {
+                colocationColumns = List.of(tableView.primaryKey().colocationColumns());
+            } else {
+                colocationColumns = List.of();
             }
 
-            try {
-                SchemaValidationUtils.validateColumns(idxView, tableColumns);
-            } catch (IgniteInternalException e) {
-                ctx.addIssue(new ValidationIssue(key, e.getMessage()));
+            validate(ctx, idxView, tableView.columns().namedListKeys(), colocationColumns);
+        }
+    }
+
+    private void validate(
+            ValidationContext<?> ctx,
+            TableIndexView indexView,
+            Collection<String> tableColumns,
+            Collection<String> collocationColumns
+    ) {
+        List<String> indexedColumns;
+        if (indexView instanceof HashIndexView) {
+            var index0 = (HashIndexView) indexView;
+
+            // we need modifiable list
+            indexedColumns = Arrays.asList(index0.columnNames());
+        } else if (indexView instanceof SortedIndexView) {
+            var index0 = (SortedIndexView) indexView;
+
+            // we need modifiable list
+            indexedColumns = new ArrayList<>(index0.columns().namedListKeys());
+        } else {
+            ctx.addIssue(new ValidationIssue(indexView.name(), "Index type is not supported [type=" + indexView.type() + "]"));
+
+            // no further validation required
+            return;
+        }
+
+        if (indexedColumns.isEmpty()) {
+            ctx.addIssue(new ValidationIssue(indexView.name(), "Index must include at least one column"));
+
+            // no further validation required
+            return;
+        }
+
+        // need check this first because later indexedColumns will be truncated
+        if (indexView.uniq()) {
+            if (collocationColumns.isEmpty()) {
+                ctx.addIssue(new ValidationIssue(indexView.name(), "Unique index is not supported fro tables without primary key"));
+            } else if (!indexedColumns.containsAll(collocationColumns)) {
+                ctx.addIssue(new ValidationIssue(indexView.name(), "Unique index must include all colocation columns"));
             }
         }
+
+        indexedColumns.removeAll(tableColumns);
+
+        if (!indexedColumns.isEmpty()) {
+            throw new IllegalStateException("Columns don't exist [columns=" + indexedColumns + "]");
+        }
+    }
+
+    private List<String> newKeys(NamedListView<?> before, NamedListView<?> after) {
+        List<String> result = new ArrayList<>(after.namedListKeys());
+
+        if (before != null) {
+            result.removeAll(before.namedListKeys());
+        }
+
+        return result;
     }
 
     /** Private constructor. */

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.configuration;
+package org.apache.ignite.internal.schema.testutils;
 
 import static java.math.RoundingMode.HALF_UP;
 import static java.util.Arrays.asList;
@@ -60,27 +60,27 @@ import org.apache.ignite.configuration.schemas.table.TableIndexChange;
 import org.apache.ignite.configuration.schemas.table.TableIndexView;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesChange;
-import org.apache.ignite.internal.schema.definition.ColumnDefinitionImpl;
-import org.apache.ignite.internal.schema.definition.TableDefinitionImpl;
-import org.apache.ignite.internal.schema.definition.index.HashIndexDefinitionImpl;
-import org.apache.ignite.internal.schema.definition.index.PrimaryKeyDefinitionImpl;
-import org.apache.ignite.internal.schema.definition.index.SortedIndexColumnDefinitionImpl;
-import org.apache.ignite.internal.schema.definition.index.SortedIndexDefinitionImpl;
+import org.apache.ignite.internal.schema.testutils.definition.ColumnDefinition;
+import org.apache.ignite.internal.schema.testutils.definition.ColumnDefinitionImpl;
+import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
+import org.apache.ignite.internal.schema.testutils.definition.ColumnType.DecimalColumnType;
+import org.apache.ignite.internal.schema.testutils.definition.DefaultValueDefinition;
+import org.apache.ignite.internal.schema.testutils.definition.DefaultValueDefinition.ConstantValue;
+import org.apache.ignite.internal.schema.testutils.definition.DefaultValueDefinition.FunctionCall;
+import org.apache.ignite.internal.schema.testutils.definition.PrimaryKeyDefinition;
+import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
+import org.apache.ignite.internal.schema.testutils.definition.TableDefinitionImpl;
+import org.apache.ignite.internal.schema.testutils.definition.index.HashIndexDefinition;
+import org.apache.ignite.internal.schema.testutils.definition.index.HashIndexDefinitionImpl;
+import org.apache.ignite.internal.schema.testutils.definition.index.IndexColumnDefinition;
+import org.apache.ignite.internal.schema.testutils.definition.index.IndexDefinition;
+import org.apache.ignite.internal.schema.testutils.definition.index.PrimaryKeyDefinitionImpl;
+import org.apache.ignite.internal.schema.testutils.definition.index.SortOrder;
+import org.apache.ignite.internal.schema.testutils.definition.index.SortedIndexColumnDefinition;
+import org.apache.ignite.internal.schema.testutils.definition.index.SortedIndexColumnDefinitionImpl;
+import org.apache.ignite.internal.schema.testutils.definition.index.SortedIndexDefinition;
+import org.apache.ignite.internal.schema.testutils.definition.index.SortedIndexDefinitionImpl;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.schema.definition.ColumnDefinition;
-import org.apache.ignite.schema.definition.ColumnType;
-import org.apache.ignite.schema.definition.ColumnType.DecimalColumnType;
-import org.apache.ignite.schema.definition.DefaultValueDefinition;
-import org.apache.ignite.schema.definition.DefaultValueDefinition.ConstantValue;
-import org.apache.ignite.schema.definition.DefaultValueDefinition.FunctionCall;
-import org.apache.ignite.schema.definition.PrimaryKeyDefinition;
-import org.apache.ignite.schema.definition.TableDefinition;
-import org.apache.ignite.schema.definition.index.HashIndexDefinition;
-import org.apache.ignite.schema.definition.index.IndexColumnDefinition;
-import org.apache.ignite.schema.definition.index.IndexDefinition;
-import org.apache.ignite.schema.definition.index.SortOrder;
-import org.apache.ignite.schema.definition.index.SortedIndexColumnDefinition;
-import org.apache.ignite.schema.definition.index.SortedIndexDefinition;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -104,8 +104,7 @@ public class SchemaConfigurationConverter {
     }
 
     /**
-     * Put type.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Put type. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      *
      * @param type Column type.
      */
@@ -116,7 +115,7 @@ public class SchemaConfigurationConverter {
     /**
      * Convert SortedIndexColumn to IndexColumnChange.
      *
-     * @param col     IndexColumnChange.
+     * @param col IndexColumnChange.
      * @param colInit IndexColumnChange to fulfill.
      * @return IndexColumnChange to get result from.
      */
@@ -139,7 +138,7 @@ public class SchemaConfigurationConverter {
     /**
      * Convert TableIndex to TableIndexChange.
      *
-     * @param idx    TableIndex.
+     * @param idx TableIndex.
      * @param idxChg TableIndexChange to fulfill.
      * @return TableIndexChange to get result from.
      */
@@ -212,7 +211,7 @@ public class SchemaConfigurationConverter {
     /**
      * Convert ColumnType to ColumnTypeChange.
      *
-     * @param colType    ColumnType.
+     * @param colType ColumnType.
      * @param colTypeChg ColumnTypeChange to fulfill.
      * @return ColumnTypeChange to get result from
      */
@@ -322,7 +321,7 @@ public class SchemaConfigurationConverter {
     /**
      * Convert column to column change.
      *
-     * @param col    Column to convert.
+     * @param col Column to convert.
      * @param colChg Column
      * @return ColumnChange to get result from.
      */
@@ -397,7 +396,7 @@ public class SchemaConfigurationConverter {
     /**
      * Convert table schema to table changer.
      *
-     * @param tbl    Table schema to convert.
+     * @param tbl Table schema to convert.
      * @param tblChg Change to fulfill.
      * @return TableChange to get result from.
      */
@@ -458,7 +457,7 @@ public class SchemaConfigurationConverter {
     /**
      * Create table.
      *
-     * @param tbl        Table to create.
+     * @param tbl Table to create.
      * @param tblsChange Tables change to fulfill.
      * @return TablesChange to get result from.
      */
@@ -469,7 +468,7 @@ public class SchemaConfigurationConverter {
     /**
      * Drop table.
      *
-     * @param tbl        table to drop.
+     * @param tbl table to drop.
      * @param tblsChange TablesChange change to fulfill.
      * @return TablesChange to get result from.
      */
@@ -480,7 +479,7 @@ public class SchemaConfigurationConverter {
     /**
      * Add index.
      *
-     * @param idx       Index to add.
+     * @param idx Index to add.
      * @param tableId Table id.
      * @param change Indexes change to fulfill.
      * @return TableChange to get result from.
@@ -492,7 +491,7 @@ public class SchemaConfigurationConverter {
     /**
      * Add table column.
      *
-     * @param column    Column to add.
+     * @param column Column to add.
      * @param tblChange TableChange to fulfill.
      * @return TableChange to get result from.
      */
@@ -504,7 +503,7 @@ public class SchemaConfigurationConverter {
      * Drop table column.
      *
      * @param columnName column name to drop.
-     * @param tblChange  TableChange to fulfill.
+     * @param tblChange TableChange to fulfill.
      * @return TableChange to get result from.
      */
     public static TableChange dropColumn(String columnName, TableChange tblChange) {

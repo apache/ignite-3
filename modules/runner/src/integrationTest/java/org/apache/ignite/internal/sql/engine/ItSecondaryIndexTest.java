@@ -26,13 +26,6 @@ import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsUn
 import static org.hamcrest.CoreMatchers.anyOf;
 import static org.hamcrest.Matchers.not;
 
-import java.util.List;
-import java.util.Map;
-import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
-import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
-import org.apache.ignite.schema.definition.ColumnType;
-import org.apache.ignite.schema.definition.TableDefinition;
-import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -55,32 +48,13 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
      */
     @BeforeAll
     static void initTestData() {
-        TableDefinition tlbDef = SchemaBuilders.tableBuilder("PUBLIC", "DEVELOPER")
-                .columns(
-                        SchemaBuilders.column("ID", ColumnType.INT32).build(),
-                        SchemaBuilders.column("NAME", ColumnType.string()).asNullable(true).build(),
-                        SchemaBuilders.column("DEPID", ColumnType.INT32).asNullable(true).build(),
-                        SchemaBuilders.column("CITY", ColumnType.string()).asNullable(true).build(),
-                        SchemaBuilders.column("AGE", ColumnType.INT32).asNullable(true).build()
-                )
-                .withPrimaryKey("ID")
-                .build();
+        sql("CREATE TABLE developer (id INT PRIMARY KEY, name VARCHAR, depid INT, city VARCHAR, age INT)");
+        sql("CREATE INDEX " + DEPID_IDX + " ON developer (depid)");
+        sql("CREATE INDEX " + NAME_CITY_IDX + " ON developer (name DESC, city DESC)");
+        sql("CREATE INDEX " + NAME_DEPID_CITY_IDX + " ON developer (name DESC, depid DESC, city DESC)");
 
-        Table dev0 = CLUSTER_NODES.get(0).tables().createTable(tlbDef.canonicalName(), tblCh ->
-                SchemaConfigurationConverter.convert(tlbDef, tblCh)
-                        .changeReplicas(2)
-                        .changePartitions(10)
-        );
 
-        Map<String, List<String>> idxs = Map.of(
-                DEPID_IDX, List.of("DEPID"),
-                NAME_CITY_IDX, List.of("DEPID desc", "CITY desc"),
-                NAME_DEPID_CITY_IDX, List.of("NAME", "DEPID desc", "CITY desc")
-        );
-
-        addIndexes(CLUSTER_NODES.get(0), idxs, tlbDef.canonicalName());
-
-        insertData(dev0, new String[]{"ID", "NAME", "DEPID", "CITY", "AGE"}, new Object[][]{
+        insertData("DEVELOPER", new String[]{"ID", "NAME", "DEPID", "CITY", "AGE"}, new Object[][]{
                 {1, "Mozart", 3, "Vienna", 33},
                 {2, "Beethoven", 2, "Vienna", 44},
                 {3, "Bach", 1, "Leipzig", 55},
@@ -106,28 +80,10 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 {23, "Musorgskii", 22, "", -1}
         });
 
-        TableDefinition schema1 = SchemaBuilders.tableBuilder("PUBLIC", "UNWRAP_PK")
-                .columns(
-                        SchemaBuilders.column("F1", ColumnType.string()).asNullable(true).build(),
-                        SchemaBuilders.column("F2", ColumnType.INT64).asNullable(true).build(),
-                        SchemaBuilders.column("F3", ColumnType.INT64).asNullable(true).build(),
-                        SchemaBuilders.column("F4", ColumnType.INT64).asNullable(true).build()
-                )
-                .withPrimaryKey(
-                        SchemaBuilders.primaryKey().withColumns("F2", "F1").build()
-                )
-                .build();
+        sql("CREATE TABLE unwrap_pk(f1 VARCHAR, f2 BIGINT, f3 BIGINT, f4 BIGINT, primary key(f2, f1))");
+        sql("CREATE INDEX" + PK_IDX + " ON unwrap_pk(f2, f1)");
 
-        Table dev1 = CLUSTER_NODES.get(0).tables().createTable(schema1.canonicalName(), tblCh ->
-                SchemaConfigurationConverter.convert(schema1, tblCh)
-                        .changeReplicas(2)
-                        .changePartitions(10)
-                        .changePrimaryKey(primaryKeyChange -> {
-                            primaryKeyChange.changeColumns("F2", "F1");
-                        })
-        );
-
-        insertData(dev1, new String[]{"F1", "F2", "F3", "F4"}, new Object[][]{
+        insertData("UNWRAP_PK", new String[]{"F1", "F2", "F3", "F4"}, new Object[][]{
                 {"Petr", 1L, 2L, 3L},
                 {"Ivan", 2L, 2L, 4L},
                 {"Ivan1", 21L, 2L, 4L},

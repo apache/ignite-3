@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.schema.definition.index;
+package org.apache.ignite.internal.schema.testutils.definition.index;
 
 /**
  * Index column sort order.

@@ -29,14 +29,8 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.temporal.Temporal;
 import org.apache.calcite.sql.validate.SqlValidatorException;
-import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
-import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.schema.definition.ColumnType;
-import org.apache.ignite.schema.definition.TableDefinition;
-import org.apache.ignite.table.RecordView;
-import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -148,26 +142,11 @@ public class ItFunctionsTest extends AbstractBasicIntegrationTest {
 
     @Test
     public void testRangeWithCache() {
-        TableDefinition tblDef = SchemaBuilders.tableBuilder("PUBLIC", "TEST")
-                .columns(
-                        SchemaBuilders.column("ID", ColumnType.INT32).build(),
-                        SchemaBuilders.column("VAL", ColumnType.INT32).build()
-                )
-                .withPrimaryKey("ID")
-                .build();
-
-        String tblName = tblDef.canonicalName();
-
-        RecordView<Tuple> tbl = CLUSTER_NODES.get(0).tables().createTable(tblDef.canonicalName(), tblCh ->
-                SchemaConfigurationConverter.convert(tblDef, tblCh)
-                        .changeReplicas(1)
-                        .changePartitions(10)
-        ).recordView();
+        sql("CREATE TABLE test(id INT PRIMARY KEY, val INT)");
 
         try {
-
             for (int i = 0; i < 100; i++) {
-                tbl.insert(null, Tuple.create().set("ID", i).set("VAL", i));
+                sql("INSERT INTO test VALUES (?, ?)", i, i);
             }
 
             // Correlated INNER join.
@@ -208,7 +187,7 @@ public class ItFunctionsTest extends AbstractBasicIntegrationTest {
                     .returns(50)
                     .check();
         } finally {
-            CLUSTER_NODES.get(0).tables().dropTable(tblName);
+            sql("DROP TABLE IF EXISTS test");
         }
     }
 

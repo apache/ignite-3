@@ -546,7 +546,7 @@ public class RowAssembler {
      * @throws SchemaMismatchException If a value doesn't match the current column type.
      */
     public RowAssembler appendString(String val) throws SchemaMismatchException {
-        checkType(NativeTypes.STRING);
+        checkType(NativeTypeSpec.STRING);
 
         try {
             final int written = buf.putString(curOff, val, encoder());
@@ -571,7 +571,7 @@ public class RowAssembler {
      * @throws SchemaMismatchException If a value doesn't match the current column type.
      */
     public RowAssembler appendBytes(byte[] val) throws SchemaMismatchException {
-        checkType(NativeTypes.BYTES);
+        checkType(NativeTypeSpec.BYTES);
 
         buf.putBytes(curOff, val);
 

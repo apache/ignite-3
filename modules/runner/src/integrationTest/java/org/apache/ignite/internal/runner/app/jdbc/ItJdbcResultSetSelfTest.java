@@ -34,23 +34,12 @@ import java.sql.Date;
 import java.sql.NClob;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.sql.Time;
 import java.sql.Timestamp;
-import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalTime;
-import java.util.ArrayList;
 import java.util.GregorianCalendar;
-import java.util.List;
-import org.apache.ignite.Ignite;
-import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
-import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.schema.definition.ColumnDefinition;
-import org.apache.ignite.schema.definition.ColumnType;
-import org.apache.ignite.schema.definition.TableDefinition;
-import org.apache.ignite.table.RecordView;
-import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -70,49 +59,34 @@ public class ItJdbcResultSetSelfTest extends AbstractJdbcSelfTest {
             + "doubleVal, bigVal, strVal from TEST WHERE id = 1";
 
     @BeforeAll
-    public static void beforeClass() {
-        Ignite ignite = clusterNodes.get(0);
+    public static void beforeClass() throws SQLException {
+        try (Statement stmt = conn.createStatement()) {
+            stmt.executeUpdate("CREATE TABLE test("
+                    + "id INT PRIMARY KEY,"
+                    + "boolval TINYINT,"
+                    + "byteval TINYINT,"
+                    + "shortval SMALLINT,"
+                    + "intval INT,"
+                    + "longval BIGINT,"
+                    + "floatval FLOAT,"
+                    + "doubleval DOUBLE,"
+                    + "bigval DEVIMAL,"
+                    + "strval VARCHAR,"
+                    + "arrval BYTES,"
+                    + "dateval DATE,"
+                    + "timeval TIME,"
+                    + "tsval TIMESTAMP,"
+                    + "urlval BYTES"
+                    + ")"
+            );
 
-        List<ColumnDefinition> columns = new ArrayList<>();
-
-        columns.add(SchemaBuilders.column("ID", ColumnType.INT32).build());
-        columns.add(SchemaBuilders.column("BOOLVAL", ColumnType.INT8).asNullable(true).build());
-        columns.add(SchemaBuilders.column("BYTEVAL", ColumnType.INT8).asNullable(true).build());
-        columns.add(SchemaBuilders.column("SHORTVAL", ColumnType.INT16).asNullable(true).build());
-        columns.add(SchemaBuilders.column("INTVAL", ColumnType.INT32).asNullable(true).build());
-        columns.add(SchemaBuilders.column("LONGVAL", ColumnType.INT64).asNullable(true).build());
-        columns.add(SchemaBuilders.column("FLOATVAL", ColumnType.FLOAT).asNullable(true).build());
-        columns.add(SchemaBuilders.column("DOUBLEVAL", ColumnType.DOUBLE).asNullable(true).build());
-        columns.add(SchemaBuilders.column("BIGVAL", ColumnType.decimal()).asNullable(true).build());
-        columns.add(SchemaBuilders.column("STRVAL", ColumnType.string()).asNullable(true).build());
-        columns.add(SchemaBuilders.column("ARRVAL", ColumnType.blob()).asNullable(true).build());
-        columns.add(SchemaBuilders.column("DATEVAL", ColumnType.DATE).asNullable(true).build());
-        columns.add(SchemaBuilders.column("TIMEVAL", ColumnType.TemporalColumnType.time()).asNullable(true).build());
-        columns.add(SchemaBuilders.column("TSVAL", ColumnType.TemporalColumnType.timestamp()).asNullable(true).build());
-        columns.add(SchemaBuilders.column("URLVAL", ColumnType.blob()).asNullable(true).build());
-
-        TableDefinition personTableDef = SchemaBuilders.tableBuilder("PUBLIC", "TEST")
-                .columns(columns)
-                .withPrimaryKey("ID")
-                .build();
-
-        ignite.tables().createTable(personTableDef.canonicalName(), (tableChange) ->
-                SchemaConfigurationConverter.convert(personTableDef, tableChange).changeReplicas(1).changePartitions(10)
-        );
-
-        RecordView<Tuple> tupleRecordView = ignite.tables().table("PUBLIC.TEST").recordView();
-
-        Tuple tuple = Tuple.create();
-
-        tuple.set("BOOLVAL", (byte) 1).set("BYTEVAL", (byte) 1).set("SHORTVAL", (short) 1)
-            .set("INTVAL", 1).set("LONGVAL", 1L).set("FLOATVAL", 1.0f).set("DOUBLEVAL", 1.0d)
-            .set("BIGVAL", new BigDecimal("1")).set("STRVAL", "1")
-            .set("DATEVAL", LocalDate.parse("1901-02-01"))
-            .set("TIMEVAL", LocalTime.parse("01:01:01"))
-            .set("TSVAL", Instant.ofEpochMilli(1));
-
-        tupleRecordView.insert(null, tuple.set("ID", 1));
-        tupleRecordView.insert(null, tuple.set("ID", 2));
+            stmt.executeUpdate("INSERT INTO test ("
+                    + "id, boolval, byteval, shortval, intval, longval, floatval, doubleval, bigint, strval, dateval, timeval, tsval)"
+                    + " VALUES (1, 1, 1, 1, 1, 1, 1.0, 1.0, 1, '1', date '1901-02-01', time '01:01:01', timestamp '1970-01-01 00:00:01')");
+            stmt.executeUpdate("INSERT INTO test ("
+                    + "id, boolval, byteval, shortval, intval, longval, floatval, doubleval, bigint, strval, dateval, timeval, tsval)"
+                    + " VALUES (2, 1, 1, 1, 1, 1, 1.0, 1.0, 1, '1', date '1901-02-01', time '01:01:01', timestamp '1970-01-01 00:00:01')");
+        }
     }
 
     @Test

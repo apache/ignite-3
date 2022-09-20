@@ -19,4 +19,4 @@
  * Contains index definition interfaces.
  */
 
-package org.apache.ignite.schema.definition.index;
+package org.apache.ignite.internal.schema.testutils.definition.index;

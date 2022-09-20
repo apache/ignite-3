@@ -15,38 +15,37 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.schema.definition;
+package org.apache.ignite.internal.schema.testutils.definition;
+
+import org.apache.ignite.internal.tostring.S;
 
 /**
- * Table column descriptor.
+ * Schema object base class.
  */
-public interface ColumnDefinition {
-    /**
-     * Returns column name.
-     *
-     * @return Column name.
-     */
-    String name();
+public abstract class AbstractSchemaObject implements SchemaObject {
+    /** Schema object name. */
+    private final String name;
 
     /**
-     * Returns column type.
+     * Constructor.
      *
-     * @return Column type.
+     * @param name Schema object name.
      */
-    ColumnType type();
+    protected AbstractSchemaObject(String name) {
+        this.name = name;
+    }
 
-    /**
-     * Returns {@code Nullable} flag value.
-     *
-     * @return {@code True} if null-values is allowed, {@code false} otherwise.
-     */
-    boolean nullable();
+    /** {@inheritDoc} */
+    @Override
+    public String name() {
+        return name;
+    }
 
-    /**
-     * Returns default value definition.
-     *
-     * @param <T> Desired subtype of the definition.
-     * @return Default value definition.
-     */
-    <T extends DefaultValueDefinition> T defaultValueDefinition();
+    /** {@inheritDoc} */
+    @Override
+    public String toString() {
+        return S.toString("SchemaObject",
+                "name", name,
+                "class", getClass().getName());
+    }
 }

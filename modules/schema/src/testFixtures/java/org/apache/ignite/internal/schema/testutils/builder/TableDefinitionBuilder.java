@@ -19,9 +19,9 @@ package org.apache.ignite.internal.schema.testutils.builder;
 
 import java.util.List;
 import java.util.Map;
-import org.apache.ignite.schema.definition.ColumnDefinition;
-import org.apache.ignite.schema.definition.PrimaryKeyDefinition;
-import org.apache.ignite.schema.definition.TableDefinition;
+import org.apache.ignite.internal.schema.testutils.definition.ColumnDefinition;
+import org.apache.ignite.internal.schema.testutils.definition.PrimaryKeyDefinition;
+import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
 
 /**
  * Table definition builder.
@@ -67,5 +67,6 @@ public interface TableDefinitionBuilder extends SchemaObjectBuilder {
      *
      * @return Table definition.
      */
-    @Override TableDefinition build();
+    @Override
+    TableDefinition build();
 }

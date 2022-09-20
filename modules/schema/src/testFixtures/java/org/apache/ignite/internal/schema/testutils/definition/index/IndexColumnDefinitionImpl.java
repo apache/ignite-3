@@ -15,29 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.schema.definition;
+package org.apache.ignite.internal.schema.testutils.definition.index;
 
-import java.util.List;
-import java.util.Set;
+import org.apache.ignite.internal.schema.testutils.definition.AbstractSchemaObject;
+import org.apache.ignite.internal.tostring.S;
 
 /**
- * Primary key constraint.
+ * Non-ordered index column.
  */
-public interface PrimaryKeyDefinition extends SchemaObject {
-    /** Default primary key name. */
-    String PRIMARY_KEY_NAME = "PK";
-
+public class IndexColumnDefinitionImpl extends AbstractSchemaObject implements IndexColumnDefinition {
     /**
-     * Returns key columns.
+     * Constructor.
      *
-     * @return Key columns.
+     * @param name Column name.
      */
-    Set<String> columns();
+    IndexColumnDefinitionImpl(String name) {
+        super(name);
+    }
 
-    /**
-     * Returns colocation columns.
-     *
-     * @return Colocation columns.
-     */
-    List<String> colocationColumns();
+    /** {@inheritDoc} */
+    @Override
+    public String toString() {
+        return S.toString(IndexColumnDefinitionImpl.class.getSimpleName(), "name", name());
+    }
 }

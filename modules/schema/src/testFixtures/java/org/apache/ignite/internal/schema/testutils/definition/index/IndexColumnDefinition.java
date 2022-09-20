@@ -15,28 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.definition.index;
-
-import org.apache.ignite.internal.schema.definition.AbstractSchemaObject;
-import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.schema.definition.index.IndexColumnDefinition;
+package org.apache.ignite.internal.schema.testutils.definition.index;
 
 /**
- * Non-ordered index column.
+ * Index column descriptor.
  */
-class IndexColumnDefinitionImpl extends AbstractSchemaObject implements IndexColumnDefinition {
+public interface IndexColumnDefinition {
     /**
-     * Constructor.
+     * Returns column name.
      *
-     * @param name Column name.
+     * @return Column name.
      */
-    IndexColumnDefinitionImpl(String name) {
-        super(name);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public String toString() {
-        return S.toString(IndexColumnDefinitionImpl.class.getSimpleName(), "name", name());
-    }
+    String name();
 }

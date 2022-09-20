@@ -15,25 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.definition;
+package org.apache.ignite.internal.schema.testutils.definition.index;
 
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.schema.definition.SchemaObject;
 
 /**
- * Schema object base class.
+ * Ordered index column.
  */
-public abstract class AbstractSchemaObject implements SchemaObject {
+public class SortedIndexColumnDefinitionImpl implements SortedIndexColumnDefinition {
     /** Schema object name. */
     private final String name;
+
+    /** Sort order. */
+    private final SortOrder sortOrder;
 
     /**
      * Constructor.
      *
-     * @param name Schema object name.
+     * @param name Column name.
+     * @param sortOrder Sort order flag.
      */
-    protected AbstractSchemaObject(String name) {
+    public SortedIndexColumnDefinitionImpl(String name, SortOrder sortOrder) {
         this.name = name;
+        this.sortOrder = sortOrder;
     }
 
     /** {@inheritDoc} */
@@ -44,9 +48,13 @@ public abstract class AbstractSchemaObject implements SchemaObject {
 
     /** {@inheritDoc} */
     @Override
+    public SortOrder sortOrder() {
+        return sortOrder;
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public String toString() {
-        return S.toString("SchemaObject",
-                "name", name,
-                "class", getClass().getName());
+        return S.toString(SortedIndexColumnDefinitionImpl.class, this);
     }
 }

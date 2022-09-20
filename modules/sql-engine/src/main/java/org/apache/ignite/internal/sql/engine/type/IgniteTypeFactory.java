@@ -44,7 +44,8 @@ import org.apache.calcite.sql.SqlUtil;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.BasicSqlType;
 import org.apache.calcite.sql.type.IntervalSqlType;
-import org.apache.ignite.schema.definition.ColumnType;
+import org.apache.ignite.internal.schema.NativeType;
+import org.apache.ignite.internal.schema.NativeTypes;
 
 /**
  * Ignite type factory.
@@ -166,7 +167,7 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
      * @param relType Rel type.
      * @return ColumnType type or null.
      */
-    public static ColumnType relDataTypeToColumnType(RelDataType relType) {
+    public static NativeType relDataTypeToNative(RelDataType relType) {
         assert relType instanceof BasicSqlType
                 || relType instanceof IntervalSqlType : "Not supported.";
 
@@ -175,34 +176,34 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
                 //TODO: https://issues.apache.org/jira/browse/IGNITE-17298
                 throw new IllegalArgumentException("Type is not supported yet.");
             case TINYINT:
-                return ColumnType.INT8;
+                return NativeTypes.INT8;
             case SMALLINT:
-                return ColumnType.INT16;
+                return NativeTypes.INT16;
             case INTEGER:
-                return ColumnType.INT32;
+                return NativeTypes.INT32;
             case BIGINT:
-                return ColumnType.INT64;
+                return NativeTypes.INT64;
             case DECIMAL:
                 assert relType.getPrecision() != PRECISION_NOT_SPECIFIED;
 
-                return ColumnType.decimalOf(relType.getPrecision(), relType.getScale());
+                return NativeTypes.decimalOf(relType.getPrecision(), relType.getScale());
             case FLOAT:
             case REAL:
-                return ColumnType.FLOAT;
+                return NativeTypes.FLOAT;
             case DOUBLE:
-                return ColumnType.DOUBLE;
+                return NativeTypes.DOUBLE;
             case DATE:
-                return ColumnType.DATE;
+                return NativeTypes.DATE;
             case TIME:
             case TIME_WITH_LOCAL_TIME_ZONE:
-                return relType.getPrecision() == PRECISION_NOT_SPECIFIED ? ColumnType.time() :
-                        ColumnType.time(relType.getPrecision());
+                return relType.getPrecision() == PRECISION_NOT_SPECIFIED ? NativeTypes.time() :
+                        NativeTypes.time(relType.getPrecision());
             case TIMESTAMP:
-                return relType.getPrecision() == PRECISION_NOT_SPECIFIED ? ColumnType.datetime() :
-                        ColumnType.datetime(relType.getPrecision());
+                return relType.getPrecision() == PRECISION_NOT_SPECIFIED ? NativeTypes.datetime() :
+                        NativeTypes.datetime(relType.getPrecision());
             case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
-                return relType.getPrecision() == PRECISION_NOT_SPECIFIED ? ColumnType.timestamp() :
-                        ColumnType.timestamp(relType.getPrecision());
+                return relType.getPrecision() == PRECISION_NOT_SPECIFIED ? NativeTypes.timestamp() :
+                        NativeTypes.timestamp(relType.getPrecision());
             case INTERVAL_YEAR:
             case INTERVAL_YEAR_MONTH:
             case INTERVAL_MONTH:
@@ -222,12 +223,10 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
                 throw new IllegalArgumentException("Type is not supported yet.");
             case VARCHAR:
             case CHAR:
-                return relType.getPrecision() == PRECISION_NOT_SPECIFIED ? ColumnType.string() :
-                        ColumnType.stringOf(relType.getPrecision());
+                return NativeTypes.stringOf(relType.getPrecision());
             case BINARY:
             case VARBINARY:
-                return relType.getPrecision() == PRECISION_NOT_SPECIFIED ? ColumnType.blob() :
-                        ColumnType.blobOf(relType.getPrecision());
+                return NativeTypes.blobOf(relType.getPrecision());
             default:
                 throw new IllegalArgumentException("Type is not supported.");
         }

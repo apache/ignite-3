@@ -38,7 +38,7 @@ public class ColumnTypeValidatorImpl implements Validator<ColumnTypeValidator, C
         ColumnTypeView oldType = ctx.getOldValue();
 
         try {
-            SchemaConfigurationConverter.convert(newType);
+            ConfigurationToSchemaDescriptorConverter.convert(newType);
         } catch (IllegalArgumentException ex) {
             ctx.addIssue(new ValidationIssue(ctx.currentKey(), ctx.currentKey() + ": " + ex.getMessage()));
 

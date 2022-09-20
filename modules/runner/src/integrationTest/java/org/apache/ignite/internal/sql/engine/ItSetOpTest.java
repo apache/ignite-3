@@ -21,13 +21,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.function.Predicate;
 import java.util.stream.StreamSupport;
-import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
-import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
-import org.apache.ignite.schema.definition.ColumnType;
-import org.apache.ignite.schema.definition.TableDefinition;
-import org.apache.ignite.table.RecordView;
-import org.apache.ignite.table.Table;
-import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -41,11 +34,11 @@ public class ItSetOpTest extends AbstractBasicIntegrationTest {
      */
     @BeforeAll
     static void initTestData() {
-        Table emp1 = createTable("EMP1");
-        Table emp2 = createTable("EMP2");
+        createTable("EMP1");
+        createTable("EMP2");
 
         int idx = 0;
-        insertData(emp1, new String[]{"ID", "NAME", "SALARY"}, new Object[][]{
+        insertData("EMP1", new String[]{"ID", "NAME", "SALARY"}, new Object[][]{
                 {idx++, "Igor", 10d},
                 {idx++, "Igor", 11d},
                 {idx++, "Igor", 12d},
@@ -56,7 +49,7 @@ public class ItSetOpTest extends AbstractBasicIntegrationTest {
         });
 
         idx = 0;
-        insertData(emp2, new String[]{"ID", "NAME", "SALARY"}, new Object[][]{
+        insertData("EMP2", new String[]{"ID", "NAME", "SALARY"}, new Object[][]{
                 {idx++, "Roman", 10d},
                 {idx++, "Roman", 11d},
                 {idx++, "Roman", 12d},
@@ -112,46 +105,19 @@ public class ItSetOpTest extends AbstractBasicIntegrationTest {
     @Test
     @Disabled
     public void testSetOpBigBatch() {
-        TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "BIG_TABLE1")
-                .columns(
-                        SchemaBuilders.column("KEY", ColumnType.INT32).build(),
-                        SchemaBuilders.column("VAL", ColumnType.INT32).asNullable(true).build()
-                )
-                .withPrimaryKey("KEY")
-                .build();
-
-        Table tbl1 = CLUSTER_NODES.get(0).tables().createTable(schTbl1.canonicalName(), tblCh ->
-                SchemaConfigurationConverter.convert(schTbl1, tblCh)
-                        .changeReplicas(2)
-                        .changePartitions(10)
-        );
-
-        TableDefinition schTbl2 = SchemaBuilders.tableBuilder("PUBLIC", "BIG_TABLE2")
-                .columns(
-                        SchemaBuilders.column("KEY", ColumnType.INT32).build(),
-                        SchemaBuilders.column("VAL", ColumnType.INT32).asNullable(true).build()
-                )
-                .withPrimaryKey("KEY")
-                .build();
-
-        Table tbl2 = CLUSTER_NODES.get(0).tables().createTable(schTbl2.canonicalName(), tblCh ->
-                SchemaConfigurationConverter.convert(schTbl2, tblCh)
-                        .changeReplicas(2)
-                        .changePartitions(10)
-        );
+        sql("CREATE TABLE big_table1(key INT PRIMARY KEY, val INT)");
+        sql("CREATE TABLE big_table2(key INT PRIMARY KEY, val INT)");
 
         int key = 0;
 
-        RecordView<Tuple> recordView1 = tbl1.recordView();
-        RecordView<Tuple> recordView2 = tbl2.recordView();
         for (int i = 0; i < 5; i++) {
             for (int j = 0; j < ((i == 0) ? 1 : (1 << (i * 4 - 1))); j++) {
                 // Cache1 keys count: 1 of "0", 8 of "1", 128 of "2", 2048 of "3", 32768 of "4".
-                recordView1.insert(null, Tuple.create().set("KEY", key++).set("VAL", i));
+                sql("INSERT INTO big_table1 VALUES (?, ?)", key++, i);
 
                 // Cache2 keys count: 1 of "5", 128 of "3", 32768 of "1".
                 if ((i & 1) == 0) {
-                    recordView2.insert(null, Tuple.create().set("KEY", key++).set("VAL", 5 - i));
+                    sql("INSERT INTO big_table2 VALUES (?, ?)", key++, 5 - i);
                 }
             }
         }
@@ -262,21 +228,8 @@ public class ItSetOpTest extends AbstractBasicIntegrationTest {
         assertEquals(3, rows.size());
     }
 
-    private static Table createTable(String tableName) {
-        TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", tableName)
-                .columns(
-                        SchemaBuilders.column("ID", ColumnType.INT32).build(),
-                        SchemaBuilders.column("NAME", ColumnType.string()).asNullable(true).build(),
-                        SchemaBuilders.column("SALARY", ColumnType.DOUBLE).asNullable(true).build()
-                )
-                .withPrimaryKey("ID")
-                .build();
-
-        return CLUSTER_NODES.get(0).tables().createTable(schTbl1.canonicalName(), tblCh ->
-                SchemaConfigurationConverter.convert(schTbl1, tblCh)
-                        .changeReplicas(2)
-                        .changePartitions(10)
-        );
+    private static void createTable(String tableName) {
+        sql("CREATE TABLE " + tableName + "(id INT PRIMARY KEY, name VARCHAR, salary DOUBLE");
     }
 
     private <T> long countIf(Iterable<T> it, Predicate<T> pred) {

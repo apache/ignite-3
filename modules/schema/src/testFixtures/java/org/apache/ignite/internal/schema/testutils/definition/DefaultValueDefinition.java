@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.schema.definition;
+package org.apache.ignite.internal.schema.testutils.definition;
 
 import java.util.Objects;
 

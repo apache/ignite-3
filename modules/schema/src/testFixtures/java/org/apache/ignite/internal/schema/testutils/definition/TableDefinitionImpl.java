@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.definition;
+package org.apache.ignite.internal.schema.testutils.definition;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -23,9 +23,6 @@ import java.util.List;
 import java.util.Set;
 import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.schema.definition.ColumnDefinition;
-import org.apache.ignite.schema.definition.PrimaryKeyDefinition;
-import org.apache.ignite.schema.definition.TableDefinition;
 
 /**
  * Table.

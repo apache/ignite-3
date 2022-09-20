@@ -15,25 +15,37 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.schema.definition.index;
-
-import java.util.List;
+package org.apache.ignite.internal.schema.testutils.definition;
 
 /**
- * Sorted index descriptor.
+ * Schema object.
  */
-public interface SortedIndexDefinition extends ColumnarIndexDefinition {
-    /** {@inheritDoc} */
-    @Override
-    List<SortedIndexColumnDefinition> columns();
+public interface SchemaObject {
+    /** Default schema name. */
+    String DEFAULT_DATABASE_SCHEMA_NAME = "PUBLIC";
 
-    /** {@inheritDoc} */
-    @Override
-    List<SortedIndexColumnDefinition> indexedColumns();
+    /**
+     * Returns name of schema object.
+     *
+     * @return Object name.
+     */
+    String name();
 
-    /** {@inheritDoc} */
-    @Override
-    default String type() {
-        return "SORTED";
+    /**
+     * Returns database schema name this object belongs to.
+     *
+     * @return Database schema name.
+     */
+    default String schemaName() {
+        return DEFAULT_DATABASE_SCHEMA_NAME;
+    }
+
+    /**
+     * Returns object`s canonical name.
+     *
+     * @return Canonical name.
+     */
+    default String canonicalName() {
+        return schemaName() + '.' + name();
     }
 }

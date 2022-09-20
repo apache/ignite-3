@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.schema.definition.index;
+package org.apache.ignite.internal.schema.testutils.definition.index;
 
 import java.util.List;
 
@@ -31,11 +31,12 @@ public interface ColumnarIndexDefinition extends IndexDefinition {
     List<? extends IndexColumnDefinition> columns();
 
     /**
-     * Returns all index columns: user defined + implicitly attached.
+     * Returns all index columns: user defined + implicitly attched.
      *
      * @return Indexed columns.
      */
     default List<? extends IndexColumnDefinition> indexedColumns() {
         return columns();
     }
+
 }
