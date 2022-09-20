@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -136,7 +136,7 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
         assertEquals("foo", res.zstring);
         assertArrayEquals(new byte[]{1, 2}, res.zbytes);
         assertEquals(BitSet.valueOf(new byte[]{32}), res.zbitmask);
-        assertEquals(21, res.zdecimal.unscaledValue().longValue()); // TODO: IGNITE-17632 check correct round-trip
+        assertEquals(21, res.zdecimal.longValue());
         assertEquals(22, res.znumber.longValue());
         assertEquals(uuid, res.zuuid);
     }
@@ -189,7 +189,7 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
         assertEquals("119", res.stringValue("zstring"));
         assertEquals(120, ((byte[]) res.value("zbytes"))[0]);
         assertEquals(BitSet.valueOf(new byte[]{121}), res.bitmaskValue("zbitmask"));
-        assertEquals(122, ((BigDecimal) res.value("zdecimal")).unscaledValue().longValue());
+        assertEquals(122, ((BigDecimal) res.value("zdecimal")).longValue());
         assertEquals(BigInteger.valueOf(123), res.value("znumber"));
         assertEquals(uuid, res.uuidValue("zuuid"));
     }

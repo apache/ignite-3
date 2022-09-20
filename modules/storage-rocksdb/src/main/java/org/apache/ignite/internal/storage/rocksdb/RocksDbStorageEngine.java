@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -31,6 +31,7 @@ import org.apache.ignite.configuration.notifications.ConfigurationNamedListListe
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableView;
+import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.storage.StorageException;
@@ -137,6 +138,8 @@ public class RocksDbStorageEngine implements StorageEngine {
     public void stop() throws StorageException {
         IgniteUtils.shutdownAndAwaitTermination(threadPool, 10, TimeUnit.SECONDS);
 
+        IgniteUtils.shutdownAndAwaitTermination(scheduledPool, 10, TimeUnit.SECONDS);
+
         try {
             IgniteUtils.closeAll(regions.values().stream().map(region -> region::stop));
         } catch (Exception e) {
@@ -146,7 +149,7 @@ public class RocksDbStorageEngine implements StorageEngine {
 
     /** {@inheritDoc} */
     @Override
-    public RocksDbTableStorage createMvTable(TableConfiguration tableCfg) throws StorageException {
+    public RocksDbTableStorage createMvTable(TableConfiguration tableCfg, TablesConfiguration tablesCfg) throws StorageException {
         TableView tableView = tableCfg.value();
 
         assert tableView.dataStorage().name().equals(ENGINE_NAME) : tableView.dataStorage().name();
@@ -163,6 +166,6 @@ public class RocksDbStorageEngine implements StorageEngine {
             throw new StorageException("Failed to create table store directory for " + tableView.name() + ": " + e.getMessage(), e);
         }
 
-        return new RocksDbTableStorage(this, tablePath, tableCfg, dataRegion);
+        return new RocksDbTableStorage(this, tablePath, tableCfg, dataRegion, tablesCfg);
     }
 }

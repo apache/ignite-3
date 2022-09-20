@@ -4,7 +4,7 @@
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,12 +17,15 @@
 
 package org.apache.ignite.internal.storage.pagememory.index;
 
+import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.EntryCountBudgetConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
+import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -62,6 +65,18 @@ class VolatilePageMemoryHashIndexStorageTest extends AbstractHashIndexStorageTes
     )
     private TableConfiguration tableCfg;
 
+    @InjectConfiguration(polymorphicExtensions = {
+            HashIndexConfigurationSchema.class,
+            SortedIndexConfigurationSchema.class,
+            UnknownDataStorageConfigurationSchema.class,
+            ConstantValueDefaultConfigurationSchema.class,
+            FunctionCallDefaultConfigurationSchema.class,
+            NullValueDefaultConfigurationSchema.class,
+            UnlimitedBudgetConfigurationSchema.class,
+            EntryCountBudgetConfigurationSchema.class
+    })
+    TablesConfiguration tablesConfig;
+
     private VolatilePageMemoryStorageEngine engine;
 
     private VolatilePageMemoryTableStorage table;
@@ -76,11 +91,11 @@ class VolatilePageMemoryHashIndexStorageTest extends AbstractHashIndexStorageTes
 
         engine.start();
 
-        table = engine.createMvTable(tableCfg);
+        table = engine.createMvTable(tableCfg, tablesConfig);
 
         table.start();
 
-        initialize(table);
+        initialize(table, tablesConfig);
     }
 
     @AfterEach

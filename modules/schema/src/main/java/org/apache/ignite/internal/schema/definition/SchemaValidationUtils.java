@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,11 +17,18 @@
 
 package org.apache.ignite.internal.schema.definition;
 
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
+import org.apache.ignite.configuration.schemas.table.HashIndexView;
+import org.apache.ignite.configuration.schemas.table.SortedIndexView;
+import org.apache.ignite.configuration.schemas.table.TableIndexView;
+import org.apache.ignite.internal.util.CollectionUtils;
+import org.apache.ignite.lang.ErrorGroups;
+import org.apache.ignite.lang.ErrorGroups.Table;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.schema.definition.ColumnDefinition;
 import org.apache.ignite.schema.definition.index.ColumnarIndexDefinition;
 import org.apache.ignite.schema.definition.index.IndexColumnDefinition;
@@ -47,30 +54,62 @@ public class SchemaValidationUtils {
     }
 
     /**
-     * Validate indices.
+     * Validate indexes.
      *
-     * @param indices Table indices.
-     * @param cols Table columns.
+     * @param index Table index.
+     * @param colNames Table column names.
      * @param colocationColNames Colocation columns names.
      */
-    public static void validateIndices(
-            Collection<IndexDefinition> indices,
-            Collection<ColumnDefinition> cols,
+    public static void validateIndexes(
+            IndexDefinition index,
+            Collection<String> colNames,
             List<String> colocationColNames) {
-        Set<String> colNames = cols.stream().map(ColumnDefinition::name).collect(Collectors.toSet());
+        assert index instanceof ColumnarIndexDefinition : "Only columnar indices are supported.";
+        // Note: E.g. functional index is not columnar index as it index an expression result only.
 
-        for (IndexDefinition idx : indices) {
-            assert idx instanceof ColumnarIndexDefinition : "Only columnar indices are supported.";
-            // Note: E.g. functional index is not columnar index as it index an expression result only.
+        ColumnarIndexDefinition idx0 = (ColumnarIndexDefinition) index;
 
-            ColumnarIndexDefinition idx0 = (ColumnarIndexDefinition) idx;
+        if (!idx0.columns().stream().map(IndexColumnDefinition::name).allMatch(colNames::contains)) {
+            throw new IllegalStateException("Index column must exist in the schema.");
+        }
 
-            if (!idx0.columns().stream().map(IndexColumnDefinition::name).allMatch(colNames::contains)) {
-                throw new IllegalStateException("Index column must exist in the schema.");
-            }
+        if (idx0.unique() && !(idx0.columns().stream().map(IndexColumnDefinition::name).allMatch(colocationColNames::contains))) {
+            throw new IllegalStateException("Unique index must contains all colocation columns.");
+        }
+    }
 
-            if (idx0.unique() && !(idx0.columns().stream().map(IndexColumnDefinition::name).allMatch(colocationColNames::contains))) {
-                throw new IllegalStateException("Unique index must contains all colocation columns.");
+    /**
+     * Validate index enlisted columns.
+     *
+     * @param indexView Index info.
+     * @param tableColumns Table column names.
+     */
+    public static void validateColumns(TableIndexView indexView, Set<String> tableColumns) {
+        if (indexView instanceof SortedIndexView) {
+            var sortedIndexView = (SortedIndexView) indexView;
+
+            validateColumns(sortedIndexView.columns().namedListKeys(), tableColumns);
+        } else if (indexView instanceof HashIndexView) {
+            validateColumns(Arrays.asList(((HashIndexView) indexView).columnNames()), tableColumns);
+        } else {
+            throw new AssertionError("Unknown index type [type=" + (indexView != null ? indexView.getClass() : null) + ']');
+        }
+    }
+
+    private static void validateColumns(Iterable<String> indexedColumns, Set<String> tableColumns) {
+        if (CollectionUtils.nullOrEmpty(indexedColumns)) {
+            throw new IgniteInternalException(
+                    ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
+                    "At least one column should be specified by index definition"
+            );
+        }
+
+        for (var columnName : indexedColumns) {
+            if (!tableColumns.contains(columnName)) {
+                throw new IgniteInternalException(
+                        Table.COLUMN_NOT_FOUND_ERR,
+                        "Column not found [name=" + columnName + ']'
+                );
             }
         }
     }

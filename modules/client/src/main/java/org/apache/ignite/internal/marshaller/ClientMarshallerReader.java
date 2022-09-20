@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -168,10 +168,9 @@ public class ClientMarshallerReader implements MarshallerReader {
 
     /** {@inheritDoc} */
     @Override
-    public BigDecimal readBigDecimal() {
-        // TODO IGNITE-17632: Get scale from schema.
+    public BigDecimal readBigDecimal(int scale) {
         var idx = index++;
-        return unpacker.hasNullValue(idx) ? null : unpacker.decimalValue(idx, 100);
+        return unpacker.hasNullValue(idx) ? null : unpacker.decimalValue(idx, scale);
     }
 
     /** {@inheritDoc} */

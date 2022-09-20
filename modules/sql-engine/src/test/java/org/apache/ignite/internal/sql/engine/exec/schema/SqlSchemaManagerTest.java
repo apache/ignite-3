@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -267,7 +267,7 @@ public class SqlSchemaManagerTest {
     }
 
     @Test
-    public void testIndexEventHandler() {
+    public void testIndexEventHandler() throws Exception {
         InternalTable mock = mock(InternalTable.class);
         when(mock.tableId()).thenReturn(tableId);
 
@@ -285,12 +285,12 @@ public class SqlSchemaManagerTest {
         IndexDescriptor descMock = mock(IndexDescriptor.class);
         when(descMock.columns()).thenReturn(List.of());
 
-        when(index.name()).thenReturn("I");
+        when(index.name()).thenReturn("TEST_SCHEMA.I");
         when(index.id()).thenReturn(indexId);
         when(index.tableId()).thenReturn(tableId);
         when(index.descriptor()).thenReturn(descMock);
 
-        sqlSchemaManager.onIndexCreated("TEST_SCHEMA", index, testRevisionRegister.actualToken() + 1);
+        sqlSchemaManager.onIndexCreated(index, testRevisionRegister.actualToken() + 1);
         testRevisionRegister.moveForward();
 
         IgniteSchema schema = sqlSchemaManager.schema("TEST_SCHEMA").unwrap(IgniteSchema.class);
@@ -302,7 +302,7 @@ public class SqlSchemaManagerTest {
         IgniteTableImpl igniteTable = assertInstanceOf(IgniteTableImpl.class, schemaTable);
 
         assertEquals(igniteTable.id(), igniteIndex.index().tableId());
-        assertSame(igniteIndex, igniteTable.indexes().get("I"));
+        assertSame(igniteIndex, igniteTable.indexes().get("TEST_SCHEMA.I"));
 
         sqlSchemaManager.onIndexDropped("TEST_SCHEMA", indexId, testRevisionRegister.actualToken() + 1);
         testRevisionRegister.moveForward();
@@ -314,7 +314,7 @@ public class SqlSchemaManagerTest {
 
 
     @Test
-    public void testIndexEventsProcessed() {
+    public void testIndexEventsProcessed() throws Exception {
         InternalTable mock = mock(InternalTable.class);
         when(mock.tableId()).thenReturn(tableId);
 
@@ -330,7 +330,9 @@ public class SqlSchemaManagerTest {
         IndexDescriptor descMock = mock(IndexDescriptor.class);
         when(descMock.columns()).thenReturn(List.of());
 
-        when(index.name()).thenReturn("I");
+        String idxName = "TEST_SCHEMA.I";
+
+        when(index.name()).thenReturn(idxName);
         when(index.id()).thenReturn(indexId);
         when(index.tableId()).thenReturn(tableId);
         when(index.descriptor()).thenReturn(descMock);
@@ -338,7 +340,7 @@ public class SqlSchemaManagerTest {
         {
             SchemaPlus schema1 = sqlSchemaManager.schema("TEST_SCHEMA");
 
-            sqlSchemaManager.onIndexCreated("TEST_SCHEMA", index, testRevisionRegister.actualToken() + 1);
+            sqlSchemaManager.onIndexCreated(index, testRevisionRegister.actualToken() + 1);
             testRevisionRegister.moveForward();
 
             SchemaPlus schema2 = sqlSchemaManager.schema("TEST_SCHEMA");
@@ -350,8 +352,8 @@ public class SqlSchemaManagerTest {
             assertNull(schema1.unwrap(IgniteSchema.class).index(indexId));
             assertNotNull(schema2.unwrap(IgniteSchema.class).index(indexId));
 
-            assertNull(((InternalIgniteTable) schema1.getTable("T")).getIndex("I"));
-            assertNotNull(((InternalIgniteTable) schema2.getTable("T")).getIndex("I"));
+            assertNull(((InternalIgniteTable) schema1.getTable("T")).getIndex(idxName));
+            assertNotNull(((InternalIgniteTable) schema2.getTable("T")).getIndex(idxName));
         }
         {
             sqlSchemaManager.onIndexDropped("TEST_SCHEMA", indexId, testRevisionRegister.actualToken() + 1);
@@ -367,8 +369,8 @@ public class SqlSchemaManagerTest {
             assertNotNull(schema1.unwrap(IgniteSchema.class).index(indexId));
             assertNull(schema2.unwrap(IgniteSchema.class).index(indexId));
 
-            assertNull(((InternalIgniteTable) schema2.getTable("T")).getIndex("I"));
-            assertNotNull(((InternalIgniteTable) schema1.getTable("T")).getIndex("I"));
+            assertNull(((InternalIgniteTable) schema2.getTable("T")).getIndex(idxName));
+            assertNotNull(((InternalIgniteTable) schema1.getTable("T")).getIndex(idxName));
         }
 
         verifyNoMoreInteractions(tableManager);

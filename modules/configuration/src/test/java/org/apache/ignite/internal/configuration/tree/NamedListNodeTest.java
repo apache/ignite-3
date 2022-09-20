@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -31,6 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
@@ -134,11 +135,10 @@ public class NamedListNodeTest {
         var a = (FirstConfiguration) cgen.instantiateCfg(FirstConfiguration.KEY, changer);
 
         // Create values on several layers at the same time. They all should have <order> = 0.
-        a.second().change(b -> b.create("X", x -> x.changeThird(xb -> xb.create("Z0", z0 -> {
-        })))).get();
+        a.second().change(b -> b.create("X", x -> x.changeThird(xb -> xb.create("Z0", z0 -> {})))).get();
 
-        String x0Id = ((NamedListNode<?>) a.second().value()).internalId("X").toString();
-        String z0Id = ((NamedListNode<?>) a.second().get("X").third().value()).internalId("Z0").toString();
+        UUID x0Id = ((NamedListNode<?>) a.second().value()).internalId("X");
+        UUID z0Id = ((NamedListNode<?>) a.second().get("X").third().value()).internalId("Z0");
 
         CompletableFuture<Map<String, ? extends Serializable>> storageValues = storage.readDataOnRecovery().thenApply(Data::values);
 
@@ -160,10 +160,9 @@ public class NamedListNodeTest {
         SecondConfiguration x = a.second().get("X");
 
         // Append new key. It should have <order> = 1.
-        x.third().change(xb -> xb.create("Z5", z5 -> {
-        })).get();
+        x.third().change(xb -> xb.create("Z5", z5 -> {})).get();
 
-        String z5Id = ((NamedListNode<?>) a.second().get("X").third().value()).internalId("Z5").toString();
+        UUID z5Id = ((NamedListNode<?>) a.second().get("X").third().value()).internalId("Z5");
 
         storageValues = storage.readDataOnRecovery().thenApply(Data::values);
 
@@ -187,10 +186,9 @@ public class NamedListNodeTest {
         );
 
         // Insert new key somewhere in the middle. Index of Z5 should be updated to 2.
-        x.third().change(xb -> xb.create(1, "Z2", z2 -> {
-        })).get();
+        x.third().change(xb -> xb.create(1, "Z2", z2 -> {})).get();
 
-        String z2Id = ((NamedListNode<?>) a.second().get("X").third().value()).internalId("Z2").toString();
+        UUID z2Id = ((NamedListNode<?>) a.second().get("X").third().value()).internalId("Z2");
 
         storageValues = storage.readDataOnRecovery().thenApply(Data::values);
 
@@ -218,10 +216,9 @@ public class NamedListNodeTest {
         );
 
         // Insert new key somewhere in the middle. Indexes of Z3 and Z5 should be updated to 2 and 3.
-        x.third().change(xb -> xb.createAfter("Z2", "Z3", z3 -> {
-        })).get();
+        x.third().change(xb -> xb.createAfter("Z2", "Z3", z3 -> {})).get();
 
-        String z3Id = ((NamedListNode<?>) a.second().get("X").third().value()).internalId("Z3").toString();
+        UUID z3Id = ((NamedListNode<?>) a.second().get("X").third().value()).internalId("Z3");
 
         storageValues = storage.readDataOnRecovery().thenApply(Data::values);
 

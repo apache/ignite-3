@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -241,7 +241,7 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
                         new Column("zbytes".toUpperCase(), NativeTypes.BYTES, true),
                         new Column("zuuid".toUpperCase(), NativeTypes.UUID, true),
                         new Column("zbitmask".toUpperCase(), NativeTypes.bitmaskOf(16), true),
-                        new Column("zdecimal".toUpperCase(), NativeTypes.decimalOf(20, 100), true),
+                        new Column("zdecimal".toUpperCase(), NativeTypes.decimalOf(20, 10), true),
                         new Column("znumber".toUpperCase(), NativeTypes.numberOf(24), true),
                 });
     }

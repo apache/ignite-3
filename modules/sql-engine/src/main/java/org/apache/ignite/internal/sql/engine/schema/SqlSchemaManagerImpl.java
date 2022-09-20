@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.schema;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.schema.SchemaUtils.extractSchema;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
@@ -383,12 +384,11 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     /**
      * Index created callback method register index in Calcite schema.
      *
-     * @param schemaName Schema name.
      * @param index Index instance.
      * @param causalityToken Causality token.
      * @return Schema registration future.
      */
-    public synchronized CompletableFuture<?> onIndexCreated(String schemaName, Index<?> index, long causalityToken) {
+    public synchronized CompletableFuture<?> onIndexCreated(Index<?> index, long causalityToken) {
         if (!busyLock.enterBusy()) {
             return failedFuture(new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException()));
         }
@@ -397,6 +397,8 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                 if (e != null) {
                     return failedFuture(e);
                 }
+
+                String schemaName = extractSchema(index.name());
 
                 Map<String, IgniteSchema> res = new HashMap<>(schemas);
 

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -238,7 +238,7 @@ public class ConfigurationFlattener {
                             resMap.put(idKey(namedListFullKey, oldNodeKey), null);
                         } else {
                             // Creation as a part of outer named list's new element.
-                            resMap.put(idKey(namedListFullKey, newNodeKey), newNodeInternalId.toString());
+                            resMap.put(idKey(namedListFullKey, newNodeKey), newNodeInternalId);
                         }
                     } else {
                         // Regular deletion.
@@ -246,13 +246,13 @@ public class ConfigurationFlattener {
                             resMap.put(idKey(namedListFullKey, oldNodeKey), null);
                         } else if (oldNamedElement == null) {
                             // Regular creation.
-                            resMap.put(idKey(namedListFullKey, newNodeKey), newNodeInternalId.toString());
+                            resMap.put(idKey(namedListFullKey, newNodeKey), newNodeInternalId);
                         } else if (!oldNodeKey.equals(newNodeKey)) {
                             // Rename. Old value is nullified.
                             resMap.put(idKey(namedListFullKey, oldNodeKey), null);
 
                             // And new value is initialized.
-                            resMap.put(idKey(namedListFullKey, newNodeKey), newNodeInternalId.toString());
+                            resMap.put(idKey(namedListFullKey, newNodeKey), newNodeInternalId);
                         }
                     }
 

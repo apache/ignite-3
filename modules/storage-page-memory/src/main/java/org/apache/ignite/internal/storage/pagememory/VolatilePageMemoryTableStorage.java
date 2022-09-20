@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableView;
+import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
@@ -41,8 +42,12 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
      * @param tableCfg – Table configuration.
      * @param dataRegion – Data region for the table.
      */
-    public VolatilePageMemoryTableStorage(TableConfiguration tableCfg, VolatilePageMemoryDataRegion dataRegion) {
-        super(tableCfg);
+    public VolatilePageMemoryTableStorage(
+            TableConfiguration tableCfg,
+            TablesConfiguration tablesCfg,
+            VolatilePageMemoryDataRegion dataRegion
+    ) {
+        super(tableCfg, tablesCfg);
 
         this.dataRegion = dataRegion;
     }
@@ -61,6 +66,7 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
 
         return new VolatilePageMemoryMvPartitionStorage(
                 this,
+                tablesConfiguration,
                 partitionId,
                 versionChainTree,
                 indexMetaTree

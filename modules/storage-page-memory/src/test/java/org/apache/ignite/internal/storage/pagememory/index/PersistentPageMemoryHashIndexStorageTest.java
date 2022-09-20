@@ -4,7 +4,7 @@
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,17 +18,21 @@
 package org.apache.ignite.internal.storage.pagememory.index;
 
 import java.nio.file.Path;
+import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.EntryCountBudgetConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
+import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.schema.configuration.schema.TestDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.index.AbstractHashIndexStorageTest;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryTableStorage;
@@ -68,6 +72,24 @@ class PersistentPageMemoryHashIndexStorageTest extends AbstractHashIndexStorageT
     )
     private TableConfiguration tableCfg;
 
+    @InjectConfiguration(
+            name = "tables",
+            polymorphicExtensions = {
+                    HashIndexConfigurationSchema.class,
+                    PersistentPageMemoryDataStorageConfigurationSchema.class,
+                    HashIndexConfigurationSchema.class,
+                    SortedIndexConfigurationSchema.class,
+                    UnknownDataStorageConfigurationSchema.class,
+                    TestDataStorageConfigurationSchema.class,
+                    ConstantValueDefaultConfigurationSchema.class,
+                    FunctionCallDefaultConfigurationSchema.class,
+                    NullValueDefaultConfigurationSchema.class,
+                    UnlimitedBudgetConfigurationSchema.class,
+                    EntryCountBudgetConfigurationSchema.class
+            }
+    )
+    TablesConfiguration tablesConfig;
+
     private PersistentPageMemoryStorageEngine engine;
 
     private PersistentPageMemoryTableStorage table;
@@ -82,11 +104,11 @@ class PersistentPageMemoryHashIndexStorageTest extends AbstractHashIndexStorageT
 
         engine.start();
 
-        table = engine.createMvTable(tableCfg);
+        table = engine.createMvTable(tableCfg, tablesConfig);
 
         table.start();
 
-        initialize(table);
+        initialize(table, tablesConfig);
     }
 
     @AfterEach

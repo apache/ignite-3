@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -29,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -41,11 +42,13 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.ColumnAlreadyExistsException;
 import org.apache.ignite.lang.IndexAlreadyExistsException;
@@ -54,7 +57,7 @@ import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.schema.definition.ColumnDefinition;
 import org.apache.ignite.schema.definition.ColumnType;
-import org.apache.ignite.schema.definition.index.IndexDefinition;
+import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
@@ -73,7 +76,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
     public static final String SHORT_TABLE_NAME = "tbl1";
 
     /** Table name. */
-    public static final String TABLE_NAME = SCHEMA + "." + SHORT_TABLE_NAME;
+    public static final String TABLE_NAME = SchemaUtils.canonicalName(SCHEMA, SHORT_TABLE_NAME);
 
     /** Nodes bootstrap configuration. */
     private final List<String> nodesBootstrapCfg = List.of(
@@ -253,12 +256,15 @@ public class ItTablesApiTest extends IgniteAbstractTest {
 
         createTable(ignite0, SCHEMA, SHORT_TABLE_NAME);
 
-        addIndex(ignite0, SCHEMA, SHORT_TABLE_NAME);
+        tryToCreateIndex(ignite0, SCHEMA, SHORT_TABLE_NAME, true);
 
-        assertThrows(IndexAlreadyExistsException.class,
-                () -> addIndex(ignite0, SCHEMA, SHORT_TABLE_NAME));
+        try {
+            tryToCreateIndex(ignite0, SCHEMA, SHORT_TABLE_NAME, true);
+        } catch (Throwable e) {
+            IgniteTestUtils.hasCause(e, IndexAlreadyExistsException.class, null);
+        }
 
-        addIndexIfNotExists(ignite0, SCHEMA, SHORT_TABLE_NAME);
+        tryToCreateIndex(ignite0, SCHEMA, SHORT_TABLE_NAME, false);
     }
 
     /**
@@ -280,15 +286,20 @@ public class ItTablesApiTest extends IgniteAbstractTest {
 
         ignite1Inhibitor.startInhibit();
 
-        addIndex(ignite0, SCHEMA, SHORT_TABLE_NAME);
+        tryToCreateIndex(ignite0, SCHEMA, SHORT_TABLE_NAME, true);
 
-        CompletableFuture<Void> addIndesFut = runAsync(() -> addIndex(ignite1, SCHEMA, SHORT_TABLE_NAME));
+        CompletableFuture<Void> addIndesFut = runAsync(() -> tryToCreateIndex(ignite1, SCHEMA, SHORT_TABLE_NAME, true));
         CompletableFuture<Void> addIndesIfNotExistsFut = runAsync(() -> addIndexIfNotExists(ignite1, SCHEMA, SHORT_TABLE_NAME));
 
         for (Ignite ignite : clusterNodes) {
             if (ignite != ignite1) {
-                assertThrows(IndexAlreadyExistsException.class,
-                        () -> addIndex(ignite, SCHEMA, SHORT_TABLE_NAME));
+                try {
+                    tryToCreateIndex(ignite, SCHEMA, SHORT_TABLE_NAME, true);
+
+                    fail("Should not reach here");
+                } catch (Throwable e) {
+                    IgniteTestUtils.hasCause(e, IndexAlreadyExistsException.class, null);
+                }
 
                 addIndexIfNotExists(ignite, SCHEMA, SHORT_TABLE_NAME);
             }
@@ -299,13 +310,11 @@ public class ItTablesApiTest extends IgniteAbstractTest {
 
         ignite1Inhibitor.stopInhibit();
 
-        assertThrows(IndexAlreadyExistsException.class, () -> {
-            try {
-                addIndesFut.get(10, TimeUnit.SECONDS);
-            } catch (ExecutionException e) {
-                throw e.getCause();
-            }
-        });
+        try {
+            addIndesFut.get(10, TimeUnit.SECONDS);
+        } catch (Throwable e) {
+            IgniteTestUtils.hasCause(e, IndexAlreadyExistsException.class, null);
+        }
 
         addIndesIfNotExistsFut.get(10, TimeUnit.SECONDS);
     }
@@ -574,20 +583,15 @@ public class ItTablesApiTest extends IgniteAbstractTest {
      * @param schemaName Schema name.
      * @param shortTableName Table name.
      */
-    protected void addIndex(Ignite node, String schemaName, String shortTableName) {
-        IndexDefinition idx = SchemaBuilders.hashIndex("testHI")
-                .withColumns("valInt", "valStr")
-                .build();
+    protected void tryToCreateIndex(Ignite node, String schemaName, String shortTableName, boolean failIfNotExist) {
+        String tblName = SchemaUtils.canonicalName(schemaName, shortTableName);
 
-        node.tables().alterTable(schemaName + "." + shortTableName, chng -> chng.changeIndices(idxes -> {
-            if (idxes.get(idx.name()) != null) {
-                log.info("Index already exists [naem={}]", idx.name());
+        var tmpl  = "CREATE INDEX %s testHI ON %s (valInt, valStr)";
+        var sql = String.format(tmpl, failIfNotExist ? "" : "IF NOT EXISTS", tblName);
 
-                throw new IndexAlreadyExistsException(idx.name());
-            }
-
-            idxes.create(idx.name(), tableIndexChange -> convert(idx, tableIndexChange));
-        }));
+        try (Session ses = node.sql().createSession()) {
+            ses.execute(null, sql);
+        }
     }
 
     /**
@@ -598,16 +602,10 @@ public class ItTablesApiTest extends IgniteAbstractTest {
      * @param shortTableName Table name.
      */
     protected void addIndexIfNotExists(Ignite node, String schemaName, String shortTableName) {
-        IndexDefinition idx = SchemaBuilders.hashIndex("testHI")
-                .withColumns("valInt", "valStr")
-                .build();
+        String tblName = SchemaUtils.canonicalName(schemaName, shortTableName);
 
-        node.tables().alterTable(schemaName + "." + shortTableName, chng -> chng.changeIndices(idxes -> {
-            if (idxes.get(idx.name()) == null) {
-                idxes.create(idx.name(), tableIndexChange -> convert(idx, tableIndexChange));
-            } else {
-                log.info("Index already exists [naem={}]", idx.name());
-            }
-        }));
+        try (Session ses = node.sql().createSession()) {
+            ses.execute(null, String.format("CREATE INDEX IF NOT EXISTS testHI ON %s (CAT_ID)", tblName));
+        }
     }
 }

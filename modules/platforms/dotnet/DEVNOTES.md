@@ -1,5 +1,5 @@
 ## Prerequisites
-* .NET Core 3.1 SDK
+* .NET 6 SDK
 * Java 11 SDK
 * Maven 3.6.0+ (for building)
 
@@ -24,6 +24,7 @@ then run .NET tests with `dotnet test` or `dotnet test --filter TEST_NAME`. When
 
 * Library project target `netstandard2.1`
 * Test projects target `netcoreapp3.1`
+* .NET 6 is required for source generators
 
 See [IEP-78 .NET Thin Client](https://cwiki.apache.org/confluence/display/IGNITE/IEP-78+.NET+Thin+Client) for design considerations.
 

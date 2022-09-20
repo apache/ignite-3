@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -37,6 +37,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import org.apache.calcite.tools.Frameworks;
+import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -261,6 +262,12 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
     private static RuntimeException convertDdlException(Throwable e) {
         if (e instanceof CompletionException) {
+            e = e.getCause();
+        }
+
+        if (e instanceof ConfigurationChangeException) {
+            assert e.getCause() != null;
+            // Cut off upper configuration error`s as uninformative.
             e = e.getCause();
         }
 

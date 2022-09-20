@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -19,6 +19,7 @@ package org.apache.ignite.internal.binarytuple;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.math.RoundingMode;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.CharBuffer;
@@ -326,10 +327,11 @@ public class BinaryTupleBuilder {
      * Append a value for the current element.
      *
      * @param value Element value.
+     * @param scale Decimal scale.
      * @return {@code this} for chaining.
      */
-    public BinaryTupleBuilder appendDecimalNotNull(@NotNull BigDecimal value) {
-        putBytes(value.unscaledValue().toByteArray());
+    public BinaryTupleBuilder appendDecimalNotNull(@NotNull BigDecimal value, int scale) {
+        putBytes(value.setScale(scale, RoundingMode.HALF_UP).unscaledValue().toByteArray());
         return proceed();
     }
 
@@ -337,10 +339,11 @@ public class BinaryTupleBuilder {
      * Append a value for the current element.
      *
      * @param value Element value.
+     * @param scale Decimal scale.
      * @return {@code this} for chaining.
      */
-    public BinaryTupleBuilder appendDecimal(BigDecimal value) {
-        return value == null ? appendNull() : appendDecimalNotNull(value);
+    public BinaryTupleBuilder appendDecimal(BigDecimal value, int scale) {
+        return value == null ? appendNull() : appendDecimalNotNull(value, scale);
     }
 
     /**

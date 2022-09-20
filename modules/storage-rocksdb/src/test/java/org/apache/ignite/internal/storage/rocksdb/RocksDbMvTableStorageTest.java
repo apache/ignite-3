@@ -4,7 +4,7 @@
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -32,7 +32,10 @@ import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchem
 import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
+import org.apache.ignite.configuration.schemas.table.TableIndexView;
+import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
+import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.storage.AbstractMvTableStorageTest;
@@ -71,18 +74,25 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
                     UnlimitedBudgetConfigurationSchema.class
             }
     )
-    private TableConfiguration tableCfg;
+    private TableConfiguration tableCfg0;
 
     @WorkDirectory
     private Path workDir;
 
+    private ConfigurationRegistry confRegistry;
+
     @Override
-    protected MvTableStorage tableStorage() {
+    protected void setUp() {
+        super.tableConfig = tableCfg0;
+    }
+
+    @Override
+    protected MvTableStorage tableStorage(TableIndexView sortedIdx, TableIndexView hashIdx, TablesConfiguration tablesCfg) {
         engine = new RocksDbStorageEngine(rocksDbEngineConfig, workDir);
 
         engine.start();
 
-        MvTableStorage storage = engine.createMvTable(tableCfg);
+        MvTableStorage storage = engine.createMvTable(tableConfig, tablesCfg);
 
         assertThat(storage, is(instanceOf(RocksDbTableStorage.class)));
 
@@ -146,7 +156,7 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
 
         tableStorage.stop();
 
-        tableStorage = engine.createMvTable(tableCfg);
+        tableStorage = engine.createMvTable(tableConfig, null);
 
         tableStorage.start();
 

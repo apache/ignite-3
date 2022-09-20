@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -23,7 +23,6 @@ import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
-import org.apache.ignite.internal.schema.definition.SchemaValidationUtils;
 import org.apache.ignite.internal.schema.definition.TableDefinitionImpl;
 
 /**
@@ -46,8 +45,6 @@ public class TableValidatorImpl implements Validator<TableValidator, NamedListVi
 
                 assert !tbl.keyColumns().isEmpty();
                 assert !tbl.colocationColumns().isEmpty();
-
-                SchemaValidationUtils.validateIndices(tbl.indices(), tbl.columns(), tbl.colocationColumns());
             } catch (IllegalArgumentException e) {
                 ctx.addIssue(new ValidationIssue(
                         ctx.currentKey(),

@@ -387,8 +387,8 @@ namespace Apache.Ignite.Tests
                     using var errWriter = new PooledArrayBufferWriter();
                     var w = new MessagePackWriter(errWriter);
                     w.Write(Guid.Empty);
-                    w.Write(65537);
-                    w.Write("ErrCls: ");
+                    w.Write(262147);
+                    w.Write("org.foo.bar.BazException");
                     w.Write(Err);
                     w.WriteNil(); // Stack trace.
                     w.Flush();

@@ -4,7 +4,7 @@
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -32,7 +32,8 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
-import org.apache.ignite.configuration.schemas.table.TableIndexView;
+import org.apache.ignite.configuration.schemas.table.TableIndexConfiguration;
+import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
@@ -63,13 +64,13 @@ public abstract class AbstractHashIndexStorageTest {
 
     private BinaryTupleRowSerializer serializer;
 
-    protected void initialize(MvTableStorage tableStorage) {
+    protected void initialize(MvTableStorage tableStorage, TablesConfiguration tablesCfg) {
         this.tableStorage = tableStorage;
 
         createTestTable(tableStorage.configuration());
 
         this.partitionStorage = tableStorage.getOrCreateMvPartition(TEST_PARTITION);
-        this.indexStorage = createIndex(tableStorage);
+        this.indexStorage = createIndex(tableStorage, tablesCfg);
         this.serializer = new BinaryTupleRowSerializer(indexStorage.indexDescriptor());
     }
 
@@ -85,7 +86,7 @@ public abstract class AbstractHashIndexStorageTest {
                 column(STR_COLUMN_NAME, ColumnType.string()).asNullable(true).build()
         };
 
-        TableDefinition tableDefinition = tableBuilder("test", "foo")
+        TableDefinition tableDefinition = tableBuilder("schema", "table")
                 .columns(allColumns)
                 .withPrimaryKey(pkColumn.name())
                 .build();
@@ -98,20 +99,20 @@ public abstract class AbstractHashIndexStorageTest {
     /**
      * Configures and creates a storage instance for testing.
      */
-    private static HashIndexStorage createIndex(MvTableStorage tableStorage) {
+    private static HashIndexStorage createIndex(MvTableStorage tableStorage, TablesConfiguration tablesConf) {
         HashIndexDefinition indexDefinition = SchemaBuilders.hashIndex("hashIndex")
                 .withColumns(INT_COLUMN_NAME, STR_COLUMN_NAME)
                 .build();
 
-        CompletableFuture<Void> createIndexFuture = tableStorage.configuration()
-                .change(cfg -> cfg.changeIndices(idxList ->
-                        idxList.create(indexDefinition.name(), idx -> convert(indexDefinition, idx))));
+        CompletableFuture<Void> createIndexFuture =
+                tablesConf.indexes().change(chg -> chg.create(indexDefinition.name(),
+                        idx -> convert(indexDefinition, idx)));
 
         assertThat(createIndexFuture, willCompleteSuccessfully());
 
-        TableIndexView indexConfig = tableStorage.configuration().indices().get(indexDefinition.name()).value();
+        TableIndexConfiguration indexConfig = tablesConf.indexes().get(indexDefinition.name());
 
-        return tableStorage.getOrCreateHashIndex(TEST_PARTITION, indexConfig.id());
+        return tableStorage.getOrCreateHashIndex(TEST_PARTITION, indexConfig.id().value());
     }
 
     /**
@@ -205,7 +206,7 @@ public abstract class AbstractHashIndexStorageTest {
     }
 
     @Test
-    public void testDestroy() throws Exception {
+    public void testDestroy() {
         IndexRow row1 = serializer.serializeRow(new Object[]{ 1, "foo" }, new RowId(TEST_PARTITION));
         IndexRow row2 = serializer.serializeRow(new Object[]{ 1, "foo" }, new RowId(TEST_PARTITION));
         IndexRow row3 = serializer.serializeRow(new Object[]{ 2, "bar" }, new RowId(TEST_PARTITION));
