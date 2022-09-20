@@ -116,7 +116,7 @@ public class TestServer implements AutoCloseable {
         this.nodeName = nodeName;
 
         ClusterService clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
-        Mockito.when(clusterService.topologyService().localMember().id()).thenReturn(nodeName + "-id");
+        Mockito.when(clusterService.topologyService().localMember().id()).thenReturn(getNodeId(nodeName));
         Mockito.when(clusterService.topologyService().localMember().name()).thenReturn(nodeName);
         Mockito.when(clusterService.topologyService().localMember()).thenReturn(getClusterNode(nodeName));
         Mockito.when(clusterService.topologyService().getByConsistentId(anyString())).thenAnswer(
@@ -165,6 +165,15 @@ public class TestServer implements AutoCloseable {
         return nodeName;
     }
 
+    /**
+     * Gets the node name.
+     *
+     * @return Node name.
+     */
+    public String nodeId() {
+        return getNodeId(nodeName);
+    }
+
     /** {@inheritDoc} */
     @Override
     public void close() throws Exception {
@@ -174,6 +183,10 @@ public class TestServer implements AutoCloseable {
     }
 
     private ClusterNode getClusterNode(String name) {
-        return new ClusterNode(name + "-id", name, new NetworkAddress("127.0.0.1", 8080));
+        return new ClusterNode(getNodeId(name), name, new NetworkAddress("127.0.0.1", 8080));
+    }
+
+    private static String getNodeId(String name) {
+        return name + "-id";
     }
 }

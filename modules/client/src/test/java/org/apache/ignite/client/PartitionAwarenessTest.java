@@ -80,10 +80,10 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         TableImpl tableImpl = (TableImpl) tables.createTable(DEFAULT_TABLE, tbl -> tbl.changeReplicas(1));
 
         ArrayList<String> assignments = new ArrayList<>();
-        assignments.add(testServer.nodeName());
-        assignments.add(testServer2.nodeName());
-        assignments.add(testServer.nodeName());
-        assignments.add(testServer2.nodeName());
+        assignments.add(testServer.nodeId());
+        assignments.add(testServer2.nodeId());
+        assignments.add(testServer.nodeId());
+        assignments.add(testServer2.nodeId());
 
         tables.setPartitionAssignments(tableImpl.tableId(), assignments);
 
