@@ -344,10 +344,7 @@ public class IgniteImpl implements Ignite {
                 volatileLogStorageFactoryCreator
         );
 
-        indexManager = new IndexManager(
-                distributedTblMgr,
-                tablesConfiguration
-        );
+        indexManager = new IndexManager(tablesConfiguration);
 
         qryEngine = new SqlQueryProcessor(
                 registry,
