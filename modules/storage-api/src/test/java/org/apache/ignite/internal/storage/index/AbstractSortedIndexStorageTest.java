@@ -81,7 +81,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 /**
  * Base class for Sorted Index storage tests.
  */
-@ExtendWith(ConfigurationExtension.class)
 public abstract class AbstractSortedIndexStorageTest {
     private static final IgniteLogger log = Loggers.forClass(AbstractSortedIndexStorageTest.class);
 

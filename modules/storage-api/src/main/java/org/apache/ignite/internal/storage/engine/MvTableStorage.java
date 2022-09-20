@@ -101,7 +101,7 @@ public interface MvTableStorage {
     boolean isVolatile();
 
     /**
-     * Returns the table configuration view.
+     * Returns the table configuration.
      */
     TableConfiguration configuration();
 

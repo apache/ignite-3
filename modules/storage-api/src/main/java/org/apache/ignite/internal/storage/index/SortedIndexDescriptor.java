@@ -104,6 +104,7 @@ public class SortedIndexDescriptor {
      * @param indexId index ID.
      * @param tableConfig table configuration.
      */
+    // TODO: IGNITE-17727 Fix redundant param.
     public SortedIndexDescriptor(UUID indexId, TableView tableConfig, TablesView tablesConfig) {
         TableIndexView indexConfig = ConfigurationUtil.getByInternalId(tablesConfig.indexes(), indexId);
 

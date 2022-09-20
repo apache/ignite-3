@@ -91,8 +91,11 @@ public class HashIndexDescriptor {
      * Creates an Index Descriptor from a given Table Configuration.
      *
      * @param tableConfig Table configuration.
+     * @param tablesConfig Tables and indexes configuration.
+     * @param indexId Index id.
      *
      */
+    // TODO: IGNITE-17727 Fix redundant param.
     public HashIndexDescriptor(UUID indexId, TableView tableConfig, TablesView tablesConfig) {
         TableIndexView indexConfig = ConfigurationUtil.getByInternalId(tablesConfig.indexes(), indexId);
 
