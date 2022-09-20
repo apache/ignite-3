@@ -47,7 +47,7 @@ public class TableIndexConfigurationSchema {
     @InjectedName
     public String name;
 
-    /** Table id. */
+    /** Table id the index associated with. */
     @Value
     public UUID tableId;
 
