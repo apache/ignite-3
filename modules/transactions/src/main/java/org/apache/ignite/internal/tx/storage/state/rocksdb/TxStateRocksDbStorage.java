@@ -271,9 +271,9 @@ public class TxStateRocksDbStorage implements TxStateStorage {
 
     private byte[] uuidToBytes(UUID uuid) {
         return ByteBuffer.allocate(2 * Long.BYTES).order(ByteOrder.BIG_ENDIAN)
-            .putLong(uuid.getMostSignificantBits())
-            .putLong(uuid.getLeastSignificantBits())
-            .array();
+                .putLong(uuid.getMostSignificantBits())
+                .putLong(uuid.getLeastSignificantBits())
+                .array();
     }
 
     private UUID bytesToUuid(byte[] bytes) {
