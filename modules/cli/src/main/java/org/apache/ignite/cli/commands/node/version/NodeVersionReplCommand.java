@@ -38,9 +38,6 @@ public class NodeVersionReplCommand extends BaseCommand implements Runnable {
     private NodeVersionCall nodeVersionCall;
 
     @Inject
-    private Session session;
-
-    @Inject
     private ConnectToClusterQuestion question;
 
     /** {@inheritDoc} */
