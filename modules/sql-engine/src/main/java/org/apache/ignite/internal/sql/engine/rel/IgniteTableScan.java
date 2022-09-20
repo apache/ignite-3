@@ -87,16 +87,17 @@ public class IgniteTableScan extends ProjectableFilterableTableScan implements S
             @Nullable RexNode cond,
             @Nullable ImmutableBitSet requiredColumns
     ) {
-        this(-1L, cluster, traits, tbl, hints, proj, cond, requiredColumns);
+        this(-1L, cluster, traits, hints, tbl, proj, cond, requiredColumns);
     }
 
     /**
      * Creates a TableScan.
      *
+     * @param sourceId        Source id.
      * @param cluster         Cluster that this relational expression belongs to.
      * @param traits          Traits of this relational expression.
-     * @param tbl             Table definition.
      * @param hints           Table hints.
+     * @param tbl             Table definition.
      * @param proj            Projects.
      * @param cond            Filters.
      * @param requiredColumns Participating columns.
@@ -105,8 +106,8 @@ public class IgniteTableScan extends ProjectableFilterableTableScan implements S
             long sourceId,
             RelOptCluster cluster,
             RelTraitSet traits,
-            RelOptTable tbl,
             List<RelHint> hints,
+            RelOptTable tbl,
             @Nullable List<RexNode> proj,
             @Nullable RexNode cond,
             @Nullable ImmutableBitSet requiredColumns
@@ -139,12 +140,18 @@ public class IgniteTableScan extends ProjectableFilterableTableScan implements S
     /** {@inheritDoc} */
     @Override
     public IgniteRel clone(long sourceId) {
-        return new IgniteTableScan(sourceId, getCluster(), getTraitSet(), getTable(), getHints(), projects, condition, requiredColumns);
+        return new IgniteTableScan(sourceId, getCluster(), getTraitSet(), getHints(), getTable(), projects, condition, requiredColumns);
     }
 
     /** {@inheritDoc} */
     @Override
     public IgniteRel clone(RelOptCluster cluster, List<IgniteRel> inputs) {
-        return new IgniteTableScan(sourceId, cluster, getTraitSet(), getTable(), getHints(), projects, condition, requiredColumns);
+        return new IgniteTableScan(sourceId, cluster, getTraitSet(), getHints(), getTable(), projects, condition, requiredColumns);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public IgniteTableScan withHints(List<RelHint> hintList) {
+        return new IgniteTableScan(sourceId, getCluster(), getTraitSet(), hintList, getTable(), projects, condition, requiredColumns);
     }
 }

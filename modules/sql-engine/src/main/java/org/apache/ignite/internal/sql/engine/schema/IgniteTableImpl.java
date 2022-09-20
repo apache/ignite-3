@@ -182,7 +182,7 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
         RelTraitSet traitSet = cluster.traitSetOf(distribution())
                 .replace(RewindabilityTrait.REWINDABLE);
 
-        return IgniteLogicalTableScan.create(cluster, traitSet, relOptTbl, hints, proj, cond, requiredColumns);
+        return IgniteLogicalTableScan.create(cluster, traitSet, hints, relOptTbl, proj, cond, requiredColumns);
     }
 
     /** {@inheritDoc} */

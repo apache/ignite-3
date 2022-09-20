@@ -751,7 +751,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
                 @Nullable RexNode cond,
                 @Nullable ImmutableBitSet requiredColumns
         ) {
-            return IgniteLogicalTableScan.create(cluster, cluster.traitSet(), relOptTbl, hints, proj, cond, requiredColumns);
+            return IgniteLogicalTableScan.create(cluster, cluster.traitSet(), hints, relOptTbl, proj, cond, requiredColumns);
         }
 
         /** {@inheritDoc} */

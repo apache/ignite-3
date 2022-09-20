@@ -88,8 +88,8 @@ public class LogicalOrToUnionRule extends RelRule<LogicalOrToUnionRule.Config> {
         relBldr.push(IgniteLogicalTableScan.create(
                 scan.getCluster(),
                 trait,
-                scan.getTable(),
                 scan.getHints(),
+                scan.getTable(),
                 scan.projects(),
                 condition,
                 scan.requiredColumns()

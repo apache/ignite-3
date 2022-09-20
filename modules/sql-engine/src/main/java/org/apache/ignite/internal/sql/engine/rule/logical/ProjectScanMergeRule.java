@@ -170,8 +170,8 @@ public abstract class ProjectScanMergeRule<T extends ProjectableFilterableTableS
             return IgniteLogicalTableScan.create(
                     cluster,
                     traits,
-                    scan.getTable(),
                     scan.getHints(),
+                    scan.getTable(),
                     projections,
                     cond,
                     requiredColumns
