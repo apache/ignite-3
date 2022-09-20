@@ -332,6 +332,8 @@ public class IgniteImpl implements Ignite {
                 ServiceLoader.load(DataStorageModule.class, serviceProviderClassLoader)
         );
 
+        Path storagePath = getPartitionsStorePath(workDir);
+
         dataStorageMgr = new DataStorageManager(
                 clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY),
                 dataStorageModules.createStorageEngines(
@@ -361,6 +363,7 @@ public class IgniteImpl implements Ignite {
                 clusterSvc.topologyService(),
                 txManager,
                 dataStorageMgr,
+                storagePath,
                 metaStorageMgr,
                 schemaManager,
                 volatileLogStorageFactoryCreator,

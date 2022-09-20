@@ -21,7 +21,6 @@ import static java.util.Collections.reverse;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_ERR;
 import static org.rocksdb.ReadTier.PERSISTED_TIER;
 
 import java.nio.charset.StandardCharsets;
@@ -40,10 +39,8 @@ import org.apache.ignite.internal.rocksdb.flush.RocksDbFlusher;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
-import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 import org.rocksdb.ColumnFamilyDescriptor;
 import org.rocksdb.ColumnFamilyHandle;
@@ -52,7 +49,6 @@ import org.rocksdb.DBOptions;
 import org.rocksdb.Options;
 import org.rocksdb.ReadOptions;
 import org.rocksdb.RocksDB;
-import org.rocksdb.RocksDBException;
 import org.rocksdb.TransactionDB;
 import org.rocksdb.TransactionDBOptions;
 import org.rocksdb.WriteOptions;
@@ -64,9 +60,6 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
     static {
         RocksDB.loadLibrary();
     }
-
-    /** Key for the applied index. */
-    public static final byte[] APPLIED_INDEX_KEY = ArrayUtils.BYTE_EMPTY_ARRAY;
 
     /** Column family name for transaction states. */
     private static final String TXN_STATE_CF = new String(RocksDB.DEFAULT_COLUMN_FAMILY, StandardCharsets.UTF_8);
@@ -114,12 +107,6 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
 
     private final IntSupplier flushDelaySupplier;
 
-    /** On-heap-cached last applied index value. */
-    private volatile long lastAppliedIndex;
-
-    /** The value of {@link #lastAppliedIndex} persisted to the device at this moment. */
-    private volatile long persistedIndex;
-
     /**
      * Constructor.
      *
@@ -158,10 +145,18 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
     }
 
     /** {@inheritDoc} */
-    @Override public TxStateStorage getOrCreateTxnStateStorage(int partitionId) throws StorageException {
+    @Override public TxStateStorage getOrCreateTxStateStorage(int partitionId) throws StorageException {
         checkPartitionId(partitionId);
 
-        TxStateStorage storage = new TxStateRocksDbStorage(db, writeOptions, readOptions, busyLock, partitionId, this);
+        TxStateStorage storage = new TxStateRocksDbStorage(
+            db,
+            writeOptions,
+            readOptions,
+            persistedTierReadOptions,
+            busyLock,
+            partitionId,
+            this
+        );
 
         storages.set(partitionId, storage);
 
@@ -169,12 +164,12 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
     }
 
     /** {@inheritDoc} */
-    @Override public @Nullable TxStateStorage getTxnStateStorage(int partitionId) {
+    @Override public @Nullable TxStateStorage getTxStateStorage(int partitionId) {
         return storages.get(partitionId);
     }
 
     /** {@inheritDoc} */
-    @Override public CompletableFuture<Void> destroyTxnStateStorage(int partitionId) throws StorageException {
+    @Override public CompletableFuture<Void> destroyTxStateStorage(int partitionId) throws StorageException {
         checkPartitionId(partitionId);
 
         TxStateStorage storage = storages.get(partitionId);
@@ -206,7 +201,7 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
                 scheduledExecutor,
                 threadPool,
                 flushDelaySupplier,
-                this::refreshPersistedIndex
+                this::refreshPersistedIndexes
             );
 
             storages = new AtomicReferenceArray<>(tableCfg.value().partitions());
@@ -236,10 +231,6 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
             this.db = TransactionDB.open(dbOptions, txDbOptions, dbPath.toString(), cfDescriptors, cfHandles);
 
             flusher.init(db, cfHandles);
-
-            lastAppliedIndex = readLastAppliedIndex(readOptions);
-
-            persistedIndex = lastAppliedIndex;
         } catch (Exception e) {
             throw new StorageException("Could not create transaction state storage for the table " + tableCfg.value().name(), e);
         }
@@ -287,49 +278,30 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
         }
     }
 
-    /** {@inheritDoc} */
-    @Override public long lastAppliedIndex() {
-        return lastAppliedIndex;
-    }
-
-    /** {@inheritDoc} */
-    @Override public long persistedIndex() {
-        return persistedIndex;
-    }
-
-    /** {@inheritDoc} */
-    @Override public void close() throws Exception {
-        stop();
-    }
-
-    private void refreshPersistedIndex() {
+    /**
+     * Refresh persisted indexes in storages.
+     */
+    private void refreshPersistedIndexes() {
         if (!busyLock.enterBusy()) {
             return;
         }
 
         try {
-            persistedIndex = readLastAppliedIndex(persistedTierReadOptions);
+            for (int i = 0; i < storages.length(); i++) {
+                TxStateStorage storage = storages.get(i);
+
+                if (storage != null) {
+                    ((TxStateRocksDbStorage) storage).refreshPersistedIndex();
+                }
+            }
         } finally {
             busyLock.leaveBusy();
         }
     }
 
-    /**
-     * Reads the value of {@link #lastAppliedIndex} from the storage.
-     *
-     * @param readOptions Read options to be used for reading.
-     * @return The value of last applied index.
-     */
-    private long readLastAppliedIndex(ReadOptions readOptions) {
-        byte[] appliedIndexBytes;
-
-        try {
-            appliedIndexBytes = db.get(readOptions, APPLIED_INDEX_KEY);
-        } catch (RocksDBException e) {
-            throw new IgniteInternalException(TX_STATE_STORAGE_ERR, "Failed to read applied index value from transaction state storage", e);
-        }
-
-        return appliedIndexBytes == null ? 0 : bytesToLong(appliedIndexBytes);
+    /** {@inheritDoc} */
+    @Override public void close() throws Exception {
+        stop();
     }
 
     /**

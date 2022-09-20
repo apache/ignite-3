@@ -92,6 +92,16 @@ public class TestConcurrentHashMapTxStateStorage implements TxStateStorage {
     }
 
     /** {@inheritDoc} */
+    @Override public long lastAppliedIndex() {
+        return 0;
+    }
+
+    /** {@inheritDoc} */
+    @Override public long persistedIndex() {
+        return 0;
+    }
+
+    /** {@inheritDoc} */
     @Override public void close() throws Exception {
         // No-op.
     }

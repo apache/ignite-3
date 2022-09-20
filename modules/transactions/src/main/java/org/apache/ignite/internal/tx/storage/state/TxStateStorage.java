@@ -89,6 +89,16 @@ public interface TxStateStorage extends AutoCloseable {
     CompletableFuture<Void> flush();
 
     /**
+     * Index of the highest write command applied to the storage. {@code 0} if index is unknown.
+     */
+    long lastAppliedIndex();
+
+    /**
+     * {@link #lastAppliedIndex()} value consistent with the data, already persisted on the storage.
+     */
+    long persistedIndex();
+
+    /**
      * Removes all data from the storage.
      *
      * @throws StorageException In case when the operation has failed.

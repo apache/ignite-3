@@ -19,7 +19,6 @@ package org.apache.ignite.internal.storage.engine;
 
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 
 /**
  * General storage engine interface.
@@ -59,11 +58,4 @@ public interface StorageEngine {
      * @throws StorageException If an error has occurs while creating the table.
      */
     MvTableStorage createMvTable(TableConfiguration tableCfg) throws StorageException;
-
-    /**
-     * Creates new transaction state storage for table.
-     *
-     * @return Transaction state storage.
-     */
-    TxStateTableStorage createTxnStateTableStorage(TableConfiguration tableCfg);
 }

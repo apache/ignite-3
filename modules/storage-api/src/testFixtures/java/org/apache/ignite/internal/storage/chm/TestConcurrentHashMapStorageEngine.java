@@ -22,7 +22,6 @@ import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
-import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 
 /**
  * Test implementation of the {@link StorageEngine} based on class {@link ConcurrentHashMap}.
@@ -49,10 +48,5 @@ public class TestConcurrentHashMapStorageEngine implements StorageEngine {
         assert tableCfg.dataStorage().name().value().equals(ENGINE_NAME) : tableCfg.dataStorage().name().value();
 
         return new TestConcurrentHashMapMvTableStorage(tableCfg);
-    }
-
-    /** {@inheritDoc} */
-    @Override public TxStateTableStorage createTxnStateTableStorage(TableConfiguration tableCfg) {
-        throw new UnsupportedOperationException("Transaction state storage can be created only using RocksDb storage engine.");
     }
 }

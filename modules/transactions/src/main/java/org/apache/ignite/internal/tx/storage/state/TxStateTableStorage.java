@@ -33,7 +33,7 @@ public interface TxStateTableStorage extends AutoCloseable {
      * @return Transaction state storage.
      * @throws StorageException  In case when the operation has failed.
      */
-    TxStateStorage getOrCreateTxnStateStorage(int partitionId) throws StorageException;
+    TxStateStorage getOrCreateTxStateStorage(int partitionId) throws StorageException;
 
     /**
      * Get transaction state storage.
@@ -42,7 +42,7 @@ public interface TxStateTableStorage extends AutoCloseable {
      * @return Transaction state storage.
      */
     @Nullable
-    TxStateStorage getTxnStateStorage(int partitionId);
+    TxStateStorage getTxStateStorage(int partitionId);
 
     /**
      * Destroy transaction state storage.
@@ -51,7 +51,7 @@ public interface TxStateTableStorage extends AutoCloseable {
      * @return Future.
      * @throws StorageException In case when the operation has failed.
      */
-    CompletableFuture<Void> destroyTxnStateStorage(int partitionId) throws StorageException;
+    CompletableFuture<Void> destroyTxStateStorage(int partitionId) throws StorageException;
 
     TableConfiguration configuration();
 
@@ -75,14 +75,4 @@ public interface TxStateTableStorage extends AutoCloseable {
      * @throws StorageException In case when the operation has failed.
      */
     void destroy() throws StorageException;
-
-    /**
-     * Index of the highest write command applied to the storage. {@code 0} if index is unknown.
-     */
-    long lastAppliedIndex();
-
-    /**
-     * {@link #lastAppliedIndex()} value consistent with the data, already persisted on the storage.
-     */
-    long persistedIndex();
 }

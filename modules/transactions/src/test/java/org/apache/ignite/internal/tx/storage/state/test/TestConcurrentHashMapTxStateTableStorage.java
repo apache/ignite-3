@@ -33,17 +33,17 @@ public class TestConcurrentHashMapTxStateTableStorage implements TxStateTableSto
     private final Map<Integer, TxStateStorage> storages = new ConcurrentHashMap<>();
 
     /** {@inheritDoc} */
-    @Override public TxStateStorage getOrCreateTxnStateStorage(int partitionId) throws StorageException {
+    @Override public TxStateStorage getOrCreateTxStateStorage(int partitionId) throws StorageException {
         return storages.computeIfAbsent(partitionId, k -> new TestConcurrentHashMapTxStateStorage());
     }
 
     /** {@inheritDoc} */
-    @Override public @Nullable TxStateStorage getTxnStateStorage(int partitionId) {
+    @Override public @Nullable TxStateStorage getTxStateStorage(int partitionId) {
         return storages.get(partitionId);
     }
 
     /** {@inheritDoc} */
-    @Override public CompletableFuture<Void> destroyTxnStateStorage(int partitionId) throws StorageException {
+    @Override public CompletableFuture<Void> destroyTxStateStorage(int partitionId) throws StorageException {
         TxStateStorage storage = storages.get(partitionId);
 
         if (storage != null) {
@@ -71,16 +71,6 @@ public class TestConcurrentHashMapTxStateTableStorage implements TxStateTableSto
     /** {@inheritDoc} */
     @Override public void destroy() throws StorageException {
         storages.clear();
-    }
-
-    /** {@inheritDoc} */
-    @Override public long lastAppliedIndex() {
-        return 0;
-    }
-
-    /** {@inheritDoc} */
-    @Override public long persistedIndex() {
-        return 0;
     }
 
     /** {@inheritDoc} */

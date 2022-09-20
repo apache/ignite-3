@@ -788,6 +788,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 ts,
                 tm,
                 dataStorageManager,
+                workDir,
                 msm,
                 schemaManager,
                 view -> new LocalLogStorageFactory(),

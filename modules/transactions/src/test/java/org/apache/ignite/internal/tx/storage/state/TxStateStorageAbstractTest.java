@@ -58,7 +58,7 @@ public abstract class TxStateStorageAbstractTest {
     @Test
     public void testPutGetRemove() throws Exception {
         try (TxStateTableStorage tableStorage = createStorage()) {
-            TxStateStorage storage = tableStorage.getOrCreateTxnStateStorage(0);
+            TxStateStorage storage = tableStorage.getOrCreateTxStateStorage(0);
 
             List<UUID> txIds = new ArrayList<>();
 
@@ -113,7 +113,7 @@ public abstract class TxStateStorageAbstractTest {
     @Test
     public void testCas() throws Exception {
         try (TxStateTableStorage tableStorage = createStorage()) {
-            TxStateStorage storage = tableStorage.getOrCreateTxnStateStorage(0);
+            TxStateStorage storage = tableStorage.getOrCreateTxStateStorage(0);
 
             UUID txId = UUID.randomUUID();
 
@@ -135,7 +135,7 @@ public abstract class TxStateStorageAbstractTest {
     @Test
     public void testScan() throws Exception {
         try (TxStateTableStorage tableStorage = createStorage()) {
-            TxStateStorage storage = tableStorage.getOrCreateTxnStateStorage(0);
+            TxStateStorage storage = tableStorage.getOrCreateTxStateStorage(0);
 
             Map<UUID, TxMeta> txs = new HashMap<>();
 
