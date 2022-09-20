@@ -78,6 +78,12 @@ public class SchemaValidationUtils {
         }
     }
 
+    /**
+     * Validate index enlisted columns.
+     *
+     * @param indexView Index info.
+     * @param tableColumns Table column names.
+     */
     public static void validateColumns(TableIndexView indexView, Set<String> tableColumns) {
         if (indexView instanceof SortedIndexView) {
             var sortedIndexView = (SortedIndexView) indexView;
