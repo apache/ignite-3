@@ -24,7 +24,7 @@ Retrieves data from a table or multiple tables.
 
 [source,sql]
 ----
-SELECT [ hintComment ] [ STREAM ] [ ALL | DISTINCT ]
+SELECT [ hintComment ] [ ALL | DISTINCT ]
     { * | projectItem [, projectItem ]* }
 FROM tableExpression
 [ WHERE booleanExpression ]
