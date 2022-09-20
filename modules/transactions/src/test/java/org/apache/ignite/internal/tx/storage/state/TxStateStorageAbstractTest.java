@@ -137,23 +137,19 @@ public abstract class TxStateStorageAbstractTest {
         try (TxStateTableStorage tableStorage = createStorage()) {
             TxStateStorage storage0 = tableStorage.getOrCreateTxStateStorage(0);
             TxStateStorage storage1 = tableStorage.getOrCreateTxStateStorage(1);
+            TxStateStorage storage2 = tableStorage.getOrCreateTxStateStorage(2);
 
             Map<UUID, TxMeta> txs = new HashMap<>();
 
+            putRandomTxMetaWithCommitIndex(storage0, 1, 0);
+            putRandomTxMetaWithCommitIndex(storage2, 1, 0);
+
             for (int i = 0; i < 100; i++) {
-                UUID txId = UUID.randomUUID();
-                TxMeta txMeta = new TxMeta(TxState.PENDING, generateEnlistedPartitions(i), generateTimestamp(txId));
-                txs.put(txId, txMeta);
-                storage0.put(txId, txMeta);
-                storage0.compareAndSet(txId, TxState.PENDING, txMeta, i);
+                IgniteBiTuple<UUID, TxMeta> txData = putRandomTxMetaWithCommitIndex(storage1, i, i);
+                txs.put(txData.get1(), txData.get2());
             }
 
-            UUID txId1 = UUID.randomUUID();
-            TxMeta txMeta1 = new TxMeta(TxState.PENDING, generateEnlistedPartitions(0), generateTimestamp(txId1));
-            storage1.put(txId1, txMeta1);
-            storage1.compareAndSet(txId1, TxState.PENDING, txMeta1, 0);
-
-            try (Cursor<IgniteBiTuple<UUID, TxMeta>> scanCursor = storage0.scan()) {
+            try (Cursor<IgniteBiTuple<UUID, TxMeta>> scanCursor = storage1.scan()) {
                 assertTrue(scanCursor.hasNext());
 
                 while (scanCursor.hasNext()) {
@@ -169,6 +165,15 @@ public abstract class TxStateStorageAbstractTest {
                 assertTrue(txs.isEmpty());
             }
         }
+    }
+
+    private IgniteBiTuple<UUID, TxMeta> putRandomTxMetaWithCommitIndex(TxStateStorage storage, int enlistedPartsCount, long commitIndex) {
+        UUID txId = UUID.randomUUID();
+        TxMeta txMeta = new TxMeta(TxState.PENDING, generateEnlistedPartitions(enlistedPartsCount), generateTimestamp(txId));
+        storage.put(txId, txMeta);
+        storage.compareAndSet(txId, TxState.PENDING, txMeta, 0);
+
+        return new IgniteBiTuple<>(txId, txMeta);
     }
 
     private static void assertTxMetaEquals(TxMeta txMeta0, TxMeta txMeta1) {
