@@ -25,18 +25,20 @@ import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
-import org.apache.ignite.table.manager.IgniteTables;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
+import java.util.UUID;
 
 /**
  * Tests partition awareness.
  */
 public class PartitionAwarenessTest extends AbstractClientTest {
     protected static TestServer testServer2;
+
+    protected static Ignite server2;
 
     protected static IgniteClient client2;
 
@@ -51,7 +53,8 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
         ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.PARANOID);
 
-        testServer2 = startServer(10800, 10, 0, server, "server-2");
+        server2 = new FakeIgnite();
+        testServer2 = startServer(10800, 10, 0, server2, "server-2");
         serverPort2 = testServer2.port();
 
         client2 = startClient("127.0.0.1:" + serverPort, "127.0.0.1:" + serverPort2);
@@ -76,8 +79,17 @@ public class PartitionAwarenessTest extends AbstractClientTest {
     }
 
     protected Table defaultTable() {
-        FakeIgniteTables tables = (FakeIgniteTables) server.tables();
-        TableImpl tableImpl = (TableImpl) tables.createTable(DEFAULT_TABLE, tbl -> tbl.changeReplicas(1));
+        // Create table on both servers with the same ID.
+        var tableId = UUID.randomUUID();
+        createTable(server, tableId);
+        createTable(server2, tableId);
+
+        return client2.tables().table(DEFAULT_TABLE);
+    }
+
+    private static void createTable(Ignite ignite, UUID id) {
+        FakeIgniteTables tables = (FakeIgniteTables) ignite.tables();
+        TableImpl tableImpl = tables.createTable(DEFAULT_TABLE, id);
 
         ArrayList<String> assignments = new ArrayList<>();
         assignments.add(testServer.nodeId());
@@ -86,7 +98,5 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         assignments.add(testServer2.nodeId());
 
         tables.setPartitionAssignments(tableImpl.tableId(), assignments);
-
-        return client2.tables().table(DEFAULT_TABLE);
     }
 }

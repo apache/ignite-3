@@ -63,7 +63,11 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
     /** {@inheritDoc} */
     @Override
     public Table createTable(String name, Consumer<TableChange> tableInitChange) {
-        var newTable = getNewTable(name);
+        return createTable(name, UUID.randomUUID());
+    }
+
+    public TableImpl createTable(String name, UUID id) {
+        var newTable = getNewTable(name, id);
 
         var oldTable = tables.putIfAbsent(name, newTable);
 
@@ -186,7 +190,7 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
     }
 
     @NotNull
-    private TableImpl getNewTable(String name) {
+    private TableImpl getNewTable(String name, UUID id) {
         Function<Integer, SchemaDescriptor> history;
 
         switch (name) {
@@ -208,7 +212,7 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
         }
 
         return new TableImpl(
-                new FakeInternalTable(name, UUID.randomUUID()),
+                new FakeInternalTable(name, id),
                 new FakeSchemaRegistry(history)
         );
     }
