@@ -84,8 +84,7 @@ public class ItIndexManagerTest extends AbstractBasicIntegrationTest {
         });
 
         indexManager.createIndexAsync("PUBLIC", "INAME", "TNAME", true, tableIndexChange ->
-                tableIndexChange.convert(HashIndexChange.class).changeColumnNames("c3", "c2"))
-                .join();
+                tableIndexChange.convert(HashIndexChange.class).changeColumnNames("c3", "c2")).join();
 
         Index<?> index = createEventParamHolder.get().index();
 
