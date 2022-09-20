@@ -681,8 +681,9 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
             clearTraits(expected);
             clearTraits(deserialized);
+
+            // Hints are not serializable.
             clearHints(expected);
-            clearHints(deserialized);
 
             if (!expected.deepEquals(deserialized)) {
                 assertTrue(
