@@ -121,7 +121,7 @@ public class RocksDbTableStorage implements MvTableStorage {
      *
      * @param engine RocksDB storage engine instance.
      * @param tablePath Path for the directory that stores table data.
-     * @param tableCfg Table configuration view.
+     * @param tableCfg Table configuration.
      * @param dataRegion Data region for the table.
      */
     RocksDbTableStorage(
@@ -274,7 +274,7 @@ public class RocksDbTableStorage implements MvTableStorage {
                         LOG.error(
                                 "Filed to refresh persisted applied index value for table {} partition {}",
                                 storageException,
-                                tableCfgView.name(),
+                                configuration().name().value(),
                                 partitionId
                         );
                     }

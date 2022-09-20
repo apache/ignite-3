@@ -64,8 +64,7 @@ public class RocksDbHashIndexStorageTest extends AbstractHashIndexStorageTest {
                             UnlimitedBudgetConfigurationSchema.class
                     },
                     value = "mock.dataStorage.name = " + RocksDbStorageEngine.ENGINE_NAME
-            )
-            TableConfiguration tableCfg,
+            ) TableConfiguration tableCfg,
 
             @InjectConfiguration(polymorphicExtensions = {
                     HashIndexConfigurationSchema.class,
@@ -75,8 +74,7 @@ public class RocksDbHashIndexStorageTest extends AbstractHashIndexStorageTest {
                     NullValueDefaultConfigurationSchema.class,
                     UnlimitedBudgetConfigurationSchema.class,
                     EntryCountBudgetConfigurationSchema.class
-            })
-            TablesConfiguration tablesConfig
+            }) TablesConfiguration tablesConfig
     ) {
         engine = new RocksDbStorageEngine(rocksDbEngineConfig, workDir);
 

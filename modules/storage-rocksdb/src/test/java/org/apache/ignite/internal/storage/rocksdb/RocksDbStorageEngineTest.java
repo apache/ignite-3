@@ -81,8 +81,7 @@ public class RocksDbStorageEngineTest {
                             UnlimitedBudgetConfigurationSchema.class,
                             EntryCountBudgetConfigurationSchema.class
                     }
-            )
-                    TableConfiguration tableCfg
+            ) TableConfiguration tableCfg
     ) {
         MvTableStorage table = engine.createMvTable(tableCfg, null);
 
@@ -113,8 +112,7 @@ public class RocksDbStorageEngineTest {
                             UnlimitedBudgetConfigurationSchema.class,
                             EntryCountBudgetConfigurationSchema.class
                     }
-            )
-            TableConfiguration tableCfg
+            ) TableConfiguration tableCfg
     ) {
         String customRegionName = "foobar";
 
