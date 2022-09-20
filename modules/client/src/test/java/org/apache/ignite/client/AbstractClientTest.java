@@ -49,7 +49,7 @@ public abstract class AbstractClientTest {
     public static void beforeAll() {
         ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.PARANOID);
 
-        server = new FakeIgnite();
+        server = new FakeIgnite("server-1");
 
         testServer = startServer(10800, 10, 0, server);
 

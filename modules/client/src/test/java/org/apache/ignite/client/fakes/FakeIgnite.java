@@ -33,13 +33,23 @@ import org.apache.ignite.tx.TransactionException;
  * Fake Ignite.
  */
 public class FakeIgnite implements Ignite {
-    private String name;
+    private final String name;
     
     /**
      * Default constructor.
      */
     public FakeIgnite() {
+        this(null);
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param name Name.
+     */
+    public FakeIgnite(String name) {
         super();
+        this.name = name;
     }
 
     private final IgniteTables tables = new FakeIgniteTables();
@@ -128,6 +138,6 @@ public class FakeIgnite implements Ignite {
     /** {@inheritDoc} */
     @Override
     public String name() {
-        return null;
+        return name;
     }
 }
