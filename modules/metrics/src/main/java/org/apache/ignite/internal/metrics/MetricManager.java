@@ -76,8 +76,7 @@ public class MetricManager implements IgniteComponent {
     // TODO: IGNITE-17718 when we design the system to configure metrics itself
     // TODO: this method should be revisited, but now it is supposed to use only to set distributed configuration for exporters.
     public void configure(MetricConfiguration metricConfiguration) {
-        // Configure must be invoked only once, on the start of node
-        assert this.metricConfiguration == null;
+        assert this.metricConfiguration == null : "Metric manager must be configured only once, on the start of the node";
 
         this.metricConfiguration = metricConfiguration;
     }
