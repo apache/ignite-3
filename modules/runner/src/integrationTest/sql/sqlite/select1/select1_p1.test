@@ -1,0 +1,275 @@
+statement ok
+CREATE TABLE t1(a INTEGER, b INTEGER, c INTEGER, d INTEGER, e INTEGER)
+
+statement ok
+INSERT INTO t1(e,c,b,d,a) VALUES(103,102,100,101,104)
+
+statement ok
+INSERT INTO t1(a,c,d,e,b) VALUES(107,106,108,109,105)
+
+statement ok
+INSERT INTO t1(e,d,b,a,c) VALUES(110,114,112,111,113)
+
+statement ok
+INSERT INTO t1(d,c,e,a,b) VALUES(116,119,117,115,118)
+
+statement ok
+INSERT INTO t1(c,d,b,e,a) VALUES(123,122,124,120,121)
+
+statement ok
+INSERT INTO t1(a,d,b,e,c) VALUES(127,128,129,126,125)
+
+statement ok
+INSERT INTO t1(e,c,a,d,b) VALUES(132,134,131,133,130)
+
+statement ok
+INSERT INTO t1(a,d,b,e,c) VALUES(138,136,139,135,137)
+
+statement ok
+INSERT INTO t1(e,c,d,a,b) VALUES(144,141,140,142,143)
+
+statement ok
+INSERT INTO t1(b,a,e,d,c) VALUES(145,149,146,148,147)
+
+statement ok
+INSERT INTO t1(b,c,a,d,e) VALUES(151,150,153,154,152)
+
+statement ok
+INSERT INTO t1(c,e,a,d,b) VALUES(155,157,159,156,158)
+
+statement ok
+INSERT INTO t1(c,b,a,d,e) VALUES(161,160,163,164,162)
+
+statement ok
+INSERT INTO t1(b,d,a,e,c) VALUES(167,169,168,165,166)
+
+statement ok
+INSERT INTO t1(d,b,c,e,a) VALUES(171,170,172,173,174)
+
+statement ok
+INSERT INTO t1(e,c,a,d,b) VALUES(177,176,179,178,175)
+
+statement ok
+INSERT INTO t1(b,e,a,d,c) VALUES(181,180,182,183,184)
+
+statement ok
+INSERT INTO t1(c,a,b,e,d) VALUES(187,188,186,189,185)
+
+statement ok
+INSERT INTO t1(d,b,c,e,a) VALUES(190,194,193,192,191)
+
+statement ok
+INSERT INTO t1(a,e,b,d,c) VALUES(199,197,198,196,195)
+
+statement ok
+INSERT INTO t1(b,c,d,a,e) VALUES(200,202,203,201,204)
+
+statement ok
+INSERT INTO t1(c,e,a,b,d) VALUES(208,209,205,206,207)
+
+statement ok
+INSERT INTO t1(c,e,a,d,b) VALUES(214,210,213,212,211)
+
+statement ok
+INSERT INTO t1(b,c,a,d,e) VALUES(218,215,216,217,219)
+
+statement ok
+INSERT INTO t1(b,e,d,a,c) VALUES(223,221,222,220,224)
+
+statement ok
+INSERT INTO t1(d,e,b,a,c) VALUES(226,227,228,229,225)
+
+statement ok
+INSERT INTO t1(a,c,b,e,d) VALUES(234,231,232,230,233)
+
+statement ok
+INSERT INTO t1(e,b,a,c,d) VALUES(237,236,239,235,238)
+
+statement ok
+INSERT INTO t1(e,c,b,a,d) VALUES(242,244,240,243,241)
+
+statement ok
+INSERT INTO t1(e,d,c,b,a) VALUES(246,248,247,249,245)
+
+query IIIII nosort
+SELECT (SELECT count(*) FROM t1 AS x WHERE x.c>t1.c AND x.d<t1.d),
+       c,
+       (a+b+c+d+e)/5,
+       a+b*2,
+       c-d
+  FROM t1
+ WHERE (a>b-2 AND a<b+2)
+   AND e+d BETWEEN a+b-10 AND c+130
+   AND d NOT BETWEEN 110 AND 150
+ ORDER BY 5,3,2,4,1
+----
+
+query IIIIIII nosort
+SELECT CASE WHEN a<b-3 THEN 111 WHEN a<=b THEN 222
+        WHEN a<b+3 THEN 333 ELSE 444 END,
+       a+b*2+c*3+d*4+e*5,
+       a,
+       CASE a+1 WHEN b THEN 111 WHEN c THEN 222
+        WHEN d THEN 333  WHEN e THEN 444 ELSE 555 END,
+       CASE WHEN c>(SELECT avg(c) FROM t1) THEN a*2 ELSE b*10 END,
+       (SELECT count(*) FROM t1 AS x WHERE x.c>t1.c AND x.d<t1.d),
+       d
+  FROM t1
+ WHERE a>b
+   AND (e>a AND e<b)
+ ORDER BY 7,2,4,6,1,3,5
+----
+
+query II nosort
+SELECT b-c,
+       (SELECT count(*) FROM t1 AS x WHERE x.c>t1.c AND x.d<t1.d)
+  FROM t1
+ WHERE (c<=d-2 OR c>=d+2)
+   AND (e>c OR e<d)
+   AND c>d
+ ORDER BY 2,1
+----
+-3
+0
+-1
+0
+-1
+0
+
+query I nosort
+SELECT (SELECT count(*) FROM t1 AS x WHERE x.c>t1.c AND x.d<t1.d)
+  FROM t1
+ WHERE (e>c OR e<d)
+   AND e+d BETWEEN a+b-10 AND c+130
+   AND d>e
+ ORDER BY 1
+----
+0
+0
+0
+
+query IIII nosort
+SELECT c-d,
+       abs(b-c),
+       e,
+       (SELECT count(*) FROM t1 AS x WHERE x.c>t1.c AND x.d<t1.d)
+  FROM t1
+ WHERE a>b
+   AND e+d BETWEEN a+b-10 AND c+130
+   AND (e>a AND e<b)
+ ORDER BY 3,4,1,2
+----
+
+query II nosort
+SELECT c-d,
+       (SELECT count(*) FROM t1 AS x WHERE x.c>t1.c AND x.d<t1.d)
+  FROM t1
+ WHERE (c<=d-2 OR c>=d+2)
+   AND a>b
+   AND (e>a AND e<b)
+ ORDER BY 2,1
+----
+
+query II nosort
+SELECT c,
+       (SELECT count(*) FROM t1 AS x WHERE x.c>t1.c AND x.d<t1.d)
+  FROM t1
+ WHERE b>c
+   AND (e>a AND e<b)
+   AND d>e
+ ORDER BY 1,2
+----
+247
+0
+
+query III nosort
+SELECT a+b*2+c*3,
+       (SELECT count(*) FROM t1 AS x WHERE x.c>t1.c AND x.d<t1.d),
+       a
+  FROM t1
+ WHERE (c<=d-2 OR c>=d+2)
+   AND (a>b-2 AND a<b+2)
+   AND c>d
+ ORDER BY 1,2,3
+----
+
+query IIIIII nosort
+SELECT a,
+       a+b*2+c*3,
+       abs(a),
+       CASE WHEN a<b-3 THEN 111 WHEN a<=b THEN 222
+        WHEN a<b+3 THEN 333 ELSE 444 END,
+       a-b,
+       (SELECT count(*) FROM t1 AS x WHERE x.c>t1.c AND x.d<t1.d)
+  FROM t1
+ WHERE (e>a AND e<b)
+   AND e+d BETWEEN a+b-10 AND c+130
+   AND (e>c OR e<d)
+ ORDER BY 4,2,5,1,3,6
+----
+
+query IIIII nosort
+SELECT a,
+       (SELECT count(*) FROM t1 AS x WHERE x.c>t1.c AND x.d<t1.d),
+       b-c,
+       a-b,
+       CASE a+1 WHEN b THEN 111 WHEN c THEN 222
+        WHEN d THEN 333  WHEN e THEN 444 ELSE 555 END
+  FROM t1
+ WHERE c BETWEEN b-2 AND d+2
+    OR a>b
+    OR b>c
+ ORDER BY 1,4,3,2,5
+----
+145 values hashing to 65042db64d506f67a37c85f825cdd11f
+
+query IIII nosort
+SELECT a+b*2+c*3+d*4,
+       CASE a+1 WHEN b THEN 111 WHEN c THEN 222
+        WHEN d THEN 333  WHEN e THEN 444 ELSE 555 END,
+       (SELECT count(*) FROM t1 AS x WHERE x.c>t1.c AND x.d<t1.d),
+       c
+  FROM t1
+ WHERE (c<=d-2 OR c>=d+2)
+ ORDER BY 4,2,1,3
+----
+60 values hashing to a2af299d7b2197866b7c8f6854b77ab5
+
+query IIIIII nosort
+SELECT (SELECT count(*) FROM t1 AS x WHERE x.c>t1.c AND x.d<t1.d),
+       abs(b-c),
+       a+b*2+c*3+d*4,
+       (a+b+c+d+e)/5,
+       d-e,
+       a+b*2+c*3+d*4+e*5
+  FROM t1
+ WHERE EXISTS(SELECT 1 FROM t1 AS x WHERE x.b<t1.b)
+ ORDER BY 1,6,2,4,5,3
+----
+174 values hashing to 05379a2f92dfafe9d9f27b43b2da99a1
+
+query IIIIIII nosort
+SELECT CASE WHEN a<b-3 THEN 111 WHEN a<=b THEN 222
+        WHEN a<b+3 THEN 333 ELSE 444 END,
+       d-e,
+       b,
+       (SELECT count(*) FROM t1 AS x WHERE x.c>t1.c AND x.d<t1.d),
+       a-b,
+       a,
+       e
+  FROM t1
+ ORDER BY 4,5,1,3,7,6,2
+----
+210 values hashing to 8d6b363f389996a9821b4e3809779f76
+
+query III nosort
+SELECT CASE WHEN a<b-3 THEN 111 WHEN a<=b THEN 222
+        WHEN a<b+3 THEN 333 ELSE 444 END,
+       a+b*2,
+       (SELECT count(*) FROM t1 AS x WHERE x.c>t1.c AND x.d<t1.d)
+  FROM t1
+ WHERE (e>c OR e<d)
+ ORDER BY 2,1,3
+----
+81 values hashing to f73fa4ec254d735c86e5741004f72034
+
