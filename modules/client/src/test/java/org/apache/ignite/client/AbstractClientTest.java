@@ -108,7 +108,27 @@ public abstract class AbstractClientTest {
             long idleTimeout,
             Ignite ignite
     ) {
-        return new TestServer(port, portRange, idleTimeout, ignite);
+        return startServer(port, portRange, idleTimeout, ignite, null);
+    }
+
+    /**
+     * Returns server.
+     *
+     * @param port Port.
+     * @param portRange Port range.
+     * @param idleTimeout Idle timeout.
+     * @param ignite Ignite.
+     * @param nodeName Node name.
+     * @return Server.
+     */
+    public static TestServer startServer(
+            int port,
+            int portRange,
+            long idleTimeout,
+            Ignite ignite,
+            String nodeName
+    ) {
+        return new TestServer(port, portRange, idleTimeout, ignite, null, nodeName);
     }
 
     /**

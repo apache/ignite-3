@@ -46,7 +46,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
         ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.PARANOID);
 
-        testServer2 = startServer(10800, 10, 0, server);
+        testServer2 = startServer(10800, 10, 0, server, "server-2");
         serverPort2 = testServer2.port();
 
         client2 = startClient("127.0.0.1:" + serverPort, "127.0.0.1:" + serverPort2);
