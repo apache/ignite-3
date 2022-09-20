@@ -18,9 +18,14 @@
 package org.apache.ignite.internal.storage.rocksdb.index;
 
 import java.nio.file.Path;
+import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.EntryCountBudgetConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
+import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -59,18 +64,27 @@ public class RocksDbHashIndexStorageTest extends AbstractHashIndexStorageTest {
                             UnlimitedBudgetConfigurationSchema.class
                     },
                     value = "mock.dataStorage.name = " + RocksDbStorageEngine.ENGINE_NAME
-            )
-            TableConfiguration tableCfg
+            ) TableConfiguration tableCfg,
+
+            @InjectConfiguration(polymorphicExtensions = {
+                    HashIndexConfigurationSchema.class,
+                    UnknownDataStorageConfigurationSchema.class,
+                    ConstantValueDefaultConfigurationSchema.class,
+                    FunctionCallDefaultConfigurationSchema.class,
+                    NullValueDefaultConfigurationSchema.class,
+                    UnlimitedBudgetConfigurationSchema.class,
+                    EntryCountBudgetConfigurationSchema.class
+            }) TablesConfiguration tablesConfig
     ) {
         engine = new RocksDbStorageEngine(rocksDbEngineConfig, workDir);
 
         engine.start();
 
-        tableStorage = engine.createMvTable(tableCfg);
+        tableStorage = engine.createMvTable(tableCfg, tablesConfig);
 
         tableStorage.start();
 
-        initialize(tableStorage);
+        initialize(tableStorage, tablesConfig);
     }
 
     @AfterEach

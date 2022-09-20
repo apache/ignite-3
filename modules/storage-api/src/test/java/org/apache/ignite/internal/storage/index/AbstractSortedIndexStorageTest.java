@@ -49,6 +49,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableIndexView;
+import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -86,6 +87,8 @@ public abstract class AbstractSortedIndexStorageTest {
 
     private static final int TEST_PARTITION = 0;
 
+    private Random random;
+
     private static List<ColumnDefinition> allTypesColumnDefinitions() {
         Stream<ColumnType> allColumnTypes = Stream.of(
                 ColumnType.INT8,
@@ -111,11 +114,11 @@ public abstract class AbstractSortedIndexStorageTest {
                 .collect(toUnmodifiableList());
     }
 
-    private final Random random;
-
     private MvTableStorage tableStorage;
 
     private MvPartitionStorage partitionStorage;
+
+    private TablesConfiguration tablesCfg;
 
     protected AbstractSortedIndexStorageTest() {
         long seed = System.currentTimeMillis();
@@ -130,12 +133,17 @@ public abstract class AbstractSortedIndexStorageTest {
      *
      * <p>This method *MUST* always be called in either subclass' constructor or setUp method.
      */
-    protected final void initialize(MvTableStorage tableStorage) {
+    protected final void initialize(TableConfiguration tableCfg, TablesConfiguration tablesCfg) {
+        this.tablesCfg = tablesCfg;
+
+        createTestTable(tableCfg);
+    }
+
+    /** Set up internal storage implementation. */
+    protected final void initializeStorage(MvTableStorage tableStorage) {
         this.tableStorage = tableStorage;
 
         this.partitionStorage = tableStorage.getOrCreateMvPartition(TEST_PARTITION);
-
-        createTestTable(tableStorage.configuration());
     }
 
     /**
@@ -184,15 +192,12 @@ public abstract class AbstractSortedIndexStorageTest {
      * Creates a Sorted Index using the given index definition.
      */
     private SortedIndexStorage createIndexStorage(ColumnarIndexDefinition indexDefinition) {
-        TableConfiguration tableCfg = tableStorage.configuration();
-
-        CompletableFuture<Void> createIndexFuture = tableCfg.change(cfg ->
-                cfg.changeIndices(idxList ->
-                        idxList.create(indexDefinition.name(), idx -> convert(indexDefinition, idx))));
+        CompletableFuture<Void> createIndexFuture =
+                tablesCfg.indexes().change(chg -> chg.create(indexDefinition.name(), idx -> convert(indexDefinition, idx)));
 
         assertThat(createIndexFuture, willBe(nullValue(Void.class)));
 
-        TableIndexView indexConfig = tableCfg.value().indices().get(indexDefinition.name());
+        TableIndexView indexConfig = tablesCfg.indexes().get(indexDefinition.name()).value();
 
         return tableStorage.getOrCreateSortedIndex(0, indexConfig.id());
     }
@@ -235,7 +240,7 @@ public abstract class AbstractSortedIndexStorageTest {
     }
 
     /**
-     * Tests that it adding a row that already exists does not do anything.
+     * Tests that appending an already existing row does no harm.
      */
     @Test
     void testPutIdempotence() throws Exception {

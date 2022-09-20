@@ -38,6 +38,11 @@ public class TablesConfigurationSchema {
     @TableValidator
     public TableConfigurationSchema tables;
 
+    /** List of configured indexes. */
+    @NamedConfigValue
+    @IndexValidator
+    public TableIndexConfigurationSchema indexes;
+
     /** Default data storage for tables. */
     @ExistingDataStorage
     @Value(hasDefault = true)

@@ -15,27 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.schema.definition.index;
+package org.apache.ignite.configuration.schemas.table;
 
-import java.util.List;
+import static java.lang.annotation.ElementType.FIELD;
+import static java.lang.annotation.ElementType.PARAMETER;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
+
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
 
 /**
- * Columnar index interface.
+ * Annotation to validate whole index configuration.
+ *
+ * <p>Activate IndexValidatorImpl in configuration engine for {@link TablesConfigurationSchema#indexes}.
  */
-public interface ColumnarIndexDefinition extends IndexDefinition {
-    /**
-     * Configured index columns.
-     *
-     * @return Index columns.
-     */
-    List<? extends IndexColumnDefinition> columns();
+@Target({FIELD, PARAMETER})
+@Retention(RUNTIME)
+public @interface IndexValidator {
 
-    /**
-     * Returns all index columns: user defined + implicitly attached.
-     *
-     * @return Indexed columns.
-     */
-    default List<? extends IndexColumnDefinition> indexedColumns() {
-        return columns();
-    }
 }

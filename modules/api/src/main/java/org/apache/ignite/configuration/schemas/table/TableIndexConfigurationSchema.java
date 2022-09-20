@@ -47,6 +47,10 @@ public class TableIndexConfigurationSchema {
     @InjectedName
     public String name;
 
+    /** Table id the index associated with. */
+    @Value
+    public UUID tableId;
+
     /** Has default value flag. */
     @Value(hasDefault = true)
     public boolean uniq = false;

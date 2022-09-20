@@ -83,7 +83,7 @@ public class RocksDbStorageEngineTest {
                     }
             ) TableConfiguration tableCfg
     ) {
-        MvTableStorage table = engine.createMvTable(tableCfg);
+        MvTableStorage table = engine.createMvTable(tableCfg, null);
 
         table.start();
 
@@ -121,7 +121,7 @@ public class RocksDbStorageEngineTest {
 
         assertThat(engineConfigChangeFuture, willCompleteSuccessfully());
 
-        MvTableStorage table = engine.createMvTable(tableCfg);
+        MvTableStorage table = engine.createMvTable(tableCfg, null);
 
         table.start();
 

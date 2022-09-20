@@ -31,7 +31,7 @@ public class TableNotFoundException extends IgniteException {
      * @param name Table name.
      */
     public TableNotFoundException(String name) {
-        super(TABLE_NOT_FOUND_ERR, "Table does not exist [name=" + name + ']');
+        super(TABLE_NOT_FOUND_ERR, "The table does not exist [name=" + name + ']');
     }
 
     /**

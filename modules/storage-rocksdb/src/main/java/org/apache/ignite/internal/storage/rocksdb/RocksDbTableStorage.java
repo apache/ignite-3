@@ -37,6 +37,7 @@ import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableView;
+import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
@@ -79,6 +80,9 @@ public class RocksDbTableStorage implements MvTableStorage {
     /** Table configuration. */
     private final TableConfiguration tableCfg;
 
+    /** Indexes configuration. */
+    private final TablesConfiguration tablesCfg;
+
     /** Data region for the table. */
     private final RocksDbDataRegion dataRegion;
 
@@ -104,7 +108,7 @@ public class RocksDbTableStorage implements MvTableStorage {
     private volatile AtomicReferenceArray<RocksDbMvPartitionStorage> partitions;
 
     /** Hash Index storages by Index IDs. */
-    private final ConcurrentMap<UUID, HashIndices> hashIndices = new ConcurrentHashMap<>();
+    private final ConcurrentMap<UUID, HashIndexes> hashIndices = new ConcurrentHashMap<>();
 
     /** Busy lock to stop synchronously. */
     final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -124,12 +128,14 @@ public class RocksDbTableStorage implements MvTableStorage {
             RocksDbStorageEngine engine,
             Path tablePath,
             TableConfiguration tableCfg,
-            RocksDbDataRegion dataRegion
+            RocksDbDataRegion dataRegion,
+            TablesConfiguration tablesCfg
     ) {
         this.engine = engine;
         this.tablePath = tablePath;
         this.tableCfg = tableCfg;
         this.dataRegion = dataRegion;
+        this.tablesCfg = tablesCfg;
     }
 
     /**
@@ -219,7 +225,8 @@ public class RocksDbTableStorage implements MvTableStorage {
                         break;
 
                     default:
-                        throw new StorageException("Unidentified column family [name=" + cf.name() + ", table=" + tableCfg.name() + ']');
+                        throw new StorageException("Unidentified column family [name=" + cf.name() + ", table="
+                                + tableCfg.value().name() + ']');
                 }
             }
 
@@ -383,10 +390,10 @@ public class RocksDbTableStorage implements MvTableStorage {
 
     @Override
     public HashIndexStorage getOrCreateHashIndex(int partitionId, UUID indexId) {
-        HashIndices storages = hashIndices.computeIfAbsent(indexId, id -> {
-            var indexDescriptor = new HashIndexDescriptor(indexId, tableCfg.value());
+        HashIndexes storages = hashIndices.computeIfAbsent(indexId, id -> {
+            var indexDescriptor = new HashIndexDescriptor(id, tableCfg.value(), tablesCfg.value());
 
-            return new HashIndices(indexDescriptor);
+            return new HashIndexes(indexDescriptor);
         });
 
         RocksDbMvPartitionStorage partitionStorage = getMvPartition(partitionId);
@@ -401,7 +408,7 @@ public class RocksDbTableStorage implements MvTableStorage {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> destroyIndex(UUID indexId) {
-        HashIndices storages = hashIndices.remove(indexId);
+        HashIndexes storages = hashIndices.remove(indexId);
 
         if (storages == null) {
             return CompletableFuture.completedFuture(null);
@@ -427,7 +434,7 @@ public class RocksDbTableStorage implements MvTableStorage {
         if (partId < 0 || partId >= partitions.length()) {
             throw new IllegalArgumentException(S.toString(
                     "Unable to access partition with id outside of configured range",
-                    "table", tableCfg.name().value(), false,
+                    "table", tableCfg.value().name(), false,
                     "partitionId", partId, false,
                     "partitions", partitions.length(), false
             ));
@@ -489,7 +496,7 @@ public class RocksDbTableStorage implements MvTableStorage {
                 );
 
             default:
-                throw new StorageException("Unidentified column family [name=" + cfName + ", table=" + tableCfg.name() + ']');
+                throw new StorageException("Unidentified column family [name=" + cfName + ", table=" + tableCfg.value().name() + ']');
         }
     }
 }

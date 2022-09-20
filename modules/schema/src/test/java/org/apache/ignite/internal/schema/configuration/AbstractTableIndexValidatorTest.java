@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.index;
+package org.apache.ignite.internal.schema.configuration;
 
 import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigurationSchema;
@@ -23,46 +23,58 @@ import org.apache.ignite.configuration.schemas.table.EntryCountBudgetConfigurati
 import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.TableConfiguration;
+import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapMvTableStorage;
-import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapStorageEngine;
-import org.apache.ignite.internal.storage.chm.schema.TestConcurrentHashMapDataStorageConfigurationSchema;
+import org.apache.ignite.internal.schema.configuration.schema.TestDataStorageConfigurationSchema;
+import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
+import org.apache.ignite.internal.schema.testutils.builder.TableDefinitionBuilder;
+import org.apache.ignite.schema.definition.ColumnType;
+import org.apache.ignite.schema.definition.TableDefinition;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
- * Class for testing the {@link HashIndexStorage}.
+ * Base class for table and index validation tests.
  */
 @ExtendWith(ConfigurationExtension.class)
-public class TestHashIndexStorageTest extends AbstractHashIndexStorageTest {
-    @BeforeEach
-    void setUp(
-            @InjectConfiguration(
-                    polymorphicExtensions = {
-                            TestConcurrentHashMapDataStorageConfigurationSchema.class,
-                            HashIndexConfigurationSchema.class,
-                            NullValueDefaultConfigurationSchema.class,
-                            UnlimitedBudgetConfigurationSchema.class
-                    },
-                    value = "mock.dataStorage.name = " + TestConcurrentHashMapStorageEngine.ENGINE_NAME
-            )
-            TableConfiguration tableCfg,
-
-            @InjectConfiguration(polymorphicExtensions = {
+public class AbstractTableIndexValidatorTest {
+    /** Basic table configuration to mutate and then validate. */
+    @InjectConfiguration(
+            polymorphicExtensions = {
                     HashIndexConfigurationSchema.class,
+                    SortedIndexConfigurationSchema.class,
                     UnknownDataStorageConfigurationSchema.class,
+                    TestDataStorageConfigurationSchema.class,
                     ConstantValueDefaultConfigurationSchema.class,
                     FunctionCallDefaultConfigurationSchema.class,
                     NullValueDefaultConfigurationSchema.class,
                     UnlimitedBudgetConfigurationSchema.class,
                     EntryCountBudgetConfigurationSchema.class
-            })
-            TablesConfiguration tablesConfig
-    ) {
-        initialize(new TestConcurrentHashMapMvTableStorage(tableCfg, tablesConfig), tablesConfig);
+            }
+    )
+    protected TablesConfiguration tablesCfg;
+
+    @BeforeEach
+    public void setup() throws Exception {
+        final TableDefinitionBuilder builder = SchemaBuilders.tableBuilder("schema", "table");
+
+        TableDefinition def = builder
+                .columns(
+                        SchemaBuilders.column("id", ColumnType.INT32).build(),
+                        SchemaBuilders.column("affId", ColumnType.INT32).build(),
+                        SchemaBuilders.column("id2", ColumnType.string()).asNullable(true).build()
+                )
+
+                .withPrimaryKey(
+                        SchemaBuilders.primaryKey()  // Declare index column in order.
+                                .withColumns("affId", "id")
+                                .withColocationColumns("affId")
+                                .build()
+                ).build();
+
+        tablesCfg.tables().change(c -> c.create("schema.table", tblChg -> SchemaConfigurationConverter.convert(def, tblChg))).get();
     }
 }

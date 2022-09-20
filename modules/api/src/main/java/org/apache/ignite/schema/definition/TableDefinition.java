@@ -17,16 +17,13 @@
 
 package org.apache.ignite.schema.definition;
 
-import java.util.Collection;
 import java.util.List;
 import java.util.Set;
-import org.apache.ignite.schema.definition.index.IndexDefinition;
 
 /**
  * Table schema configuration.
  */
 public interface TableDefinition extends SchemaObject {
-
     /**
      * Returns table name.
      *
@@ -55,11 +52,4 @@ public interface TableDefinition extends SchemaObject {
      * @return List of columns.
      */
     List<ColumnDefinition> columns();
-
-    /**
-     * Returns table indices.
-     *
-     * @return Collection of indexes.
-     */
-    Collection<IndexDefinition> indices();
 }
