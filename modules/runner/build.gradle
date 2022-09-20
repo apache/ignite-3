@@ -15,6 +15,10 @@
  * limitations under the License.
  */
 
+plugins {
+    id 'application'
+}
+
 apply from: "$rootDir/buildscripts/java-core.gradle"
 apply from: "$rootDir/buildscripts/java-junit5.gradle"
 apply from: "$rootDir/buildscripts/java-integration-test.gradle"
@@ -95,4 +99,38 @@ dependencies {
 
 checkstyleMain {
     enabled = false
+}
+
+application {
+    mainClass = 'org.apache.ignite.app.IgniteCliRunner'
+}
+
+distributions {
+    main {
+        distributionBaseName = 'apache-ignite'
+        contents {
+            into('') {
+                File.createTempDir().with {
+                    ["log", "config", "work"].each {new File(absolutePath, it).mkdirs() }
+                    from (absolutePath) {
+                        includeEmptyDirs = true
+                    }
+                }
+            }
+            into('') {
+                from ("$rootDir/LICENSE")
+                from ("$rootDir/NOTICE")
+                from ("$rootDir/assembly/README.md")
+            }
+            into('config') {
+                from ("$rootDir/deliveries/scripts/bootstrap-config")
+                from ("$rootDir/deliveries/config/ignite-config.conf")
+                from ("$rootDir/deliveries/config/ignite.java.util.logging.properties")
+            }
+            into('bin') {
+                from ("$rootDir/deliveries/scripts/start.sh")
+                from ("$rootDir/deliveries/scripts/stop.sh")
+            }
+        }
+    }
 }
