@@ -868,34 +868,14 @@ public class PlannerTest extends AbstractPlannerTest {
 
     @Test
     public void checkTableHintsHandling() throws Exception {
-        IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
-
-        TestTable person = new TestTable(
-                new RelDataTypeFactory.Builder(f)
-                        .add("PK", f.createJavaType(Integer.class))
-                        .add("ORG_ID", f.createJavaType(Integer.class))
-                        .build()) {
-
-            @Override public IgniteDistribution distribution() {
-                return IgniteDistributions.affinity(0, "ignored", "ignored");
-            }
-        };
-
-        TestTable company = new TestTable(
-                new RelDataTypeFactory.Builder(f)
-                        .add("PK", f.createJavaType(Integer.class))
-                        .add("ID", f.createJavaType(Integer.class))
-                        .build()) {
-
-            @Override public IgniteDistribution distribution() {
-                return IgniteDistributions.affinity(0, "ignored", "ignored");
-            }
-        };
-
-        IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
-
-        publicSchema.addTable("PERSON", person);
-        publicSchema.addTable("COMPANY", company);
+        IgniteSchema publicSchema = createSchema(
+                createTable("PERSON", IgniteDistributions.affinity(0, "ignored", "ignored"),
+                        "PK", Integer.class, "ORG_ID", Integer.class
+                ),
+                createTable("COMPANY", IgniteDistributions.affinity(0, "ignored", "ignored"),
+                        "PK", Integer.class, "ID", Integer.class
+                )
+        );
 
         SchemaPlus schema = createRootSchema(false)
                 .add("PUBLIC", publicSchema);
