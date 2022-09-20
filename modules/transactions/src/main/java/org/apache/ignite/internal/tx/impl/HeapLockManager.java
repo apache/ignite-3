@@ -22,6 +22,7 @@ import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.DOWNGRADE_LOCK_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.RELEASE_LOCK_ERR;
 
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -65,14 +66,17 @@ import org.jetbrains.annotations.Nullable;
  * <p>put(k, v1, timestamp2) // Upgrades a younger read-lock to write-lock and waits for acquisition.
  *
  * <p>put(k, v1, timestamp1) // Upgrades an older read-lock. This will invalidate the younger write-lock.
- *
- * @see org.apache.ignite.internal.table.TxAbstractTest#testUpgradedLockInvalidation()
  */
 public class HeapLockManager implements LockManager {
     private ConcurrentHashMap<LockKey, LockState> locks = new ConcurrentHashMap<>();
 
     @Override
     public CompletableFuture<Lock> acquire(UUID txId, LockKey lockKey, LockMode lockMode) {
+        //TODO: IGNITE-17733 Resume honest index lock
+        if (lockKey.key() instanceof ByteBuffer) {
+            lockMode = LockMode.NAL;
+        }
+
         while (true) {
             LockState state = lockState(lockKey);
 
@@ -216,18 +220,21 @@ public class HeapLockManager implements LockManager {
                 // Lock if oldest.
                 locked = waiters.firstKey().equals(txId);
 
-                if (locked) {
-                    waiter.lock();
-                }
-
                 if (!locked) {
                     Map.Entry<UUID, WaiterImpl> prevEntry = waiters.lowerEntry(txId);
 
                     // Grant lock if previous entry lock is compatible (by induction).
                     locked = prevEntry == null || (prevEntry.getValue().lockMode.isCompatible(lockMode) && prevEntry
                             .getValue().locked());
+                }
 
-                    if (locked) {
+                if (locked) {
+                    if (waiter.upgraded) {
+                        // Upgrade lock.
+                        waiter.upgraded = false;
+                        waiter.prevLockMode = null;
+                        waiter.locked = true;
+                    } else {
                         waiter.lock();
                     }
                 }
@@ -268,36 +275,33 @@ public class HeapLockManager implements LockManager {
                 for (Map.Entry<UUID, WaiterImpl> entry : waiters.entrySet()) {
                     WaiterImpl tmp = entry.getValue();
 
-                    if (!lockModes.isEmpty() && lockModes.stream().anyMatch(m -> !tmp.lockMode.isCompatible(m))) {
-                        break;
-                    } else {
+                    if (tmp.upgraded && !removed.lockMode.isCompatible(tmp.prevLockMode)) {
+                        // Fail upgraded waiters.
+                        assert !tmp.locked;
+
+                        // Downgrade to acquired lock.
+                        tmp.upgraded = false;
+                        tmp.lockMode = tmp.prevLockMode;
+                        tmp.prevLockMode = null;
+                        tmp.locked = true;
+
+                        toFail.add(tmp);
+                    } else if (lockModes.stream().allMatch(tmp.lockMode::isCompatible)) {
                         if (tmp.upgraded) {
                             // Fail upgraded waiters.
                             assert !tmp.locked;
 
-                            if (removed.lockMode.compareTo(tmp.lockMode) >= 0) {
-                                // Downgrade to acquired lock.
-                                tmp.upgraded = false;
-                                tmp.lockMode = tmp.prevLockMode;
-                                tmp.prevLockMode = null;
-                                tmp.locked = true;
-
-                                toFail.add(tmp);
-                            } else {
-                                // Upgrade lock.
-                                tmp.upgraded = false;
-                                tmp.prevLockMode = null;
-                                tmp.locked = true;
-
-                                locked.add(tmp);
-                            }
+                            // Upgrade lock.
+                            tmp.upgraded = false;
+                            tmp.prevLockMode = null;
+                            tmp.locked = true;
                         } else {
-                            lockModes.add(tmp.lockMode);
-
                             tmp.lock();
-
-                            locked.add(tmp);
                         }
+
+                        lockModes.add(tmp.lockMode);
+
+                        locked.add(tmp);
                     }
                 }
             }
@@ -311,7 +315,7 @@ public class HeapLockManager implements LockManager {
                 waiter.fut.completeExceptionally(
                         new LockException(
                                 RELEASE_LOCK_ERR,
-                                "Failed to release a lock due to a conflict [txId=" + txId + ", waiter=" + removed + ']'));
+                                "Failed to acquire a lock due to a conflict [txId=" + txId + ", waiter=" + removed + ']'));
             }
 
             return false;

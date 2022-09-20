@@ -21,6 +21,9 @@ package org.apache.ignite.internal.tx;
  * Lock mode.
  */
 public enum LockMode {
+    /** Not a lock. */
+    NAL,
+
     /** Intention shared. */
     IS,
 
@@ -38,29 +41,32 @@ public enum LockMode {
 
     /** Lock mode compatibility matrix. */
     private static final boolean[][] COMPAT_MATRIX = {
-            {true, true, true, true, false},
-            {true, true, false, false, false},
-            {true, false, true, false, false},
-            {true, false, false, false, false},
-            {false, false, false, false, false},
+            {true, true, true, true, true, true},
+            {true, true, true, true, true, false},
+            {true, true, true, false, false, false},
+            {true, true, false, true, false, false},
+            {true, true, false, false, false, false},
+            {true, false, false, false, false, false},
     };
 
     /** Lock mode reenter matrix. */
     private static final boolean[][] REENTER_MATRIX = {
-            {true, false, false, false, false},
-            {true, true, false, false, false},
-            {true, false, true, false, false},
-            {true, true, true, true, false},
-            {true, true, true, true, true},
+            {true, true, true, true, true, true, true},
+            {true, true, false, false, false, false},
+            {true, true, true, false, false, false},
+            {true, true, false, true, false, false},
+            {true, true, true, true, true, false},
+            {true, true, true, true, true, true},
     };
 
     /** Lock mode upgrade matrix. */
     private static final LockMode[][] UPGRADE_MATRIX = {
-            {IS, IX, S, SIX, X},
-            {IX, IX, SIX, SIX, X},
-            {S, SIX, S, SIX, X},
-            {SIX, SIX, SIX, SIX, X},
-            {X, X, X, X, X},
+            {NAL, IS, IX, S, SIX, X},
+            {IS, IS, IX, S, SIX, X},
+            {IX, IX, IX, SIX, SIX, X},
+            {S, S, SIX, S, SIX, X},
+            {SIX, SIX, SIX, SIX, SIX, X},
+            {X, X, X, X, X, X},
     };
 
     /**

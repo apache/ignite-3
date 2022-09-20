@@ -158,7 +158,8 @@ public class TransactionImpl implements InternalTransaction {
         // TODO: add proper exception handling.
         return CompletableFuture
                 .allOf(enlistedResults.toArray(new CompletableFuture[0]))
-                .thenCompose(ignored -> {
+                .thenCompose(
+                        ignored -> {
                             if (!enlisted.isEmpty()) {
                                 return txManager.finish(
                                         enlisted.entrySet().iterator().next().getValue().get1(),
