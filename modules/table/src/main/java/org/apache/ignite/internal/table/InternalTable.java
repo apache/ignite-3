@@ -27,7 +27,7 @@ import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockException;
-import org.apache.ignite.internal.tx.storage.state.TxnStateTableStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.jetbrains.annotations.Nullable;
@@ -253,7 +253,7 @@ public interface InternalTable extends AutoCloseable {
      *
      * @return Transaction states' storage.
      */
-    TxnStateTableStorage txnStateStorage();
+    TxStateTableStorage txnStateStorage();
 
     //TODO: IGNITE-14488. Add invoke() methods.
 }

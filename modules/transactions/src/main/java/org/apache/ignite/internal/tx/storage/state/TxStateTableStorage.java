@@ -25,7 +25,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Transaction state storage for a table.
  */
-public interface TxnStateTableStorage extends AutoCloseable {
+public interface TxStateTableStorage extends AutoCloseable {
     /**
      * Get or create transaction state storage for partition.
      *
@@ -33,7 +33,7 @@ public interface TxnStateTableStorage extends AutoCloseable {
      * @return Transaction state storage.
      * @throws StorageException  In case when the operation has failed.
      */
-    TxnStateStorage getOrCreateTxnStateStorage(int partitionId) throws StorageException;
+    TxStateStorage getOrCreateTxnStateStorage(int partitionId) throws StorageException;
 
     /**
      * Get transaction state storage.
@@ -42,7 +42,7 @@ public interface TxnStateTableStorage extends AutoCloseable {
      * @return Transaction state storage.
      */
     @Nullable
-    TxnStateStorage getTxnStateStorage(int partitionId);
+    TxStateStorage getTxnStateStorage(int partitionId);
 
     /**
      * Destroy transaction state storage.

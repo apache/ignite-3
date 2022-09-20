@@ -118,7 +118,7 @@ import org.apache.ignite.internal.table.event.TableEventParameters;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
-import org.apache.ignite.internal.tx.storage.state.TxnStateTableStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteObjectName;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -897,7 +897,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         MvTableStorage tableStorage = dataStorageMgr.engine(tableCfg.dataStorage()).createMvTable(tableCfg);
 
-        TxnStateTableStorage txnStateStorage = dataStorageMgr.engine(ROCKSDB_ENGINE_NAME).createTxnStateTableStorage(tableCfg);
+        TxStateTableStorage txnStateStorage = dataStorageMgr.engine(ROCKSDB_ENGINE_NAME).createTxnStateTableStorage(tableCfg);
 
         tableStorage.start();
 
@@ -1665,7 +1665,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                             RaftGroupListener raftGrpLsnr = new PartitionListener(
                                     partitionStorage,
-                                    tbl.internalTable().txnStateStorage().getTxnStateStorage(part),
+                                    tbl.internalTable().txnStateStorage().getOrCreateTxnStateStorage(part),
                                     txManager,
                                     new ConcurrentHashMap<>()
                             );

@@ -45,7 +45,7 @@ import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryDataStorageView;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
-import org.apache.ignite.internal.tx.storage.state.TxnStateTableStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 
@@ -198,7 +198,7 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
     }
 
     /** {@inheritDoc} */
-    @Override public TxnStateTableStorage createTxnStateTableStorage(TableConfiguration tableCfg) {
+    @Override public TxStateTableStorage createTxnStateTableStorage(TableConfiguration tableCfg) {
         throw new UnsupportedOperationException("Transaction state storage can be created only using RocksDb storage engine.");
     }
 

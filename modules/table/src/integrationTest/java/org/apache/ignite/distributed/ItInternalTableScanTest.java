@@ -70,8 +70,8 @@ import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
-import org.apache.ignite.internal.tx.storage.state.TxnStateStorage;
-import org.apache.ignite.internal.tx.storage.state.TxnStateTableStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -109,7 +109,7 @@ public class ItInternalTableScanTest {
 
     /** Mock txState storage. */
     @Mock
-    private TxnStateStorage txnStateStorage;
+    private TxStateStorage txStateStorage;
 
     /** Mock partition storage. */
     @Mock
@@ -173,7 +173,7 @@ public class ItInternalTableScanTest {
 
         List<Peer> conf = List.of(new Peer(nodeNetworkAddress));
 
-        txnStateStorage = mock(TxnStateStorage.class);
+        txStateStorage = mock(TxStateStorage.class);
 
         mockStorage = mock(MvPartitionStorage.class);
 
@@ -185,7 +185,7 @@ public class ItInternalTableScanTest {
 
         raftSrv.startRaftGroup(
                 grpName,
-                new PartitionListener(mockStorage, txnStateStorage, txManager, new ConcurrentHashMap<>()),
+                new PartitionListener(mockStorage, txStateStorage, txManager, new ConcurrentHashMap<>()),
                 conf,
                 RaftGroupOptions.defaults()
         );
@@ -212,7 +212,7 @@ public class ItInternalTableScanTest {
                 addressToNode,
                 txManager,
                 mock(MvTableStorage.class),
-                mock(TxnStateTableStorage.class),
+                mock(TxStateTableStorage.class),
                 mock(ReplicaService.class),
                 mock(HybridClock.class)
         );

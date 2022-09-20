@@ -49,7 +49,7 @@ import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
-import org.apache.ignite.internal.tx.storage.state.TxnStateStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.raft.client.Command;
@@ -72,7 +72,7 @@ public class PartitionListener implements RaftGroupListener {
     private final MvPartitionStorage storage;
 
     /** Transaction state storage. */
-    private final TxnStateStorage txnStateStorage;
+    private final TxStateStorage txStateStorage;
 
     /** Transaction manager. */
     private final TxManager txManager;
@@ -94,18 +94,18 @@ public class PartitionListener implements RaftGroupListener {
      * The constructor.
      *
      * @param store  The storage.
-     * @param txnStateStorage Transaction state storage.
+     * @param txStateStorage Transaction state storage.
      * @param txManager Transaction manager.
      * @param primaryIndex Primary index map.
      */
     public PartitionListener(
             MvPartitionStorage store,
-            TxnStateStorage txnStateStorage,
+            TxStateStorage txStateStorage,
             TxManager txManager,
             ConcurrentHashMap<ByteBuffer, RowId> primaryIndex
     ) {
         this.storage = store;
-        this.txnStateStorage = txnStateStorage;
+        this.txStateStorage = txStateStorage;
         this.txManager = txManager;
         this.primaryIndex = primaryIndex;
     }
@@ -297,7 +297,7 @@ public class PartitionListener implements RaftGroupListener {
 
         TxState stateToSet = cmd.commit() ? TxState.COMMITED : TxState.ABORTED;
 
-        boolean txStateChangeRes = txnStateStorage.compareAndSet(
+        boolean txStateChangeRes = txStateStorage.compareAndSet(
                 txId,
                 null,
                 new TxMeta(
@@ -312,7 +312,7 @@ public class PartitionListener implements RaftGroupListener {
             UUID traceId = UUID.randomUUID();
 
             String errorMsg = format("Fail to finish the transaction txId = {} because of inconsistent state = {},"
-                    + " expected state = null, state to set = {}", txId, txnStateStorage.get(txId), stateToSet);
+                    + " expected state = null, state to set = {}", txId, txStateStorage.get(txId), stateToSet);
 
             IgniteInternalException stateChangeException = new IgniteInternalException(traceId, TX_UNEXPECTED_STATE, errorMsg);
 

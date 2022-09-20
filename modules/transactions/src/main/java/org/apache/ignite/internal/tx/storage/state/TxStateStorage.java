@@ -30,7 +30,7 @@ import org.apache.ignite.lang.IgniteInternalException;
 /**
  * Storage for transaction meta, {@link TxMeta}.
  */
-public interface TxnStateStorage extends AutoCloseable {
+public interface TxStateStorage extends AutoCloseable {
     /**
      * Get tx meta by tx id.
      *

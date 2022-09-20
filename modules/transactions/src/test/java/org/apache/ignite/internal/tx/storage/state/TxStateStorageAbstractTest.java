@@ -46,7 +46,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Tx storage test.
  */
 @ExtendWith(WorkDirectoryExtension.class)
-public abstract class TxnStateStorageAbstractTest {
+public abstract class TxStateStorageAbstractTest {
     @WorkDirectory
     protected Path workDir;
 
@@ -57,8 +57,8 @@ public abstract class TxnStateStorageAbstractTest {
 
     @Test
     public void testPutGetRemove() throws Exception {
-        try (TxnStateTableStorage tableStorage = createStorage()) {
-            TxnStateStorage storage = tableStorage.getOrCreateTxnStateStorage(0);
+        try (TxStateTableStorage tableStorage = createStorage()) {
+            TxStateStorage storage = tableStorage.getOrCreateTxnStateStorage(0);
 
             List<UUID> txIds = new ArrayList<>();
 
@@ -112,8 +112,8 @@ public abstract class TxnStateStorageAbstractTest {
 
     @Test
     public void testCas() throws Exception {
-        try (TxnStateTableStorage tableStorage = createStorage()) {
-            TxnStateStorage storage = tableStorage.getOrCreateTxnStateStorage(0);
+        try (TxStateTableStorage tableStorage = createStorage()) {
+            TxStateStorage storage = tableStorage.getOrCreateTxnStateStorage(0);
 
             UUID txId = UUID.randomUUID();
 
@@ -134,8 +134,8 @@ public abstract class TxnStateStorageAbstractTest {
 
     @Test
     public void testScan() throws Exception {
-        try (TxnStateTableStorage tableStorage = createStorage()) {
-            TxnStateStorage storage = tableStorage.getOrCreateTxnStateStorage(0);
+        try (TxStateTableStorage tableStorage = createStorage()) {
+            TxStateStorage storage = tableStorage.getOrCreateTxnStateStorage(0);
 
             Map<UUID, TxMeta> txs = new HashMap<>();
 
@@ -172,11 +172,11 @@ public abstract class TxnStateStorageAbstractTest {
     }
 
     /**
-     * Creates {@link TxnStateStorage} to test.
+     * Creates {@link TxStateStorage} to test.
      *
      * @return Tx state storage.
      */
-    protected abstract TxnStateTableStorage createStorage();
+    protected abstract TxStateTableStorage createStorage();
 
     /**
      * Destroy storage, for proper clean-up.

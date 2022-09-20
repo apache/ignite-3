@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.tx.storage.state.rocksdb;
 
 import static java.util.Objects.requireNonNull;
-import static org.apache.ignite.internal.tx.storage.state.rocksdb.TxnStateRocksDbTableStorage.APPLIED_INDEX_KEY;
+import static org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbTableStorage.APPLIED_INDEX_KEY;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
@@ -38,7 +38,7 @@ import org.apache.ignite.internal.rocksdb.BusyRocksIteratorAdapter;
 import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
-import org.apache.ignite.internal.tx.storage.state.TxnStateStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -54,7 +54,7 @@ import org.rocksdb.WriteOptions;
 /**
  * Tx state storage implementation based on RocksDB.
  */
-public class TxnStateRocksDbStorage implements TxnStateStorage {
+public class TxStateRocksDbStorage implements TxStateStorage {
     /** RocksDB database. */
     private volatile TransactionDB db;
 
@@ -68,7 +68,7 @@ public class TxnStateRocksDbStorage implements TxnStateStorage {
     private final int partitionId;
 
     /** Transaction state table storage. */
-    private final TxnStateRocksDbTableStorage tableStorage;
+    private final TxStateRocksDbTableStorage tableStorage;
 
     /** Collection of opened RocksDB iterators. */
     private final Set<RocksIterator> iterators = ConcurrentHashMap.newKeySet();
@@ -84,13 +84,13 @@ public class TxnStateRocksDbStorage implements TxnStateStorage {
      * @param partitionId Partition id.
      * @param tableStorage Table storage.
      */
-    public TxnStateRocksDbStorage(
+    public TxStateRocksDbStorage(
             TransactionDB db,
             WriteOptions writeOptions,
             ReadOptions readOptions,
             IgniteSpinBusyLock busyLock,
             int partitionId,
-            TxnStateRocksDbTableStorage tableStorage
+            TxStateRocksDbTableStorage tableStorage
     ) {
         this.db = db;
         this.writeOptions = writeOptions;

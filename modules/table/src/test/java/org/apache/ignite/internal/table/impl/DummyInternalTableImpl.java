@@ -41,8 +41,8 @@ import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
-import org.apache.ignite.internal.tx.storage.state.TxnStateTableStorage;
-import org.apache.ignite.internal.tx.storage.state.test.TestConcurrentHashMapTxnStateStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
+import org.apache.ignite.internal.tx.storage.state.test.TestConcurrentHashMapTxStateStorage;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.Command;
@@ -78,7 +78,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 null,
                 txManager,
                 mock(MvTableStorage.class),
-                mock(TxnStateTableStorage.class),
+                mock(TxStateTableStorage.class),
                 mock(ReplicaService.class),
                 mock(HybridClock.class)
         );
@@ -166,7 +166,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         // TODO: https://issues.apache.org/jira/browse/IGNITE-17523
         partitionListener = new PartitionListener(
                 mvPartStorage,
-                new TestConcurrentHashMapTxnStateStorage(),
+                new TestConcurrentHashMapTxStateStorage(),
                 txManager,
                 new ConcurrentHashMap<>()
         );

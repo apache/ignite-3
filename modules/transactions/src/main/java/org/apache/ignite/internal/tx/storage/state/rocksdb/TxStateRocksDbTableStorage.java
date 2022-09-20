@@ -38,8 +38,8 @@ import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.internal.configuration.storage.StorageException;
 import org.apache.ignite.internal.rocksdb.flush.RocksDbFlusher;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.internal.tx.storage.state.TxnStateStorage;
-import org.apache.ignite.internal.tx.storage.state.TxnStateTableStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -58,9 +58,9 @@ import org.rocksdb.TransactionDBOptions;
 import org.rocksdb.WriteOptions;
 
 /**
- * RocksDb implementation of {@link TxnStateTableStorage}.
+ * RocksDb implementation of {@link TxStateTableStorage}.
  */
-public class TxnStateRocksDbTableStorage implements TxnStateTableStorage {
+public class TxStateRocksDbTableStorage implements TxStateTableStorage {
     static {
         RocksDB.loadLibrary();
     }
@@ -93,7 +93,7 @@ public class TxnStateRocksDbTableStorage implements TxnStateTableStorage {
     private final Path dbPath;
 
     /** Partition storages. */
-    private volatile AtomicReferenceArray<TxnStateStorage> storages;
+    private volatile AtomicReferenceArray<TxStateStorage> storages;
 
     /** Table configuration. */
     private final TableConfiguration tableCfg;
@@ -127,7 +127,7 @@ public class TxnStateRocksDbTableStorage implements TxnStateTableStorage {
      * @param dbPath Database path.
      * @param scheduledExecutor Scheduled executor.
      */
-    public TxnStateRocksDbTableStorage(
+    public TxStateRocksDbTableStorage(
             TableConfiguration tableCfg,
             Path dbPath,
             ScheduledExecutorService scheduledExecutor,
@@ -158,10 +158,10 @@ public class TxnStateRocksDbTableStorage implements TxnStateTableStorage {
     }
 
     /** {@inheritDoc} */
-    @Override public TxnStateStorage getOrCreateTxnStateStorage(int partitionId) throws StorageException {
+    @Override public TxStateStorage getOrCreateTxnStateStorage(int partitionId) throws StorageException {
         checkPartitionId(partitionId);
 
-        TxnStateStorage storage = new TxnStateRocksDbStorage(db, writeOptions, readOptions, busyLock, partitionId, this);
+        TxStateStorage storage = new TxStateRocksDbStorage(db, writeOptions, readOptions, busyLock, partitionId, this);
 
         storages.set(partitionId, storage);
 
@@ -169,7 +169,7 @@ public class TxnStateRocksDbTableStorage implements TxnStateTableStorage {
     }
 
     /** {@inheritDoc} */
-    @Override public @Nullable TxnStateStorage getTxnStateStorage(int partitionId) {
+    @Override public @Nullable TxStateStorage getTxnStateStorage(int partitionId) {
         return storages.get(partitionId);
     }
 
@@ -177,7 +177,7 @@ public class TxnStateRocksDbTableStorage implements TxnStateTableStorage {
     @Override public CompletableFuture<Void> destroyTxnStateStorage(int partitionId) throws StorageException {
         checkPartitionId(partitionId);
 
-        TxnStateStorage storage = storages.get(partitionId);
+        TxStateStorage storage = storages.get(partitionId);
 
         if (storage != null) {
             try {
@@ -262,7 +262,7 @@ public class TxnStateRocksDbTableStorage implements TxnStateTableStorage {
             resources.add(db);
 
             for (int i = 0; i < storages.length(); i++) {
-                TxnStateStorage storage = storages.get(0);
+                TxStateStorage storage = storages.get(0);
 
                 if (storage != null) {
                     resources.add(storage);

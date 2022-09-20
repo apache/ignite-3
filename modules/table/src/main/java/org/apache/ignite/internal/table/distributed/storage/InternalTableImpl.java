@@ -54,7 +54,7 @@ import org.apache.ignite.internal.table.distributed.replicator.action.RequestTyp
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
-import org.apache.ignite.internal.tx.storage.state.TxnStateTableStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.lang.Function3;
 import org.apache.ignite.lang.Function4;
 import org.apache.ignite.lang.IgniteBiTuple;
@@ -106,7 +106,7 @@ public class InternalTableImpl implements InternalTable {
     private final MvTableStorage tableStorage;
 
     /** Storage for txn states. */
-    private final TxnStateTableStorage txnStateStorage;
+    private final TxStateTableStorage txnStateStorage;
 
     /** Replica service. */
     protected final ReplicaService replicaSvc;
@@ -142,7 +142,7 @@ public class InternalTableImpl implements InternalTable {
             Function<NetworkAddress, ClusterNode> clusterNodeResolver,
             TxManager txManager,
             MvTableStorage tableStorage,
-            TxnStateTableStorage txnStateStorage,
+            TxStateTableStorage txnStateStorage,
             ReplicaService replicaSvc,
             HybridClock clock
     ) {
@@ -765,7 +765,7 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /** {@inheritDoc} */
-    @Override public TxnStateTableStorage txnStateStorage() {
+    @Override public TxStateTableStorage txnStateStorage() {
         return txnStateStorage;
     }
 

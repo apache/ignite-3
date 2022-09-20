@@ -61,8 +61,8 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
-import org.apache.ignite.internal.tx.storage.state.TxnStateTableStorage;
-import org.apache.ignite.internal.tx.storage.state.test.TestConcurrentHashMapTxnStateStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
+import org.apache.ignite.internal.tx.storage.state.test.TestConcurrentHashMapTxStateStorage;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
@@ -297,7 +297,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 txMgr,
                 // TODO: sanpwc is MvTableStorage mock really ok? - remove after all tests will become green.
                 Mockito.mock(MvTableStorage.class),
-                Mockito.mock(TxnStateTableStorage.class),
+                Mockito.mock(TxStateTableStorage.class),
                 startClient() ? clientReplicaSvc : replicaServices.get(localNode),
                 startClient() ? clientClock : clocks.get(localNode)
         ), new DummySchemaManagerImpl(ACCOUNTS_SCHEMA));
@@ -312,7 +312,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 txMgr,
                 // TODO: sanpwc is MvTableStorage mock really ok? - remove after all tests will become green.
                 Mockito.mock(MvTableStorage.class),
-                Mockito.mock(TxnStateTableStorage.class),
+                Mockito.mock(TxStateTableStorage.class),
                 startClient() ? clientReplicaSvc : replicaServices.get(localNode),
                 startClient() ? clientClock : clocks.get(localNode)
         ), new DummySchemaManagerImpl(CUSTOMERS_SCHEMA));
@@ -364,7 +364,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                         () -> {
                             return new PartitionListener(
                                     testMpPartStorage,
-                                    new TestConcurrentHashMapTxnStateStorage(),
+                                    new TestConcurrentHashMapTxStateStorage(),
                                     txManagers.get(node),
                                     primaryIndex
                             );

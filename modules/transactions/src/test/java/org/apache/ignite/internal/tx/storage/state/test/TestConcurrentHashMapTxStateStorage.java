@@ -25,15 +25,15 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.configuration.storage.StorageException;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
-import org.apache.ignite.internal.tx.storage.state.TxnStateStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * Test implementation of {@link TxnStateStorage} based on {@link ConcurrentHashMap}.
+ * Test implementation of {@link TxStateStorage} based on {@link ConcurrentHashMap}.
  */
-public class TestConcurrentHashMapTxnStateStorage implements TxnStateStorage {
+public class TestConcurrentHashMapTxStateStorage implements TxStateStorage {
     /** Storage. */
     private final ConcurrentHashMap<UUID, TxMeta> storage = new ConcurrentHashMap<>();
 

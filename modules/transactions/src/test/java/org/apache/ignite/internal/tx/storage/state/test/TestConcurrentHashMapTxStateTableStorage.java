@@ -22,29 +22,29 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.internal.configuration.storage.StorageException;
-import org.apache.ignite.internal.tx.storage.state.TxnStateStorage;
-import org.apache.ignite.internal.tx.storage.state.TxnStateTableStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Table tx state storage for {@link TestConcurrentHashMapTxnStateStorage}.
+ * Table tx state storage for {@link TestConcurrentHashMapTxStateStorage}.
  */
-public class TestConcurrentHashMapTxStateTableStorage implements TxnStateTableStorage {
-    private final Map<Integer, TxnStateStorage> storages = new ConcurrentHashMap<>();
+public class TestConcurrentHashMapTxStateTableStorage implements TxStateTableStorage {
+    private final Map<Integer, TxStateStorage> storages = new ConcurrentHashMap<>();
 
     /** {@inheritDoc} */
-    @Override public TxnStateStorage getOrCreateTxnStateStorage(int partitionId) throws StorageException {
-        return storages.computeIfAbsent(partitionId, k -> new TestConcurrentHashMapTxnStateStorage());
+    @Override public TxStateStorage getOrCreateTxnStateStorage(int partitionId) throws StorageException {
+        return storages.computeIfAbsent(partitionId, k -> new TestConcurrentHashMapTxStateStorage());
     }
 
     /** {@inheritDoc} */
-    @Override public @Nullable TxnStateStorage getTxnStateStorage(int partitionId) {
+    @Override public @Nullable TxStateStorage getTxnStateStorage(int partitionId) {
         return storages.get(partitionId);
     }
 
     /** {@inheritDoc} */
     @Override public CompletableFuture<Void> destroyTxnStateStorage(int partitionId) throws StorageException {
-        TxnStateStorage storage = storages.get(partitionId);
+        TxStateStorage storage = storages.get(partitionId);
 
         if (storage != null) {
             storage.destroy();

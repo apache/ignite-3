@@ -19,7 +19,7 @@ package org.apache.ignite.internal.storage.engine;
 
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.tx.storage.state.TxnStateTableStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 
 /**
  * General storage engine interface.
@@ -65,5 +65,5 @@ public interface StorageEngine {
      *
      * @return Transaction state storage.
      */
-    TxnStateTableStorage createTxnStateTableStorage(TableConfiguration tableCfg);
+    TxStateTableStorage createTxnStateTableStorage(TableConfiguration tableCfg);
 }
