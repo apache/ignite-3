@@ -104,6 +104,7 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
     /** Thread pool to execute after-flush actions. */
     private final ExecutorService threadPool;
 
+    /** Supplier for the value of delay for scheduled database flush. */
     private final IntSupplier flushDelaySupplier;
 
     /**
@@ -148,12 +149,12 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
         checkPartitionId(partitionId);
 
         TxStateStorage storage = new TxStateRocksDbStorage(
-            db,
-            writeOptions,
-            readOptions,
-            persistedTierReadOptions,
-            partitionId,
-            this
+                db,
+                writeOptions,
+                readOptions,
+                persistedTierReadOptions,
+                partitionId,
+                this
         );
 
         storages.set(partitionId, storage);

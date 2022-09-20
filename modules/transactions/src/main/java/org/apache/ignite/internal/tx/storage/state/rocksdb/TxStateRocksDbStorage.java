@@ -289,7 +289,12 @@ public class TxStateRocksDbStorage implements TxStateStorage {
         try {
             appliedIndexBytes = db.get(readOptions, lastAppliedIndexKey);
         } catch (RocksDBException e) {
-            throw new IgniteInternalException(TX_STATE_STORAGE_ERR, "Failed to read applied index value from transaction state storage", e);
+            throw new IgniteInternalException(
+                TX_STATE_STORAGE_ERR,
+                "Failed to read applied index value from transaction state storage, partition " + partitionId
+                    + " of table " + tableStorage.configuration().value().name(),
+                e
+            );
         }
 
         return appliedIndexBytes == null ? 0 : bytesToLong(appliedIndexBytes);
@@ -352,11 +357,11 @@ public class TxStateRocksDbStorage implements TxStateStorage {
          * Constructor.
          *
          * @param busyLock Busy lock.
-         * @param iterator RocksDB iterator.
+         * @param rocksIterator RocksDB iterator.
          */
-        private StorageIterator(IgniteSpinBusyLock busyLock, RocksIterator iterator) {
+        private StorageIterator(IgniteSpinBusyLock busyLock, RocksIterator rocksIterator) {
             this.busyLock = busyLock;
-            rocksIterator = iterator;
+            this.rocksIterator = rocksIterator;
         }
 
         /** {@inheritDoc} */

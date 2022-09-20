@@ -130,7 +130,7 @@ public class InternalTableImpl implements InternalTable {
      * @param partitions Partitions.
      * @param txManager Transaction manager.
      * @param tableStorage Table storage.
-     * @param txStateStorage Txn state storage.
+     * @param txStateStorage Transaction state storage.
      * @param replicaSvc Replica service.
      * @param clock A hybrid logical clock.
      */

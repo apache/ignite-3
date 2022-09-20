@@ -168,9 +168,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     private static final long QUERY_DATA_NODES_COUNT_TIMEOUT = TimeUnit.SECONDS.toMillis(3);
 
-    /** Name of RocksDb engine, which is needed to create transaction state storage. */
-    private static final String ROCKSDB_ENGINE_NAME = "rocksdb";
-
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(TableManager.class);
 
@@ -261,8 +258,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     /** Transaction state storage pool. */
     private final ExecutorService txStateStoragePool = Executors.newFixedThreadPool(
-        Runtime.getRuntime().availableProcessors(),
-        new NamedThreadFactory("tx-state-storage-pool", LOG)
+            Runtime.getRuntime().availableProcessors(),
+            new NamedThreadFactory("tx-state-storage-pool", LOG)
     );
 
     /** Separate executor for IO operations like partition storage initialization

@@ -57,7 +57,7 @@ public interface TxStateStorage extends AutoCloseable {
      * @param txId Tx id.
      * @param txStateExpected Tx state that is expected to be in the storage.
      * @param txMeta Tx meta.
-     * @param commandIndex New value for the last applied index.
+     * @param commandIndex New value for {@link #lastAppliedIndex()}.
      * @return Whether the CAS operation is successful.
      * @throws IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_ERR} error code in case when
      *                                 the operation has failed.
