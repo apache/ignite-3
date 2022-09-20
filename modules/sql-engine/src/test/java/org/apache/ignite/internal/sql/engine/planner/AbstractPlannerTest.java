@@ -29,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
+import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
@@ -57,6 +58,8 @@ import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelReferentialConstraint;
 import org.apache.calcite.rel.RelVisitor;
 import org.apache.calcite.rel.core.TableModify.Operation;
+import org.apache.calcite.rel.core.TableScan;
+import org.apache.calcite.rel.hint.HintStrategyTable;
 import org.apache.calcite.rel.hint.RelHint;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
@@ -74,6 +77,7 @@ import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.calcite.sql.SqlFunction;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql2rel.InitializerContext;
+import org.apache.calcite.sql2rel.SqlToRelConverter;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.Util;
 import org.apache.ignite.internal.index.ColumnCollation;
@@ -224,12 +228,17 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
      * Create planner context for specified query.
      */
     protected PlanningContext plannerCtx(String sql, IgniteSchema publicSchema, String... disabledRules) {
-        return plannerCtx(sql, Collections.singleton(publicSchema), disabledRules);
+        return plannerCtx(sql, Collections.singleton(publicSchema), null, disabledRules);
     }
 
-    protected PlanningContext plannerCtx(String sql, Collection<IgniteSchema> schemas, String... disabledRules) {
+    protected PlanningContext plannerCtx(
+            String sql,
+            Collection<IgniteSchema> schemas,
+            HintStrategyTable hintStrategies,
+            String... disabledRules
+    ) {
         PlanningContext ctx = PlanningContext.builder()
-                .parentContext(baseQueryContext(schemas))
+                .parentContext(baseQueryContext(schemas, hintStrategies))
                 .query(sql)
                 .build();
 
@@ -242,7 +251,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         return ctx;
     }
 
-    protected BaseQueryContext baseQueryContext(Collection<IgniteSchema> schemas) {
+    protected BaseQueryContext baseQueryContext(Collection<IgniteSchema> schemas, @Nullable HintStrategyTable hintStrategies) {
         SchemaPlus rootSchema = createRootSchema(false);
         SchemaPlus dfltSchema = null;
 
@@ -254,10 +263,17 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
             }
         }
 
+        SqlToRelConverter.Config relConvCfg = FRAMEWORK_CONFIG.getSqlToRelConverterConfig();
+
+        if (hintStrategies != null) {
+            relConvCfg = relConvCfg.withHintStrategyTable(hintStrategies);
+        }
+
         return BaseQueryContext.builder()
                 .frameworkConfig(
                         newConfigBuilder(FRAMEWORK_CONFIG)
                                 .defaultSchema(dfltSchema)
+                                .sqlToRelConverterConfig(relConvCfg)
                                 .build()
                 )
                 .logger(log)
@@ -298,11 +314,16 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
      * Optimize the specified query and build query physical plan for a test.
      */
     protected IgniteRel physicalPlan(String sql, IgniteSchema publicSchema, String... disabledRules) throws Exception {
-        return physicalPlan(sql, plannerCtx(sql, publicSchema, disabledRules));
+        return physicalPlan(sql, Collections.singleton(publicSchema), null, disabledRules);
     }
 
-    protected IgniteRel physicalPlan(String sql, Collection<IgniteSchema> schemas, String... disabledRules) throws Exception {
-        return physicalPlan(plannerCtx(sql, schemas, disabledRules));
+    protected IgniteRel physicalPlan(
+            String sql,
+            Collection<IgniteSchema> schemas,
+            HintStrategyTable hintStrategies,
+            String... disabledRules
+    ) throws Exception {
+        return physicalPlan(plannerCtx(sql, schemas, hintStrategies, disabledRules));
     }
 
     protected IgniteRel physicalPlan(PlanningContext ctx) throws Exception {
@@ -472,7 +493,17 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
             Predicate<T> predicate,
             String... disabledRules
     ) throws Exception {
-        IgniteRel plan = physicalPlan(sql, schemas, disabledRules);
+        assertPlan(sql, schemas, predicate, null, disabledRules);
+    }
+
+    protected <T extends RelNode> void assertPlan(
+            String sql,
+            Collection<IgniteSchema> schemas,
+            Predicate<T> predicate,
+            HintStrategyTable hintStrategies,
+            String... disabledRules
+    ) throws Exception {
+        IgniteRel plan = physicalPlan(sql, schemas, hintStrategies, disabledRules);
 
         checkSplitAndSerialization(plan, schemas);
 
@@ -650,6 +681,8 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
             clearTraits(expected);
             clearTraits(deserialized);
+            clearHints(expected);
+            clearHints(deserialized);
 
             if (!expected.deepEquals(deserialized)) {
                 assertTrue(
@@ -689,6 +722,14 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
     protected void clearTraits(RelNode rel) {
         IgniteTestUtils.setFieldValue(rel, AbstractRelNode.class, "traitSet", RelTraitSet.createEmpty());
         rel.getInputs().forEach(this::clearTraits);
+    }
+
+    protected void clearHints(RelNode rel) {
+        if (rel instanceof TableScan) {
+            IgniteTestUtils.setFieldValue(rel, TableScan.class, "hints", ImmutableList.of());
+        }
+
+        rel.getInputs().forEach(this::clearHints);
     }
 
     /** Test table. */

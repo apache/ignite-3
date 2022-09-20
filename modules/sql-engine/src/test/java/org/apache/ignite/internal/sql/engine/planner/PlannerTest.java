@@ -25,9 +25,8 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
+import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
@@ -36,7 +35,6 @@ import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelRoot;
-import org.apache.calcite.rel.RelShuttleImpl;
 import org.apache.calcite.rel.RelVisitor;
 import org.apache.calcite.rel.core.TableScan;
 import org.apache.calcite.rel.hint.HintStrategyTable;
@@ -877,48 +875,21 @@ public class PlannerTest extends AbstractPlannerTest {
                 )
         );
 
-        SchemaPlus schema = createRootSchema(false)
-                .add("PUBLIC", publicSchema);
-
         String sql = "SELECT * FROM person /*+ use_index(ORG_ID), extra */ t1 JOIN company /*+ use_index(ID) */ t2 ON t1.org_id = t2.id";
 
-        PlanningContext ctx = PlanningContext.builder()
-                .parentContext(BaseQueryContext.builder()
-                        .logger(log)
-                        .frameworkConfig(newConfigBuilder(FRAMEWORK_CONFIG)
-                                .defaultSchema(schema)
-                                .sqlToRelConverterConfig(FRAMEWORK_CONFIG
-                                        .getSqlToRelConverterConfig()
-                                        .withHintStrategyTable(HintStrategyTable.builder()
-                                                .hintStrategy("use_index", (hint, rel) -> true)
-                                                .hintStrategy("extra", (hint, rel) -> true)
-                                                .build()
-                                        ))
-                                .build())
-                        .build())
-                .query(sql)
+        HintStrategyTable hintStrategies = HintStrategyTable.builder()
+                .hintStrategy("use_index", (hint, rel) -> true)
+                .hintStrategy("extra", (hint, rel) -> true)
                 .build();
 
-        IgniteRel plan = physicalPlan(sql, ctx);
+        Predicate<RelNode> hintCheck = nodeOrAnyChild(isInstanceOf(TableScan.class)
+                .and(t -> "PERSON".equals(Util.last(t.getTable().getQualifiedName())))
+                .and(t -> t.getHints().size() == 2)
+        ).and(nodeOrAnyChild(isInstanceOf(TableScan.class)
+                .and(t -> "COMPANY".equals(Util.last(t.getTable().getQualifiedName())))
+                .and(t -> t.getHints().size() == 1)));
 
-        Map<String, Integer> hintsMap = new HashMap<>();
-
-        plan.accept(new RelShuttleImpl() {
-            @Override public RelNode visit(TableScan scan) {
-                if (!scan.getHints().isEmpty()) {
-                    String tblName = Util.last(scan.getTable().getQualifiedName());
-                    Integer currCnt = hintsMap.get(tblName);
-
-                    hintsMap.put(tblName, (currCnt == null ? 0 : currCnt) + scan.getHints().size());
-                }
-
-                return super.visit(scan);
-            }
-        });
-
-        assertEquals(2, hintsMap.size());
-        assertEquals(2, hintsMap.get("PERSON"));
-        assertEquals(1, hintsMap.get("COMPANY"));
+        assertPlan(sql, Collections.singleton(publicSchema), hintCheck, hintStrategies);
     }
 
     /**
