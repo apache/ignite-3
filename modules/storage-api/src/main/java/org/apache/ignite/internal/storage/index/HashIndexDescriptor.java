@@ -93,7 +93,6 @@ public class HashIndexDescriptor {
      * @param tableConfig Table configuration.
      * @param tablesConfig Tables and indexes configuration.
      * @param indexId Index id.
-     *
      */
     // TODO: IGNITE-17727 Fix redundant param.
     public HashIndexDescriptor(UUID indexId, TableView tableConfig, TablesView tablesConfig) {

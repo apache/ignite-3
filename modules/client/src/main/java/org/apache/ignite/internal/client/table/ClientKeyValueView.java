@@ -458,7 +458,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
     }
 
     private void writeKeyValueRaw(ClientSchema s, PayloadOutputChannel w, @NotNull K key, V val) {
-        var builder = BinaryTupleBuilder.create(s.columns().length, true);
+        var builder = new BinaryTupleBuilder(s.columns().length, true);
         var noValueSet = new BitSet();
         ClientMarshallerWriter writer = new ClientMarshallerWriter(builder, noValueSet);
 

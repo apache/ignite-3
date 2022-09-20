@@ -19,6 +19,7 @@ package org.apache.ignite.internal.schema.row;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -220,4 +221,9 @@ public interface InternalTuple {
      * @return Column value.
      */
     Instant timestampValue(int col);
+
+    /**
+     * Returns the representation of this tuple as a Byte Buffer.
+     */
+    ByteBuffer byteBuffer();
 }

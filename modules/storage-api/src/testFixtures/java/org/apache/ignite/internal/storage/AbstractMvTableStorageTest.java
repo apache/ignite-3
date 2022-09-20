@@ -191,13 +191,17 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
      */
     @Test
     public void testDestroyIndex() {
-        tableStorage.getOrCreateMvPartition(PARTITION_ID);
+        MvPartitionStorage partitionStorage = tableStorage.getOrCreateMvPartition(PARTITION_ID);
 
         assertThat(tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx.id()), is(notNullValue()));
         assertThat(tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx.id()), is(notNullValue()));
 
-        assertThat(tableStorage.destroyIndex(sortedIdx.id()), willCompleteSuccessfully());
-        assertThat(tableStorage.destroyIndex(hashIdx.id()), willCompleteSuccessfully());
+        CompletableFuture<Void> destroySortedIndexFuture = tableStorage.destroyIndex(sortedIdx.id());
+        CompletableFuture<Void> destroyHashIndexFuture = tableStorage.destroyIndex(hashIdx.id());
+
+        assertThat(partitionStorage.flush(), willCompleteSuccessfully());
+        assertThat(destroySortedIndexFuture, willCompleteSuccessfully());
+        assertThat(destroyHashIndexFuture, willCompleteSuccessfully());
     }
 
     @Test
@@ -223,7 +227,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 new Element(NativeTypes.INT32, false)
         });
 
-        ByteBuffer buffer = BinaryTupleBuilder.create(schema.elementCount(), schema.hasNullableElements())
+        ByteBuffer buffer = new BinaryTupleBuilder(schema.elementCount(), schema.hasNullableElements())
                 .appendInt(1)
                 .appendInt(2)
                 .build();

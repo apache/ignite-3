@@ -19,16 +19,22 @@ package org.apache.ignite.internal.storage.index.impl;
 
 import static org.apache.ignite.internal.util.IgniteUtils.capacity;
 
+import java.nio.ByteBuffer;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.NavigableMap;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.function.ToIntFunction;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.index.BinaryTupleComparator;
 import org.apache.ignite.internal.storage.index.IndexRow;
+import org.apache.ignite.internal.storage.index.IndexRowImpl;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.util.Cursor;
@@ -38,7 +44,9 @@ import org.jetbrains.annotations.Nullable;
  * Test implementation of MV sorted index storage.
  */
 public class TestSortedIndexStorage implements SortedIndexStorage {
-    private final ConcurrentNavigableMap<BinaryTuple, Set<RowId>> index;
+    private final ConcurrentNavigableMap<ByteBuffer, Set<RowId>> index;
+
+    private final Comparator<ByteBuffer> binaryTupleComparator;
 
     private final SortedIndexDescriptor descriptor;
 
@@ -47,7 +55,8 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
      */
     public TestSortedIndexStorage(SortedIndexDescriptor descriptor) {
         this.descriptor = descriptor;
-        this.index = new ConcurrentSkipListMap<>(BinaryTupleComparator.newComparator(descriptor));
+        this.binaryTupleComparator = new BinaryTupleComparator(descriptor);
+        this.index = new ConcurrentSkipListMap<>(binaryTupleComparator);
     }
 
     @Override
@@ -57,7 +66,7 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
 
     @Override
     public void put(IndexRow row) {
-        index.compute(row.indexColumns(), (k, v) -> {
+        index.compute(row.indexColumns().byteBuffer(), (k, v) -> {
             if (v == null) {
                 return Set.of(row.rowId());
             } else if (v.contains(row.rowId())) {
@@ -75,7 +84,7 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
 
     @Override
     public void remove(IndexRow row) {
-        index.computeIfPresent(row.indexColumns(), (k, v) -> {
+        index.computeIfPresent(row.indexColumns().byteBuffer(), (k, v) -> {
             if (v.contains(row.rowId())) {
                 if (v.size() == 1) {
                     return null;
@@ -95,31 +104,45 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
     /** {@inheritDoc} */
     @Override
     public Cursor<IndexRow> scan(
-            @Nullable BinaryTuple lowerBound,
-            @Nullable BinaryTuple upperBound,
+            @Nullable BinaryTuplePrefix lowerBound,
+            @Nullable BinaryTuplePrefix upperBound,
             int flags
     ) {
         boolean includeLower = (flags & GREATER_OR_EQUAL) != 0;
         boolean includeUpper = (flags & LESS_OR_EQUAL) != 0;
 
-        NavigableMap<BinaryTuple, Set<RowId>> index = this.index;
-        int direction = 1;
+        Stream<Map.Entry<ByteBuffer, Set<RowId>>> data = index.entrySet().stream();
 
-        ToIntFunction<BinaryTuple> lowerCmp = lowerBound == null ? row -> 1 : boundComparator(lowerBound, direction, includeLower ? 0 : -1);
-        ToIntFunction<BinaryTuple> upperCmp = upperBound == null ? row -> -1 : boundComparator(upperBound, direction, includeUpper ? 0 : 1);
+        if (lowerBound != null) {
+            ToIntFunction<ByteBuffer> lowerCmp = boundComparator(lowerBound, includeLower ? 0 : -1);
 
-        Iterator<? extends IndexRow> iterator = index.entrySet().stream()
-                .dropWhile(e -> lowerCmp.applyAsInt(e.getKey()) < 0)
-                .takeWhile(e -> upperCmp.applyAsInt(e.getKey()) <= 0)
-                .flatMap(e -> e.getValue().stream().map(rowId -> new IndexRowImpl(e.getKey(), rowId)))
+            data = data.dropWhile(e -> lowerCmp.applyAsInt(e.getKey()) < 0);
+        }
+
+        if (upperBound != null) {
+            ToIntFunction<ByteBuffer> upperCmp = boundComparator(upperBound, includeUpper ? 0 : 1);
+
+            data = data.takeWhile(e -> upperCmp.applyAsInt(e.getKey()) <= 0);
+        }
+
+        Iterator<? extends IndexRow> iterator = data
+                .flatMap(e -> {
+                    var tuple = new BinaryTuple(descriptor.binaryTupleSchema(), e.getKey());
+
+                    return e.getValue().stream().map(rowId -> new IndexRowImpl(tuple, rowId));
+                })
                 .iterator();
 
         return Cursor.fromIterator(iterator);
     }
 
-    private ToIntFunction<BinaryTuple> boundComparator(BinaryTuple bound, int direction, int equals) {
-        BinaryTupleComparator comparator = BinaryTupleComparator.newPrefixComparator(descriptor, bound.count());
+    private ToIntFunction<ByteBuffer> boundComparator(BinaryTuplePrefix bound, int equals) {
+        ByteBuffer boundBuffer = bound.byteBuffer();
 
-        return tuple -> comparator.compare(tuple, bound, direction, equals);
+        return tuple -> {
+            int compare = binaryTupleComparator.compare(tuple, boundBuffer);
+
+            return compare == 0 ? equals : compare;
+        };
     }
 }

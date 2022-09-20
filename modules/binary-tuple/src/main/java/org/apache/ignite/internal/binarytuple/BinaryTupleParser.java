@@ -49,6 +49,9 @@ public class BinaryTupleParser {
     /** UUID size in bytes. */
     private static final int UUID_SIZE = 16;
 
+    /** Byte order of ByteBuffers that contain the tuple. */
+    private static final ByteOrder ORDER = ByteOrder.LITTLE_ENDIAN;
+
     /** Number of elements in the tuple. */
     private final int numElements;
 
@@ -73,13 +76,14 @@ public class BinaryTupleParser {
     public BinaryTupleParser(int numElements, ByteBuffer buffer) {
         this.numElements = numElements;
 
-        assert buffer.order() == ByteOrder.LITTLE_ENDIAN;
+        assert buffer.order() == ORDER;
         assert buffer.position() == 0;
         this.buffer = buffer;
 
         byte flags = buffer.get(0);
 
         int base = BinaryTupleCommon.HEADER_SIZE;
+
         if ((flags & BinaryTupleCommon.NULLMAP_FLAG) != 0) {
             base += BinaryTupleCommon.nullMapSize(numElements);
         }
@@ -114,7 +118,7 @@ public class BinaryTupleParser {
      * Returns the content of this tuple as a byte buffer.
      */
     public ByteBuffer byteBuffer() {
-        return buffer.slice();
+        return buffer.slice().order(ORDER);
     }
 
     /**

@@ -15,80 +15,70 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.index.impl;
+package org.apache.ignite.internal.storage.index;
 
+import static org.apache.ignite.internal.binarytuple.BinaryTupleCommon.isPrefix;
+
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.Arrays;
 import java.util.Comparator;
 import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.BinaryTuplePrefix;
+import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
-import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
+import org.apache.ignite.internal.schema.row.InternalTuple;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor.ColumnDescriptor;
 
 /**
- * Comparator implementation for comparting {@link BinaryTuple}s on a per-column basis.
+ * Comparator implementation for comparing {@link BinaryTuple}s on a per-column basis.
  */
-class BinaryTupleComparator implements Comparator<BinaryTuple> {
+public class BinaryTupleComparator implements Comparator<ByteBuffer> {
     private final SortedIndexDescriptor descriptor;
-
-    private final int prefixLength;
-
-    private BinaryTupleComparator(SortedIndexDescriptor descriptor, int prefixLength) {
-        if (prefixLength > descriptor.indexColumns().size()) {
-            throw new IllegalArgumentException("Invalid prefix length: " + prefixLength);
-        }
-
-        this.descriptor = descriptor;
-        this.prefixLength = prefixLength;
-    }
 
     /**
      * Creates a comparator for a Sorted Index identified by the given descriptor.
      */
-    static BinaryTupleComparator newComparator(SortedIndexDescriptor descriptor) {
-        return new BinaryTupleComparator(descriptor, descriptor.indexColumns().size());
-    }
-
-    /**
-     * Similar to {@link #newComparator} but creates a comparator that only compares first {@code prefixLength} index columns.
-     */
-    static BinaryTupleComparator newPrefixComparator(SortedIndexDescriptor descriptor, int prefixLength) {
-        return new BinaryTupleComparator(descriptor, prefixLength);
+    public BinaryTupleComparator(SortedIndexDescriptor descriptor) {
+        this.descriptor = descriptor;
     }
 
     @Override
-    public int compare(BinaryTuple tuple1, BinaryTuple tuple2) {
-        return compare(tuple1, tuple2, 1, 0);
-    }
+    public int compare(ByteBuffer buffer1, ByteBuffer buffer2) {
+        assert buffer1.order() == ByteOrder.LITTLE_ENDIAN;
+        assert buffer2.order() == ByteOrder.LITTLE_ENDIAN;
 
-    /**
-     * Compares a given tuple with the configured prefix.
-     *
-     * @param tuple1 Tuple to compare.
-     * @param tuple2 Tuple to compare.
-     * @param direction Sort direction: {@code -1} means sorting in reversed order, {@code 1} means  sorting in the natural order.
-     * @param equals Value that should be returned if the provided tuple exactly matches the prefix.
-     * @return the value {@code 0} if the given row starts with the configured prefix;
-     *         a value less than {@code 0} if the row's prefix is smaller than the prefix; and
-     *         a value greater than {@code 0} if the row's prefix is larger than the prefix.
-     */
-    public int compare(BinaryTuple tuple1, BinaryTuple tuple2, int direction, int equals) {
-        for (int i = 0; i < prefixLength; i++) {
+        boolean isBuffer1Prefix = isPrefix(buffer1);
+        boolean isBuffer2Prefix = isPrefix(buffer2);
+
+        assert !(isBuffer1Prefix && isBuffer2Prefix);
+
+        BinaryTupleSchema schema = descriptor.binaryTupleSchema();
+
+        InternalTuple tuple1 = isBuffer1Prefix ? new BinaryTuplePrefix(schema, buffer1) : new BinaryTuple(schema, buffer1);
+        InternalTuple tuple2 = isBuffer2Prefix ? new BinaryTuplePrefix(schema, buffer2) : new BinaryTuple(schema, buffer2);
+
+        int columnsToCompare = Math.min(tuple1.count(), tuple2.count());
+
+        assert columnsToCompare <= descriptor.indexColumns().size();
+
+        for (int i = 0; i < columnsToCompare; i++) {
             ColumnDescriptor columnDescriptor = descriptor.indexColumns().get(i);
 
             int compare = compareField(tuple1, tuple2, i);
 
             if (compare != 0) {
-                return direction * (columnDescriptor.asc() ? compare : -compare);
+                return columnDescriptor.asc() ? compare : -compare;
             }
         }
 
-        return equals;
+        return 0;
     }
 
     /**
      * Compares individual fields of two tuples.
      */
-    private int compareField(BinaryTuple tuple1, BinaryTuple tuple2, int index) {
+    private int compareField(InternalTuple tuple1, InternalTuple tuple2, int index) {
         boolean tuple1HasNull = tuple1.hasNullValue(index);
         boolean tuple2HasNull = tuple2.hasNullValue(index);
 
@@ -142,7 +132,7 @@ class BinaryTupleComparator implements Comparator<BinaryTuple> {
 
             default:
                 throw new IllegalArgumentException(String.format(
-                        "Unsupported column schema for creating a sorted index. Column name: %s, column type: %s",
+                        "Unsupported column type in binary tuple comparator. Column name: %s, column type: %s",
                         columnDescriptor.name(), columnDescriptor.type()
                 ));
         }

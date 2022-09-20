@@ -66,8 +66,8 @@ public class TestSortedIndexStorageTest extends AbstractSortedIndexStorageTest {
                     EntryCountBudgetConfigurationSchema.class
             })
             TablesConfiguration tablesConfig) {
-        initialize(tableCfg, tablesConfig);
+        var storage = new TestConcurrentHashMapMvTableStorage(tableCfg, tablesConfig);
 
-        initializeStorage(new TestConcurrentHashMapMvTableStorage(tableCfg, tablesConfig));
+        initialize(storage, tablesConfig);
     }
 }

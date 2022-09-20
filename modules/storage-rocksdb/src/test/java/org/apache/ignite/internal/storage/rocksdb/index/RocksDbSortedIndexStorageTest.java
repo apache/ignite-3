@@ -19,14 +19,14 @@ package org.apache.ignite.internal.storage.rocksdb.index;
 
 import java.nio.file.Path;
 import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.storage.index.AbstractHashIndexStorageTest;
+import org.apache.ignite.internal.storage.index.AbstractSortedIndexStorageTest;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbTableStorage;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageConfigurationSchema;
@@ -39,11 +39,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
- * Tests for the {@link RocksDbHashIndexStorage} class.
+ * Tests for the {@link RocksDbSortedIndexStorage} class.
  */
 @ExtendWith(WorkDirectoryExtension.class)
 @ExtendWith(ConfigurationExtension.class)
-public class RocksDbHashIndexStorageTest extends AbstractHashIndexStorageTest {
+public class RocksDbSortedIndexStorageTest extends AbstractSortedIndexStorageTest {
     private RocksDbStorageEngine engine;
 
     private RocksDbTableStorage tableStorage;
@@ -56,7 +56,7 @@ public class RocksDbHashIndexStorageTest extends AbstractHashIndexStorageTest {
             @InjectConfiguration(
                     polymorphicExtensions = {
                             RocksDbDataStorageConfigurationSchema.class,
-                            HashIndexConfigurationSchema.class,
+                            SortedIndexConfigurationSchema.class,
                             NullValueDefaultConfigurationSchema.class,
                             UnlimitedBudgetConfigurationSchema.class
                     },
@@ -65,7 +65,7 @@ public class RocksDbHashIndexStorageTest extends AbstractHashIndexStorageTest {
             TableConfiguration tableCfg,
             @InjectConfiguration(
                     polymorphicExtensions = {
-                            HashIndexConfigurationSchema.class,
+                            SortedIndexConfigurationSchema.class,
                             UnknownDataStorageConfigurationSchema.class,
                             NullValueDefaultConfigurationSchema.class,
                             UnlimitedBudgetConfigurationSchema.class

@@ -64,7 +64,12 @@ public abstract class AbstractHashIndexStorageTest {
 
     private BinaryTupleRowSerializer serializer;
 
-    protected void initialize(MvTableStorage tableStorage, TablesConfiguration tablesCfg) {
+    /**
+     * Initializes the internal structures needed for tests.
+     *
+     * <p>This method *MUST* always be called in either subclass' constructor or setUp method.
+     */
+    protected final void initialize(MvTableStorage tableStorage, TablesConfiguration tablesCfg) {
         this.tableStorage = tableStorage;
 
         createTestTable(tableStorage.configuration());

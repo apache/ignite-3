@@ -83,28 +83,28 @@ public class RocksUtils {
      * <p>This method tries to increment the least significant byte (in BE order) that is not equal to 0xFF (bytes are treated as
      * unsigned values).
      *
-     * @param rangeStart Start of a range of keys (prefix) in RocksDB.
+     * @param array Start of a range of keys (prefix) in RocksDB.
      * @return End of a range of keys in RocksDB or {@code null} if all bytes of the prefix are equal to 0xFF.
      */
-    public static byte @Nullable [] rangeEnd(byte[] rangeStart) {
-        byte[] rangeEnd = rangeStart.clone();
+    public static byte @Nullable [] incrementArray(byte[] array) {
+        byte[] result = array.clone();
 
-        int i = rangeStart.length - 1;
+        int i = array.length - 1;
 
         // Cycle through all bytes that are equal to 0xFF
-        while (i >= 0 && rangeStart[i] == -1) {
-            rangeEnd[i] = 0;
+        while (i >= 0 && array[i] == -1) {
+            result[i] = 0;
 
             i--;
         }
 
         if (i == -1) {
-            // All bytes are equal to 0xFF, no upper bound should be used
+            // All bytes are equal to 0xFF, increment is not possible
             return null;
         } else {
-            rangeEnd[i] += 1;
+            result[i] += 1;
 
-            return rangeEnd;
+            return result;
         }
     }
 }
