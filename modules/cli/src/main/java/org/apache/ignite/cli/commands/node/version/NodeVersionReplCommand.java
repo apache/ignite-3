@@ -24,7 +24,6 @@ import org.apache.ignite.cli.commands.node.NodeUrlMixin;
 import org.apache.ignite.cli.commands.questions.ConnectToClusterQuestion;
 import org.apache.ignite.cli.core.call.UrlCallInput;
 import org.apache.ignite.cli.core.flow.builder.Flows;
-import org.apache.ignite.cli.core.repl.Session;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 
