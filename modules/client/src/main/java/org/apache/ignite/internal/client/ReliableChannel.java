@@ -617,7 +617,10 @@ public final class ReliableChannel implements AutoCloseable {
     }
 
     private void onTopologyChanged(ClientChannel clientChannel) {
-        // TODO IGNITE-17725: Assignment cache drop.
+        // TODO IGNITE-17725: Drop cached assignment in all tables.
+        // 1. Weak subscriptions from tables.
+        // 2. AtomicLong for assignment version.
+        // PROBLEM: Multiple channels will send the same update to us, resulting in multiple cache invalidations.
     }
 
     /**
