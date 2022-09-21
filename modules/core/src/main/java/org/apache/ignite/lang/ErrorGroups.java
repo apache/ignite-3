@@ -118,8 +118,29 @@ public class ErrorGroups {
         /** Cursor is already closed error. */
         public static final int CURSOR_CLOSED_ERR = SQL_ERR_GROUP.registerErrorCode(9);
 
-        /** Some keys can't be inserted because they violates unique constraint PK. */
+        /** Some keys can't be inserted because they violate unique constraint PK. */
         public static final int DUPLICATE_KEYS_ERR = SQL_ERR_GROUP.registerErrorCode(10);
+
+        /** Node left the cluster. */
+        public static final int NODE_LEFT_ERR = SQL_ERR_GROUP.registerErrorCode(11);
+
+        /**  Too many grouping expressions. */
+        public static final int TOO_MANY_GROUPING_EXPRESSIONS_ERR = SQL_ERR_GROUP.registerErrorCode(12);
+
+        /** Unsupported internal operation. */
+        public static final int USUPPORTED_INTERNAL_OPERATION_ERR = SQL_ERR_GROUP.registerErrorCode(13);
+
+        /** Query validation error. */
+        public static final int QUERY_VALIDATION_ERR = SQL_ERR_GROUP.registerErrorCode(14);
+
+        /** Table not found. */
+        public static final int TABLE_NOT_FOUND_ERR = SQL_ERR_GROUP.registerErrorCode(15);
+
+        /** Table version not found. */
+        public static final int TABLE_VER_NOT_FOUND_ERR = SQL_ERR_GROUP.registerErrorCode(16);
+
+        /** Operation aborted/interrupted error. */
+        public static final int OPERATION_INTERRUPTED_ERR = SQL_ERR_GROUP.registerErrorCode(17);
     }
 
     /** Meta storage error group. */

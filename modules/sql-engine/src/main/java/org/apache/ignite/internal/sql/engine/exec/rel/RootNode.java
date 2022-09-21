@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
+import static org.apache.ignite.lang.ErrorGroups.Sql.OPERATION_INTERRUPTED_ERR;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
@@ -257,7 +258,7 @@ public class RootNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
                 cond.await();
             }
         } catch (InterruptedException e) {
-            throw new IgniteInternalException(e);
+            throw new IgniteInternalException(OPERATION_INTERRUPTED_ERR, e);
         } finally {
             lock.unlock();
         }

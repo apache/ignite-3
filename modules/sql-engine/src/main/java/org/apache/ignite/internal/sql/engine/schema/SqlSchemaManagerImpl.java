@@ -22,6 +22,8 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.schema.SchemaUtils.extractSchema;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.TABLE_NOT_FOUND_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.TABLE_VER_NOT_FOUND_ERR;
 
 import java.util.Comparator;
 import java.util.HashMap;
@@ -48,6 +50,7 @@ import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.NodeStoppingException;
@@ -153,12 +156,12 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
             }
 
             if (table == null) {
-                throw new IgniteInternalException(
+                throw new IgniteInternalException(TABLE_NOT_FOUND_ERR,
                         IgniteStringFormatter.format("Table not found [tableId={}]", id));
             }
 
             if (table.version() < ver) {
-                throw new IgniteInternalException(
+                throw new IgniteInternalException(TABLE_VER_NOT_FOUND_ERR,
                         IgniteStringFormatter.format("Table version not found [tableId={}, requiredVer={}, latestKnownVer={}]",
                                 id, ver, table.version()));
             }

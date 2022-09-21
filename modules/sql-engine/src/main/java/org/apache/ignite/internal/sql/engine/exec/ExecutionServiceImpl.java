@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.exec;
 import static org.apache.ignite.internal.sql.engine.externalize.RelJsonReader.fromJson;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
+import static org.apache.ignite.lang.ErrorGroups.Sql.NODE_LEFT_ERR;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -464,7 +465,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         private void onNodeLeft(String nodeId) {
             remoteFragmentInitCompletion.entrySet().stream().filter(e -> nodeId.equals(e.getKey().nodeId()))
                     .forEach(e -> e.getValue()
-                            .completeExceptionally(new IgniteInternalException("Node left the cluster [nodeId=" + nodeId + "]")));
+                            .completeExceptionally(new IgniteInternalException(NODE_LEFT_ERR, "Node left the cluster [nodeId=" + nodeId + "]")));
         }
 
         private void executeFragment(FragmentPlan plan, ExecutionContext<RowT> ectx) {

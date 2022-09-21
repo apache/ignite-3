@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.prepare;
 
 import static org.apache.ignite.internal.sql.engine.prepare.PlannerHelper.optimize;
+import static org.apache.ignite.lang.ErrorGroups.Sql.USUPPORTED_INTERNAL_OPERATION_ERR;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import java.util.ArrayList;
@@ -169,7 +170,7 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
                     return prepareExplain(sqlNode, planningContext);
 
                 default:
-                    throw new IgniteInternalException("Unsupported operation ["
+                    throw new IgniteInternalException(USUPPORTED_INTERNAL_OPERATION_ERR, "Unsupported operation ["
                             + "sqlNodeKind=" + sqlNode.getKind() + "; "
                             + "querySql=\"" + planningContext.query() + "\"]");
             }
