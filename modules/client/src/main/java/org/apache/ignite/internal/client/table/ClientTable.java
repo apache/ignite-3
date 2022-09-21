@@ -59,9 +59,9 @@ public class ClientTable implements Table {
 
     private final ConcurrentHashMap<Integer, ClientSchema> schemas = new ConcurrentHashMap<>();
 
-    private final Object latestSchemaLock = new Object();
-
     private volatile int latestSchemaVer = -1;
+
+    private final Object latestSchemaLock = new Object();
 
     private volatile List<String> partitionAssignment = null;
 
