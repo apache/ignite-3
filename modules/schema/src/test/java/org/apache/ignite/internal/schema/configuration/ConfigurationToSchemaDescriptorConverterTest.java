@@ -55,7 +55,7 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
- * Tests for SchemaDescriptorConverter.
+ * Tests to verify conversion from configuration views to schema objects.
  */
 @ExtendWith(ConfigurationExtension.class)
 public class ConfigurationToSchemaDescriptorConverterTest extends AbstractSchemaConverterTest {

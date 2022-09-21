@@ -74,11 +74,11 @@ public final class ValueSerializationHelper {
     }
 
     /**
-     * Converts value to a string representation.
+     * Converts value from a string representation.
      *
-     * @param defaultValue Value to convert.
+     * @param defaultValue String representation of a value.
      * @param type Type of the value.
-     * @return String representation of given value.
+     * @return Restored value.
      * @throws NullPointerException If given value or type is null.
      */
     public static Object fromString(String defaultValue, NativeType type) {

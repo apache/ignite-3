@@ -54,7 +54,7 @@ public class HashIndexDefinitionImpl extends AbstractSchemaObject implements Has
     /** {@inheritDoc} */
     @Override
     public String toString() {
-        return S.toString(org.apache.ignite.internal.schema.testutils.definition.index.HashIndexDefinitionImpl.class, this,
+        return S.toString(HashIndexDefinitionImpl.class, this,
                 "type", type(),
                 "name", name());
     }
