@@ -119,7 +119,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         assertOpOnNode("server-1", "get", x -> recordView.get(null, Tuple.create().set("ID", 0L)));
         assertOpOnNode("server-2", "get", x -> recordView.get(null, Tuple.create().set("ID", 1L)));
 
-        // Change partition assignment.
+        // Update partition assignment.
         var assignments = new ArrayList<String>();
 
         assignments.add(testServer2.nodeId());
@@ -127,7 +127,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
         initPartitionAssignment(assignments);
 
-        // Perform one request that will receive a flag to update the assignments.
+        // Perform one request to receive a change notification flag and drop cached assignment.
         recordView.get(null, Tuple.create().set("ID", 0L));
 
         // Check new assignment.
