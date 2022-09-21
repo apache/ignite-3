@@ -147,21 +147,25 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
     @Test
     public void testAllRecordViewOperations() {
+        // TODO: Separate ticket?
         assertTrue(false, "TODO");
     }
 
     @Test
     public void testAllRecordBinaryViewOperations() {
+        // TODO: Separate ticket.
         assertTrue(false, "TODO");
     }
 
     @Test
     public void testAllKeyValueViewOperations() {
+        // TODO: Separate ticket.
         assertTrue(false, "TODO");
     }
 
     @Test
     public void testAllKeyValueBinaryViewOperations() {
+        // TODO: Separate ticket.
         assertTrue(false, "TODO");
     }
 
