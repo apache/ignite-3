@@ -32,7 +32,6 @@ import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.schemas.table.HashIndexView;
 import org.apache.ignite.configuration.schemas.table.SortedIndexView;
 import org.apache.ignite.configuration.schemas.table.TableIndexView;
-import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.pagememory.PageIdAllocator;
@@ -168,9 +167,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     }
 
     private PageMemoryHashIndexStorage createOrRestoreHashIndex(IndexMeta indexMeta) {
-        TableView tableView = tableStorage.configuration().value();
-
-        var indexDescriptor = new HashIndexDescriptor(indexMeta.id(), tableView, tablesConfiguration.value());
+        var indexDescriptor = new HashIndexDescriptor(indexMeta.id(), tablesConfiguration.value());
 
         try {
             PageMemory pageMemory = tableStorage.dataRegion().pageMemory();
@@ -181,9 +178,11 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                     ? pageMemory.allocatePage(groupId, partitionId, PageIdAllocator.FLAG_AUX)
                     : indexMeta.metaPageId();
 
+            String tableName = tableStorage.configuration().value().name();
+
             HashIndexTree hashIndexTree = new HashIndexTree(
                     groupId,
-                    tableView.name(),
+                    tableName,
                     partitionId,
                     pageMemory,
                     PageLockListenerNoOp.INSTANCE,

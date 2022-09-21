@@ -151,7 +151,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                 UUID tableId;
 
                 try {
-                    tableId = ConfigurationUtil.getInternalId(tablesCfg.tables().value(), canonicalName);
+                    tableId = ConfigurationUtil.internalId(tablesCfg.tables().value(), canonicalName);
                 } catch (IllegalArgumentException e) {
                     throw new TableNotFoundException(canonicalName);
                 }

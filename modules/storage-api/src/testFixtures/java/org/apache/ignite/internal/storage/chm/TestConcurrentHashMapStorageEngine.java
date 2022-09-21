@@ -46,7 +46,9 @@ public class TestConcurrentHashMapStorageEngine implements StorageEngine {
     /** {@inheritDoc} */
     @Override
     public MvTableStorage createMvTable(TableConfiguration tableCfg, TablesConfiguration tablesCfg) throws StorageException {
-        assert tableCfg.dataStorage().name().value().equals(ENGINE_NAME) : tableCfg.dataStorage().name().value();
+        String dataStorageName = tableCfg.dataStorage().name().value();
+
+        assert dataStorageName.equals(ENGINE_NAME) : dataStorageName;
 
         return new TestConcurrentHashMapMvTableStorage(tableCfg, tablesCfg);
     }

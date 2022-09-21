@@ -21,7 +21,6 @@ import java.nio.file.Path;
 import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -56,20 +55,12 @@ public class RocksDbHashIndexStorageTest extends AbstractHashIndexStorageTest {
             @InjectConfiguration(
                     polymorphicExtensions = {
                             RocksDbDataStorageConfigurationSchema.class,
+                            UnknownDataStorageConfigurationSchema.class,
                             HashIndexConfigurationSchema.class,
                             NullValueDefaultConfigurationSchema.class,
                             UnlimitedBudgetConfigurationSchema.class
                     },
-                    value = "mock.dataStorage.name = " + RocksDbStorageEngine.ENGINE_NAME
-            )
-            TableConfiguration tableCfg,
-            @InjectConfiguration(
-                    polymorphicExtensions = {
-                            HashIndexConfigurationSchema.class,
-                            UnknownDataStorageConfigurationSchema.class,
-                            NullValueDefaultConfigurationSchema.class,
-                            UnlimitedBudgetConfigurationSchema.class
-                    }
+                    value = "mock.tables.foo.dataStorage.name = " + RocksDbStorageEngine.ENGINE_NAME
             )
             TablesConfiguration tablesConfig
     ) {
@@ -77,7 +68,7 @@ public class RocksDbHashIndexStorageTest extends AbstractHashIndexStorageTest {
 
         engine.start();
 
-        tableStorage = engine.createMvTable(tableCfg, tablesConfig);
+        tableStorage = engine.createMvTable(tablesConfig.tables().get("foo"), tablesConfig);
 
         tableStorage.start();
 

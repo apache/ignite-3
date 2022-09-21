@@ -17,11 +17,10 @@
 
 package org.apache.ignite.internal.storage;
 
+import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.TableConfiguration;
-import org.apache.ignite.configuration.schemas.table.TableIndexView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -29,7 +28,8 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapMvTableStorage;
 import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapStorageEngine;
 import org.apache.ignite.internal.storage.chm.schema.TestConcurrentHashMapDataStorageConfigurationSchema;
-import org.apache.ignite.internal.storage.engine.MvTableStorage;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
@@ -37,25 +37,34 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(ConfigurationExtension.class)
 public class ConcurrentHashMapMvTableStorageTest extends AbstractMvTableStorageTest {
-    @InjectConfiguration(
-            polymorphicExtensions = {
-                    TestConcurrentHashMapDataStorageConfigurationSchema.class,
-                    SortedIndexConfigurationSchema.class,
-                    HashIndexConfigurationSchema.class,
-                    NullValueDefaultConfigurationSchema.class,
-                    UnlimitedBudgetConfigurationSchema.class
-            },
-            value = "mock.dataStorage.name = " + TestConcurrentHashMapStorageEngine.ENGINE_NAME
-    )
-    private TableConfiguration tableConfig0;
+    private TestConcurrentHashMapMvTableStorage storage;
 
-    @Override
-    protected void setUp() {
-        super.tableConfig = tableConfig0;
+    @BeforeEach
+    void setUp(
+            @InjectConfiguration(
+                    polymorphicExtensions = {
+                            TestConcurrentHashMapDataStorageConfigurationSchema.class,
+                            UnknownDataStorageConfigurationSchema.class,
+                            HashIndexConfigurationSchema.class,
+                            SortedIndexConfigurationSchema.class,
+                            NullValueDefaultConfigurationSchema.class,
+                            UnlimitedBudgetConfigurationSchema.class
+                    },
+                    value = "mock.tables.foo.dataStorage.name = " + TestConcurrentHashMapStorageEngine.ENGINE_NAME
+            )
+            TablesConfiguration tablesConfig
+    ) {
+        storage = new TestConcurrentHashMapMvTableStorage(tablesConfig.tables().get("foo"), tablesConfig);
+
+        storage.start();
+
+        initialize(storage, tablesConfig);
     }
 
-    @Override
-    protected MvTableStorage tableStorage(TableIndexView sortedIdx, TableIndexView hashIdx, TablesConfiguration tablesCfg) {
-        return new TestConcurrentHashMapMvTableStorage(tableConfig, tablesCfg);
+    @AfterEach
+    void tearDown() {
+        if (storage != null) {
+            storage.stop();
+        }
     }
 }

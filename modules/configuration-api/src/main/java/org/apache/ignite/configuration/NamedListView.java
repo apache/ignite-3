@@ -18,6 +18,7 @@
 package org.apache.ignite.configuration;
 
 import java.util.List;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * View type for a {@link NamedConfigurationTree}. Represents an immutable snapshot of a named list configuration.
@@ -38,6 +39,7 @@ public interface NamedListView<VIEWT> {
      * @param key Key string.
      * @return Requested value or {@code null} if it's not found.
      */
+    @Nullable
     VIEWT get(String key);
 
     /**
