@@ -289,8 +289,11 @@ public class ClientTable implements Table {
                     String preferredNodeId = null;
 
                     if (partitions != null && partitions.size() > 0 && hashFunction != null) {
-                        int hash = hashFunction.apply(schema);
-                        preferredNodeId = partitions.get(Math.abs(hash % partitions.size()));
+                        Integer hash = hashFunction.apply(schema);
+
+                        if (hash != null) {
+                            preferredNodeId = partitions.get(Math.abs(hash % partitions.size()));
+                        }
                     }
 
                     return ch.serviceAsync(opCode,

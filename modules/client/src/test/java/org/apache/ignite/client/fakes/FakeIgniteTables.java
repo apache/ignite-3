@@ -54,6 +54,8 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
 
     public static final String TABLE_COMPOSITE_KEY = "composite-key";
 
+    public static final String TABLE_COLOCATION_KEY = "colocation-key";
+
     public static final String BAD_TABLE = "bad-table";
 
     public static final String BAD_TABLE_ERR = "Err!";
@@ -224,6 +226,10 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
                 history = this::getCompositeKeySchema;
                 break;
 
+            case TABLE_COLOCATION_KEY:
+                history = this::getColocationKeySchema;
+                break;
+
             default:
                 history = this::getSchema;
                 break;
@@ -328,7 +334,31 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
                         new Column("ID2", NativeTypes.STRING, false)
                 },
                 new Column[]{
-                        new Column("str".toUpperCase(), NativeTypes.STRING, true)
+                        new Column("STR", NativeTypes.STRING, true)
+                });
+    }
+
+
+    /**
+     * Gets the schema.
+     *
+     * @param v Version.
+     * @return Schema descriptor.
+     */
+    private SchemaDescriptor getColocationKeySchema(Integer v) {
+        Column colocationCol1 = new Column("COLO-1", NativeTypes.STRING, false);
+        Column colocationCol2 = new Column("COLO-2", NativeTypes.INT64, true);
+
+        return new SchemaDescriptor(
+                v,
+                new Column[]{
+                        new Column("ID", NativeTypes.INT32, false),
+                },
+                new String[]{ colocationCol1.name(), colocationCol2.name() },
+                new Column[]{
+                        colocationCol1,
+                        colocationCol2,
+                        new Column("STR", NativeTypes.STRING, true)
                 });
     }
 

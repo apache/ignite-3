@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.client.table;
 
 import static org.apache.ignite.internal.client.ClientUtils.sync;
+import static org.apache.ignite.internal.client.proto.ClientMessageCommon.NO_VALUE;
 
 import java.io.Serializable;
 import java.util.Collection;
@@ -359,19 +360,27 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
-    private Integer getKeyHash(ClientSchema schema, Tuple keyRec) {
+    private Integer getColocationHash(ClientSchema schema, Tuple rec) {
         var hashCalc = new HashCalculator();
 
         for (ClientColumn col : schema.colocationColumns()) {
-            hashCalc.append(keyRec.value(col.name()));
+            Object value = rec.valueOrDefault(col.name(), NO_VALUE);
+
+            if (value == NO_VALUE) {
+                // Colocation column is not present in the record.
+                // This may happen when we only have the key part, but colocation column is not a key column.
+                return null;
+            }
+
+            hashCalc.append(value);
         }
 
         return hashCalc.hash();
     }
 
     @Nullable
-    private Function<ClientSchema, Integer> getHashFunction(@Nullable Transaction tx, @NotNull Tuple keyRec) {
+    private Function<ClientSchema, Integer> getHashFunction(@Nullable Transaction tx, @NotNull Tuple rec) {
         // Disable partition awareness when transaction is used: tx belongs to a default connection.
-        return tx != null ? null : schema -> getKeyHash(schema, keyRec);
+        return tx != null ? null : schema -> getColocationHash(schema, rec);
     }
 }
