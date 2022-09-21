@@ -621,6 +621,7 @@ public final class ReliableChannel implements AutoCloseable {
         // 1. Weak subscriptions from tables.
         // 2. AtomicLong for assignment version.
         // PROBLEM: Multiple channels will send the same update to us, resulting in multiple cache invalidations.
+        // This could be solved with a TopologyVersion, but we don't have that.
     }
 
     /**
