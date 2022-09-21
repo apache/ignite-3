@@ -163,7 +163,16 @@ public class Main {
                     // Merge default configuration with configuration read from propsFile
                     // and append the path to logs to the file pattern if propsFile have the corresponding key
                     if (s.equals("java.util.logging.FileHandler.pattern")) {
-                        return (o, n) -> n == null ? o : getLogsDir() + "/" + n;
+                        return (o, n) -> {
+                            if (n == null) {
+                                return o;
+                            }
+                            try {
+                                return getLogsDir() + "/" + n;
+                            } catch (IOException e) {
+                                return n;
+                            }
+                        };
                     }
                     return (o, n) -> n == null ? o : n;
                 });
@@ -173,10 +182,15 @@ public class Main {
         }
     }
 
-    private static String getLogsDir() {
+    private static String getLogsDir() throws IOException {
         String envLogsDir = System.getenv(IGNITE_CLI_LOGS_DIR);
         String logsDir = envLogsDir != null ? envLogsDir : StateFolderProvider.getStateFile("logs").getAbsolutePath();
-        new File(logsDir).mkdirs();
-        return logsDir;
+        File logsDirFile = new File(logsDir);
+        logsDirFile.mkdirs();
+        if (logsDirFile.isDirectory()) {
+            return logsDir;
+        } else {
+            throw new IOException(logsDir + " is not a directory");
+        }
     }
 }
