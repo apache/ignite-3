@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.cli;
 
-import static org.apache.ignite.cli.config.ConfigConstants.IGNITE_CLI_LOGS_DIR;
+import static org.apache.ignite.internal.cli.config.ConfigConstants.IGNITE_CLI_LOGS_DIR;
 
 import io.micronaut.configuration.picocli.MicronautFactory;
 import java.io.File;
@@ -31,7 +31,7 @@ import org.apache.ignite.internal.cli.commands.TopLevelCliCommand;
 import org.apache.ignite.internal.cli.commands.TopLevelCliReplCommand;
 import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
 import org.apache.ignite.internal.cli.config.ConfigDefaultValueProvider;
-import org.apache.ignite.cli.config.StateFolderProvider;
+import org.apache.ignite.internal.cli.config.StateFolderProvider;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.internal.cli.core.call.StringCallInput;
 import org.apache.ignite.internal.cli.core.exception.handler.DefaultExceptionHandlers;
