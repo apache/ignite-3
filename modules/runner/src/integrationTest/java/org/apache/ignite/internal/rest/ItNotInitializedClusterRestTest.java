@@ -45,6 +45,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(WorkDirectoryExtension.class)
 public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
 
+    /** <a href="https://semver.org">semver</a> compatible regex. */
+    private static final String IGNITE_SEMVER_REGEX =
+            "(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<maintenance>\\d+)((?<snapshot>-SNAPSHOT)|-(?<alpha>alpha\\d+)|--(?<beta>beta\\d+))?";
+
     private ObjectMapper objectMapper;
 
     @BeforeEach
@@ -199,6 +203,6 @@ public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
         // Then
         assertThat(response.statusCode(), is(200));
         // And version is a semver
-        assertThat(response.body(), matchesRegex("[1-9]\\d*\\.\\d+\\.\\d+(?:-[a-zA-Z0-9]+)?"));
+        assertThat(response.body(), matchesRegex(IGNITE_SEMVER_REGEX));
     }
 }

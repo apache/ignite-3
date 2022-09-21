@@ -40,6 +40,7 @@ import org.junit.jupiter.api.TestInfo;
  */
 public class ItInitializedClusterRestTest extends AbstractRestTestBase {
 
+    /** <a href="https://semver.org">semver</a> compatible regex. */
     private static final String IGNITE_SEMVER_REGEX =
             "(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<maintenance>\\d+)((?<snapshot>-SNAPSHOT)|-(?<alpha>alpha\\d+)|--(?<beta>beta\\d+))?";
 
