@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.client.table;
 
 import static org.apache.ignite.internal.client.ClientUtils.sync;
-import static org.apache.ignite.internal.client.proto.ClientMessageCommon.NO_VALUE;
 
 import java.io.Serializable;
 import java.util.Collection;
@@ -364,14 +363,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
         var hashCalc = new HashCalculator();
 
         for (ClientColumn col : schema.colocationColumns()) {
-            Object value = rec.valueOrDefault(col.name(), NO_VALUE);
-
-            if (value == NO_VALUE) {
-                // Colocation column is not present in the record.
-                // This may happen when we only have the key part, but colocation column is not a key column.
-                return null;
-            }
-
+            Object value = rec.valueOrDefault(col.name(), null);
             hashCalc.append(value);
         }
 
