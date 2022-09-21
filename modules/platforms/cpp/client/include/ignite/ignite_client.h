@@ -90,7 +90,7 @@ public:
      * @return Configuration.
      */
     [[nodiscard]]
-    IGNITE_API const IgniteClientConfiguration& getConfiguration() const;
+    IGNITE_API const IgniteClientConfiguration& getConfiguration() const noexcept;
 
     /**
      * Get the table API.
@@ -98,7 +98,7 @@ public:
      * @return Table API.
      */
     [[nodiscard]]
-    IGNITE_API Tables getTables() const;
+    IGNITE_API Tables getTables() const noexcept;
 
 private:
     /**
@@ -114,7 +114,7 @@ private:
      * @return Implementation reference.
      */
     [[nodiscard]]
-    detail::IgniteClientImpl& getImpl();
+    detail::IgniteClientImpl& getImpl() noexcept;
 
     /**
      * Get implementation reference.
@@ -122,7 +122,7 @@ private:
      * @return Implementation reference.
      */
     [[nodiscard]]
-    const detail::IgniteClientImpl& getImpl() const;
+    const detail::IgniteClientImpl& getImpl() const noexcept;
 
     /** Implementation. */
     std::shared_ptr<void> m_impl;

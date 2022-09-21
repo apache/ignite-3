@@ -63,19 +63,19 @@ IgniteClient IgniteClient::start(IgniteClientConfiguration configuration, std::c
 IgniteClient::IgniteClient(std::shared_ptr<void> impl) :
     m_impl(std::move(impl)) { }
 
-const IgniteClientConfiguration &IgniteClient::getConfiguration() const {
+const IgniteClientConfiguration &IgniteClient::getConfiguration() const noexcept {
     return getImpl().getConfiguration();
 }
 
-Tables IgniteClient::getTables() const {
+Tables IgniteClient::getTables() const noexcept {
     return Tables(getImpl().getTablesImpl());
 }
 
-detail::IgniteClientImpl &IgniteClient::getImpl() {
+detail::IgniteClientImpl &IgniteClient::getImpl() noexcept {
     return *((detail::IgniteClientImpl*)(m_impl.get()));
 }
 
-const detail::IgniteClientImpl &IgniteClient::getImpl() const {
+const detail::IgniteClientImpl &IgniteClient::getImpl() const noexcept {
     return *((detail::IgniteClientImpl*)(m_impl.get()));
 }
 

@@ -61,8 +61,7 @@ public:
      * @param timeout Timeout.
      * @param callback Callback.
      */
-    void start(std::function<void(IgniteResult<void>)> callback)
-    {
+    void start(std::function<void(IgniteResult<void>)> callback) {
         m_connection->start(std::move(callback));
     }
 
@@ -80,8 +79,7 @@ public:
      * @return Configuration.
      */
     [[nodiscard]]
-    const IgniteClientConfiguration& getConfiguration() const
-    {
+    const IgniteClientConfiguration& getConfiguration() const {
         return m_configuration;
     }
 
@@ -91,8 +89,7 @@ public:
      * @return Table management API implementation.
      */
     [[nodiscard]]
-    std::shared_ptr<TablesImpl> getTablesImpl() const
-    {
+    std::shared_ptr<TablesImpl> getTablesImpl() const {
         return m_tables;
     }
 

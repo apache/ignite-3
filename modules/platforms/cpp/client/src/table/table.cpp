@@ -21,18 +21,15 @@
 namespace ignite
 {
 
-const std::string &Table::getName() const
-{
+const std::string &Table::getName() const noexcept {
     return getImpl().getName();
 }
 
-detail::TableImpl &Table::getImpl()
-{
+detail::TableImpl &Table::getImpl() noexcept {
     return *((detail::TableImpl*)(m_impl.get()));
 }
 
-const detail::TableImpl &Table::getImpl() const
-{
+const detail::TableImpl &Table::getImpl() const noexcept {
     return *((detail::TableImpl*)(m_impl.get()));
 }
 

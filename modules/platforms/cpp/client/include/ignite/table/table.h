@@ -55,7 +55,7 @@ public:
      * @return Table name.
      */
     [[nodiscard]]
-    IGNITE_API const std::string& getName() const;
+    IGNITE_API const std::string& getName() const noexcept;
 
 private:
     /**
@@ -72,7 +72,7 @@ private:
      * @return Implementation reference.
      */
     [[nodiscard]]
-    detail::TableImpl& getImpl();
+    detail::TableImpl& getImpl() noexcept;
 
     /**
      * Get implementation reference.
@@ -80,7 +80,7 @@ private:
      * @return Implementation reference.
      */
     [[nodiscard]]
-    const detail::TableImpl& getImpl() const;
+    const detail::TableImpl& getImpl() const noexcept;
 
     /** Implementation. */
     std::shared_ptr<void> m_impl;
