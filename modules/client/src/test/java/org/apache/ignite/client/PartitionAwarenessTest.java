@@ -127,9 +127,9 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         RecordView<Tuple> recordView = defaultTable().recordView();
         var tx = client2.transactions().begin();
 
-        assertOpOnNode("server-1", "get", x -> recordView.get(tx, Tuple.create().set("ID", 0L)));
-        assertOpOnNode("server-1", "get", x -> recordView.get(tx, Tuple.create().set("ID", 1L)));
-        assertOpOnNode("server-1", "get", x -> recordView.get(tx, Tuple.create().set("ID", 2L)));
+        assertOpOnNode("server-2", "get", x -> recordView.get(tx, Tuple.create().set("ID", 0L)));
+        assertOpOnNode("server-2", "get", x -> recordView.get(tx, Tuple.create().set("ID", 1L)));
+        assertOpOnNode("server-2", "get", x -> recordView.get(tx, Tuple.create().set("ID", 2L)));
     }
 
     @Test
@@ -138,7 +138,11 @@ public class PartitionAwarenessTest extends AbstractClientTest {
     }
 
     private void assertOpOnNode(String expectedNode, String expectedOp, Consumer<Void> op) {
+        lastOpServerName = null;
+        lastOp = null;
+
         op.accept(null);
+
         assertEquals(expectedNode, lastOpServerName);
         assertEquals(expectedOp, lastOp);
     }
