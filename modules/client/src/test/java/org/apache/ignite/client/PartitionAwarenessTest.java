@@ -127,6 +127,11 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         assertTrue(false, "TODO");
     }
 
+    @Test
+    public void testChangedPartitionAssignment() {
+        assertTrue(false, "TODO");
+    }
+
     private void assertOpOnNode(String expectedNode, String expectedOp, Consumer<Void> op) {
         op.accept(null);
         assertEquals(expectedNode, lastOpServerName);
