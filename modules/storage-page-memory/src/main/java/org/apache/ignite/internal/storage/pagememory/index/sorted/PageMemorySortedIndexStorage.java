@@ -20,9 +20,9 @@ package org.apache.ignite.internal.storage.pagememory.index.sorted;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
-import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.IndexRow;
+import org.apache.ignite.internal.storage.index.IndexRowImpl;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
@@ -119,20 +119,17 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
             throw new StorageException("Failed to create scan cursor", e);
         }
 
-        return Cursor.fromIterator(new TreeCursorAdapter<>(cursor, sortedIndexRow -> new IndexRow() {
-            @Override
-            public BinaryTuple indexColumns() {
-                return new BinaryTuple(descriptor.binaryTupleSchema(), sortedIndexRow.indexColumns().valueBuffer());
-            }
-
-            @Override
-            public RowId rowId() {
-                return sortedIndexRow.rowId();
-            }
-        }));
+        return Cursor.fromIterator(new TreeCursorAdapter<>(cursor, this::toIndexRowImpl));
     }
 
     private @Nullable SortedIndexRowKey toSortedIndexRowKey(@Nullable BinaryTuplePrefix binaryTuple) {
         return binaryTuple == null ? null : new SortedIndexRowKey(new IndexColumns(partitionId, binaryTuple.byteBuffer()));
+    }
+
+    private IndexRowImpl toIndexRowImpl(SortedIndexRow sortedIndexRow) {
+        return new IndexRowImpl(
+                new BinaryTuple(descriptor.binaryTupleSchema(), sortedIndexRow.indexColumns().valueBuffer()),
+                sortedIndexRow.rowId()
+        );
     }
 }
