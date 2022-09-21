@@ -49,10 +49,6 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
     protected static int serverPort2;
 
-    private TableImpl table1;
-
-    private TableImpl table2;
-
     private String lastOp;
 
     private String lastOpServerName;
@@ -203,13 +199,13 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         // Create table on both servers with the same ID.
         var tableId = UUID.randomUUID();
 
-        table1 = createTable(server, tableId, name);
-        table2 = createTable(server2, tableId, name);
+        createTable(server, tableId, name);
+        createTable(server2, tableId, name);
 
         return client2.tables().table(name);
     }
 
-    private TableImpl createTable(Ignite ignite, UUID id, String name) {
+    private void createTable(Ignite ignite, UUID id, String name) {
         FakeIgniteTables tables = (FakeIgniteTables) ignite.tables();
         TableImpl tableImpl = tables.createTable(name, id);
 
@@ -217,8 +213,6 @@ public class PartitionAwarenessTest extends AbstractClientTest {
             lastOp = op;
             lastOpServerName = ignite.name();
         });
-
-        return tableImpl;
     }
 
     private void initPartitionAssignment(ArrayList<String> assignments) {
