@@ -208,13 +208,9 @@ public class TxManagerImpl implements TxManager {
                 .term(term)
                 .build();
 
-        try {
-            return replicaService.invoke(recipientNode, req)
-                    // TODO: IGNITE-17638 TestOnly code, let's consider using Txn state map instead of states.
-                    .thenRun(() -> changeState(txId, TxState.PENDING, commit ? TxState.COMMITED : TxState.ABORTED));
-        } catch (NodeStoppingException e) {
-            return failedFuture(e);
-        }
+        return replicaService.invoke(recipientNode, req)
+                // TODO: IGNITE-17638 TestOnly code, let's consider using Txn state map instead of states.
+                .thenRun(() -> changeState(txId, TxState.PENDING, commit ? TxState.COMMITED : TxState.ABORTED));
     }
 
     /** {@inheritDoc} */
@@ -230,21 +226,16 @@ public class TxManagerImpl implements TxManager {
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-17582 Grouping replica requests.
         for (int i = 0; i < replicationGroupIds.size(); i++) {
-            try {
-                cleanupFutures[i] =
-                        replicaService.invoke(
-                                recipientNode,
-                                FACTORY.txCleanupReplicaRequest()
-                                        .groupId(replicationGroupIds.get(i).get1())
-                                        .txId(txId)
-                                        .commit(commit)
-                                        .commitTimestamp(commitTimestamp)
-                                        .term(replicationGroupIds.get(i).get2())
-                                        .build()
-                        );
-            } catch (NodeStoppingException e) {
-                cleanupFutures[i] = failedFuture(e);
-            }
+            cleanupFutures[i] = replicaService.invoke(
+                    recipientNode,
+                    FACTORY.txCleanupReplicaRequest()
+                            .groupId(replicationGroupIds.get(i).get1())
+                            .txId(txId)
+                            .commit(commit)
+                            .commitTimestamp(commitTimestamp)
+                            .term(replicationGroupIds.get(i).get2())
+                            .build()
+            );
         }
 
         return allOf(cleanupFutures);

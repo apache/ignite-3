@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.replicator;
 
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_COMMON_ERR;
 
@@ -79,16 +80,24 @@ public class ReplicaService {
      *
      * @param node Cluster node which holds a replica.
      * @param req  Replica request.
-     * @return Response future.
-     * @throws NodeStoppingException Is thrown when the node is stopping.
-     * @throws ReplicaUnavailableException If replica node does not exists or not started yet.
+     * @return Response future with either evaluation result or completed exceptionally with
+     *  <ul>
+     *      <li>NodeStoppingException - if either supplier or demander node is stopping.</li>
+     *      <li>ReplicaUnavailableException - if replica with given replication group id doesn't exists or not started yet.</li>
+     *  </ul>
      */
-    private <R> CompletableFuture<R> sendToReplica(ClusterNode node, ReplicaRequest req) throws NodeStoppingException {
+    private <R> CompletableFuture<R> sendToReplica(ClusterNode node, ReplicaRequest req) {
         if (topologyService.localMember().equals(node)) {
-            Replica replica = replicaManager.replica(req.groupId());
+            Replica replica;
+
+            try {
+                replica = replicaManager.replica(req.groupId());
+            } catch (NodeStoppingException e) {
+                return failedFuture(e);
+            }
 
             if (replica == null) {
-                throw new ReplicaUnavailableException(req.groupId(), node);
+                return failedFuture(new ReplicaUnavailableException(req.groupId(), node));
             }
 
             return (CompletableFuture<R>) replica.processRequest(req);
@@ -131,11 +140,13 @@ public class ReplicaService {
      *
      * @param node    Replica node.
      * @param request Request.
-     * @return A future holding the response or error if handling of the request resulted in an error.
-     * @throws NodeStoppingException If node is stopping.
-     * @throws ReplicaUnavailableException If replica node does not exists or not started yet.
+     * @return Response future with either evaluation result or completed exceptionally with:
+     *  <ul>
+     *      <li>NodeStoppingException - if either supplier or demander node is stopping.</li>
+     *      <li>ReplicaUnavailableException - if replica with given replication group id doesn't exists or not started yet.</li>
+     *  </ul>
      */
-    public <R> CompletableFuture<R> invoke(ClusterNode node, ReplicaRequest request) throws NodeStoppingException {
+    public <R> CompletableFuture<R> invoke(ClusterNode node, ReplicaRequest request) {
         return sendToReplica(node, request);
     }
 
@@ -145,11 +156,13 @@ public class ReplicaService {
      * @param node      Replica node.
      * @param request   Request.
      * @param storageId Storage id.
-     * @return A future holding the response or error if handling of the request resulted in an error.
-     * @throws NodeStoppingException If node is stopping.
-     * @throws ReplicaUnavailableException If replica node does not exists or not started yet.
+     * @return Response future with either evaluation result or completed exceptionally with:
+     *  <ul>
+     *      <li>NodeStoppingException - if either supplier or demander node is stopping.</li>
+     *      <li>ReplicaUnavailableException - if replica with given replication group id doesn't exists or not started yet.</li>
+     *  </ul>
      */
-    public <R> CompletableFuture<R> invoke(ClusterNode node, ReplicaRequest request, String storageId) throws NodeStoppingException {
+    public <R> CompletableFuture<R> invoke(ClusterNode node, ReplicaRequest request, String storageId) {
         return sendToReplica(node, request);
     }
 }
