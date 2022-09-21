@@ -33,7 +33,6 @@ import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableImpl;
-import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.table.Table;
@@ -74,6 +73,13 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
         return createTable(name, UUID.randomUUID());
     }
 
+    /**
+     * Creates a table.
+     *
+     * @param name Table name.
+     * @param id Table id.
+     * @return Table.
+     */
     public TableImpl createTable(String name, UUID id) {
         var newTable = getNewTable(name, id);
 
@@ -197,6 +203,11 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
         return assignmentsChangeListeners.remove(listener);
     }
 
+    /**
+     * Sets partition assignments.
+     *
+     * @param assignments Assignments.
+     */
     public void setPartitionAssignments(List<String> assignments) {
         partitionAssignments = assignments;
 

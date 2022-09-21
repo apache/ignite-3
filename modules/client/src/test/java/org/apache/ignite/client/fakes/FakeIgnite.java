@@ -40,7 +40,7 @@ import org.jetbrains.annotations.NotNull;
  */
 public class FakeIgnite implements Ignite {
     private final String name;
-    
+
     /**
      * Default constructor.
      */

@@ -17,6 +17,8 @@
 
 package org.apache.ignite.client;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import io.netty.util.ResourceLeakDetector;
 import java.util.ArrayList;
 import java.util.UUID;
@@ -33,8 +35,6 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Tests partition awareness.
@@ -204,7 +204,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         FakeIgniteTables tables = (FakeIgniteTables) ignite.tables();
         TableImpl tableImpl = tables.createTable(name, id);
 
-        ((FakeInternalTable)tableImpl.internalTable()).setDataAccessListener((op, data) -> {
+        ((FakeInternalTable) tableImpl.internalTable()).setDataAccessListener((op, data) -> {
             lastOp = op;
             lastOpServerName = ignite.name();
         });
