@@ -124,7 +124,12 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
     @Test
     public void testNonNullTxDisablesPartitionAwareness() {
-        assertTrue(false, "TODO");
+        RecordView<Tuple> recordView = defaultTable().recordView();
+        var tx = client2.transactions().begin();
+
+        assertOpOnNode("server-1", "get", x -> recordView.get(tx, Tuple.create().set("ID", 0L)));
+        assertOpOnNode("server-1", "get", x -> recordView.get(tx, Tuple.create().set("ID", 1L)));
+        assertOpOnNode("server-1", "get", x -> recordView.get(tx, Tuple.create().set("ID", 2L)));
     }
 
     @Test
