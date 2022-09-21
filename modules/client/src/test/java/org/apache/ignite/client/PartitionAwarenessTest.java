@@ -33,6 +33,8 @@ import org.junit.jupiter.api.Test;
 import java.util.ArrayList;
 import java.util.UUID;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -86,16 +88,19 @@ public class PartitionAwarenessTest extends AbstractClientTest {
     public void testGetRoutesRequestToPrimaryNode() {
         RecordView<Tuple> recordView = defaultTable().recordView();
 
-        recordView.get(null, Tuple.create().set("id", 1L));
-        assertEquals("server-2", lastOpServerName);
-        assertEquals("get", lastOp);
-
-        recordView.get(null, Tuple.create().set("id", 2L));
-        assertEquals("server-1", lastOpServerName);
-        assertEquals("get", lastOp);
+        assertOpOnNode("server-1", "get", x -> recordView.get(null, Tuple.create().set("ID", 0L)));
+        assertOpOnNode("server-2", "get", x -> recordView.get(null, Tuple.create().set("ID", 1L)));
+        assertOpOnNode("server-1", "get", x -> recordView.get(null, Tuple.create().set("ID", 2L)));
+        assertOpOnNode("server-2", "get", x -> recordView.get(null, Tuple.create().set("ID", 3L)));
     }
 
-    protected Table defaultTable() {
+    private void assertOpOnNode(String expectedNode, String expectedOp, Consumer<Void> op) {
+        op.accept(null);
+        assertEquals(expectedNode, lastOpServerName);
+        assertEquals(expectedOp, lastOp);
+    }
+
+    private Table defaultTable() {
         // Create table on both servers with the same ID.
         var tableId = UUID.randomUUID();
 
