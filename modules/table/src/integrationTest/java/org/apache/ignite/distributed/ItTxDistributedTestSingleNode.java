@@ -25,12 +25,14 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
@@ -63,6 +65,7 @@ import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.storage.state.test.TestConcurrentHashMapTxStateStorage;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
@@ -338,6 +341,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
         Int2ObjectOpenHashMap<RaftGroupService> clients = new Int2ObjectOpenHashMap<>();
 
+        List<CompletableFuture<Void>> partitionReadyFutures = new ArrayList<>();
+
         for (int p = 0; p < assignment.size(); p++) {
             List<ClusterNode> partNodes = assignment.get(p);
 
@@ -354,7 +359,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 // TODO: sanpwc add todo for index integration ticket.
                 ConcurrentHashMap<ByteBuffer, RowId> primaryIndex = new ConcurrentHashMap<>();
 
-                RaftGroupService raftGroupSvc = raftServers.get(node).prepareRaftGroup(
+               CompletableFuture<Void> partitionReadyFuture = raftServers.get(node).prepareRaftGroup(
                         grpId,
                         partNodes,
                         () -> {
@@ -366,23 +371,29 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                             );
                         },
                         RaftGroupOptions.defaults()
-                ).get();
-
-                replicaManagers.get(node).startReplica(
-                        grpId,
-                        raftGroupSvc,
-                        new PartitionReplicaListener(
-                                testMpPartStorage,
-                                raftGroupSvc,
-                                txManagers.get(node),
-                                txManagers.get(node).lockManager(),
-                                partId,
-                                grpId,
-                                tblId,
-                                primaryIndex,
-                                clocks.get(node)
-                        )
+                ).thenAccept(raftSvc -> {
+                            try {
+                                replicaManagers.get(node).startReplica(
+                                        grpId,
+                                        raftSvc,
+                                        new PartitionReplicaListener(
+                                                testMpPartStorage,
+                                                raftSvc,
+                                                txManagers.get(node),
+                                                txManagers.get(node).lockManager(),
+                                                partId,
+                                                grpId,
+                                                tblId,
+                                                primaryIndex,
+                                                clocks.get(node)
+                                        ));
+                            } catch (NodeStoppingException e) {
+                                fail("Unexpected node stopping", e);
+                            }
+                        }
                 );
+
+               partitionReadyFutures.add(partitionReadyFuture);
             }
 
             if (startClient()) {
@@ -413,6 +424,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 clients.put(p, leaderClusterSvc);
             }
         }
+
+        CompletableFuture.allOf(partitionReadyFutures.toArray(new CompletableFuture[0])).join();
 
         return clients;
     }
