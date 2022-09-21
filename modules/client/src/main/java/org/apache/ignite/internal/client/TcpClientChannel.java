@@ -34,11 +34,14 @@ import java.util.TimerTask;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
+
 import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.internal.client.io.ClientConnection;
 import org.apache.ignite.internal.client.io.ClientConnectionMultiplexer;
@@ -82,6 +85,9 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
     /** Pending requests. */
     private final Map<Long, ClientRequestFuture> pendingReqs = new ConcurrentHashMap<>();
+
+    /** Topology change listeners. */
+    private final Collection<Consumer<ClientChannel>> topChangeLsnrs = new CopyOnWriteArrayList<>();
 
     /** Closed flag. */
     private final AtomicBoolean closed = new AtomicBoolean();
@@ -285,7 +291,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         int flags = unpacker.unpackInt();
 
         if (ResponseFlags.getPartitionAssignmentChangedFlag(flags)) {
-            // TODO: Raise an event - all tables should drop their cached assignment.
+            for (Consumer<ClientChannel> lsnr : topChangeLsnrs)
+                lsnr.accept(this);
         }
 
         if (unpacker.tryUnpackNil()) {
@@ -339,6 +346,12 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     @Override
     public ProtocolContext protocolContext() {
         return protocolCtx;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void addTopologyChangeListener(Consumer<ClientChannel> lsnr) {
+        topChangeLsnrs.add(lsnr);
     }
 
     private static void validateConfiguration(ClientChannelConfiguration cfg) {
