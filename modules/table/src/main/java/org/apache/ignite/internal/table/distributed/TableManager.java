@@ -275,9 +275,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** Partitions storage path. */
     private final Path storagePath;
 
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-17579 TxStateStorage management.
-    private final Path workDir;
-
     /** Rebalance scheduler pool size. */
     private static final int REBALANCE_SCHEDULER_POOL_SIZE = Math.min(Utils.cpus() * 3, 20);
 
@@ -332,7 +329,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         this.schemaManager = schemaManager;
         this.volatileLogStorageFactoryCreator = volatileLogStorageFactoryCreator;
         this.clock = clock;
-        this.workDir = workDir;
 
         netAddrResolver = addr -> {
             ClusterNode node = topologyService.getByAddress(addr);
