@@ -49,12 +49,6 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
     /** Partition id. */
     private final int partitionId;
 
-    /** Lowest possible RowId according to signed long ordering. */
-    private final RowId lowestRowId;
-
-    /** Highest possible RowId according to signed long ordering. */
-    private final RowId highestRowId;
-
     /**
      * Constructor.
      *
@@ -68,10 +62,6 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
         this.sortedIndexTree = sortedIndexTree;
 
         partitionId = sortedIndexTree.partitionId();
-
-        lowestRowId = new RowId(partitionId, Long.MIN_VALUE, Long.MIN_VALUE);
-
-        highestRowId = new RowId(partitionId, Long.MAX_VALUE, Long.MAX_VALUE);
     }
 
     @Override
@@ -118,8 +108,8 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
 
         try {
             cursor = sortedIndexTree.find(
-                    toSortedIndexRow(lowerBound, lowestRowId),
-                    toSortedIndexRow(upperBound, highestRowId),
+                    toSortedIndexRowKey(lowerBound),
+                    toSortedIndexRowKey(upperBound),
                     (flags & GREATER_OR_EQUAL) != 0,
                     (flags & LESS_OR_EQUAL) != 0,
                     null,
@@ -142,7 +132,7 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
         }));
     }
 
-    private @Nullable SortedIndexRow toSortedIndexRow(@Nullable BinaryTuplePrefix binaryTuple, RowId rowId) {
-        return binaryTuple == null ? null : new SortedIndexRow(new IndexColumns(partitionId, binaryTuple.byteBuffer()), rowId);
+    private @Nullable SortedIndexRowKey toSortedIndexRowKey(@Nullable BinaryTuplePrefix binaryTuple) {
+        return binaryTuple == null ? null : new SortedIndexRowKey(new IndexColumns(partitionId, binaryTuple.byteBuffer()));
     }
 }
