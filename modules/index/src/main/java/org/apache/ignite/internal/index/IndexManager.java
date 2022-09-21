@@ -34,12 +34,13 @@ import org.apache.ignite.configuration.notifications.ConfigurationNotificationEv
 import org.apache.ignite.configuration.schemas.table.HashIndexView;
 import org.apache.ignite.configuration.schemas.table.IndexColumnView;
 import org.apache.ignite.configuration.schemas.table.SortedIndexView;
+import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableIndexChange;
 import org.apache.ignite.configuration.schemas.table.TableIndexConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableIndexView;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
-import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
+import org.apache.ignite.internal.configuration.schema.ExtendedTableConfiguration;
 import org.apache.ignite.internal.index.event.IndexEvent;
 import org.apache.ignite.internal.index.event.IndexEventParameters;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -147,20 +148,22 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
 
             tablesCfg.indexes().change(indexListChange -> {
                 idxExist.set(false);
-
-                UUID tableId;
-
-                try {
-                    tableId = ConfigurationUtil.internalId(tablesCfg.tables().value(), canonicalName);
-                } catch (IllegalArgumentException e) {
-                    throw new TableNotFoundException(canonicalName);
-                }
-
+                
                 if (indexListChange.get(canonicalIndexName) != null) {
                     idxExist.set(true);
 
                     throw new IndexAlreadyExistsException(canonicalIndexName);
                 }
+
+                TableConfiguration tableCfg = tablesCfg.tables().get(canonicalName);
+
+                if (tableCfg == null) {
+                    throw new TableNotFoundException(canonicalName);
+                }
+
+                ExtendedTableConfiguration exTableCfg = ((ExtendedTableConfiguration) tableCfg);
+
+                final UUID tableId = exTableCfg.id().value();
 
                 Consumer<TableIndexChange> chg = indexChange.andThen(c -> c.changeTableId(tableId));
 
@@ -175,7 +178,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                     } else {
                         future.completeExceptionally(th);
                     }
-                } else if (!future.isDone()) {
+                } else {
                     TableIndexConfiguration idxCfg = tablesCfg.indexes().get(canonicalIndexName);
 
                     if (idxCfg != null && idxCfg.value() != null) {
@@ -225,42 +228,43 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         try {
             validateName(indexName);
 
-            String canonicalName = parseCanonicalName(canonicalName(schemaName, indexName));
-
-            TableIndexConfiguration idxCfg = tablesCfg.indexes().get(canonicalName);
-
-            if (idxCfg == null) {
-                return  failIfNotExists
-                        ? CompletableFuture.failedFuture(new IndexNotFoundException(canonicalName))
-                        : CompletableFuture.completedFuture(false);
-            }
+            final String canonicalName = parseCanonicalName(canonicalName(schemaName, indexName));
 
             final CompletableFuture<Boolean> future = new CompletableFuture<>();
 
-            final UUID tableId = idxCfg.tableId().value();
+            // Check index existence flag, avoid usage of hasCause + IndexAlreadyExistsException.
+            AtomicBoolean idxOrTblNotExist = new AtomicBoolean(false);
 
             tablesCfg.indexes().change(indexListChange -> {
-                TableView tableView = getByInternalId(tablesCfg.tables().value(), tableId);
+                idxOrTblNotExist.set(false);
+
+                TableIndexView idxView = indexListChange.get(canonicalName);
+
+                if (idxView == null) {
+                    idxOrTblNotExist.set(true);
+
+                    throw new IndexNotFoundException(canonicalName);
+                }
+
+                TableView tableView = getByInternalId(tablesCfg.tables().value(), idxView.tableId());
 
                 if (tableView == null) {
-                    if (failIfNotExists) {
-                        throw new TableNotFoundException(canonicalName);
-                    } else {
-                        future.complete(true);
-                    }
+                    idxOrTblNotExist.set(true);
+
+                    throw new TableNotFoundException(canonicalName);
                 }
 
-                if (indexListChange.get(canonicalName) == null) {
-                    throw new IndexNotFoundException(canonicalName);
-                } else if (tableView != null) {
-                    indexListChange.delete(canonicalName);
-                }
+                indexListChange.delete(canonicalName);
             }).whenComplete((ignored, th) -> {
                 if (th != null) {
                     LOG.info("Unable to drop index [schema={}, index={}]", th, schemaName, indexName);
 
-                    future.completeExceptionally(th);
-                } else if (!future.isDone()) {
+                    if (!failIfNotExists && idxOrTblNotExist.get()) {
+                        future.complete(false);
+                    } else {
+                        future.completeExceptionally(th);
+                    }
+                } else {
                     LOG.info("Index dropped [schema={}, index={}]", schemaName, indexName);
 
                     future.complete(true);

@@ -58,6 +58,7 @@ import org.apache.ignite.lang.ColumnNotFoundException;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IndexAlreadyExistsException;
+import org.apache.ignite.lang.IndexNotFoundException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.sql.BatchedArguments;
@@ -179,9 +180,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
 
         // DROP TABLE
         checkDdl(false, ses, "DROP TABLE IF EXISTS NOT_EXISTS_TABLE");
-        //TODO: https://issues.apache.org/jira/browse/IGNITE-17562
-        // Remove this, indices must be dropped together with the table.
-        checkDdl(true, ses, "DROP INDEX TEST_IDX");
+
         checkDdl(true, ses, "DROP TABLE TEST");
         checkError(
                 TableNotFoundException.class,
@@ -191,6 +190,12 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         );
 
         checkDdl(false, ses, "DROP INDEX IF EXISTS TEST_IDX");
+
+        checkError(
+                IndexNotFoundException.class,
+                "Index 'PUBLIC.TEST_IDX' does not exist.", ses,
+                "DROP INDEX TEST_IDX"
+        );
     }
 
     @Test

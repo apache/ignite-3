@@ -63,12 +63,10 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.ConfigurationProperty;
-import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
-import org.apache.ignite.configuration.schemas.table.TableIndexView;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
@@ -1234,7 +1232,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             if (tbl == null) {
                 dropTblFut.completeExceptionally(new TableNotFoundException(name));
             } else {
-                tablesCfg.tables()
+                List<CompletableFuture<Void>> idxsChange = new ArrayList<>();
+
+                CompletableFuture<Void> tblOps = tablesCfg.tables()
                         .change(change -> {
                             TableView tableCfg = change.get(name);
 
@@ -1242,34 +1242,37 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 throw new TableNotFoundException(name);
                             }
 
-                            NamedListView<TableIndexView> idxView = tablesCfg.indexes().value();
-
-                            boolean idxFound = idxView.namedListKeys().stream()
-                                    .anyMatch(idx -> idxView.get(idx).tableId().equals(tbl.tableId()));
-
-                            //TODO: https://issues.apache.org/jira/browse/IGNITE-17562
-                            // Let's drop orphaned indices instantly.
-                            if (idxFound) {
-                                throw new IgniteException("Can't drop table with indices.");
-                            }
-
                             change.delete(name);
-                        })
-                        .whenComplete((res, t) -> {
-                            if (t != null) {
-                                Throwable ex = getRootCause(t);
 
-                                if (ex instanceof TableNotFoundException) {
-                                    dropTblFut.completeExceptionally(ex);
-                                } else {
-                                    LOG.debug("Unable to drop table [name={}]", ex, name);
+                            List<String> indicesNames = tablesCfg.indexes().value().namedListKeys();
 
-                                    dropTblFut.completeExceptionally(ex);
-                                }
-                            } else {
-                                dropTblFut.complete(res);
+                            List<String> indexes = indicesNames.stream().filter(idx ->
+                                    tablesCfg.indexes().get(idx).tableId().value().equals(tbl.tableId())).collect(Collectors.toList());
+
+                            for (String indexName : indexes) {
+                                idxsChange.add(tablesCfg.indexes().change(chg -> chg.delete(indexName)));
                             }
                         });
+
+                for (CompletableFuture<Void> fut : idxsChange) {
+                    tblOps = tblOps.thenCompose(f -> fut);
+                }
+
+                tblOps.whenComplete((res, t) -> {
+                    if (t != null) {
+                        Throwable ex = getRootCause(t);
+
+                        if (ex instanceof TableNotFoundException) {
+                            dropTblFut.completeExceptionally(ex);
+                        } else {
+                            LOG.debug("Unable to drop table [name={}]", ex, name);
+
+                            dropTblFut.completeExceptionally(ex);
+                        }
+                    } else {
+                        dropTblFut.complete(res);
+                    }
+                });
             }
         });
 

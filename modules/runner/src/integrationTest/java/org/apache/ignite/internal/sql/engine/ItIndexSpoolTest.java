@@ -46,12 +46,6 @@ public class ItIndexSpoolTest extends AbstractBasicIntegrationTest {
             LOG.info("Start cleanUp()");
         }
 
-        //TODO: https://issues.apache.org/jira/browse/IGNITE-17562
-        // Remove this, indices must be dropped together with the table.
-        CLUSTER_NODES.get(0).tables().tables().stream()
-                .map(Table::name)
-                .forEach(name -> sql("DROP INDEX IF EXISTS " + name + "_JID_IDX"));
-
         CLUSTER_NODES.get(0).tables().tables().stream()
                 .map(Table::name)
                 .forEach(CLUSTER_NODES.get(0).tables()::dropTable);
