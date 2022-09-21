@@ -36,6 +36,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.BiFunction;
@@ -93,6 +94,10 @@ public final class ReliableChannel implements AutoCloseable {
 
     /** Cache addresses returned by {@code ThinClientAddressFinder}. */
     private volatile String[] prevHostAddrs;
+
+    /** Local topology assignment version. Instead of using event handlers to notify all tables about assignment change,
+     * the table will compare its version with channel version to detect an update. */
+    private final AtomicLong assignmentVersion = new AtomicLong();
 
     /**
      * Constructor.
@@ -617,11 +622,18 @@ public final class ReliableChannel implements AutoCloseable {
     }
 
     private void onTopologyChanged(ClientChannel clientChannel) {
-        // TODO IGNITE-17725: Drop cached assignment in all tables.
-        // 1. Weak subscriptions from tables.
-        // 2. AtomicLong for assignment version.
-        // PROBLEM: Multiple channels will send the same update to us, resulting in multiple cache invalidations.
-        // This could be solved with a TopologyVersion, but we don't have that.
+        // NOTE: Multiple channels will send the same update to us, resulting in multiple cache invalidations.
+        // This could be solved with a cluster-wide AssignmentVersion, but we don't have that.
+        assignmentVersion.incrementAndGet();
+    }
+
+    /**
+     * Gets the local partition assignment version
+     *
+     * @return Assignment version.
+     */
+    public long partitionAssignmentVersion() {
+        return assignmentVersion.get();
     }
 
     /**

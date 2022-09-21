@@ -65,6 +65,8 @@ public class ClientTable implements Table {
 
     private volatile List<String> partitionAssignment = null;
 
+    private volatile long partitionAssignmentVersion = -1;
+
     /**
      * Constructor.
      *
@@ -373,7 +375,7 @@ public class ClientTable implements Table {
     private CompletableFuture<List<String>> getPartitionAssignment() {
         var cached = partitionAssignment;
 
-        if (cached != null) {
+        if (cached != null && partitionAssignmentVersion == ch.partitionAssignmentVersion()) {
             return CompletableFuture.completedFuture(cached);
         }
 
@@ -381,6 +383,8 @@ public class ClientTable implements Table {
     }
 
     private CompletableFuture<List<String>> loadPartitionAssignment() {
+        partitionAssignmentVersion = ch.partitionAssignmentVersion();
+
         return ch.serviceAsync(ClientOp.PARTITION_ASSIGNMENT_GET,
                 w -> w.out().packUuid(id),
                 r -> {
