@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -36,7 +36,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
- * Test configuration with array of primitives and {@code String} fields.
+ * Test configuration with array of primitives, {@link String} and {@link UUID} fields.
  */
 public class ConfigurationArrayTest {
     /**
@@ -70,6 +70,9 @@ public class ConfigurationArrayTest {
 
         @Value
         public String[] stringArray;
+
+        @Value
+        public UUID[] uuidArray;
     }
 
     private static ConfigurationAsmGenerator cgen = new ConfigurationAsmGenerator();
@@ -97,7 +100,8 @@ public class ConfigurationArrayTest {
                 char[].class,
                 float[].class,
                 double[].class,
-                String[].class
+                String[].class,
+                UUID[].class
         );
     }
 
@@ -181,6 +185,8 @@ public class ConfigurationArrayTest {
             return "doubleArray";
         } else if (cls == String[].class) {
             return "stringArray";
+        } else if (cls == UUID[].class) {
+            return "uuidArray";
         } else {
             throw new AssertionError("Invalid field type: " + cls);
         }
@@ -210,6 +216,8 @@ public class ConfigurationArrayTest {
             return new double[]{random.nextDouble(), random.nextDouble(), random.nextDouble()};
         } else if (cls == String[].class) {
             return new String[]{UUID.randomUUID().toString(), UUID.randomUUID().toString(), UUID.randomUUID().toString()};
+        } else if (cls == UUID[].class) {
+            return new UUID[]{UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID()};
         } else {
             throw new AssertionError("Invalid field type: " + cls);
         }

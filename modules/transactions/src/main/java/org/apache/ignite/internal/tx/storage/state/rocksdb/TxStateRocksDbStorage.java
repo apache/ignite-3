@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -166,7 +166,6 @@ public class TxStateRocksDbStorage implements TxStateStorage {
 
     /** {@inheritDoc} */
     @Override public boolean compareAndSet(UUID txId, TxState txStateExpected, TxMeta txMeta, long commandIndex) {
-        requireNonNull(txStateExpected);
         requireNonNull(txMeta);
 
         if (!busyLock.enterBusy()) {
@@ -177,16 +176,27 @@ public class TxStateRocksDbStorage implements TxStateStorage {
 
         try (Transaction rocksTx = db.beginTransaction(writeOptions)) {
             byte[] txMetaExistingBytes = rocksTx.get(readOptions, txIdToKey(txId));
-            TxMeta txMetaExisting = fromBytes(txMetaExistingBytes);
 
             boolean result;
 
-            if (txMetaExisting.txState() == txStateExpected) {
+            if (txMetaExistingBytes == null && txStateExpected == null) {
                 rocksTx.put(txIdBytes, toBytes(txMeta));
 
                 result = true;
             } else {
-                result = false;
+                if (txMetaExistingBytes != null) {
+                    TxMeta txMetaExisting = fromBytes(txMetaExistingBytes);
+
+                    if (txMetaExisting.txState() == txStateExpected) {
+                        rocksTx.put(txIdBytes, toBytes(txMeta));
+
+                        result = true;
+                    } else {
+                        result = false;
+                    }
+                } else {
+                    result = false;
+                }
             }
 
             rocksTx.put(lastAppliedIndexKey, longToBytes(commandIndex));
@@ -274,7 +284,15 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     }
 
     void refreshPersistedIndex() {
-        persistedIndex = readLastAppliedIndex(persistedTierReadOptions);
+        if (!busyLock.enterBusy()) {
+            throwStorageStoppedException();
+        }
+
+        try {
+            persistedIndex = readLastAppliedIndex(persistedTierReadOptions);
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 
     /**

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -526,6 +526,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         @Override
         public CompletableFuture<Boolean> notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
             return schemaHolder.onTableCreated(
+                    // TODO: https://issues.apache.org/jira/browse/IGNITE-17694 Hardcoded schemas
                     "PUBLIC",
                     parameters.table(),
                     parameters.causalityToken()
@@ -545,6 +546,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         @Override
         public CompletableFuture<Boolean> notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
             return schemaHolder.onTableUpdated(
+                    // TODO: https://issues.apache.org/jira/browse/IGNITE-17694 Hardcoded schemas
                     "PUBLIC",
                     parameters.table(),
                     parameters.causalityToken()
@@ -564,6 +566,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         @Override
         public CompletableFuture<Boolean> notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
             return schemaHolder.onTableDropped(
+                    // TODO: https://issues.apache.org/jira/browse/IGNITE-17694 Hardcoded schemas
                     "PUBLIC",
                     parameters.tableName(),
                     parameters.causalityToken()
@@ -581,6 +584,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         @Override
         public CompletableFuture<Boolean> notify(@NotNull IndexEventParameters parameters, @Nullable Throwable exception) {
             return schemaHolder.onIndexDropped(
+                            // TODO: https://issues.apache.org/jira/browse/IGNITE-17694 Hardcoded schemas
                             "PUBLIC",
                             parameters.indexId(),
                             parameters.causalityToken()
@@ -598,7 +602,6 @@ public class SqlQueryProcessor implements QueryProcessor {
         @Override
         public CompletableFuture<Boolean> notify(@NotNull IndexEventParameters parameters, @Nullable Throwable exception) {
             return schemaHolder.onIndexCreated(
-                            "PUBLIC",
                             parameters.index(),
                             parameters.causalityToken()
                     )

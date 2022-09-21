@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -121,12 +121,12 @@ public abstract class TxStateStorageAbstractTest {
             TxMeta txMeta1 = new TxMeta(TxState.COMMITED, new ArrayList<>(), generateTimestamp(txId));
             TxMeta txMeta2 = new TxMeta(TxState.COMMITED, new ArrayList<>(), generateTimestamp(UUID.randomUUID()));
 
-            storage.put(txId, txMeta0);
+            storage.compareAndSet(txId, null, txMeta0, 1);
 
             assertTxMetaEquals(storage.get(txId), txMeta0);
 
-            assertFalse(storage.compareAndSet(txId, txMeta1.txState(), txMeta2, 1));
-            assertTrue(storage.compareAndSet(txId, txMeta0.txState(), txMeta2, 2));
+            assertFalse(storage.compareAndSet(txId, txMeta1.txState(), txMeta2, 2));
+            assertTrue(storage.compareAndSet(txId, txMeta0.txState(), txMeta2, 3));
 
             assertTxMetaEquals(storage.get(txId), txMeta2);
         }
@@ -141,11 +141,11 @@ public abstract class TxStateStorageAbstractTest {
 
             Map<UUID, TxMeta> txs = new HashMap<>();
 
-            putRandomTxMetaWithCommitIndex(storage0, 1, 0);
-            putRandomTxMetaWithCommitIndex(storage2, 1, 0);
+            putRandomTxMetaWithCommandIndex(storage0, 1, 0);
+            putRandomTxMetaWithCommandIndex(storage2, 1, 0);
 
             for (int i = 0; i < 100; i++) {
-                IgniteBiTuple<UUID, TxMeta> txData = putRandomTxMetaWithCommitIndex(storage1, i, i);
+                IgniteBiTuple<UUID, TxMeta> txData = putRandomTxMetaWithCommandIndex(storage1, i, i);
                 txs.put(txData.get1(), txData.get2());
             }
 
@@ -167,11 +167,10 @@ public abstract class TxStateStorageAbstractTest {
         }
     }
 
-    private IgniteBiTuple<UUID, TxMeta> putRandomTxMetaWithCommitIndex(TxStateStorage storage, int enlistedPartsCount, long commitIndex) {
+    private IgniteBiTuple<UUID, TxMeta> putRandomTxMetaWithCommandIndex(TxStateStorage storage, int enlistedPartsCount, long commandIndex) {
         UUID txId = UUID.randomUUID();
         TxMeta txMeta = new TxMeta(TxState.PENDING, generateEnlistedPartitions(enlistedPartsCount), generateTimestamp(txId));
-        storage.put(txId, txMeta);
-        storage.compareAndSet(txId, TxState.PENDING, txMeta, 0);
+        storage.compareAndSet(txId, null, txMeta, commandIndex);
 
         return new IgniteBiTuple<>(txId, txMeta);
     }

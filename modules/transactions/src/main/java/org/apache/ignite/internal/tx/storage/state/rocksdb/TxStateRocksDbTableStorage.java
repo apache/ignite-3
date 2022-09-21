@@ -241,6 +241,8 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
             return;
         }
 
+        busyLock.block();
+
         try {
             List<AutoCloseable> resources = new ArrayList<>();
 

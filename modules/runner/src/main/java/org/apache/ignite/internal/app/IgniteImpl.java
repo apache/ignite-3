@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -334,27 +334,26 @@ public class IgniteImpl implements Ignite {
 
         Path storagePath = getPartitionsStorePath(workDir);
 
+        final TablesConfiguration tablesConfiguration = clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY);
+
         dataStorageMgr = new DataStorageManager(
-                clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY),
+                tablesConfiguration,
                 dataStorageModules.createStorageEngines(
                         name,
                         clusterCfgMgr.configurationRegistry(),
-                        getPartitionsStorePath(workDir),
+                        storagePath,
                         longJvmPauseDetector
                 )
         );
 
-        schemaManager = new SchemaManager(
-            registry,
-            clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY)
-        );
+        schemaManager = new SchemaManager(registry, tablesConfiguration);
 
         volatileLogStorageFactoryCreator = new VolatileLogStorageFactoryCreator(workDir.resolve("volatile-log-spillout"));
 
         distributedTblMgr = new TableManager(
                 name,
                 registry,
-                clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY),
+                tablesConfiguration,
                 raftMgr,
                 replicaMgr,
                 lockMgr,
@@ -367,18 +366,11 @@ public class IgniteImpl implements Ignite {
                 metaStorageMgr,
                 schemaManager,
                 volatileLogStorageFactoryCreator,
-                clock
+                clock,
+                workDir
         );
 
-        indexManager = new IndexManager(
-                distributedTblMgr,
-                clusterCfgMgr.configurationRegistry()
-                        .getConfiguration(TablesConfiguration.KEY)
-                        .tables()
-                        .any()
-                        .indices()
-                        ::listenElements
-        );
+        indexManager = new IndexManager(tablesConfiguration);
 
         qryEngine = new SqlQueryProcessor(
                 registry,
@@ -449,6 +441,7 @@ public class IgniteImpl implements Ignite {
      */
     public CompletableFuture<Ignite> start(@Language("HOCON") @Nullable String cfg) {
         try {
+
             lifecycleManager.startComponent(longJvmPauseDetector);
 
             lifecycleManager.startComponent(vaultMgr);

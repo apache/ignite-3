@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -34,6 +34,7 @@ import com.typesafe.config.ConfigValue;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -105,6 +106,9 @@ public class HoconConverterTest {
 
         @Value(hasDefault = true)
         public String[] strings = {""};
+
+        @Value(hasDefault = true)
+        public UUID[] uuids = {new UUID(1111, 2222)};
     }
 
     /**
@@ -138,6 +142,9 @@ public class HoconConverterTest {
 
         @Value(hasDefault = true)
         public String stringVal = "";
+
+        @Value(hasDefault = true)
+        public UUID uuidVal = new UUID(100, 200);
     }
 
     /**
@@ -272,7 +279,7 @@ public class HoconConverterTest {
     }
 
     /**
-     * Tests that the {@code HoconConverter} supports serialization of Strings and primitives.
+     * Tests that the {@code HoconConverter} supports serialization of {@link String}, {@link UUID} and primitives.
      */
     @Test
     public void testHoconPrimitivesSerialization() throws Exception {
@@ -285,8 +292,11 @@ public class HoconConverterTest {
 
         var basePath = List.of("root", "primitivesList", "name");
 
+        UUID uuid = new UUID(100, 200);
+
         assertEquals(
-                "booleanVal=false,byteVal=0,charVal=\"\\u0000\",doubleVal=0.0,floatVal=0,intVal=0,longVal=0,shortVal=0,stringVal=\"\"",
+                "booleanVal=false,byteVal=0,charVal=\"\\u0000\",doubleVal=0.0,floatVal=0,intVal=0,longVal=0,shortVal=0,stringVal=\"\""
+                        + ",uuidVal=\"" + uuid + "\"",
                 asHoconStr(basePath)
         );
 
@@ -299,10 +309,11 @@ public class HoconConverterTest {
         assertEquals("0", asHoconStr(basePath, "floatVal"));
         assertEquals("0.0", asHoconStr(basePath, "doubleVal"));
         assertEquals("\"\"", asHoconStr(basePath, "stringVal"));
+        assertEquals("\"" + uuid + "\"", asHoconStr(basePath, "uuidVal"));
     }
 
     /**
-     * Tests that the {@code HoconConverter} supports serialization of arrays of Strings and primitives.
+     * Tests that the {@code HoconConverter} supports serialization of arrays of {@link String}, {@link UUID} and primitives.
      */
     @Test
     public void testHoconArraysSerialization() throws Exception {
@@ -315,8 +326,11 @@ public class HoconConverterTest {
 
         var basePath = List.of("root", "arraysList", "name");
 
+        UUID uuid = new UUID(1111, 2222);
+
         assertEquals(
-                "booleans=[false],bytes=[0],chars=[\"\\u0000\"],doubles=[0.0],floats=[0],ints=[0],longs=[0],shorts=[0],strings=[\"\"]",
+                "booleans=[false],bytes=[0],chars=[\"\\u0000\"],doubles=[0.0],floats=[0],ints=[0],longs=[0],shorts=[0],strings=[\"\"]"
+                        + ",uuids=[\"" + uuid + "\"]",
                 asHoconStr(basePath)
         );
 
@@ -329,6 +343,7 @@ public class HoconConverterTest {
         assertEquals("[0]", asHoconStr(basePath, "floats"));
         assertEquals("[0.0]", asHoconStr(basePath, "doubles"));
         assertEquals("[\"\"]", asHoconStr(basePath, "strings"));
+        assertEquals("[\"" + uuid + "\"]", asHoconStr(basePath, "uuids"));
     }
 
     /**
@@ -394,7 +409,7 @@ public class HoconConverterTest {
     }
 
     /**
-     * Tests that the {@code HoconConverter} supports deserialization of Strings and primitives.
+     * Tests that the {@code HoconConverter} supports deserialization of {@link String}, {@link UUID} and primitives.
      */
     @Test
     public void testHoconPrimitivesDeserialization() throws Throwable {
@@ -429,6 +444,15 @@ public class HoconConverterTest {
 
         change("root.primitivesList.name.stringVal = foo");
         assertThat(primitives.stringVal().value(), is("foo"));
+
+        UUID newUuid0 = UUID.randomUUID();
+        UUID newUuid1 = UUID.randomUUID();
+
+        change("root.primitivesList.name.uuidVal = " + newUuid0);
+        assertThat(primitives.uuidVal().value(), is(newUuid0));
+
+        change("root.primitivesList.name.uuidVal = \"" + newUuid1 + "\"");
+        assertThat(primitives.uuidVal().value(), is(newUuid1));
     }
 
     /**
@@ -495,10 +519,15 @@ public class HoconConverterTest {
                 () -> change("root.primitivesList.name.stringVal = 10"),
                 "'String' is expected as a type for the 'root.primitivesList.name.stringVal' configuration value"
         );
+
+        assertThrowsIllegalArgException(
+                () -> change("root.primitivesList.name.uuidVal = 123"),
+                "'UUID' is expected as a type for the 'root.primitivesList.name.uuidVal' configuration value"
+        );
     }
 
     /**
-     * Tests that the {@code HoconConverter} supports deserialization of arrays of Strings and primitives.
+     * Tests that the {@code HoconConverter} supports deserialization of arrays of {@link String}, {@link UUID} and primitives.
      */
     @Test
     public void testHoconArraysDeserialization() throws Throwable {
@@ -533,6 +562,15 @@ public class HoconConverterTest {
 
         change("root.arraysList.name.strings = [foo]");
         assertThat(arrays.strings().value(), is(new String[]{"foo"}));
+
+        UUID newUuid0 = UUID.randomUUID();
+        UUID newUuid1 = UUID.randomUUID();
+
+        change("root.arraysList.name.uuids = [" + newUuid0 + "]");
+        assertThat(arrays.uuids().value(), is(new UUID[]{newUuid0}));
+
+        change("root.arraysList.name.uuids = [\"" + newUuid1 + "\"]");
+        assertThat(arrays.uuids().value(), is(new UUID[]{newUuid1}));
     }
 
     /**
@@ -608,6 +646,11 @@ public class HoconConverterTest {
         assertThrowsIllegalArgException(
                 () -> change("root.arraysList.name.strings = 10"),
                 "'String[]' is expected as a type for the 'root.arraysList.name.strings' configuration value"
+        );
+
+        assertThrowsIllegalArgException(
+                () -> change("root.arraysList.name.uuids = uuids"),
+                "'UUID[]' is expected as a type for the 'root.arraysList.name.uuids' configuration value"
         );
     }
 

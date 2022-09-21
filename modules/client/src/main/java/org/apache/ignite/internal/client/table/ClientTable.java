@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -175,17 +175,18 @@ public class ClientTable implements Table {
         for (int i = 0; i < colCnt; i++) {
             var propCnt = in.unpackArrayHeader();
 
-            assert propCnt >= 4;
+            assert propCnt >= 5;
 
             var name = in.unpackString();
             var type = in.unpackInt();
             var isKey = in.unpackBoolean();
             var isNullable = in.unpackBoolean();
+            var scale = in.unpackInt();
 
             // Skip unknown extra properties, if any.
-            in.skipValues(propCnt - 4);
+            in.skipValues(propCnt - 5);
 
-            var column = new ClientColumn(name, type, isNullable, isKey, i);
+            var column = new ClientColumn(name, type, isNullable, isKey, i, scale);
             columns[i] = column;
         }
 

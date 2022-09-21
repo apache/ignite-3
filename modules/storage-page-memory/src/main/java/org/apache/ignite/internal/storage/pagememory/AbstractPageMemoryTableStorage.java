@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -24,6 +24,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableView;
+import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -43,6 +44,8 @@ import org.jetbrains.annotations.Nullable;
 public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
     protected final TableConfiguration tableCfg;
 
+    protected TablesConfiguration tablesConfiguration;
+
     protected volatile boolean started;
 
     protected volatile AtomicReferenceArray<AbstractPageMemoryMvPartitionStorage> mvPartitions;
@@ -52,8 +55,9 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
      *
      * @param tableCfg Table configuration.
      */
-    protected AbstractPageMemoryTableStorage(TableConfiguration tableCfg) {
+    protected AbstractPageMemoryTableStorage(TableConfiguration tableCfg, TablesConfiguration tablesCfg) {
         this.tableCfg = tableCfg;
+        tablesConfiguration = tablesCfg;
     }
 
     /** {@inheritDoc} */
@@ -117,7 +121,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
         if (partitionId < 0 || partitionId >= mvPartitions.length()) {
             throw new IllegalArgumentException(S.toString(
                     "Unable to access partition with id outside of configured range",
-                    "table", tableCfg.name().value(), false,
+                    "table", tableCfg.value().name(), false,
                     "partitionId", partitionId, false,
                     "partitions", mvPartitions.length(), false
             ));

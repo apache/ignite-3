@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -136,23 +136,16 @@ public class PartitionListener implements RaftGroupListener {
 
             try {
                 if (command instanceof UpdateCommand) {
-                    handleUpdateCommand((UpdateCommand) command);
+                    handleUpdateCommand((UpdateCommand) command, commandIndex);
                 } else if (command instanceof UpdateAllCommand) {
-                    handleUpdateAllCommand((UpdateAllCommand) command);
+                    handleUpdateAllCommand((UpdateAllCommand) command, commandIndex);
                 } else if (command instanceof FinishTxCommand) {
                     handleFinishTxCommand((FinishTxCommand) command, commandIndex);
-
-                    clo.result(null);
-
-                    return;
                 } else if (command instanceof TxCleanupCommand) {
-                    handleTxCleanupCommand((TxCleanupCommand) command);
+                    handleTxCleanupCommand((TxCleanupCommand) command, commandIndex);
                 } else {
                     assert false : "Command was not found [cmd=" + command + ']';
                 }
-
-                storage.lastAppliedIndex(commandIndex);
-
                 clo.result(null);
             } catch (IgniteInternalException e) {
                 clo.result(e);
@@ -165,24 +158,30 @@ public class PartitionListener implements RaftGroupListener {
      *
      * @param cmd Command.
      */
-    private void handleUpdateCommand(UpdateCommand cmd) {
-        BinaryRow row = cmd.getRow();
-        RowId rowId = cmd.getRowId();
-        UUID txId = cmd.txId();
+    private void handleUpdateCommand(UpdateCommand cmd, long commandIndex) {
+        storage.runConsistently(() -> {
+            BinaryRow row = cmd.getRow();
+            RowId rowId = cmd.getRowId();
+            UUID txId = cmd.txId();
 
-        storage.addWrite(rowId, row,  txId);
+            storage.addWrite(rowId, row, txId);
 
-        txsPendingRowIds.computeIfAbsent(txId, entry -> new HashSet<>()).add(rowId);
+            txsPendingRowIds.computeIfAbsent(txId, entry -> new HashSet<>()).add(rowId);
 
-        if (row == null) {
-            // Remove entry.
-            txsRemovedKeys.computeIfAbsent(txId, entry -> new HashSet<>()).add(rowId);
-        } else if (!primaryIndex.contains(row.keySlice())) {
-            // Insert entry.
-            txsInsertedKeys.computeIfAbsent(txId, entry -> new HashSet<>()).add(rowId);
+            if (row == null) {
+                // Remove entry.
+                txsRemovedKeys.computeIfAbsent(txId, entry -> new HashSet<>()).add(rowId);
+            } else if (!primaryIndex.contains(row.keySlice())) {
+                // Insert entry.
+                txsInsertedKeys.computeIfAbsent(txId, entry -> new HashSet<>()).add(rowId);
 
-            primaryIndex.put(row.keySlice(), rowId);
-        }
+                primaryIndex.put(row.keySlice(), rowId);
+            }
+
+            storage.lastAppliedIndex(commandIndex);
+
+            return null;
+        });
     }
 
     /**
@@ -190,27 +189,32 @@ public class PartitionListener implements RaftGroupListener {
      *
      * @param cmd Command.
      */
-    private void handleUpdateAllCommand(UpdateAllCommand cmd) {
-        UUID txId = cmd.txId();
-        Map<RowId, BinaryRow> rowsToUpdate = cmd.getRowsToUpdate();
+    private void handleUpdateAllCommand(UpdateAllCommand cmd, long commandIndex) {
+        storage.runConsistently(() -> {
+            UUID txId = cmd.txId();
+            Map<RowId, BinaryRow> rowsToUpdate = cmd.getRowsToUpdate();
 
-        if (!CollectionUtils.nullOrEmpty(rowsToUpdate)) {
-            for (Map.Entry<RowId, BinaryRow> entry : rowsToUpdate.entrySet()) {
-                storage.addWrite(entry.getKey(), entry.getValue(), txId);
+            if (!CollectionUtils.nullOrEmpty(rowsToUpdate)) {
+                for (Map.Entry<RowId, BinaryRow> entry : rowsToUpdate.entrySet()) {
+                    storage.addWrite(entry.getKey(), entry.getValue(), txId);
 
-                txsPendingRowIds.computeIfAbsent(txId, entry0 -> new HashSet<>()).add(entry.getKey());
+                    txsPendingRowIds.computeIfAbsent(txId, entry0 -> new HashSet<>()).add(entry.getKey());
 
-                if (entry.getValue() == null) {
-                    // Remove entry.
-                    txsRemovedKeys.computeIfAbsent(txId, entry0 -> new HashSet<>()).add(entry.getKey());
-                } else if (!primaryIndex.contains(entry.getValue().keySlice())) {
-                    // Insert entry.
-                    txsInsertedKeys.computeIfAbsent(txId, entry0 -> new HashSet<>()).add(entry.getKey());
+                    if (entry.getValue() == null) {
+                        // Remove entry.
+                        txsRemovedKeys.computeIfAbsent(txId, entry0 -> new HashSet<>()).add(entry.getKey());
+                    } else if (!primaryIndex.contains(entry.getValue().keySlice())) {
+                        // Insert entry.
+                        txsInsertedKeys.computeIfAbsent(txId, entry0 -> new HashSet<>()).add(entry.getKey());
 
-                    primaryIndex.put(entry.getValue().keySlice(), entry.getKey());
+                        primaryIndex.put(entry.getValue().keySlice(), entry.getKey());
+                    }
                 }
             }
-        }
+            storage.lastAppliedIndex(commandIndex);
+
+            return null;
+        });
     }
 
     /**
@@ -257,37 +261,43 @@ public class PartitionListener implements RaftGroupListener {
      *
      * @param cmd Command.
      */
-    private void handleTxCleanupCommand(TxCleanupCommand cmd) {
-        UUID txId = cmd.txId();
+    private void handleTxCleanupCommand(TxCleanupCommand cmd, long commandIndex) {
+        storage.runConsistently(() -> {
+            UUID txId = cmd.txId();
 
-        Set<RowId> removedRowIds = txsRemovedKeys.getOrDefault(txId, Collections.emptySet());
+            Set<RowId> removedRowIds = txsRemovedKeys.getOrDefault(txId, Collections.emptySet());
 
-        Set<RowId> insertedRowIds = txsInsertedKeys.getOrDefault(txId, Collections.emptySet());
+            Set<RowId> insertedRowIds = txsInsertedKeys.getOrDefault(txId, Collections.emptySet());
 
-        Set<RowId> pendingRowIds = txsPendingRowIds.getOrDefault(txId, Collections.emptySet());
+            Set<RowId> pendingRowIds = txsPendingRowIds.getOrDefault(txId, Collections.emptySet());
 
-        if (cmd.commit()) {
-            pendingRowIds.forEach(rowId -> storage.commitWrite(rowId, cmd.commitTimestamp()));
-        } else {
-            pendingRowIds.forEach(rowId -> storage.abortWrite(rowId));
-        }
-
-        if (cmd.commit()) {
-            for (RowId rowId : removedRowIds) {
-                primaryIndex.remove(rowId);
+            if (cmd.commit()) {
+                pendingRowIds.forEach(rowId -> storage.commitWrite(rowId, cmd.commitTimestamp()));
+            } else {
+                pendingRowIds.forEach(rowId -> storage.abortWrite(rowId));
             }
-        } else {
-            for (RowId rowId : insertedRowIds) {
-                primaryIndex.remove(rowId);
+
+            if (cmd.commit()) {
+                for (RowId rowId : removedRowIds) {
+                    primaryIndex.remove(rowId);
+                }
+            } else {
+                for (RowId rowId : insertedRowIds) {
+                    primaryIndex.remove(rowId);
+                }
             }
-        }
 
-        txsRemovedKeys.remove(txId);
-        txsInsertedKeys.remove(txId);
-        txsPendingRowIds.remove(txId);
+            txsRemovedKeys.remove(txId);
+            txsInsertedKeys.remove(txId);
+            txsPendingRowIds.remove(txId);
 
-        // TODO: IGNITE-17638 TestOnly code, let's consider using Txn state map instead of states.
-        txManager.changeState(txId, PENDING, cmd.commit() ? COMMITED : ABORTED);
+            // TODO: IGNITE-17638 TestOnly code, let's consider using Txn state map instead of states.
+            txManager.changeState(txId, PENDING, cmd.commit() ? COMMITED : ABORTED);
+
+            storage.lastAppliedIndex(commandIndex);
+
+            return null;
+        });
     }
 
     /** {@inheritDoc} */

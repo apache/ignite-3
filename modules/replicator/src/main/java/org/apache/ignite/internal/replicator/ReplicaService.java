@@ -48,8 +48,8 @@ public class ReplicaService {
     /** Message service. */
     private final MessagingService messagingService;
 
-    /** Local node. */
-    private final ClusterNode localNode;
+    /** Topology service. */
+    private final TopologyService topologyService;
 
     /** A hybrid logical clock. */
     private final HybridClock clock;
@@ -70,8 +70,7 @@ public class ReplicaService {
     ) {
         this.replicaManager = replicaManager;
         this.messagingService = messagingService;
-
-        this.localNode = topologyService.localMember();
+        this.topologyService = topologyService;
         this.clock = clock;
     }
 
@@ -85,7 +84,7 @@ public class ReplicaService {
      * @throws ReplicaUnavailableException If replica node does not exists or not started yet.
      */
     private <R> CompletableFuture<R> sendToReplica(ClusterNode node, ReplicaRequest req) throws NodeStoppingException {
-        if (localNode.equals(node)) {
+        if (topologyService.localMember().equals(node)) {
             Replica replica = replicaManager.replica(req.groupId());
 
             if (replica == null) {

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,18 +18,14 @@
 package org.apache.ignite.internal.schema.definition;
 
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.schema.definition.ColumnDefinition;
 import org.apache.ignite.schema.definition.PrimaryKeyDefinition;
 import org.apache.ignite.schema.definition.TableDefinition;
-import org.apache.ignite.schema.definition.index.IndexDefinition;
 
 /**
  * Table.
@@ -41,9 +37,6 @@ public class TableDefinitionImpl extends AbstractSchemaObject implements TableDe
 
     /** Key columns. */
     private final LinkedHashMap<String, ColumnDefinition> colMap;
-
-    /** Indices. */
-    private final Map<String, IndexDefinition> indices;
 
     /** Cached key columns. */
     private final Set<String> keyCols;
@@ -58,20 +51,17 @@ public class TableDefinitionImpl extends AbstractSchemaObject implements TableDe
      * @param tableName            Table name.
      * @param colMap               Columns.
      * @param primaryKeyDefinition Primary key.
-     * @param indices              Indices.
      */
     public TableDefinitionImpl(
             String schemaName,
             String tableName,
             LinkedHashMap<String, ColumnDefinition> colMap,
-            PrimaryKeyDefinition primaryKeyDefinition,
-            Map<String, IndexDefinition> indices
+            PrimaryKeyDefinition primaryKeyDefinition
     ) {
         super(tableName);
 
         this.schemaName = schemaName;
         this.colMap = colMap;
-        this.indices = indices;
 
         keyCols = primaryKeyDefinition.columns();
         colocationCols = primaryKeyDefinition.colocationColumns();
@@ -105,12 +95,6 @@ public class TableDefinitionImpl extends AbstractSchemaObject implements TableDe
     @Override
     public String canonicalName() {
         return SchemaUtils.canonicalName(schemaName, name());
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Collection<IndexDefinition> indices() {
-        return Collections.unmodifiableCollection(indices.values());
     }
 
     /**

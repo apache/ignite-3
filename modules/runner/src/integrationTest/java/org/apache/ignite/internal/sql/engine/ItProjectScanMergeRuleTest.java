@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -60,12 +60,6 @@ public class ItProjectScanMergeRuleTest extends AbstractBasicIntegrationTest {
                 SchemaConfigurationConverter.convert(schTbl1, tblCh)
                         .changeReplicas(1)
                         .changePartitions(10)
-        );
-
-        CLUSTER_NODES.get(0).tables().alterTable(schTbl1.canonicalName(), tblCh ->
-                SchemaConfigurationConverter.addIndex(SchemaBuilders.sortedIndex(IDX_CAT_ID)
-                        .addIndexColumn("CAT_ID").done()
-                        .build(), tblCh)
         );
 
         insertData(tbl, new String[]{"ID", "CATEGORY", "CAT_ID", "SUBCATEGORY", "SUBCAT_ID", "NAME"}, new Object[][]{

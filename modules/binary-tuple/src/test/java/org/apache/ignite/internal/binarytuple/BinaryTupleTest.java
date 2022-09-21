@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -354,10 +354,28 @@ public class BinaryTupleTest {
         BigDecimal value = new BigDecimal(BigInteger.valueOf(12345), 100);
 
         BinaryTupleBuilder builder = BinaryTupleBuilder.create(1, false);
-        ByteBuffer bytes = builder.appendDecimal(value).build();
+        ByteBuffer bytes = builder.appendDecimal(value, 100).build();
 
         BinaryTupleReader reader = new BinaryTupleReader(1, bytes);
         assertEquals(value, reader.decimalValue(0, 100));
+    }
+
+    /**
+     * Test big decimal value encoding with different scale in value and schema.
+     */
+    @Test
+    public void decimalScaleTest() {
+        int schemaScale = 10;
+        int valueScale = 3;
+        BigDecimal value = BigDecimal.valueOf(123456, valueScale);
+
+        BinaryTupleBuilder builder = BinaryTupleBuilder.create(1, false);
+        ByteBuffer bytes = builder.appendDecimal(value, schemaScale).build();
+
+        BinaryTupleReader reader = new BinaryTupleReader(1, bytes);
+        BigDecimal res = reader.decimalValue(0, schemaScale);
+
+        assertEquals(value.doubleValue(), res.doubleValue());
     }
 
     /**

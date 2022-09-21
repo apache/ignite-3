@@ -70,7 +70,7 @@ namespace Apache.Ignite.Sql
             Timeout = timeout ?? DefaultTimeout;
             Schema = schema ?? DefaultSchema;
             PageSize = pageSize ?? DefaultPageSize;
-            Properties = properties == null || properties == EmptyProperties ? EmptyProperties : new(properties);
+            Properties = properties == null || ReferenceEquals(properties, EmptyProperties) ? EmptyProperties : new(properties);
         }
 
         /// <summary>

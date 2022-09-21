@@ -4,7 +4,7 @@
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -22,6 +22,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
+import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
@@ -37,13 +38,15 @@ import org.jetbrains.annotations.Nullable;
  * Test table storage implementation.
  */
 public class TestConcurrentHashMapMvTableStorage implements MvTableStorage {
-    private final TableConfiguration tableConfig;
+    private final TableConfiguration tableCfg;
 
     private final Map<Integer, MvPartitionStorage> partitions = new ConcurrentHashMap<>();
 
     private final Map<UUID, SortedIndices> sortedIndicesById = new ConcurrentHashMap<>();
 
     private final Map<UUID, HashIndices> hashIndicesById = new ConcurrentHashMap<>();
+
+    private final TablesConfiguration tablesCfg;
 
     /**
      * Class for storing Sorted Indices for a particular partition.
@@ -79,8 +82,10 @@ public class TestConcurrentHashMapMvTableStorage implements MvTableStorage {
         }
     }
 
-    public TestConcurrentHashMapMvTableStorage(TableConfiguration tableCfg) {
-        this.tableConfig = tableCfg;
+    /** Costructor. */
+    public TestConcurrentHashMapMvTableStorage(TableConfiguration tableCfg, TablesConfiguration tablesCfg) {
+        this.tableCfg = tableCfg;
+        this.tablesCfg = tablesCfg;
     }
 
     @Override
@@ -114,7 +119,7 @@ public class TestConcurrentHashMapMvTableStorage implements MvTableStorage {
 
         SortedIndices sortedIndices = sortedIndicesById.computeIfAbsent(
                 indexId,
-                id -> new SortedIndices(new SortedIndexDescriptor(id, tableConfig.value()))
+                id -> new SortedIndices(new SortedIndexDescriptor(id, tableCfg.value(), tablesCfg.value()))
         );
 
         return sortedIndices.getOrCreateStorage(partitionId);
@@ -128,7 +133,7 @@ public class TestConcurrentHashMapMvTableStorage implements MvTableStorage {
 
         HashIndices sortedIndices = hashIndicesById.computeIfAbsent(
                 indexId,
-                id -> new HashIndices(new HashIndexDescriptor(id, tableConfig.value()))
+                id -> new HashIndices(new HashIndexDescriptor(id, tableCfg.value(), tablesCfg.value()))
         );
 
         return sortedIndices.getOrCreateStorage(partitionId);
@@ -154,7 +159,7 @@ public class TestConcurrentHashMapMvTableStorage implements MvTableStorage {
 
     @Override
     public TableConfiguration configuration() {
-        return tableConfig;
+        return tableCfg;
     }
 
     @Override

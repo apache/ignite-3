@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -33,7 +33,7 @@ public class SortedIndexDescriptor extends IndexDescriptor {
      * Constructs a index description.
      *
      * @param name Name of the index.
-     * @param columns A list of indexed columns. Must not contains duplicates.
+     * @param columns A list of indexed columns. Must not contain duplicates.
      * @param collations A list of columns collations. Must be the same size as columns list.
      * @throws IllegalArgumentException If columns list contains duplicates or columns size doesn't match the collations size.
      */

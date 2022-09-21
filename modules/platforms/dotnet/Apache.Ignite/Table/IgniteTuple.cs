@@ -126,19 +126,19 @@ namespace Apache.Ignite.Table
             return IIgniteTuple.GetHashCode(this);
         }
 
-        private static string ParseName(string str)
+        private static string ParseName(string name)
         {
-            if (string.IsNullOrEmpty(str))
+            if (string.IsNullOrEmpty(name))
             {
-                throw new IgniteClientException("Column name can not be null or empty.");
+                throw new ArgumentException("Column name can not be null or empty.");
             }
 
-            if (str.Length > 2 && str.StartsWith('"') && str.EndsWith('"'))
+            if (name.Length > 2 && name.StartsWith('"') && name.EndsWith('"'))
             {
-                return str.Substring(1, str.Length - 2);
+                return name.Substring(1, name.Length - 2);
             }
 
-            return str.ToUpperInvariant();
+            return name.ToUpperInvariant();
         }
     }
 }

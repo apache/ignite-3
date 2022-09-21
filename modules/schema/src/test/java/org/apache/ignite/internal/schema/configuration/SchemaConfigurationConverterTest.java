@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -27,25 +27,36 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
+import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.EntryCountBudgetConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.HashIndexConfiguration;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.IndexValidator;
 import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.SortedIndexView;
+import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
+import org.apache.ignite.configuration.schemas.table.TableIndexChange;
+import org.apache.ignite.configuration.schemas.table.TableIndexConfiguration;
+import org.apache.ignite.configuration.schemas.table.TableIndexView;
 import org.apache.ignite.configuration.schemas.table.TableValidator;
+import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.configuration.NamedListConfiguration;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.schema.definition.ColumnDefinitionImpl;
 import org.apache.ignite.internal.schema.testutils.builder.HashIndexDefinitionBuilder;
@@ -60,8 +71,8 @@ import org.apache.ignite.schema.definition.DefaultValueGenerators;
 import org.apache.ignite.schema.definition.TableDefinition;
 import org.apache.ignite.schema.definition.index.HashIndexDefinition;
 import org.apache.ignite.schema.definition.index.IndexColumnDefinition;
-import org.apache.ignite.schema.definition.index.IndexDefinition;
 import org.apache.ignite.schema.definition.index.SortOrder;
+import org.apache.ignite.schema.definition.index.SortedIndexColumnDefinition;
 import org.apache.ignite.schema.definition.index.SortedIndexDefinition;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -81,6 +92,9 @@ public class SchemaConfigurationConverterTest extends AbstractSchemaConverterTes
     /** Configuration registry with one table for each test. */
     private ConfigurationRegistry confRegistry;
 
+    /** Registered table id. */
+    private UUID tableId;
+
     /**
      * Prepare configuration registry for test.
      *
@@ -88,15 +102,17 @@ public class SchemaConfigurationConverterTest extends AbstractSchemaConverterTes
      * @throws InterruptedException If failed.
      */
     @BeforeEach
-    public void createRegistry() throws ExecutionException, InterruptedException {
+    public void createRegistry() throws Exception {
         confRegistry = new ConfigurationRegistry(
                 List.of(TablesConfiguration.KEY),
-                Map.of(TableValidator.class, Set.of(TableValidatorImpl.INSTANCE)),
+                Map.of(TableValidator.class, Set.of(TableValidatorImpl.INSTANCE),
+                        IndexValidator.class, Set.of(IndexValidatorImpl.INSTANCE)),
                 new TestConfigurationStorage(DISTRIBUTED),
                 List.of(),
                 List.of(
                         HashIndexConfigurationSchema.class,
                         SortedIndexConfigurationSchema.class,
+
                         UnknownDataStorageConfigurationSchema.class,
                         ConstantValueDefaultConfigurationSchema.class,
                         FunctionCallDefaultConfigurationSchema.class,
@@ -125,6 +141,14 @@ public class SchemaConfigurationConverterTest extends AbstractSchemaConverterTes
                                 tblsCh -> tblsCh.update(tbl.canonicalName(), tblCh -> tblCh.changeReplicas(1).changeTableId(1))
                         )
         ).get();
+
+        NamedConfigurationTree<TableConfiguration, TableView, TableChange> cfg0 = getConfiguration().tables();
+
+        List<UUID> ids = ((NamedListConfiguration<TableConfiguration, ?, ?>) cfg0).internalIds();
+
+        assertEquals(1, ids.size());
+
+        tableId = ids.get(0);
     }
 
     @AfterEach
@@ -142,15 +166,16 @@ public class SchemaConfigurationConverterTest extends AbstractSchemaConverterTes
                 .withHints(Collections.singletonMap("param", "value"));
         HashIndexDefinition idx = builder.build();
 
-        getTbl().change(ch -> SchemaConfigurationConverter.addIndex(idx, ch)).get();
+        getConfiguration().indexes().change(change -> change.create(idx.name(), ch ->
+                SchemaConfigurationConverter.addIndex(idx, tableId, ch))).get();
 
-        TableDefinition tbl = SchemaConfigurationConverter.convert(getTbl().value());
+        HashIndexConfiguration idxCfg = (HashIndexConfiguration) getConfiguration().indexes().get(idx.name());
 
-        HashIndexDefinition idx2 = (HashIndexDefinition) getIdx(idx.name(), tbl.indices());
+        assertNotNull(idxCfg);
 
-        assertNotNull(idx2);
-        assertEquals("HASH", idx2.type());
-        assertEquals(3, idx2.columns().size());
+        assertEquals("HASH", idxCfg.type().value());
+        assertEquals(3, idxCfg.columnNames().value().length);
+        assertEquals(idxCfg.tableId().value(), tableId);
     }
 
     /**
@@ -165,19 +190,22 @@ public class SchemaConfigurationConverterTest extends AbstractSchemaConverterTes
 
         SortedIndexDefinition idx = builder.build();
 
-        getTbl().change(ch -> SchemaConfigurationConverter.addIndex(idx, ch)).get();
+        NamedConfigurationTree<TableIndexConfiguration, TableIndexView, TableIndexChange> idxConfig = getConfiguration().indexes();
 
-        TableDefinition tbl = SchemaConfigurationConverter.convert(getTbl().value());
+        idxConfig.change(change -> change.create(idx.name(), ch ->
+                SchemaConfigurationConverter.addIndex(idx, tableId, ch))).get();;
 
-        SortedIndexDefinition idx2 = (SortedIndexDefinition) getIdx(idx.name(), tbl.indices());
+        SortedIndexView idx2 = (SortedIndexView) idxConfig.get(idx.name()).value();
 
         assertNotNull(idx2);
         assertEquals("SORTED", idx2.type());
         assertEquals(2, idx2.columns().size());
         assertEquals("A", idx2.columns().get(0).name());
         assertEquals("B", idx2.columns().get(1).name());
-        assertEquals(SortOrder.ASC, idx2.columns().get(0).sortOrder());
-        assertEquals(SortOrder.DESC, idx2.columns().get(1).sortOrder());
+        SortedIndexColumnDefinition col0 = SchemaConfigurationConverter.convert(idx2.columns().get(0));
+        SortedIndexColumnDefinition col1 = SchemaConfigurationConverter.convert(idx2.columns().get(1));
+        assertEquals(SortOrder.ASC, col0.sortOrder());
+        assertEquals(SortOrder.DESC, col1.sortOrder());
     }
 
     /**
@@ -190,18 +218,17 @@ public class SchemaConfigurationConverterTest extends AbstractSchemaConverterTes
                 .unique(true)
                 .build();
 
-        getTbl().change(ch -> SchemaConfigurationConverter.addIndex(idx, ch)).get();
+        getConfiguration().indexes().change(change -> change.create(idx.name(), ch ->
+                SchemaConfigurationConverter.addIndex(idx, tableId, ch))).get();
 
-        TableDefinition tbl = SchemaConfigurationConverter.convert(getTbl().value());
-
-        SortedIndexDefinition idx2 = (SortedIndexDefinition) getIdx(idx.name(), tbl.indices());
+        SortedIndexView idx2 = (SortedIndexView) getConfiguration().indexes().get(idx.name()).value();
 
         assertNotNull(idx2);
         assertEquals("PK_SORTED", idx2.name());
         assertEquals("SORTED", idx2.type());
         assertEquals(idx.columns().stream().map(IndexColumnDefinition::name).collect(Collectors.toList()),
-                idx2.columns().stream().map(IndexColumnDefinition::name).collect(Collectors.toList()));
-        assertTrue(idx2.unique());
+                new ArrayList<>(idx2.columns().namedListKeys()));
+        assertTrue(idx2.uniq());
     }
 
     /**
@@ -215,23 +242,24 @@ public class SchemaConfigurationConverterTest extends AbstractSchemaConverterTes
                 .addIndexColumn("COL1").desc().done()
                 .build();
 
-        getTbl().change(ch -> SchemaConfigurationConverter.addIndex(idx, ch)).get();
+        getConfiguration().indexes().change(change -> change.create(idx.canonicalName(), ch ->
+                SchemaConfigurationConverter.addIndex(idx, tableId, ch))).get();
 
-        TableDefinition tbl = SchemaConfigurationConverter.convert(getTbl().value());
-
-        SortedIndexDefinition idx2 = (SortedIndexDefinition) getIdx(idx.name(), tbl.indices());
+        SortedIndexView idx2 = (SortedIndexView) getConfiguration().indexes().get(idx.name()).value();
 
         assertNotNull(idx2);
-        assertEquals("uniq_sorted", idx2.name());
+        assertEquals("uniq_sorted", idx2.name().toLowerCase(Locale.US));
         assertEquals("SORTED", idx2.type());
 
-        assertTrue(idx2.unique());
+        assertTrue(idx2.uniq());
 
         assertEquals(2, idx2.columns().size());
         assertEquals("A", idx2.columns().get(0).name());
         assertEquals("COL1", idx2.columns().get(1).name());
-        assertEquals(SortOrder.ASC, idx2.columns().get(0).sortOrder());
-        assertEquals(SortOrder.DESC, idx2.columns().get(1).sortOrder());
+        SortedIndexColumnDefinition col0 = SchemaConfigurationConverter.convert(idx2.columns().get(0));
+        SortedIndexColumnDefinition col1 = SchemaConfigurationConverter.convert(idx2.columns().get(1));
+        assertEquals(SortOrder.ASC, col0.sortOrder());
+        assertEquals(SortOrder.DESC, col1.sortOrder());
     }
 
     /**
@@ -246,7 +274,6 @@ public class SchemaConfigurationConverterTest extends AbstractSchemaConverterTes
         TableDefinition tbl2 = SchemaConfigurationConverter.convert(tblCfg);
 
         assertEquals(tbl.canonicalName(), tbl2.canonicalName());
-        assertEquals(tbl.indices().size(), tbl2.indices().size());
         assertEquals(tbl.keyColumns().size(), tbl2.keyColumns().size());
         assertEquals(tbl.colocationColumns().size(), tbl2.colocationColumns().size());
         assertEquals(tbl.columns().size(), tbl2.columns().size());
@@ -338,23 +365,12 @@ public class SchemaConfigurationConverterTest extends AbstractSchemaConverterTes
     }
 
     /**
-     * Get tests default table configuration.
+     * Get tests default index configuration.
      *
-     * @return Configuration of default table.
+     * @return Indexes configuration.
      */
-    private TableConfiguration getTbl() {
-        return confRegistry.getConfiguration(TablesConfiguration.KEY).tables().get(tblBuilder.build().canonicalName());
-    }
-
-    /**
-     * Get table index by name.
-     *
-     * @param name Index name to find.
-     * @param idxs Table indexes.
-     * @return Index or {@code null} if there are no index with such name.
-     */
-    private IndexDefinition getIdx(String name, Collection<IndexDefinition> idxs) {
-        return idxs.stream().filter(idx -> name.equals(idx.name())).findAny().orElse(null);
+    private TablesConfiguration getConfiguration() {
+        return confRegistry.getConfiguration(TablesConfiguration.KEY);
     }
 
     private static Iterable<DefaultValueArg> generateTestArguments() {

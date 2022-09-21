@@ -45,6 +45,7 @@ import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.test.TestUtils;
+import org.apache.ignite.raft.server.counter.CounterListener;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -33,6 +33,7 @@ import org.apache.ignite.configuration.schemas.table.HashIndexView;
 import org.apache.ignite.configuration.schemas.table.SortedIndexView;
 import org.apache.ignite.configuration.schemas.table.TableIndexView;
 import org.apache.ignite.configuration.schemas.table.TableView;
+import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.pagememory.PageIdAllocator;
 import org.apache.ignite.internal.pagememory.PageMemory;
@@ -85,6 +86,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     protected final IndexMetaTree indexMetaTree;
 
+    private final TablesConfiguration tablesConfiguration;
+
     protected final DataPageReader rowVersionDataPageReader;
 
     protected final ConcurrentMap<UUID, HashIndexStorage> indexes = new ConcurrentHashMap<>();
@@ -105,7 +108,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             RowVersionFreeList rowVersionFreeList,
             IndexColumnsFreeList indexFreeList,
             VersionChainTree versionChainTree,
-            IndexMetaTree indexMetaTree
+            IndexMetaTree indexMetaTree,
+            TablesConfiguration tablesCfg
     ) {
         this.partitionId = partitionId;
         this.tableStorage = tableStorage;
@@ -115,6 +119,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
         this.versionChainTree = versionChainTree;
         this.indexMetaTree = indexMetaTree;
+
+        tablesConfiguration = tablesCfg;
 
         PageMemory pageMemory = tableStorage.dataRegion().pageMemory();
 
@@ -130,12 +136,12 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         try {
             IgniteCursor<IndexMeta> cursor = indexMetaTree.find(null, null);
 
-            NamedListView<? extends TableIndexView> indicesCfgView = tableStorage.configuration().value().indices();
+            NamedListView<TableIndexView> indexesCfgView = tablesConfiguration.indexes().value();
 
             while (cursor.next()) {
                 IndexMeta indexMeta = cursor.get();
 
-                TableIndexView indexCfgView = getByInternalId(indicesCfgView, indexMeta.id());
+                TableIndexView indexCfgView = getByInternalId(indexesCfgView, indexMeta.id());
 
                 if (indexCfgView instanceof HashIndexView) {
                     createOrRestoreHashIndex(indexMeta);
@@ -164,7 +170,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     private PageMemoryHashIndexStorage createOrRestoreHashIndex(IndexMeta indexMeta) {
         TableView tableView = tableStorage.configuration().value();
 
-        var indexDescriptor = new HashIndexDescriptor(indexMeta.id(), tableView);
+        var indexDescriptor = new HashIndexDescriptor(indexMeta.id(), tableView, tablesConfiguration.value());
 
         try {
             PageMemory pageMemory = tableStorage.dataRegion().pageMemory();
