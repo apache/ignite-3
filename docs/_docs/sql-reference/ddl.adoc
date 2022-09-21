@@ -358,6 +358,8 @@ Referenced by:
 
 * link:sql-reference/ddl#сreate-index[CREATE INDEX]
 
+'''
+
 === tableColumn
 //NOTE: Replace code with image
 
@@ -371,6 +373,7 @@ Parameters:
 * [NOT] NULL - specifies that values in the column always contain null or not null values.
 * `DEFAULT` - specifies a default value for the column. You can specify a constant value, or use a link:sql-reference/ddl#system-functions[system function] to generate a value.
 
+'''
 
 == System Functions
 
