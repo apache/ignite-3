@@ -18,11 +18,11 @@
 package org.apache.ignite.cli.call.node.version;
 
 import jakarta.inject.Singleton;
-import org.apache.ignite.cli.core.call.Call;
-import org.apache.ignite.cli.core.call.CallOutput;
-import org.apache.ignite.cli.core.call.DefaultCallOutput;
-import org.apache.ignite.cli.core.call.UrlCallInput;
-import org.apache.ignite.cli.core.exception.IgniteCliApiException;
+import org.apache.ignite.internal.cli.core.call.Call;
+import org.apache.ignite.internal.cli.core.call.CallOutput;
+import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
+import org.apache.ignite.internal.cli.core.call.UrlCallInput;
+import org.apache.ignite.internal.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.rest.client.api.NodeManagementApi;
 import org.apache.ignite.rest.client.invoker.ApiClient;
 import org.apache.ignite.rest.client.invoker.ApiException;

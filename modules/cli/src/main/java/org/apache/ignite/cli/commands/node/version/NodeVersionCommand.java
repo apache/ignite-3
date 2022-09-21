@@ -20,10 +20,10 @@ package org.apache.ignite.cli.commands.node.version;
 import jakarta.inject.Inject;
 import java.util.concurrent.Callable;
 import org.apache.ignite.cli.call.node.version.NodeVersionCall;
-import org.apache.ignite.cli.commands.BaseCommand;
-import org.apache.ignite.cli.commands.node.NodeUrlProfileMixin;
-import org.apache.ignite.cli.core.call.CallExecutionPipeline;
-import org.apache.ignite.cli.core.call.UrlCallInput;
+import org.apache.ignite.internal.cli.commands.BaseCommand;
+import org.apache.ignite.internal.cli.commands.node.NodeUrlProfileMixin;
+import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
+import org.apache.ignite.internal.cli.core.call.UrlCallInput;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 

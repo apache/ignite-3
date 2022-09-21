@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.cli.commands.node;
 
+import org.apache.ignite.cli.commands.node.version.NodeVersionReplCommand;
 import org.apache.ignite.internal.cli.commands.node.config.NodeConfigReplCommand;
 import org.apache.ignite.internal.cli.commands.node.status.NodeStatusReplCommand;
 import org.apache.ignite.internal.cli.deprecated.spec.NodeCommandSpec;

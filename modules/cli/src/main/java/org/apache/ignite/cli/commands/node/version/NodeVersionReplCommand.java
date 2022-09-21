@@ -19,11 +19,11 @@ package org.apache.ignite.cli.commands.node.version;
 
 import jakarta.inject.Inject;
 import org.apache.ignite.cli.call.node.version.NodeVersionCall;
-import org.apache.ignite.cli.commands.BaseCommand;
-import org.apache.ignite.cli.commands.node.NodeUrlMixin;
-import org.apache.ignite.cli.commands.questions.ConnectToClusterQuestion;
-import org.apache.ignite.cli.core.call.UrlCallInput;
-import org.apache.ignite.cli.core.flow.builder.Flows;
+import org.apache.ignite.internal.cli.commands.BaseCommand;
+import org.apache.ignite.internal.cli.commands.node.NodeUrlMixin;
+import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
+import org.apache.ignite.internal.cli.core.call.UrlCallInput;
+import org.apache.ignite.internal.cli.core.flow.builder.Flows;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 

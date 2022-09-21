@@ -19,7 +19,7 @@ package org.apache.ignite.cli.commands.node;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 
-import org.apache.ignite.cli.commands.CliCommandTestNotInitializedIntegrationBase;
+import org.apache.ignite.internal.cli.commands.CliCommandTestNotInitializedIntegrationBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
