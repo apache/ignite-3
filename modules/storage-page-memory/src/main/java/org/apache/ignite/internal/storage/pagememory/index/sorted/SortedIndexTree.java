@@ -24,6 +24,8 @@ import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.tree.io.BplusIo;
 import org.apache.ignite.internal.pagememory.util.PageLockListener;
+import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.storage.index.BinaryTupleComparator;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.io.SortedIndexTreeInnerIo;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.io.SortedIndexTreeIo;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.io.SortedIndexTreeLeafIo;
@@ -38,6 +40,9 @@ public class SortedIndexTree extends BplusTree<SortedIndexRowKey, SortedIndexRow
     /** Data page reader instance to read payload from data pages. */
     private final DataPageReader dataPageReader;
 
+    /** Comparator of index columns {@link BinaryTuple}s. */
+    private final BinaryTupleComparator binaryTupleComparator;
+
     /**
      * Constructor.
      *
@@ -50,6 +55,7 @@ public class SortedIndexTree extends BplusTree<SortedIndexRowKey, SortedIndexRow
      * @param metaPageId Meta page ID.
      * @param reuseList Reuse list.
      * @param initNew {@code True} if new tree should be created.
+     * @param binaryTupleComparator Comparator of index columns {@link BinaryTuple}s.
      * @throws IgniteInternalCheckedException If failed.
      */
     public SortedIndexTree(
@@ -61,13 +67,16 @@ public class SortedIndexTree extends BplusTree<SortedIndexRowKey, SortedIndexRow
             AtomicLong globalRmvId,
             long metaPageId,
             @Nullable ReuseList reuseList,
-            boolean initNew
+            boolean initNew,
+            BinaryTupleComparator binaryTupleComparator
     ) throws IgniteInternalCheckedException {
         super("SortedIndexTree_" + grpId, grpId, grpName, partId, pageMem, lockLsnr, globalRmvId, metaPageId, reuseList);
 
         setIos(SortedIndexTreeInnerIo.VERSIONS, SortedIndexTreeLeafIo.VERSIONS, SortedIndexTreeMetaIo.VERSIONS);
 
         dataPageReader = new DataPageReader(pageMem, grpId, statisticsHolder());
+
+        this.binaryTupleComparator = binaryTupleComparator;
 
         initTree(initNew);
     }
@@ -91,7 +100,7 @@ public class SortedIndexTree extends BplusTree<SortedIndexRowKey, SortedIndexRow
             throws IgniteInternalCheckedException {
         SortedIndexTreeIo sortedIndexTreeIo = (SortedIndexTreeIo) io;
 
-        return sortedIndexTreeIo.compare(dataPageReader, partId, pageAddr, idx, row);
+        return sortedIndexTreeIo.compare(dataPageReader, binaryTupleComparator, partId, pageAddr, idx, row);
     }
 
     @Override

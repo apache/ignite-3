@@ -18,8 +18,6 @@
 package org.apache.ignite.internal.schema.testutils.builder;
 
 import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -29,7 +27,6 @@ import org.apache.ignite.internal.util.IgniteObjectName;
 import org.apache.ignite.schema.definition.ColumnDefinition;
 import org.apache.ignite.schema.definition.PrimaryKeyDefinition;
 import org.apache.ignite.schema.definition.TableDefinition;
-import org.apache.ignite.schema.definition.index.IndexDefinition;
 
 /**
  * Table builder.
@@ -43,9 +40,6 @@ class TableDefinitionBuilderImpl implements TableDefinitionBuilder {
 
     /** Columns definitions. */
     private final LinkedHashMap<String, ColumnDefinition> columns = new LinkedHashMap<>();
-
-    /** Indices definitions. */
-    private final Map<String, IndexDefinition> indices = new HashMap<>();
 
     /** Table primary key. */
     private PrimaryKeyDefinition primaryKeyDefinition;
@@ -81,16 +75,6 @@ class TableDefinitionBuilderImpl implements TableDefinitionBuilder {
 
     /** {@inheritDoc} */
     @Override
-    public TableDefinitionBuilder withIndex(IndexDefinition indexDefinition) {
-        if (indices.put(indexDefinition.name(), indexDefinition) != null) {
-            throw new IllegalArgumentException("Index with same name already exists: " + indexDefinition.name());
-        }
-
-        return this;
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public TableDefinitionBuilder withPrimaryKey(String colName) {
         primaryKeyDefinition = SchemaBuilders.primaryKey().withColumns(IgniteObjectName.parse(colName)).build();
 
@@ -121,14 +105,12 @@ class TableDefinitionBuilderImpl implements TableDefinitionBuilder {
         assert columns.size() > primaryKeyDefinition.columns().size() : "Key or/and value columns must be defined.";
 
         SchemaValidationUtils.validatePrimaryKey(primaryKeyDefinition.columns(), columns);
-        SchemaValidationUtils.validateIndices(indices.values(), columns.values(), primaryKeyDefinition.colocationColumns());
 
         return new TableDefinitionImpl(
                 schemaName,
                 tableName,
                 columns,
-                primaryKeyDefinition,
-                Collections.unmodifiableMap(indices)
+                primaryKeyDefinition
         );
     }
 }

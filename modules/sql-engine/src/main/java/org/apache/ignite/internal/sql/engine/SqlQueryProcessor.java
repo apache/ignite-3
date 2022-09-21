@@ -526,6 +526,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         @Override
         public CompletableFuture<Boolean> notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
             return schemaHolder.onTableCreated(
+                    // TODO: https://issues.apache.org/jira/browse/IGNITE-17694 Hardcoded schemas
                     "PUBLIC",
                     parameters.table(),
                     parameters.causalityToken()
@@ -545,6 +546,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         @Override
         public CompletableFuture<Boolean> notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
             return schemaHolder.onTableUpdated(
+                    // TODO: https://issues.apache.org/jira/browse/IGNITE-17694 Hardcoded schemas
                     "PUBLIC",
                     parameters.table(),
                     parameters.causalityToken()
@@ -564,6 +566,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         @Override
         public CompletableFuture<Boolean> notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
             return schemaHolder.onTableDropped(
+                    // TODO: https://issues.apache.org/jira/browse/IGNITE-17694 Hardcoded schemas
                     "PUBLIC",
                     parameters.tableName(),
                     parameters.causalityToken()
@@ -581,6 +584,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         @Override
         public CompletableFuture<Boolean> notify(@NotNull IndexEventParameters parameters, @Nullable Throwable exception) {
             return schemaHolder.onIndexDropped(
+                            // TODO: https://issues.apache.org/jira/browse/IGNITE-17694 Hardcoded schemas
                             "PUBLIC",
                             parameters.indexId(),
                             parameters.causalityToken()
@@ -598,7 +602,6 @@ public class SqlQueryProcessor implements QueryProcessor {
         @Override
         public CompletableFuture<Boolean> notify(@NotNull IndexEventParameters parameters, @Nullable Throwable exception) {
             return schemaHolder.onIndexCreated(
-                            "PUBLIC",
                             parameters.index(),
                             parameters.causalityToken()
                     )

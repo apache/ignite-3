@@ -23,6 +23,7 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableView;
+import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTrackerNoOp;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
@@ -63,9 +64,10 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
     public PersistentPageMemoryTableStorage(
             PersistentPageMemoryStorageEngine engine,
             TableConfiguration tableCfg,
-            PersistentPageMemoryDataRegion dataRegion
+            PersistentPageMemoryDataRegion dataRegion,
+            TablesConfiguration tablesCfg
     ) {
-        super(tableCfg);
+        super(tableCfg, tablesCfg);
 
         this.engine = engine;
         this.dataRegion = dataRegion;
@@ -165,7 +167,8 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
                     rowVersionFreeList,
                     indexColumnsFreeList,
                     versionChainTree,
-                    indexMetaTree
+                    indexMetaTree,
+                    tablesConfiguration
             );
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException(
