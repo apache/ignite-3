@@ -44,7 +44,7 @@ class Reader;
 
 }
 
-namespace ignite::impl
+namespace ignite::detail
 {
 
 /**
@@ -234,4 +234,4 @@ private:
     std::mt19937 m_generator;
 };
 
-} // namespace ignite::impl
+} // namespace ignite::detail

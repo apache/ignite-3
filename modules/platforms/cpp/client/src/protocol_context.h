@@ -22,7 +22,7 @@
 #include "ignite/network/data_buffer.h"
 #include "protocol_version.h"
 
-namespace ignite::impl
+namespace ignite::detail
 {
 
 /**
@@ -69,4 +69,4 @@ private:
     ProtocolVersion m_version = CURRENT_VERSION;
 };
 
-} // namespace ignite::impl
+} // namespace ignite::detail

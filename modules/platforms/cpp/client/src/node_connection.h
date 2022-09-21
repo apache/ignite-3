@@ -33,7 +33,7 @@
 #include "client_operation.h"
 #include "response_handler.h"
 
-namespace ignite::impl
+namespace ignite::detail
 {
 
 class ClusterConnection;
@@ -166,4 +166,4 @@ private:
     std::shared_ptr<IgniteLogger> m_logger;
 };
 
-} // namespace ignite::impl
+} // namespace ignite::detail

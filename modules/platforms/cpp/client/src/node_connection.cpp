@@ -19,7 +19,7 @@
 
 #include "node_connection.h"
 
-namespace ignite::impl
+namespace ignite::detail
 {
 
 NodeConnection::NodeConnection(uint64_t id, std::shared_ptr<network::AsyncClientPool> pool,
@@ -71,4 +71,4 @@ std::shared_ptr<ResponseHandler> NodeConnection::getAndRemoveHandler(int64_t id)
     return res;
 }
 
-} // namespace ignite::impl
+} // namespace ignite::detail

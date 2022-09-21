@@ -20,7 +20,7 @@
 #include <functional>
 #include <memory>
 
-#include "common/Export.h"
+#include "common/Config.h"
 #include "common/ignite_result.h"
 
 #include "ignite/ignite_client_configuration.h"
@@ -29,7 +29,7 @@
 namespace ignite
 {
 
-namespace impl
+namespace detail
 {
 class IgniteClientImpl;
 }
@@ -114,7 +114,7 @@ private:
      * @return Implementation reference.
      */
     [[nodiscard]]
-    impl::IgniteClientImpl& getImpl();
+    detail::IgniteClientImpl& getImpl();
 
     /**
      * Get implementation reference.
@@ -122,7 +122,7 @@ private:
      * @return Implementation reference.
      */
     [[nodiscard]]
-    const impl::IgniteClientImpl& getImpl() const;
+    const detail::IgniteClientImpl& getImpl() const;
 
     /** Implementation. */
     std::shared_ptr<void> m_impl;

@@ -21,7 +21,7 @@
 #include "ignite/protocol/reader.h"
 #include "table/tables_impl.h"
 
-namespace ignite::impl
+namespace ignite::detail
 {
 
 void TablesImpl::getTableImplAsync(const std::string &name, IgniteCallback<std::optional<Table>> callback) {
@@ -45,4 +45,4 @@ void TablesImpl::getTableImplAsync(const std::string &name, IgniteCallback<std::
     std::move(handler));
 }
 
-} // namespace ignite::impl
+} // namespace ignite::detail

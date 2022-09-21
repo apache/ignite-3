@@ -26,7 +26,7 @@
 
 #pragma once
 
-namespace ignite::impl
+namespace ignite::detail
 {
 
 /**
@@ -132,4 +132,4 @@ private:
     std::mutex m_mutex;
 };
 
-} // namespace ignite::impl
+} // namespace ignite::detail

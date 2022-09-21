@@ -26,7 +26,7 @@
 #include "cluster_connection.h"
 #include "table/tables_impl.h"
 
-namespace ignite::impl
+namespace ignite::detail
 {
 
 /**
@@ -107,4 +107,4 @@ private:
     std::shared_ptr<TablesImpl> m_tables;
 };
 
-} // namespace ignite::impl
+} // namespace ignite::detail

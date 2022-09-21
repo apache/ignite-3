@@ -22,7 +22,7 @@
 #include <string>
 #include <sstream>
 
-namespace ignite::impl
+namespace ignite::detail
 {
 
 /** Protocol version. */
@@ -199,4 +199,4 @@ private:
     int16_t m_patch;
 };
 
-} // namespace ignite::impl
+} // namespace ignite::detail

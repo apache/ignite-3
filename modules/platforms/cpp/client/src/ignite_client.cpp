@@ -37,7 +37,7 @@ void IgniteClient::startAsync(IgniteClientConfiguration configuration, std::chro
 
 IgniteClient IgniteClient::start(IgniteClientConfiguration configuration, std::chrono::milliseconds timeout)
 {
-    auto impl = std::make_shared<impl::IgniteClientImpl>(std::move(configuration));
+    auto impl = std::make_shared<detail::IgniteClientImpl>(std::move(configuration));
 
     auto promise = std::make_shared<std::promise<void>>();
     auto future = promise->get_future();
@@ -71,12 +71,12 @@ Tables IgniteClient::getTables() const {
     return Tables(getImpl().getTablesImpl());
 }
 
-impl::IgniteClientImpl &IgniteClient::getImpl() {
-    return *((impl::IgniteClientImpl*)(m_impl.get()));
+detail::IgniteClientImpl &IgniteClient::getImpl() {
+    return *((detail::IgniteClientImpl*)(m_impl.get()));
 }
 
-const impl::IgniteClientImpl &IgniteClient::getImpl() const {
-    return *((impl::IgniteClientImpl*)(m_impl.get()));
+const detail::IgniteClientImpl &IgniteClient::getImpl() const {
+    return *((detail::IgniteClientImpl*)(m_impl.get()));
 }
 
 } // namespace ignite

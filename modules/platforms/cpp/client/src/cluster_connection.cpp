@@ -30,7 +30,7 @@
 
 #include "cluster_connection.h"
 
-namespace ignite::impl
+namespace ignite::detail
 {
 
 ClusterConnection::ClusterConnection(IgniteClientConfiguration configuration) :
@@ -318,4 +318,4 @@ std::shared_ptr<NodeConnection> ClusterConnection::getRandomChannel()
     return std::next(m_connections.begin(), idx)->second;
 }
 
-} // namespace ignite::impl
+} // namespace ignite::detail

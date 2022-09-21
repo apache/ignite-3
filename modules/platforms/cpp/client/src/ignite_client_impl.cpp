@@ -17,8 +17,8 @@
 
 #include "ignite_client_impl.h"
 
-namespace ignite::impl
+namespace ignite::detail
 {
 
 
-} // namespace ignite::impl
+} // namespace ignite::detail

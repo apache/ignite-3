@@ -26,14 +26,14 @@ const std::string &Table::getName() const
     return getImpl().getName();
 }
 
-impl::TableImpl &Table::getImpl()
+detail::TableImpl &Table::getImpl()
 {
-    return *((impl::TableImpl*)(m_impl.get()));
+    return *((detail::TableImpl*)(m_impl.get()));
 }
 
-const impl::TableImpl &Table::getImpl() const
+const detail::TableImpl &Table::getImpl() const
 {
-    return *((impl::TableImpl*)(m_impl.get()));
+    return *((detail::TableImpl*)(m_impl.get()));
 }
 
 } // namespace ignite

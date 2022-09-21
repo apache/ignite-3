@@ -32,12 +32,12 @@ void Tables::getTableAsync(const std::string &name, IgniteCallback<std::optional
 Tables::Tables(std::shared_ptr<void> impl) :
     m_impl(std::move(impl)) { }
 
-impl::TablesImpl &Tables::getImpl() {
-    return *((impl::TablesImpl*)(m_impl.get()));
+detail::TablesImpl &Tables::getImpl() {
+    return *((detail::TablesImpl*)(m_impl.get()));
 }
 
-const impl::TablesImpl &Tables::getImpl() const {
-    return *((impl::TablesImpl*)(m_impl.get()));
+const detail::TablesImpl &Tables::getImpl() const {
+    return *((detail::TablesImpl*)(m_impl.get()));
 }
 
 } // namespace ignite

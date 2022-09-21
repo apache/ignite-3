@@ -17,7 +17,7 @@
 
 #pragma once
 
-namespace ignite::impl
+namespace ignite::detail
 {
 
 /**
@@ -47,4 +47,4 @@ enum class MessageType
     NOTIFICATION = 1
 };
 
-} // namespace ignite::impl
+} // namespace ignite::detail

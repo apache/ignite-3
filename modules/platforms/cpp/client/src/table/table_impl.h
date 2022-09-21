@@ -23,7 +23,7 @@
 
 #include "common/guid.h"
 
-namespace ignite::impl
+namespace ignite::detail
 {
 
 /**
@@ -71,4 +71,4 @@ private:
     Guid m_id;
 };
 
-} // namespace ignite::impl
+} // namespace ignite::detail

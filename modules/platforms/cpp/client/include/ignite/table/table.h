@@ -21,12 +21,12 @@
 #include <memory>
 #include <utility>
 
-#include "common/Export.h"
+#include "common/Config.h"
 
 namespace ignite
 {
 
-namespace impl
+namespace detail
 {
 class TableImpl;
 class TablesImpl;
@@ -37,7 +37,7 @@ class TablesImpl;
  */
 class Table
 {
-    friend class impl::TablesImpl;
+    friend class detail::TablesImpl;
 public:
     // Deleted
     Table(const Table&) = delete;
@@ -72,7 +72,7 @@ private:
      * @return Implementation reference.
      */
     [[nodiscard]]
-    impl::TableImpl& getImpl();
+    detail::TableImpl& getImpl();
 
     /**
      * Get implementation reference.
@@ -80,7 +80,7 @@ private:
      * @return Implementation reference.
      */
     [[nodiscard]]
-    const impl::TableImpl& getImpl() const;
+    const detail::TableImpl& getImpl() const;
 
     /** Implementation. */
     std::shared_ptr<void> m_impl;

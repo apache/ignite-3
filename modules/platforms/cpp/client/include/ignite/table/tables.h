@@ -21,14 +21,14 @@
 #include <memory>
 #include <optional>
 
-#include "common/Export.h"
+#include "common/Config.h"
 #include "common/ignite_result.h"
 #include "ignite/table/table.h"
 
 namespace ignite
 {
 
-namespace impl
+namespace detail
 {
 class TablesImpl;
 }
@@ -79,7 +79,7 @@ private:
      * @return Implementation reference.
      */
     [[nodiscard]]
-    impl::TablesImpl& getImpl();
+    detail::TablesImpl& getImpl();
 
     /**
      * Get implementation reference.
@@ -87,7 +87,7 @@ private:
      * @return Implementation reference.
      */
     [[nodiscard]]
-    const impl::TablesImpl& getImpl() const;
+    const detail::TablesImpl& getImpl() const;
 
     /** Implementation. */
     std::shared_ptr<void> m_impl;
