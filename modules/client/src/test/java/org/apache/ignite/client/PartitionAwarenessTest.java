@@ -35,7 +35,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests partition awareness.
@@ -159,26 +158,22 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
     @Test
     public void testAllRecordViewOperations() {
-        // TODO: Separate ticket?
-        assertTrue(false, "TODO");
+        // TODO IGNITE-17739 Add Partition Awareness to all table APIs
     }
 
     @Test
     public void testAllRecordBinaryViewOperations() {
-        // TODO: Separate ticket.
-        assertTrue(false, "TODO");
+        // TODO IGNITE-17739 Add Partition Awareness to all table APIs
     }
 
     @Test
     public void testAllKeyValueViewOperations() {
-        // TODO: Separate ticket.
-        assertTrue(false, "TODO");
+        // TODO IGNITE-17739 Add Partition Awareness to all table APIs
     }
 
     @Test
     public void testAllKeyValueBinaryViewOperations() {
-        // TODO: Separate ticket.
-        assertTrue(false, "TODO");
+        // TODO IGNITE-17739 Add Partition Awareness to all table APIs
     }
 
     private void assertOpOnNode(String expectedNode, String expectedOp, Consumer<Void> op) {
