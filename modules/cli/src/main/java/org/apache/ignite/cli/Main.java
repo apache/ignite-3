@@ -185,12 +185,18 @@ public class Main {
     private static String getLogsDir() throws IOException {
         String envLogsDir = System.getenv(IGNITE_CLI_LOGS_DIR);
         String logsDir = envLogsDir != null ? envLogsDir : StateFolderProvider.getStateFile("logs").getAbsolutePath();
-        File logsDirFile = new File(logsDir);
-        logsDirFile.mkdirs();
-        if (logsDirFile.isDirectory()) {
-            return logsDir;
-        } else {
-            throw new IOException(logsDir + " is not a directory");
+            File logsDirFile = new File(logsDir);
+            if (!logsDirFile.exists()) {
+                if (!logsDirFile.mkdirs()) {
+                    throw new IOException("Failed to create directory " + logsDir);
+                }
+            }
+            
+            if (logsDirFile.isDirectory()) {
+                return logsDir;
+            } else {
+                throw new IOException(logsDir + " is not a directory");
+            }
         }
     }
 }
