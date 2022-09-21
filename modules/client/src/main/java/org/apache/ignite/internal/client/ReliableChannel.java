@@ -616,6 +616,10 @@ public final class ReliableChannel implements AutoCloseable {
         );
     }
 
+    private void onTopologyChanged(ClientChannel clientChannel) {
+        // TODO IGNITE-17725: Assignment cache drop.
+    }
+
     /**
      * Channels holder.
      */
@@ -700,6 +704,8 @@ public final class ReliableChannel implements AutoCloseable {
                     }
 
                     ch = chFactory.apply(chCfg, connMgr);
+
+                    ch.addTopologyChangeListener(ReliableChannel.this::onTopologyChanged);
 
                     ClusterNode newNode = ch.protocolContext().clusterNode();
 
