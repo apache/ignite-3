@@ -46,6 +46,11 @@ public class ClientTablePartitionAssignmentGetRequest {
         UUID tableId = in.unpackUuid();
         var assignment = tables.assignments(tableId);
 
+        if (assignment == null) {
+            out.packArrayHeader(0);
+            return null;
+        }
+
         out.packArrayHeader(assignment.size());
 
         for (String leaderNodeId : assignment) {
