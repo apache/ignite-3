@@ -363,7 +363,8 @@ public class IgniteImpl implements Ignite {
                 metaStorageMgr,
                 schemaManager,
                 volatileLogStorageFactoryCreator,
-                clock
+                clock,
+                workDir
         );
 
         indexManager = new IndexManager(tablesConfiguration);

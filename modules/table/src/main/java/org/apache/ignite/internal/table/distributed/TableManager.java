@@ -36,6 +36,7 @@ import static org.apache.ignite.internal.utils.RebalanceUtil.stablePartAssignmen
 import static org.apache.ignite.internal.utils.RebalanceUtil.updatePendingAssignmentsKeys;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -246,6 +247,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     private final HybridClock clock;
 
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-17579 TxStateStorage management.
+    private final Path workDir;
+
     /** Rebalance scheduler pool size. */
     private static final int REBALANCE_SCHEDULER_POOL_SIZE = Math.min(Utils.cpus() * 3, 20);
 
@@ -283,7 +287,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             MetaStorageManager metaStorageMgr,
             SchemaManager schemaManager,
             LogStorageFactoryCreator volatileLogStorageFactoryCreator,
-            HybridClock clock
+            HybridClock clock,
+            Path workDir
     ) {
         this.tablesCfg = tablesCfg;
         this.raftMgr = raftMgr;
@@ -297,6 +302,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         this.schemaManager = schemaManager;
         this.volatileLogStorageFactoryCreator = volatileLogStorageFactoryCreator;
         this.clock = clock;
+        this.workDir = workDir;
 
         netAddrResolver = addr -> {
             ClusterNode node = topologyService.getByAddress(addr);
@@ -688,18 +694,21 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                             newPartAssignment);
 
                                     try {
+                                        // TODO: https://issues.apache.org/jira/browse/IGNITE-17579 TxStateStorage management.
+                                        TxStateRocksDbStorage txStateStorage = new TxStateRocksDbStorage(
+                                                workDir.resolve("tx_state_storage" + tblId + partId),
+                                                Executors.newSingleThreadScheduledExecutor(),
+                                                Executors.newFixedThreadPool(1),
+                                                () -> 1000
+                                        );
+                                        txStateStorage.start();
+
                                         raftMgr.startRaftGroupNode(
                                                 grpId,
                                                 newPartAssignment,
                                                 new PartitionListener(
                                                         partitionStorage,
-                                                        // TODO: https://issues.apache.org/jira/browse/IGNITE-17579 TxStateStorage management.
-                                                        new TxStateRocksDbStorage(
-                                                                Paths.get("tx_state_storage" + tblId + partId),
-                                                                Executors.newSingleThreadScheduledExecutor(),
-                                                                Executors.newFixedThreadPool(1),
-                                                                () -> 1000
-                                                        ),
+                                                        txStateStorage,
                                                         txManager,
                                                         new ConcurrentHashMap<>()
                                             ),
@@ -1671,15 +1680,18 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                     assignments
                             );
 
+                            // TODO: https://issues.apache.org/jira/browse/IGNITE-17579 TxStateStorage management.
+                            TxStateRocksDbStorage txStateStorage = new TxStateRocksDbStorage(
+                                    workDir.resolve("tx_state_storage" + tblId + partId),
+                                    Executors.newSingleThreadScheduledExecutor(),
+                                    Executors.newFixedThreadPool(1),
+                                    () -> 1000
+                            );
+                            txStateStorage.start();
+
                             RaftGroupListener raftGrpLsnr = new PartitionListener(
                                     partitionStorage,
-                                    // TODO: https://issues.apache.org/jira/browse/IGNITE-17579 TxStateStorage management.
-                                    new TxStateRocksDbStorage(
-                                            Paths.get("tx_state_storage" + tblId + partId),
-                                            Executors.newSingleThreadScheduledExecutor(),
-                                            Executors.newFixedThreadPool(1),
-                                            () -> 1000
-                                    ),
+                                    txStateStorage,
                                     txManager,
                                     new ConcurrentHashMap<>()
                             );

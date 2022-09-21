@@ -308,7 +308,6 @@ public class TxStateRocksDbStorage implements TxStateStorage {
 
     /** {@inheritDoc} */
     @Override public boolean compareAndSet(UUID txId, TxState txStateExpected, TxMeta txMeta, long commandIndex) {
-        requireNonNull(txStateExpected);
         requireNonNull(txMeta);
 
         if (!busyLock.enterBusy()) {
@@ -319,16 +318,24 @@ public class TxStateRocksDbStorage implements TxStateStorage {
 
         try (Transaction rocksTx = db.beginTransaction(writeOptions)) {
             byte[] txMetaExistingBytes = rocksTx.get(readOptions, uuidToBytes(txId));
-            TxMeta txMetaExisting = fromBytes(txMetaExistingBytes);
 
             boolean result;
 
-            if (txMetaExisting.txState() == txStateExpected) {
+            if (txMetaExistingBytes == null && txStateExpected == null) {
                 rocksTx.put(txIdBytes, toBytes(txMeta));
 
                 result = true;
             } else {
-                result = false;
+
+                TxMeta txMetaExisting = fromBytes(txMetaExistingBytes);
+
+                if (txMetaExisting.txState() == txStateExpected) {
+                    rocksTx.put(txIdBytes, toBytes(txMeta));
+
+                    result = true;
+                } else {
+                    result = false;
+                }
             }
 
             rocksTx.put(APPLIED_INDEX_KEY, longToBytes(commandIndex));

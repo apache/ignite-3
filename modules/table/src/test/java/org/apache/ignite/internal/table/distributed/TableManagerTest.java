@@ -788,6 +788,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                 msm,
                 sm = new SchemaManager(revisionUpdater, tblsCfg),
                 budgetView -> new LocalLogStorageFactory(),
+                null,
                 null
         );
 

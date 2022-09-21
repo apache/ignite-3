@@ -515,7 +515,8 @@ public class ItRebalanceDistributedTest {
                     metaStorageManager,
                     schemaManager,
                     view -> new LocalLogStorageFactory(),
-                    new HybridClock()
+                    new HybridClock(),
+                    workDir
             );
         }
 

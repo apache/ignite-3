@@ -791,6 +791,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 msm,
                 schemaManager,
                 view -> new LocalLogStorageFactory(),
+                null,
                 null
         );
 

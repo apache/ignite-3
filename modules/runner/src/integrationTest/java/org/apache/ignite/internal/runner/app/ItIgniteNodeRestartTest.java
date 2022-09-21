@@ -299,6 +299,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 metaStorageMgr,
                 schemaManager,
                 view -> new LocalLogStorageFactory(),
+                null,
                 null
         );
 
