@@ -41,7 +41,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
-
 import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.internal.client.io.ClientConnection;
 import org.apache.ignite.internal.client.io.ClientConnectionMultiplexer;
@@ -87,7 +86,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     private final Map<Long, ClientRequestFuture> pendingReqs = new ConcurrentHashMap<>();
 
     /** Topology change listeners. */
-    private final Collection<Consumer<ClientChannel>> topChangeLsnrs = new CopyOnWriteArrayList<>();
+    private final Collection<Consumer<ClientChannel>> assignmentChangeListeners = new CopyOnWriteArrayList<>();
 
     /** Closed flag. */
     private final AtomicBoolean closed = new AtomicBoolean();
@@ -291,8 +290,9 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         int flags = unpacker.unpackInt();
 
         if (ResponseFlags.getPartitionAssignmentChangedFlag(flags)) {
-            for (Consumer<ClientChannel> lsnr : topChangeLsnrs)
-                lsnr.accept(this);
+            for (Consumer<ClientChannel> listener : assignmentChangeListeners) {
+                listener.accept(this);
+            }
         }
 
         if (unpacker.tryUnpackNil()) {
@@ -350,8 +350,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
     /** {@inheritDoc} */
     @Override
-    public void addTopologyChangeListener(Consumer<ClientChannel> lsnr) {
-        topChangeLsnrs.add(lsnr);
+    public void addTopologyAssignmentChangeListener(Consumer<ClientChannel> listener) {
+        assignmentChangeListeners.add(listener);
     }
 
     private static void validateConfiguration(ClientChannelConfiguration cfg) {

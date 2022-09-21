@@ -621,14 +621,14 @@ public final class ReliableChannel implements AutoCloseable {
         );
     }
 
-    private void onTopologyChanged(ClientChannel clientChannel) {
+    private void onTopologyAssignmentChanged(ClientChannel clientChannel) {
         // NOTE: Multiple channels will send the same update to us, resulting in multiple cache invalidations.
         // This could be solved with a cluster-wide AssignmentVersion, but we don't have that.
         assignmentVersion.incrementAndGet();
     }
 
     /**
-     * Gets the local partition assignment version
+     * Gets the local partition assignment version.
      *
      * @return Assignment version.
      */
@@ -721,7 +721,7 @@ public final class ReliableChannel implements AutoCloseable {
 
                     ch = chFactory.apply(chCfg, connMgr);
 
-                    ch.addTopologyChangeListener(ReliableChannel.this::onTopologyChanged);
+                    ch.addTopologyAssignmentChangeListener(ReliableChannel.this::onTopologyAssignmentChanged);
 
                     ClusterNode newNode = ch.protocolContext().clusterNode();
 
