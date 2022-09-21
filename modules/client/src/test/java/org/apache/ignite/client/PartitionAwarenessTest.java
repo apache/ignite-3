@@ -31,6 +31,7 @@ import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -82,6 +83,15 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         testServer2.close();
     }
 
+    @BeforeEach
+    public void beforeEach() {
+        dropTables(server);
+        dropTables(server2);
+
+        initPartitionAssignment(server);
+        initPartitionAssignment(server2);
+    }
+
     @Test
     public void testGetRoutesRequestToPrimaryNode() {
         RecordView<Tuple> recordView = defaultTable().recordView();
@@ -90,6 +100,31 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         assertOpOnNode("server-2", "get", x -> recordView.get(null, Tuple.create().set("ID", 1L)));
         assertOpOnNode("server-1", "get", x -> recordView.get(null, Tuple.create().set("ID", 2L)));
         assertOpOnNode("server-2", "get", x -> recordView.get(null, Tuple.create().set("ID", 3L)));
+    }
+
+    @Test
+    public void testNonNullTxDisablesPartitionAwareness() {
+        RecordView<Tuple> recordView = defaultTable().recordView();
+        var tx = client2.transactions().begin();
+
+        assertOpOnNode("server-2", "get", x -> recordView.get(tx, Tuple.create().set("ID", 0L)));
+        assertOpOnNode("server-2", "get", x -> recordView.get(tx, Tuple.create().set("ID", 1L)));
+        assertOpOnNode("server-2", "get", x -> recordView.get(tx, Tuple.create().set("ID", 2L)));
+    }
+
+    @Test
+    public void testClientReceivesPartitionAssignmentUpdates() {
+        RecordView<Tuple> recordView = defaultTable().recordView();
+
+        assertOpOnNode("server-1", "get", x -> recordView.get(null, Tuple.create().set("ID", 0L)));
+        assertOpOnNode("server-2", "get", x -> recordView.get(null, Tuple.create().set("ID", 1L)));
+
+        // Change partition assignment.
+
+        // TODO: Warmup
+
+        assertOpOnNode("server-2", "get", x -> recordView.get(null, Tuple.create().set("ID", 0L)));
+        assertOpOnNode("server-1", "get", x -> recordView.get(null, Tuple.create().set("ID", 1L)));
     }
 
     @Test
@@ -122,21 +157,6 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         assertTrue(false, "TODO");
     }
 
-    @Test
-    public void testNonNullTxDisablesPartitionAwareness() {
-        RecordView<Tuple> recordView = defaultTable().recordView();
-        var tx = client2.transactions().begin();
-
-        assertOpOnNode("server-2", "get", x -> recordView.get(tx, Tuple.create().set("ID", 0L)));
-        assertOpOnNode("server-2", "get", x -> recordView.get(tx, Tuple.create().set("ID", 1L)));
-        assertOpOnNode("server-2", "get", x -> recordView.get(tx, Tuple.create().set("ID", 2L)));
-    }
-
-    @Test
-    public void testChangedPartitionAssignment() {
-        assertTrue(false, "TODO");
-    }
-
     private void assertOpOnNode(String expectedNode, String expectedOp, Consumer<Void> op) {
         lastOpServerName = null;
         lastOp = null;
@@ -161,19 +181,23 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         FakeIgniteTables tables = (FakeIgniteTables) ignite.tables();
         TableImpl tableImpl = tables.createTable(DEFAULT_TABLE, id);
 
-        ArrayList<String> assignments = new ArrayList<>();
-        assignments.add(testServer.nodeId());
-        assignments.add(testServer2.nodeId());
-        assignments.add(testServer.nodeId());
-        assignments.add(testServer2.nodeId());
-
-        tables.setPartitionAssignments(tableImpl.tableId(), assignments);
-
         ((FakeInternalTable)tableImpl.internalTable()).setDataAccessListener((op, data) -> {
             lastOp = op;
             lastOpServerName = ignite.name();
         });
 
         return tableImpl;
+    }
+
+    private void initPartitionAssignment(Ignite ignite) {
+        FakeIgniteTables tables = (FakeIgniteTables) ignite.tables();
+
+        ArrayList<String> assignments = new ArrayList<>();
+        assignments.add(testServer.nodeId());
+        assignments.add(testServer2.nodeId());
+        assignments.add(testServer.nodeId());
+        assignments.add(testServer2.nodeId());
+
+        tables.setPartitionAssignments(assignments);
     }
 }

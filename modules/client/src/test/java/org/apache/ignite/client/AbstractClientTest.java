@@ -72,8 +72,12 @@ public abstract class AbstractClientTest {
      */
     @BeforeEach
     public void beforeEach() {
-        for (var t : server.tables().tables()) {
-            server.tables().dropTable(t.name());
+        dropTables(server);
+    }
+
+    protected void dropTables(Ignite ignite) {
+        for (var t : ignite.tables().tables()) {
+            ignite.tables().dropTable(t.name());
         }
     }
 

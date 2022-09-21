@@ -58,7 +58,7 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
 
     private final ConcurrentHashMap<UUID, TableImpl> tablesById = new ConcurrentHashMap<>();
 
-    private final ConcurrentHashMap<UUID, List<String>> partitionAssignments = new ConcurrentHashMap<>();
+    private volatile List<String> partitionAssignments = null;
 
     /** {@inheritDoc} */
     @Override
@@ -170,7 +170,7 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
     /** {@inheritDoc} */
     @Override
     public List<String> assignments(UUID tableId) throws NodeStoppingException {
-        return partitionAssignments.getOrDefault(tableId, new ArrayList<>());
+        return partitionAssignments;
     }
 
     /** {@inheritDoc} */
@@ -185,8 +185,8 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
         return false;
     }
 
-    public void setPartitionAssignments(UUID tableId, List<String> assignments) {
-        partitionAssignments.put(tableId, assignments);
+    public void setPartitionAssignments(List<String> assignments) {
+        partitionAssignments = assignments;
     }
 
     @NotNull
