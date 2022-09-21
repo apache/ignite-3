@@ -70,21 +70,21 @@ public class ItJdbcResultSetSelfTest extends AbstractJdbcSelfTest {
                     + "longval BIGINT,"
                     + "floatval FLOAT,"
                     + "doubleval DOUBLE,"
-                    + "bigval DEVIMAL,"
+                    + "bigval DECIMAL(10, 3),"
                     + "strval VARCHAR,"
-                    + "arrval BYTES,"
+                    + "arrval BINARY,"
                     + "dateval DATE,"
                     + "timeval TIME,"
                     + "tsval TIMESTAMP,"
-                    + "urlval BYTES"
+                    + "urlval BINARY"
                     + ")"
             );
 
             stmt.executeUpdate("INSERT INTO test ("
-                    + "id, boolval, byteval, shortval, intval, longval, floatval, doubleval, bigint, strval, dateval, timeval, tsval)"
+                    + "id, boolval, byteval, shortval, intval, longval, floatval, doubleval, bigval, strval, dateval, timeval, tsval)"
                     + " VALUES (1, 1, 1, 1, 1, 1, 1.0, 1.0, 1, '1', date '1901-02-01', time '01:01:01', timestamp '1970-01-01 00:00:01')");
             stmt.executeUpdate("INSERT INTO test ("
-                    + "id, boolval, byteval, shortval, intval, longval, floatval, doubleval, bigint, strval, dateval, timeval, tsval)"
+                    + "id, boolval, byteval, shortval, intval, longval, floatval, doubleval, bigval, strval, dateval, timeval, tsval)"
                     + " VALUES (2, 1, 1, 1, 1, 1, 1.0, 1.0, 1, '1', date '1901-02-01', time '01:01:01', timestamp '1970-01-01 00:00:01')");
         }
     }

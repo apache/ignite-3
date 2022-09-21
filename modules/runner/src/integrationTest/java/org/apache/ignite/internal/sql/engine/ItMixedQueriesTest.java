@@ -42,7 +42,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
         createTable("EMP2");
 
         int idx = 0;
-        insertData("EMP1", new String[]{"ID", "NAME", "SALARY"}, new Object[][]{
+        insertData("PUBLIC.EMP1", new String[]{"ID", "NAME", "SALARY"}, new Object[][]{
                 {idx++, "Igor", 10d},
                 {idx++, "Igor", 11d},
                 {idx++, "Igor", 12d},
@@ -53,7 +53,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
         });
 
         idx = 0;
-        insertData("EMP2", new String[]{"ID", "NAME", "SALARY"}, new Object[][]{
+        insertData("PUBLIC.EMP2", new String[]{"ID", "NAME", "SALARY"}, new Object[][]{
                 {idx++, "Roman", 10d},
                 {idx++, "Roman", 11d},
                 {idx++, "Roman", 12d},

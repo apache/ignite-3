@@ -89,7 +89,7 @@ public class IndexValidatorImpl implements Validator<IndexValidator, NamedListVi
             var index0 = (HashIndexView) indexView;
 
             // we need modifiable list
-            indexedColumns = Arrays.asList(index0.columnNames());
+            indexedColumns = new ArrayList<>(Arrays.asList(index0.columnNames()));
         } else if (indexView instanceof SortedIndexView) {
             var index0 = (SortedIndexView) indexView;
 
@@ -112,7 +112,7 @@ public class IndexValidatorImpl implements Validator<IndexValidator, NamedListVi
         // need check this first because later indexedColumns will be truncated
         if (indexView.uniq()) {
             if (collocationColumns.isEmpty()) {
-                ctx.addIssue(new ValidationIssue(indexView.name(), "Unique index is not supported fro tables without primary key"));
+                ctx.addIssue(new ValidationIssue(indexView.name(), "Unique index is not supported for tables without primary key"));
             } else if (!indexedColumns.containsAll(collocationColumns)) {
                 ctx.addIssue(new ValidationIssue(indexView.name(), "Unique index must include all colocation columns"));
             }
@@ -121,7 +121,7 @@ public class IndexValidatorImpl implements Validator<IndexValidator, NamedListVi
         indexedColumns.removeAll(tableColumns);
 
         if (!indexedColumns.isEmpty()) {
-            throw new IllegalStateException("Columns don't exist [columns=" + indexedColumns + "]");
+            ctx.addIssue(new ValidationIssue(indexView.name(), "Columns don't exist [columns=" + indexedColumns + "]"));
         }
     }
 

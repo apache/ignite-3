@@ -38,7 +38,7 @@ public class ItSetOpTest extends AbstractBasicIntegrationTest {
         createTable("EMP2");
 
         int idx = 0;
-        insertData("EMP1", new String[]{"ID", "NAME", "SALARY"}, new Object[][]{
+        insertData("PUBLIC.EMP1", new String[]{"ID", "NAME", "SALARY"}, new Object[][]{
                 {idx++, "Igor", 10d},
                 {idx++, "Igor", 11d},
                 {idx++, "Igor", 12d},
@@ -49,7 +49,7 @@ public class ItSetOpTest extends AbstractBasicIntegrationTest {
         });
 
         idx = 0;
-        insertData("EMP2", new String[]{"ID", "NAME", "SALARY"}, new Object[][]{
+        insertData("PUBLIC.EMP2", new String[]{"ID", "NAME", "SALARY"}, new Object[][]{
                 {idx++, "Roman", 10d},
                 {idx++, "Roman", 11d},
                 {idx++, "Roman", 12d},
@@ -229,7 +229,7 @@ public class ItSetOpTest extends AbstractBasicIntegrationTest {
     }
 
     private static void createTable(String tableName) {
-        sql("CREATE TABLE " + tableName + "(id INT PRIMARY KEY, name VARCHAR, salary DOUBLE");
+        sql("CREATE TABLE " + tableName + "(id INT PRIMARY KEY, name VARCHAR, salary DOUBLE)");
     }
 
     private <T> long countIf(Iterable<T> it, Predicate<T> pred) {
