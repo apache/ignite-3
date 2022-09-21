@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.SortedMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -47,7 +48,7 @@ public class RocksDbFlusher {
     private volatile RocksDB db;
 
     /** List of all column families. */
-    private volatile List<ColumnFamilyHandle> columnFamilyHandles;
+    private final List<ColumnFamilyHandle> columnFamilyHandles = new CopyOnWriteArrayList<>();
 
     /** Scheduled pool to schedule flushes. */
     private final ScheduledExecutorService scheduledPool;
@@ -59,7 +60,7 @@ public class RocksDbFlusher {
     private final IntSupplier delaySupplier;
 
     /** Flush completion callback. */
-    final Runnable onFlushCompleted;
+    private final Runnable onFlushCompleted;
 
     /**
      * Flush options to be used to asynchronously flush the Rocks DB memtable. It needs to be cached, because
@@ -68,7 +69,7 @@ public class RocksDbFlusher {
     private final FlushOptions flushOptions = new FlushOptions().setWaitForFlush(false);
 
     /** Map with flush futures by sequence number at the time of the {@link #awaitFlush(boolean)} call. */
-    final SortedMap<Long, CompletableFuture<Void>> flushFuturesBySequenceNumber = new ConcurrentSkipListMap<>();
+    private final SortedMap<Long, CompletableFuture<Void>> flushFuturesBySequenceNumber = new ConcurrentSkipListMap<>();
 
     /** Latest known sequence number for persisted data. Not volatile, protected by explicit synchronization. */
     private long latestPersistedSequenceNumber;
@@ -132,11 +133,18 @@ public class RocksDbFlusher {
     @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
     public void init(RocksDB db, List<ColumnFamilyHandle> columnFamilyHandles) {
         this.db = db;
-        this.columnFamilyHandles = columnFamilyHandles;
+        this.columnFamilyHandles.addAll(columnFamilyHandles);
 
         synchronized (latestPersistedSequenceNumberMux) {
             latestPersistedSequenceNumber = db.getLatestSequenceNumber();
         }
+    }
+
+    /**
+     * Adds the given handle to the list of CF handles.
+     */
+    public void addColumnFamily(ColumnFamilyHandle handle) {
+        columnFamilyHandles.add(handle);
     }
 
     /**
@@ -234,5 +242,14 @@ public class RocksDbFlusher {
         }
 
         flushOptions.close();
+    }
+
+    /**
+     * Executes the {@code onFlushCompleted} callback.
+     *
+     * @return Future that completes when the {@code onFlushCompleted} callback finishes.
+     */
+    CompletableFuture<Void> onFlushCompleted() {
+        return CompletableFuture.runAsync(onFlushCompleted, threadPool);
     }
 }

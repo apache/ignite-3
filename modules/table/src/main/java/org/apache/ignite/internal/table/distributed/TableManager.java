@@ -65,10 +65,12 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.ConfigurationProperty;
+import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
+import org.apache.ignite.configuration.schemas.table.TableIndexView;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
@@ -169,6 +171,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * TODO: IGNITE-16774 This property and overall approach, access configuration directly through the Metostorage,
      * TODO: will be removed after fix of the issue.
      */
+    @TestOnly
     private final boolean getMetadataLocallyOnly = IgniteSystemProperties.getBoolean("IGNITE_GET_METADATA_LOCALLY_ONLY");
 
     /** Tables configuration. */
@@ -853,7 +856,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         TableConfiguration tableCfg = tablesCfg.tables().get(name);
 
-        MvTableStorage tableStorage = dataStorageMgr.engine(tableCfg.dataStorage()).createMvTable(tableCfg);
+        MvTableStorage tableStorage = dataStorageMgr.engine(tableCfg.dataStorage()).createMvTable(tableCfg, tablesCfg);
 
         tableStorage.start();
 
@@ -1257,12 +1260,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 throw new TableNotFoundException(name);
                             }
 
-                            List<String> indicesNames = tableCfg.indices().namedListKeys();
+                            NamedListView<TableIndexView> idxView = tablesCfg.indexes().value();
+
+                            boolean idxFound = idxView.namedListKeys().stream()
+                                    .anyMatch(idx -> idxView.get(idx).tableId().equals(tbl.tableId()));
 
                             //TODO: https://issues.apache.org/jira/browse/IGNITE-17562
                             // Let's drop orphaned indices instantly.
-                            if (!indicesNames.isEmpty()) {
-                                // TODO: https://issues.apache.org/jira/browse/IGNITE-17474 Implement cascade drop for indices.
+                            if (idxFound) {
                                 throw new IgniteException("Can't drop table with indices.");
                             }
 

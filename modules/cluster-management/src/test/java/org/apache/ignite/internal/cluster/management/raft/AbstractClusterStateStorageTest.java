@@ -186,7 +186,7 @@ public abstract class AbstractClusterStateStorageTest {
     @Test
     void testGetWithPrefixBorder() throws Exception {
         byte[] key1 = "key1".getBytes(UTF_8);
-        byte[] key2 = RocksUtils.rangeEnd(key1);
+        byte[] key2 = RocksUtils.incrementArray(key1);
 
         storage.put(key1, "value1".getBytes(UTF_8));
         storage.put(key2, "value2".getBytes(UTF_8));

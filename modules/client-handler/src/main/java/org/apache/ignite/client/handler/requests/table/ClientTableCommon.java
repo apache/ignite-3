@@ -137,7 +137,7 @@ public class ClientTableCommon {
             packer.packInt(schema.version());
         }
 
-        var builder = BinaryTupleBuilder.create(columnCount(schema, part), true);
+        var builder = new BinaryTupleBuilder(columnCount(schema, part), true);
 
         if (part != TuplePart.VAL) {
             for (var col : schema.keyColumns().columns()) {

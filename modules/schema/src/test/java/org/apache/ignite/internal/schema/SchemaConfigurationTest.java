@@ -21,8 +21,11 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.util.List;
 import java.util.Map;
+import org.apache.ignite.internal.schema.testutils.builder.HashIndexDefinitionBuilder;
 import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
+import org.apache.ignite.internal.schema.testutils.builder.SortedIndexDefinitionBuilder;
 import org.apache.ignite.internal.schema.testutils.builder.TableDefinitionBuilder;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.SchemaObject;
@@ -57,24 +60,21 @@ public class SchemaConfigurationTest {
                                 .withColocationColumns(
                                         "affId") // Optional colocation declaration. If not set, all PK columns will be colocation cols.
                                 .build()
-                )
+                ).build();
 
-                // 'withIndex' single entry point allows extended index support.
-                // E.g. we may want to support Geo-index later with some plugin.
-                .withIndex(
-                        SchemaBuilders.sortedIndex("idx_1_sorted")
-                                .addIndexColumn("id").desc().done()
-                                .addIndexColumn("name").asc().done()
-                                .withHints(Map.of("INLINE_SIZE", "42", "INLINE_STRATEGY", "INLINE_HASH")) // In-line key-hash as well.
-                                .build()
-                )
+        SortedIndexDefinitionBuilder idxBuilderSorted = SchemaBuilders.sortedIndex("idx_1_sorted");
 
-                .withIndex(
-                        SchemaBuilders.hashIndex("idx_3_hash")
-                                .withColumns("id", "affId")
-                                .build()
-                )
+        idxBuilderSorted
+                .addIndexColumn("id").desc().done()
+                .addIndexColumn("name").asc().done()
+                .withHints(Map.of("INLINE_SIZE", "42", "INLINE_STRATEGY", "INLINE_HASH"))
+                .build();
 
+        HashIndexDefinitionBuilder idxBuilderHash = SchemaBuilders.hashIndex("idx_1_hash");
+
+        idxBuilderHash
+                .withColumns(List.of("col1", "col2"))
+                .withHints(Map.of("INLINE_SIZE", "42", "INLINE_STRATEGY", "INLINE_HASH"))
                 .build();
     }
 

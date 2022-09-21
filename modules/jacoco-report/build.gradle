@@ -26,7 +26,6 @@ dependencies {
     implementation project(':ignite-compute')
     implementation project(':ignite-sql-engine')
     implementation project(':ignite-cli')
-    implementation project(':ignite-cli-common')
     implementation project(':ignite-configuration')
     implementation project(':ignite-configuration-api')
     implementation project(':ignite-core')

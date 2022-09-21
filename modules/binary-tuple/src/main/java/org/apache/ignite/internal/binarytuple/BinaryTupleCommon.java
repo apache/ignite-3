@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.binarytuple;
 
+import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -36,6 +37,13 @@ public class BinaryTupleCommon {
 
     /** Flag that indicates null map presence. */
     public static final int NULLMAP_FLAG = 0b100;
+
+    /**
+     * Flag that indicates that a Binary Tuple is instead a Binary Tuple Prefix.
+     *
+     * @see BinaryTuplePrefixBuilder
+     */
+    public static final int PREFIX_FLAG = 0b1000;
 
     /** Default value for UUID elements. */
     public static final UUID DEFAULT_UUID = new UUID(0, 0);
@@ -109,5 +117,18 @@ public class BinaryTupleCommon {
      */
     public static byte nullMask(int index) {
         return (byte) (1 << (index % 8));
+    }
+
+    /**
+     * Returns {@code true} if the given {@code buffer} represents a Binary Tuple Prefix.
+     *
+     * @param buffer Buffer containing a serialized Binary Tuple or Binary Tuple Prefix.
+     * @return {@code true} if the given {@code buffer} represents a Binary Tuple Prefix or {@code false} otherwise.
+     * @see BinaryTuplePrefixBuilder
+     */
+    public static boolean isPrefix(ByteBuffer buffer) {
+        byte flags = buffer.get(0);
+
+        return (flags & PREFIX_FLAG) != 0;
     }
 }

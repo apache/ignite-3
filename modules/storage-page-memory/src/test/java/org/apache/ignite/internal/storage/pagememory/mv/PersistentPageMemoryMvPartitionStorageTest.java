@@ -93,7 +93,7 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
                 ((PersistentPageMemoryDataStorageView) tableCfg.dataStorage().value()).dataRegion()
         );
 
-        table = engine.createMvTable(tableCfg);
+        table = engine.createMvTable(tableCfg, null);
         table.start();
 
         storage = table.createMvPartitionStorage(PARTITION_ID);

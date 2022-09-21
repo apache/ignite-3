@@ -33,7 +33,7 @@ public class SortedIndexDescriptor extends IndexDescriptor {
      * Constructs a index description.
      *
      * @param name Name of the index.
-     * @param columns A list of indexed columns. Must not contains duplicates.
+     * @param columns A list of indexed columns. Must not contain duplicates.
      * @param collations A list of columns collations. Must be the same size as columns list.
      * @throws IllegalArgumentException If columns list contains duplicates or columns size doesn't match the collations size.
      */

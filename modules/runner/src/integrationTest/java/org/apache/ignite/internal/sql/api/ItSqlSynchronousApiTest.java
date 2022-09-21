@@ -110,7 +110,7 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
         checkDdl(true, ses, "ALTER TABLE TEST ADD COLUMN IF NOT EXISTS VAL1 VARCHAR");
         checkError(
                 TableNotFoundException.class,
-                "Table does not exist [name=PUBLIC.NOT_EXISTS_TABLE]",
+                "The table does not exist [name=PUBLIC.NOT_EXISTS_TABLE]",
                 ses,
                 "ALTER TABLE NOT_EXISTS_TABLE ADD COLUMN VAL1 VARCHAR"
         );
@@ -127,17 +127,20 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
         checkDdl(true, ses, "CREATE INDEX TEST_IDX ON TEST(VAL0)");
         checkError(
                 IndexAlreadyExistsException.class,
-                "Index already exists [name=TEST_IDX]",
+                "Index already exists [name=PUBLIC.TEST_IDX]",
                 ses,
                 "CREATE INDEX TEST_IDX ON TEST(VAL1)"
         );
         checkDdl(false, ses, "CREATE INDEX IF NOT EXISTS TEST_IDX ON TEST(VAL1)");
 
+        checkDdl(true, ses, "DROP INDEX TESt_iDX");
+        checkDdl(true, ses, "CREATE INDEX TEST_IDX ON TEST(VAL0)");
+
         // DROP COLUMNS
         checkDdl(true, ses, "ALTER TABLE TEST DROP COLUMN VAL1");
         checkError(
                 TableNotFoundException.class,
-                "Table does not exist [name=PUBLIC.NOT_EXISTS_TABLE]",
+                "The table does not exist [name=PUBLIC.NOT_EXISTS_TABLE]",
                 ses,
                 "ALTER TABLE NOT_EXISTS_TABLE DROP COLUMN VAL1"
         );
@@ -158,10 +161,12 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
         checkDdl(true, ses, "DROP TABLE TEST");
         checkError(
                 TableNotFoundException.class,
-                "Table does not exist [name=PUBLIC.TEST]",
+                "The table does not exist [name=PUBLIC.TEST]",
                 ses,
                 "DROP TABLE TEST"
         );
+
+        checkDdl(false, ses, "DROP INDEX IF EXISTS TEST_IDX");
     }
 
     @Test

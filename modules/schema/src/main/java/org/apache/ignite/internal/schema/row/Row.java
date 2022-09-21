@@ -809,6 +809,11 @@ public class Row implements BinaryRowEx, SchemaAware, InternalTuple {
         return row.bytes();
     }
 
+    @Override
+    public ByteBuffer byteBuffer() {
+        return row.byteBuffer();
+    }
+
     /** {@inheritDoc} */
     @Override
     public int colocationHash() {

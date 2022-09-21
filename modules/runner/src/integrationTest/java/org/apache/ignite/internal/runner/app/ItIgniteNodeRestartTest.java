@@ -188,7 +188,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
             String name,
             @Language("HOCON") String cfgString,
             @Nullable Consumer<Long> revisionCallback
-    ) throws NodeStoppingException {
+    ) {
         Path dir = workDir.resolve(name);
 
         partialNode = new ArrayList<>();

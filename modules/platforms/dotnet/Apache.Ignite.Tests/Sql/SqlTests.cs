@@ -263,7 +263,7 @@ namespace Apache.Ignite.Tests.Sql
             var ex = Assert.ThrowsAsync<TableNotFoundException>(
                 async () => await Client.Sql.ExecuteAsync(null, "ALTER TABLE NOT_EXISTS_TABLE ADD COLUMN VAL1 VARCHAR"));
 
-            StringAssert.EndsWith("Table does not exist [name=PUBLIC.NOT_EXISTS_TABLE]", ex!.Message);
+            StringAssert.EndsWith("The table does not exist [name=PUBLIC.NOT_EXISTS_TABLE]", ex!.Message);
             StringAssert.StartsWith("IGN-TBL-2", ex.Message);
             StringAssert.StartsWith("IGN-TBL-2", ex.CodeAsString);
             StringAssert.StartsWith("TBL", ex.GroupName);
