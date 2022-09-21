@@ -25,7 +25,7 @@ namespace ignite::impl
 {
 
 void TablesImpl::getTableImplAsync(const std::string &name, IgniteCallback<std::optional<Table>> callback) {
-    auto writerFunc = [&name] (protocol::Reader& reader) -> std::optional<Table>  {
+    auto readerFunc = [name] (protocol::Reader& reader) -> std::optional<Table>  {
         if (reader.tryReadNil())
             return std::nullopt;
 
@@ -36,7 +36,7 @@ void TablesImpl::getTableImplAsync(const std::string &name, IgniteCallback<std::
     };
 
     auto handler = std::make_shared<ResponseHandlerImpl<std::optional<Table>>>(
-            std::move(writerFunc), std::move(callback));
+            std::move(readerFunc), std::move(callback));
 
     m_connection->performRequest(ClientOperation::TABLE_GET,
     [&name] (protocol::Writer& writer) {

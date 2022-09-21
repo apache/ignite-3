@@ -89,9 +89,12 @@ public:
      * @return Value.
      */
     [[nodiscard]]
-    std::optional<T>&& getValue() noexcept
+    T&& getValue()
     {
-        return std::move(m_value);
+        if (!hasValue())
+            throw IgniteError("No value is present in result");
+
+        return std::move(m_value.value());
     }
 
     /**
@@ -100,9 +103,12 @@ public:
      * @return Value.
      */
     [[nodiscard]]
-    const std::optional<T>& getValue() const noexcept
+    const T& getValue() const
     {
-        return m_value;
+        if (!hasValue())
+            throw IgniteError("No value is present in result");
+
+        return m_value.value();
     }
 
     /**
@@ -111,9 +117,12 @@ public:
      * @return Error.
      */
     [[nodiscard]]
-    std::optional<IgniteError>&& getError() noexcept
+    IgniteError&& getError()
     {
-        return std::move(m_error);
+        if (!hasError())
+            throw IgniteError("No error is present in result");
+
+        return std::move(m_error.value());
     }
 
     /**
@@ -122,9 +131,21 @@ public:
      * @return Error.
      */
     [[nodiscard]]
-    const std::optional<IgniteError>& getError() const noexcept
+    const IgniteError& getError() const
     {
-        return m_error;
+        if (!hasError())
+            throw IgniteError("No error is present in result");
+
+        return m_error.value();
+    }
+
+    /**
+     * Bool operator. Can be used to check result for an error.
+     *
+     * @return @c true if result does not contain error.
+     */
+    explicit operator bool() const noexcept {
+        return !hasError();
     }
 
     /**
@@ -211,17 +232,6 @@ public:
         m_error(std::forward<IgniteError>(error)) { }
 
     /**
-     * Has value.
-     *
-     * @return @c true if the result has value.
-     */
-    [[nodiscard]]
-    bool hasValue() const noexcept
-    {
-        return !hasError();
-    }
-
-    /**
      * Has error.
      *
      * @return @c true if the result has error.
@@ -238,9 +248,12 @@ public:
      * @return Error.
      */
     [[nodiscard]]
-    std::optional<IgniteError>&& getError() noexcept
+    IgniteError&& getError()
     {
-        return std::move(m_error);
+        if (!hasError())
+            throw IgniteError("No error is present in result");
+
+        return std::move(m_error.value());
     }
 
     /**
@@ -249,9 +262,21 @@ public:
      * @return Error.
      */
     [[nodiscard]]
-    const std::optional<IgniteError>& getError() const noexcept
+    const IgniteError& getError() const
     {
-        return m_error;
+        if (!hasError())
+            throw IgniteError("No error is present in result");
+
+        return m_error.value();
+    }
+
+    /**
+     * Bool operator. Can be used to check result for an error.
+     *
+     * @return @c true if result does not contain error.
+     */
+    explicit operator bool() const noexcept {
+        return !hasError();
     }
 
     /**

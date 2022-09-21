@@ -43,10 +43,9 @@ IgniteClient IgniteClient::start(IgniteClientConfiguration configuration, std::c
     auto future = promise->get_future();
 
     impl->start([impl, promise] (IgniteResult<void> res) mutable {
-        auto err = res.getError();
-        if (err) {
+        if (!res) {
             impl->stop();
-            promise->set_exception(std::make_exception_ptr(err));
+            promise->set_exception(std::make_exception_ptr(res.getError()));
         }
         else
             promise->set_value();

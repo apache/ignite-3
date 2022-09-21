@@ -28,8 +28,7 @@
 
 using namespace ignite;
 
-//static const std::initializer_list<std::string_view> NODE_ADDRS = {"127.0.0.1:10942", "127.0.0.1:10943"};
-static const std::initializer_list<std::string_view> NODE_ADDRS = {"127.0.0.1:10942"};
+static const std::initializer_list<std::string_view> NODE_ADDRS = {"127.0.0.1:10942", "127.0.0.1:10943"};
 
 /**
  * Test suite.
@@ -44,8 +43,7 @@ protected:
      *
      * @return Logger for tests.
      */
-    static std::shared_ptr<TestLogger> getLogger()
-    {
+    static std::shared_ptr<TestLogger> getLogger() {
         return std::make_shared<TestLogger>(true, true);
     }
 };
@@ -88,4 +86,47 @@ TEST_F(ClientTest, TablesGetTablePromises)
     auto table = tablePromise->get_future().get();
     ASSERT_TRUE(table.has_value());
     EXPECT_EQ(table->getName(), "PUB.tbl1");
+}
+
+TEST_F(ClientTest, TablesGetTableCallbacks)
+{
+    auto operation1 = std::make_shared<std::promise<void>>();
+    auto operation2 = std::make_shared<std::promise<void>>();
+
+    IgniteClientConfiguration cfg{NODE_ADDRS};
+    cfg.setLogger(getLogger());
+
+    IgniteClient client;
+
+    IgniteClient::startAsync(cfg, std::chrono::seconds(5), [&] (IgniteResult<IgniteClient> clientRes) {
+        EXPECT_FALSE(clientRes.hasError());
+        EXPECT_TRUE(clientRes.hasValue());
+
+        client = std::move(clientRes.getValue());
+        auto tables = client.getTables();
+        tables.getTableAsync("PUB.some_unknown", [&] (auto tableRes) {
+            EXPECT_FALSE(tableRes.hasError());
+            EXPECT_TRUE(tableRes.hasValue());
+
+            auto tableUnknown = tableRes.getValue();
+            EXPECT_FALSE(tableUnknown.has_value());
+
+            operation1->set_value();
+        });
+
+        tables.getTableAsync("PUB.tbl1", [&] (auto tableRes) {
+            EXPECT_FALSE(tableRes.hasError());
+            EXPECT_TRUE(tableRes.hasValue());
+
+            auto table = tableRes.getValue();
+            ASSERT_TRUE(table.has_value());
+            EXPECT_EQ(table->getName(), "PUB.tbl1");
+
+            operation2->set_value();
+        });
+    });
+
+    // Waiting for both operation to complete
+    operation1->get_future().get();
+    operation2->get_future().get();
 }
