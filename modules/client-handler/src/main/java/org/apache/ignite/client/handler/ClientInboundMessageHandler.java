@@ -170,7 +170,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
         jdbcQueryEventHandler = new JdbcQueryEventHandlerImpl(processor, new JdbcMetadataCatalog(igniteTables), resources);
         jdbcQueryCursorHandler = new JdbcQueryCursorHandlerImpl(resources);
 
-        igniteTables.addAssignmentsChangeListener(mgr -> partitionAssignmentChanged.set(true));
+        igniteTables.addAssignmentsChangeListener(this::onPartitionAssignmentChanged);
     }
 
     /** {@inheritDoc} */
@@ -193,6 +193,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
     @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
         resources.close();
+        igniteTables.removeAssignmentsChangeListener(this::onPartitionAssignmentChanged);
 
         super.channelInactive(ctx);
     }
@@ -490,6 +491,10 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
     private void writeFlags(ClientMessagePacker out) {
         var flags = ResponseFlags.getFlags(partitionAssignmentChanged.compareAndSet(true, false));
         out.packInt(flags);
+    }
+
+    private void onPartitionAssignmentChanged(IgniteTablesInternal tables) {
+        partitionAssignmentChanged.set(true);
     }
 
     /** {@inheritDoc} */
