@@ -129,8 +129,6 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
             throw new StorageException("Failed to create scan cursor", e);
         }
 
-        // TODO: IGNITE-17320 надо бы тут сделать по нормальному
-
         return Cursor.fromIterator(new TreeCursorAdapter<>(cursor, sortedIndexRow -> new IndexRow() {
             @Override
             public BinaryTuple indexColumns() {
