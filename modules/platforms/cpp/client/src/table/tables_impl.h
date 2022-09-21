@@ -55,11 +55,11 @@ public:
      * See Table::getTableAsync() for details.
      *
      * @param name Table name.
+     * @param callback Callback.
      * @return TableImpl with corresponding name.
      * @throw IgniteError In case of error.
      */
-    [[nodiscard]]
-    std::future<std::optional<Table>> getTableImplAsync(const std::string& name);
+    void getTableImplAsync(const std::string& name, IgniteCallback<std::optional<Table>> callback);
 
 private:
     /** Cluster connection. */

@@ -103,8 +103,8 @@ public:
      * @return Future result.
      */
     template<typename T>
-    std::future<T> performRequest(ClientOperation op,
-        const std::function<void(protocol::Writer&)>& wr, ResponseHandlerImpl<T> handler)
+    void performRequest(ClientOperation op, const std::function<void(protocol::Writer&)>& wr,
+        std::shared_ptr<ResponseHandlerImpl<T>> handler)
     {
         while (true)
         {
@@ -113,8 +113,8 @@ public:
                 throw IgniteError("No nodes connected");
 
             auto res = channel->performRequest(op, wr, std::move(handler));
-            if (res.valid())
-                return res;
+            if (res)
+                return;
         }
     }
 

@@ -24,21 +24,21 @@
 namespace ignite::impl
 {
 
-std::future<std::optional<Table>> TablesImpl::getTableImplAsync(const std::string &name)
-{
-    ResponseHandlerImpl<std::optional<Table>> handler {
-        [&name] (protocol::Reader& reader) -> std::optional<Table>  {
-            if (reader.tryReadNil())
-                return std::nullopt;
+void TablesImpl::getTableImplAsync(const std::string &name, IgniteCallback<std::optional<Table>> callback) {
+    auto writerFunc = [&name] (protocol::Reader& reader) -> std::optional<Table>  {
+        if (reader.tryReadNil())
+            return std::nullopt;
 
-            auto guid = reader.readGuid();
-            auto tableImpl = std::make_shared<TableImpl>(name, guid);
+        auto guid = reader.readGuid();
+        auto tableImpl = std::make_shared<TableImpl>(name, guid);
 
-            return std::make_optional(Table(tableImpl));
-        }
+        return std::make_optional(Table(tableImpl));
     };
 
-    return m_connection->performRequest(ClientOperation::TABLE_GET,
+    auto handler = std::make_shared<ResponseHandlerImpl<std::optional<Table>>>(
+            std::move(writerFunc), std::move(callback));
+
+    m_connection->performRequest(ClientOperation::TABLE_GET,
     [&name] (protocol::Writer& writer) {
         writer.write(name);
     },

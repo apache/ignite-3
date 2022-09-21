@@ -25,7 +25,7 @@ namespace ignite
 {
 
 void IgniteClient::startAsync(IgniteClientConfiguration configuration, std::chrono::milliseconds timeout,
-    std::function<void(IgniteResult<IgniteClient>)> callback)
+    IgniteCallback<IgniteClient> callback)
 {
     (void) std::async([cfg = std::move(configuration), timeout, callback = std::move(callback)]() mutable {
         auto res = IgniteResult<IgniteClient>::ofOperation([cfg = std::move(cfg), timeout] () {

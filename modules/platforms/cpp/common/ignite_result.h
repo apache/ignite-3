@@ -132,9 +132,9 @@ public:
      * @param operation Operation to wrap.
      * @return IgniteResult
      */
-    static IgniteResult ofOperation(const std::function<T()>& operation) noexcept {
+    static IgniteResult ofOperation(std::function<T()>&& operation) noexcept {
         try {
-            return operation();
+            return {std::forward<std::function<T()>>(operation)()};
         } catch (const IgniteError& err) {
             return {IgniteError(err)};
         } catch (const std::exception& err) {
@@ -259,9 +259,9 @@ public:
      * @param operation Operation to wrap.
      * @return IgniteResult
      */
-    static IgniteResult ofOperation(const std::function<void()>& operation) noexcept {
+    static IgniteResult ofOperation(std::function<void()>&& operation) noexcept {
         try {
-            operation();
+            std::forward<std::function<void()>>(operation)();
             return {};
         } catch (const IgniteError& err) {
             return {IgniteError(err)};
@@ -305,5 +305,8 @@ private:
     /** Error. */
     std::optional<IgniteError> m_error;
 };
+
+template<typename T>
+using IgniteCallback = std::function<void(IgniteResult<T>)>;
 
 } // namespace ignite

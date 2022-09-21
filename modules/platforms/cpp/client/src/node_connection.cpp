@@ -34,8 +34,7 @@ void NodeConnection::processMessage(const network::DataBuffer &msg)
     protocol::Reader reader(msg.getBytesView());
 
     auto responseType = reader.readInt32();
-    if (MessageType(responseType) != MessageType::RESPONSE)
-    {
+    if (MessageType(responseType) != MessageType::RESPONSE) {
         m_logger->logWarning("Unsupported message type: " + std::to_string(responseType));
         return;
     }
@@ -43,15 +42,13 @@ void NodeConnection::processMessage(const network::DataBuffer &msg)
     auto reqId = reader.readInt64();
     auto handler = getAndRemoveHandler(reqId);
 
-    if (!handler)
-    {
+    if (!handler) {
         m_logger->logError("Missing handler for request with id=" + std::to_string(reqId));
         return;
     }
 
     auto err = protocol::readError(reader);
-    if (err)
-    {
+    if (err) {
         handler->setError(std::move(err.value()));
         m_logger->logError("Error: " + err->whatStr());
         return;

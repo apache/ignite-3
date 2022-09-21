@@ -21,6 +21,7 @@
 #include <tuple>
 
 #include "common/ignite_error.h"
+#include "common/ignite_result.h"
 #include "ignite/protocol/reader.h"
 
 #pragma once
@@ -65,35 +66,34 @@ public:
     ResponseHandlerImpl() = default;
     ~ResponseHandlerImpl() override = default;
     ResponseHandlerImpl(ResponseHandlerImpl&&) noexcept = default;
-    ResponseHandlerImpl(const ResponseHandlerImpl&) = default;
     ResponseHandlerImpl& operator=(ResponseHandlerImpl&&) noexcept = default;
-    ResponseHandlerImpl& operator=(const ResponseHandlerImpl&) = default;
+
+    // Delete
+    ResponseHandlerImpl(const ResponseHandlerImpl&) = delete;
+    ResponseHandlerImpl& operator=(const ResponseHandlerImpl&) = delete;
 
     /**
      * Constructor.
      *
      * @param func Function.
      */
-    explicit ResponseHandlerImpl(std::function<T(protocol::Reader&)> func) :
-        m_func(std::move(func)),
-        m_promise() { }
+    explicit ResponseHandlerImpl(std::function<T(protocol::Reader&)> readFunc, IgniteCallback<T> callback) :
+        m_readFunc(std::move(readFunc)),
+        m_callback(std::move(callback)),
+        m_mutex() { }
 
     /**
      * Handle response.
      *
      * @param reader Reader to be used to read response.
      */
-    void handle(protocol::Reader& reader) override
-    {
-        try
-        {
-            T res = m_func(reader);
-            m_promise.set_value(std::move(res));
-        }
-        catch (...)
-        {
-            m_promise.set_exception(std::current_exception());
-        }
+    void handle(protocol::Reader& reader) override {
+        IgniteCallback<T> callback = removeCallback();
+        if (!callback)
+            return;
+
+        auto res = IgniteResult<T>::ofOperation([&] () { return m_readFunc(reader); });
+        callback(std::move(res));
     }
 
     /**
@@ -101,28 +101,35 @@ public:
      *
      * @param err Error to set.
      */
-    void setError(IgniteError err) override
-    {
-        m_promise.set_exception(std::make_exception_ptr(std::move(err)));
-    }
+    void setError(IgniteError err) override {
+        IgniteCallback<T> callback = removeCallback();
+        if (!callback)
+            return;
 
-    /**
-     * Get future.
-     *
-     * @return Future.
-     */
-    [[nodiscard]]
-    std::future<T> getFuture()
-    {
-        return m_promise.get_future();
+        callback({std::move(err)});
     }
 
 private:
-    /** Handler. */
-    std::function<T(protocol::Reader&)> m_func;
+    /**
+     * Remove callback and return it.
+     *
+     * @return Callback.
+     */
+    IgniteCallback<T> removeCallback() {
+        std::lock_guard<std::mutex> guard(m_mutex);
+        IgniteCallback<T> callback = {};
+        std::swap(callback, m_callback);
+        return callback;
+    }
+
+    /** Read function. */
+    std::function<T(protocol::Reader&)> m_readFunc;
 
     /** Promise. */
-    std::promise<T> m_promise;
+    IgniteCallback<T> m_callback;
+
+    /** Callback mutex. */
+    std::mutex m_mutex;
 };
 
 } // namespace ignite::impl

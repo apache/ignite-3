@@ -87,8 +87,8 @@ public:
      * @return Future result.
      */
     template<typename T>
-    std::future<T> performRequest(ClientOperation op,
-        const std::function<void(protocol::Writer&)>& wr, ResponseHandlerImpl<T> handler)
+    bool performRequest(ClientOperation op, const std::function<void(protocol::Writer&)>& wr,
+        std::shared_ptr<ResponseHandlerImpl<T>> handler)
     {
         auto reqId = generateRequestId();
         protocol::Buffer buffer;
@@ -101,11 +101,9 @@ public:
 
         buffer.writeLengthHeader();
 
-        auto fut = handler.getFuture();
-
         {
             std::lock_guard<std::mutex> lock(m_requestHandlersMutex);
-            m_requestHandlers[reqId] = std::make_shared<ResponseHandlerImpl<T>>(std::move(handler));
+            m_requestHandlers[reqId] = std::move(handler);
         }
 
         bool sent = m_pool->send(m_id, network::DataBuffer(buffer.getData()));
@@ -114,9 +112,9 @@ public:
             std::lock_guard<std::mutex> lock(m_requestHandlersMutex);
             getAndRemoveHandler(reqId);
 
-            return {};
+            return false;
         }
-        return fut;
+        return true;
     }
 
 private:

@@ -22,6 +22,7 @@
 #include <optional>
 
 #include "common/Export.h"
+#include "common/ignite_result.h"
 #include "ignite/table/table.h"
 
 namespace ignite
@@ -58,11 +59,11 @@ public:
      *   "public.tbl0" - the table "PUBLIC.TBL0" will be looked up,
      *   "PUBLIC.\"Tbl0\"" - "PUBLIC.Tbl0",
      *   "\"MySchema\".\"Tbl0\"" - "MySchema.Tbl0", etc.
+     * @param callback Callback to be called once operation is complete.
      * @return Table with corresponding name or @c std::nullopt if the table does not exist.
      * @throw IgniteError In case of error.
      */
-    [[nodiscard]]
-    IGNITE_API std::future<std::optional<Table>> getTableAsync(const std::string& name);
+    IGNITE_API void getTableAsync(const std::string& name, IgniteCallback<std::optional<Table>> callback);
 
 private:
     /**

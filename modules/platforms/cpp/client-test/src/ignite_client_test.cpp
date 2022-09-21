@@ -64,23 +64,28 @@ TEST_F(ClientTest, GetConfiguration)
     EXPECT_EQ(cfg.getConnectionLimit(), cfg2.getConnectionLimit());
 }
 
-TEST_F(ClientTest, TablesGetTable)
+TEST_F(ClientTest, TablesGetTablePromises)
 {
     IgniteClientConfiguration cfg{NODE_ADDRS};
     cfg.setLogger(getLogger());
 
-    auto promise = std::make_shared<std::promise<IgniteClient>>();
-    IgniteClient::startAsync(cfg, std::chrono::seconds(5), IgniteResult<IgniteClient>::promiseSetter(promise));
+    auto clientPromise = std::make_shared<std::promise<IgniteClient>>();
+    IgniteClient::startAsync(cfg, std::chrono::seconds(5), IgniteResult<IgniteClient>::promiseSetter(clientPromise));
 
-    auto client = promise->get_future().get();
+    auto client = clientPromise->get_future().get();
 
     auto tables = client.getTables();
-    auto tableUnknown = tables.getTableAsync("PUB.some_unknown").get();
 
+    auto tablePromise = std::make_shared<std::promise<std::optional<Table>>>();
+    tables.getTableAsync("PUB.some_unknown", IgniteResult<std::optional<Table>>::promiseSetter(tablePromise));
+
+    auto tableUnknown = tablePromise->get_future().get();
     EXPECT_FALSE(tableUnknown.has_value());
 
-    auto table = tables.getTableAsync("PUB.tbl1").get();
+    tablePromise = std::make_shared<std::promise<std::optional<Table>>>();
+    tables.getTableAsync("PUB.tbl1", IgniteResult<std::optional<Table>>::promiseSetter(tablePromise));
 
+    auto table = tablePromise->get_future().get();
     ASSERT_TRUE(table.has_value());
     EXPECT_EQ(table->getName(), "PUB.tbl1");
 }

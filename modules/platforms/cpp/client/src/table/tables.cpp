@@ -25,21 +25,18 @@
 namespace ignite
 {
 
-std::future<std::optional<Table>> Tables::getTableAsync(const std::string &name)
-{
-    return getImpl().getTableImplAsync(name);
+void Tables::getTableAsync(const std::string &name, IgniteCallback<std::optional<Table>> callback) {
+    getImpl().getTableImplAsync(name, std::move(callback));
 }
 
 Tables::Tables(std::shared_ptr<void> impl) :
     m_impl(std::move(impl)) { }
 
-impl::TablesImpl &Tables::getImpl()
-{
+impl::TablesImpl &Tables::getImpl() {
     return *((impl::TablesImpl*)(m_impl.get()));
 }
 
-const impl::TablesImpl &Tables::getImpl() const
-{
+const impl::TablesImpl &Tables::getImpl() const {
     return *((impl::TablesImpl*)(m_impl.get()));
 }
 
