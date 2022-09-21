@@ -88,8 +88,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         dropTables(server);
         dropTables(server2);
 
-        initPartitionAssignment(server);
-        initPartitionAssignment(server2);
+        initPartitionAssignment(null);
     }
 
     @Test
@@ -114,15 +113,24 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
     @Test
     public void testClientReceivesPartitionAssignmentUpdates() {
+        // Check default assignment.
         RecordView<Tuple> recordView = defaultTable().recordView();
 
         assertOpOnNode("server-1", "get", x -> recordView.get(null, Tuple.create().set("ID", 0L)));
         assertOpOnNode("server-2", "get", x -> recordView.get(null, Tuple.create().set("ID", 1L)));
 
         // Change partition assignment.
+        var assignments = new ArrayList<String>();
 
-        // TODO: Warmup
+        assignments.add(testServer2.nodeId());
+        assignments.add(testServer.nodeId());
 
+        initPartitionAssignment(assignments);
+
+        // Perform one request that will receive a flag to update the assignments.
+        recordView.get(null, Tuple.create().set("ID", 0L));
+
+        // Check new assignment.
         assertOpOnNode("server-2", "get", x -> recordView.get(null, Tuple.create().set("ID", 0L)));
         assertOpOnNode("server-1", "get", x -> recordView.get(null, Tuple.create().set("ID", 1L)));
     }
@@ -189,14 +197,22 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         return tableImpl;
     }
 
-    private void initPartitionAssignment(Ignite ignite) {
-        FakeIgniteTables tables = (FakeIgniteTables) ignite.tables();
+    private void initPartitionAssignment(ArrayList<String> assignments) {
+        initPartitionAssignment(server, assignments);
+        initPartitionAssignment(server2, assignments);
+    }
 
-        ArrayList<String> assignments = new ArrayList<>();
-        assignments.add(testServer.nodeId());
-        assignments.add(testServer2.nodeId());
-        assignments.add(testServer.nodeId());
-        assignments.add(testServer2.nodeId());
+    private void initPartitionAssignment(Ignite ignite, ArrayList<String> assignments) {
+        if (assignments == null) {
+            assignments = new ArrayList<>();
+
+            assignments.add(testServer.nodeId());
+            assignments.add(testServer2.nodeId());
+            assignments.add(testServer.nodeId());
+            assignments.add(testServer2.nodeId());
+        }
+
+        FakeIgniteTables tables = (FakeIgniteTables) ignite.tables();
 
         tables.setPartitionAssignments(assignments);
     }

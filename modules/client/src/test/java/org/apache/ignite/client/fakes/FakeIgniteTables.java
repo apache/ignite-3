@@ -19,9 +19,11 @@ package org.apache.ignite.client.fakes;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.ignite.configuration.schemas.table.TableChange;
@@ -57,6 +59,8 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
     private final ConcurrentHashMap<String, TableImpl> tables = new ConcurrentHashMap<>();
 
     private final ConcurrentHashMap<UUID, TableImpl> tablesById = new ConcurrentHashMap<>();
+
+    private final CopyOnWriteArrayList<Consumer<IgniteTablesInternal>> assignmentsChangeListeners = new CopyOnWriteArrayList<>();
 
     private volatile List<String> partitionAssignments = null;
 
@@ -175,18 +179,26 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
 
     /** {@inheritDoc} */
     @Override
-    public void addAssignmentsChangeListener(Consumer<TableManager> listener) {
-        // No-op.
+    public void addAssignmentsChangeListener(Consumer<IgniteTablesInternal> listener) {
+        Objects.requireNonNull(listener);
+
+        assignmentsChangeListeners.add(listener);
     }
 
     /** {@inheritDoc} */
     @Override
-    public boolean removeAssignmentsChangeListener(Consumer<TableManager> listener) {
-        return false;
+    public boolean removeAssignmentsChangeListener(Consumer<IgniteTablesInternal> listener) {
+        Objects.requireNonNull(listener);
+
+        return assignmentsChangeListeners.remove(listener);
     }
 
     public void setPartitionAssignments(List<String> assignments) {
         partitionAssignments = assignments;
+
+        for (var listener : assignmentsChangeListeners) {
+            listener.accept(this);
+        }
     }
 
     @NotNull

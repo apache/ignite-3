@@ -94,12 +94,12 @@ public interface IgniteTablesInternal extends IgniteTables {
      *
      * @param listener Listener.
      */
-    void addAssignmentsChangeListener(Consumer<TableManager> listener);
+    void addAssignmentsChangeListener(Consumer<IgniteTablesInternal> listener);
 
     /**
      * Removes assignments change listener.
      *
      * @param listener Listener.
      */
-    boolean removeAssignmentsChangeListener(Consumer<TableManager> listener);
+    boolean removeAssignmentsChangeListener(Consumer<IgniteTablesInternal> listener);
 }

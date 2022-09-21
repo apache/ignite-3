@@ -230,7 +230,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private final ExecutorService ioExecutor;
 
     /** Assignment change event listeners. */
-    private final CopyOnWriteArrayList<Consumer<TableManager>> assignmentsChangeListeners = new CopyOnWriteArrayList<>();
+    private final CopyOnWriteArrayList<Consumer<IgniteTablesInternal>> assignmentsChangeListeners = new CopyOnWriteArrayList<>();
 
     /** Rebalance scheduler pool size. */
     private static final int REBALANCE_SCHEDULER_POOL_SIZE = Math.min(Utils.cpus() * 3, 20);
@@ -825,7 +825,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     /** {@inheritDoc} */
     @Override
-    public void addAssignmentsChangeListener(Consumer<TableManager> listener) {
+    public void addAssignmentsChangeListener(Consumer<IgniteTablesInternal> listener) {
         Objects.requireNonNull(listener);
 
         assignmentsChangeListeners.add(listener);
@@ -833,7 +833,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     /** {@inheritDoc} */
     @Override
-    public boolean removeAssignmentsChangeListener(Consumer<TableManager> listener) {
+    public boolean removeAssignmentsChangeListener(Consumer<IgniteTablesInternal> listener) {
         Objects.requireNonNull(listener);
 
         return assignmentsChangeListeners.remove(listener);
