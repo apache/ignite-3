@@ -45,6 +45,11 @@ public final class ConfigConstants {
     private static final String IGNITE_CLI_CONFIG_FILE = "IGNITE_CLI_CONFIG_FILE";
 
     /**
+     * Environment variable which points to the CLI logs folder.
+     */
+    public static final String IGNITE_CLI_LOGS_DIR = "IGNITE_CLI_LOGS_DIR";
+
+    /**
      * Current profile property name.
      */
     public static final String CURRENT_PROFILE = "current_profile";

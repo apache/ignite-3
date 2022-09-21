@@ -17,19 +17,21 @@
 
 package org.apache.ignite.internal.cli;
 
+import static org.apache.ignite.internal.cli.config.ConfigConstants.IGNITE_CLI_LOGS_DIR;
+
 import io.micronaut.configuration.picocli.MicronautFactory;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.logging.LogManager;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.cli.commands.TopLevelCliCommand;
 import org.apache.ignite.internal.cli.commands.TopLevelCliReplCommand;
 import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
 import org.apache.ignite.internal.cli.config.ConfigDefaultValueProvider;
+import org.apache.ignite.internal.cli.config.StateFolderProvider;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.internal.cli.core.call.StringCallInput;
 import org.apache.ignite.internal.cli.core.exception.handler.DefaultExceptionHandlers;
@@ -155,20 +157,45 @@ public class Main {
     private static void initJavaLoggerProps() {
         InputStream propsFile = Main.class.getResourceAsStream("/cli.java.util.logging.properties");
 
-        Path props = null;
-
-        try {
-            props = Files.createTempFile("cli.java.util.logging.properties", "");
-
-            if (propsFile != null) {
-                Files.copy(propsFile, props.toAbsolutePath(), StandardCopyOption.REPLACE_EXISTING);
+        if (propsFile != null) {
+            try {
+                LogManager.getLogManager().updateConfiguration(propsFile, s -> {
+                    // Merge default configuration with configuration read from propsFile
+                    // and append the path to logs to the file pattern if propsFile have the corresponding key
+                    if (s.equals("java.util.logging.FileHandler.pattern")) {
+                        return (o, n) -> {
+                            if (n == null) {
+                                return o;
+                            }
+                            try {
+                                return getLogsDir() + "/" + n;
+                            } catch (IOException e) {
+                                return n;
+                            }
+                        };
+                    }
+                    return (o, n) -> n == null ? o : n;
+                });
+            } catch (IOException ignored) {
+                // No-op.
             }
-        } catch (IOException ignored) {
-            // No-op.
+        }
+    }
+
+    private static String getLogsDir() throws IOException {
+        String envLogsDir = System.getenv(IGNITE_CLI_LOGS_DIR);
+        String logsDir = envLogsDir != null ? envLogsDir : StateFolderProvider.getStateFile("logs").getAbsolutePath();
+        File logsDirFile = new File(logsDir);
+        if (!logsDirFile.exists()) {
+            if (!logsDirFile.mkdirs()) {
+                throw new IOException("Failed to create directory " + logsDir);
+            }
         }
 
-        if (props != null) {
-            System.setProperty("java.util.logging.config.file", props.toString());
+        if (logsDirFile.isDirectory()) {
+            return logsDir;
+        } else {
+            throw new IOException(logsDir + " is not a directory");
         }
     }
 }
