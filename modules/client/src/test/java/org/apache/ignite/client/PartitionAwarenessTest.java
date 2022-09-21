@@ -142,7 +142,13 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
     @Test
     public void testCompositeKey() {
-        assertTrue(false, "TODO");
+        RecordView<Tuple> recordView = table(FakeIgniteTables.TABLE_COMPOSITE_KEY).recordView();
+
+        assertOpOnNode("server-1", "get", x -> recordView.get(null, Tuple.create().set("ID1", 0).set("ID2", "0")));
+        assertOpOnNode("server-2", "get", x -> recordView.get(null, Tuple.create().set("ID1", 1).set("ID2", "0")));
+        assertOpOnNode("server-1", "get", x -> recordView.get(null, Tuple.create().set("ID1", 0).set("ID2", "1")));
+        assertOpOnNode("server-1", "get", x -> recordView.get(null, Tuple.create().set("ID1", 1).set("ID2", "1")));
+        assertOpOnNode("server-2", "get", x -> recordView.get(null, Tuple.create().set("ID1", 1).set("ID2", "2")));
     }
 
     @Test
@@ -180,18 +186,22 @@ public class PartitionAwarenessTest extends AbstractClientTest {
     }
 
     private Table defaultTable() {
+        return table(DEFAULT_TABLE);
+    }
+
+    private Table table(String name) {
         // Create table on both servers with the same ID.
         var tableId = UUID.randomUUID();
 
-        table1 = createTable(server, tableId);
-        table2 = createTable(server2, tableId);
+        table1 = createTable(server, tableId, name);
+        table2 = createTable(server2, tableId, name);
 
-        return client2.tables().table(DEFAULT_TABLE);
+        return client2.tables().table(name);
     }
 
-    private TableImpl createTable(Ignite ignite, UUID id) {
+    private TableImpl createTable(Ignite ignite, UUID id, String name) {
         FakeIgniteTables tables = (FakeIgniteTables) ignite.tables();
-        TableImpl tableImpl = tables.createTable(DEFAULT_TABLE, id);
+        TableImpl tableImpl = tables.createTable(name, id);
 
         ((FakeInternalTable)tableImpl.internalTable()).setDataAccessListener((op, data) -> {
             lastOp = op;

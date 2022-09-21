@@ -52,6 +52,8 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
 
     public static final String TABLE_WITH_DEFAULT_VALUES = "default-columns";
 
+    public static final String TABLE_COMPOSITE_KEY = "composite-key";
+
     public static final String BAD_TABLE = "bad-table";
 
     public static final String BAD_TABLE_ERR = "Err!";
@@ -218,6 +220,10 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
                 history = this::getDefaultColumnValuesSchema;
                 break;
 
+            case TABLE_COMPOSITE_KEY:
+                history = this::getCompositeKeySchema;
+                break;
+
             default:
                 history = this::getSchema;
                 break;
@@ -305,6 +311,24 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
                         new Column("str".toUpperCase(), NativeTypes.STRING, true, DefaultValueProvider.constantProvider("def_str")),
                         new Column("strNonNull".toUpperCase(), NativeTypes.STRING,
                                 false, DefaultValueProvider.constantProvider("def_str2")),
+                });
+    }
+
+    /**
+     * Gets the schema.
+     *
+     * @param v Version.
+     * @return Schema descriptor.
+     */
+    private SchemaDescriptor getCompositeKeySchema(Integer v) {
+        return new SchemaDescriptor(
+                v,
+                new Column[]{
+                        new Column("ID1", NativeTypes.INT32, false),
+                        new Column("ID2", NativeTypes.STRING, false)
+                },
+                new Column[]{
+                        new Column("str".toUpperCase(), NativeTypes.STRING, true)
                 });
     }
 
