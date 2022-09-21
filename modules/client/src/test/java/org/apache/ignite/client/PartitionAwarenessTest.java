@@ -18,6 +18,9 @@
 package org.apache.ignite.client;
 
 import io.netty.util.ResourceLeakDetector;
+import java.util.ArrayList;
+import java.util.UUID;
+import java.util.function.Consumer;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
@@ -30,13 +33,8 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-import java.util.ArrayList;
-import java.util.UUID;
-import java.util.function.BiConsumer;
-import java.util.function.Consumer;
-import java.util.function.Supplier;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests partition awareness.
@@ -92,6 +90,41 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         assertOpOnNode("server-2", "get", x -> recordView.get(null, Tuple.create().set("ID", 1L)));
         assertOpOnNode("server-1", "get", x -> recordView.get(null, Tuple.create().set("ID", 2L)));
         assertOpOnNode("server-2", "get", x -> recordView.get(null, Tuple.create().set("ID", 3L)));
+    }
+
+    @Test
+    public void testCustomColocationKey() {
+        assertTrue(false, "TODO");
+    }
+
+    @Test
+    public void testCompositeKey() {
+        assertTrue(false, "TODO");
+    }
+
+    @Test
+    public void testAllRecordViewOperations() {
+        assertTrue(false, "TODO");
+    }
+
+    @Test
+    public void testAllRecordBinaryViewOperations() {
+        assertTrue(false, "TODO");
+    }
+
+    @Test
+    public void testAllKeyValueViewOperations() {
+        assertTrue(false, "TODO");
+    }
+
+    @Test
+    public void testAllKeyValueBinaryViewOperations() {
+        assertTrue(false, "TODO");
+    }
+
+    @Test
+    public void testNonNullTxDisablesPartitionAwareness() {
+        assertTrue(false, "TODO");
     }
 
     private void assertOpOnNode(String expectedNode, String expectedOp, Consumer<Void> op) {
