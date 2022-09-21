@@ -224,12 +224,12 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
             case VARCHAR:
             case CHAR:
                 return relType.getPrecision() == PRECISION_NOT_SPECIFIED
-                        ? NativeTypes.stringOf(0)
+                        ? NativeTypes.stringOf(Integer.MAX_VALUE)
                         : NativeTypes.stringOf(relType.getPrecision());
             case BINARY:
             case VARBINARY:
                 return relType.getPrecision() == PRECISION_NOT_SPECIFIED
-                        ? NativeTypes.blobOf(0)
+                        ? NativeTypes.blobOf(Integer.MAX_VALUE)
                         : NativeTypes.blobOf(relType.getPrecision());
             default:
                 throw new IllegalArgumentException("Type is not supported.");

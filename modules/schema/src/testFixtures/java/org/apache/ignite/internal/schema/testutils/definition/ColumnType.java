@@ -94,7 +94,7 @@ public class ColumnType {
      * @return Blob type.
      */
     public static VarLenColumnType blobOf(int length) {
-        return new VarLenColumnType(ColumnTypeSpec.BLOB, length);
+        return new VarLenColumnType(ColumnTypeSpec.BYTES, length);
     }
 
     /**
@@ -258,7 +258,7 @@ public class ColumnType {
         private static final VarLenColumnType UNLIMITED_STRING = new VarLenColumnType(ColumnTypeSpec.STRING, 0);
 
         /** Blob varlen type of unlimited length. */
-        private static final VarLenColumnType UNLIMITED_BLOB = new VarLenColumnType(ColumnTypeSpec.BLOB, 0);
+        private static final VarLenColumnType UNLIMITED_BLOB = new VarLenColumnType(ColumnTypeSpec.BYTES, 0);
 
         /** Max length. */
         private final int length;
@@ -570,7 +570,7 @@ public class ColumnType {
         STRING,
 
         /** Binary data. */
-        BLOB,
+        BYTES,
 
         /** Number. */
         NUMBER,

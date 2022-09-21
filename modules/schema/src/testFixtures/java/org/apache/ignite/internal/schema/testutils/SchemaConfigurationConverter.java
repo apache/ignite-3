@@ -225,11 +225,15 @@ public class SchemaConfigurationConverter {
 
             switch (typeName) {
                 case "BITMASK":
-                case "BLOB":
+                case "BYTES":
                 case "STRING":
-                    ColumnType.VarLenColumnType varLenColType = (ColumnType.VarLenColumnType) colType;
+                    int length = ((ColumnType.VarLenColumnType) colType).length();
 
-                    colTypeChg.changeLength(varLenColType.length());
+                    if (length == 0) {
+                        length = Integer.MAX_VALUE;
+                    }
+
+                    colTypeChg.changeLength(length);
 
                     break;
 
@@ -535,7 +539,7 @@ public class SchemaConfigurationConverter {
             case STRING:
             case UUID:
                 return defaultValue.toString();
-            case BLOB:
+            case BYTES:
                 return IgniteUtils.toHexString((byte[]) defaultValue);
             case BITMASK:
                 return IgniteUtils.toHexString(((BitSet) defaultValue).toByteArray());
@@ -576,7 +580,7 @@ public class SchemaConfigurationConverter {
                 return defaultValue;
             case UUID:
                 return UUID.fromString(defaultValue);
-            case BLOB:
+            case BYTES:
                 return IgniteUtils.fromHexString(defaultValue);
             case BITMASK:
                 return BitSet.valueOf(IgniteUtils.fromHexString(defaultValue));
