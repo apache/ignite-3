@@ -19,6 +19,12 @@ package org.apache.ignite.internal.schema.configuration;
 
 import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.schemas.table.TableValidator;
 import org.apache.ignite.configuration.schemas.table.TableView;
@@ -38,23 +44,97 @@ public class TableValidatorImpl implements Validator<TableValidator, NamedListVi
     public void validate(TableValidator annotation, ValidationContext<NamedListView<TableView>> ctx) {
         NamedListView<TableView> newTables = ctx.getNewValue();
 
-        for (String tableName : newTables.namedListKeys()) {
+        for (String tableName : newKeys(ctx.getOldValue(), ctx.getNewValue())) {
             TableView newTable = newTables.get(tableName);
 
-            try {
-                assert newTable.primaryKey() != null;
-                assert !nullOrEmpty(newTable.primaryKey().columns());
-                assert !nullOrEmpty(newTable.primaryKey().colocationColumns());
-            } catch (IllegalArgumentException e) {
-                ctx.addIssue(new ValidationIssue(
-                        ctx.currentKey(),
-                        "Validator works success by key " + ctx.currentKey() + ". Found "
-                                + newTable.columns().size() + " columns"));
+            if (newTable.columns() == null || newTable.columns().size() == 0) {
+                ctx.addIssue(new ValidationIssue(newTable.name(), "Table should include at least one column"));
+
+                // no further validation required
+                return;
+            }
+
+            Set<String> columnsDups = findDuplicates(newTable.columns().namedListKeys());
+
+            if (!columnsDups.isEmpty()) {
+                ctx.addIssue(new ValidationIssue(newTable.name(),
+                        "Some columns are specified more than once [duplicates=" + new HashSet<>(columnsDups) + "]"));
+            }
+
+            Set<String> columns = new HashSet<>(newTable.columns().namedListKeys());
+
+            if (newTable.primaryKey() == null || nullOrEmpty(newTable.primaryKey().columns())) {
+                ctx.addIssue(new ValidationIssue(newTable.name(), "Table without primary key is not supported"));
+
+                // no further validation required
+                return;
+            }
+
+            List<String> pkColumns = Arrays.asList(newTable.primaryKey().columns());
+
+            if (!columns.containsAll(pkColumns)) {
+                Set<String> missingColumns = new HashSet<>(pkColumns);
+
+                missingColumns.removeAll(columns);
+
+                ctx.addIssue(new ValidationIssue(newTable.name(), "Columns don't exists [columns=" + missingColumns + "]"));
+            }
+
+            Set<String> pkDups = findDuplicates(pkColumns);
+            if (!pkDups.isEmpty()) {
+                ctx.addIssue(new ValidationIssue(newTable.name(),
+                        "Primary key contains duplicated columns [duplicates=" + pkDups + "]"));
+            }
+
+            if (nullOrEmpty(newTable.primaryKey().colocationColumns())) {
+                ctx.addIssue(new ValidationIssue(newTable.name(), "Colocation columns must be specified"));
+
+                // no further validation required
+                return;
+            }
+
+            Set<String> outstandingColumns = new HashSet<>(Arrays.asList(newTable.primaryKey().colocationColumns()));
+
+            outstandingColumns.removeAll(Arrays.asList(newTable.primaryKey().columns()));
+
+            if (!outstandingColumns.isEmpty()) {
+                ctx.addIssue(new ValidationIssue(newTable.name(),
+                        "Colocation columns must be subset of primary key [outstandingColumns=" + outstandingColumns + "]"));
+            }
+
+            Set<String> colocationDups = findDuplicates(Arrays.asList(newTable.primaryKey().colocationColumns()));
+
+            if (!colocationDups.isEmpty()) {
+                ctx.addIssue(new ValidationIssue(newTable.name(),
+                        "Colocation columns contains duplicates [duplicates=" + colocationDups + "]"));
             }
         }
     }
 
     /** Private constructor. */
     private TableValidatorImpl() {
+    }
+
+    private List<String> newKeys(NamedListView<?> before, NamedListView<?> after) {
+        List<String> result = new ArrayList<>(after.namedListKeys());
+
+        if (before != null) {
+            result.removeAll(before.namedListKeys());
+        }
+
+        return result;
+    }
+
+    private Set<String> findDuplicates(Collection<String> collection) {
+        Set<String> used = new HashSet<>();
+        Set<String> result = new HashSet<>();
+
+        for (String element : collection) {
+            if (!used.add(element)) {
+                result.add(element);
+            }
+        }
+
+        return result;
     }
 }

@@ -422,50 +422,59 @@ public class DdlCommandHandler {
 
         colTypeChg.changeType(typeName);
 
-        if (!spec.fixedLength()) {
-            switch (spec) {
-                case BITMASK:
-                    BitmaskNativeType bitmaskColType = (BitmaskNativeType) colType;
+        switch (spec) {
+            case INT8:
+            case INT16:
+            case INT32:
+            case INT64:
+            case FLOAT:
+            case DOUBLE:
+            case DATE:
+            case UUID:
+                // do nothing
+                break;
 
-                    colTypeChg.changeLength(bitmaskColType.bits());
+            case BITMASK:
+                BitmaskNativeType bitmaskColType = (BitmaskNativeType) colType;
 
-                    break;
+                colTypeChg.changeLength(bitmaskColType.bits());
 
-                case BYTES:
-                case STRING:
-                    VarlenNativeType varLenColType = (VarlenNativeType) colType;
+                break;
 
-                    colTypeChg.changeLength(varLenColType.length());
+            case BYTES:
+            case STRING:
+                VarlenNativeType varLenColType = (VarlenNativeType) colType;
 
-                    break;
+                colTypeChg.changeLength(varLenColType.length());
 
-                case DECIMAL:
-                    DecimalNativeType numColType = (DecimalNativeType) colType;
+                break;
 
-                    colTypeChg.changePrecision(numColType.precision());
-                    colTypeChg.changeScale(numColType.scale());
+            case DECIMAL:
+                DecimalNativeType numColType = (DecimalNativeType) colType;
 
-                    break;
+                colTypeChg.changePrecision(numColType.precision());
+                colTypeChg.changeScale(numColType.scale());
 
-                case NUMBER:
-                    NumberNativeType numType = (NumberNativeType) colType;
+                break;
 
-                    colTypeChg.changePrecision(numType.precision());
+            case NUMBER:
+                NumberNativeType numType = (NumberNativeType) colType;
 
-                    break;
+                colTypeChg.changePrecision(numType.precision());
 
-                case TIME:
-                case DATETIME:
-                case TIMESTAMP:
-                    TemporalNativeType temporalColType = (TemporalNativeType) colType;
+                break;
 
-                    colTypeChg.changePrecision(temporalColType.precision());
+            case TIME:
+            case DATETIME:
+            case TIMESTAMP:
+                TemporalNativeType temporalColType = (TemporalNativeType) colType;
 
-                    break;
+                colTypeChg.changePrecision(temporalColType.precision());
 
-                default:
-                    throw new IllegalArgumentException("Unknown type " + colType.spec().name());
-            }
+                break;
+
+            default:
+                throw new IllegalArgumentException("Unknown type " + colType.spec().name());
         }
     }
 

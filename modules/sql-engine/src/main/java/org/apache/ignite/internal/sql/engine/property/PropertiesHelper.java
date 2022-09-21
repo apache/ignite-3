@@ -17,11 +17,10 @@
 
 package org.apache.ignite.internal.sql.engine.property;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.Modifier;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-import org.apache.ignite.internal.sql.engine.QueryProperty;
+import org.apache.ignite.internal.util.IgniteUtils;
 
 
 /**
@@ -36,24 +35,14 @@ public final class PropertiesHelper {
      * @param cls The class for property lookup.
      * @return A mapping name to property itself.
      */
+    @SuppressWarnings("rawtypes")
     public static Map<String, Property<?>> createPropsByNameMap(Class<?> cls) {
+        List<Property> properties = IgniteUtils.collectStaticFields(cls, Property.class);
+
         Map<String, Property<?>> tmp = new HashMap<>();
 
-        for (Field f : cls.getDeclaredFields()) {
-            if (!Property.class.equals(f.getType())
-                    || !Modifier.isStatic(f.getModifiers())
-                    || !Modifier.isPublic(f.getModifiers())) {
-                continue;
-            }
-
-            try {
-                Property<?> prop = (Property<?>) f.get(QueryProperty.class);
-
-                tmp.put(prop.name, prop);
-            } catch (IllegalAccessException e) {
-                // should not happen
-                throw new AssertionError(e);
-            }
+        for (Property<?> property : properties) {
+            tmp.put(property.name, property);
         }
 
         return Map.copyOf(tmp);

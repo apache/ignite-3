@@ -20,6 +20,7 @@ package org.apache.ignite.internal.schema.configuration;
 import java.util.Objects;
 import org.apache.ignite.configuration.schemas.table.ColumnTypeValidator;
 import org.apache.ignite.configuration.schemas.table.ColumnTypeView;
+import org.apache.ignite.configuration.schemas.table.ColumnView;
 import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
@@ -37,13 +38,9 @@ public class ColumnTypeValidatorImpl implements Validator<ColumnTypeValidator, C
         ColumnTypeView newType = ctx.getNewValue();
         ColumnTypeView oldType = ctx.getOldValue();
 
-        try {
-            ConfigurationToSchemaDescriptorConverter.convert(newType);
-        } catch (IllegalArgumentException ex) {
-            ctx.addIssue(new ValidationIssue(ctx.currentKey(), ctx.currentKey() + ": " + ex.getMessage()));
-
-            return;
-        }
+        validateLength(ctx, newType);
+        validatePrecision(ctx, newType);
+        validateScale(ctx, newType);
 
         if (oldType == null) {
             return; // Nothing to do.
@@ -53,9 +50,79 @@ public class ColumnTypeValidatorImpl implements Validator<ColumnTypeValidator, C
                 || newType.precision() != oldType.precision()
                 || newType.scale() != oldType.scale()
                 || newType.length() != oldType.length()) {
-            ctx.addIssue(new ValidationIssue(ctx.currentKey(), "Unsupported column type change: " + ctx.currentKey()));
+            ColumnView columnView = ctx.getNewOwner();
+
+            assert columnView != null;
+
+            ctx.addIssue(new ValidationIssue(columnView.name(), "Column type can't be changed"));
         }
 
+    }
+
+    private void validateLength(ValidationContext<ColumnTypeView> ctx, ColumnTypeView typeView) {
+        switch (typeView.type()) {
+            case "STRING":
+            case "BYTES":
+            case "BITMASK":
+                if (typeView.length() <= 0) {
+                    ColumnView columnView = ctx.getNewOwner();
+
+                    assert columnView != null;
+
+                    ctx.addIssue(new ValidationIssue(columnView.name(), "Length must by positive"));
+                }
+
+                break;
+            default:
+                // nothing to do
+                break;
+        }
+    }
+
+    private void validatePrecision(ValidationContext<ColumnTypeView> ctx, ColumnTypeView typeView) {
+        switch (typeView.type()) {
+            case "NUMBER":
+            case "DECIMAL":
+                if (typeView.precision() <= 0) {
+                    ColumnView columnView = ctx.getNewOwner();
+
+                    assert columnView != null;
+
+                    ctx.addIssue(new ValidationIssue(columnView.name(), "Precision must by positive"));
+                }
+
+                break;
+
+            case "TIME":
+            case "DATETIME":
+            case "TIMESTAMP":
+                if (typeView.precision() < 0 || typeView.precision() > 9) {
+                    ColumnView columnView = ctx.getNewOwner();
+
+                    assert columnView != null;
+
+                    ctx.addIssue(new ValidationIssue(columnView.name(), "Precision must by in range [0-9]"));
+                }
+
+                break;
+            default:
+                // nothing to do
+                break;
+        }
+    }
+
+    private void validateScale(ValidationContext<ColumnTypeView> ctx, ColumnTypeView typeView) {
+        if (!"DECIMAL".equals(typeView.type())) {
+            return;
+        }
+
+        if (typeView.precision() < typeView.scale()) {
+            ColumnView columnView = ctx.getNewOwner();
+
+            assert columnView != null;
+
+            ctx.addIssue(new ValidationIssue(columnView.name(), "Scale must by lower or equal to precision"));
+        }
     }
 
     /** Private constructor. */
