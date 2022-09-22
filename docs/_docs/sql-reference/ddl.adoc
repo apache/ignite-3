@@ -216,7 +216,6 @@ ALTER TABLE Person DROP COLUMN (code, gdp);
 == DROP TABLE
 
 The `DROP TABLE` command drops an existing table.
-The underlying cache with all the data in it is destroyed, too.
 
 [source,sql]
 ----
