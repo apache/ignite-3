@@ -20,39 +20,48 @@
 
 #include <gtest/gtest.h>
 
-#include "ignite_node.h"
+#include "ignite_runner.h"
+#include "common/ignite_error.h"
 
 /**
  * Run prior to any other tests.
  */
 void BeforeAll()
 {
-    ignite::IgniteNode node;
+    ignite::IgniteRunner runner;
 
     // Ignite dry run to make sure everything is built, all artifacts downloaded
     // and Ignite node is ready to run.
-    node.start(true);
+    runner.start(true);
 
     // Five minutes should be enough but feel free to increase.
-    node.join(std::chrono::minutes(5));
-    node.stop();
+    runner.join(std::chrono::minutes(5));
+    runner.stop();
 }
 
 
 int main(int argc, char** argv)
 {
-    BeforeAll();
+    try {
+        BeforeAll();
 
-    ignite::IgniteNode testNode;
-    testNode.start(false);
+        ignite::IgniteRunner runner;
+        runner.start(false);
 
-    // TODO: Implement node startup await
-    std::this_thread::sleep_for(std::chrono::seconds(20));
+        // TODO: Implement node startup await
+        std::this_thread::sleep_for(std::chrono::seconds(20));
 
-    ::testing::InitGoogleTest(&argc, argv);
-    auto res = RUN_ALL_TESTS();
+        ::testing::InitGoogleTest(&argc, argv);
+        auto res = RUN_ALL_TESTS();
 
-    testNode.stop();
+        runner.stop();
 
-    return res;
+        return res;
+    } catch (const std::exception& err) {
+        std::cout << "Uncaught error: " << err.what() << std::endl;
+    } catch (...) {
+        std::cout << "Unknown uncaught error" << std::endl;
+    }
+
+    return 0;
 }

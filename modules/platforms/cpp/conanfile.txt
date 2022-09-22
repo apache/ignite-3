@@ -1,6 +1,7 @@
 [requires]
 msgpack-c/4.0.0
 gtest/1.12.1
+boost/1.80.0
 
 [generators]
 CMakeDeps

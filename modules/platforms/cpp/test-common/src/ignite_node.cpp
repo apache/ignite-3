@@ -22,7 +22,7 @@
 
 #include "common/Platform.h"
 
-#include "ignite_node.h"
+#include "ignite_runner.h"
 #include "test_utils.h"
 
 namespace
@@ -39,7 +39,7 @@ constexpr std::string_view SYSTEM_SHELL_ARG_0 = SWITCH_WIN_OTHER("/c ", "-c");
 namespace ignite
 {
 
-void IgniteNode::start(bool dryRun)
+void IgniteRunner::start(bool dryRun)
 {
     std::string home = resolveIgniteHome();
     if (home.empty())
@@ -71,13 +71,13 @@ void IgniteNode::start(bool dryRun)
     }
 }
 
-void IgniteNode::stop()
+void IgniteRunner::stop()
 {
     if (m_process)
         m_process->kill();
 }
 
-void IgniteNode::join(std::chrono::milliseconds timeout)
+void IgniteRunner::join(std::chrono::milliseconds timeout)
 {
     if (m_process)
         m_process->join(timeout);

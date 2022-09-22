@@ -25,23 +25,23 @@ namespace ignite
 {
 
 /**
- * Represents Ignite server node process.
+ * Represents IgniteRunner process.
  *
- * Ignite node is started from command line. It is recommended to re-use
- * a single Ignite node as much as possible to make tests as quick as possible.
+ * IgniteRunner is started from command line. It is recommended to re-use
+ * the same IgniteRunner as much as possible to make tests as quick as possible.
  */
-class IgniteNode
+class IgniteRunner
 {
 public:
     /**
      * Constructor.
      */
-    IgniteNode() = default;
+    IgniteRunner() = default;
 
     /**
      * Destructor.
      */
-    ~IgniteNode() = default;
+    ~IgniteRunner() = default;
 
     /**
      * Start node.
