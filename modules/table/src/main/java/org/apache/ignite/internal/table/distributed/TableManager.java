@@ -1233,8 +1233,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 dropTblFut.completeExceptionally(new TableNotFoundException(name));
             } else {
                 tablesCfg.change(chg ->
-                        chg.changeTables(tblChg ->
-                        {
+                        chg.changeTables(tblChg -> {
                             TableView tableCfg = tblChg.get(name);
 
                             if (tableCfg == null) {
@@ -1242,8 +1241,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             }
 
                             tblChg.delete(name);
-                        }).changeIndexes(idxChg ->
-                        {
+                        }
+                        ).changeIndexes(idxChg -> {
                             List<String> indicesNames = tablesCfg.indexes().value().namedListKeys();
 
                             List<String> indexes = indicesNames.stream().filter(idx ->
@@ -1253,21 +1252,21 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 idxChg.delete(indexName);
                             }
                         }))
-                .whenComplete((res, t) -> {
-                    if (t != null) {
-                        Throwable ex = getRootCause(t);
+                        .whenComplete((res, t) -> {
+                            if (t != null) {
+                                Throwable ex = getRootCause(t);
 
-                        if (ex instanceof TableNotFoundException) {
-                            dropTblFut.completeExceptionally(ex);
-                        } else {
-                            LOG.debug("Unable to drop table [name={}]", ex, name);
+                                if (ex instanceof TableNotFoundException) {
+                                    dropTblFut.completeExceptionally(ex);
+                                } else {
+                                    LOG.debug("Unable to drop table [name={}]", ex, name);
 
-                            dropTblFut.completeExceptionally(ex);
-                        }
-                    } else {
-                        dropTblFut.complete(res);
-                    }
-                });
+                                    dropTblFut.completeExceptionally(ex);
+                                }
+                            } else {
+                                dropTblFut.complete(res);
+                            }
+                        });
             }
         });
 
