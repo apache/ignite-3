@@ -19,12 +19,8 @@ package org.apache.ignite.internal.storage.pagememory.index;
 
 import java.nio.file.Path;
 import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.EntryCountBudgetConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -48,44 +44,27 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith({ConfigurationExtension.class, WorkDirectoryExtension.class})
 class PersistentPageMemorySortedIndexStorageTest extends AbstractSortedIndexStorageTest {
-    @WorkDirectory
-    private Path workDir;
-
-    @InjectConfiguration(polymorphicExtensions = UnsafeMemoryAllocatorConfigurationSchema.class)
-    private PersistentPageMemoryStorageEngineConfiguration engineConfig;
-
-    @InjectConfiguration(
-            name = "table",
-            value = "mock.dataStorage.name = " + PersistentPageMemoryStorageEngine.ENGINE_NAME,
-            polymorphicExtensions = {
-                    SortedIndexConfigurationSchema.class,
-                    PersistentPageMemoryDataStorageConfigurationSchema.class,
-                    ConstantValueDefaultConfigurationSchema.class,
-                    FunctionCallDefaultConfigurationSchema.class,
-                    NullValueDefaultConfigurationSchema.class,
-                    UnlimitedBudgetConfigurationSchema.class,
-                    EntryCountBudgetConfigurationSchema.class
-            }
-    )
-    private TableConfiguration tableCfg;
-
-    @InjectConfiguration(polymorphicExtensions = {
-            SortedIndexConfigurationSchema.class,
-            UnknownDataStorageConfigurationSchema.class,
-            ConstantValueDefaultConfigurationSchema.class,
-            FunctionCallDefaultConfigurationSchema.class,
-            NullValueDefaultConfigurationSchema.class,
-            UnlimitedBudgetConfigurationSchema.class,
-            EntryCountBudgetConfigurationSchema.class
-    })
-    private TablesConfiguration tablesConfig;
-
     private PersistentPageMemoryStorageEngine engine;
 
     private PersistentPageMemoryTableStorage table;
 
     @BeforeEach
-    void setUp() {
+    void setUp(
+            @WorkDirectory Path workDir,
+            @InjectConfiguration(polymorphicExtensions = UnsafeMemoryAllocatorConfigurationSchema.class)
+            PersistentPageMemoryStorageEngineConfiguration engineConfig,
+            @InjectConfiguration(
+                    polymorphicExtensions = {
+                            PersistentPageMemoryDataStorageConfigurationSchema.class,
+                            UnknownDataStorageConfigurationSchema.class,
+                            SortedIndexConfigurationSchema.class,
+                            NullValueDefaultConfigurationSchema.class,
+                            UnlimitedBudgetConfigurationSchema.class
+                    },
+                    value = "mock.tables.foo.dataStorage.name = " + PersistentPageMemoryStorageEngine.ENGINE_NAME
+            )
+            TablesConfiguration tablesConfig
+    ) {
         PageIoRegistry ioRegistry = new PageIoRegistry();
 
         ioRegistry.loadFromServiceLoader();
@@ -94,7 +73,7 @@ class PersistentPageMemorySortedIndexStorageTest extends AbstractSortedIndexStor
 
         engine.start();
 
-        table = engine.createMvTable(tableCfg, tablesConfig);
+        table = engine.createMvTable(tablesConfig.tables().get("foo"), tablesConfig);
 
         table.start();
 
