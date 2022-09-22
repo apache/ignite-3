@@ -90,12 +90,10 @@ public class HashIndexDescriptor {
     /**
      * Creates an Index Descriptor from a given Table Configuration.
      *
-     * @param tableConfig Table configuration.
      * @param tablesConfig Tables and indexes configuration.
      * @param indexId Index id.
      */
-    // TODO: IGNITE-17727 Fix redundant param.
-    public HashIndexDescriptor(UUID indexId, TableView tableConfig, TablesView tablesConfig) {
+    public HashIndexDescriptor(UUID indexId, TablesView tablesConfig) {
         TableIndexView indexConfig = ConfigurationUtil.getByInternalId(tablesConfig.indexes(), indexId);
 
         if (indexConfig == null) {
@@ -107,6 +105,12 @@ public class HashIndexDescriptor {
                     "Index \"%s\" is not configured as a Hash Index. Actual type: %s",
                     indexConfig.id(), indexConfig.type()
             ));
+        }
+
+        TableView tableConfig = ConfigurationUtil.getByInternalId(tablesConfig.tables(), indexConfig.tableId());
+
+        if (tableConfig == null) {
+            throw new StorageException(String.format("Table configuration for \"%s\" could not be found", indexConfig.tableId()));
         }
 
         this.id = indexId;

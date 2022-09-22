@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.storage;
 
-import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
@@ -30,24 +29,14 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.nio.ByteBuffer;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
-import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.EntryCountBudgetConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableIndexView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
-import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
-import org.apache.ignite.internal.configuration.ConfigurationRegistry;
-import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
+import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
@@ -60,8 +49,7 @@ import org.apache.ignite.internal.storage.index.IndexRowImpl;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.TableDefinition;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
+import org.apache.ignite.schema.definition.index.IndexDefinition;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -75,44 +63,25 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
     private static final int PARTITION_ID = 0;
 
-    protected MvTableStorage tableStorage;
+    private MvTableStorage tableStorage;
 
-    protected TableIndexView sortedIdx;
+    private TableIndexView sortedIdx;
 
-    protected TableIndexView hashIdx;
+    private TableIndexView hashIdx;
 
-    protected TableConfiguration tableConfig;
+    /**
+     * Initializes the internal structures needed for tests.
+     *
+     * <p>This method *MUST* always be called in either subclass' constructor or setUp method.
+     */
+    protected final void initialize(MvTableStorage tableStorage, TablesConfiguration tablesCfg) {
+        createTestTable(tableStorage.configuration());
+        createTestIndexes(tablesCfg);
 
-    protected abstract MvTableStorage tableStorage(TableIndexView sortedIdx, TableIndexView hashIdx, TablesConfiguration tablesCfg);
-
-    protected abstract void setUp();
-
-    /** Configuration registry with one table for each test. */
-    private ConfigurationRegistry confRegistry;
-
-    @BeforeEach
-    void setUpBase() {
-        startTestRegistry();
-
-        TablesConfiguration tablesCfg = confRegistry.getConfiguration(TablesConfiguration.KEY);
-
-        createTestIndexes();
+        this.tableStorage = tableStorage;
 
         sortedIdx = tablesCfg.indexes().get(SORTED_INDEX_NAME).value();
         hashIdx = tablesCfg.indexes().get(HASH_INDEX_NAME).value();
-
-        setUp();
-
-        createTestTable();
-
-        tableStorage = tableStorage(sortedIdx, hashIdx, tablesCfg);
-
-        tableStorage.start();
-    }
-
-    @AfterEach
-    void tearDownBase() {
-        tableStorage.stop();
     }
 
     /**
@@ -222,7 +191,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         var rowId1 = new RowId(PARTITION_ID);
         var rowId2 = new RowId(PARTITION_ID + 1);
 
-        BinaryTupleSchema schema = BinaryTupleSchema.create(new Element[] {
+        BinaryTupleSchema schema = BinaryTupleSchema.create(new Element[]{
                 new Element(NativeTypes.INT32, false),
                 new Element(NativeTypes.INT32, false)
         });
@@ -303,44 +272,29 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         );
     }
 
-    private void startTestRegistry() {
-        confRegistry = new ConfigurationRegistry(
-                List.of(TablesConfiguration.KEY),
-                Map.of(),
-                new TestConfigurationStorage(DISTRIBUTED),
-                List.of(),
-                List.of(
-                        HashIndexConfigurationSchema.class,
-                        SortedIndexConfigurationSchema.class,
-                        UnknownDataStorageConfigurationSchema.class,
-                        ConstantValueDefaultConfigurationSchema.class,
-                        FunctionCallDefaultConfigurationSchema.class,
-                        NullValueDefaultConfigurationSchema.class,
-                        UnlimitedBudgetConfigurationSchema.class,
-                        EntryCountBudgetConfigurationSchema.class
-                )
+    private static void createTestIndexes(TablesConfiguration tablesConfig) {
+        List<IndexDefinition> indexDefinitions = List.of(
+                SchemaBuilders.sortedIndex(SORTED_INDEX_NAME)
+                        .addIndexColumn("COLUMN0").done()
+                        .build(),
+                SchemaBuilders.hashIndex(HASH_INDEX_NAME)
+                        .withColumns("COLUMN0")
+                        .build()
         );
 
-        confRegistry.start();
-    }
+        UUID tableId = ConfigurationUtil.internalId(tablesConfig.tables().value(), "foo");
 
-    private void createTestIndexes() {
-        CompletableFuture<Void> indexCreateFut = confRegistry.getConfiguration(TablesConfiguration.KEY).indexes().change(ch -> {
-            List.of(SchemaBuilders.sortedIndex(SORTED_INDEX_NAME)
-                            .addIndexColumn("COLUMN0").done()
-                            .build(),
-                    SchemaBuilders.hashIndex(HASH_INDEX_NAME)
-                            .withColumns("COLUMN0")
-                            .build()
-            ).forEach(idxDef -> ch.create(idxDef.name(), c ->
-                    SchemaConfigurationConverter.addIndex(idxDef, UUID.randomUUID(), c)));
-        });
+        CompletableFuture<Void> indexCreateFut = tablesConfig.indexes().change(ch ->
+                indexDefinitions.forEach(idxDef -> ch.create(idxDef.name(),
+                        c -> SchemaConfigurationConverter.addIndex(idxDef, tableId, c)
+                ))
+        );
 
         assertThat(indexCreateFut, willCompleteSuccessfully());
     }
 
-    private void createTestTable() {
-        TableDefinition tableDefinition = SchemaBuilders.tableBuilder("PUBLIC", "TEST")
+    private static void createTestTable(TableConfiguration tableConfig) {
+        TableDefinition tableDefinition = SchemaBuilders.tableBuilder("PUBLIC", "foo")
                 .columns(
                         SchemaBuilders.column("ID", ColumnType.INT32).build(),
                         SchemaBuilders.column("COLUMN0", ColumnType.INT32).build()
@@ -348,11 +302,9 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 .withPrimaryKey("ID")
                 .build();
 
-        tableConfig.change(tblChg -> SchemaConfigurationConverter.convert(tableDefinition, tblChg));
-
-        CompletableFuture<Void> createTableFuture = confRegistry.getConfiguration(TablesConfiguration.KEY).tables()
-                .change(chg -> chg.create(tableDefinition.canonicalName(),
-                        tblChg -> SchemaConfigurationConverter.convert(tableDefinition, tblChg)));
+        CompletableFuture<Void> createTableFuture = tableConfig.change(
+                tableChange -> SchemaConfigurationConverter.convert(tableDefinition, tableChange)
+        );
 
         assertThat(createTableFuture, willCompleteSuccessfully());
     }
