@@ -359,7 +359,7 @@ public class ClientRecordView<R> implements RecordView<R> {
     }
 
     private Integer getColocationHash(ClientSchema schema, R rec) {
-        // TODO: Are colocation columns required to be a part of the key?
+        // Colocation columns are always part of the key - https://cwiki.apache.org/confluence/display/IGNITE/IEP-86%3A+Colocation+Key.
         var hashCalc = new HashCalculator();
         var marsh = schema.getMarshaller(ser.mapper(), TuplePart.KEY_AND_VAL);
 
