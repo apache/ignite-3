@@ -88,4 +88,18 @@ public class IndexColumnsFreeList extends AbstractFreeList<IndexColumns>  {
     public void saveMetadata() throws IgniteInternalCheckedException {
         saveMetadata(statHolder);
     }
+
+    /**
+     * Shortcut method for {@link #insertDataRow(IndexColumns, IoStatisticsHolder)} with statistics holder.
+     */
+    public void insertDataRow(IndexColumns row) throws IgniteInternalCheckedException {
+        super.insertDataRow(row, statHolder);
+    }
+
+    /**
+     * Shortcut method for {@link #removeDataRowByLink(long, IoStatisticsHolder)} with statistics holder.
+     */
+    public void removeDataRowByLink(long link) throws IgniteInternalCheckedException {
+        super.removeDataRowByLink(link, statHolder);
+    }
 }

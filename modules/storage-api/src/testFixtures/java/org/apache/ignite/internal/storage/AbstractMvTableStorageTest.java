@@ -55,7 +55,6 @@ import org.junit.jupiter.api.Test;
 /**
  * Abstract class that contains tests for {@link MvTableStorage} implementations.
  */
-// TODO: Use this to test B+tree-based storage, see https://issues.apache.org/jira/browse/IGNITE-17320
 public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     private static final String SORTED_INDEX_NAME = "SORTED_IDX";
 

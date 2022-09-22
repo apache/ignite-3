@@ -45,8 +45,9 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
+import org.apache.ignite.internal.storage.index.BinaryTupleComparator;
 import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
-import org.apache.ignite.internal.storage.index.HashIndexStorage;
+import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.pagememory.AbstractPageMemoryTableStorage;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumnsFreeList;
@@ -54,6 +55,8 @@ import org.apache.ignite.internal.storage.pagememory.index.hash.HashIndexTree;
 import org.apache.ignite.internal.storage.pagememory.index.hash.PageMemoryHashIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMeta;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
+import org.apache.ignite.internal.storage.pagememory.index.sorted.PageMemorySortedIndexStorage;
+import org.apache.ignite.internal.storage.pagememory.index.sorted.SortedIndexTree;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteCursor;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
@@ -89,7 +92,9 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     protected final DataPageReader rowVersionDataPageReader;
 
-    protected final ConcurrentMap<UUID, HashIndexStorage> indexes = new ConcurrentHashMap<>();
+    protected final ConcurrentMap<UUID, PageMemoryHashIndexStorage> hashIndexes = new ConcurrentHashMap<>();
+
+    protected final ConcurrentMap<UUID, PageMemorySortedIndexStorage> sortedIndexes = new ConcurrentHashMap<>();
 
     /**
      * Constructor.
@@ -145,7 +150,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                 if (indexCfgView instanceof HashIndexView) {
                     createOrRestoreHashIndex(indexMeta);
                 } else if (indexCfgView instanceof SortedIndexView) {
-                    throw new UnsupportedOperationException("Not implemented yet");
+                    createOrRestoreSortedIndex(indexMeta);
                 } else {
                     assert indexCfgView == null;
 
@@ -162,8 +167,17 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      *
      * @param indexId Index UUID.
      */
-    public HashIndexStorage getOrCreateHashIndex(UUID indexId) {
-        return indexes.computeIfAbsent(indexId, uuid -> createOrRestoreHashIndex(new IndexMeta(indexId, 0L)));
+    public PageMemoryHashIndexStorage getOrCreateHashIndex(UUID indexId) {
+        return hashIndexes.computeIfAbsent(indexId, uuid -> createOrRestoreHashIndex(new IndexMeta(indexId, 0L)));
+    }
+
+    /**
+     * Returns a sorted index instance, creating index it if necessary.
+     *
+     * @param indexId Index UUID.
+     */
+    public PageMemorySortedIndexStorage getOrCreateSortedIndex(UUID indexId) {
+        return sortedIndexes.computeIfAbsent(indexId, uuid -> createOrRestoreSortedIndex(new IndexMeta(indexId, 0L)));
     }
 
     private PageMemoryHashIndexStorage createOrRestoreHashIndex(IndexMeta indexMeta) {
@@ -204,7 +218,45 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         }
     }
 
-    /** {@inheritDoc} */
+    private PageMemorySortedIndexStorage createOrRestoreSortedIndex(IndexMeta indexMeta) {
+        var indexDescriptor = new SortedIndexDescriptor(indexMeta.id(), tablesConfiguration.value());
+
+        try {
+            PageMemory pageMemory = tableStorage.dataRegion().pageMemory();
+
+            boolean initNew = indexMeta.metaPageId() == 0L;
+
+            long metaPageId = initNew
+                    ? pageMemory.allocatePage(groupId, partitionId, PageIdAllocator.FLAG_AUX)
+                    : indexMeta.metaPageId();
+
+            String tableName = tableStorage.configuration().value().name();
+
+            SortedIndexTree sortedIndexTree = new SortedIndexTree(
+                    groupId,
+                    tableName,
+                    partitionId,
+                    pageMemory,
+                    PageLockListenerNoOp.INSTANCE,
+                    new AtomicLong(),
+                    metaPageId,
+                    rowVersionFreeList,
+                    initNew,
+                    new BinaryTupleComparator(indexDescriptor)
+            );
+
+            if (initNew) {
+                boolean replaced = indexMetaTree.putx(new IndexMeta(indexMeta.id(), metaPageId));
+
+                assert !replaced;
+            }
+
+            return new PageMemorySortedIndexStorage(indexDescriptor, indexFreeList, sortedIndexTree);
+        } catch (IgniteInternalCheckedException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     @Override
     public @Nullable BinaryRow read(RowId rowId, UUID txId) throws TxIdMismatchException, StorageException {
         VersionChain versionChain = findVersionChain(rowId);
@@ -216,7 +268,6 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         return findLatestRowVersion(versionChain, txId, MATCH_ALL);
     }
 
-    /** {@inheritDoc} */
     @Override
     public @Nullable BinaryRow read(RowId rowId, HybridTimestamp timestamp) throws StorageException {
         VersionChain versionChain = findVersionChain(rowId);
@@ -311,7 +362,6 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         return scanByTimestamp.result();
     }
 
-    /** {@inheritDoc} */
     @Override
     public RowId insert(BinaryRow row, UUID txId) throws StorageException {
         RowId rowId = new RowId(partitionId);
@@ -340,10 +390,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     public @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId) throws TxIdMismatchException, StorageException {
-
         VersionChain currentChain = findVersionChain(rowId);
 
         if (currentChain == null) {
@@ -378,7 +426,6 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         return res;
     }
 
-    /** {@inheritDoc} */
     @Override
     public @Nullable BinaryRow abortWrite(RowId rowId) throws StorageException {
         VersionChain currentVersionChain = findVersionChain(rowId);
@@ -417,7 +464,6 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     public void commitWrite(RowId rowId, HybridTimestamp timestamp) throws StorageException {
         VersionChain currentVersionChain = findVersionChain(rowId);
@@ -465,13 +511,11 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     public Cursor<BinaryRow> scan(Predicate<BinaryRow> keyFilter, UUID txId) throws TxIdMismatchException, StorageException {
         return internalScan(keyFilter, txId, null);
     }
 
-    /** {@inheritDoc} */
     @Override
     public Cursor<BinaryRow> scan(Predicate<BinaryRow> keyFilter, HybridTimestamp timestamp) throws StorageException {
         return internalScan(keyFilter, null, timestamp);
@@ -491,7 +535,6 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         return new ScanCursor(treeCursor, keyFilter, txId, timestamp);
     }
 
-    /** {@inheritDoc} */
     @Override
     public long rowsCount() {
         try {
@@ -501,13 +544,11 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     public void forEach(BiConsumer<RowId, BinaryRow> consumer) {
         // No-op. Nothing to recover for a volatile storage. See usages and a comment about PK index rebuild.
     }
 
-    /** {@inheritDoc} */
     @Override
     public void close() {
         versionChainTree.close();
@@ -549,7 +590,6 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             this.timestamp = timestamp;
         }
 
-        /** {@inheritDoc} */
         @Override
         public boolean hasNext() {
             if (nextRow != null) {
@@ -594,7 +634,6 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             }
         }
 
-        /** {@inheritDoc} */
         @Override
         public BinaryRow next() {
             if (!hasNext()) {
@@ -609,7 +648,6 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             return row;
         }
 
-        /** {@inheritDoc} */
         @Override
         public void close() {
             // no-op

@@ -40,7 +40,6 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Abstract table storage implementation based on {@link PageMemory}.
  */
-// TODO: IGNITE-16642 Support indexes.
 public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
     protected final TableConfiguration tableCfg;
 
@@ -60,7 +59,6 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
         tablesConfiguration = tablesCfg;
     }
 
-    /** {@inheritDoc} */
     @Override
     public TableConfiguration configuration() {
         return tableCfg;
@@ -71,7 +69,6 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
      */
     public abstract DataRegion<?> dataRegion();
 
-    /** {@inheritDoc} */
     @Override
     public void start() throws StorageException {
         TableView tableView = tableCfg.value();
@@ -81,7 +78,6 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
         started = true;
     }
 
-    /** {@inheritDoc} */
     @Override
     public void stop() throws StorageException {
         close(false);
@@ -95,7 +91,6 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
      */
     public abstract AbstractPageMemoryMvPartitionStorage createMvPartitionStorage(int partitionId) throws StorageException;
 
-    /** {@inheritDoc} */
     @Override
     public AbstractPageMemoryMvPartitionStorage getOrCreateMvPartition(int partitionId) throws StorageException {
         AbstractPageMemoryMvPartitionStorage partition = getMvPartition(partitionId);
@@ -113,7 +108,6 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
         return partition;
     }
 
-    /** {@inheritDoc} */
     @Override
     public @Nullable AbstractPageMemoryMvPartitionStorage getMvPartition(int partitionId) {
         assert started : "Storage has not started yet";
@@ -130,7 +124,6 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
         return mvPartitions.get(partitionId);
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> destroyPartition(int partitionId) throws StorageException {
         assert started : "Storage has not started yet";
@@ -148,10 +141,9 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
         return CompletableFuture.completedFuture(null);
     }
 
-    /** {@inheritDoc} */
     @Override
     public SortedIndexStorage getOrCreateSortedIndex(int partitionId, UUID indexId) {
-        throw new UnsupportedOperationException("Not implemented yet");
+        return getOrCreateMvPartition(partitionId).getOrCreateSortedIndex(indexId);
     }
 
     @Override
@@ -159,7 +151,6 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
         return getOrCreateMvPartition(partitionId).getOrCreateHashIndex(indexId);
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> destroyIndex(UUID indexId) {
         throw new UnsupportedOperationException("Not implemented yet");

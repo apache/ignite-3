@@ -58,31 +58,26 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
         );
     }
 
-    /** {@inheritDoc} */
     @Override
     public <V> V runConsistently(WriteClosure<V> closure) throws StorageException {
         return closure.execute();
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> flush() {
         return CompletableFuture.completedFuture(null);
     }
 
-    /** {@inheritDoc} */
     @Override
     public long lastAppliedIndex() {
         return lastAppliedIndex;
     }
 
-    /** {@inheritDoc} */
     @Override
     public void lastAppliedIndex(long lastAppliedIndex) throws StorageException {
         this.lastAppliedIndex = lastAppliedIndex;
     }
 
-    /** {@inheritDoc} */
     @Override
     public long persistedIndex() {
         return lastAppliedIndex;

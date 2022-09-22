@@ -15,11 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.pagememory.index.hash;
+package org.apache.ignite.internal.storage.pagememory.index.sorted;
 
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
 
-import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.InvokeClosure;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.OperationType;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
@@ -28,65 +27,50 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Insert closure that removes corresponding {@link IndexColumns} from a {@link IndexColumnsFreeList} after removing it from the {@link
- * HashIndexTree}.
+ * Insert closure that inserts corresponding {@link IndexColumns} into a {@link IndexColumnsFreeList} before writing to the {@link
+ * SortedIndexTree}.
  */
-class RemoveHashIndexRowInvokeClosure implements InvokeClosure<HashIndexRow> {
-    /** Hash index row instance for removal. */
-    private final HashIndexRow hashIndexRow;
+class InsertSortedIndexRowInvokeClosure implements InvokeClosure<SortedIndexRow> {
+    /** Sorted index row instance for insertion. */
+    private final SortedIndexRow hashIndexRow;
 
     /** Free list to insert data into in case of necessity. */
     private final IndexColumnsFreeList freeList;
 
-    /** Operation type, either {@link OperationType#REMOVE} or {@link OperationType#NOOP} if row is missing. */
-    private OperationType operationType = OperationType.REMOVE;
+    /** Operation type, either {@link OperationType#PUT} or {@link OperationType#NOOP} depending on the tree state. */
+    private OperationType operationType = OperationType.PUT;
 
     /**
      * Constructor.
      *
-     * @param hashIndexRow Hash index row instance for removal.
+     * @param sortedIndexRow Sorted index row instance for insertion.
      * @param freeList Free list to insert data into in case of necessity.
      */
-    public RemoveHashIndexRowInvokeClosure(HashIndexRow hashIndexRow, IndexColumnsFreeList freeList) {
-        assert hashIndexRow.indexColumns().link() == 0L;
+    public InsertSortedIndexRowInvokeClosure(SortedIndexRow sortedIndexRow, IndexColumnsFreeList freeList) {
+        assert sortedIndexRow.indexColumns().link() == NULL_LINK;
 
-        this.hashIndexRow = hashIndexRow;
+        this.hashIndexRow = sortedIndexRow;
         this.freeList = freeList;
     }
 
     @Override
-    public void call(@Nullable HashIndexRow oldRow) {
-        if (oldRow == null) {
+    public void call(@Nullable SortedIndexRow oldRow) throws IgniteInternalCheckedException {
+        if (oldRow != null) {
             operationType = OperationType.NOOP;
-        } else {
-            hashIndexRow.indexColumns().link(oldRow.indexColumns().link());
+
+            return;
         }
+
+        freeList.insertDataRow(hashIndexRow.indexColumns());
     }
 
     @Override
-    public @Nullable HashIndexRow newRow() {
-        return null;
+    public @Nullable SortedIndexRow newRow() {
+        return hashIndexRow;
     }
 
     @Override
     public OperationType operationType() {
         return operationType;
-    }
-
-    /**
-     * Method to call after {@link BplusTree#invoke(Object, Object, InvokeClosure)} has completed.
-     *
-     * @throws IgniteInternalCheckedException If failed to remove data from the free list.
-     */
-    public void afterCompletion() throws IgniteInternalCheckedException {
-        IndexColumns indexColumns = hashIndexRow.indexColumns();
-
-        if (indexColumns.link() != NULL_LINK) {
-            assert operationType == OperationType.REMOVE;
-
-            freeList.removeDataRowByLink(indexColumns.link());
-
-            indexColumns.link(NULL_LINK);
-        }
     }
 }

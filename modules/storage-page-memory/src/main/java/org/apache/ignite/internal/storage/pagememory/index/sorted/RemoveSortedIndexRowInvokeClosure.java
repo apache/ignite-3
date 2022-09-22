@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.pagememory.index.hash;
+package org.apache.ignite.internal.storage.pagememory.index.sorted;
 
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
 
@@ -29,11 +29,11 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Insert closure that removes corresponding {@link IndexColumns} from a {@link IndexColumnsFreeList} after removing it from the {@link
- * HashIndexTree}.
+ * SortedIndexTree}.
  */
-class RemoveHashIndexRowInvokeClosure implements InvokeClosure<HashIndexRow> {
-    /** Hash index row instance for removal. */
-    private final HashIndexRow hashIndexRow;
+class RemoveSortedIndexRowInvokeClosure implements InvokeClosure<SortedIndexRow> {
+    /** Sorted index row instance for removal. */
+    private final SortedIndexRow sortedIndexRow;
 
     /** Free list to insert data into in case of necessity. */
     private final IndexColumnsFreeList freeList;
@@ -44,27 +44,27 @@ class RemoveHashIndexRowInvokeClosure implements InvokeClosure<HashIndexRow> {
     /**
      * Constructor.
      *
-     * @param hashIndexRow Hash index row instance for removal.
+     * @param sortedIndexRow Sorted index row instance for removal.
      * @param freeList Free list to insert data into in case of necessity.
      */
-    public RemoveHashIndexRowInvokeClosure(HashIndexRow hashIndexRow, IndexColumnsFreeList freeList) {
-        assert hashIndexRow.indexColumns().link() == 0L;
+    public RemoveSortedIndexRowInvokeClosure(SortedIndexRow sortedIndexRow, IndexColumnsFreeList freeList) {
+        assert sortedIndexRow.indexColumns().link() == 0L;
 
-        this.hashIndexRow = hashIndexRow;
+        this.sortedIndexRow = sortedIndexRow;
         this.freeList = freeList;
     }
 
     @Override
-    public void call(@Nullable HashIndexRow oldRow) {
+    public void call(@Nullable SortedIndexRow oldRow) {
         if (oldRow == null) {
             operationType = OperationType.NOOP;
         } else {
-            hashIndexRow.indexColumns().link(oldRow.indexColumns().link());
+            sortedIndexRow.indexColumns().link(oldRow.indexColumns().link());
         }
     }
 
     @Override
-    public @Nullable HashIndexRow newRow() {
+    public @Nullable SortedIndexRow newRow() {
         return null;
     }
 
@@ -79,7 +79,7 @@ class RemoveHashIndexRowInvokeClosure implements InvokeClosure<HashIndexRow> {
      * @throws IgniteInternalCheckedException If failed to remove data from the free list.
      */
     public void afterCompletion() throws IgniteInternalCheckedException {
-        IndexColumns indexColumns = hashIndexRow.indexColumns();
+        IndexColumns indexColumns = sortedIndexRow.indexColumns();
 
         if (indexColumns.link() != NULL_LINK) {
             assert operationType == OperationType.REMOVE;
