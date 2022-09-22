@@ -146,7 +146,7 @@ Ignite stores data in the form of key-value pairs and all the new columns will b
 
 //Both DDL and DML commands targeting the same table are blocked for a short time until `ALTER TABLE` is in progress.
 
-Schema changes applied by this command are persisted on disk if link:https://ignite.apache.org/docs/3.0.0-alpha/persistence[persistence,window=_blank] is enabled. Thus, the changes can survive full cluster restarts.
+Schema changes applied by this command are persisted on disk. Thus, the changes can survive full cluster restarts.
 
 Examples:
 
