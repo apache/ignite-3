@@ -132,12 +132,37 @@ task generateAutocompletionScript(type: JavaExec) {
             "-n",
             "ignite",
             "org.apache.ignite.cli.commands.TopLevelCliCommand"]
+    outputs.file "${buildDir}/ignite_completion.sh"
 }
 
 build.dependsOn generateAutocompletionScript
 
 application {
     mainClass = 'org.apache.ignite.cli.Main'
+}
+
+distributions {
+    main {
+        distributionBaseName = 'apache-ignite-cli'
+        contents {
+            into('') {
+                File.createTempDir().with {
+                    ["log"].each {new File(absolutePath, it).mkdirs() }
+                    from (absolutePath) {
+                        includeEmptyDirs = true
+                    }
+                }
+            }
+            into('') {
+                from ("$rootDir/LICENSE")
+                from ("$rootDir/NOTICE")
+                from ("$rootDir/assembly/README.md")
+            }
+            into('bin') {
+                from (generateAutocompletionScript)
+            }
+        }
+    }
 }
 
 idea.module {
