@@ -359,6 +359,7 @@ public class ClientRecordView<R> implements RecordView<R> {
     }
 
     private Integer getColocationHash(ClientSchema schema, R rec) {
+        // TODO: Are colocation columns required to be a part of the key?
         var hashCalc = new HashCalculator();
         var marsh = schema.getMarshaller(ser.mapper(), TuplePart.KEY_AND_VAL);
 
