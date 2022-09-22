@@ -362,7 +362,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 // TODO: sanpwc add todo for index integration ticket.
                 ConcurrentHashMap<ByteBuffer, RowId> primaryIndex = new ConcurrentHashMap<>();
 
-               CompletableFuture<Void> partitionReadyFuture = raftServers.get(node).prepareRaftGroup(
+                CompletableFuture<Void> partitionReadyFuture = raftServers.get(node).prepareRaftGroup(
                         grpId,
                         partNodes,
                         () -> {
@@ -374,7 +374,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                             );
                         },
                         RaftGroupOptions.defaults()
-                ).thenAccept(raftSvc -> {
+                ).thenAccept(
+                        raftSvc -> {
                             try {
                                 replicaManagers.get(node).startReplica(
                                         grpId,
@@ -396,7 +397,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                         }
                 );
 
-               partitionReadyFutures.add(partitionReadyFuture);
+                partitionReadyFutures.add(partitionReadyFuture);
             }
 
             if (startClient()) {
