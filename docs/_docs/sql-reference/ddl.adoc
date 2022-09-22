@@ -225,14 +225,14 @@ DROP TABLE [IF EXISTS] tableName
 Parameters:
 
 - `tableName` - the name of the table.
-- `IF NOT EXISTS` - do not throw an error if a table with the same name does not exist.
+- `IF EXISTS` - do not throw an error if a table with the same name does not exist.
 
 image::images/svg/drop_table_bnf.svg[Embedded,opts=inline]
 
 //Both DDL and DML commands targeting the same table are blocked while the `DROP TABLE` is in progress.
 //Once the table is dropped, all pending commands will fail with appropriate errors.
 
-Schema changes applied by this command are persisted on disk if link:https://ignite.apache.org/docs/3.0.0-alpha/persistence[persistence,window=_blank] is enabled. Thus, the changes can survive full cluster restarts.
+Schema changes applied by this command are persisted on disk. Thus, the changes can survive full cluster restarts.
 
 Examples:
 
