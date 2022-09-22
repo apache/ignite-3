@@ -57,21 +57,12 @@ public class IndexValidatorImpl implements Validator<IndexValidator, NamedListVi
 
         NamedListView<? extends TableView> tablesView = tablesConfig.tables();
 
-        NamedListView<? extends TableView> tablesViewOld = tablesConfigOld.tables();
-
         for (String key : indexView.namedListKeys()) {
             TableIndexView idxView = indexView.get(key);
 
             UUID tableId = idxView.tableId();
 
             TableView tableView = getByInternalId(tablesView, tableId);
-
-            TableView tableViewOld = getByInternalId(tablesViewOld, tableId);
-
-            // Table drop.
-            if (tableView == null && tableViewOld != null) {
-                continue;
-            }
 
             if (tableView == null) {
                 ctx.addIssue(new ValidationIssue(key, "Unable to create index [name=" + key + "]. Table not found."));

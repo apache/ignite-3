@@ -49,7 +49,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
@@ -1233,35 +1232,28 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             if (tbl == null) {
                 dropTblFut.completeExceptionally(new TableNotFoundException(name));
             } else {
-                ConcurrentLinkedQueue<CompletableFuture<Void>> idxsChange = new ConcurrentLinkedQueue<>();
-
-                CompletableFuture<Void> tblOps = tablesCfg.tables()
-                        .change(change -> {
-                            idxsChange.clear();
-
-                            TableView tableCfg = change.get(name);
+                tablesCfg.change(chg ->
+                        chg.changeTables(tblChg ->
+                        {
+                            TableView tableCfg = tblChg.get(name);
 
                             if (tableCfg == null) {
                                 throw new TableNotFoundException(name);
                             }
 
-                            change.delete(name);
-
+                            tblChg.delete(name);
+                        }).changeIndexes(idxChg ->
+                        {
                             List<String> indicesNames = tablesCfg.indexes().value().namedListKeys();
 
                             List<String> indexes = indicesNames.stream().filter(idx ->
                                     tablesCfg.indexes().get(idx).tableId().value().equals(tbl.tableId())).collect(Collectors.toList());
 
                             for (String indexName : indexes) {
-                                idxsChange.add(tablesCfg.indexes().change(chg -> chg.delete(indexName)));
+                                idxChg.delete(indexName);
                             }
-                        });
-
-                for (CompletableFuture<Void> fut : idxsChange) {
-                    tblOps = tblOps.thenCompose(f -> fut);
-                }
-
-                tblOps.whenComplete((res, t) -> {
+                        }))
+                .whenComplete((res, t) -> {
                     if (t != null) {
                         Throwable ex = getRootCause(t);
 
