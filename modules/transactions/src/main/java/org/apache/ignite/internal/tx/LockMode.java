@@ -51,7 +51,7 @@ public enum LockMode {
 
     /** Lock mode reenter matrix. */
     private static final boolean[][] REENTER_MATRIX = {
-            {true, true, true, true, true, true, true},
+            {true, true, true, true, true, true},
             {true, true, false, false, false, false},
             {true, true, true, false, false, false},
             {true, true, false, true, false, false},
