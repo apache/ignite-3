@@ -96,8 +96,6 @@ public class VolatilePageMemoryStorageEngine implements StorageEngine {
             throws StorageException {
         VolatilePageMemoryDataStorageView dataStorageView = (VolatilePageMemoryDataStorageView) tableCfg.dataStorage().value();
 
-        assert dataStorageView.name().equals(ENGINE_NAME) : dataStorageView.name();
-
         return new VolatilePageMemoryTableStorage(tableCfg, tablesCfg, regions.get(dataStorageView.dataRegion()));
     }
 

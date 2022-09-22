@@ -156,7 +156,7 @@ public class RocksDbFlusher {
 
     /**
      * Returns a future to wait next flush operation from the current point in time. Uses {@link RocksDB#getLatestSequenceNumber()} to
-     * achieve this, by fixing its value at the time of invokation. Storage is considered flushed when at least one persisted column
+     * achieve this, by fixing its value at the time of invocation. Storage is considered flushed when at least one persisted column
      * family has its latest sequence number greater or equal to the one that we fixed. This is enough to guarantee that all column families
      * have up-to-data state as well, because flusher expects its users to also have {@link Options#setAtomicFlush(boolean)} option
      * enabled.
