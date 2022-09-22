@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.tx.storage.state.rocksdb;
 
 import static java.util.Collections.reverse;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.rocksdb.ReadTier.PERSISTED_TIER;
 
@@ -61,7 +60,7 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
     }
 
     /** Column family name for transaction states. */
-    private static final String TXN_STATE_CF = new String(RocksDB.DEFAULT_COLUMN_FAMILY, StandardCharsets.UTF_8);
+    private static final String TX_STATE_CF = new String(RocksDB.DEFAULT_COLUMN_FAMILY, StandardCharsets.UTF_8);
 
     /** Rocks DB instance. */
     private volatile TransactionDB db;
@@ -223,7 +222,7 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
                         .collect(toList());
 
                 cfDescriptors = cfDescriptors.isEmpty()
-                        ? List.of(new ColumnFamilyDescriptor(TXN_STATE_CF.getBytes(StandardCharsets.UTF_8), new ColumnFamilyOptions()))
+                        ? List.of(new ColumnFamilyDescriptor(TX_STATE_CF.getBytes(StandardCharsets.UTF_8), new ColumnFamilyOptions()))
                         : cfDescriptors;
             }
 

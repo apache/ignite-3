@@ -253,7 +253,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     /** Transaction state storage scheduled pool. */
     private final ScheduledExecutorService txStateStorageScheduledPool = Executors.newSingleThreadScheduledExecutor(
-        new NamedThreadFactory("tx-state-storage-engine-scheduled-pool", LOG)
+        new NamedThreadFactory("tx-state-storage-scheduled-pool", LOG)
     );
 
     /** Transaction state storage pool. */

@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.tx.storage.state.test;
 
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.internal.configuration.storage.StorageException;
