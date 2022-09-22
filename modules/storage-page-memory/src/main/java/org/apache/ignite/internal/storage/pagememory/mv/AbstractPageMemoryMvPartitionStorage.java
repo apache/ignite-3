@@ -219,9 +219,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     }
 
     private PageMemorySortedIndexStorage createOrRestoreSortedIndex(IndexMeta indexMeta) {
-        TableView tableView = tableStorage.configuration().value();
-
-        var indexDescriptor = new SortedIndexDescriptor(indexMeta.id(), tableView, tablesConfiguration.value());
+        var indexDescriptor = new SortedIndexDescriptor(indexMeta.id(), tablesConfiguration.value());
 
         try {
             PageMemory pageMemory = tableStorage.dataRegion().pageMemory();
@@ -232,9 +230,11 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                     ? pageMemory.allocatePage(groupId, partitionId, PageIdAllocator.FLAG_AUX)
                     : indexMeta.metaPageId();
 
+            String tableName = tableStorage.configuration().value().name();
+
             SortedIndexTree sortedIndexTree = new SortedIndexTree(
                     groupId,
-                    tableView.name(),
+                    tableName,
                     partitionId,
                     pageMemory,
                     PageLockListenerNoOp.INSTANCE,
