@@ -106,9 +106,11 @@ application {
 }
 
 distributions {
+    startScripts.enabled = false
     main {
-        distributionBaseName = 'apache-ignite'
+        distributionBaseName = 'ignite3-db'
         contents {
+            // create empty dirs
             into('') {
                 File.createTempDir().with {
                     ["log", "config", "work"].each {new File(absolutePath, it).mkdirs() }
@@ -123,13 +125,13 @@ distributions {
                 from ("$rootDir/assembly/README.md")
             }
             into('config') {
-                from ("$rootDir/deliveries/scripts/bootstrap-config")
-                from ("$rootDir/deliveries/config/ignite-config.conf")
-                from ("$rootDir/deliveries/config/ignite.java.util.logging.properties")
+                from ("$rootDir/packaging/scripts/bootstrap-config")
+                from ("$rootDir/packaging/config/ignite-config.conf")
+                from ("$rootDir/packaging/config/ignite.java.util.logging.properties")
             }
             into('bin') {
-                from ("$rootDir/deliveries/scripts/start.sh")
-                from ("$rootDir/deliveries/scripts/stop.sh")
+                from ("$rootDir/packaging/scripts/start.sh")
+                from ("$rootDir/packaging/scripts/stop.sh")
             }
         }
     }

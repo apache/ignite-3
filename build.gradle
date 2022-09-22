@@ -20,6 +20,7 @@
 plugins {
     alias(libs.plugins.javacc) apply false
     alias(libs.plugins.modernizer) apply false
+    id 'java'
 }
 
 repositories {
@@ -91,4 +92,23 @@ subprojects {
             }
         }
     }
+}
+
+// needs to create a dependency between multi-project tasks
+task buildRunnerAndCLi (dependsOn: [project(':ignite-runner').build]) {
+    buildRunnerAndCLi.finalizedBy project(':ignite-cli').build
+}
+
+task buildAll (dependsOn: [build]) {
+    buildAll.finalizedBy buildRunnerAndCLi
+}
+
+// create an uber zip with all distributions
+task packageAll (dependsOn: [buildAll], type: Zip) {
+    baseName = "ignite3"
+
+    def igniteZip = zipTree("${project('ignite-runner').buildDir}/distributions/ignite3-db-${project.version}.zip")
+    def cliZip = zipTree("${project('ignite-cli').buildDir}/distributions/ignite3-cli-${project.version}.zip")
+
+    from(igniteZip, cliZip)
 }
