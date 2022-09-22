@@ -1170,6 +1170,17 @@ public class ConfigurationUtil {
     }
 
     /**
+     * Extracts the internal ID of the element located in the given named list node under the given name.
+     *
+     * @param node Named list node.
+     * @param name Name of the element inside the named list node.
+     * @return Internal ID of the element.
+     */
+    public static UUID internalId(NamedListView<?> node, String name) {
+        return ((NamedListNode<?>) node).internalId(name);
+    }
+
+    /**
      * Returns all internal ids of the elements from the list.
      */
     public static List<UUID> internalIds(NamedConfigurationTree<?, ?, ?> cfg) {

@@ -148,7 +148,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
 
             tablesCfg.indexes().change(indexListChange -> {
                 idxExist.set(false);
-                
+
                 if (indexListChange.get(canonicalIndexName) != null) {
                     idxExist.set(true);
 
