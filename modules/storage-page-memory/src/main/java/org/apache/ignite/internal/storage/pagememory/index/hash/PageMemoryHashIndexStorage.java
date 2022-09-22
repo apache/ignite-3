@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.storage.pagememory.index.hash;
 
-import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
@@ -102,7 +101,7 @@ public class PageMemoryHashIndexStorage implements HashIndexStorage {
         try {
             HashIndexRow hashIndexRow = new HashIndexRow(indexColumns, row.rowId());
 
-            var insert = new InsertHashIndexRowInvokeClosure(hashIndexRow, freeList, IoStatisticsHolderNoOp.INSTANCE);
+            var insert = new InsertHashIndexRowInvokeClosure(hashIndexRow, freeList);
 
             hashIndexTree.invoke(hashIndexRow, null, insert);
         } catch (IgniteInternalCheckedException e) {
@@ -117,7 +116,7 @@ public class PageMemoryHashIndexStorage implements HashIndexStorage {
         try {
             HashIndexRow hashIndexRow = new HashIndexRow(indexColumns, row.rowId());
 
-            var remove = new RemoveHashIndexRowInvokeClosure(hashIndexRow, freeList, IoStatisticsHolderNoOp.INSTANCE);
+            var remove = new RemoveHashIndexRowInvokeClosure(hashIndexRow, freeList);
 
             hashIndexTree.invoke(hashIndexRow, null, remove);
 

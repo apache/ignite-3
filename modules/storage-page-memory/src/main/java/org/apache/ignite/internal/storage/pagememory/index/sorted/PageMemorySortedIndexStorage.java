@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.storage.pagememory.index.sorted;
 
-import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.storage.StorageException;
@@ -76,7 +75,7 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
         try {
             SortedIndexRow sortedIndexRow = new SortedIndexRow(indexColumns, row.rowId());
 
-            var insert = new InsertSortedIndexRowInvokeClosure(sortedIndexRow, freeList, IoStatisticsHolderNoOp.INSTANCE);
+            var insert = new InsertSortedIndexRowInvokeClosure(sortedIndexRow, freeList);
 
             sortedIndexTree.invoke(sortedIndexRow, null, insert);
         } catch (IgniteInternalCheckedException e) {
@@ -91,7 +90,7 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
         try {
             SortedIndexRow hashIndexRow = new SortedIndexRow(indexColumns, row.rowId());
 
-            var remove = new RemoveSortedIndexRowInvokeClosure(hashIndexRow, freeList, IoStatisticsHolderNoOp.INSTANCE);
+            var remove = new RemoveSortedIndexRowInvokeClosure(hashIndexRow, freeList);
 
             sortedIndexTree.invoke(hashIndexRow, null, remove);
 

@@ -19,7 +19,6 @@ package org.apache.ignite.internal.storage.pagememory.index.sorted;
 
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
 
-import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolder;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.InvokeClosure;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.OperationType;
@@ -39,9 +38,6 @@ class RemoveSortedIndexRowInvokeClosure implements InvokeClosure<SortedIndexRow>
     /** Free list to insert data into in case of necessity. */
     private final IndexColumnsFreeList freeList;
 
-    /** Statistics holder to track IO operations. */
-    private final IoStatisticsHolder statHolder;
-
     /** Operation type, either {@link OperationType#REMOVE} or {@link OperationType#NOOP} if row is missing. */
     private OperationType operationType = OperationType.REMOVE;
 
@@ -50,14 +46,12 @@ class RemoveSortedIndexRowInvokeClosure implements InvokeClosure<SortedIndexRow>
      *
      * @param sortedIndexRow Sorted index row instance for removal.
      * @param freeList Free list to insert data into in case of necessity.
-     * @param statHolder Statistics holder to track IO operations.
      */
-    public RemoveSortedIndexRowInvokeClosure(SortedIndexRow sortedIndexRow, IndexColumnsFreeList freeList, IoStatisticsHolder statHolder) {
+    public RemoveSortedIndexRowInvokeClosure(SortedIndexRow sortedIndexRow, IndexColumnsFreeList freeList) {
         assert sortedIndexRow.indexColumns().link() == 0L;
 
         this.sortedIndexRow = sortedIndexRow;
         this.freeList = freeList;
-        this.statHolder = statHolder;
     }
 
     @Override
@@ -90,7 +84,7 @@ class RemoveSortedIndexRowInvokeClosure implements InvokeClosure<SortedIndexRow>
         if (indexColumns.link() != NULL_LINK) {
             assert operationType == OperationType.REMOVE;
 
-            freeList.removeDataRowByLink(indexColumns.link(), statHolder);
+            freeList.removeDataRowByLink(indexColumns.link());
 
             indexColumns.link(NULL_LINK);
         }
