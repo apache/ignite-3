@@ -624,7 +624,11 @@ public final class ReliableChannel implements AutoCloseable {
     private void onTopologyAssignmentChanged(ClientChannel clientChannel) {
         // NOTE: Multiple channels will send the same update to us, resulting in multiple cache invalidations.
         // This could be solved with a cluster-wide AssignmentVersion, but we don't have that.
-        assignmentVersion.incrementAndGet();
+        // So we only react to updates from the default channel. When no user-initiated operations are performed on the default
+        // channel, heartbeat messages will trigger updates.
+        if (clientChannel == channels.get(curChIdx).ch) {
+            assignmentVersion.incrementAndGet();
+        }
     }
 
     /**

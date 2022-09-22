@@ -122,8 +122,8 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
         initPartitionAssignment(assignments);
 
-        // Perform one request to receive a change notification flag and drop cached assignment.
-        recordView.get(null, Tuple.create().set("ID", 0L));
+        // Perform one request on the default channel to receive a change notification flag and drop cached assignment.
+        client2.tables().tables();
 
         // Check new assignment.
         assertOpOnNode("server-2", "get", x -> recordView.get(null, Tuple.create().set("ID", 0L)));
