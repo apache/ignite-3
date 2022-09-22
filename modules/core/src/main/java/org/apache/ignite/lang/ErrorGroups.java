@@ -176,7 +176,7 @@ public class ErrorGroups {
         public static final int OPERATION_INTERRUPTED_ERR = SQL_ERR_GROUP.registerErrorCode(28);
 
         /** An error occurred while canceling the operation. */
-        public static final int CANCEL_OPERATION_ERR = SQL_ERR_GROUP.registerErrorCode(20);
+        public static final int CANCEL_OPERATION_ERR = SQL_ERR_GROUP.registerErrorCode(29);
     }
 
     /** Meta storage error group. */
