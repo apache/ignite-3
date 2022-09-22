@@ -460,17 +460,17 @@ public class RocksDbTableStorage implements MvTableStorage {
         // in order to avoid concurrent access to the CF.
         SortedIndex sortedIdx = sortedIndices.remove(indexId);
 
-        if (hashIdx == null && sortedIdx == null) {
+        if (sortedIdx != null) {
+            // Remove the to-be destroyed CF from the flusher
+            flusher.removeColumnFamily(sortedIdx.indexCf().handle());
+
+            sortedIdx.destroy();
+        }
+
+        if (hashIdx == null) {
             return CompletableFuture.completedFuture(null);
         } else {
-            return awaitFlush(false).whenComplete((v, e) -> {
-                if (sortedIdx != null) {
-                    // Remove the to-be destroyed CF from the flusher
-                    flusher.removeColumnFamily(sortedIdx.indexCf().handle());
-
-                    sortedIdx.destroy();
-                }
-            });
+            return awaitFlush(false);
         }
     }
 

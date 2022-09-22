@@ -17,11 +17,11 @@
 
 package org.apache.ignite.internal.rocksdb.flush;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.SortedMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -48,7 +48,10 @@ public class RocksDbFlusher {
     private volatile RocksDB db;
 
     /** List of all column families. */
-    private final List<ColumnFamilyHandle> columnFamilyHandles = new CopyOnWriteArrayList<>();
+    private final List<ColumnFamilyHandle> columnFamilyHandles = new ArrayList<>();
+
+    /** Mutex for {@link #columnFamilyHandles} access. */
+    private final Object columnFamilyHandlesMux = new Object();
 
     /** Scheduled pool to schedule flushes. */
     private final ScheduledExecutorService scheduledPool;
@@ -133,7 +136,10 @@ public class RocksDbFlusher {
     @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
     public void init(RocksDB db, List<ColumnFamilyHandle> columnFamilyHandles) {
         this.db = db;
-        this.columnFamilyHandles.addAll(columnFamilyHandles);
+
+        synchronized (columnFamilyHandlesMux) {
+            this.columnFamilyHandles.addAll(columnFamilyHandles);
+        }
 
         synchronized (latestPersistedSequenceNumberMux) {
             latestPersistedSequenceNumber = db.getLatestSequenceNumber();
@@ -144,14 +150,18 @@ public class RocksDbFlusher {
      * Adds the given handle to the list of CF handles.
      */
     public void addColumnFamily(ColumnFamilyHandle handle) {
-        columnFamilyHandles.add(handle);
+        synchronized (columnFamilyHandlesMux) {
+            columnFamilyHandles.add(handle);
+        }
     }
 
     /**
      * Removes the given handle to the list of CF handles.
      */
     public void removeColumnFamily(ColumnFamilyHandle handle) {
-        columnFamilyHandles.remove(handle);
+        synchronized (columnFamilyHandlesMux) {
+            columnFamilyHandles.remove(handle);
+        }
     }
 
     /**
@@ -205,7 +215,9 @@ public class RocksDbFlusher {
                 try {
                     // Explicit list of CF handles is mandatory!
                     // Default flush is buggy and only invokes listener methods for a single random CF.
-                    db.flush(flushOptions, columnFamilyHandles);
+                    synchronized (columnFamilyHandlesMux) {
+                        db.flush(flushOptions, columnFamilyHandles);
+                    }
                 } catch (RocksDBException e) {
                     LOG.error("Error occurred during the explicit flush", e);
                 } finally {
