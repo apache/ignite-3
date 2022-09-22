@@ -35,6 +35,8 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Tests partition awareness.
@@ -65,7 +67,11 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         testServer2 = startServer(10800, 10, 0, server2, "server-2");
         serverPort2 = testServer2.port();
 
-        client2 = startClient("127.0.0.1:" + serverPort, "127.0.0.1:" + serverPort2);
+        var clientBuilder = IgniteClient.builder()
+                .addresses("127.0.0.1:" + serverPort, "127.0.0.1:" + serverPort2)
+                .heartbeatInterval(200);
+
+        client2 = clientBuilder.build();
     }
 
     /**
@@ -106,8 +112,9 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         assertOpOnNode("server-2", "get", x -> recordView.get(tx, Tuple.create().set("ID", 2L)));
     }
 
-    @Test
-    public void testClientReceivesPartitionAssignmentUpdates() {
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testClientReceivesPartitionAssignmentUpdates(boolean useHeartbeat) throws InterruptedException {
         // Check default assignment.
         RecordView<Tuple> recordView = defaultTable().recordView();
 
@@ -122,8 +129,13 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
         initPartitionAssignment(assignments);
 
-        // Perform one request on the default channel to receive a change notification flag and drop cached assignment.
-        client2.tables().tables();
+        if (useHeartbeat) {
+            // Wait for heartbeat message to receive change notification flag.
+            Thread.sleep(500);
+        } else {
+            // Perform one request on the default channel to receive change notification flag.
+            client2.tables().tables();
+        }
 
         // Check new assignment.
         assertOpOnNode("server-2", "get", x -> recordView.get(null, Tuple.create().set("ID", 0L)));
