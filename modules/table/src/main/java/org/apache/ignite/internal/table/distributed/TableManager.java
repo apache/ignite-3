@@ -49,6 +49,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
@@ -1232,7 +1233,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             if (tbl == null) {
                 dropTblFut.completeExceptionally(new TableNotFoundException(name));
             } else {
-                List<CompletableFuture<Void>> idxsChange = new ArrayList<>();
+                ConcurrentLinkedQueue<CompletableFuture<Void>> idxsChange = new ConcurrentLinkedQueue<>();
 
                 CompletableFuture<Void> tblOps = tablesCfg.tables()
                         .change(change -> {
