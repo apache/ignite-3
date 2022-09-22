@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.externalize;
 
+import static org.apache.ignite.lang.ErrorGroups.Sql.REL_DESERIALIZATION_ERR;
+
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -103,7 +105,7 @@ public class RelJsonReader {
             readRels(rels);
             return lastRel;
         } catch (IOException e) {
-            throw new IgniteException(e);
+            throw new IgniteException(REL_DESERIALIZATION_ERR, e);
         }
     }
 

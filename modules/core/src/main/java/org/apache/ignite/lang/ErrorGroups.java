@@ -118,29 +118,65 @@ public class ErrorGroups {
         /** Cursor is already closed error. */
         public static final int CURSOR_CLOSED_ERR = SQL_ERR_GROUP.registerErrorCode(9);
 
-        /** Some keys can't be inserted because they violate unique constraint PK. */
+        /** Constraint violation: some keys can't be inserted because they violate unique constraint PK. */
         public static final int DUPLICATE_KEYS_ERR = SQL_ERR_GROUP.registerErrorCode(10);
 
-        /** Node left the cluster. */
-        public static final int NODE_LEFT_ERR = SQL_ERR_GROUP.registerErrorCode(11);
+        /** Constraint violation: delete a column, belongs to the primary key. */
+        public static final int DEL_PK_COMUMN_CONSTRAINT_ERR = SQL_ERR_GROUP.registerErrorCode(11);
 
         /**  Too many grouping expressions. */
         public static final int TOO_MANY_GROUPING_EXPRESSIONS_ERR = SQL_ERR_GROUP.registerErrorCode(12);
 
-        /** Unsupported internal operation. */
-        public static final int USUPPORTED_INTERNAL_OPERATION_ERR = SQL_ERR_GROUP.registerErrorCode(13);
+        /** Unsupported sql operation. */
+        public static final int USUPPORTED_SQL_OPERATION_KIND_ERR = SQL_ERR_GROUP.registerErrorCode(13);
+
+        /** Unsupported DDL operation. */
+        public static final int USUPPORTED_DDL_OPERATION_ERR = SQL_ERR_GROUP.registerErrorCode(14);
 
         /** Query validation error. */
-        public static final int QUERY_VALIDATION_ERR = SQL_ERR_GROUP.registerErrorCode(14);
+        public static final int QUERY_VALIDATION_ERR = SQL_ERR_GROUP.registerErrorCode(15);
 
         /** Table not found. */
-        public static final int TABLE_NOT_FOUND_ERR = SQL_ERR_GROUP.registerErrorCode(15);
+        public static final int TABLE_NOT_FOUND_ERR = SQL_ERR_GROUP.registerErrorCode(16);
 
         /** Table version not found. */
-        public static final int TABLE_VER_NOT_FOUND_ERR = SQL_ERR_GROUP.registerErrorCode(16);
+        public static final int TABLE_VER_NOT_FOUND_ERR = SQL_ERR_GROUP.registerErrorCode(17);
+
+        /** Invalid table option. */
+        public static final int TABLE_OPTION_ERR = SQL_ERR_GROUP.registerErrorCode(18);
+
+        /** Query mapping error. */
+        public static final int QUERY_MAPPING_ERR = SQL_ERR_GROUP.registerErrorCode(19);
+
+        /** DDL execution error. */
+        public static final int DDL_EXEC_ERR = SQL_ERR_GROUP.registerErrorCode(20);
+
+        /** SQL data type to relational conversion error. */
+        public static final int SQL_TO_REL_CONVERSION_ERR = SQL_ERR_GROUP.registerErrorCode(21);
+
+        /** Relational expression serialization error. */
+        public static final int REL_SERIALIZATION_ERR = SQL_ERR_GROUP.registerErrorCode(22);
+
+        /** Relational expression deserialization error. */
+        public static final int REL_DESERIALIZATION_ERR = SQL_ERR_GROUP.registerErrorCode(23);
+
+        /** Class not found error. */
+        public static final int CLASS_NOT_FOUND_ERR = SQL_ERR_GROUP.registerErrorCode(24);
+
+        /** Expression compilation error. */
+        public static final int EXPRESSION_COMPILATION_ERR = SQL_ERR_GROUP.registerErrorCode(25);
+
+        /** Node left the cluster. */
+        public static final int NODE_LEFT_ERR = SQL_ERR_GROUP.registerErrorCode(26);
+
+        /** Message send error. */
+        public static final int MESSAGE_SEND_ERR = SQL_ERR_GROUP.registerErrorCode(27);
 
         /** Operation aborted/interrupted error. */
-        public static final int OPERATION_INTERRUPTED_ERR = SQL_ERR_GROUP.registerErrorCode(17);
+        public static final int OPERATION_INTERRUPTED_ERR = SQL_ERR_GROUP.registerErrorCode(28);
+
+        /** An error occurred while canceling the operation. */
+        public static final int CANCEL_OPERATION_ERR = SQL_ERR_GROUP.registerErrorCode(20);
     }
 
     /** Meta storage error group. */

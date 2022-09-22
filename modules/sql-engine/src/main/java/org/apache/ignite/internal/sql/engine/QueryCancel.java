@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.lang.ErrorGroups.Sql.CANCEL_OPERATION_ERR;
+
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.internal.util.Cancellable;
@@ -65,7 +67,7 @@ public class QueryCancel {
                 act.cancel();
             } catch (Exception e) {
                 if (ex == null) {
-                    ex = new IgniteException(e);
+                    ex = new IgniteException(CANCEL_OPERATION_ERR, e);
                 } else {
                     ex.addSuppressed(e);
                 }

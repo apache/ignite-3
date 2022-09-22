@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.exec;
 import static org.apache.ignite.internal.sql.engine.externalize.RelJsonReader.fromJson;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
+import static org.apache.ignite.lang.ErrorGroups.Sql.DDL_EXEC_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.NODE_LEFT_ERR;
 
 import java.util.ArrayList;
@@ -273,11 +274,11 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         }
 
         if (e instanceof IgniteInternalCheckedException) {
-            return new IgniteInternalException("Failed to execute DDL statement [stmt=" /*+ qry.sql()*/
+            return new IgniteInternalException(DDL_EXEC_ERR, "Failed to execute DDL statement [stmt=" /*+ qry.sql()*/
                     + ", err=" + e.getMessage() + ']', e);
         }
 
-        return (e instanceof RuntimeException) ? (RuntimeException) e : new IgniteException(e);
+        return (e instanceof RuntimeException) ? (RuntimeException) e : new IgniteException(DDL_EXEC_ERR, e);
     }
 
     private AsyncCursor<List<Object>> executeExplain(ExplainPlan plan) {
@@ -465,7 +466,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         private void onNodeLeft(String nodeId) {
             remoteFragmentInitCompletion.entrySet().stream().filter(e -> nodeId.equals(e.getKey().nodeId()))
                     .forEach(e -> e.getValue()
-                            .completeExceptionally(new IgniteInternalException(NODE_LEFT_ERR, "Node left the cluster [nodeId=" + nodeId + "]")));
+                            .completeExceptionally(new IgniteInternalException(
+                                    NODE_LEFT_ERR, "Node left the cluster [nodeId=" + nodeId + "]")));
         }
 
         private void executeFragment(FragmentPlan plan, ExecutionContext<RowT> ectx) {

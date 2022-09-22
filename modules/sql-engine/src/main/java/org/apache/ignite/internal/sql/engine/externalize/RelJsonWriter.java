@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.externalize;
 
+import static org.apache.ignite.lang.ErrorGroups.Sql.REL_SERIALIZATION_ERR;
+
 import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
@@ -127,7 +129,7 @@ public class RelJsonWriter implements RelWriter {
 
             return writer.toString();
         } catch (IOException e) {
-            throw new IgniteException(e);
+            throw new IgniteException(REL_SERIALIZATION_ERR, e);
         }
     }
 

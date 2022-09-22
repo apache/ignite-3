@@ -25,7 +25,10 @@ import static org.apache.ignite.lang.ErrorGroups.Sql.PRIMARY_KEYS_MULTIPLE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.PRIMARY_KEY_MISSING_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_INVALID_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.SCHEMA_NOT_FOUND_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.SQL_TO_REL_CONVERSION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STORAGE_ENGINE_NOT_VALID_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.TABLE_OPTION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.USUPPORTED_DDL_OPERATION_ERR;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -169,7 +172,7 @@ public class DdlSqlToCommandConverter {
             return convertDropIndex((IgniteSqlDropIndex) ddlNode, ctx);
         }
 
-        throw new IgniteException("Unsupported operation ["
+        throw new IgniteException(USUPPORTED_DDL_OPERATION_ERR, "Unsupported operation ["
                 + "sqlNodeKind=" + ddlNode.getKind() + "; "
                 + "querySql=\"" + ctx.query() + "\"]");
     }
@@ -201,7 +204,8 @@ public class DdlSqlToCommandConverter {
                 } else if (dataStorageOptionInfos.get(createTblCmd.dataStorage()).containsKey(optionKey)) {
                     processTableOption(dataStorageOptionInfos.get(createTblCmd.dataStorage()).get(optionKey), option, ctx, createTblCmd);
                 } else {
-                    throw new IgniteException(String.format("Unexpected table option [option=%s, query=%s]", optionKey, ctx.query()));
+                    throw new IgniteException(
+                            TABLE_OPTION_ERR, String.format("Unexpected table option [option=%s, query=%s]", optionKey, ctx.query()));
                 }
             }
         }
@@ -559,19 +563,19 @@ public class DdlSqlToCommandConverter {
         try {
             optionValue = ((SqlLiteral) option.value()).getValueAs(tableOptionInfo.type);
         } catch (AssertionError | ClassCastException e) {
-            throw new IgniteException(String.format(
+            throw new IgniteException(TABLE_OPTION_ERR, String.format(
                     "Unsuspected table option type [option=%s, expectedType=%s, query=%s]",
                     option.key().getSimple(),
                     tableOptionInfo.type.getSimpleName(),
-                    context.query()
-            ));
+                    context.query())
+            );
         }
 
         if (tableOptionInfo.validator != null) {
             try {
                 tableOptionInfo.validator.accept(optionValue);
             } catch (Throwable e) {
-                throw new IgniteException(String.format(
+                throw new IgniteException(TABLE_OPTION_ERR, String.format(
                         "Table option validation failed [option=%s, err=%s, query=%s]",
                         option.key().getSimple(),
                         e.getMessage(),
@@ -585,7 +589,7 @@ public class DdlSqlToCommandConverter {
 
     private void checkPositiveNumber(int num) {
         if (num < 0) {
-            throw new IgniteException("Must be positive:" + num);
+            throw new IgniteException(TABLE_OPTION_ERR, "Must be positive:" + num);
         }
     }
 
@@ -654,7 +658,7 @@ public class DdlSqlToCommandConverter {
             }
         } catch (Throwable th) {
             // catch throwable here because literal throws an AssertionError when unable to cast value to a given class
-            throw new IgniteException("Unable co convert literal", th);
+            throw new IgniteException(SQL_TO_REL_CONVERSION_ERR, "Unable co convert literal", th);
         }
     }
 }

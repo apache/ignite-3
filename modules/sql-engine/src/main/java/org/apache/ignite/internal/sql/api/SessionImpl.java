@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.api;
 
 import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.OPERATION_INTERRUPTED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_INVALID_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.SESSION_NOT_FOUND_ERR;
 
@@ -333,9 +334,9 @@ public class SessionImpl implements Session {
         try {
             return stage.toCompletableFuture().get();
         } catch (ExecutionException e) {
-            throw new IgniteException(e.getCause());
+            throw new IgniteException(OPERATION_INTERRUPTED_ERR, e.getCause());
         } catch (Throwable e) {
-            throw new IgniteException(e);
+            throw new IgniteException(OPERATION_INTERRUPTED_ERR, e);
         }
     }
 

@@ -22,6 +22,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter.convert;
 import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter.convertDefaultToConfiguration;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
+import static org.apache.ignite.lang.ErrorGroups.Sql.DEL_PK_COMUMN_CONSTRAINT_ERR;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -399,7 +400,7 @@ public class DdlCommandHandler {
                                 }
 
                                 if (primaryCols.contains(colName)) {
-                                    throw new IgniteException(IgniteStringFormatter
+                                    throw new IgniteException(DEL_PK_COMUMN_CONSTRAINT_ERR, IgniteStringFormatter
                                             .format("Can`t delete column, belongs to primary key: [name={}]", colName));
                                 }
                             }
