@@ -391,7 +391,7 @@ public class ColumnType {
      */
     public static class NumberColumnType extends ColumnType {
         /** Number type with unlimited precision. */
-        public static final NumberColumnType UNLIMITED_NUMBER = new NumberColumnType(ColumnTypeSpec.NUMBER, 0);
+        public static final NumberColumnType UNLIMITED_NUMBER = new NumberColumnType(ColumnTypeSpec.NUMBER, Integer.MAX_VALUE);
 
         /** Max precision of value. If -1, column has no precision restrictions. */
         private final int precision;
