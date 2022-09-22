@@ -47,8 +47,6 @@ public class IndexValidatorImpl implements Validator<IndexValidator, NamedListVi
 
     @Override
     public void validate(IndexValidator annotation, ValidationContext<NamedListView<TableIndexView>> ctx) {
-        TablesView tablesConfigOld = ctx.getOldRoot(TablesConfiguration.KEY);
-
         TablesView tablesConfig = ctx.getNewRoot(TablesConfiguration.KEY);
 
         assert tablesConfig != null;

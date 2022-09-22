@@ -1245,12 +1245,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         ).changeIndexes(idxChg -> {
                             List<String> indicesNames = tablesCfg.indexes().value().namedListKeys();
 
-                            List<String> indexes = indicesNames.stream().filter(idx ->
-                                    tablesCfg.indexes().get(idx).tableId().value().equals(tbl.tableId())).collect(Collectors.toList());
-
-                            for (String indexName : indexes) {
-                                idxChg.delete(indexName);
-                            }
+                            indicesNames.stream().filter(idx ->
+                                    tablesCfg.indexes().get(idx).tableId().value().equals(tbl.tableId())).forEach(idxChg::delete);
                         }))
                         .whenComplete((res, t) -> {
                             if (t != null) {
