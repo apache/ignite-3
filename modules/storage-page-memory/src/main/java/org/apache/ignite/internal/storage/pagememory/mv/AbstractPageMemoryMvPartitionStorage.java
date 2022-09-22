@@ -284,7 +284,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         VersionChain versionChain = findVersionChain(rowId);
 
         if (versionChain == null) {
-            return ReadResult.empty();
+            return ReadResult.EMPTY;
         }
 
         return findRowVersionByTimestamp(versionChain, timestamp);
@@ -304,7 +304,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         ByteBufferRow row = rowVersionToBinaryRow(rowVersion);
 
         if (!keyFilter.test(row)) {
-            return ReadResult.empty();
+            return ReadResult.EMPTY;
         }
 
         if (versionChain.isUncommitted()) {
@@ -414,9 +414,10 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         RowVersion firstCommit;
 
         if (hasWriteIntent) {
-            firstCommit = readRowVersion(chainHead.nextLink(), rowTimestamp -> timestamp.compareTo(rowTimestamp) >= 0);
+            // First commit can only match if its timestamp matches query timestamp.
+            firstCommit = readRowVersion(chainHead.nextLink(), rowTimestamp -> timestamp.compareTo(rowTimestamp) == 0);
         } else {
-            firstCommit = readRowVersion(chainHead.headLink(), ALWAYS_LOAD_VALUE);
+            firstCommit = readRowVersion(chainHead.headLink(), rowTimestamp -> timestamp.compareTo(rowTimestamp) >= 0);
         }
 
         assert firstCommit.isCommitted();
@@ -471,7 +472,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             }
         } while (curCommit != null);
 
-        return ReadResult.empty();
+        return ReadResult.EMPTY;
     }
 
     @Deprecated

@@ -218,14 +218,14 @@ public class TestConcurrentHashMapMvPartitionStorage implements MvPartitionStora
         assert timestamp == null ^ txId == null;
 
         if (versionChain == null) {
-            return ReadResult.empty();
+            return ReadResult.EMPTY;
         }
 
         if (timestamp == null) {
             BinaryRow binaryRow = versionChain.row;
 
             if (filter != null && !filter.test(binaryRow)) {
-                return ReadResult.empty();
+                return ReadResult.EMPTY;
             }
 
             if (versionChain.txId != null && !versionChain.txId.equals(txId)) {
@@ -255,7 +255,7 @@ public class TestConcurrentHashMapMvPartitionStorage implements MvPartitionStora
                 BinaryRow binaryRow = cur.row;
 
                 if (filter != null && !filter.test(binaryRow)) {
-                    return ReadResult.empty();
+                    return ReadResult.EMPTY;
                 }
 
                 return ReadResult.createFromWriteIntent(binaryRow, cur.txId, cur.commitTableId, null,
@@ -278,26 +278,24 @@ public class TestConcurrentHashMapMvPartitionStorage implements MvPartitionStora
             BinaryRow binaryRow = chainHead.row;
 
             if (filter != null && !filter.test(binaryRow)) {
-                return ReadResult.empty();
+                return ReadResult.EMPTY;
             }
 
-            HybridTimestamp latestCommitTs = chainHead.next != null ? firstCommit.ts : null;
-
-            return ReadResult.createFromWriteIntent(binaryRow, chainHead.txId, chainHead.commitTableId, latestCommitTs,
+            return ReadResult.createFromWriteIntent(binaryRow, chainHead.txId, chainHead.commitTableId, firstCommit.ts,
                     chainHead.commitPartitionId);
         }
 
         VersionChain cur = firstCommit;
 
         while (cur != null) {
-            int compareResult = timestamp.compareTo(cur.ts);
+            assert cur.ts != null;
 
-            if (compareResult >= 0) {
+            if (timestamp.compareTo(cur.ts) >= 0) {
                 // This commit has timestamp matching the query ts, meaning that commit is the one we are looking for.
                 BinaryRow binaryRow = cur.row;
 
                 if (filter != null && !filter.test(binaryRow)) {
-                    return ReadResult.empty();
+                    return ReadResult.EMPTY;
                 }
 
                 return ReadResult.createFromCommitted(binaryRow);
@@ -306,7 +304,7 @@ public class TestConcurrentHashMapMvPartitionStorage implements MvPartitionStora
             cur = cur.next;
         }
 
-        return ReadResult.empty();
+        return ReadResult.EMPTY;
     }
 
     /** {@inheritDoc} */

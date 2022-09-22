@@ -30,7 +30,7 @@ public class ReadResult {
     public static final int UNDEFINED_COMMIT_PARTITION_ID = -1;
 
     /** Empty read result. */
-    private static final ReadResult EMPTY = new ReadResult(null, null, null, null, UNDEFINED_COMMIT_PARTITION_ID);
+    public static final ReadResult EMPTY = new ReadResult(null, null, null, null, UNDEFINED_COMMIT_PARTITION_ID);
 
     /** Data. */
     private final @Nullable BinaryRow binaryRow;
@@ -73,10 +73,6 @@ public class ReadResult {
 
     public static ReadResult createFromCommitted(BinaryRow binaryRow) {
         return new ReadResult(binaryRow, null, null, null, UNDEFINED_COMMIT_PARTITION_ID);
-    }
-
-    public static ReadResult empty() {
-        return EMPTY;
     }
 
     /**

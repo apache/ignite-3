@@ -24,6 +24,7 @@ import static java.nio.ByteOrder.LITTLE_ENDIAN;
 import static java.util.Arrays.copyOf;
 import static java.util.Arrays.copyOfRange;
 import static org.apache.ignite.hlc.HybridTimestamp.HYBRID_TIMESTAMP_SIZE;
+import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToUuid;
 import static org.apache.ignite.internal.util.ByteUtils.putUuidToBytes;
 import static org.rocksdb.ReadTier.PERSISTED_TIER;
@@ -497,7 +498,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
                 if (invalid(seekIterator)) {
                     // No data at all.
-                    return ReadResult.empty();
+                    return ReadResult.EMPTY;
                 }
 
                 ByteBuffer readKeyBuf = MV_KEY_BUFFER.get().position(0).limit(MAX_KEY_SIZE);
@@ -506,7 +507,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
                 if (!matches(rowId, readKeyBuf)) {
                     // Wrong row id.
-                    return ReadResult.empty();
+                    return ReadResult.EMPTY;
                 }
 
                 boolean isWriteIntent = keyLength == ROW_PREFIX_SIZE;
@@ -558,7 +559,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
             if (invalid(seekIterator)) {
                 // There are no writes with row id.
-                return ReadResult.empty();
+                return ReadResult.EMPTY;
             }
 
             foundKeyBuf.position(0).limit(MAX_KEY_SIZE);
@@ -566,7 +567,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
             if (!matches(rowId, foundKeyBuf)) {
                 // There are no writes with row id.
-                return ReadResult.empty();
+                return ReadResult.EMPTY;
             }
 
             byte[] valueBytes = seekIterator.value();
@@ -592,7 +593,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             }
 
             // There is a committed write, but it's more recent than our timestamp (because we didn't find it with first seek).
-            return ReadResult.empty();
+            return ReadResult.EMPTY;
         } else {
             // Should not be write-intent, as we were seeking with the timestamp.
             assert keyLength == MAX_KEY_SIZE;
@@ -626,9 +627,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             boolean isWriteIntent = keyLength == ROW_PREFIX_SIZE;
 
             if (isWriteIntent) {
-                valueBytes = seekIterator.value();
-
-                return wrapUncommittedValue(valueBytes, rowTimestamp);
+                return wrapUncommittedValue(seekIterator.value(), rowTimestamp);
             }
 
             return wrapCommittedValue(valueBytes);
@@ -990,10 +989,11 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     }
 
     private static void validateTxId(byte[] valueBytes, UUID txId) {
-        UUID readTxId = bytesToUuid(valueBytes, 0);
+        long msb = bytesToLong(valueBytes);
+        long lsb = bytesToLong(valueBytes, Long.BYTES);
 
-        if (!txId.equals(readTxId)) {
-            throw new TxIdMismatchException(txId, readTxId);
+        if (txId.getMostSignificantBits() != msb || txId.getLeastSignificantBits() != lsb) {
+            throw new TxIdMismatchException(txId, new UUID(msb, lsb));
         }
     }
 
@@ -1065,7 +1065,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
      */
     private static ReadResult wrapCommittedValue(byte[] valueBytes) {
         if (isTombstone(valueBytes, false)) {
-            return ReadResult.empty();
+            return ReadResult.EMPTY;
         }
 
         return ReadResult.createFromCommitted(new ByteBufferRow(valueBytes));
