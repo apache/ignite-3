@@ -31,6 +31,7 @@ import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -93,13 +94,23 @@ public class PartitionAwarenessTest extends AbstractClientTest {
     }
 
     @Test
-    public void testGetRoutesRequestToPrimaryNode() {
+    public void testGetTupleRoutesRequestToPrimaryNode() {
         RecordView<Tuple> recordView = defaultTable().recordView();
 
         assertOpOnNode("server-1", "get", x -> recordView.get(null, Tuple.create().set("ID", 0L)));
         assertOpOnNode("server-2", "get", x -> recordView.get(null, Tuple.create().set("ID", 1L)));
         assertOpOnNode("server-1", "get", x -> recordView.get(null, Tuple.create().set("ID", 2L)));
         assertOpOnNode("server-2", "get", x -> recordView.get(null, Tuple.create().set("ID", 3L)));
+    }
+
+    @Test
+    public void testGetRecordRoutesRequestToPrimaryNode() {
+        RecordView<AbstractClientTableTest.PersonPojo> recordView = defaultTable().recordView(Mapper.of(AbstractClientTableTest.PersonPojo.class));
+
+        assertOpOnNode("server-1", "get", x -> recordView.get(null, new AbstractClientTableTest.PersonPojo(0L)));
+        assertOpOnNode("server-2", "get", x -> recordView.get(null, new AbstractClientTableTest.PersonPojo(1L)));
+        assertOpOnNode("server-1", "get", x -> recordView.get(null, new AbstractClientTableTest.PersonPojo(2L)));
+        assertOpOnNode("server-2", "get", x -> recordView.get(null, new AbstractClientTableTest.PersonPojo(3L)));
     }
 
     @Test
