@@ -437,73 +437,73 @@ public abstract class AbstractSortedIndexStorageTest {
         SortedIndexStorage index1 = createIndexStorage(index1Definition);
         SortedIndexStorage index2 = createIndexStorage(index2Definition);
 
-        Object[] val9010 = { "10", 90 };
-        Object[] val8010 = { "10", 80 };
-        Object[] val9020 = { "20", 90 };
-        Object[] val8020 = { "20", 80 };
+        Object[] val1090 = { "10", 90 };
+        Object[] val1080 = { "10", 80 };
+        Object[] val2090 = { "20", 90 };
+        Object[] val2080 = { "20", 80 };
 
         for (SortedIndexStorage index : Arrays.asList(index1, index2)) {
             var serializer = new BinaryTupleRowSerializer(index.indexDescriptor());
 
-            put(index, serializer.serializeRow(val9010, new RowId(0)));
-            put(index, serializer.serializeRow(val8010, new RowId(0)));
-            put(index, serializer.serializeRow(val9020, new RowId(0)));
-            put(index, serializer.serializeRow(val8020, new RowId(0)));
+            put(index, serializer.serializeRow(val1090, new RowId(0)));
+            put(index, serializer.serializeRow(val1080, new RowId(0)));
+            put(index, serializer.serializeRow(val2090, new RowId(0)));
+            put(index, serializer.serializeRow(val2080, new RowId(0)));
         }
 
         // Test without bounds.
         assertThat(
                 scan(index1, null, null, 0),
-                contains(val8010, val9010, val8020, val9020)
+                contains(val1080, val1090, val2080, val2090)
         );
 
         assertThat(
                 scan(index2, null, null, 0),
-                contains(val9010, val8010, val9020, val8020)
+                contains(val1090, val1080, val2090, val2080)
         );
 
         // Lower bound exclusive.
         assertThat(
                 scan(index1, prefix(index1, "10"), null, GREATER),
-                contains(val8020, val9020)
+                contains(val2080, val2090)
         );
 
         assertThat(
                 scan(index2, prefix(index2, "10"), null, GREATER),
-                contains(val9020, val8020)
+                contains(val2090, val2080)
         );
 
         // Lower bound inclusive.
         assertThat(
                 scan(index1, prefix(index1, "10"), null, GREATER_OR_EQUAL),
-                contains(val8010, val9010, val8020, val9020)
+                contains(val1080, val1090, val2080, val2090)
         );
 
         assertThat(
                 scan(index2, prefix(index2, "10"), null, GREATER_OR_EQUAL),
-                contains(val9010, val8010, val9020, val8020)
+                contains(val1090, val1080, val2090, val2080)
         );
 
         // Upper bound exclusive.
         assertThat(
                 scan(index1, null, prefix(index1, "20"), LESS),
-                contains(val8010, val9010)
+                contains(val1080, val1090)
         );
 
         assertThat(
                 scan(index2, null, prefix(index2, "20"), LESS),
-                contains(val9010, val8010)
+                contains(val1090, val1080)
         );
 
         // Upper bound inclusive.
         assertThat(
                 scan(index1, null, prefix(index1, "20"), LESS_OR_EQUAL),
-                contains(val8010, val9010, val8020, val9020)
+                contains(val1080, val1090, val2080, val2090)
         );
 
         assertThat(
                 scan(index2, null, prefix(index2, "20"), LESS_OR_EQUAL),
-                contains(val9010, val8010, val9020, val8020)
+                contains(val1090, val1080, val2090, val2080)
         );
     }
 

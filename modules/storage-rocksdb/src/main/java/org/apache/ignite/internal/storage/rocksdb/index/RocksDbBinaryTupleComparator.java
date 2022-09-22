@@ -69,12 +69,18 @@ public class RocksDbBinaryTupleComparator extends AbstractComparator {
 
         int compareTuples = comparator.compare(firstBinaryTupleBuffer, secondBinaryTupleBuffer);
 
-        // Binary Tuple Prefixes don't have row IDs, so they can't be compared.
-        if (compareTuples != 0 || isPrefix(firstBinaryTupleBuffer) || isPrefix(secondBinaryTupleBuffer)) {
+        if (compareTuples != 0) {
             return compareTuples;
         }
 
-        return compareRowIds(a, b);
+        // Binary Tuple Prefixes don't have row IDs, so they can't be compared further.
+        if (isPrefix(firstBinaryTupleBuffer)) {
+            return -1;
+        } else if (isPrefix(secondBinaryTupleBuffer)) {
+            return 1;
+        } else {
+            return compareRowIds(a, b);
+        }
     }
 
     private static int compareRowIds(ByteBuffer a, ByteBuffer b) {
