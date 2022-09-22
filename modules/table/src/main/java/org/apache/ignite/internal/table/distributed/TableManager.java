@@ -1237,6 +1237,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 CompletableFuture<Void> tblOps = tablesCfg.tables()
                         .change(change -> {
+                            idxsChange.clear();
+
                             TableView tableCfg = change.get(name);
 
                             if (tableCfg == null) {
