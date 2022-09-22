@@ -105,10 +105,6 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
     @Test
     public void testGetRecordRoutesRequestToPrimaryNode() {
-        // TODO: Refactor everything to be based on BinaryTuple? That way affinity calc is the same.
-        // But perf might suffer - we'll have to deserialize column values back to compute affinity.
-        // On the other hand, it might be faster to deserialize than to retrieve by name from tuple or object.
-        // The fastest way would be to combine serialization and affinity calculation - by wrapping BinaryTupleBuilder in another class (or derived)
         RecordView<AbstractClientTableTest.PersonPojo> recordView = defaultTable().recordView(Mapper.of(AbstractClientTableTest.PersonPojo.class));
 
         assertOpOnNode("server-1", "get", x -> recordView.get(null, new AbstractClientTableTest.PersonPojo(0L)));
