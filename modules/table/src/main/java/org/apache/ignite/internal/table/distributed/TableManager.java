@@ -44,11 +44,13 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
@@ -229,6 +231,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * or partition raft group meta data persisting.
      */
     private final ExecutorService ioExecutor;
+
+    /** Assignment change event listeners. */
+    private final CopyOnWriteArrayList<Consumer<IgniteTablesInternal>> assignmentsChangeListeners = new CopyOnWriteArrayList<>();
 
     /** Rebalance scheduler pool size. */
     private static final int REBALANCE_SCHEDULER_POOL_SIZE = Math.min(Utils.cpus() * 3, 20);
@@ -549,6 +554,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             busyLock.leaveBusy();
         }
 
+        for (var listener : assignmentsChangeListeners) {
+            listener.accept(this);
+        }
+
         return completedFuture(null);
     }
 
@@ -804,15 +813,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
     }
 
-    /**
-     * Gets a list of the current table assignments.
-     *
-     * <p>Returns a list where on the i-th place resides a node id that considered as a leader for
-     * the i-th partition on the moment of invocation.
-     *
-     * @param tableId Unique id of a table.
-     * @return List of the current assignments.
-     */
+    /** {@inheritDoc} */
+    @Override
     public List<String> assignments(UUID tableId) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
@@ -822,6 +824,22 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         } finally {
             busyLock.leaveBusy();
         }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void addAssignmentsChangeListener(Consumer<IgniteTablesInternal> listener) {
+        Objects.requireNonNull(listener);
+
+        assignmentsChangeListeners.add(listener);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean removeAssignmentsChangeListener(Consumer<IgniteTablesInternal> listener) {
+        Objects.requireNonNull(listener);
+
+        return assignmentsChangeListeners.remove(listener);
     }
 
     /**

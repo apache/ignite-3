@@ -39,6 +39,7 @@ import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NettyBootstrapFactory;
@@ -54,6 +55,8 @@ public class TestServer implements AutoCloseable {
     private final IgniteComponent module;
 
     private final NettyBootstrapFactory bootstrapFactory;
+
+    private final String nodeName;
 
     /**
      * Constructor.
@@ -107,11 +110,13 @@ public class TestServer implements AutoCloseable {
         bootstrapFactory.start();
 
         if (nodeName == null) {
-            nodeName = "consistent-id";
+            nodeName = "server-1";
         }
 
+        this.nodeName = nodeName;
+
         ClusterService clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
-        Mockito.when(clusterService.topologyService().localMember().id()).thenReturn(nodeName + "-id");
+        Mockito.when(clusterService.topologyService().localMember().id()).thenReturn(getNodeId(nodeName));
         Mockito.when(clusterService.topologyService().localMember().name()).thenReturn(nodeName);
         Mockito.when(clusterService.topologyService().localMember()).thenReturn(getClusterNode(nodeName));
         Mockito.when(clusterService.topologyService().getByConsistentId(anyString())).thenAnswer(
@@ -126,7 +131,7 @@ public class TestServer implements AutoCloseable {
                 ? new TestClientHandlerModule(ignite, cfg, bootstrapFactory, shouldDropConnection, clusterService, compute)
                 : new ClientHandlerModule(
                         ((FakeIgnite) ignite).queryEngine(),
-                        ignite.tables(),
+                        (IgniteTablesInternal) ignite.tables(),
                         ignite.transactions(),
                         cfg,
                         compute,
@@ -151,6 +156,24 @@ public class TestServer implements AutoCloseable {
         return ((InetSocketAddress) Objects.requireNonNull(addr)).getPort();
     }
 
+    /**
+     * Gets the node name.
+     *
+     * @return Node name.
+     */
+    public String nodeName() {
+        return nodeName;
+    }
+
+    /**
+     * Gets the node name.
+     *
+     * @return Node name.
+     */
+    public String nodeId() {
+        return getNodeId(nodeName);
+    }
+
     /** {@inheritDoc} */
     @Override
     public void close() throws Exception {
@@ -160,6 +183,10 @@ public class TestServer implements AutoCloseable {
     }
 
     private ClusterNode getClusterNode(String name) {
-        return new ClusterNode(name + "-id", name, new NetworkAddress("127.0.0.1", 8080));
+        return new ClusterNode(getNodeId(name), name, new NetworkAddress("127.0.0.1", 8080));
+    }
+
+    private static String getNodeId(String name) {
+        return name + "-id";
     }
 }

@@ -82,7 +82,7 @@ public abstract class ItAbstractThinClientTest extends IgniteAbstractTest {
                 node0Name,
                 "{\n"
                         + "  network.port: 3344,\n"
-                        + "  network.nodeFinder.netClusterNodes: [ \"localhost:3344\", \"localhost:3345\" ]\n"
+                        + "  network.nodeFinder.netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
                         + "}"
         );
 
@@ -90,7 +90,7 @@ public abstract class ItAbstractThinClientTest extends IgniteAbstractTest {
                 node1Name,
                 "{\n"
                         + "  network.port: 3345,\n"
-                        + "  network.nodeFinder.netClusterNodes: [ \"localhost:3344\", \"localhost:3345\" ]\n"
+                        + "  network.nodeFinder.netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
                         + "  clientConnector.sendServerExceptionStackTraceToClient: true\n"
                         + "}"
         );
@@ -168,6 +168,10 @@ public abstract class ItAbstractThinClientTest extends IgniteAbstractTest {
 
     protected IgniteClient client() {
         return client;
+    }
+
+    protected Ignite server() {
+        return startedNodes.get(0);
     }
 
     /**

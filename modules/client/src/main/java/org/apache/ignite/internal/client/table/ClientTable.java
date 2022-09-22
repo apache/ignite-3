@@ -20,6 +20,8 @@ package org.apache.ignite.internal.client.table;
 import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -60,6 +62,10 @@ public class ClientTable implements Table {
     private volatile int latestSchemaVer = -1;
 
     private final Object latestSchemaLock = new Object();
+
+    private volatile List<String> partitionAssignment = null;
+
+    private volatile long partitionAssignmentVersion = -1;
 
     /**
      * Constructor.
@@ -175,18 +181,19 @@ public class ClientTable implements Table {
         for (int i = 0; i < colCnt; i++) {
             var propCnt = in.unpackArrayHeader();
 
-            assert propCnt >= 5;
+            assert propCnt >= 6;
 
             var name = in.unpackString();
             var type = in.unpackInt();
             var isKey = in.unpackBoolean();
             var isNullable = in.unpackBoolean();
+            var isColocation = in.unpackBoolean();
             var scale = in.unpackInt();
 
             // Skip unknown extra properties, if any.
-            in.skipValues(propCnt - 5);
+            in.skipValues(propCnt - 6);
 
-            var column = new ClientColumn(name, type, isNullable, isKey, i, scale);
+            var column = new ClientColumn(name, type, isNullable, isKey, isColocation, i, scale);
             columns[i] = column;
         }
 
@@ -262,6 +269,42 @@ public class ClientTable implements Table {
                 .thenCompose(t -> loadSchemaAndReadData(t, reader));
     }
 
+    <T> CompletableFuture<T> doSchemaOutInOpAsync(
+            int opCode,
+            BiConsumer<ClientSchema, PayloadOutputChannel> writer,
+            BiFunction<ClientSchema, ClientMessageUnpacker, T> reader,
+            T defaultValue,
+            Function<ClientSchema, Integer> hashFunction
+    ) {
+        CompletableFuture<ClientSchema> schemaFut = getLatestSchema();
+        CompletableFuture<List<String>> partitionsFut = hashFunction == null
+                ? CompletableFuture.completedFuture(null)
+                : getPartitionAssignment();
+
+        return CompletableFuture.allOf(schemaFut, partitionsFut)
+                .thenCompose(v -> {
+                    List<String> partitions = partitionsFut.getNow(null);
+                    ClientSchema schema = schemaFut.getNow(null);
+
+                    String preferredNodeId = null;
+
+                    if (partitions != null && partitions.size() > 0 && hashFunction != null) {
+                        Integer hash = hashFunction.apply(schema);
+
+                        if (hash != null) {
+                            preferredNodeId = partitions.get(Math.abs(hash % partitions.size()));
+                        }
+                    }
+
+                    return ch.serviceAsync(opCode,
+                            w -> writer.accept(schema, w),
+                            r -> readSchemaAndReadData(schema, r.in(), reader, defaultValue),
+                            null,
+                            preferredNodeId);
+                })
+                .thenCompose(t -> loadSchemaAndReadData(t, reader));
+    }
+
     /**
      * Performs a schema-based operation.
      *
@@ -330,5 +373,34 @@ public class ClientTable implements Table {
         });
 
         return resFut;
+    }
+
+    private CompletableFuture<List<String>> getPartitionAssignment() {
+        var cached = partitionAssignment;
+
+        if (cached != null && partitionAssignmentVersion == ch.partitionAssignmentVersion()) {
+            return CompletableFuture.completedFuture(cached);
+        }
+
+        return loadPartitionAssignment();
+    }
+
+    private CompletableFuture<List<String>> loadPartitionAssignment() {
+        partitionAssignmentVersion = ch.partitionAssignmentVersion();
+
+        return ch.serviceAsync(ClientOp.PARTITION_ASSIGNMENT_GET,
+                w -> w.out().packUuid(id),
+                r -> {
+                    int cnt = r.in().unpackArrayHeader();
+                    List<String> res = new ArrayList<>(cnt);
+
+                    for (int i = 0; i < cnt; i++) {
+                        res.add(r.in().unpackString());
+                    }
+
+                    partitionAssignment = res;
+
+                    return res;
+                });
     }
 }
