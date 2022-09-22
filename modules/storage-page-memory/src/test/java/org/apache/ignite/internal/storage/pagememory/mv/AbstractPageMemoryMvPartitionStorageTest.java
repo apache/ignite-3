@@ -19,32 +19,23 @@ package org.apache.ignite.internal.storage.pagememory.mv;
 
 import static java.util.stream.Collectors.joining;
 
-import java.nio.file.Path;
 import java.util.stream.IntStream;
-import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.AbstractMvPartitionStorageTest;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.Cursor;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Base test for MV partition storages based on PageMemory.
  */
-@ExtendWith({ConfigurationExtension.class, WorkDirectoryExtension.class})
 abstract class AbstractPageMemoryMvPartitionStorageTest extends AbstractMvPartitionStorageTest {
     protected final PageIoRegistry ioRegistry = new PageIoRegistry();
 
     {
         ioRegistry.loadFromServiceLoader();
     }
-
-    @WorkDirectory
-    protected Path workDir;
 
     /**
      * Returns page size in bytes.

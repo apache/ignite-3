@@ -30,7 +30,6 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
-import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -150,22 +149,20 @@ public class RocksDbStorageEngine implements StorageEngine {
     /** {@inheritDoc} */
     @Override
     public RocksDbTableStorage createMvTable(TableConfiguration tableCfg, TablesConfiguration tablesCfg) throws StorageException {
-        TableView tableView = tableCfg.value();
+        RocksDbDataStorageView dataStorageView = (RocksDbDataStorageView) tableCfg.dataStorage().value();
 
-        assert tableView.dataStorage().name().equals(ENGINE_NAME) : tableView.dataStorage().name();
-
-        RocksDbDataStorageView dataStorageView = (RocksDbDataStorageView) tableView.dataStorage();
+        assert dataStorageView.name().equals(ENGINE_NAME) : dataStorageView.name();
 
         RocksDbDataRegion dataRegion = regions.get(dataStorageView.dataRegion());
 
-        Path tablePath = storagePath.resolve(TABLE_DIR_PREFIX + tableView.tableId());
+        Path tablePath = storagePath.resolve(TABLE_DIR_PREFIX + tableCfg.tableId().value());
 
         try {
             Files.createDirectories(tablePath);
         } catch (IOException e) {
-            throw new StorageException("Failed to create table store directory for " + tableView.name() + ": " + e.getMessage(), e);
+            throw new StorageException("Failed to create table store directory for " + tableCfg.name().value(), e);
         }
 
-        return new RocksDbTableStorage(this, tablePath, tableCfg, dataRegion, tablesCfg);
+        return new RocksDbTableStorage(this, tablePath, dataRegion, tableCfg, tablesCfg);
     }
 }

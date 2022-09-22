@@ -18,13 +18,8 @@
 package org.apache.ignite.internal.storage.pagememory.index;
 
 import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.EntryCountBudgetConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -47,42 +42,26 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(ConfigurationExtension.class)
 class VolatilePageMemoryHashIndexStorageTest extends AbstractHashIndexStorageTest {
-    @InjectConfiguration(polymorphicExtensions = UnsafeMemoryAllocatorConfigurationSchema.class)
-    private VolatilePageMemoryStorageEngineConfiguration engineConfig;
-
-    @InjectConfiguration(
-            name = "table",
-            value = "mock.dataStorage.name = " + VolatilePageMemoryStorageEngine.ENGINE_NAME,
-            polymorphicExtensions = {
-                    HashIndexConfigurationSchema.class,
-                    VolatilePageMemoryDataStorageConfigurationSchema.class,
-                    ConstantValueDefaultConfigurationSchema.class,
-                    FunctionCallDefaultConfigurationSchema.class,
-                    NullValueDefaultConfigurationSchema.class,
-                    UnlimitedBudgetConfigurationSchema.class,
-                    EntryCountBudgetConfigurationSchema.class
-            }
-    )
-    private TableConfiguration tableCfg;
-
-    @InjectConfiguration(polymorphicExtensions = {
-            HashIndexConfigurationSchema.class,
-            SortedIndexConfigurationSchema.class,
-            UnknownDataStorageConfigurationSchema.class,
-            ConstantValueDefaultConfigurationSchema.class,
-            FunctionCallDefaultConfigurationSchema.class,
-            NullValueDefaultConfigurationSchema.class,
-            UnlimitedBudgetConfigurationSchema.class,
-            EntryCountBudgetConfigurationSchema.class
-    })
-    TablesConfiguration tablesConfig;
-
     private VolatilePageMemoryStorageEngine engine;
 
     private VolatilePageMemoryTableStorage table;
 
     @BeforeEach
-    void setUp() {
+    void setUp(
+            @InjectConfiguration(polymorphicExtensions = UnsafeMemoryAllocatorConfigurationSchema.class)
+            VolatilePageMemoryStorageEngineConfiguration engineConfig,
+            @InjectConfiguration(
+                    polymorphicExtensions = {
+                            VolatilePageMemoryDataStorageConfigurationSchema.class,
+                            UnknownDataStorageConfigurationSchema.class,
+                            HashIndexConfigurationSchema.class,
+                            NullValueDefaultConfigurationSchema.class,
+                            UnlimitedBudgetConfigurationSchema.class
+                    },
+                    value = "mock.tables.foo.dataStorage.name = " + VolatilePageMemoryStorageEngine.ENGINE_NAME
+            )
+            TablesConfiguration tablesConfig
+    ) {
         PageIoRegistry ioRegistry = new PageIoRegistry();
 
         ioRegistry.loadFromServiceLoader();
@@ -91,7 +70,7 @@ class VolatilePageMemoryHashIndexStorageTest extends AbstractHashIndexStorageTes
 
         engine.start();
 
-        table = engine.createMvTable(tableCfg, tablesConfig);
+        table = engine.createMvTable(tablesConfig.tables().get("foo"), tablesConfig);
 
         table.start();
 

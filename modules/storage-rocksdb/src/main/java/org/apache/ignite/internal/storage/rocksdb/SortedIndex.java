@@ -52,6 +52,13 @@ class SortedIndex implements AutoCloseable {
     }
 
     /**
+     * Returns the Column Family associated with this index.
+     */
+    ColumnFamily indexCf() {
+        return indexCf;
+    }
+
+    /**
      * Removes all data associated with the index.
      */
     void destroy() {

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.storage.index;
 
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableList;
+import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter.addIndex;
 import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter.convert;
 import static org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders.column;
 import static org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders.tableBuilder;
@@ -27,7 +28,6 @@ import static org.apache.ignite.internal.storage.index.SortedIndexStorage.GREATE
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.LESS;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.LESS_OR_EQUAL;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.randomString;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
@@ -43,6 +43,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
 import java.util.stream.IntStream;
@@ -50,6 +51,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableIndexView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
+import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
@@ -87,8 +89,6 @@ public abstract class AbstractSortedIndexStorageTest {
 
     private static final int TEST_PARTITION = 0;
 
-    private Random random;
-
     private static List<ColumnDefinition> allTypesColumnDefinitions() {
         Stream<ColumnType> allColumnTypes = Stream.of(
                 ColumnType.INT8,
@@ -113,6 +113,8 @@ public abstract class AbstractSortedIndexStorageTest {
                 .map(type -> column(type.typeSpec().name(), type).asNullable(true).build())
                 .collect(toUnmodifiableList());
     }
+
+    private final Random random;
 
     private MvTableStorage tableStorage;
 
@@ -188,9 +190,13 @@ public abstract class AbstractSortedIndexStorageTest {
      */
     private SortedIndexStorage createIndexStorage(ColumnarIndexDefinition indexDefinition) {
         CompletableFuture<Void> createIndexFuture =
-                tablesCfg.indexes().change(chg -> chg.create(indexDefinition.name(), idx -> convert(indexDefinition, idx)));
+                tablesCfg.indexes().change(chg -> chg.create(indexDefinition.name(), idx -> {
+                    UUID tableId = ConfigurationUtil.internalId(tablesCfg.tables().value(), "foo");
 
-        assertThat(createIndexFuture, willBe(nullValue(Void.class)));
+                    addIndex(indexDefinition, tableId, idx);
+                }));
+
+        assertThat(createIndexFuture, willCompleteSuccessfully());
 
         TableIndexView indexConfig = tablesCfg.indexes().get(indexDefinition.name()).value();
 
