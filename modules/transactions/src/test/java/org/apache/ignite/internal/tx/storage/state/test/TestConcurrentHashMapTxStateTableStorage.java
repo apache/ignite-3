@@ -17,7 +17,10 @@
 
 package org.apache.ignite.internal.tx.storage.state.test;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.internal.configuration.storage.StorageException;
@@ -42,12 +45,14 @@ public class TestConcurrentHashMapTxStateTableStorage implements TxStateTableSto
     }
 
     /** {@inheritDoc} */
-    @Override public void destroyTxStateStorage(int partitionId) throws StorageException {
-        TxStateStorage storage = storages.get(partitionId);
+    @Override public CompletableFuture<Void> destroyTxStateStorage(int partitionId) throws StorageException {
+        TxStateStorage storage = storages.replace(partitionId, null);
 
         if (storage != null) {
             storage.destroy();
         }
+
+        return completedFuture(null);
     }
 
     /** {@inheritDoc} */

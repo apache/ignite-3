@@ -38,7 +38,6 @@ import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteBiTuple;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -159,6 +158,24 @@ public abstract class TxStateStorageAbstractTest {
 
                 assertTrue(txs.isEmpty());
             }
+        }
+    }
+
+    @Test
+    public void testDestroy() throws Exception {
+        try (TxStateTableStorage tableStorage = createStorage()) {
+            TxStateStorage storage0 = tableStorage.getOrCreateTxStateStorage(0);
+            TxStateStorage storage1 = tableStorage.getOrCreateTxStateStorage(1);
+
+            UUID txId0 = UUID.randomUUID();
+            storage0.put(txId0, new TxMeta(TxState.PENDING, generateEnlistedPartitions(1), generateTimestamp(txId0)));
+
+            UUID txId1 = UUID.randomUUID();
+            storage1.put(txId1, new TxMeta(TxState.PENDING, generateEnlistedPartitions(1), generateTimestamp(txId1)));
+
+            storage0.destroy();
+
+            assertNotNull(storage1.get(txId1));
         }
     }
 

@@ -34,6 +34,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.apache.ignite.internal.configuration.storage.StorageException;
 import org.apache.ignite.internal.rocksdb.BusyRocksIteratorAdapter;
 import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
 import org.apache.ignite.internal.tx.TxMeta;
@@ -45,11 +46,11 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.rocksdb.ReadOptions;
+import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
 import org.rocksdb.Slice;
-import org.rocksdb.Transaction;
-import org.rocksdb.TransactionDB;
+import org.rocksdb.WriteBatch;
 import org.rocksdb.WriteOptions;
 
 /**
@@ -57,7 +58,7 @@ import org.rocksdb.WriteOptions;
  */
 public class TxStateRocksDbStorage implements TxStateStorage {
     /** RocksDB database. */
-    private volatile TransactionDB db;
+    private volatile RocksDB db;
 
     /** Write options. */
     private final WriteOptions writeOptions;
@@ -100,7 +101,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
      * @param tableStorage Table storage.
      */
     public TxStateRocksDbStorage(
-            TransactionDB db,
+            RocksDB db,
             WriteOptions writeOptions,
             ReadOptions readOptions,
             ReadOptions persistedTierReadOptions,
@@ -174,13 +175,13 @@ public class TxStateRocksDbStorage implements TxStateStorage {
 
         byte[] txIdBytes = txIdToKey(txId);
 
-        try (Transaction rocksTx = db.beginTransaction(writeOptions)) {
-            byte[] txMetaExistingBytes = rocksTx.get(readOptions, txIdToKey(txId));
+        try {
+            byte[] txMetaExistingBytes = db.get(readOptions, txIdToKey(txId));
 
             boolean result;
 
             if (txMetaExistingBytes == null && txStateExpected == null) {
-                rocksTx.put(txIdBytes, toBytes(txMeta));
+                db.put(txIdBytes, toBytes(txMeta));
 
                 result = true;
             } else {
@@ -188,7 +189,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
                     TxMeta txMetaExisting = fromBytes(txMetaExistingBytes);
 
                     if (txMetaExisting.txState() == txStateExpected) {
-                        rocksTx.put(txIdBytes, toBytes(txMeta));
+                        db.put(txIdBytes, toBytes(txMeta));
 
                         result = true;
                     } else {
@@ -199,9 +200,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
                 }
             }
 
-            rocksTx.put(lastAppliedIndexKey, longToBytes(commandIndex));
-
-            rocksTx.commit();
+            db.put(lastAppliedIndexKey, longToBytes(commandIndex));
 
             return result;
         } catch (RocksDBException e) {
@@ -243,8 +242,8 @@ public class TxStateRocksDbStorage implements TxStateStorage {
         }
 
         try {
-            byte[] lowerBound = ByteBuffer.allocate(Short.BYTES + 1).putShort((short) partitionId).put(new byte[1]).array();
-            byte[] upperBound = ByteBuffer.allocate(Short.BYTES).order(ByteOrder.BIG_ENDIAN).putShort((short) (partitionId + 1)).array();
+            byte[] lowerBound = ByteBuffer.allocate(Short.BYTES + 1).putShort((short) partitionId).put((byte) 0).array();
+            byte[] upperBound = partitionEndPrefix();
 
             RocksIterator rocksIterator = db.newIterator(
                     new ReadOptions()
@@ -345,7 +344,29 @@ public class TxStateRocksDbStorage implements TxStateStorage {
 
     /** {@inheritDoc} */
     @Override public void destroy() {
-        // No-op.
+        try (WriteBatch writeBatch = new WriteBatch()) {
+            close();
+
+            writeBatch.delete(lastAppliedIndexKey);
+
+            writeBatch.deleteRange(partitionStartPrefix(), partitionEndPrefix());
+
+            db.write(writeOptions, writeBatch);
+        } catch (Exception e) {
+            throw new StorageException("Failed to destroy partition " + partitionId + " of table " + tableStorage.configuration().name(), e);
+        }
+    }
+
+    private byte[] partitionStartPrefix() {
+        return ByteBuffer.allocate(Short.BYTES).order(ByteOrder.BIG_ENDIAN)
+            .putShort((short) (partitionId))
+            .array();
+    }
+
+    private byte[] partitionEndPrefix() {
+        return ByteBuffer.allocate(Short.BYTES).order(ByteOrder.BIG_ENDIAN)
+            .putShort((short) (partitionId + 1))
+            .array();
     }
 
     private static void throwStorageStoppedException() {
