@@ -769,7 +769,8 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /** {@inheritDoc} */
-    @Override public TxStateTableStorage txStateStorage() {
+    @Override
+    public TxStateTableStorage txStateStorage() {
         return txStateStorage;
     }
 

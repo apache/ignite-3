@@ -50,11 +50,6 @@ public abstract class TxStateStorageAbstractTest {
     @WorkDirectory
     protected Path workDir;
 
-    @AfterEach
-    public void afterTest() {
-        destroyStorage();
-    }
-
     @Test
     public void testPutGetRemove() throws Exception {
         try (TxStateTableStorage tableStorage = createStorage()) {
@@ -187,9 +182,4 @@ public abstract class TxStateStorageAbstractTest {
      * @return Tx state storage.
      */
     protected abstract TxStateTableStorage createStorage();
-
-    /**
-     * Destroy storage, for proper clean-up.
-     */
-    protected abstract void destroyStorage();
 }

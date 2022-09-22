@@ -26,6 +26,7 @@ import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorageAbstractTest;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
+import org.junit.jupiter.api.AfterEach;
 
 /**
  * Tx storage test for RocksDB implementation.
@@ -59,8 +60,8 @@ public class TxStateRocksDbStorageTest extends TxStateStorageAbstractTest {
         return txStateTableStorage;
     }
 
-    /** {@inheritDoc} */
-    @Override protected void destroyStorage() {
+    @AfterEach
+    public void afterTest() {
         txStateTableStorage.destroy();
     }
 }

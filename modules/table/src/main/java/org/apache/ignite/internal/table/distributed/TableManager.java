@@ -174,10 +174,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private static final IgniteLogger LOG = Loggers.forClass(TableManager.class);
 
     /** Name of transaction state directory. */
-    private static final String TX_STATE_DIR = "tx-state";
-
-    /** Table directory prefix. */
-    private static final String TABLE_DIR_PREFIX = "table-";
+    private static final String TX_STATE_DIR = "tx-state-";
 
     /** Transaction storage flush delay. */
     private static final int TX_STATE_STORAGE_FLUSH_DELAY = 1000;
@@ -256,7 +253,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     /** Transaction state storage scheduled pool. */
     private final ScheduledExecutorService txStateStorageScheduledPool = Executors.newSingleThreadScheduledExecutor(
-        new NamedThreadFactory("rocksdb-storage-engine-scheduled-pool", LOG)
+        new NamedThreadFactory("tx-state-storage-engine-scheduled-pool", LOG)
     );
 
     /** Transaction state storage pool. */
@@ -871,6 +868,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         shutdownAndAwaitTermination(rebalanceScheduler, 10, TimeUnit.SECONDS);
         shutdownAndAwaitTermination(ioExecutor, 10, TimeUnit.SECONDS);
+        shutdownAndAwaitTermination(txStateStoragePool, 10, TimeUnit.SECONDS);
+        shutdownAndAwaitTermination(txStateStorageScheduledPool, 10, TimeUnit.SECONDS);
     }
 
     /**
@@ -974,7 +973,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @return Transaction state storage.
      */
     private TxStateTableStorage createTxStateTableStorage(TableConfiguration tableCfg) {
-        Path path = storagePath.resolve(TABLE_DIR_PREFIX + tableCfg.value().tableId()).resolve(TX_STATE_DIR);
+        Path path = storagePath.resolve(TX_STATE_DIR + tableCfg.value().tableId());
 
         try {
             Files.createDirectories(path);

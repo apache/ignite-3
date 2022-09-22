@@ -29,9 +29,4 @@ public class TestConcurrentHashMapTxStateStorageTest extends TxStateStorageAbstr
     @Override protected TxStateTableStorage createStorage() {
         return new TestConcurrentHashMapTxStateTableStorage();
     }
-
-    /** {@inheritDoc} */
-    @Override protected void destroyStorage() {
-        // No-op.
-    }
 }

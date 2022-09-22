@@ -85,7 +85,7 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
     private final Path dbPath;
 
     /** Partition storages. */
-    private volatile AtomicReferenceArray<TxStateStorage> storages;
+    private volatile AtomicReferenceArray<TxStateRocksDbStorage> storages;
 
     /** Table configuration. */
     private final TableConfiguration tableCfg;
@@ -148,14 +148,18 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
     @Override public TxStateStorage getOrCreateTxStateStorage(int partitionId) throws StorageException {
         checkPartitionId(partitionId);
 
-        TxStateStorage storage = new TxStateRocksDbStorage(
+        TxStateRocksDbStorage storage = storages.get(partitionId);
+
+        if (storage == null) {
+            storage = new TxStateRocksDbStorage(
                 db,
                 writeOptions,
                 readOptions,
                 persistedTierReadOptions,
                 partitionId,
                 this
-        );
+            );
+        }
 
         storages.set(partitionId, storage);
 
@@ -168,7 +172,7 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
     }
 
     /** {@inheritDoc} */
-    @Override public CompletableFuture<Void> destroyTxStateStorage(int partitionId) throws StorageException {
+    @Override public void destroyTxStateStorage(int partitionId) throws StorageException {
         checkPartitionId(partitionId);
 
         TxStateStorage storage = storages.get(partitionId);
@@ -183,8 +187,6 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
 
             storage.destroy();
         }
-
-        return completedFuture(null);
     }
 
     /** {@inheritDoc} */
@@ -254,7 +256,7 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
             resources.add(db);
 
             for (int i = 0; i < storages.length(); i++) {
-                TxStateStorage storage = storages.get(0);
+                TxStateStorage storage = storages.get(i);
 
                 if (storage != null) {
                     resources.add(storage);
@@ -289,10 +291,10 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
 
         try {
             for (int i = 0; i < storages.length(); i++) {
-                TxStateStorage storage = storages.get(i);
+                TxStateRocksDbStorage storage = storages.get(i);
 
                 if (storage != null) {
-                    ((TxStateRocksDbStorage) storage).refreshPersistedIndex();
+                    storage.refreshPersistedIndex();
                 }
             }
         } finally {

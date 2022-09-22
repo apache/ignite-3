@@ -48,11 +48,15 @@ public interface TxStateTableStorage extends AutoCloseable {
      * Destroy transaction state storage.
      *
      * @param partitionId Partition id.
-     * @return Future.
      * @throws StorageException In case when the operation has failed.
      */
-    CompletableFuture<Void> destroyTxStateStorage(int partitionId) throws StorageException;
+    void destroyTxStateStorage(int partitionId) throws StorageException;
 
+    /**
+     * Table configuration.
+     *
+     * @return Table configuration.
+     */
     TableConfiguration configuration();
 
     /**
