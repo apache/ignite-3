@@ -21,8 +21,10 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
+import static org.apache.ignite.internal.util.ByteUtils.bytesToUuid;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
+import static org.apache.ignite.internal.util.ByteUtils.putUuidToBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_CREATE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_DESTROY_ERR;
@@ -30,8 +32,6 @@ import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_E
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_STOPPED_ERR;
 import static org.rocksdb.ReadTier.PERSISTED_TIER;
 
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -381,7 +381,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
 
             RocksIteratorAdapter<IgniteBiTuple<UUID, TxMeta>> iteratorAdapter = new BusyRocksIteratorAdapter<>(busyLock, rocksIterator) {
                 @Override protected IgniteBiTuple<UUID, TxMeta> decodeEntry(byte[] keyBytes, byte[] valueBytes) {
-                    UUID key = bytesToUuid(keyBytes);
+                    UUID key = bytesToUuid(keyBytes, 0);
                     TxMeta txMeta = fromBytes(valueBytes);
 
                     return new IgniteBiTuple<>(key, txMeta);
@@ -422,17 +422,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     }
 
     private byte[] uuidToBytes(UUID uuid) {
-        return ByteBuffer.allocate(2 * Long.BYTES).order(ByteOrder.BIG_ENDIAN)
-                .putLong(uuid.getMostSignificantBits())
-                .putLong(uuid.getLeastSignificantBits())
-                .array();
-    }
-
-    private UUID bytesToUuid(byte[] bytes) {
-        long msb = bytesToLong(bytes, 0);
-        long lsb = bytesToLong(bytes, Long.BYTES);
-
-        return new UUID(msb, lsb);
+        return putUuidToBytes(uuid, new byte[2 * Long.BYTES], 0);
     }
 
     /** {@inheritDoc} */

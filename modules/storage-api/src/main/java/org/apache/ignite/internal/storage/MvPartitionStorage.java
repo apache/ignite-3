@@ -30,10 +30,10 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Multi-versioned partition storage. Maps RowId to a structures called "Version Chains". Each version chain is logically a stack of
  * elements with the following structure:
- * <pre><code>[timestamp | txId, row data]</code></pre>
+ * <pre><code>[timestamp | transaction state (txId + commitTableId + commitPartitionId), row data]</code></pre>
  *
- * <p>Only the chain's head can contain a transaction id, every other element must have a timestamp. Presence of transaction id indicates
- * that the row is not yet committed.
+ * <p>Only the chain's head can contain a transaction state, every other element must have a timestamp. Presence of transaction state
+ * indicates that the row is not yet committed.
  *
  * <p>All timestamps in the chain must go in decreasing order, giving us a N2O (newest to oldest) order of search.
  *
@@ -106,7 +106,7 @@ public interface MvPartitionStorage extends AutoCloseable {
      *
      * @param rowId Row id.
      * @param txId Transaction id.
-     * @return Binary row that corresponds to the key or {@code null} if value is not found.
+     * @return Read result that corresponds to the key or {@code null} if value is not found.
      * @throws TxIdMismatchException If there's another pending update associated with different transaction id.
      * @throws StorageException If failed to read data from the storage.
      */
@@ -120,19 +120,27 @@ public interface MvPartitionStorage extends AutoCloseable {
      */
     @Nullable
     @Deprecated
-    default BinaryRow read(RowId rowId, Timestamp timestamp) throws StorageException {
+    default ReadResult read(RowId rowId, Timestamp timestamp) throws StorageException {
         return read(rowId, convertTimestamp(timestamp));
     }
 
     /**
      * Reads the value from the storage as it was at the given timestamp.
+     * If there is a row with specified row id and timestamp - return it.
+     * If there are multiple versions of row with specified row id:
+     * <ol>
+     *     <li>If there is only write-intent - return write-intent.</li>
+     *     <li>If there is write-intent and previous commit is older than timestamp - return write-intent.</li>
+     *     <li>If there is a commit older than timestamp, but no write-intent - return said commit.</li>
+     *     <li>If there are two commits one older and one newer than timestamp - return older commit.</li>
+     *     <li>There are commits but they're all newer than timestamp - return nothing.</li>
+     * </ol>
      *
      * @param rowId Row id.
      * @param timestamp Timestamp.
-     * @return Binary row that corresponds to the key or {@code null} if value is not found.
+     * @return Read result that corresponds to the key.
      */
-    @Nullable
-    BinaryRow read(RowId rowId, HybridTimestamp timestamp) throws StorageException;
+    ReadResult read(RowId rowId, HybridTimestamp timestamp) throws StorageException;
 
     /**
      * Creates an uncommitted version, assigning a new row id to it.
@@ -142,8 +150,8 @@ public interface MvPartitionStorage extends AutoCloseable {
      * @return Row id.
      * @throws StorageException If failed to write data into the storage.
      *
-     * @deprecated Generates different ids for each replica. {@link #addWrite(RowId, BinaryRow, UUID)} with explicit replicated id must be
-     *      used instead.
+     * @deprecated Generates different ids for each replica. {@link #addWrite(RowId, BinaryRow, UUID, UUID, int)} with explicit replicated
+     *      id must be used instead.
      */
     @Deprecated
     RowId insert(BinaryRow binaryRow, UUID txId) throws StorageException;
@@ -158,12 +166,15 @@ public interface MvPartitionStorage extends AutoCloseable {
      * @param rowId Row id.
      * @param row Binary row to update. Key only row means value removal.
      * @param txId Transaction id.
+     * @param commitTableId Commit table id.
+     * @param commitPartitionId Commit partitionId.
      * @return Previous uncommitted row version associated with the row id, or {@code null} if no uncommitted version
      *     exists before this call
      * @throws TxIdMismatchException If there's another pending update associated with different transaction id.
      * @throws StorageException If failed to write data to the storage.
      */
-    @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId) throws TxIdMismatchException, StorageException;
+    @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, UUID commitTableId, int commitPartitionId)
+            throws TxIdMismatchException, StorageException;
 
     /**
      * Aborts a pending update of the ongoing uncommitted transaction. Invoked during rollback.

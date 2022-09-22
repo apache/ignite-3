@@ -115,13 +115,13 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         RowId rowId0 = partitionStorage0.runConsistently(() -> partitionStorage0.insert(testData0, txId));
 
         assertThat(unwrap(partitionStorage0.read(rowId0, txId)), is(equalTo(unwrap(testData0))));
-        assertThat(partitionStorage1.read(rowId0, txId), is(nullValue()));
+        assertThrows(IllegalArgumentException.class, () -> partitionStorage1.read(rowId0, txId));
 
         var testData1 = binaryRow(new TestKey(2, "2"), new TestValue(20, "20"));
 
         RowId rowId1 = partitionStorage1.runConsistently(() -> partitionStorage1.insert(testData1, txId));
 
-        assertThat(partitionStorage0.read(rowId1, txId), is(nullValue()));
+        assertThrows(IllegalArgumentException.class, () -> partitionStorage0.read(rowId1, txId));
         assertThat(unwrap(partitionStorage1.read(rowId1, txId)), is(equalTo(unwrap(testData1))));
 
         assertThat(toList(partitionStorage0.scan(row -> true, txId)), contains(unwrap(testData0)));
