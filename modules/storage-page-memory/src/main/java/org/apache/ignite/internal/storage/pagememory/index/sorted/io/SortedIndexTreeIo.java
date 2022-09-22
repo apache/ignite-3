@@ -133,7 +133,7 @@ public interface SortedIndexTreeIo {
         int cmp = binaryTupleComparator.compare(firstBinaryTupleBuffer, secondBinaryTupleBuffer);
 
         // Binary Tuple Prefixes don't have row IDs, so they can't be compared.
-        if (cmp != 0 || isPrefix(firstBinaryTupleBuffer) || isPrefix(secondBinaryTupleBuffer)) {
+        if (cmp != 0 || isPrefix(secondBinaryTupleBuffer)) {
             return cmp;
         }
 
