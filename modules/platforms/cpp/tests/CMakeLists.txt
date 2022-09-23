@@ -17,8 +17,6 @@
 
 if (WIN32)
     set(Boost_USE_STATIC_LIBS ON)
-else()
-    add_compile_definitions(-DBOOST_TEST_DYN_LINK)
 endif()
 
 find_package(Boost REQUIRED COMPONENTS unit_test_framework)
@@ -36,13 +34,14 @@ function(add_boost_test SOURCE_FILE DEPENDENCIES)
 
     target_compile_definitions(${EXECUTABLE_NAME} PUBLIC -DBOOST_TEST_MODULE=${TEST_MODULE})
 
+    if (NOT WIN32)
+        add_definitions(-DBOOST_TEST_DYN_LINK)
+        target_link_libraries(${EXECUTABLE_NAME} -rdynamic)
+    endif()
+
     target_link_libraries(${EXECUTABLE_NAME} Boost::unit_test_framework ${DEPENDENCIES})
 
     target_link_libraries(${EXECUTABLE_NAME} $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,8.0>>:stdc++fs>)
-
-    if (NOT WIN32)
-        target_link_libraries(${EXECUTABLE_NAME} -rdynamic)
-    endif()
 
     file(READ ${SOURCE_FILE} SOURCE)
 

@@ -25,6 +25,7 @@ set(CMAKE_PROJECT_VERSION ${PROJECT_VERSION})
 
 if(EXISTS ${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
     message(STATUS "Conan detected. Enabling...")
+    include(${CMAKE_BINARY_DIR}/conan_toolchain.cmake)
     include(${CMAKE_BINARY_DIR}/conan_paths.cmake)
     include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
     conan_basic_setup()

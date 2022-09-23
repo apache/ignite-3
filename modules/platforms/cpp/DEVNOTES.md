@@ -10,24 +10,44 @@ In repo root: `mvn clean install -DskipTests`
 
 ## Build C++
 
-### For Developers
+### For Windows Developers
 Building in debug mode with tests. In this dir:
-```bash
+```shell
 mkdir cmake-build-debug
 cd cmake-build-debug
-conan install .. -s build_type=Debug
+conan install .. --build=missing -s build_type=Debug
 cmake .. -DENABLE_TESTS=ON
 cmake --build . -j8 
 ```
 
-### For users
+### For Linux Developers
+Building in debug mode with tests. In this dir:
+```shell
+mkdir cmake-build-debug
+cd cmake-build-debug
+conan install .. -pr:b=default --build=missing -s build_type=Debug -o boost:shared=True
+cmake .. -DENABLE_TESTS=ON -DCMAKE_BUILD_TYPE=Debug
+cmake --build . -j8 
+```
+
+### For Windows users
 Building in release mode without tests. In this dir:
-```bash
+```shell
 mkdir cmake-build-release
 cd cmake-build-release
-conan install .. -s build_type=Release
+conan install .. --build=missing -s build_type=Release
 cmake .. -DENABLE_TESTS=OFF
 cmake --build . -j8
+```
+
+### For Linux users
+Building in release mode without tests. In this dir:
+```shell
+mkdir cmake-build-release
+cd cmake-build-release
+conan install .. -pr:b=default --build=missing -s build_type=Release -o boost:shared=True
+cmake .. -DENABLE_TESTS=ON -DCMAKE_BUILD_TYPE=Release
+cmake --build . -j8 
 ```
 
 ## Run Tests

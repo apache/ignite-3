@@ -4,6 +4,8 @@ gtest/1.12.1
 boost/1.72.0
 
 [generators]
+CMakeDeps
+CMakeToolchain
 cmake_find_package
 cmake_paths
 cmake
