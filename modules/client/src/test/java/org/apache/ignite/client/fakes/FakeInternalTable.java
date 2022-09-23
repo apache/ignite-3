@@ -153,24 +153,22 @@ public class FakeInternalTable implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Boolean> insert(BinaryRowEx row, @Nullable InternalTransaction tx) {
-        onDataAccess("insert", row);
-
         var old = get(row, tx).getNow(null);
+        boolean res = false;
 
         if (old == null) {
             upsert(row, tx);
 
-            return CompletableFuture.completedFuture(true);
+            res = true;
         }
 
-        return CompletableFuture.completedFuture(false);
+        onDataAccess("insert", row);
+        return CompletableFuture.completedFuture(res);
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Collection<BinaryRow>> insertAll(Collection<BinaryRowEx> rows, @Nullable InternalTransaction tx) {
-        onDataAccess("insertAll", rows);
-
         var skipped = new ArrayList<BinaryRow>();
 
         for (var row : rows) {
@@ -179,6 +177,7 @@ public class FakeInternalTable implements InternalTable {
             }
         }
 
+        onDataAccess("insertAll", rows);
         return CompletableFuture.completedFuture(skipped);
     }
 

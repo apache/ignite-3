@@ -21,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import io.netty.util.ResourceLeakDetector;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import java.util.function.Consumer;
 import org.apache.ignite.Ignite;
@@ -210,8 +211,23 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         // TODO IGNITE-17739 Add Partition Awareness to all table APIs
         RecordView<Tuple> recordView = defaultTable().recordView();
 
-        assertOpOnNode("server-1", "upsert", x -> recordView.upsert(null, Tuple.create().set("ID", 0L)));
-        assertOpOnNode("server-2", "upsert", x -> recordView.upsert(null, Tuple.create().set("ID", 1L)));
+        Tuple t1 = Tuple.create().set("ID", 0L);
+        Tuple t2 = Tuple.create().set("ID", 1L);
+
+        assertOpOnNode("server-1", "insert", x -> recordView.insert(null, t1));
+        assertOpOnNode("server-2", "insert", x -> recordView.insert(null, t2));
+
+        assertOpOnNode("server-1", "insertAll", x -> recordView.insertAll(null, List.of(t1)));
+        assertOpOnNode("server-2", "insertAll", x -> recordView.insertAll(null, List.of(t2)));
+
+        assertOpOnNode("server-1", "upsert", x -> recordView.upsert(null, t1));
+        assertOpOnNode("server-2", "upsert", x -> recordView.upsert(null, t2));
+
+        assertOpOnNode("server-1", "getAndUpsert", x -> recordView.getAndUpsert(null, t1));
+        assertOpOnNode("server-2", "getAndUpsert", x -> recordView.getAndUpsert(null, t2));
+
+        assertOpOnNode("server-1", "upsertAll", x -> recordView.upsertAll(null, List.of(t1)));
+        assertOpOnNode("server-2", "upsertAll", x -> recordView.upsertAll(null, List.of(t2)));
     }
 
     @Test
@@ -230,8 +246,8 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
         op.accept(null);
 
-        assertEquals(expectedNode, lastOpServerName);
         assertEquals(expectedOp, lastOp);
+        assertEquals(expectedNode, lastOpServerName);
     }
 
     private Table defaultTable() {
