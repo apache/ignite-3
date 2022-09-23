@@ -510,7 +510,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
     private Integer getColocationHash(ClientSchema schema, K rec) {
         // Colocation columns are always part of the key - https://cwiki.apache.org/confluence/display/IGNITE/IEP-86%3A+Colocation+Key.
         var hashCalc = new HashCalculator();
-        var marsh = schema.getMarshaller(keySer.mapper(), TuplePart.KEY_AND_VAL);
+        var marsh = schema.getMarshaller(keySer.mapper(), TuplePart.KEY);
 
         for (ClientColumn col : schema.colocationColumns()) {
             Object value = marsh.value(rec, col.schemaIndex());
