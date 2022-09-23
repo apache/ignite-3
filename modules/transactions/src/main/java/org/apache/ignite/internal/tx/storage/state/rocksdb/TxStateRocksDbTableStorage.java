@@ -191,11 +191,6 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
                 LOG.error("Couldn't close the transaction state storage of partition "
                     + partitionId + ", table " + tableCfg.value().name());
             }
-
-            if (e != null) {
-                LOG.error("Error when flushing the transaction state storage for the table "
-                    + tableCfg.value().name());
-            }
         });
     }
 

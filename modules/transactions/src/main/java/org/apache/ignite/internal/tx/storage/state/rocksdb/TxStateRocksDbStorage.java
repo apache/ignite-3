@@ -175,13 +175,13 @@ public class TxStateRocksDbStorage implements TxStateStorage {
 
         byte[] txIdBytes = txIdToKey(txId);
 
-        try {
+        try (WriteBatch writeBatch = new WriteBatch()) {
             byte[] txMetaExistingBytes = db.get(readOptions, txIdToKey(txId));
 
             boolean result;
 
             if (txMetaExistingBytes == null && txStateExpected == null) {
-                db.put(txIdBytes, toBytes(txMeta));
+                writeBatch.put(txIdBytes, toBytes(txMeta));
 
                 result = true;
             } else {
@@ -189,7 +189,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
                     TxMeta txMetaExisting = fromBytes(txMetaExistingBytes);
 
                     if (txMetaExisting.txState() == txStateExpected) {
-                        db.put(txIdBytes, toBytes(txMeta));
+                        writeBatch.put(txIdBytes, toBytes(txMeta));
 
                         result = true;
                     } else {
@@ -200,7 +200,9 @@ public class TxStateRocksDbStorage implements TxStateStorage {
                 }
             }
 
-            db.put(lastAppliedIndexKey, longToBytes(commandIndex));
+            writeBatch.put(lastAppliedIndexKey, longToBytes(commandIndex));
+
+            db.write(writeOptions, writeBatch);
 
             return result;
         } catch (RocksDBException e) {
@@ -346,8 +348,6 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     @Override public void destroy() {
         try (WriteBatch writeBatch = new WriteBatch()) {
             close();
-
-            writeBatch.delete(lastAppliedIndexKey);
 
             writeBatch.deleteRange(partitionStartPrefix(), partitionEndPrefix());
 
