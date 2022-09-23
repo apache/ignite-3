@@ -76,14 +76,14 @@ public class IgniteProductVersionTest {
         assertThat(version.preRelease(), is(equalTo("alpha22")));
         assertThat(version.toString(), is(equalTo("3.1.2-alpha22")));
 
-        version = IgniteProductVersion.fromString("3.1.2.3-alpha23");
+        version = IgniteProductVersion.fromString("3.1.2.3-beta23");
 
         assertThat(version.major(), is((byte) 3));
         assertThat(version.minor(), is((byte) 1));
         assertThat(version.maintenance(), is((byte) 2));
         assertThat(version.patch(), is((byte) 3));
-        assertThat(version.preRelease(), is(equalTo("alpha23")));
-        assertThat(version.toString(), is(equalTo("3.1.2.3-alpha23")));
+        assertThat(version.preRelease(), is(equalTo("beta23")));
+        assertThat(version.toString(), is(equalTo("3.1.2.3-beta23")));
     }
 
     @Test

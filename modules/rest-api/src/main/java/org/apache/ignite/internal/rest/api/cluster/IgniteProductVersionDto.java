@@ -22,6 +22,7 @@ import com.fasterxml.jackson.annotation.JsonGetter;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.Objects;
+import java.util.StringJoiner;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -38,26 +39,28 @@ public class IgniteProductVersionDto {
     /** Maintenance version number. */
     private final short maintenance;
 
-    /** Flag indicating if this is a snapshot release. */
-    private final boolean isSnapshot;
+    /** Patch version number. */
+    @Nullable
+    private final Byte patch;
 
-    /** Alpha version part or an empty string if this is not an alpha release. */
-    // TODO: IGNITE-17146 Fix and add support for beta and other releases
-    private final String alphaVersion;
+    /** Pre-release version. */
+    @Nullable
+    private final String preRelease;
 
     /** Constructor. */
     @JsonCreator
     public IgniteProductVersionDto(
-            @JsonProperty("major") short major,
-            @JsonProperty("minor") short minor,
-            @JsonProperty("maintenance") short maintenance,
-            @JsonProperty("isSnapshot") boolean isSnapshot,
-            @JsonProperty("alphaVersion") @Nullable String alphaVersion) {
+            @JsonProperty("major") byte major,
+            @JsonProperty("minor") byte minor,
+            @JsonProperty("maintenance") byte maintenance,
+            @JsonProperty("patch") @Nullable Byte patch,
+            @JsonProperty("preRelease") @Nullable String preRelease
+    ) {
         this.major = major;
         this.minor = minor;
         this.maintenance = maintenance;
-        this.isSnapshot = isSnapshot;
-        this.alphaVersion = alphaVersion == null ? "" : alphaVersion;
+        this.patch = patch;
+        this.preRelease = preRelease;
     }
 
     /**
@@ -85,19 +88,19 @@ public class IgniteProductVersionDto {
     }
 
     /**
-     * Returns {@code true} if this is a snapshot release, {@code false} otherwise.
+     * Returns the patch version number.
      */
     @JsonGetter
-    public boolean snapshot() {
-        return isSnapshot;
+    public @Nullable Byte patch() {
+        return patch;
     }
 
     /**
-     * Returns the alpha version of this release or an empty string if this is not an alpha release.
+     * Returns the pre-release version.
      */
     @JsonGetter
-    public String alphaVersion() {
-        return alphaVersion;
+    public @Nullable String preRelease() {
+        return preRelease;
     }
 
     @Override
@@ -105,23 +108,30 @@ public class IgniteProductVersionDto {
         if (this == o) {
             return true;
         }
+
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
+
         IgniteProductVersionDto that = (IgniteProductVersionDto) o;
-        return major == that.major && minor == that.minor && maintenance == that.maintenance && isSnapshot == that.isSnapshot
-                && alphaVersion.equals(that.alphaVersion);
+
+        return major == that.major && minor == that.minor && maintenance == that.maintenance
+                && Objects.equals(patch, that.patch) && Objects.equals(preRelease, that.preRelease);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(major, minor, maintenance, isSnapshot, alphaVersion);
+        return Objects.hash(major, minor, maintenance, patch, preRelease);
     }
 
     @Override
     public String toString() {
-        String version = String.join(".", String.valueOf(major), String.valueOf(minor), String.valueOf(maintenance));
+        StringJoiner joiner = new StringJoiner(".").add(String.valueOf(major)).add(String.valueOf(minor)).add(String.valueOf(maintenance));
 
-        return version + (alphaVersion.isEmpty() ? "" : "-" + alphaVersion) + (isSnapshot ? "-SNAPSHOT" : "");
+        if (patch != null) {
+            joiner.add(patch.toString());
+        }
+
+        return joiner + (preRelease == null ? "" : "-" + preRelease);
     }
 }
