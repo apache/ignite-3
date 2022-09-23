@@ -43,7 +43,7 @@ import org.apache.ignite.internal.util.IgniteUtils;
  * Utility class to convert table configuration view as well as all related objects to a {@link SchemaDescriptor} domain.
  */
 public final class ConfigurationToSchemaDescriptorConverter {
-    private static final Map<String, NativeType> fixSizedTypes;
+    private static final Map<String, NativeType> FIX_SIZED_TYPES;
 
     static {
         List<NativeType> types = IgniteUtils.collectStaticFields(NativeTypes.class, NativeType.class);
@@ -58,7 +58,7 @@ public final class ConfigurationToSchemaDescriptorConverter {
             tmp.put(type.spec().name(), type);
         }
 
-        fixSizedTypes = Map.copyOf(tmp);
+        FIX_SIZED_TYPES = Map.copyOf(tmp);
     }
 
     /**
@@ -69,7 +69,7 @@ public final class ConfigurationToSchemaDescriptorConverter {
      */
     public static NativeType convert(ColumnTypeView colTypeView) {
         String typeName = colTypeView.type().toUpperCase();
-        NativeType res = fixSizedTypes.get(typeName);
+        NativeType res = FIX_SIZED_TYPES.get(typeName);
 
         if (res != null) {
             return res;

@@ -69,7 +69,7 @@ public class ColumnTypeValidatorImpl implements Validator<ColumnTypeValidator, C
 
                     assert columnView != null;
 
-                    ctx.addIssue(new ValidationIssue(columnView.name(), "Length must by positive"));
+                    ctx.addIssue(new ValidationIssue(columnView.name(), "Length must be positive"));
                 }
 
                 break;
@@ -88,7 +88,7 @@ public class ColumnTypeValidatorImpl implements Validator<ColumnTypeValidator, C
 
                     assert columnView != null;
 
-                    ctx.addIssue(new ValidationIssue(columnView.name(), "Precision must by positive"));
+                    ctx.addIssue(new ValidationIssue(columnView.name(), "Precision must be positive"));
                 }
 
                 break;
@@ -101,7 +101,7 @@ public class ColumnTypeValidatorImpl implements Validator<ColumnTypeValidator, C
 
                     assert columnView != null;
 
-                    ctx.addIssue(new ValidationIssue(columnView.name(), "Precision must by in range [0-9]"));
+                    ctx.addIssue(new ValidationIssue(columnView.name(), "Precision must be in range [0-9]"));
                 }
 
                 break;
@@ -121,7 +121,7 @@ public class ColumnTypeValidatorImpl implements Validator<ColumnTypeValidator, C
 
             assert columnView != null;
 
-            ctx.addIssue(new ValidationIssue(columnView.name(), "Scale must by lower or equal to precision"));
+            ctx.addIssue(new ValidationIssue(columnView.name(), "Scale must be lower or equal to precision"));
         }
     }
 
