@@ -299,6 +299,8 @@ public class DdlCommandHandler {
         return tableManager.alterTableAsync(
                 fullName,
                 chng -> chng.changeColumns(cols -> {
+                    ret.set(true); // Reset state if closure have been restarted.
+
                     Map<String, String> colNamesToOrders = columnOrdersToNames(chng.columns());
 
                     List<ColumnDefinition> colsDef0;
@@ -379,6 +381,8 @@ public class DdlCommandHandler {
         return tableManager.alterTableAsync(
                         fullName,
                         chng -> chng.changeColumns(cols -> {
+                            ret.set(true); // Reset state if closure have been restarted.
+
                             PrimaryKeyView priKey = chng.primaryKey();
 
                             Map<String, String> colNamesToOrders = columnOrdersToNames(chng.columns());
