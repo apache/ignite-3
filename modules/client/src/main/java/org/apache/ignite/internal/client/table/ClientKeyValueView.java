@@ -143,7 +143,8 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
                 ClientOp.TUPLE_GET_ALL,
                 (s, w) -> keySer.writeRecs(tx, keys, s, w, TuplePart.KEY),
                 this::readGetAllResponse,
-                Collections.emptyMap());
+                Collections.emptyMap(),
+                ClientTupleSerializer.getHashFunction(tx, keySer.mapper(), keys.iterator().next()));
     }
 
     /** {@inheritDoc} */
@@ -160,7 +161,8 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_CONTAINS_KEY,
                 (s, w) -> keySer.writeRec(tx, key, s, w, TuplePart.KEY),
-                ClientMessageUnpacker::unpackBoolean);
+                ClientMessageUnpacker::unpackBoolean,
+                ClientTupleSerializer.getHashFunction(tx, keySer.mapper(), key));
     }
 
     /** {@inheritDoc} */
@@ -177,7 +179,8 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_UPSERT,
                 (s, w) -> writeKeyValue(s, w, tx, key, val),
-                r -> null);
+                r -> null,
+                ClientTupleSerializer.getHashFunction(tx, keySer.mapper(), key));
     }
 
     /** {@inheritDoc} */
@@ -205,7 +208,8 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
                         writeKeyValueRaw(s, w, e.getKey(), e.getValue());
                     }
                 },
-                r -> null);
+                r -> null,
+                ClientTupleSerializer.getHashFunction(tx, keySer.mapper(), pairs.keySet().iterator().next()));
     }
 
     /** {@inheritDoc} */
@@ -223,7 +227,9 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_UPSERT,
                 (s, w) -> writeKeyValue(s, w, tx, key, val),
-                (s, r) -> valSer.readRec(s, r, TuplePart.VAL));
+                (s, r) -> valSer.readRec(s, r, TuplePart.VAL),
+                null,
+                ClientTupleSerializer.getHashFunction(tx, keySer.mapper(), key));
     }
 
     /** {@inheritDoc} */
@@ -252,7 +258,8 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_INSERT,
                 (s, w) -> writeKeyValue(s, w, tx, key, val),
-                ClientMessageUnpacker::unpackBoolean);
+                ClientMessageUnpacker::unpackBoolean,
+                ClientTupleSerializer.getHashFunction(tx, keySer.mapper(), key));
     }
 
     /** {@inheritDoc} */
@@ -275,7 +282,8 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_DELETE,
                 (s, w) -> keySer.writeRec(tx, key, s, w, TuplePart.KEY),
-                ClientMessageUnpacker::unpackBoolean);
+                ClientMessageUnpacker::unpackBoolean,
+                ClientTupleSerializer.getHashFunction(tx, keySer.mapper(), key));
     }
 
     /** {@inheritDoc} */
@@ -286,7 +294,8 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_DELETE_EXACT,
                 (s, w) -> writeKeyValue(s, w, tx, key, val),
-                ClientMessageUnpacker::unpackBoolean);
+                ClientMessageUnpacker::unpackBoolean,
+                ClientTupleSerializer.getHashFunction(tx, keySer.mapper(), key));
     }
 
     /** {@inheritDoc} */
@@ -308,7 +317,8 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
                 ClientOp.TUPLE_DELETE_ALL,
                 (s, w) -> keySer.writeRecs(tx, keys, s, w, TuplePart.KEY),
                 (s, r) -> keySer.readRecs(s, r, false, TuplePart.KEY),
-                Collections.emptyList());
+                Collections.emptyList(),
+                ClientTupleSerializer.getHashFunction(tx, keySer.mapper(), keys.iterator().next()));
     }
 
     /** {@inheritDoc} */
@@ -325,7 +335,9 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_DELETE,
                 (s, w) -> keySer.writeRec(tx, key, s, w, TuplePart.KEY),
-                (s, r) -> valSer.readRec(s, r, TuplePart.VAL));
+                (s, r) -> valSer.readRec(s, r, TuplePart.VAL),
+                null,
+                ClientTupleSerializer.getHashFunction(tx, keySer.mapper(), key));
     }
 
     /** {@inheritDoc} */
@@ -362,7 +374,8 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_REPLACE,
                 (s, w) -> writeKeyValue(s, w, tx, key, val),
-                ClientMessageUnpacker::unpackBoolean);
+                ClientMessageUnpacker::unpackBoolean,
+                ClientTupleSerializer.getHashFunction(tx, keySer.mapper(), key));
     }
 
     /** {@inheritDoc} */
@@ -377,7 +390,8 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
                     writeKeyValueRaw(s, w, key, oldVal);
                     writeKeyValueRaw(s, w, key, newVal);
                 },
-                ClientMessageUnpacker::unpackBoolean);
+                ClientMessageUnpacker::unpackBoolean,
+                ClientTupleSerializer.getHashFunction(tx, keySer.mapper(), key));
     }
 
     /** {@inheritDoc} */
@@ -395,7 +409,9 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_REPLACE,
                 (s, w) -> writeKeyValue(s, w, tx, key, val),
-                (s, r) -> valSer.readRec(s, r, TuplePart.VAL));
+                (s, r) -> valSer.readRec(s, r, TuplePart.VAL),
+                null,
+                ClientTupleSerializer.getHashFunction(tx, keySer.mapper(), key));
     }
 
     /** {@inheritDoc} */

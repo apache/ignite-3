@@ -204,7 +204,6 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
     @Test
     public void testAllRecordViewOperations() {
-        // TODO IGNITE-17739 Add Partition Awareness to all table APIs
         RecordView<AbstractClientTableTest.PersonPojo> pojoView = defaultTable().recordView(Mapper.of(AbstractClientTableTest.PersonPojo.class));
 
         var t1 = new AbstractClientTableTest.PersonPojo(0L);
