@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import io.netty.util.ResourceLeakDetector;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.function.Consumer;
 import org.apache.ignite.Ignite;
@@ -266,7 +267,49 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
     @Test
     public void testAllKeyValueBinaryViewOperations() {
-        // TODO IGNITE-17739 Add Partition Awareness to all table APIs
+        KeyValueView<Tuple, Tuple> kvView = defaultTable().keyValueView();
+
+        Tuple t1 = Tuple.create().set("ID", 0L);
+        Tuple t2 = Tuple.create().set("ID", 1L);
+
+        assertOpOnNode("server-1", "insert", x -> kvView.putIfAbsent(null, t1, t1));
+        assertOpOnNode("server-2", "insert", x -> kvView.putIfAbsent(null, t2, t2));
+
+        assertOpOnNode("server-1", "upsert", x -> kvView.put(null, t1, t1));
+        assertOpOnNode("server-2", "upsert", x -> kvView.put(null, t2, t2));
+
+        assertOpOnNode("server-1", "upsertAll", x -> kvView.putAll(null, Map.of(t1, t1)));
+        assertOpOnNode("server-2", "upsertAll", x -> kvView.putAll(null, Map.of(t2, t2)));
+
+        assertOpOnNode("server-1", "get", x -> kvView.get(null, t1));
+        assertOpOnNode("server-2", "get", x -> kvView.get(null, t2));
+
+        assertOpOnNode("server-1", "getAll", x -> kvView.getAll(null, List.of(t1)));
+        assertOpOnNode("server-2", "getAll", x -> kvView.getAll(null, List.of(t2)));
+
+        assertOpOnNode("server-1", "getAndUpsert", x -> kvView.getAndPut(null, t1, t1));
+        assertOpOnNode("server-2", "getAndUpsert", x -> kvView.getAndPut(null, t2, t2));
+
+        assertOpOnNode("server-1", "getAndReplace", x -> kvView.getAndReplace(null, t1, t1));
+        assertOpOnNode("server-2", "getAndReplace", x -> kvView.getAndReplace(null, t2, t2));
+
+        assertOpOnNode("server-1", "getAndDelete", x -> kvView.getAndRemove(null, t1));
+        assertOpOnNode("server-2", "getAndDelete", x -> kvView.getAndRemove(null, t2));
+
+        assertOpOnNode("server-1", "replace", x -> kvView.replace(null, t1, t1));
+        assertOpOnNode("server-2", "replace", x -> kvView.replace(null, t2, t2));
+
+        assertOpOnNode("server-1", "replace", x -> kvView.replace(null, t1, t1, t1));
+        assertOpOnNode("server-2", "replace", x -> kvView.replace(null, t2, t2, t2));
+
+        assertOpOnNode("server-1", "delete", x -> kvView.remove(null, t1));
+        assertOpOnNode("server-2", "delete", x -> kvView.remove(null, t2));
+
+        assertOpOnNode("server-1", "deleteExact", x -> kvView.remove(null, t1, t1));
+        assertOpOnNode("server-2", "deleteExact", x -> kvView.remove(null, t2, t2));
+
+        assertOpOnNode("server-1", "deleteAll", x -> kvView.removeAll(null, List.of(t1)));
+        assertOpOnNode("server-2", "deleteAll", x -> kvView.removeAll(null, List.of(t2)));
     }
 
     private void assertOpOnNode(String expectedNode, String expectedOp, Consumer<Void> op) {
