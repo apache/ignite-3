@@ -106,22 +106,32 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
     @Test
     public void testGetRecordRoutesRequestToPrimaryNode() {
-        RecordView<AbstractClientTableTest.PersonPojo> recordView = defaultTable().recordView(Mapper.of(AbstractClientTableTest.PersonPojo.class));
+        RecordView<AbstractClientTableTest.PersonPojo> pojoView = defaultTable().recordView(Mapper.of(AbstractClientTableTest.PersonPojo.class));
 
-        assertOpOnNode("server-1", "get", x -> recordView.get(null, new AbstractClientTableTest.PersonPojo(0L)));
-        assertOpOnNode("server-2", "get", x -> recordView.get(null, new AbstractClientTableTest.PersonPojo(1L)));
-        assertOpOnNode("server-1", "get", x -> recordView.get(null, new AbstractClientTableTest.PersonPojo(2L)));
-        assertOpOnNode("server-2", "get", x -> recordView.get(null, new AbstractClientTableTest.PersonPojo(3L)));
+        assertOpOnNode("server-1", "get", x -> pojoView.get(null, new AbstractClientTableTest.PersonPojo(0L)));
+        assertOpOnNode("server-2", "get", x -> pojoView.get(null, new AbstractClientTableTest.PersonPojo(1L)));
+        assertOpOnNode("server-1", "get", x -> pojoView.get(null, new AbstractClientTableTest.PersonPojo(2L)));
+        assertOpOnNode("server-2", "get", x -> pojoView.get(null, new AbstractClientTableTest.PersonPojo(3L)));
     }
 
     @Test
     public void testGetKeyValueRoutesRequestToPrimaryNode() {
-        KeyValueView<Long, String> pojoView = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
+        KeyValueView<Long, String> kvView = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
 
-        assertOpOnNode("server-1", "get", x -> pojoView.get(null, 0L));
-        assertOpOnNode("server-2", "get", x -> pojoView.get(null, 1L));
-        assertOpOnNode("server-1", "get", x -> pojoView.get(null, 2L));
-        assertOpOnNode("server-2", "get", x -> pojoView.get(null, 3L));
+        assertOpOnNode("server-1", "get", x -> kvView.get(null, 0L));
+        assertOpOnNode("server-2", "get", x -> kvView.get(null, 1L));
+        assertOpOnNode("server-1", "get", x -> kvView.get(null, 2L));
+        assertOpOnNode("server-2", "get", x -> kvView.get(null, 3L));
+    }
+
+    @Test
+    public void testGetKeyValueBinaryRoutesRequestToPrimaryNode() {
+        KeyValueView<Tuple, Tuple> kvView = defaultTable().keyValueView();
+
+        assertOpOnNode("server-1", "get", x -> kvView.get(null, Tuple.create().set("ID", 0L)));
+        assertOpOnNode("server-2", "get", x -> kvView.get(null, Tuple.create().set("ID", 1L)));
+        assertOpOnNode("server-1", "get", x -> kvView.get(null, Tuple.create().set("ID", 2L)));
+        assertOpOnNode("server-2", "get", x -> kvView.get(null, Tuple.create().set("ID", 3L)));
     }
 
     @Test
