@@ -19,6 +19,7 @@ package org.apache.ignite.internal.properties;
 
 import java.io.Serializable;
 import java.util.Objects;
+import java.util.StringJoiner;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.apache.ignite.internal.util.StringUtils;
@@ -29,11 +30,9 @@ import org.jetbrains.annotations.Nullable;
  */
 public class IgniteProductVersion implements Serializable {
     private static final Pattern VERSION_PATTERN =
-            Pattern.compile("(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<maintenance>\\d+)((?<snapshot>-SNAPSHOT)|-(?<alpha>alpha\\d+))?");
+            Pattern.compile("(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<maintenance>\\d+)(\\.(?<patch>\\d+))?(-(?<preRelease>[0-9A-Za-z]+))?");
 
-    /**
-     * Version of the current node.
-     */
+    /** Version of the current node. */
     public static final IgniteProductVersion CURRENT_VERSION = fromString(IgniteProperties.get(IgniteProperties.VERSION));
 
     /** Major version number. */
@@ -45,23 +44,24 @@ public class IgniteProductVersion implements Serializable {
     /** Maintenance version number. */
     private final byte maintenance;
 
-    /** Flag indicating if this is a snapshot release. */
-    private final boolean isSnapshot;
+    /** Patch version number. */
+    @Nullable
+    private final Byte patch;
 
-    /** Alpha version part or an empty string if this is not an alpha release. */
-    // TODO: IGNITE-17146 Fix and add support for beta and other releases
-    private final String alphaVersion;
+    /** Pre-release version. */
+    @Nullable
+    private final String preRelease;
 
-    private IgniteProductVersion(byte major, byte minor, byte maintenance, boolean isSnapshot, @Nullable String alphaVersion) {
+    private IgniteProductVersion(byte major, byte minor, byte maintenance, @Nullable Byte patch, @Nullable String preRelease) {
         this.major = major;
         this.minor = minor;
         this.maintenance = maintenance;
-        this.isSnapshot = isSnapshot;
-        this.alphaVersion = alphaVersion == null ? "" : alphaVersion;
+        this.patch = patch;
+        this.preRelease = preRelease;
     }
 
     /**
-     * Parses Ignite version in either {@code "X.X.X-SNAPSHOT"} or {@code "X.X.X"} formats.
+     * Parsing the Ignite version in the following formats "major.minor.maintenance(.patch)?((-preRelease)+)?".
      *
      * @param versionStr String representation of an Ignite version.
      * @return Parsed Ignite version.
@@ -78,12 +78,15 @@ public class IgniteProductVersion implements Serializable {
             throw new IllegalArgumentException("Unexpected Ignite version format: " + versionStr);
         }
 
+        String patch = matcher.group("patch");
+        String preRelease = matcher.group("preRelease");
+
         return new IgniteProductVersion(
                 Byte.parseByte(matcher.group("major")),
                 Byte.parseByte(matcher.group("minor")),
                 Byte.parseByte(matcher.group("maintenance")),
-                matcher.group("snapshot") != null,
-                matcher.group("alpha")
+                StringUtils.nullOrBlank(patch) ? null : Byte.parseByte(patch),
+                StringUtils.nullOrBlank(preRelease) ? null : preRelease
         );
     }
 
@@ -109,17 +112,17 @@ public class IgniteProductVersion implements Serializable {
     }
 
     /**
-     * Returns {@code true} if this is a snapshot release, {@code false} otherwise.
+     * Returns the patch version number.
      */
-    public boolean snapshot() {
-        return isSnapshot;
+    public @Nullable Byte patch() {
+        return patch;
     }
 
     /**
-     * Returns the alpha version of this release or an empty string if this is not an alpha release.
+     * Returns the pre-release version.
      */
-    public String alphaVersion() {
-        return alphaVersion;
+    public @Nullable String preRelease() {
+        return preRelease;
     }
 
     @Override
@@ -127,23 +130,30 @@ public class IgniteProductVersion implements Serializable {
         if (this == o) {
             return true;
         }
+
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
+
         IgniteProductVersion that = (IgniteProductVersion) o;
-        return major == that.major && minor == that.minor && maintenance == that.maintenance && isSnapshot == that.isSnapshot
-                && alphaVersion.equals(that.alphaVersion);
+
+        return major == that.major && minor == that.minor && maintenance == that.maintenance
+                && Objects.equals(patch, that.patch) && Objects.equals(preRelease, that.preRelease);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(major, minor, maintenance, isSnapshot, alphaVersion);
+        return Objects.hash(major, minor, maintenance, patch, preRelease);
     }
 
     @Override
     public String toString() {
-        String version = String.join(".", String.valueOf(major), String.valueOf(minor), String.valueOf(maintenance));
+        StringJoiner joiner = new StringJoiner(".").add(String.valueOf(major)).add(String.valueOf(minor)).add(String.valueOf(maintenance));
 
-        return version + (alphaVersion.isEmpty() ? "" : "-" + alphaVersion) + (isSnapshot ? "-SNAPSHOT" : "");
+        if (patch != null) {
+            joiner.add(patch.toString());
+        }
+
+        return joiner + (preRelease == null ? "" : "-" + preRelease);
     }
 }
