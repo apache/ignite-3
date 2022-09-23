@@ -1157,16 +1157,26 @@ public class ConfigurationUtil {
     }
 
     /**
-     * Returns named list node element by its internal id rather than its name.
+     * Returns the element located in the given named list node under the given internal ID.
+     *
+     * @param node Named list node.
+     * @param internalId Internal ID of the element.
+     * @param <N> Type of the element.
+     * @return Element located in the named list node under the given internal ID.
      */
+    @Nullable
     public static <N> N getByInternalId(NamedListView<N> node, UUID internalId) {
         return node.get(((NamedListNode<?>) node).keyByInternalId(internalId));
     }
 
     /**
-     * Returns internal id for the value associated with the passed key.
+     * Extracts the internal ID of the element located in the given named list node under the given name.
+     *
+     * @param node Named list node.
+     * @param name Name of the element inside the named list node.
+     * @return Internal ID of the element.
      */
-    public static <N> UUID getInternalId(NamedListView<N> node, String name) {
+    public static UUID internalId(NamedListView<?> node, String name) {
         return ((NamedListNode<?>) node).internalId(name);
     }
 

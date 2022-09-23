@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.storage.pagememory.index.sorted.io;
 
+import static java.nio.ByteOrder.LITTLE_ENDIAN;
+import static org.apache.ignite.internal.binarytuple.BinaryTupleCommon.isPrefix;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.getLong;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putLong;
 import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.PARTITIONLESS_LINK_SIZE_BYTES;
@@ -116,10 +118,6 @@ public interface SortedIndexTreeIo {
             int idx,
             SortedIndexRowKey rowKey
     ) throws IgniteInternalCheckedException {
-        assert rowKey instanceof SortedIndexRow;
-
-        SortedIndexRow sortedIndexRow = (SortedIndexRow) rowKey;
-
         int off = offset(idx);
 
         long link = readPartitionlessLink(partitionId, pageAddr, off + INDEX_COLUMNS_LINK_OFFSET);
@@ -129,13 +127,19 @@ public interface SortedIndexTreeIo {
 
         dataPageReader.traverse(link, indexColumnsTraversal, null);
 
-        ByteBuffer indexColumnsBuffer = ByteBuffer.wrap(indexColumnsTraversal.result());
+        ByteBuffer firstBinaryTupleBuffer = ByteBuffer.wrap(indexColumnsTraversal.result()).order(LITTLE_ENDIAN);
+        ByteBuffer secondBinaryTupleBuffer = rowKey.indexColumns().valueBuffer();
 
-        int cmp = binaryTupleComparator.compare(indexColumnsBuffer, sortedIndexRow.indexColumns().valueBuffer());
+        int cmp = binaryTupleComparator.compare(firstBinaryTupleBuffer, secondBinaryTupleBuffer);
 
-        if (cmp != 0) {
+        // Binary Tuple Prefixes don't have row IDs, so they can't be compared.
+        if (cmp != 0 || isPrefix(secondBinaryTupleBuffer)) {
             return cmp;
         }
+
+        assert rowKey instanceof SortedIndexRow : rowKey;
+
+        SortedIndexRow sortedIndexRow = (SortedIndexRow) rowKey;
 
         long rowIdMsb = getLong(pageAddr, off + ROW_ID_MSB_OFFSET);
 
@@ -170,7 +174,7 @@ public interface SortedIndexTreeIo {
 
         dataPageReader.traverse(link, indexColumnsTraversal, null);
 
-        ByteBuffer indexColumnsBuffer = ByteBuffer.wrap(indexColumnsTraversal.result());
+        ByteBuffer indexColumnsBuffer = ByteBuffer.wrap(indexColumnsTraversal.result()).order(LITTLE_ENDIAN);
 
         IndexColumns indexColumns = new IndexColumns(partitionId, link, indexColumnsBuffer);
 

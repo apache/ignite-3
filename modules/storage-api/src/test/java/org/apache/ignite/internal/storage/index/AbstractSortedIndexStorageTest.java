@@ -19,6 +19,7 @@ package org.apache.ignite.internal.storage.index;
 
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableList;
+import static org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter.addIndex;
 import static org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter.convert;
 import static org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders.column;
 import static org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders.tableBuilder;
@@ -27,7 +28,6 @@ import static org.apache.ignite.internal.storage.index.SortedIndexStorage.GREATE
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.LESS;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.LESS_OR_EQUAL;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.randomString;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
@@ -43,6 +43,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
 import java.util.stream.IntStream;
@@ -50,6 +51,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableIndexView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
+import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
@@ -87,8 +89,6 @@ public abstract class AbstractSortedIndexStorageTest {
 
     private static final int TEST_PARTITION = 0;
 
-    private Random random;
-
     private static List<ColumnDefinition> allTypesColumnDefinitions() {
         Stream<ColumnType> allColumnTypes = Stream.of(
                 ColumnType.INT8,
@@ -113,6 +113,8 @@ public abstract class AbstractSortedIndexStorageTest {
                 .map(type -> column(type.typeSpec().name(), type).asNullable(true).build())
                 .collect(toUnmodifiableList());
     }
+
+    private final Random random;
 
     private MvTableStorage tableStorage;
 
@@ -188,9 +190,13 @@ public abstract class AbstractSortedIndexStorageTest {
      */
     private SortedIndexStorage createIndexStorage(ColumnarIndexDefinition indexDefinition) {
         CompletableFuture<Void> createIndexFuture =
-                tablesCfg.indexes().change(chg -> chg.create(indexDefinition.name(), idx -> convert(indexDefinition, idx)));
+                tablesCfg.indexes().change(chg -> chg.create(indexDefinition.name(), idx -> {
+                    UUID tableId = ConfigurationUtil.internalId(tablesCfg.tables().value(), "foo");
 
-        assertThat(createIndexFuture, willBe(nullValue(Void.class)));
+                    addIndex(indexDefinition, tableId, idx);
+                }));
+
+        assertThat(createIndexFuture, willCompleteSuccessfully());
 
         TableIndexView indexConfig = tablesCfg.indexes().get(indexDefinition.name()).value();
 
@@ -431,73 +437,73 @@ public abstract class AbstractSortedIndexStorageTest {
         SortedIndexStorage index1 = createIndexStorage(index1Definition);
         SortedIndexStorage index2 = createIndexStorage(index2Definition);
 
-        Object[] val9010 = { "10", 90 };
-        Object[] val8010 = { "10", 80 };
-        Object[] val9020 = { "20", 90 };
-        Object[] val8020 = { "20", 80 };
+        Object[] val1090 = { "10", 90 };
+        Object[] val1080 = { "10", 80 };
+        Object[] val2090 = { "20", 90 };
+        Object[] val2080 = { "20", 80 };
 
         for (SortedIndexStorage index : Arrays.asList(index1, index2)) {
             var serializer = new BinaryTupleRowSerializer(index.indexDescriptor());
 
-            put(index, serializer.serializeRow(val9010, new RowId(0)));
-            put(index, serializer.serializeRow(val8010, new RowId(0)));
-            put(index, serializer.serializeRow(val9020, new RowId(0)));
-            put(index, serializer.serializeRow(val8020, new RowId(0)));
+            put(index, serializer.serializeRow(val1090, new RowId(0)));
+            put(index, serializer.serializeRow(val1080, new RowId(0)));
+            put(index, serializer.serializeRow(val2090, new RowId(0)));
+            put(index, serializer.serializeRow(val2080, new RowId(0)));
         }
 
         // Test without bounds.
         assertThat(
                 scan(index1, null, null, 0),
-                contains(val8010, val9010, val8020, val9020)
+                contains(val1080, val1090, val2080, val2090)
         );
 
         assertThat(
                 scan(index2, null, null, 0),
-                contains(val9010, val8010, val9020, val8020)
+                contains(val1090, val1080, val2090, val2080)
         );
 
         // Lower bound exclusive.
         assertThat(
                 scan(index1, prefix(index1, "10"), null, GREATER),
-                contains(val8020, val9020)
+                contains(val2080, val2090)
         );
 
         assertThat(
                 scan(index2, prefix(index2, "10"), null, GREATER),
-                contains(val9020, val8020)
+                contains(val2090, val2080)
         );
 
         // Lower bound inclusive.
         assertThat(
                 scan(index1, prefix(index1, "10"), null, GREATER_OR_EQUAL),
-                contains(val8010, val9010, val8020, val9020)
+                contains(val1080, val1090, val2080, val2090)
         );
 
         assertThat(
                 scan(index2, prefix(index2, "10"), null, GREATER_OR_EQUAL),
-                contains(val9010, val8010, val9020, val8020)
+                contains(val1090, val1080, val2090, val2080)
         );
 
         // Upper bound exclusive.
         assertThat(
                 scan(index1, null, prefix(index1, "20"), LESS),
-                contains(val8010, val9010)
+                contains(val1080, val1090)
         );
 
         assertThat(
                 scan(index2, null, prefix(index2, "20"), LESS),
-                contains(val9010, val8010)
+                contains(val1090, val1080)
         );
 
         // Upper bound inclusive.
         assertThat(
                 scan(index1, null, prefix(index1, "20"), LESS_OR_EQUAL),
-                contains(val8010, val9010, val8020, val9020)
+                contains(val1080, val1090, val2080, val2090)
         );
 
         assertThat(
                 scan(index2, null, prefix(index2, "20"), LESS_OR_EQUAL),
-                contains(val9010, val8010, val9020, val8020)
+                contains(val1090, val1080, val2090, val2080)
         );
     }
 

@@ -22,6 +22,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.matchesRegex;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -43,6 +44,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(WorkDirectoryExtension.class)
 public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
+    /** <a href="https://semver.org">semver</a> compatible regex. */
+    private static final String IGNITE_SEMVER_REGEX =
+            "(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<maintenance>\\d+)((?<snapshot>-SNAPSHOT)|-(?<alpha>alpha\\d+)|--(?<beta>beta\\d+))?";
 
     private ObjectMapper objectMapper;
 
@@ -187,5 +191,17 @@ public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
                 () -> assertThat(problem.detail(),
                         is("Cluster not initialized. Call /management/v1/cluster/init in order to initialize cluster"))
         );
+    }
+
+    @Test
+    @DisplayName("Node version is available on not initialized cluster")
+    void nodeVersion() throws IOException, InterruptedException {
+        // When GET /management/v1/node/version/
+        HttpResponse<String> response = client.send(get("/management/v1/node/version/"), BodyHandlers.ofString());
+
+        // Then
+        assertThat(response.statusCode(), is(200));
+        // And version is a semver
+        assertThat(response.body(), matchesRegex(IGNITE_SEMVER_REGEX));
     }
 }

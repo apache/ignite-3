@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.client;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 
 /**
  * Processing thin client requests and responses.
@@ -51,4 +52,11 @@ public interface ClientChannel extends AutoCloseable {
      * @return Protocol context.
      */
     public ProtocolContext protocolContext();
+
+    /**
+     * Add topology change listener.
+     *
+     * @param listener Listener.
+     */
+    public void addTopologyAssignmentChangeListener(Consumer<ClientChannel> listener);
 }

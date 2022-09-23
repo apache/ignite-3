@@ -24,12 +24,10 @@ import static org.hamcrest.Matchers.is;
 
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.EntryCountBudgetConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
+import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.TableConfiguration;
+import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -70,20 +68,18 @@ public class RocksDbStorageEngineTest {
     @Test
     void testCreateTableWithDefaultDataRegion(
             @InjectConfiguration(
-                    value = "mock.dataStorage.name=rocksdb",
-                    name = "table",
                     polymorphicExtensions = {
-                            HashIndexConfigurationSchema.class,
                             RocksDbDataStorageConfigurationSchema.class,
-                            ConstantValueDefaultConfigurationSchema.class,
-                            FunctionCallDefaultConfigurationSchema.class,
+                            UnknownDataStorageConfigurationSchema.class,
+                            HashIndexConfigurationSchema.class,
                             NullValueDefaultConfigurationSchema.class,
-                            UnlimitedBudgetConfigurationSchema.class,
-                            EntryCountBudgetConfigurationSchema.class
-                    }
-            ) TableConfiguration tableCfg
+                            UnlimitedBudgetConfigurationSchema.class
+                    },
+                    value = "mock.tables.foo.dataStorage.name=" + RocksDbStorageEngine.ENGINE_NAME
+            )
+            TablesConfiguration tablesConfig
     ) {
-        MvTableStorage table = engine.createMvTable(tableCfg, null);
+        MvTableStorage table = engine.createMvTable(tablesConfig.tables().get("foo"), tablesConfig);
 
         table.start();
 
@@ -101,18 +97,16 @@ public class RocksDbStorageEngineTest {
     @Test
     void testCreateTableWithDynamicCustomDataRegion(
             @InjectConfiguration(
-                    value = "mock.dataStorage{name=rocksdb, dataRegion=foobar}",
-                    name = "table",
                     polymorphicExtensions = {
-                            HashIndexConfigurationSchema.class,
                             RocksDbDataStorageConfigurationSchema.class,
-                            ConstantValueDefaultConfigurationSchema.class,
-                            FunctionCallDefaultConfigurationSchema.class,
+                            UnknownDataStorageConfigurationSchema.class,
+                            HashIndexConfigurationSchema.class,
                             NullValueDefaultConfigurationSchema.class,
-                            UnlimitedBudgetConfigurationSchema.class,
-                            EntryCountBudgetConfigurationSchema.class
-                    }
-            ) TableConfiguration tableCfg
+                            UnlimitedBudgetConfigurationSchema.class
+                    },
+                    value = "mock.tables.foo.dataStorage{name=" + RocksDbStorageEngine.ENGINE_NAME + ", dataRegion=foobar}"
+            )
+            TablesConfiguration tablesConfig
     ) {
         String customRegionName = "foobar";
 
@@ -121,7 +115,7 @@ public class RocksDbStorageEngineTest {
 
         assertThat(engineConfigChangeFuture, willCompleteSuccessfully());
 
-        MvTableStorage table = engine.createMvTable(tableCfg, null);
+        MvTableStorage table = engine.createMvTable(tablesConfig.tables().get("foo"), tablesConfig);
 
         table.start();
 

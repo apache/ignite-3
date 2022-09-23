@@ -17,10 +17,8 @@
 
 package org.apache.ignite.internal.storage.pagememory.index.hash;
 
-
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
 
-import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolder;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.InvokeClosure;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.OperationType;
@@ -30,8 +28,8 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Insert closure that removes corresponding {@link IndexColumns} from a {@link IndexColumnsFreeList} after removing it from the
- * {@link HashIndexTree}.
+ * Insert closure that removes corresponding {@link IndexColumns} from a {@link IndexColumnsFreeList} after removing it from the {@link
+ * HashIndexTree}.
  */
 class RemoveHashIndexRowInvokeClosure implements InvokeClosure<HashIndexRow> {
     /** Hash index row instance for removal. */
@@ -39,9 +37,6 @@ class RemoveHashIndexRowInvokeClosure implements InvokeClosure<HashIndexRow> {
 
     /** Free list to insert data into in case of necessity. */
     private final IndexColumnsFreeList freeList;
-
-    /** Statistics holder to track IO operations. */
-    private final IoStatisticsHolder statHolder;
 
     /** Operation type, either {@link OperationType#REMOVE} or {@link OperationType#NOOP} if row is missing. */
     private OperationType operationType = OperationType.REMOVE;
@@ -51,14 +46,12 @@ class RemoveHashIndexRowInvokeClosure implements InvokeClosure<HashIndexRow> {
      *
      * @param hashIndexRow Hash index row instance for removal.
      * @param freeList Free list to insert data into in case of necessity.
-     * @param statHolder Statistics holder to track IO operations.
      */
-    public RemoveHashIndexRowInvokeClosure(HashIndexRow hashIndexRow, IndexColumnsFreeList freeList, IoStatisticsHolder statHolder) {
+    public RemoveHashIndexRowInvokeClosure(HashIndexRow hashIndexRow, IndexColumnsFreeList freeList) {
         assert hashIndexRow.indexColumns().link() == 0L;
 
         this.hashIndexRow = hashIndexRow;
         this.freeList = freeList;
-        this.statHolder = statHolder;
     }
 
     @Override
@@ -91,7 +84,7 @@ class RemoveHashIndexRowInvokeClosure implements InvokeClosure<HashIndexRow> {
         if (indexColumns.link() != NULL_LINK) {
             assert operationType == OperationType.REMOVE;
 
-            freeList.removeDataRowByLink(indexColumns.link(), statHolder);
+            freeList.removeDataRowByLink(indexColumns.link());
 
             indexColumns.link(NULL_LINK);
         }

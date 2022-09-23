@@ -30,12 +30,13 @@ import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTi
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryTableStorage;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineView;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumnsFreeList;
+import org.apache.ignite.internal.storage.pagememory.index.hash.PageMemoryHashIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
+import org.apache.ignite.internal.storage.pagememory.index.sorted.PageMemorySortedIndexStorage;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
@@ -86,21 +87,18 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         checkpointTimeoutLock = checkpointManager.checkpointTimeoutLock();
 
         checkpointManager.addCheckpointListener(checkpointListener = new CheckpointListener() {
-            /** {@inheritDoc} */
             @Override
             public void beforeCheckpointBegin(CheckpointProgress progress, @Nullable Executor exec) throws IgniteInternalCheckedException {
                 // It may take some time, it's not scary because we keep a read lock here.
                 syncMetadataOnCheckpoint(exec);
             }
 
-            /** {@inheritDoc} */
             @Override
             public void onMarkCheckpointBegin(CheckpointProgress progress, @Nullable Executor exec) throws IgniteInternalCheckedException {
                 // Should be fast, because here we only need to save the delta, reduce write lock holding time.
                 syncMetadataOnCheckpoint(exec);
             }
 
-            /** {@inheritDoc} */
             @Override
             public void afterCheckpointEnd(CheckpointProgress progress) {
                 persistedIndex = meta.metaSnapshot(progress.id()).lastAppliedIndex();
@@ -110,7 +108,6 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         this.meta = meta;
     }
 
-    /** {@inheritDoc} */
     @Override
     public <V> V runConsistently(WriteClosure<V> closure) throws StorageException {
         checkpointTimeoutLock.checkpointReadLock();
@@ -122,7 +119,6 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> flush() {
         CheckpointProgress lastCheckpoint = checkpointManager.lastCheckpointProgress();
@@ -143,13 +139,11 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         return scheduledCheckpoint.futureFor(CheckpointState.FINISHED).thenApply(res -> null);
     }
 
-    /** {@inheritDoc} */
     @Override
     public long lastAppliedIndex() {
         return meta.lastAppliedIndex();
     }
 
-    /** {@inheritDoc} */
     @Override
     public void lastAppliedIndex(long lastAppliedIndex) throws StorageException {
         assert checkpointTimeoutLock.checkpointLockIsHeldByThread();
@@ -161,18 +155,21 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         meta.lastAppliedIndex(lastCheckpointId, lastAppliedIndex);
     }
 
-    /** {@inheritDoc} */
     @Override
     public long persistedIndex() {
         return persistedIndex;
     }
 
     @Override
-    public HashIndexStorage getOrCreateHashIndex(UUID indexId) {
+    public PageMemoryHashIndexStorage getOrCreateHashIndex(UUID indexId) {
         return runConsistently(() -> super.getOrCreateHashIndex(indexId));
     }
 
-    /** {@inheritDoc} */
+    @Override
+    public PageMemorySortedIndexStorage getOrCreateSortedIndex(UUID indexId) {
+        return runConsistently(() -> super.getOrCreateSortedIndex(indexId));
+    }
+
     @Override
     public void close() {
         checkpointManager.removeCheckpointListener(checkpointListener);

@@ -363,8 +363,8 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
     public CompletableFuture<Void> writeConfigurationRevision(long prevRevision, long currentRevision) {
         byte[] value = new byte[Long.BYTES * 2];
 
-        ByteUtils.longToBytes(prevRevision, value, 0);
-        ByteUtils.longToBytes(currentRevision, value, Long.BYTES);
+        ByteUtils.putLongToBytes(prevRevision, value, 0);
+        ByteUtils.putLongToBytes(currentRevision, value, Long.BYTES);
 
         return vaultMgr.put(CONFIGURATION_REVISIONS_KEY, value);
     }

@@ -17,15 +17,18 @@
 
 package org.apache.ignite.internal.table;
 
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NodeStoppingException;
+import org.apache.ignite.table.manager.IgniteTables;
 
 /**
  * Internal tables facade provides low-level methods for table operations.
  */
-public interface IgniteTablesInternal {
+public interface IgniteTablesInternal extends IgniteTables {
     /**
      * Gets a table by id.
      *
@@ -73,4 +76,29 @@ public interface IgniteTablesInternal {
      *                         </ul>
      */
     CompletableFuture<TableImpl> tableImplAsync(String name);
+
+    /**
+     * Gets a list of the current table assignments.
+     *
+     * <p>Returns a list where on the i-th place resides a node id that considered as a leader for
+     * the i-th partition on the moment of invocation.
+     *
+     * @param tableId Unique id of a table.
+     * @return List of the current assignments.
+     */
+    List<String> assignments(UUID tableId) throws NodeStoppingException;
+
+    /**
+     * Adds a listener to track changes in {@link #assignments(UUID)}.
+     *
+     * @param listener Listener.
+     */
+    void addAssignmentsChangeListener(Consumer<IgniteTablesInternal> listener);
+
+    /**
+     * Removes assignments change listener.
+     *
+     * @param listener Listener.
+     */
+    boolean removeAssignmentsChangeListener(Consumer<IgniteTablesInternal> listener);
 }

@@ -19,9 +19,11 @@ package org.apache.ignite.client.fakes;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.ignite.configuration.schemas.table.TableChange;
@@ -32,6 +34,7 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.jetbrains.annotations.NotNull;
@@ -48,6 +51,10 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
 
     public static final String TABLE_WITH_DEFAULT_VALUES = "default-columns";
 
+    public static final String TABLE_COMPOSITE_KEY = "composite-key";
+
+    public static final String TABLE_COLOCATION_KEY = "colocation-key";
+
     public static final String BAD_TABLE = "bad-table";
 
     public static final String BAD_TABLE_ERR = "Err!";
@@ -56,10 +63,25 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
 
     private final ConcurrentHashMap<UUID, TableImpl> tablesById = new ConcurrentHashMap<>();
 
+    private final CopyOnWriteArrayList<Consumer<IgniteTablesInternal>> assignmentsChangeListeners = new CopyOnWriteArrayList<>();
+
+    private volatile List<String> partitionAssignments = null;
+
     /** {@inheritDoc} */
     @Override
     public Table createTable(String name, Consumer<TableChange> tableInitChange) {
-        var newTable = getNewTable(name);
+        return createTable(name, UUID.randomUUID());
+    }
+
+    /**
+     * Creates a table.
+     *
+     * @param name Table name.
+     * @param id Table id.
+     * @return Table.
+     */
+    public TableImpl createTable(String name, UUID id) {
+        var newTable = getNewTable(name, id);
 
         var oldTable = tables.putIfAbsent(name, newTable);
 
@@ -159,8 +181,43 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
         return CompletableFuture.completedFuture(tableImpl(name));
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public List<String> assignments(UUID tableId) throws NodeStoppingException {
+        return partitionAssignments;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void addAssignmentsChangeListener(Consumer<IgniteTablesInternal> listener) {
+        Objects.requireNonNull(listener);
+
+        assignmentsChangeListeners.add(listener);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean removeAssignmentsChangeListener(Consumer<IgniteTablesInternal> listener) {
+        Objects.requireNonNull(listener);
+
+        return assignmentsChangeListeners.remove(listener);
+    }
+
+    /**
+     * Sets partition assignments.
+     *
+     * @param assignments Assignments.
+     */
+    public void setPartitionAssignments(List<String> assignments) {
+        partitionAssignments = assignments;
+
+        for (var listener : assignmentsChangeListeners) {
+            listener.accept(this);
+        }
+    }
+
     @NotNull
-    private TableImpl getNewTable(String name) {
+    private TableImpl getNewTable(String name, UUID id) {
         Function<Integer, SchemaDescriptor> history;
 
         switch (name) {
@@ -176,13 +233,21 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
                 history = this::getDefaultColumnValuesSchema;
                 break;
 
+            case TABLE_COMPOSITE_KEY:
+                history = this::getCompositeKeySchema;
+                break;
+
+            case TABLE_COLOCATION_KEY:
+                history = this::getColocationKeySchema;
+                break;
+
             default:
                 history = this::getSchema;
                 break;
         }
 
         return new TableImpl(
-                new FakeInternalTable(name, UUID.randomUUID()),
+                new FakeInternalTable(name, id),
                 new FakeSchemaRegistry(history)
         );
     }
@@ -263,6 +328,48 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
                         new Column("str".toUpperCase(), NativeTypes.STRING, true, DefaultValueProvider.constantProvider("def_str")),
                         new Column("strNonNull".toUpperCase(), NativeTypes.STRING,
                                 false, DefaultValueProvider.constantProvider("def_str2")),
+                });
+    }
+
+    /**
+     * Gets the schema.
+     *
+     * @param v Version.
+     * @return Schema descriptor.
+     */
+    private SchemaDescriptor getCompositeKeySchema(Integer v) {
+        return new SchemaDescriptor(
+                v,
+                new Column[]{
+                        new Column("ID1", NativeTypes.INT32, false),
+                        new Column("ID2", NativeTypes.STRING, false)
+                },
+                new Column[]{
+                        new Column("STR", NativeTypes.STRING, true)
+                });
+    }
+
+
+    /**
+     * Gets the schema.
+     *
+     * @param v Version.
+     * @return Schema descriptor.
+     */
+    private SchemaDescriptor getColocationKeySchema(Integer v) {
+        Column colocationCol1 = new Column("COLO-1", NativeTypes.STRING, false);
+        Column colocationCol2 = new Column("COLO-2", NativeTypes.INT64, true);
+
+        return new SchemaDescriptor(
+                v,
+                new Column[]{
+                        new Column("ID", NativeTypes.INT32, false),
+                },
+                new String[]{ colocationCol1.name(), colocationCol2.name() },
+                new Column[]{
+                        colocationCol1,
+                        colocationCol2,
+                        new Column("STR", NativeTypes.STRING, true)
                 });
     }
 

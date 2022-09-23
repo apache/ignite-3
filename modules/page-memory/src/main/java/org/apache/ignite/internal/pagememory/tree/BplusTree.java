@@ -1286,7 +1286,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             @Nullable L upper,
             boolean lowIncl,
             boolean upIncl,
-            TreeRowClosure<L, T> c,
+            @Nullable TreeRowClosure<L, T> c,
             @Nullable Object x
     ) throws IgniteInternalCheckedException {
         checkDestroyed();

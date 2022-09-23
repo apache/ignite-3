@@ -126,11 +126,10 @@ public class SortedIndexDescriptor {
      * Creates an Index Descriptor from a given Table Configuration.
      *
      * @param indexId Index ID.
-     * @param tableConfig Table configuration.
+     * @param tablesConfig Tables configuration.
      */
-    // TODO: IGNITE-17727 Fix redundant param.
-    public SortedIndexDescriptor(UUID indexId, TableView tableConfig, TablesView tablesConfig) {
-        this(indexId, extractIndexColumnsConfiguration(indexId, tableConfig, tablesConfig));
+    public SortedIndexDescriptor(UUID indexId, TablesView tablesConfig) {
+        this(indexId, extractIndexColumnsConfiguration(indexId, tablesConfig));
     }
 
     /**
@@ -145,11 +144,7 @@ public class SortedIndexDescriptor {
         this.binaryTupleSchema = createSchema(columns);
     }
 
-    private static List<ColumnDescriptor> extractIndexColumnsConfiguration(
-            UUID indexId,
-            TableView tableConfig,
-            TablesView tablesConfig
-    ) {
+    private static List<ColumnDescriptor> extractIndexColumnsConfiguration(UUID indexId, TablesView tablesConfig) {
         TableIndexView indexConfig = ConfigurationUtil.getByInternalId(tablesConfig.indexes(), indexId);
 
         if (indexConfig == null) {
@@ -161,6 +156,12 @@ public class SortedIndexDescriptor {
                     "Index \"%s\" is not configured as a Sorted Index. Actual type: %s",
                     indexId, indexConfig.type()
             ));
+        }
+
+        TableView tableConfig = ConfigurationUtil.getByInternalId(tablesConfig.tables(), indexConfig.tableId());
+
+        if (tableConfig == null) {
+            throw new StorageException(String.format("Table configuration for \"%s\" could not be found", indexConfig.tableId()));
         }
 
         NamedListView<? extends IndexColumnView> indexColumns = ((SortedIndexView) indexConfig).columns();

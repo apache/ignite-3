@@ -35,6 +35,9 @@ public class ClientColumn {
     /** Key column flag. */
     private final boolean isKey;
 
+    /** Key column flag. */
+    private final boolean isColocation;
+
     /** Index of the column in the schema. */
     private final int schemaIndex;
 
@@ -44,14 +47,15 @@ public class ClientColumn {
     /**
      * Constructor.
      *
-     * @param name        Column name.
-     * @param type        Column type code.
-     * @param nullable    Nullable flag.
-     * @param isKey       Key column flag.
-     * @param schemaIndex Index of the column in the schema.
+     * @param name         Column name.
+     * @param type         Column type code.
+     * @param nullable     Nullable flag.
+     * @param isKey        Key column flag.
+     * @param isColocation Colocation column flag.
+     * @param schemaIndex  Index of the column in the schema.
      */
-    public ClientColumn(String name, int type, boolean nullable, boolean isKey, int schemaIndex) {
-        this(name, type, nullable, isKey, schemaIndex, 0);
+    public ClientColumn(String name, int type, boolean nullable, boolean isKey, boolean isColocation, int schemaIndex) {
+        this(name, type, nullable, isKey, isColocation, schemaIndex, 0);
     }
 
     /**
@@ -64,7 +68,7 @@ public class ClientColumn {
      * @param schemaIndex Index of the column in the schema.
      * @param scale       Scale of the column, if applicable.
      */
-    public ClientColumn(String name, int type, boolean nullable, boolean isKey, int schemaIndex, int scale) {
+    public ClientColumn(String name, int type, boolean nullable, boolean isKey, boolean isColocation, int schemaIndex, int scale) {
         assert name != null;
         assert schemaIndex >= 0;
 
@@ -72,6 +76,7 @@ public class ClientColumn {
         this.type = type;
         this.nullable = nullable;
         this.isKey = isKey;
+        this.isColocation = isColocation;
         this.schemaIndex = schemaIndex;
         this.scale = scale;
     }
@@ -101,10 +106,19 @@ public class ClientColumn {
     /**
      * Gets a value indicating whether this column is a part of key.
      *
-     * @return Value indicating whether this column is a part of key.
+     * @return Value indicating whether this column is a part of key.a part of key
      */
     public boolean key() {
         return isKey;
+    }
+
+    /**
+     * Gets a value indicating whether this column is a part of colocation key.
+     *
+     * @return Value indicating whether this column is a part of colocation key.
+     */
+    public boolean colocation() {
+        return isColocation;
     }
 
     /**

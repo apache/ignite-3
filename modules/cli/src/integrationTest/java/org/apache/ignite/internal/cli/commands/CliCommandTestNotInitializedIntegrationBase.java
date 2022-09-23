@@ -128,6 +128,12 @@ public class CliCommandTestNotInitializedIntegrationBase extends IntegrationTest
                 .contains(expectedOutput);
     }
 
+    protected void assertOutputMatches(String regex) {
+        assertThat(sout.toString())
+                .as("Expected command output to match regex: " + regex + " but it is not: " + sout.toString())
+                .matches(regex);
+    }
+
     protected void assertOutputIsEmpty() {
         assertThat(sout.toString())
                 .as("Expected command output to be empty")

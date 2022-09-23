@@ -36,6 +36,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.BiFunction;
@@ -69,7 +70,10 @@ public final class ReliableChannel implements AutoCloseable {
     private final IgniteClientConfiguration clientCfg;
 
     /** Node channels. */
-    private final Map<String, ClientChannelHolder> nodeChannels = new ConcurrentHashMap<>();
+    private final Map<String, ClientChannelHolder> nodeChannelsByName = new ConcurrentHashMap<>();
+
+    /** Node channels. */
+    private final Map<String, ClientChannelHolder> nodeChannelsById = new ConcurrentHashMap<>();
 
     /** Channels reinit was scheduled. */
     private final AtomicBoolean scheduledChannelsReinit = new AtomicBoolean();
@@ -90,6 +94,10 @@ public final class ReliableChannel implements AutoCloseable {
 
     /** Cache addresses returned by {@code ThinClientAddressFinder}. */
     private volatile String[] prevHostAddrs;
+
+    /** Local topology assignment version. Instead of using event handlers to notify all tables about assignment change,
+     * the table will compare its version with channel version to detect an update. */
+    private final AtomicLong assignmentVersion = new AtomicLong();
 
     /**
      * Constructor.
@@ -131,7 +139,7 @@ public final class ReliableChannel implements AutoCloseable {
     public List<ClusterNode> connections() {
         List<ClusterNode> res = new ArrayList<>(channels.size());
 
-        for (var holder : nodeChannels.values()) {
+        for (var holder : nodeChannelsByName.values()) {
             var ch = holder.ch;
 
             if (ch != null) {
@@ -151,18 +159,21 @@ public final class ReliableChannel implements AutoCloseable {
      * @param <T>           response type.
      * @param preferredNodeName Unique name (consistent id) of the preferred target node. When a connection to the specified node exists,
      *                          it will be used to handle the request; otherwise, default connection will be used.
+     * @param preferredNodeId   ID of the preferred target node. When a connection to the specified node exists,
+     *                          it will be used to handle the request; otherwise, default connection will be used.
      * @return Future for the operation.
      */
     public <T> CompletableFuture<T> serviceAsync(
             int opCode,
             PayloadWriter payloadWriter,
             PayloadReader<T> payloadReader,
-            String preferredNodeName
+            String preferredNodeName,
+            String preferredNodeId
     ) {
         CompletableFuture<T> fut = new CompletableFuture<>();
 
         // Use the only one attempt to avoid blocking async method.
-        handleServiceAsync(fut, opCode, payloadWriter, payloadReader, preferredNodeName, null, 0);
+        handleServiceAsync(fut, opCode, payloadWriter, payloadReader, preferredNodeName, preferredNodeId, null, 0);
 
         return fut;
     }
@@ -181,7 +192,7 @@ public final class ReliableChannel implements AutoCloseable {
             PayloadWriter payloadWriter,
             PayloadReader<T> payloadReader
     ) {
-        return serviceAsync(opCode, payloadWriter, payloadReader, null);
+        return serviceAsync(opCode, payloadWriter, payloadReader, null, null);
     }
 
     /**
@@ -193,7 +204,7 @@ public final class ReliableChannel implements AutoCloseable {
      * @return Future for the operation.
      */
     public <T> CompletableFuture<T> serviceAsync(int opCode, PayloadReader<T> payloadReader) {
-        return serviceAsync(opCode, null, payloadReader, null);
+        return serviceAsync(opCode, null, payloadReader, null, null);
     }
 
     private <T> void handleServiceAsync(final CompletableFuture<T> fut,
@@ -201,19 +212,23 @@ public final class ReliableChannel implements AutoCloseable {
             PayloadWriter payloadWriter,
             PayloadReader<T> payloadReader,
             String preferredNodeName,
+            String preferredNodeId,
             IgniteClientConnectionException failure,
             int attempt) {
         ClientChannel ch = null;
+        ClientChannelHolder holder = null;
 
         if (preferredNodeName != null) {
-            var holder = nodeChannels.get(preferredNodeName);
+            holder = nodeChannelsByName.get(preferredNodeName);
+        } else if (preferredNodeId != null) {
+            holder = nodeChannelsById.get(preferredNodeId);
+        }
 
-            if (holder != null) {
-                try {
-                    ch = holder.getOrCreateChannel();
-                } catch (Throwable ignored) {
-                    // Ignore.
-                }
+        if (holder != null) {
+            try {
+                ch = holder.getOrCreateChannel();
+            } catch (Throwable ignored) {
+                // Ignore.
             }
         }
 
@@ -274,7 +289,7 @@ public final class ReliableChannel implements AutoCloseable {
                             log.debug("Going to retry request because of error [opCode={}, currentAttempt={}, errMsg={}]",
                                     failure0, opCode, attempt, failure0.getMessage());
 
-                            handleServiceAsync(fut, opCode, payloadWriter, payloadReader, null, failure0, attempt + 1);
+                            handleServiceAsync(fut, opCode, payloadWriter, payloadReader, null, null, failure0, attempt + 1);
 
                             return null;
                         }
@@ -606,6 +621,25 @@ public final class ReliableChannel implements AutoCloseable {
         );
     }
 
+    private void onTopologyAssignmentChanged(ClientChannel clientChannel) {
+        // NOTE: Multiple channels will send the same update to us, resulting in multiple cache invalidations.
+        // This could be solved with a cluster-wide AssignmentVersion, but we don't have that.
+        // So we only react to updates from the default channel. When no user-initiated operations are performed on the default
+        // channel, heartbeat messages will trigger updates.
+        if (clientChannel == channels.get(curChIdx).ch) {
+            assignmentVersion.incrementAndGet();
+        }
+    }
+
+    /**
+     * Gets the local partition assignment version.
+     *
+     * @return Assignment version.
+     */
+    public long partitionAssignmentVersion() {
+        return assignmentVersion.get();
+    }
+
     /**
      * Channels holder.
      */
@@ -617,8 +651,8 @@ public final class ReliableChannel implements AutoCloseable {
         /** Channel. */
         private volatile ClientChannel ch;
 
-        /** ID of the last server node that channel is or was connected to. */
-        private volatile String serverNodeId;
+        /** The last server node that channel is or was connected to. */
+        private volatile ClusterNode serverNode;
 
         /** Address that holder is bind to (chCfg.addr) is not in use now. So close the holder. */
         private volatile boolean close;
@@ -691,18 +725,23 @@ public final class ReliableChannel implements AutoCloseable {
 
                     ch = chFactory.apply(chCfg, connMgr);
 
-                    String newNodeId = ch.protocolContext().clusterNode().name();
+                    ch.addTopologyAssignmentChangeListener(ReliableChannel.this::onTopologyAssignmentChanged);
+
+                    ClusterNode newNode = ch.protocolContext().clusterNode();
 
                     // There could be multiple holders map to the same serverNodeId if user provide the same
                     // address multiple times in configuration.
-                    nodeChannels.put(newNodeId, this);
+                    nodeChannelsByName.put(newNode.name(), this);
+                    nodeChannelsById.put(newNode.id(), this);
 
-                    if (serverNodeId != null && !serverNodeId.equals(newNodeId)) {
+                    var oldServerNode = serverNode;
+                    if (oldServerNode != null && !oldServerNode.id().equals(newNode.id())) {
                         // New node on the old address.
-                        nodeChannels.remove(serverNodeId, this);
+                        nodeChannelsByName.remove(oldServerNode.name(), this);
+                        nodeChannelsById.remove(oldServerNode.id(), this);
                     }
 
-                    serverNodeId = newNodeId;
+                    serverNode = newNode;
                 }
             }
 
@@ -720,8 +759,11 @@ public final class ReliableChannel implements AutoCloseable {
                     // No op.
                 }
 
-                if (serverNodeId != null) {
-                    nodeChannels.remove(serverNodeId, this);
+                var oldServerNode = serverNode;
+
+                if (oldServerNode != null) {
+                    nodeChannelsByName.remove(oldServerNode.name(), this);
+                    nodeChannelsById.remove(oldServerNode.id(), this);
                 }
 
                 ch = null;
@@ -734,8 +776,11 @@ public final class ReliableChannel implements AutoCloseable {
         void close() {
             close = true;
 
-            if (serverNodeId != null) {
-                nodeChannels.remove(serverNodeId, this);
+            var oldServerNode = serverNode;
+
+            if (oldServerNode != null) {
+                nodeChannelsByName.remove(oldServerNode.name(), this);
+                nodeChannelsById.remove(oldServerNode.id(), this);
             }
 
             closeChannel();

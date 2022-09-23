@@ -317,6 +317,11 @@ public class ItGeneratedRestClientTest {
         assertThat(topologyApi.physical(), hasSize(3));
     }
 
+    @Test
+    void nodeVersion() throws ApiException {
+        assertThat(nodeManagementApi.nodeVersion(), is(notNullValue()));
+    }
+
     private CompletableFuture<Ignite> startNodeAsync(TestInfo testInfo, int index) {
         String nodeName = testNodeName(testInfo, BASE_PORT + index);
 

@@ -32,6 +32,10 @@ import org.apache.ignite.internal.storage.index.SortedIndexDescriptor.ColumnDesc
 
 /**
  * Comparator implementation for comparing {@link BinaryTuple}s on a per-column basis.
+ *
+ * <p>This comparator is used to compare BinaryTuples as well as {@link BinaryTuplePrefix}es. When comparing a tuple with a prefix,
+ * the following logic is applied: if all N columns of the prefix match the first N columns of the tuple, they are considered equal.
+ * Otherwise comparison result is determined by the first non-matching column.
  */
 public class BinaryTupleComparator implements Comparator<ByteBuffer> {
     private final SortedIndexDescriptor descriptor;

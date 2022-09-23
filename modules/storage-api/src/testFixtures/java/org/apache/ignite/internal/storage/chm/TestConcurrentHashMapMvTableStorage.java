@@ -38,13 +38,13 @@ import org.jetbrains.annotations.Nullable;
  * Test table storage implementation.
  */
 public class TestConcurrentHashMapMvTableStorage implements MvTableStorage {
-    private final TableConfiguration tableCfg;
-
     private final Map<Integer, MvPartitionStorage> partitions = new ConcurrentHashMap<>();
 
     private final Map<UUID, SortedIndices> sortedIndicesById = new ConcurrentHashMap<>();
 
     private final Map<UUID, HashIndices> hashIndicesById = new ConcurrentHashMap<>();
+
+    private final TableConfiguration tableCfg;
 
     private final TablesConfiguration tablesCfg;
 
@@ -119,7 +119,7 @@ public class TestConcurrentHashMapMvTableStorage implements MvTableStorage {
 
         SortedIndices sortedIndices = sortedIndicesById.computeIfAbsent(
                 indexId,
-                id -> new SortedIndices(new SortedIndexDescriptor(id, tableCfg.value(), tablesCfg.value()))
+                id -> new SortedIndices(new SortedIndexDescriptor(id, tablesCfg.value()))
         );
 
         return sortedIndices.getOrCreateStorage(partitionId);
@@ -133,7 +133,7 @@ public class TestConcurrentHashMapMvTableStorage implements MvTableStorage {
 
         HashIndices sortedIndices = hashIndicesById.computeIfAbsent(
                 indexId,
-                id -> new HashIndices(new HashIndexDescriptor(id, tableCfg.value(), tablesCfg.value()))
+                id -> new HashIndices(new HashIndexDescriptor(id, tablesCfg.value()))
         );
 
         return sortedIndices.getOrCreateStorage(partitionId);

@@ -26,7 +26,7 @@ import org.apache.ignite.internal.tx.Timestamp;
  * @see MvPartitionStorage
  */
 public final class RowId {
-    /** Partition id. Short type reduces payload when transfering an object over network. */
+    /** Partition id. Short type reduces payload when transferring an object over network. */
     private final short partitionId;
 
     /** Unique id. */
@@ -53,6 +53,8 @@ public final class RowId {
     }
 
     private RowId(int partitionId, UUID uuid) {
+        assert (uuid.getMostSignificantBits() | uuid.getLeastSignificantBits()) != 0L : "Nil UUID is not allowed";
+
         this.partitionId = (short) partitionId;
         this.uuid = uuid;
     }
@@ -78,12 +80,12 @@ public final class RowId {
         return uuid.getLeastSignificantBits();
     }
 
-    /** {@inheritDoc} */
     @Override
     public boolean equals(Object o) {
         if (this == o) {
             return true;
         }
+
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
@@ -93,10 +95,10 @@ public final class RowId {
         if (partitionId != rowId.partitionId) {
             return false;
         }
+
         return uuid.equals(rowId.uuid);
     }
 
-    /** {@inheritDoc} */
     @Override
     public int hashCode() {
         int result = partitionId;
@@ -104,7 +106,6 @@ public final class RowId {
         return result;
     }
 
-    /** {@inheritDoc} */
     @Override
     public String toString() {
         return "RowId [partitionId=" + partitionId() + ", uuid=" + uuid + ']';
