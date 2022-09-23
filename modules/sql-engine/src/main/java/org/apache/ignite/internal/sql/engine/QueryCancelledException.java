@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.lang.ErrorGroups.Sql.OPERATION_INTERRUPTED_ERR;
+
 import org.apache.ignite.lang.IgniteException;
 
 /**
@@ -31,6 +33,6 @@ public class QueryCancelledException extends IgniteException {
      * Default constructor.
      */
     public QueryCancelledException() {
-        super(ERR_MSG);
+        super(OPERATION_INTERRUPTED_ERR, ERR_MSG);
     }
 }

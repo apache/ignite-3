@@ -17,7 +17,8 @@
 
 package org.apache.ignite.internal.sql.api;
 
-import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Common.UNEXPECTED_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.INVALID_DML_RESULT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.OPERATION_INTERRUPTED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_INVALID_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.SESSION_NOT_FOUND_ERR;
@@ -246,7 +247,7 @@ public class SessionImpl implements Session {
                         Throwable cause = ExceptionUtils.unwrapCause(ex);
 
                         throw new SqlBatchException(
-                                cause instanceof IgniteException ? ((IgniteException) cause).code() : UNKNOWN_ERR,
+                                cause instanceof IgniteException ? ((IgniteException) cause).code() : UNEXPECTED_ERR,
                                 counters.toArray(ArrayUtils.LONG_EMPTY_ARRAY),
                                 ex);
                     })
@@ -352,7 +353,7 @@ public class SessionImpl implements Session {
                 || page.items().size() != 1
                 || page.items().get(0).size() != 1
                 || page.hasMore()) {
-            throw new SqlException(UNKNOWN_ERR, "Invalid DML results: " + page);
+            throw new SqlException(INVALID_DML_RESULT_ERR, "Invalid DML results: " + page);
         }
     }
 }

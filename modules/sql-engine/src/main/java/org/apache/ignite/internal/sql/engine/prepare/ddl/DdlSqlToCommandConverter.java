@@ -28,7 +28,7 @@ import static org.apache.ignite.lang.ErrorGroups.Sql.SCHEMA_NOT_FOUND_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.SQL_TO_REL_CONVERSION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STORAGE_ENGINE_NOT_VALID_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.TABLE_OPTION_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Sql.USUPPORTED_DDL_OPERATION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.UNSUPPORTED_DDL_OPERATION_ERR;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -172,7 +172,7 @@ public class DdlSqlToCommandConverter {
             return convertDropIndex((IgniteSqlDropIndex) ddlNode, ctx);
         }
 
-        throw new SqlException(USUPPORTED_DDL_OPERATION_ERR, "Unsupported operation ["
+        throw new SqlException(UNSUPPORTED_DDL_OPERATION_ERR, "Unsupported operation ["
                 + "sqlNodeKind=" + ddlNode.getKind() + "; "
                 + "querySql=\"" + ctx.query() + "\"]");
     }
