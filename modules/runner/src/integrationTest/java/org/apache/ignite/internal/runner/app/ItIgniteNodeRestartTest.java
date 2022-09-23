@@ -261,12 +261,14 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         DataStorageModules dataStorageModules = new DataStorageModules(ServiceLoader.load(DataStorageModule.class));
 
+        Path storagePath = getPartitionsStorePath(dir);
+
         DataStorageManager dataStorageManager = new DataStorageManager(
                 clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY),
                 dataStorageModules.createStorageEngines(
                         name,
                         clusterCfgMgr.configurationRegistry(),
-                        getPartitionsStorePath(dir),
+                        storagePath,
                         null
                 )
         );
@@ -296,6 +298,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 clusterSvc.topologyService(),
                 txManager,
                 dataStorageManager,
+                storagePath,
                 metaStorageMgr,
                 schemaManager,
                 view -> new LocalLogStorageFactory(),

@@ -51,8 +51,8 @@ public abstract class TxStateStorageAbstractTest {
 
     @Test
     public void testPutGetRemove() throws Exception {
-        try (TxStateStorage storage = createStorage()) {
-            storage.start();
+        try (TxStateTableStorage tableStorage = createStorage()) {
+            TxStateStorage storage = tableStorage.getOrCreateTxStateStorage(0);
 
             List<UUID> txIds = new ArrayList<>();
 
@@ -106,8 +106,8 @@ public abstract class TxStateStorageAbstractTest {
 
     @Test
     public void testCas() throws Exception {
-        try (TxStateStorage storage = createStorage()) {
-            storage.start();
+        try (TxStateTableStorage tableStorage = createStorage()) {
+            TxStateStorage storage = tableStorage.getOrCreateTxStateStorage(0);
 
             UUID txId = UUID.randomUUID();
 
@@ -115,12 +115,12 @@ public abstract class TxStateStorageAbstractTest {
             TxMeta txMeta1 = new TxMeta(TxState.COMMITED, new ArrayList<>(), generateTimestamp(txId));
             TxMeta txMeta2 = new TxMeta(TxState.COMMITED, new ArrayList<>(), generateTimestamp(UUID.randomUUID()));
 
-            storage.put(txId, txMeta0);
+            storage.compareAndSet(txId, null, txMeta0, 1);
 
             assertTxMetaEquals(storage.get(txId), txMeta0);
 
-            assertFalse(storage.compareAndSet(txId, txMeta1.txState(), txMeta2, 1));
-            assertTrue(storage.compareAndSet(txId, txMeta0.txState(), txMeta2, 2));
+            assertFalse(storage.compareAndSet(txId, txMeta1.txState(), txMeta2, 2));
+            assertTrue(storage.compareAndSet(txId, txMeta0.txState(), txMeta2, 3));
 
             assertTxMetaEquals(storage.get(txId), txMeta2);
         }
@@ -128,20 +128,22 @@ public abstract class TxStateStorageAbstractTest {
 
     @Test
     public void testScan() throws Exception {
-        try (TxStateStorage storage = createStorage()) {
-            storage.start();
+        try (TxStateTableStorage tableStorage = createStorage()) {
+            TxStateStorage storage0 = tableStorage.getOrCreateTxStateStorage(0);
+            TxStateStorage storage1 = tableStorage.getOrCreateTxStateStorage(1);
+            TxStateStorage storage2 = tableStorage.getOrCreateTxStateStorage(2);
 
             Map<UUID, TxMeta> txs = new HashMap<>();
 
+            putRandomTxMetaWithCommandIndex(storage0, 1, 0);
+            putRandomTxMetaWithCommandIndex(storage2, 1, 0);
+
             for (int i = 0; i < 100; i++) {
-                UUID txId = UUID.randomUUID();
-                TxMeta txMeta = new TxMeta(TxState.PENDING, generateEnlistedPartitions(i), generateTimestamp(txId));
-                txs.put(txId, txMeta);
-                storage.put(txId, txMeta);
-                storage.compareAndSet(txId, TxState.PENDING, txMeta, i);
+                IgniteBiTuple<UUID, TxMeta> txData = putRandomTxMetaWithCommandIndex(storage1, i, i);
+                txs.put(txData.get1(), txData.get2());
             }
 
-            try (Cursor<IgniteBiTuple<UUID, TxMeta>> scanCursor = storage.scan()) {
+            try (Cursor<IgniteBiTuple<UUID, TxMeta>> scanCursor = storage1.scan()) {
                 assertTrue(scanCursor.hasNext());
 
                 while (scanCursor.hasNext()) {
@@ -159,11 +161,42 @@ public abstract class TxStateStorageAbstractTest {
         }
     }
 
+    @Test
+    public void testDestroy() throws Exception {
+        try (TxStateTableStorage tableStorage = createStorage()) {
+            TxStateStorage storage0 = tableStorage.getOrCreateTxStateStorage(0);
+            TxStateStorage storage1 = tableStorage.getOrCreateTxStateStorage(1);
+
+            UUID txId0 = UUID.randomUUID();
+            storage0.put(txId0, new TxMeta(TxState.PENDING, generateEnlistedPartitions(1), generateTimestamp(txId0)));
+
+            UUID txId1 = UUID.randomUUID();
+            storage1.put(txId1, new TxMeta(TxState.PENDING, generateEnlistedPartitions(1), generateTimestamp(txId1)));
+
+            storage0.destroy();
+
+            assertNotNull(storage1.get(txId1));
+        }
+    }
+
+    private IgniteBiTuple<UUID, TxMeta> putRandomTxMetaWithCommandIndex(TxStateStorage storage, int enlistedPartsCount, long commandIndex) {
+        UUID txId = UUID.randomUUID();
+        TxMeta txMeta = new TxMeta(TxState.PENDING, generateEnlistedPartitions(enlistedPartsCount), generateTimestamp(txId));
+        storage.compareAndSet(txId, null, txMeta, commandIndex);
+
+        return new IgniteBiTuple<>(txId, txMeta);
+    }
+
     private static void assertTxMetaEquals(TxMeta txMeta0, TxMeta txMeta1) {
         assertEquals(txMeta0.txState(), txMeta1.txState());
         assertEquals(txMeta0.commitTimestamp(), txMeta1.commitTimestamp());
         assertEquals(txMeta0.enlistedPartitions(), txMeta1.enlistedPartitions());
     }
 
-    protected abstract TxStateStorage createStorage();
+    /**
+     * Creates {@link TxStateStorage} to test.
+     *
+     * @return Tx state storage.
+     */
+    protected abstract TxStateTableStorage createStorage();
 }
