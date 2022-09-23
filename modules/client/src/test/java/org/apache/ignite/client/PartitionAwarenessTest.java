@@ -205,6 +205,55 @@ public class PartitionAwarenessTest extends AbstractClientTest {
     @Test
     public void testAllRecordViewOperations() {
         // TODO IGNITE-17739 Add Partition Awareness to all table APIs
+        RecordView<AbstractClientTableTest.PersonPojo> pojoView = defaultTable().recordView(Mapper.of(AbstractClientTableTest.PersonPojo.class));
+
+        var t1 = new AbstractClientTableTest.PersonPojo(0L);
+        var t2 = new AbstractClientTableTest.PersonPojo(1L);
+
+        assertOpOnNode("server-1", "insert", x -> pojoView.insert(null, t1));
+        assertOpOnNode("server-2", "insert", x -> pojoView.insert(null, t2));
+
+        assertOpOnNode("server-1", "insertAll", x -> pojoView.insertAll(null, List.of(t1)));
+        assertOpOnNode("server-2", "insertAll", x -> pojoView.insertAll(null, List.of(t2)));
+
+        assertOpOnNode("server-1", "upsert", x -> pojoView.upsert(null, t1));
+        assertOpOnNode("server-2", "upsert", x -> pojoView.upsert(null, t2));
+
+        assertOpOnNode("server-1", "upsertAll", x -> pojoView.upsertAll(null, List.of(t1)));
+        assertOpOnNode("server-2", "upsertAll", x -> pojoView.upsertAll(null, List.of(t2)));
+
+        assertOpOnNode("server-1", "get", x -> pojoView.get(null, t1));
+        assertOpOnNode("server-2", "get", x -> pojoView.get(null, t2));
+
+        assertOpOnNode("server-1", "getAll", x -> pojoView.getAll(null, List.of(t1)));
+        assertOpOnNode("server-2", "getAll", x -> pojoView.getAll(null, List.of(t2)));
+
+        assertOpOnNode("server-1", "getAndUpsert", x -> pojoView.getAndUpsert(null, t1));
+        assertOpOnNode("server-2", "getAndUpsert", x -> pojoView.getAndUpsert(null, t2));
+
+        assertOpOnNode("server-1", "getAndReplace", x -> pojoView.getAndReplace(null, t1));
+        assertOpOnNode("server-2", "getAndReplace", x -> pojoView.getAndReplace(null, t2));
+
+        assertOpOnNode("server-1", "getAndDelete", x -> pojoView.getAndDelete(null, t1));
+        assertOpOnNode("server-2", "getAndDelete", x -> pojoView.getAndDelete(null, t2));
+
+        assertOpOnNode("server-1", "replace", x -> pojoView.replace(null, t1));
+        assertOpOnNode("server-2", "replace", x -> pojoView.replace(null, t2));
+
+        assertOpOnNode("server-1", "replace", x -> pojoView.replace(null, t1, t1));
+        assertOpOnNode("server-2", "replace", x -> pojoView.replace(null, t2, t2));
+
+        assertOpOnNode("server-1", "delete", x -> pojoView.delete(null, t1));
+        assertOpOnNode("server-2", "delete", x -> pojoView.delete(null, t2));
+
+        assertOpOnNode("server-1", "deleteExact", x -> pojoView.deleteExact(null, t1));
+        assertOpOnNode("server-2", "deleteExact", x -> pojoView.deleteExact(null, t2));
+
+        assertOpOnNode("server-1", "deleteAll", x -> pojoView.deleteAll(null, List.of(t1)));
+        assertOpOnNode("server-2", "deleteAll", x -> pojoView.deleteAll(null, List.of(t2)));
+
+        assertOpOnNode("server-1", "deleteAllExact", x -> pojoView.deleteAllExact(null, List.of(t1)));
+        assertOpOnNode("server-2", "deleteAllExact", x -> pojoView.deleteAllExact(null, List.of(t2)));
     }
 
     @Test
