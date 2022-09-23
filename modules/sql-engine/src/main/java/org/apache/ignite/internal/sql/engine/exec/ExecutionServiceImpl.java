@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.sql.engine.externalize.RelJsonReader.fr
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.lang.ErrorGroups.Sql.DDL_EXEC_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.MESSAGE_SEND_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.NODE_LEFT_ERR;
 
 import java.util.ArrayList;
@@ -507,7 +508,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                                 .build()
                 );
             } catch (IgniteInternalCheckedException e) {
-                throw new IgniteInternalException("Failed to send reply. [nodeId=" + origNodeId + ']', e);
+                throw new IgniteInternalException(MESSAGE_SEND_ERR, "Failed to send reply. [nodeId=" + origNodeId + ']', e);
             }
 
             if (node instanceof Outbox) {
@@ -653,7 +654,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                                                 try {
                                                     exchangeSrvc.closeQuery(nodeId, ctx.queryId());
                                                 } catch (IgniteInternalCheckedException e) {
-                                                    throw new IgniteInternalException(
+                                                    throw new IgniteInternalException(MESSAGE_SEND_ERR,
                                                             "Failed to send cancel message. [nodeId=" + nodeId + ']', e);
                                                 }
 

@@ -69,11 +69,11 @@ import org.apache.ignite.internal.util.IgniteObjectName;
 import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.lang.ColumnAlreadyExistsException;
 import org.apache.ignite.lang.ColumnNotFoundException;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
+import org.apache.ignite.sql.SqlException;
 
 /** DDL commands handler. */
 public class DdlCommandHandler {
@@ -400,7 +400,7 @@ public class DdlCommandHandler {
                                 }
 
                                 if (primaryCols.contains(colName)) {
-                                    throw new IgniteException(DEL_PK_COMUMN_CONSTRAINT_ERR, IgniteStringFormatter
+                                    throw new SqlException(DEL_PK_COMUMN_CONSTRAINT_ERR, IgniteStringFormatter
                                             .format("Can`t delete column, belongs to primary key: [name={}]", colName));
                                 }
                             }

@@ -52,7 +52,7 @@ import org.apache.calcite.util.Util;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.sql.SqlException;
 
 /**
  * RelJsonReader.
@@ -105,7 +105,7 @@ public class RelJsonReader {
             readRels(rels);
             return lastRel;
         } catch (IOException e) {
-            throw new IgniteException(REL_DESERIALIZATION_ERR, e);
+            throw new SqlException(REL_DESERIALIZATION_ERR, e);
         }
     }
 

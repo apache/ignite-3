@@ -177,6 +177,15 @@ public class ErrorGroups {
 
         /** An error occurred while canceling the operation. */
         public static final int CANCEL_OPERATION_ERR = SQL_ERR_GROUP.registerErrorCode(29);
+
+        /** Unexpected itnernal error. */
+        public static final int UNEXPECTED_INTERNAL_ERR = SQL_ERR_GROUP.registerErrorCode(30);
+
+        /** Session expired error. */
+        public static final int SESSION_EXPIRED_ERR = SQL_ERR_GROUP.registerErrorCode(31);
+
+        /** Session evaluation error. */
+        public static final int SCHEMA_EVALUATION_ERR = SQL_ERR_GROUP.registerErrorCode(32);
     }
 
     /** Meta storage error group. */

@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFI
 import static org.apache.ignite.lang.ErrorGroups.Sql.OPERATION_INTERRUPTED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_INVALID_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.SCHEMA_NOT_FOUND_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.SESSION_EXPIRED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.SESSION_NOT_FOUND_ERR;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
@@ -364,7 +365,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         try {
             session.registerResource(closeableResource);
         } catch (IllegalStateException ex) {
-            return CompletableFuture.failedFuture(new IgniteInternalException(
+            return CompletableFuture.failedFuture(new IgniteInternalException(SESSION_EXPIRED_ERR,
                     format("Session has been expired [{}]", session.sessionId()), ex));
         }
 

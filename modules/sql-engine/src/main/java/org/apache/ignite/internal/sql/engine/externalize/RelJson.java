@@ -112,7 +112,7 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.sql.SqlException;
 
 /**
  * Utilities for converting {@link RelNode} into JSON format.
@@ -152,7 +152,7 @@ class RelJson {
         try {
             constructor = (Constructor<RelNode>) clazz.getConstructor(RelInput.class);
         } catch (NoSuchMethodException e) {
-            throw new IgniteException(REL_DESERIALIZATION_ERR, "class does not have required constructor, "
+            throw new SqlException(REL_DESERIALIZATION_ERR, "class does not have required constructor, "
                     + clazz + "(RelInput)");
         }
 
@@ -206,7 +206,7 @@ class RelJson {
             return IgniteUtils.forName(typeName, igniteClassLoader());
         } catch (ClassNotFoundException e) {
             if (!skipNotFound) {
-                throw new IgniteException(CLASS_NOT_FOUND_ERR, "unknown type " + typeName);
+                throw new SqlException(CLASS_NOT_FOUND_ERR, "unknown type " + typeName);
             }
         }
 

@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.internal.util.Cancellable;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.sql.SqlException;
 
 /**
  * Holds query cancel state.
@@ -67,7 +68,7 @@ public class QueryCancel {
                 act.cancel();
             } catch (Exception e) {
                 if (ex == null) {
-                    ex = new IgniteException(CANCEL_OPERATION_ERR, e);
+                    ex = new SqlException(CANCEL_OPERATION_ERR, e);
                 } else {
                     ex.addSuppressed(e);
                 }

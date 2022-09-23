@@ -31,7 +31,7 @@ import org.apache.ignite.internal.sql.engine.metadata.MappingService;
 import org.apache.ignite.internal.sql.engine.rel.IgniteReceiver;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSender;
 import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -80,7 +80,7 @@ public class QueryTemplate {
             }
         }
 
-        throw new IgniteException(QUERY_MAPPING_ERR, "Failed to map query.", ex);
+        throw new SqlException(QUERY_MAPPING_ERR, "Failed to map query.", ex);
     }
 
     @NotNull

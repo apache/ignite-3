@@ -172,7 +172,7 @@ public class DdlSqlToCommandConverter {
             return convertDropIndex((IgniteSqlDropIndex) ddlNode, ctx);
         }
 
-        throw new IgniteException(USUPPORTED_DDL_OPERATION_ERR, "Unsupported operation ["
+        throw new SqlException(USUPPORTED_DDL_OPERATION_ERR, "Unsupported operation ["
                 + "sqlNodeKind=" + ddlNode.getKind() + "; "
                 + "querySql=\"" + ctx.query() + "\"]");
     }
@@ -658,7 +658,7 @@ public class DdlSqlToCommandConverter {
             }
         } catch (Throwable th) {
             // catch throwable here because literal throws an AssertionError when unable to cast value to a given class
-            throw new IgniteException(SQL_TO_REL_CONVERSION_ERR, "Unable co convert literal", th);
+            throw new SqlException(SQL_TO_REL_CONVERSION_ERR, "Unable co convert literal", th);
         }
     }
 }

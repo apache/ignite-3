@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import static org.apache.ignite.internal.sql.engine.util.Commons.checkRange;
+import static org.apache.ignite.lang.ErrorGroups.Sql.UNEXPECTED_INTERNAL_ERR;
 
 import java.util.List;
 import java.util.Locale;
@@ -305,7 +306,7 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
             } catch (Throwable e) {
                 onError.accept(e);
 
-                throw new IgniteInternalException("Unexpected exception", e);
+                throw new IgniteInternalException(UNEXPECTED_INTERNAL_ERR, "Unexpected exception", e);
             }
         });
     }
@@ -326,7 +327,7 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
             } catch (Throwable e) {
                 onError.accept(e);
 
-                throw new IgniteInternalException("Unexpected exception", e);
+                throw new IgniteInternalException(UNEXPECTED_INTERNAL_ERR, "Unexpected exception", e);
             }
         });
     }
