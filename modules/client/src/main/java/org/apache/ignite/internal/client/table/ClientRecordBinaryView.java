@@ -86,8 +86,9 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
     public @NotNull CompletableFuture<Collection<Tuple>> getAllAsync(@Nullable Transaction tx, @NotNull Collection<Tuple> keyRecs) {
         Objects.requireNonNull(keyRecs);
 
-        if (keyRecs.isEmpty())
+        if (keyRecs.isEmpty()) {
             return CompletableFuture.completedFuture(Collections.emptyList());
+        }
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_ALL,

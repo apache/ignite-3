@@ -108,7 +108,8 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
     @Test
     public void testGetRecordRoutesRequestToPrimaryNode() {
-        RecordView<AbstractClientTableTest.PersonPojo> pojoView = defaultTable().recordView(Mapper.of(AbstractClientTableTest.PersonPojo.class));
+        RecordView<AbstractClientTableTest.PersonPojo> pojoView = defaultTable().recordView(
+                Mapper.of(AbstractClientTableTest.PersonPojo.class));
 
         assertOpOnNode("server-1", "get", x -> pojoView.get(null, new AbstractClientTableTest.PersonPojo(0L)));
         assertOpOnNode("server-2", "get", x -> pojoView.get(null, new AbstractClientTableTest.PersonPojo(1L)));
@@ -204,7 +205,8 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
     @Test
     public void testAllRecordViewOperations() {
-        RecordView<AbstractClientTableTest.PersonPojo> pojoView = defaultTable().recordView(Mapper.of(AbstractClientTableTest.PersonPojo.class));
+        RecordView<AbstractClientTableTest.PersonPojo> pojoView = defaultTable().recordView(
+                Mapper.of(AbstractClientTableTest.PersonPojo.class));
 
         var t1 = new AbstractClientTableTest.PersonPojo(0L);
         var t2 = new AbstractClientTableTest.PersonPojo(1L);
