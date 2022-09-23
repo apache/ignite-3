@@ -20,6 +20,7 @@
 plugins {
     alias(libs.plugins.javacc) apply false
     alias(libs.plugins.modernizer) apply false
+    id 'java'
 }
 
 repositories {
@@ -98,12 +99,8 @@ task buildRunnerAndCLi (dependsOn: [project(':ignite-runner').build]) {
     buildRunnerAndCLi.finalizedBy project(':ignite-cli').build
 }
 
-task buildAll (dependsOn: [build]) {
-    buildAll.finalizedBy buildRunnerAndCLi
-}
-
 // create an uber zip with all distributions
-task packageAll (dependsOn: [buildAll], type: Zip) {
+task packageAll (dependsOn: [buildRunnerAndCLi], type: Zip) {
     baseName = "ignite3"
 
     def igniteZip = zipTree("${project('ignite-runner').buildDir}/distributions/ignite3-db-${project.version}.zip")
@@ -111,3 +108,5 @@ task packageAll (dependsOn: [buildAll], type: Zip) {
 
     from(igniteZip, cliZip)
 }
+
+build.dependsOn packageAll
