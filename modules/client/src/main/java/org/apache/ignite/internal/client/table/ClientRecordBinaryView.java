@@ -158,7 +158,8 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_INSERT,
                 (s, w) -> ser.writeTuple(tx, rec, s, w, false),
-                ClientMessageUnpacker::unpackBoolean);
+                ClientMessageUnpacker::unpackBoolean,
+                ClientTupleSerializer.getHashFunction(tx, rec));
     }
 
     /** {@inheritDoc} */

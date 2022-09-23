@@ -324,6 +324,18 @@ public class ClientTable implements Table {
                                 w -> writer.accept(schema, w),
                                 r -> reader.apply(r.in())));
     }
+    <T> CompletableFuture<T> doSchemaOutOpAsync(
+            int opCode,
+            BiConsumer<ClientSchema, PayloadOutputChannel> writer,
+            Function<ClientMessageUnpacker, T> reader,
+            Function<ClientSchema, Integer> hashFunction) {
+        // TODO IGNITE-17739 PA
+        return getLatestSchema()
+                .thenCompose(schema ->
+                        ch.serviceAsync(opCode,
+                                w -> writer.accept(schema, w),
+                                r -> reader.apply(r.in())));
+    }
 
     private <T> Object readSchemaAndReadData(
             ClientSchema knownSchema,
