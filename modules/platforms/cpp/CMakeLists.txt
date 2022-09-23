@@ -18,14 +18,14 @@
 cmake_minimum_required(VERSION 3.10)
 project(Ignite.C++ VERSION 3 LANGUAGES CXX)
 
-find_package(Boost REQUIRED COMPONENTS unit_test_framework)
-
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(CMAKE_PROJECT_VERSION ${PROJECT_VERSION})
 
 if(EXISTS ${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
+    message(STATUS "Conan detected. Enabling...")
+    include(${CMAKE_BINARY_DIR}/conan_paths.cmake)
     include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
     conan_basic_setup()
 endif()
