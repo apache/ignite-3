@@ -143,6 +143,7 @@ application {
 
 distributions {
     main {
+        startScripts.applicationName ='ignite3-cli'
         distributionBaseName = 'ignite3-cli'
         contents {
             into('') {

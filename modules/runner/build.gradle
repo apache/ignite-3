@@ -130,8 +130,8 @@ distributions {
                 from ("$rootDir/packaging/config/ignite.java.util.logging.properties")
             }
             into('bin') {
-                from ("$rootDir/packaging/scripts/start.sh")
-                from ("$rootDir/packaging/scripts/stop.sh")
+                fileMode 0755
+                from ("$rootDir/packaging/scripts/ignite3-db.sh")
             }
         }
     }

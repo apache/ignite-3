@@ -18,19 +18,19 @@ The current alpha version includes the following features:
 
 1. Download Ignite 3 Alpha 5:
    ```
-   curl -L "https://www.apache.org/dyn/mirrors/mirrors.cgi?action=download&filename=ignite/3.0.0-alpha5/apache-ignite-3.0.0-alpha5.zip" -o apache-ignite-3.0.0-alpha5.zip
+   curl -L "https://www.apache.org/dyn/mirrors/mirrors.cgi?action=download&filename=ignite/3.0.0-beta1/ignite3-3.0.0-beta1.zip" -o ignite3-3.0.0-beta1.zip
    ```
 2. Unzip the downloaded file:
    ```
-   unzip apache-ignite-3.0.0-alpha5.zip && cd apache-ignite-3.0.0-alpha5
+   unzip ignite3-3.0.0-beta1.zip && cd ignite3-3.0.0-beta1 && cd ignite3-db-3.0.0-beta1
    ```
 3. Add your installation directory to the PATH environment variable:
    ```
-   echo 'export IGNITE_HOME="'`pwd`'"' >> ~/.bash_profile && echo 'export PATH="$IGNITE_HOME:$PATH"' >> ~/.bash_profile && source ~/.bash_profile
+   echo 'export IGNITE_HOME="'`pwd`'"' >> ~/.bash_profile
    ```
 4. (optional) If you start the cluster locally then install the core artifacts:
    ```
-   ignite bootstrap
+   sh $IGNITE_HOME/bin/ignite3-db.sh start
    ```
 
 ## Running Examples
@@ -50,13 +50,19 @@ To run any other example, do the following:
 1. Import the examples project into your IDE.
 2. Start a server node using the CLI tool:
    ```
-   ignite node start --config=$IGNITE_HOME/examples/config/ignite-config.json my-first-node
+   sh $IGNITE_HOME/bin/ignite3-db start
    ```
-3. (optional) If the cluster is not initialized then initialize the cluster:
+3. (optional) Setup ignite3-cli in your terminal:
+```
+   cd  ignite3-cli-3.0.0-beta1
+   alias ignite='`pwd`'/bin/ignite3-cli >> ~/.bash_profile
+   source bin/ignite_completion.sh 
+```
+4. (optional) If the cluster is not initialized then initialize the cluster:
    ```
-   ignite cluster init --cluster-name=ignite-cluster --node-endpoint=localhost:10300 --meta-storage-node=my-first-node
+   ignite cluster init --cluster-name=ignite-cluster --node-endpoint=localhost:10300 --meta-storage-node=defauldNode
    ```
-4. Run the preferred example in the IDE.
+5. Run the preferred example in the IDE.
 
 ## Using CLI
 
