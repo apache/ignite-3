@@ -22,6 +22,7 @@ import java.util.Map;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.rel.core.TableModify;
+import org.apache.calcite.rel.hint.RelHint;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -40,8 +41,8 @@ import org.jetbrains.annotations.Nullable;
 public interface InternalIgniteTable extends IgniteTable {
     /** {@inheritDoc} */
     @Override
-    default IgniteLogicalTableScan toRel(RelOptCluster cluster, RelOptTable relOptTbl) {
-        return toRel(cluster, relOptTbl, null, null, null);
+    default IgniteLogicalTableScan toRel(RelOptCluster cluster, RelOptTable relOptTbl, List<RelHint> hints) {
+        return toRel(cluster, relOptTbl, hints, null, null, null);
     }
 
     /**
@@ -62,6 +63,7 @@ public interface InternalIgniteTable extends IgniteTable {
     IgniteLogicalTableScan toRel(
             RelOptCluster cluster,
             RelOptTable relOptTbl,
+            List<RelHint> hints,
             @Nullable List<RexNode> proj,
             @Nullable RexNode cond,
             @Nullable ImmutableBitSet requiredColumns
