@@ -334,9 +334,9 @@ public class SessionImpl implements Session {
         try {
             return stage.toCompletableFuture().get();
         } catch (ExecutionException e) {
-            throw new IgniteException(OPERATION_INTERRUPTED_ERR, e.getCause());
+            throw new SqlException(OPERATION_INTERRUPTED_ERR, e.getCause());
         } catch (Throwable e) {
-            throw new IgniteException(OPERATION_INTERRUPTED_ERR, e);
+            throw new SqlException(OPERATION_INTERRUPTED_ERR, e);
         }
     }
 
