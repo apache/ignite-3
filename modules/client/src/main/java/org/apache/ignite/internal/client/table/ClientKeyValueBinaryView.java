@@ -75,7 +75,9 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET,
                 (s, w) -> ser.writeTuple(tx, key, s, w, true),
-                ClientTupleSerializer::readValueTuple);
+                ClientTupleSerializer::readValueTuple,
+                null,
+                ClientTupleSerializer.getHashFunction(tx, key));
     }
 
     /** {@inheritDoc} */
