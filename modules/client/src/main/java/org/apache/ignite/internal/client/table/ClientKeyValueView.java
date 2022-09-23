@@ -31,6 +31,8 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
+
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
@@ -41,6 +43,7 @@ import org.apache.ignite.internal.marshaller.ClientMarshallerReader;
 import org.apache.ignite.internal.marshaller.ClientMarshallerWriter;
 import org.apache.ignite.internal.marshaller.Marshaller;
 import org.apache.ignite.internal.marshaller.MarshallerException;
+import org.apache.ignite.internal.util.HashCalculator;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.table.InvokeProcessor;
@@ -95,7 +98,9 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET,
                 (s, w) -> keySer.writeRec(tx, key, s, w, TuplePart.KEY),
-                (s, r) -> valSer.readRec(s, r, TuplePart.VAL));
+                (s, r) -> valSer.readRec(s, r, TuplePart.VAL),
+                null,
+                getHashFunction(tx, key));
     }
 
     /** {@inheritDoc} */
@@ -499,5 +504,25 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
         } catch (MarshallerException e) {
             throw new IgniteException(UNKNOWN_ERR, e.getMessage(), e);
         }
+    }
+
+
+    private Integer getColocationHash(ClientSchema schema, K rec) {
+        // Colocation columns are always part of the key - https://cwiki.apache.org/confluence/display/IGNITE/IEP-86%3A+Colocation+Key.
+        var hashCalc = new HashCalculator();
+        var marsh = schema.getMarshaller(keySer.mapper(), TuplePart.KEY_AND_VAL);
+
+        for (ClientColumn col : schema.colocationColumns()) {
+            Object value = marsh.value(rec, col.schemaIndex());
+            hashCalc.append(value);
+        }
+
+        return hashCalc.hash();
+    }
+
+    @Nullable
+    private Function<ClientSchema, Integer> getHashFunction(@Nullable Transaction tx, @NotNull K rec) {
+        // Disable partition awareness when transaction is used: tx belongs to a default connection.
+        return tx != null ? null : schema -> getColocationHash(schema, rec);
     }
 }

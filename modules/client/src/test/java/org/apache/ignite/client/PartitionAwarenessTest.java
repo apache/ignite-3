@@ -28,6 +28,7 @@ import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.client.fakes.FakeInternalTable;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -111,6 +112,16 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         assertOpOnNode("server-2", "get", x -> recordView.get(null, new AbstractClientTableTest.PersonPojo(1L)));
         assertOpOnNode("server-1", "get", x -> recordView.get(null, new AbstractClientTableTest.PersonPojo(2L)));
         assertOpOnNode("server-2", "get", x -> recordView.get(null, new AbstractClientTableTest.PersonPojo(3L)));
+    }
+
+    @Test
+    public void testGetKeyValueRoutesRequestToPrimaryNode() {
+        KeyValueView<Long, String> pojoView = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
+
+        assertOpOnNode("server-1", "get", x -> pojoView.get(null, 0L));
+        assertOpOnNode("server-2", "get", x -> pojoView.get(null, 1L));
+        assertOpOnNode("server-1", "get", x -> pojoView.get(null, 2L));
+        assertOpOnNode("server-2", "get", x -> pojoView.get(null, 3L));
     }
 
     @Test
