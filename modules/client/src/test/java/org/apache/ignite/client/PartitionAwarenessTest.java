@@ -208,6 +208,10 @@ public class PartitionAwarenessTest extends AbstractClientTest {
     @Test
     public void testAllRecordBinaryViewOperations() {
         // TODO IGNITE-17739 Add Partition Awareness to all table APIs
+        RecordView<Tuple> recordView = defaultTable().recordView();
+
+        assertOpOnNode("server-1", "upsert", x -> recordView.upsert(null, Tuple.create().set("ID", 0L)));
+        assertOpOnNode("server-2", "upsert", x -> recordView.upsert(null, Tuple.create().set("ID", 1L)));
     }
 
     @Test
