@@ -208,7 +208,6 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
     @Test
     public void testAllRecordBinaryViewOperations() {
-        // TODO IGNITE-17739 Add Partition Awareness to all table APIs
         RecordView<Tuple> recordView = defaultTable().recordView();
 
         Tuple t1 = Tuple.create().set("ID", 0L);
@@ -223,11 +222,41 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         assertOpOnNode("server-1", "upsert", x -> recordView.upsert(null, t1));
         assertOpOnNode("server-2", "upsert", x -> recordView.upsert(null, t2));
 
+        assertOpOnNode("server-1", "upsertAll", x -> recordView.upsertAll(null, List.of(t1)));
+        assertOpOnNode("server-2", "upsertAll", x -> recordView.upsertAll(null, List.of(t2)));
+
+        assertOpOnNode("server-1", "insert", x -> recordView.get(null, t1));
+        assertOpOnNode("server-2", "insert", x -> recordView.get(null, t2));
+
+        assertOpOnNode("server-1", "getAll", x -> recordView.getAll(null, List.of(t1)));
+        assertOpOnNode("server-2", "getAll", x -> recordView.getAll(null, List.of(t2)));
+
         assertOpOnNode("server-1", "getAndUpsert", x -> recordView.getAndUpsert(null, t1));
         assertOpOnNode("server-2", "getAndUpsert", x -> recordView.getAndUpsert(null, t2));
 
-        assertOpOnNode("server-1", "upsertAll", x -> recordView.upsertAll(null, List.of(t1)));
-        assertOpOnNode("server-2", "upsertAll", x -> recordView.upsertAll(null, List.of(t2)));
+        assertOpOnNode("server-1", "getAndReplace", x -> recordView.getAndReplace(null, t1));
+        assertOpOnNode("server-2", "getAndReplace", x -> recordView.getAndReplace(null, t2));
+
+        assertOpOnNode("server-1", "getAndDelete", x -> recordView.getAndDelete(null, t1));
+        assertOpOnNode("server-2", "getAndDelete", x -> recordView.getAndDelete(null, t2));
+
+        assertOpOnNode("server-1", "replace", x -> recordView.replace(null, t1));
+        assertOpOnNode("server-2", "replace", x -> recordView.replace(null, t2));
+
+        assertOpOnNode("server-1", "replace", x -> recordView.replace(null, t1, t1));
+        assertOpOnNode("server-2", "replace", x -> recordView.replace(null, t2, t2));
+
+        assertOpOnNode("server-1", "delete", x -> recordView.delete(null, t1));
+        assertOpOnNode("server-2", "delete", x -> recordView.delete(null, t2));
+
+        assertOpOnNode("server-1", "deleteExact", x -> recordView.deleteExact(null, t1));
+        assertOpOnNode("server-2", "deleteExact", x -> recordView.deleteExact(null, t2));
+
+        assertOpOnNode("server-1", "deleteAll", x -> recordView.deleteAll(null, List.of(t1)));
+        assertOpOnNode("server-2", "deleteAll", x -> recordView.deleteAll(null, List.of(t2)));
+
+        assertOpOnNode("server-1", "deleteAllExact", x -> recordView.deleteAllExact(null, List.of(t1)));
+        assertOpOnNode("server-2", "deleteAllExact", x -> recordView.deleteAllExact(null, List.of(t2)));
     }
 
     @Test
