@@ -470,6 +470,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                     .parameters(params)
                     .build();
 
+            // TODO https://issues.apache.org/jira/browse/IGNITE-17746 Fix query execution flow.
             CompletableFuture<AsyncSqlCursor<List<Object>>> stage = start.thenCompose(none -> prepareSvc.prepareAsync(sqlNode, ctx))
                     .thenApply(plan -> {
                         context.maybeUnwrap(QueryValidator.class)
