@@ -164,7 +164,7 @@ public class PartitionListener implements RaftGroupListener {
             RowId rowId = cmd.getRowId();
             UUID txId = cmd.txId();
 
-            storage.addWrite(rowId, row, txId);
+            storage.addWrite(rowId, row, txId, UUID.randomUUID(), 0);
 
             txsPendingRowIds.computeIfAbsent(txId, entry -> new HashSet<>()).add(rowId);
 
@@ -196,7 +196,7 @@ public class PartitionListener implements RaftGroupListener {
 
             if (!CollectionUtils.nullOrEmpty(rowsToUpdate)) {
                 for (Map.Entry<RowId, BinaryRow> entry : rowsToUpdate.entrySet()) {
-                    storage.addWrite(entry.getKey(), entry.getValue(), txId);
+                    storage.addWrite(entry.getKey(), entry.getValue(), txId, UUID.randomUUID(), 0);
 
                     txsPendingRowIds.computeIfAbsent(txId, entry0 -> new HashSet<>()).add(entry.getKey());
 

@@ -26,8 +26,8 @@ import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
@@ -95,7 +95,7 @@ public class FakeIgnite implements Ignite {
                     }
 
                     @Override
-                    public Set<RaftGroupService> enlisted() {
+                    public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndTerm(String partGroupId) {
                         return null;
                     }
 
@@ -105,9 +105,14 @@ public class FakeIgnite implements Ignite {
                     }
 
                     @Override
-                    public boolean enlist(RaftGroupService svc) {
-                        return false;
+                    public IgniteBiTuple<ClusterNode, Long> enlist(
+                            String replicationGroupId,
+                            IgniteBiTuple<ClusterNode, Long> nodeAndTerm) {
+                        return null;
                     }
+
+                    @Override
+                    public void enlistResultFuture(CompletableFuture<?> resultFuture) {}
 
                     @Override
                     public void commit() throws TransactionException {

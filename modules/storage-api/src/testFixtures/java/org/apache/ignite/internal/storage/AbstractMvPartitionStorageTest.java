@@ -108,7 +108,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
     protected RowId insert(BinaryRow binaryRow, UUID txId) {
         RowId rowId = new RowId(PARTITION_ID);
 
-        storage.runConsistently(() -> storage.addWrite(rowId, binaryRow, txId));
+        storage.runConsistently(() -> storage.addWrite(rowId, binaryRow, txId, UUID.randomUUID(), 0));
 
         return rowId;
     }
@@ -755,7 +755,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
         return storage.runConsistently(() -> {
             RowId rowId = new RowId(PARTITION_ID);
 
-            storage.addWrite(rowId, binaryRow, txId);
+            storage.addWrite(rowId, binaryRow, txId, UUID.randomUUID(), 0);
 
             commitWrite(rowId, clock.now());
 

@@ -120,7 +120,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         RowId rowId0 = new RowId(PARTITION_ID_0);
 
-        partitionStorage0.runConsistently(() -> partitionStorage0.addWrite(rowId0, testData0, txId));
+        partitionStorage0.runConsistently(() -> partitionStorage0.addWrite(rowId0, testData0, txId, UUID.randomUUID(), 0));
 
         assertThat(unwrap(partitionStorage0.read(rowId0, txId)), is(equalTo(unwrap(testData0))));
         assertThrows(IllegalArgumentException.class, () -> partitionStorage1.read(rowId0, txId));
@@ -129,7 +129,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         RowId rowId1 = new RowId(PARTITION_ID_1);
 
-        partitionStorage1.runConsistently(() -> partitionStorage1.addWrite(rowId1, testData1, txId));
+        partitionStorage1.runConsistently(() -> partitionStorage1.addWrite(rowId1, testData1, txId, UUID.randomUUID(), 0));
 
         assertThrows(IllegalArgumentException.class, () -> partitionStorage0.read(rowId1, txId));
         assertThat(unwrap(partitionStorage1.read(rowId1, txId)), is(equalTo(unwrap(testData1))));
