@@ -47,11 +47,13 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -68,12 +70,10 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.ConfigurationProperty;
-import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
-import org.apache.ignite.configuration.schemas.table.TableIndexView;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
@@ -271,6 +271,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     /** Partitions storage path. */
     private final Path storagePath;
+
+    /** Assignment change event listeners. */
+    private final CopyOnWriteArrayList<Consumer<IgniteTablesInternal>> assignmentsChangeListeners = new CopyOnWriteArrayList<>();
 
     /** Rebalance scheduler pool size. */
     private static final int REBALANCE_SCHEDULER_POOL_SIZE = Math.min(Utils.cpus() * 3, 20);
@@ -605,6 +608,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             busyLock.leaveBusy();
         }
 
+        for (var listener : assignmentsChangeListeners) {
+            listener.accept(this);
+        }
+
         return completedFuture(null);
     }
 
@@ -895,15 +902,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
     }
 
-    /**
-     * Gets a list of the current table assignments.
-     *
-     * <p>Returns a list where on the i-th place resides a node id that considered as a leader for
-     * the i-th partition on the moment of invocation.
-     *
-     * @param tableId Unique id of a table.
-     * @return List of the current assignments.
-     */
+    /** {@inheritDoc} */
+    @Override
     public List<String> assignments(UUID tableId) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
@@ -913,6 +913,22 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         } finally {
             busyLock.leaveBusy();
         }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void addAssignmentsChangeListener(Consumer<IgniteTablesInternal> listener) {
+        Objects.requireNonNull(listener);
+
+        assignmentsChangeListeners.add(listener);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean removeAssignmentsChangeListener(Consumer<IgniteTablesInternal> listener) {
+        Objects.requireNonNull(listener);
+
+        return assignmentsChangeListeners.remove(listener);
     }
 
     /**
@@ -1357,27 +1373,22 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             if (tbl == null) {
                 dropTblFut.completeExceptionally(new TableNotFoundException(name));
             } else {
-                tablesCfg.tables()
-                        .change(change -> {
-                            TableView tableCfg = change.get(name);
+                tablesCfg.change(chg ->
+                        chg.changeTables(tblChg -> {
+                            TableView tableCfg = tblChg.get(name);
 
                             if (tableCfg == null) {
                                 throw new TableNotFoundException(name);
                             }
 
-                            NamedListView<TableIndexView> idxView = tablesCfg.indexes().value();
+                            tblChg.delete(name);
+                        }
+                        ).changeIndexes(idxChg -> {
+                            List<String> indicesNames = tablesCfg.indexes().value().namedListKeys();
 
-                            boolean idxFound = idxView.namedListKeys().stream()
-                                    .anyMatch(idx -> idxView.get(idx).tableId().equals(tbl.tableId()));
-
-                            //TODO: https://issues.apache.org/jira/browse/IGNITE-17562
-                            // Let's drop orphaned indices instantly.
-                            if (idxFound) {
-                                throw new IgniteException("Can't drop table with indices.");
-                            }
-
-                            change.delete(name);
-                        })
+                            indicesNames.stream().filter(idx ->
+                                    tablesCfg.indexes().get(idx).tableId().value().equals(tbl.tableId())).forEach(idxChg::delete);
+                        }))
                         .whenComplete((res, t) -> {
                             if (t != null) {
                                 Throwable ex = getRootCause(t);

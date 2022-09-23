@@ -39,6 +39,7 @@ import org.apache.ignite.internal.client.proto.ClientMessageDecoder;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
+import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NettyBootstrapFactory;
@@ -159,7 +160,7 @@ public class TestClientHandlerModule implements IgniteComponent {
                                 new ClientMessageDecoder(),
                                 new ConnectionDropHandler(requestCounter, shouldDropConnection),
                                 new ClientInboundMessageHandler(
-                                        ignite.tables(),
+                                        (IgniteTablesInternal) ignite.tables(),
                                         ignite.transactions(),
                                         mock(QueryProcessor.class),
                                         configuration,

@@ -25,8 +25,10 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.internal.util.HashCalculator;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
@@ -70,7 +72,9 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET,
                 (s, w) -> ser.writeTuple(tx, keyRec, s, w, true),
-                (s, r) -> ClientTupleSerializer.readValueTuple(s, r, keyRec));
+                (s, r) -> ClientTupleSerializer.readValueTuple(s, r, keyRec),
+                null,
+                getHashFunction(tx, keyRec));
     }
 
     /** {@inheritDoc} */
@@ -353,5 +357,22 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
             InvokeProcessor<Tuple, Tuple, T> proc
     ) {
         throw new UnsupportedOperationException("Not implemented yet.");
+    }
+
+    private Integer getColocationHash(ClientSchema schema, Tuple rec) {
+        var hashCalc = new HashCalculator();
+
+        for (ClientColumn col : schema.colocationColumns()) {
+            Object value = rec.valueOrDefault(col.name(), null);
+            hashCalc.append(value);
+        }
+
+        return hashCalc.hash();
+    }
+
+    @Nullable
+    private Function<ClientSchema, Integer> getHashFunction(@Nullable Transaction tx, @NotNull Tuple rec) {
+        // Disable partition awareness when transaction is used: tx belongs to a default connection.
+        return tx != null ? null : schema -> getColocationHash(schema, rec);
     }
 }

@@ -18,10 +18,6 @@
 package org.apache.ignite.internal.storage.index;
 
 import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.EntryCountBudgetConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
@@ -46,28 +42,19 @@ public class TestSortedIndexStorageTest extends AbstractSortedIndexStorageTest {
             @InjectConfiguration(
                     polymorphicExtensions = {
                             TestConcurrentHashMapDataStorageConfigurationSchema.class,
-                            HashIndexConfigurationSchema.class,
+                            UnknownDataStorageConfigurationSchema.class,
                             SortedIndexConfigurationSchema.class,
                             NullValueDefaultConfigurationSchema.class,
                             UnlimitedBudgetConfigurationSchema.class
                     },
-                    value = "mock.dataStorage.name = " + TestConcurrentHashMapStorageEngine.ENGINE_NAME
+                    value = "mock.tables.foo.dataStorage.name = " + TestConcurrentHashMapStorageEngine.ENGINE_NAME
             )
-            TableConfiguration tableCfg,
+            TablesConfiguration tablesConfig
+    ) {
+        TableConfiguration tableConfig = tablesConfig.tables().get("foo");
 
-            @InjectConfiguration(polymorphicExtensions = {
-                    HashIndexConfigurationSchema.class,
-                    SortedIndexConfigurationSchema.class,
-                    UnknownDataStorageConfigurationSchema.class,
-                    ConstantValueDefaultConfigurationSchema.class,
-                    FunctionCallDefaultConfigurationSchema.class,
-                    NullValueDefaultConfigurationSchema.class,
-                    UnlimitedBudgetConfigurationSchema.class,
-                    EntryCountBudgetConfigurationSchema.class
-            })
-            TablesConfiguration tablesConfig) {
-        initialize(tableCfg, tablesConfig);
+        var storage = new TestConcurrentHashMapMvTableStorage(tableConfig, tablesConfig);
 
-        initializeStorage(new TestConcurrentHashMapMvTableStorage(tableCfg, tablesConfig));
+        initialize(storage, tablesConfig);
     }
 }

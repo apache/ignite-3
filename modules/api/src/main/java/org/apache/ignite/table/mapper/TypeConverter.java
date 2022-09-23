@@ -17,14 +17,12 @@
 
 package org.apache.ignite.table.mapper;
 
-import org.apache.ignite.schema.definition.ColumnType;
-
 /**
  * Type converter interface provides methods for additional transformation for data of the field type to a type, which is compatible with
  * the column type, and vice versa.
  *
  * <p>The converter can be used to convert object (or their fields), which type is incompatible with the schema.
- * E.g. serialize an arbitrary object to a byte[] for storing is a BLOB column {@link ColumnType#blob()}.
+ * E.g. serialize an arbitrary object to a byte[] for storing is a BLOB column.
  *
  * @param <ObjectT> Object type.
  * @param <ColumnT> Column type.

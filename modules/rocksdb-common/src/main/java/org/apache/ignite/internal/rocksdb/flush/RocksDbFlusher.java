@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.rocksdb.flush;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.SortedMap;
 import java.util.concurrent.CompletableFuture;
@@ -47,7 +48,10 @@ public class RocksDbFlusher {
     private volatile RocksDB db;
 
     /** List of all column families. */
-    private volatile List<ColumnFamilyHandle> columnFamilyHandles;
+    private final List<ColumnFamilyHandle> columnFamilyHandles = new ArrayList<>();
+
+    /** Mutex for {@link #columnFamilyHandles} access. */
+    private final Object columnFamilyHandlesMux = new Object();
 
     /** Scheduled pool to schedule flushes. */
     private final ScheduledExecutorService scheduledPool;
@@ -59,7 +63,7 @@ public class RocksDbFlusher {
     private final IntSupplier delaySupplier;
 
     /** Flush completion callback. */
-    final Runnable onFlushCompleted;
+    private final Runnable onFlushCompleted;
 
     /**
      * Flush options to be used to asynchronously flush the Rocks DB memtable. It needs to be cached, because
@@ -68,7 +72,7 @@ public class RocksDbFlusher {
     private final FlushOptions flushOptions = new FlushOptions().setWaitForFlush(false);
 
     /** Map with flush futures by sequence number at the time of the {@link #awaitFlush(boolean)} call. */
-    final SortedMap<Long, CompletableFuture<Void>> flushFuturesBySequenceNumber = new ConcurrentSkipListMap<>();
+    private final SortedMap<Long, CompletableFuture<Void>> flushFuturesBySequenceNumber = new ConcurrentSkipListMap<>();
 
     /** Latest known sequence number for persisted data. Not volatile, protected by explicit synchronization. */
     private long latestPersistedSequenceNumber;
@@ -132,7 +136,10 @@ public class RocksDbFlusher {
     @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
     public void init(RocksDB db, List<ColumnFamilyHandle> columnFamilyHandles) {
         this.db = db;
-        this.columnFamilyHandles = columnFamilyHandles;
+
+        synchronized (columnFamilyHandlesMux) {
+            this.columnFamilyHandles.addAll(columnFamilyHandles);
+        }
 
         synchronized (latestPersistedSequenceNumberMux) {
             latestPersistedSequenceNumber = db.getLatestSequenceNumber();
@@ -140,8 +147,26 @@ public class RocksDbFlusher {
     }
 
     /**
+     * Adds the given handle to the list of CF handles.
+     */
+    public void addColumnFamily(ColumnFamilyHandle handle) {
+        synchronized (columnFamilyHandlesMux) {
+            columnFamilyHandles.add(handle);
+        }
+    }
+
+    /**
+     * Removes the given handle to the list of CF handles.
+     */
+    public void removeColumnFamily(ColumnFamilyHandle handle) {
+        synchronized (columnFamilyHandlesMux) {
+            columnFamilyHandles.remove(handle);
+        }
+    }
+
+    /**
      * Returns a future to wait next flush operation from the current point in time. Uses {@link RocksDB#getLatestSequenceNumber()} to
-     * achieve this, by fixing its value at the time of invokation. Storage is considered flushed when at least one persisted column
+     * achieve this, by fixing its value at the time of invocation. Storage is considered flushed when at least one persisted column
      * family has its latest sequence number greater or equal to the one that we fixed. This is enough to guarantee that all column families
      * have up-to-data state as well, because flusher expects its users to also have {@link Options#setAtomicFlush(boolean)} option
      * enabled.
@@ -190,7 +215,9 @@ public class RocksDbFlusher {
                 try {
                     // Explicit list of CF handles is mandatory!
                     // Default flush is buggy and only invokes listener methods for a single random CF.
-                    db.flush(flushOptions, columnFamilyHandles);
+                    synchronized (columnFamilyHandlesMux) {
+                        db.flush(flushOptions, columnFamilyHandles);
+                    }
                 } catch (RocksDBException e) {
                     LOG.error("Error occurred during the explicit flush", e);
                 } finally {
@@ -234,5 +261,14 @@ public class RocksDbFlusher {
         }
 
         flushOptions.close();
+    }
+
+    /**
+     * Executes the {@code onFlushCompleted} callback.
+     *
+     * @return Future that completes when the {@code onFlushCompleted} callback finishes.
+     */
+    CompletableFuture<Void> onFlushCompleted() {
+        return CompletableFuture.runAsync(onFlushCompleted, threadPool);
     }
 }

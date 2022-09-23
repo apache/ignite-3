@@ -27,8 +27,8 @@ import org.apache.ignite.internal.schema.testutils.builder.HashIndexDefinitionBu
 import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.internal.schema.testutils.builder.SortedIndexDefinitionBuilder;
 import org.apache.ignite.internal.schema.testutils.builder.TableDefinitionBuilder;
-import org.apache.ignite.schema.definition.ColumnType;
-import org.apache.ignite.schema.definition.SchemaObject;
+import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
+import org.apache.ignite.internal.schema.testutils.definition.SchemaObject;
 import org.junit.jupiter.api.Test;
 
 /**

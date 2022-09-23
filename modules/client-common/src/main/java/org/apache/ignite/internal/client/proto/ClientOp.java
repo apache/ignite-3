@@ -137,4 +137,7 @@ public class ClientOp {
 
     /** Close cursor. */
     public static final int SQL_CURSOR_CLOSE = 52;
+
+    /** Close cursor. */
+    public static final int PARTITION_ASSIGNMENT_GET = 53;
 }

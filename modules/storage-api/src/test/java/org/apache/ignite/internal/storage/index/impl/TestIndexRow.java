@@ -29,6 +29,7 @@ import java.util.Random;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.index.IndexRow;
@@ -81,7 +82,7 @@ public class TestIndexRow implements IndexRow, Comparable<TestIndexRow> {
     /**
      * Creates an Index Key prefix of the given length.
      */
-    public BinaryTuple prefix(int length) {
+    public BinaryTuplePrefix prefix(int length) {
         return serializer.serializeRowPrefix(Arrays.copyOf(columns, length));
     }
 

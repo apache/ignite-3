@@ -21,9 +21,9 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.schema.definition.index.HashIndexDefinitionImpl;
+import org.apache.ignite.internal.schema.testutils.definition.index.HashIndexDefinition;
+import org.apache.ignite.internal.schema.testutils.definition.index.HashIndexDefinitionImpl;
 import org.apache.ignite.internal.util.IgniteObjectName;
-import org.apache.ignite.schema.definition.index.HashIndexDefinition;
 
 /**
  * Hash index builder.

@@ -18,9 +18,6 @@
 package org.apache.ignite.internal.storage.index;
 
 import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.EntryCountBudgetConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
@@ -44,25 +41,19 @@ public class TestHashIndexStorageTest extends AbstractHashIndexStorageTest {
             @InjectConfiguration(
                     polymorphicExtensions = {
                             TestConcurrentHashMapDataStorageConfigurationSchema.class,
+                            UnknownDataStorageConfigurationSchema.class,
                             HashIndexConfigurationSchema.class,
                             NullValueDefaultConfigurationSchema.class,
                             UnlimitedBudgetConfigurationSchema.class
                     },
-                    value = "mock.dataStorage.name = " + TestConcurrentHashMapStorageEngine.ENGINE_NAME
+                    value = "mock.tables.foo.dataStorage.name = " + TestConcurrentHashMapStorageEngine.ENGINE_NAME
             )
-            TableConfiguration tableCfg,
-
-            @InjectConfiguration(polymorphicExtensions = {
-                    HashIndexConfigurationSchema.class,
-                    UnknownDataStorageConfigurationSchema.class,
-                    ConstantValueDefaultConfigurationSchema.class,
-                    FunctionCallDefaultConfigurationSchema.class,
-                    NullValueDefaultConfigurationSchema.class,
-                    UnlimitedBudgetConfigurationSchema.class,
-                    EntryCountBudgetConfigurationSchema.class
-            })
             TablesConfiguration tablesConfig
     ) {
-        initialize(new TestConcurrentHashMapMvTableStorage(tableCfg, tablesConfig), tablesConfig);
+        TableConfiguration tableConfig = tablesConfig.tables().get("foo");
+
+        var storage = new TestConcurrentHashMapMvTableStorage(tableConfig, tablesConfig);
+
+        initialize(storage, tablesConfig);
     }
 }

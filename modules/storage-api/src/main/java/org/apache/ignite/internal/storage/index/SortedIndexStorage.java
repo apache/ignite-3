@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.storage.index;
 
-import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.util.Cursor;
 import org.intellij.lang.annotations.MagicConstant;
@@ -28,8 +28,6 @@ import org.jetbrains.annotations.Nullable;
  *
  * <p>This storage serves as a sorted mapping from a subset of a table's columns (a.k.a. index columns) to a set of {@link RowId}s
  * from a single {@link org.apache.ignite.internal.storage.MvPartitionStorage} from the same table.
- *
- * @see org.apache.ignite.schema.definition.index.SortedIndexDefinition
  */
 public interface SortedIndexStorage {
     /** Exclude lower bound. */
@@ -74,8 +72,8 @@ public interface SortedIndexStorage {
      * @throws IllegalArgumentException If backwards flag is passed and backwards iteration is not supported by the storage.
      */
     Cursor<IndexRow> scan(
-            @Nullable BinaryTuple lowerBound,
-            @Nullable BinaryTuple upperBound,
+            @Nullable BinaryTuplePrefix lowerBound,
+            @Nullable BinaryTuplePrefix upperBound,
             @MagicConstant(flagsFromClass = SortedIndexStorage.class) int flags
     );
 }

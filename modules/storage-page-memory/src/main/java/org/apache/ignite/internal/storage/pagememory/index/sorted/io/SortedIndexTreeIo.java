@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.storage.pagememory.index.sorted.io;
 
+import static java.nio.ByteOrder.LITTLE_ENDIAN;
+import static org.apache.ignite.internal.binarytuple.BinaryTupleCommon.isPrefix;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.getLong;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putLong;
 import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.PARTITIONLESS_LINK_SIZE_BYTES;
@@ -28,7 +30,9 @@ import java.util.UUID;
 import org.apache.ignite.internal.pagememory.datapage.DataPageReader;
 import org.apache.ignite.internal.pagememory.tree.io.BplusIo;
 import org.apache.ignite.internal.pagememory.util.PageUtils;
+import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.index.BinaryTupleComparator;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.ReadIndexColumnsValue;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.SortedIndexRow;
@@ -97,17 +101,23 @@ public interface SortedIndexTreeIo {
     /**
      * Compare the {@link SortedIndexRowKey} from the page with passed {@link SortedIndexRowKey}.
      *
+     * @param dataPageReader Data page reader.
+     * @param binaryTupleComparator Comparator of index columns {@link BinaryTuple}s.
+     * @param partitionId Partition ID.
      * @param pageAddr Page address.
      * @param idx Element's index.
      * @param rowKey Lookup index row key.
      * @return Comparison result.
+     * @throws IgniteInternalCheckedException If failed.
      */
-    default int compare(DataPageReader dataPageReader, int partitionId, long pageAddr, int idx, SortedIndexRowKey rowKey)
-            throws IgniteInternalCheckedException {
-        assert rowKey instanceof SortedIndexRow;
-
-        SortedIndexRow sortedIndexRow = (SortedIndexRow) rowKey;
-
+    default int compare(
+            DataPageReader dataPageReader,
+            BinaryTupleComparator binaryTupleComparator,
+            int partitionId,
+            long pageAddr,
+            int idx,
+            SortedIndexRowKey rowKey
+    ) throws IgniteInternalCheckedException {
         int off = offset(idx);
 
         long link = readPartitionlessLink(partitionId, pageAddr, off + INDEX_COLUMNS_LINK_OFFSET);
@@ -117,14 +127,19 @@ public interface SortedIndexTreeIo {
 
         dataPageReader.traverse(link, indexColumnsTraversal, null);
 
-        ByteBuffer indexColumnsBuffer = ByteBuffer.wrap(indexColumnsTraversal.result());
+        ByteBuffer firstBinaryTupleBuffer = ByteBuffer.wrap(indexColumnsTraversal.result()).order(LITTLE_ENDIAN);
+        ByteBuffer secondBinaryTupleBuffer = rowKey.indexColumns().valueBuffer();
 
-        // TODO: IGNITE-17672 Compare by BinaryTuple
-        int cmp = indexColumnsBuffer.compareTo(sortedIndexRow.indexColumns().valueBuffer());
+        int cmp = binaryTupleComparator.compare(firstBinaryTupleBuffer, secondBinaryTupleBuffer);
 
-        if (cmp != 0) {
+        // Binary Tuple Prefixes don't have row IDs, so they can't be compared.
+        if (cmp != 0 || isPrefix(secondBinaryTupleBuffer)) {
             return cmp;
         }
+
+        assert rowKey instanceof SortedIndexRow : rowKey;
+
+        SortedIndexRow sortedIndexRow = (SortedIndexRow) rowKey;
 
         long rowIdMsb = getLong(pageAddr, off + ROW_ID_MSB_OFFSET);
 
@@ -159,7 +174,7 @@ public interface SortedIndexTreeIo {
 
         dataPageReader.traverse(link, indexColumnsTraversal, null);
 
-        ByteBuffer indexColumnsBuffer = ByteBuffer.wrap(indexColumnsTraversal.result());
+        ByteBuffer indexColumnsBuffer = ByteBuffer.wrap(indexColumnsTraversal.result()).order(LITTLE_ENDIAN);
 
         IndexColumns indexColumns = new IndexColumns(partitionId, link, indexColumnsBuffer);
 

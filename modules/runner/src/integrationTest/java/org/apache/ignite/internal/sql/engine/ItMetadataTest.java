@@ -23,14 +23,9 @@ import static org.apache.ignite.sql.ColumnMetadata.UNDEFINED_SCALE;
 
 import java.time.Duration;
 import java.time.Period;
-import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
-import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
-import org.apache.ignite.schema.definition.ColumnType;
-import org.apache.ignite.schema.definition.TableDefinition;
 import org.apache.ignite.sql.SqlColumnType;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -96,20 +91,8 @@ public class ItMetadataTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16679")
     public void columnOrder() {
-        TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "COLUMN_ORDER").columns(
-                SchemaBuilders.column("DOUBLE_C", ColumnType.DOUBLE).asNullable(true).build(),
-                SchemaBuilders.column("LONG_C", ColumnType.INT64).build(),
-                SchemaBuilders.column("STRING_C", ColumnType.string()).asNullable(true).build(),
-                SchemaBuilders.column("INT_C", ColumnType.INT32).asNullable(true).build()
-        ).withPrimaryKey("LONG_C").build();
-
-        CLUSTER_NODES.get(0).tables().createTable(schTbl1.canonicalName(), tblCh ->
-                SchemaConfigurationConverter.convert(schTbl1, tblCh)
-                        .changeReplicas(1)
-                        .changePartitions(10)
-        );
+        sql("CREATE TABLE column_order (double_c DOUBLE, long_c BIGINT PRIMARY KEY, string_c VARCHAR, int_c INT)");
 
         assertQuery("select * from column_order")
                 .columnNames("DOUBLE_C", "LONG_C", "STRING_C", "INT_C")

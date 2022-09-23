@@ -28,14 +28,12 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import java.nio.file.Path;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.TableConfiguration;
-import org.apache.ignite.configuration.schemas.table.TableIndexView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
-import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.storage.AbstractMvTableStorageTest;
@@ -48,7 +46,7 @@ import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -58,50 +56,46 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(WorkDirectoryExtension.class)
 @ExtendWith(ConfigurationExtension.class)
 public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
-    private RocksDbStorageEngine engine;
-
-    @InjectConfiguration("mock {flushDelayMillis = 0, defaultRegion {size = 16536, writeBufferSize = 16536}}")
-    private RocksDbStorageEngineConfiguration rocksDbEngineConfig;
-
     @InjectConfiguration(
-            name = "table",
-            value = "mock { partitions = 512, dataStorage.name = rocksdb }",
             polymorphicExtensions = {
                     RocksDbDataStorageConfigurationSchema.class,
-                    SortedIndexConfigurationSchema.class,
+                    UnknownDataStorageConfigurationSchema.class,
                     HashIndexConfigurationSchema.class,
+                    SortedIndexConfigurationSchema.class,
                     NullValueDefaultConfigurationSchema.class,
                     UnlimitedBudgetConfigurationSchema.class
-            }
+            },
+            value = "mock.tables.foo{ partitions = 512, dataStorage.name = " + RocksDbStorageEngine.ENGINE_NAME + "}"
     )
-    private TableConfiguration tableCfg0;
+    private TablesConfiguration tablesConfig;
 
-    @WorkDirectory
-    private Path workDir;
+    private RocksDbStorageEngine engine;
 
-    private ConfigurationRegistry confRegistry;
+    private MvTableStorage tableStorage;
 
-    @Override
-    protected void setUp() {
-        super.tableConfig = tableCfg0;
-    }
-
-    @Override
-    protected MvTableStorage tableStorage(TableIndexView sortedIdx, TableIndexView hashIdx, TablesConfiguration tablesCfg) {
+    @BeforeEach
+    void setUp(
+            @WorkDirectory Path workDir,
+            @InjectConfiguration("mock {flushDelayMillis = 0, defaultRegion {size = 16536, writeBufferSize = 16536}}")
+            RocksDbStorageEngineConfiguration rocksDbEngineConfig
+    ) {
         engine = new RocksDbStorageEngine(rocksDbEngineConfig, workDir);
 
         engine.start();
 
-        MvTableStorage storage = engine.createMvTable(tableConfig, tablesCfg);
+        tableStorage = engine.createMvTable(tablesConfig.tables().get("foo"), tablesConfig);
 
-        assertThat(storage, is(instanceOf(RocksDbTableStorage.class)));
+        assertThat(tableStorage, is(instanceOf(RocksDbTableStorage.class)));
 
-        return storage;
+        tableStorage.start();
+
+        initialize(tableStorage, tablesConfig);
     }
 
     @AfterEach
     void tearDown() throws Exception {
         IgniteUtils.closeAll(
+                tableStorage == null ? null : tableStorage::stop,
                 engine == null ? null : engine::stop
         );
     }
@@ -156,7 +150,7 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
 
         tableStorage.stop();
 
-        tableStorage = engine.createMvTable(tableConfig, null);
+        tableStorage = engine.createMvTable(tablesConfig.tables().get("foo"), tablesConfig);
 
         tableStorage.start();
 
@@ -169,23 +163,5 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
     @Test
     void storageAdvertisesItIsPersistent() {
         assertThat(tableStorage.isVolatile(), is(false));
-    }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17318")
-    @Override
-    public void testCreateSortedIndex() {
-        super.testCreateSortedIndex();
-    }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17318")
-    @Override
-    public void testDestroyIndex() {
-        super.testDestroyIndex();
-    }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17318")
-    @Override
-    public void testMisconfiguredIndices() {
-        super.testMisconfiguredIndices();
     }
 }

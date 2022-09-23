@@ -21,12 +21,11 @@ import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import org.apache.ignite.internal.schema.definition.SchemaValidationUtils;
-import org.apache.ignite.internal.schema.definition.TableDefinitionImpl;
+import org.apache.ignite.internal.schema.testutils.definition.ColumnDefinition;
+import org.apache.ignite.internal.schema.testutils.definition.PrimaryKeyDefinition;
+import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
+import org.apache.ignite.internal.schema.testutils.definition.TableDefinitionImpl;
 import org.apache.ignite.internal.util.IgniteObjectName;
-import org.apache.ignite.schema.definition.ColumnDefinition;
-import org.apache.ignite.schema.definition.PrimaryKeyDefinition;
-import org.apache.ignite.schema.definition.TableDefinition;
 
 /**
  * Table builder.
@@ -103,8 +102,6 @@ class TableDefinitionBuilderImpl implements TableDefinitionBuilder {
 
         assert primaryKeyDefinition != null : "Primary key index must be configured.";
         assert columns.size() > primaryKeyDefinition.columns().size() : "Key or/and value columns must be defined.";
-
-        SchemaValidationUtils.validatePrimaryKey(primaryKeyDefinition.columns(), columns);
 
         return new TableDefinitionImpl(
                 schemaName,

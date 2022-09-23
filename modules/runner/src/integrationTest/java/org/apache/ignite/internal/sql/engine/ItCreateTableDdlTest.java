@@ -95,7 +95,7 @@ public class ItCreateTableDdlTest extends AbstractBasicIntegrationTest {
                         IgniteException.class,
                         () -> sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT, PRIMARY KEY (ID1, ID0)) COLOCATE (ID0, VAL)")
                 ).getMessage(),
-                containsString("Schema definition error: All colocation columns must be part of primary key")
+                containsString("Colocation columns must be subset of primary key")
         );
 
         assertThat(
@@ -103,7 +103,7 @@ public class ItCreateTableDdlTest extends AbstractBasicIntegrationTest {
                         IgniteException.class,
                         () -> sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT, PRIMARY KEY (ID1, ID0)) COLOCATE (ID1, ID0, ID1)")
                 ).getMessage(),
-                containsString("Schema definition error: Colocation columns must not be duplicated")
+                containsString("Colocation columns contains duplicates")
         );
     }
 

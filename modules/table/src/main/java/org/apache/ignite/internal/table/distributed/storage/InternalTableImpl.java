@@ -113,7 +113,7 @@ public class InternalTableImpl implements InternalTable {
     protected final ReplicaService replicaSvc;
 
     /** Mutex for the partition map update. */
-    public Object updatePartMapMux = new Object();
+    private final Object updatePartMapMux = new Object();
 
     /** Table messages factory. */
     private final TableMessagesFactory tableMessagesFactory;

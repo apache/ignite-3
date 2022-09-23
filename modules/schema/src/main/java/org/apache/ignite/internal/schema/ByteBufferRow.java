@@ -124,4 +124,9 @@ public class ByteBufferRow implements BinaryRow {
 
         return tmp;
     }
+
+    @Override
+    public ByteBuffer byteBuffer() {
+        return buf.slice().order(ORDER);
+    }
 }

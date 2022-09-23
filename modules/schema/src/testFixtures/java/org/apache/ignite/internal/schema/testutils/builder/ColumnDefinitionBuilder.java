@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.schema.testutils.builder;
 
 import java.util.Map;
-import org.apache.ignite.schema.definition.ColumnDefinition;
+import org.apache.ignite.internal.schema.testutils.definition.ColumnDefinition;
 import org.jetbrains.annotations.Nullable;
 
 /**
