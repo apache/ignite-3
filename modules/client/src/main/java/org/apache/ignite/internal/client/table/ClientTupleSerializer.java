@@ -33,15 +33,20 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Function;
+
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
 import org.apache.ignite.internal.client.proto.ClientDataType;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.client.proto.TuplePart;
+import org.apache.ignite.internal.util.HashCalculator;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -438,5 +443,41 @@ public class ClientTupleSerializer {
         } catch (ClassCastException e) {
             throw new IgniteException(PROTOCOL_ERR, "Incorrect value type for column '" + col.name() + "': " + e.getMessage(), e);
         }
+    }
+
+    @Nullable
+    static Function<ClientSchema, Integer> getHashFunction(@Nullable Transaction tx, @NotNull Tuple rec) {
+        // Disable partition awareness when transaction is used: tx belongs to a default connection.
+        return tx != null ? null : schema -> getColocationHash(schema, rec);
+    }
+
+    @Nullable
+    static Function<ClientSchema, Integer> getHashFunction(@Nullable Transaction tx, Mapper<?> mapper, @NotNull Object rec) {
+        // Disable partition awareness when transaction is used: tx belongs to a default connection.
+        return tx != null ? null : schema -> getColocationHash(schema, mapper, rec);
+    }
+
+    private static Integer getColocationHash(ClientSchema schema, Tuple rec) {
+        var hashCalc = new HashCalculator();
+
+        for (ClientColumn col : schema.colocationColumns()) {
+            Object value = rec.valueOrDefault(col.name(), null);
+            hashCalc.append(value);
+        }
+
+        return hashCalc.hash();
+    }
+
+    private static Integer getColocationHash(ClientSchema schema, Mapper<?> mapper, Object rec) {
+        // Colocation columns are always part of the key - https://cwiki.apache.org/confluence/display/IGNITE/IEP-86%3A+Colocation+Key.
+        var hashCalc = new HashCalculator();
+        var marsh = schema.getMarshaller(mapper, TuplePart.KEY);
+
+        for (ClientColumn col : schema.colocationColumns()) {
+            Object value = marsh.value(rec, col.schemaIndex());
+            hashCalc.append(value);
+        }
+
+        return hashCalc.hash();
     }
 }

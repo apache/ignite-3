@@ -25,15 +25,11 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
-
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.TuplePart;
-import org.apache.ignite.internal.util.HashCalculator;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.RecordView;
-import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
@@ -76,7 +72,7 @@ public class ClientRecordView<R> implements RecordView<R> {
                 (s, w) -> ser.writeRec(tx, keyRec, s, w, TuplePart.KEY),
                 (s, r) -> ser.readValRec(keyRec, s, r),
                 null,
-                getHashFunction(tx, keyRec));
+                ClientTupleSerializer.getHashFunction(tx, ser.mapper(), keyRec));
     }
 
     /** {@inheritDoc} */
@@ -356,24 +352,5 @@ public class ClientRecordView<R> implements RecordView<R> {
             InvokeProcessor<R, R, T> proc
     ) {
         throw new UnsupportedOperationException();
-    }
-
-    private Integer getColocationHash(ClientSchema schema, R rec) {
-        // Colocation columns are always part of the key - https://cwiki.apache.org/confluence/display/IGNITE/IEP-86%3A+Colocation+Key.
-        var hashCalc = new HashCalculator();
-        var marsh = schema.getMarshaller(ser.mapper(), TuplePart.KEY);
-
-        for (ClientColumn col : schema.colocationColumns()) {
-            Object value = marsh.value(rec, col.schemaIndex());
-            hashCalc.append(value);
-        }
-
-        return hashCalc.hash();
-    }
-
-    @Nullable
-    private Function<ClientSchema, Integer> getHashFunction(@Nullable Transaction tx, @NotNull R rec) {
-        // Disable partition awareness when transaction is used: tx belongs to a default connection.
-        return tx != null ? null : schema -> getColocationHash(schema, rec);
     }
 }
