@@ -86,11 +86,16 @@ public class ClientRecordView<R> implements RecordView<R> {
     public @NotNull CompletableFuture<Collection<R>> getAllAsync(@Nullable Transaction tx, @NotNull Collection<R> keyRecs) {
         Objects.requireNonNull(keyRecs);
 
+        if (keyRecs.isEmpty()) {
+            return CompletableFuture.completedFuture(Collections.emptyList());
+        }
+
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_ALL,
                 (s, w) -> ser.writeRecs(tx, keyRecs, s, w, TuplePart.KEY),
                 (s, r) -> ser.readRecs(s, r, true, TuplePart.KEY_AND_VAL),
-                Collections.emptyList());
+                Collections.emptyList(),
+                ClientTupleSerializer.getHashFunction(tx, ser.mapper(), keyRecs.iterator().next()));
     }
 
     /** {@inheritDoc} */
@@ -107,7 +112,8 @@ public class ClientRecordView<R> implements RecordView<R> {
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_UPSERT,
                 (s, w) -> ser.writeRec(tx, rec, s, w, TuplePart.KEY_AND_VAL),
-                r -> null);
+                r -> null,
+                ClientTupleSerializer.getHashFunction(tx, ser.mapper(), rec));
     }
 
     /** {@inheritDoc} */
@@ -121,10 +127,15 @@ public class ClientRecordView<R> implements RecordView<R> {
     public @NotNull CompletableFuture<Void> upsertAllAsync(@Nullable Transaction tx, @NotNull Collection<R> recs) {
         Objects.requireNonNull(recs);
 
+        if (recs.isEmpty()) {
+            return CompletableFuture.completedFuture(null);
+        }
+
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_UPSERT_ALL,
                 (s, w) -> ser.writeRecs(tx, recs, s, w, TuplePart.KEY_AND_VAL),
-                r -> null);
+                r -> null,
+                ClientTupleSerializer.getHashFunction(tx, ser.mapper(), recs.iterator().next()));
     }
 
     /** {@inheritDoc} */
@@ -141,7 +152,9 @@ public class ClientRecordView<R> implements RecordView<R> {
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_UPSERT,
                 (s, w) -> ser.writeRec(tx, rec, s, w, TuplePart.KEY_AND_VAL),
-                (s, r) -> ser.readValRec(rec, s, r));
+                (s, r) -> ser.readValRec(rec, s, r),
+                null,
+                ClientTupleSerializer.getHashFunction(tx, ser.mapper(), rec));
     }
 
     /** {@inheritDoc} */
@@ -158,7 +171,8 @@ public class ClientRecordView<R> implements RecordView<R> {
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_INSERT,
                 (s, w) -> ser.writeRec(tx, rec, s, w, TuplePart.KEY_AND_VAL),
-                ClientMessageUnpacker::unpackBoolean);
+                ClientMessageUnpacker::unpackBoolean,
+                ClientTupleSerializer.getHashFunction(tx, ser.mapper(), rec));
     }
 
     /** {@inheritDoc} */
@@ -172,11 +186,16 @@ public class ClientRecordView<R> implements RecordView<R> {
     public @NotNull CompletableFuture<Collection<R>> insertAllAsync(@Nullable Transaction tx, @NotNull Collection<R> recs) {
         Objects.requireNonNull(recs);
 
+        if (recs.isEmpty()) {
+            return CompletableFuture.completedFuture(Collections.emptyList());
+        }
+
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_INSERT_ALL,
                 (s, w) -> ser.writeRecs(tx, recs, s, w, TuplePart.KEY_AND_VAL),
                 (s, r) -> ser.readRecs(s, r, false, TuplePart.KEY_AND_VAL),
-                Collections.emptyList());
+                Collections.emptyList(),
+                ClientTupleSerializer.getHashFunction(tx, ser.mapper(), recs.iterator().next()));
     }
 
     /** {@inheritDoc} */
@@ -199,7 +218,8 @@ public class ClientRecordView<R> implements RecordView<R> {
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_REPLACE,
                 (s, w) -> ser.writeRec(tx, rec, s, w, TuplePart.KEY_AND_VAL),
-                ClientMessageUnpacker::unpackBoolean);
+                ClientMessageUnpacker::unpackBoolean,
+                ClientTupleSerializer.getHashFunction(tx, ser.mapper(), rec));
     }
 
     /** {@inheritDoc} */
@@ -211,7 +231,8 @@ public class ClientRecordView<R> implements RecordView<R> {
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_REPLACE_EXACT,
                 (s, w) -> ser.writeRecs(tx, oldRec, newRec, s, w, TuplePart.KEY_AND_VAL),
-                ClientMessageUnpacker::unpackBoolean);
+                ClientMessageUnpacker::unpackBoolean,
+                ClientTupleSerializer.getHashFunction(tx, ser.mapper(), oldRec));
     }
 
     /** {@inheritDoc} */
@@ -228,7 +249,9 @@ public class ClientRecordView<R> implements RecordView<R> {
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_REPLACE,
                 (s, w) -> ser.writeRec(tx, rec, s, w, TuplePart.KEY_AND_VAL),
-                (s, r) -> ser.readValRec(rec, s, r));
+                (s, r) -> ser.readValRec(rec, s, r),
+                null,
+                ClientTupleSerializer.getHashFunction(tx, ser.mapper(), rec));
     }
 
     /** {@inheritDoc} */
@@ -245,7 +268,8 @@ public class ClientRecordView<R> implements RecordView<R> {
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_DELETE,
                 (s, w) -> ser.writeRec(tx, keyRec, s, w, TuplePart.KEY),
-                ClientMessageUnpacker::unpackBoolean);
+                ClientMessageUnpacker::unpackBoolean,
+                ClientTupleSerializer.getHashFunction(tx, ser.mapper(), keyRec));
     }
 
     /** {@inheritDoc} */
@@ -262,7 +286,8 @@ public class ClientRecordView<R> implements RecordView<R> {
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_DELETE_EXACT,
                 (s, w) -> ser.writeRec(tx, rec, s, w, TuplePart.KEY_AND_VAL),
-                ClientMessageUnpacker::unpackBoolean);
+                ClientMessageUnpacker::unpackBoolean,
+                ClientTupleSerializer.getHashFunction(tx, ser.mapper(), rec));
     }
 
     /** {@inheritDoc} */
@@ -279,7 +304,9 @@ public class ClientRecordView<R> implements RecordView<R> {
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_DELETE,
                 (s, w) -> ser.writeRec(tx, keyRec, s, w, TuplePart.KEY),
-                (s, r) -> ser.readValRec(keyRec, s, r));
+                (s, r) -> ser.readValRec(keyRec, s, r),
+                null,
+                ClientTupleSerializer.getHashFunction(tx, ser.mapper(), keyRec));
     }
 
     /** {@inheritDoc} */
@@ -293,11 +320,16 @@ public class ClientRecordView<R> implements RecordView<R> {
     public @NotNull CompletableFuture<Collection<R>> deleteAllAsync(@Nullable Transaction tx, @NotNull Collection<R> keyRecs) {
         Objects.requireNonNull(keyRecs);
 
+        if (keyRecs.isEmpty()) {
+            return CompletableFuture.completedFuture(Collections.emptyList());
+        }
+
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_DELETE_ALL,
                 (s, w) -> ser.writeRecs(tx, keyRecs, s, w, TuplePart.KEY),
                 (s, r) -> ser.readRecs(s, r, false, TuplePart.KEY),
-                Collections.emptyList());
+                Collections.emptyList(),
+                ClientTupleSerializer.getHashFunction(tx, ser.mapper(), keyRecs.iterator().next()));
     }
 
     /** {@inheritDoc} */
@@ -311,11 +343,16 @@ public class ClientRecordView<R> implements RecordView<R> {
     public @NotNull CompletableFuture<Collection<R>> deleteAllExactAsync(@Nullable Transaction tx, @NotNull Collection<R> recs) {
         Objects.requireNonNull(recs);
 
+        if (recs.isEmpty()) {
+            return CompletableFuture.completedFuture(Collections.emptyList());
+        }
+
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_DELETE_ALL_EXACT,
                 (s, w) -> ser.writeRecs(tx, recs, s, w, TuplePart.KEY_AND_VAL),
                 (s, r) -> ser.readRecs(s, r, false, TuplePart.KEY_AND_VAL),
-                Collections.emptyList());
+                Collections.emptyList(),
+                ClientTupleSerializer.getHashFunction(tx, ser.mapper(), recs.iterator().next()));
     }
 
     /** {@inheritDoc} */
