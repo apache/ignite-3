@@ -276,7 +276,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         op.accept(null);
 
         assertEquals(expectedOp, lastOp);
-        assertEquals(expectedNode, lastOpServerName);
+        assertEquals(expectedNode, lastOpServerName, "Operation " + expectedOp + " was not executed on expected node");
     }
 
     private Table defaultTable() {

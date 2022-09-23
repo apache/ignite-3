@@ -173,11 +173,16 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
     public @NotNull CompletableFuture<Collection<Tuple>> insertAllAsync(@Nullable Transaction tx, @NotNull Collection<Tuple> recs) {
         Objects.requireNonNull(recs);
 
+        if (recs.isEmpty()) {
+            return CompletableFuture.completedFuture(Collections.emptyList());
+        }
+
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_INSERT_ALL,
                 (s, w) -> ser.writeTuples(tx, recs, s, w, false),
                 ClientTupleSerializer::readTuples,
-                Collections.emptyList());
+                Collections.emptyList(),
+                ClientTupleSerializer.getHashFunction(tx, recs.iterator().next()));
     }
 
     /** {@inheritDoc} */
