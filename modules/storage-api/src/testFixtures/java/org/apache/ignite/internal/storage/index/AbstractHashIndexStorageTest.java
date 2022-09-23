@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.storage.index;
 
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter.addIndex;
-import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter.convert;
+import static org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter.addIndex;
+import static org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter.convert;
 import static org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders.column;
 import static org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders.tableBuilder;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -38,15 +38,15 @@ import org.apache.ignite.configuration.schemas.table.TableIndexView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
+import org.apache.ignite.internal.schema.testutils.definition.ColumnDefinition;
+import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
+import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
+import org.apache.ignite.internal.schema.testutils.definition.index.HashIndexDefinition;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.impl.BinaryTupleRowSerializer;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.schema.definition.ColumnDefinition;
-import org.apache.ignite.schema.definition.ColumnType;
-import org.apache.ignite.schema.definition.TableDefinition;
-import org.apache.ignite.schema.definition.index.HashIndexDefinition;
 import org.junit.jupiter.api.Test;
 
 /**

@@ -23,10 +23,10 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import java.time.LocalDate;
 import org.apache.ignite.internal.schema.testutils.builder.ColumnDefinitionBuilder;
 import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
-import org.apache.ignite.schema.definition.ColumnDefinition;
-import org.apache.ignite.schema.definition.ColumnType;
-import org.apache.ignite.schema.definition.DefaultValueDefinition.ConstantValue;
-import org.apache.ignite.schema.definition.DefaultValueDefinition.DefaultValueType;
+import org.apache.ignite.internal.schema.testutils.definition.ColumnDefinition;
+import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
+import org.apache.ignite.internal.schema.testutils.definition.DefaultValueDefinition.ConstantValue;
+import org.apache.ignite.internal.schema.testutils.definition.DefaultValueDefinition.DefaultValueType;
 import org.junit.jupiter.api.Test;
 
 /**

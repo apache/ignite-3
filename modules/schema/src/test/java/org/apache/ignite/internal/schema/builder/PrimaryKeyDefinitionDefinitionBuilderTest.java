@@ -25,7 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.List;
 import org.apache.ignite.internal.schema.testutils.builder.PrimaryKeyDefinitionBuilder;
 import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
-import org.apache.ignite.schema.definition.PrimaryKeyDefinition;
+import org.apache.ignite.internal.schema.testutils.definition.PrimaryKeyDefinition;
 import org.junit.jupiter.api.Test;
 
 /**

@@ -23,7 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.util.Collections;
 import org.apache.ignite.internal.schema.testutils.builder.HashIndexDefinitionBuilder;
 import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
-import org.apache.ignite.schema.definition.index.HashIndexDefinition;
+import org.apache.ignite.internal.schema.testutils.definition.index.HashIndexDefinition;
 import org.junit.jupiter.api.Test;
 
 /**

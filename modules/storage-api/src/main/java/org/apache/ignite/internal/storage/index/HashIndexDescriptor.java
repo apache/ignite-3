@@ -29,8 +29,7 @@ import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesView;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.schema.NativeType;
-import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
-import org.apache.ignite.internal.schema.configuration.SchemaDescriptorConverter;
+import org.apache.ignite.internal.schema.configuration.ConfigurationToSchemaDescriptorConverter;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.tostring.S;
 
@@ -52,7 +51,7 @@ public class HashIndexDescriptor {
 
         ColumnDescriptor(ColumnView tableColumnView) {
             this.name = tableColumnView.name();
-            this.type = SchemaDescriptorConverter.convert(SchemaConfigurationConverter.convert(tableColumnView.type()));
+            this.type = ConfigurationToSchemaDescriptorConverter.convert(tableColumnView.type());
             this.nullable = tableColumnView.nullable();
         }
 

@@ -46,6 +46,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.DecimalNativeType;
 import org.apache.ignite.internal.schema.DefaultValueProvider.Type;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
@@ -55,8 +56,8 @@ import org.apache.ignite.internal.schema.mapping.ColumnMapper;
 import org.apache.ignite.internal.schema.mapping.ColumnMapping;
 import org.apache.ignite.internal.schema.marshaller.schema.AbstractSchemaSerializer;
 import org.apache.ignite.internal.schema.marshaller.schema.SchemaSerializerImpl;
+import org.apache.ignite.internal.schema.testutils.definition.ColumnType.DecimalColumnType;
 import org.apache.ignite.internal.util.ArrayUtils;
-import org.apache.ignite.schema.definition.ColumnType.DecimalColumnType;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -334,7 +335,7 @@ public class AbstractSerializerTest {
             case DOUBLE:
                 return NativeTypes.DOUBLE;
             case DECIMAL:
-                return NativeTypes.decimalOf(DecimalColumnType.DEFAULT_PRECISION, DecimalColumnType.DEFAULT_SCALE);
+                return NativeTypes.decimalOf(DecimalNativeType.DEFAULT_PRECISION, DecimalNativeType.DEFAULT_SCALE);
             case DATE:
                 return NativeTypes.DATE;
             case TIME:
@@ -344,7 +345,7 @@ public class AbstractSerializerTest {
             case TIMESTAMP:
                 return NativeTypes.timestamp();
             case NUMBER:
-                return NativeTypes.numberOf(DecimalColumnType.DEFAULT_PRECISION);
+                return NativeTypes.numberOf(DecimalNativeType.DEFAULT_PRECISION);
             case STRING:
                 return NativeTypes.stringOf(Byte.MAX_VALUE);
             case UUID:

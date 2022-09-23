@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.schema.testutils.builder;
 
 import java.util.List;
-import org.apache.ignite.schema.definition.PrimaryKeyDefinition;
+import org.apache.ignite.internal.schema.testutils.definition.PrimaryKeyDefinition;
 
 /**
  * Hash index descriptor builder.

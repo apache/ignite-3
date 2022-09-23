@@ -21,8 +21,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.internal.schema.testutils.builder.TableDefinitionBuilder;
-import org.apache.ignite.schema.definition.ColumnType;
-import org.apache.ignite.schema.definition.TableDefinition;
+import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
+import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
 import org.junit.jupiter.api.Test;
 
 /**
