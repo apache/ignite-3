@@ -225,8 +225,8 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         assertOpOnNode("server-1", "upsertAll", x -> recordView.upsertAll(null, List.of(t1)));
         assertOpOnNode("server-2", "upsertAll", x -> recordView.upsertAll(null, List.of(t2)));
 
-        assertOpOnNode("server-1", "insert", x -> recordView.get(null, t1));
-        assertOpOnNode("server-2", "insert", x -> recordView.get(null, t2));
+        assertOpOnNode("server-1", "get", x -> recordView.get(null, t1));
+        assertOpOnNode("server-2", "get", x -> recordView.get(null, t2));
 
         assertOpOnNode("server-1", "getAll", x -> recordView.getAll(null, List.of(t1)));
         assertOpOnNode("server-2", "getAll", x -> recordView.getAll(null, List.of(t2)));

@@ -100,8 +100,6 @@ public class FakeInternalTable implements InternalTable {
     @Override
     public CompletableFuture<Collection<BinaryRow>> getAll(Collection<BinaryRowEx> keyRows,
             @Nullable InternalTransaction tx) {
-        onDataAccess("getAll", keyRows);
-
         var res = new ArrayList<BinaryRow>();
 
         for (var key : keyRows) {
@@ -112,6 +110,7 @@ public class FakeInternalTable implements InternalTable {
             }
         }
 
+        onDataAccess("getAll", keyRows);
         return CompletableFuture.completedFuture(res);
     }
 
@@ -128,12 +127,11 @@ public class FakeInternalTable implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> upsertAll(Collection<BinaryRowEx> rows, @Nullable InternalTransaction tx) {
-        onDataAccess("upsertAll", rows);
-
         for (var row : rows) {
             upsert(row, tx);
         }
 
+        onDataAccess("upsertAll", rows);
         return CompletableFuture.completedFuture(null);
     }
 
@@ -141,12 +139,11 @@ public class FakeInternalTable implements InternalTable {
     @Override
     public CompletableFuture<BinaryRow> getAndUpsert(BinaryRowEx row,
             @Nullable InternalTransaction tx) {
-        onDataAccess("getAndUpsert", row);
-
         var res = get(row, tx);
 
         upsert(row, tx);
 
+        onDataAccess("getAndUpsert", row);
         return CompletableFuture.completedFuture(res.getNow(null));
     }
 
@@ -184,91 +181,93 @@ public class FakeInternalTable implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Boolean> replace(BinaryRowEx row, @Nullable InternalTransaction tx) {
-        onDataAccess("replace", row);
-
         var old = get(row, tx).getNow(null);
 
         if (old == null) {
+            onDataAccess("replace", row);
             return CompletableFuture.completedFuture(false);
         }
 
-        return upsert(row, tx).thenApply(f -> true);
+        CompletableFuture<Void> upsert = upsert(row, tx);
+
+        onDataAccess("replace", row);
+        return upsert.thenApply(f -> true);
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Boolean> replace(BinaryRowEx oldRow, BinaryRowEx newRow, @Nullable InternalTransaction tx) {
-        onDataAccess("replace", oldRow);
-
         var old = get(oldRow, tx).getNow(null);
 
         if (old == null || !old.valueSlice().equals(oldRow.valueSlice())) {
+            onDataAccess("replace", oldRow);
             return CompletableFuture.completedFuture(false);
         }
 
-        return upsert(newRow, tx).thenApply(f -> true);
+        CompletableFuture<Void> upsert = upsert(newRow, tx);
+
+        onDataAccess("replace", oldRow);
+        return upsert.thenApply(f -> true);
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<BinaryRow> getAndReplace(BinaryRowEx row,
             @Nullable InternalTransaction tx) {
-        onDataAccess("getAndReplace", row);
-
         var old = get(row, tx);
 
-        return replace(row, tx).thenCompose(f -> old);
+        CompletableFuture<Boolean> replace = replace(row, tx);
+
+        onDataAccess("getAndReplace", row);
+        return replace.thenCompose(f -> old);
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Boolean> delete(BinaryRowEx keyRow, @Nullable InternalTransaction tx) {
-        onDataAccess("delete", keyRow);
-
         var old = get(keyRow, tx).getNow(null);
 
         if (old != null) {
             data.remove(keyRow.keySlice());
         }
 
+        onDataAccess("delete", keyRow);
         return CompletableFuture.completedFuture(old != null);
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Boolean> deleteExact(BinaryRowEx oldRow, @Nullable InternalTransaction tx) {
-        onDataAccess("deleteExact", oldRow);
+        var res = false;
 
         var old = get(oldRow, tx).getNow(null);
 
         if (old != null && old.valueSlice().equals(oldRow.valueSlice())) {
             data.remove(oldRow.keySlice());
-            return CompletableFuture.completedFuture(true);
+            res = true;
         }
 
-        return CompletableFuture.completedFuture(false);
+        onDataAccess("deleteExact", oldRow);
+        return CompletableFuture.completedFuture(res);
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<BinaryRow> getAndDelete(BinaryRowEx row,
             @Nullable InternalTransaction tx) {
-        onDataAccess("getAndDelete", row);
-
         var old = get(row, tx).getNow(null);
 
         if (old != null) {
             data.remove(row.keySlice());
         }
 
+        onDataAccess("getAndDelete", row);
         return CompletableFuture.completedFuture(old);
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Collection<BinaryRow>> deleteAll(Collection<BinaryRowEx> rows, @Nullable InternalTransaction tx) {
-        onDataAccess("deleteAll", rows);
-
         var skipped = new ArrayList<BinaryRow>();
 
         for (var row : rows) {
@@ -277,14 +276,13 @@ public class FakeInternalTable implements InternalTable {
             }
         }
 
+        onDataAccess("deleteAll", rows);
         return CompletableFuture.completedFuture(skipped);
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Collection<BinaryRow>> deleteAllExact(Collection<BinaryRowEx> rows, @Nullable InternalTransaction tx) {
-        onDataAccess("deleteAllExact", rows);
-
         var skipped = new ArrayList<BinaryRow>();
 
         for (var row : rows) {
@@ -293,6 +291,7 @@ public class FakeInternalTable implements InternalTable {
             }
         }
 
+        onDataAccess("deleteAllExact", rows);
         return CompletableFuture.completedFuture(skipped);
     }
 
