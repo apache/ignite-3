@@ -17,16 +17,19 @@
 
 package org.apache.ignite.internal.cluster.management.rest;
 
+import static java.util.stream.Collectors.toList;
+
 import io.micronaut.http.annotation.Controller;
 import java.util.Collection;
-import java.util.concurrent.ExecutionException;
-import java.util.stream.Collectors;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.rest.api.cluster.ClusterNodeDto;
 import org.apache.ignite.internal.rest.api.cluster.NetworkAddressDto;
 import org.apache.ignite.internal.rest.api.cluster.TopologyApi;
 import org.apache.ignite.internal.rest.exception.ClusterNotInitializedException;
-import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.TopologyService;
 
 /**
@@ -46,31 +49,32 @@ public class TopologyController implements TopologyApi {
     /** {@inheritDoc} */
     @Override
     public Collection<ClusterNodeDto> physicalTopology() {
-        return topologyService.allMembers()
-                .stream().map(cn -> new ClusterNodeDto(cn.id(), cn.name(),
-                        new NetworkAddressDto(cn.address().host(), cn.address().port(), cn.address().consistentId()))
-                ).collect(Collectors.toList());
+        return toClusterNodeDtos(topologyService.allMembers());
     }
 
     /** {@inheritDoc} */
     @Override
-    public Collection<ClusterNodeDto> logicalTopology() {
-        try {
-            return cmgManager.clusterState()
-                    .thenApply(state -> {
-                        if (state == null) {
-                            throw new ClusterNotInitializedException();
-                        }
-                        return cmgManager.logicalTopology();
-                    }).get().get().stream()
-                    .map(cn -> new ClusterNodeDto(cn.id(), cn.name(),
-                            new NetworkAddressDto(cn.address().host(), cn.address().port(), cn.address().consistentId()))
-                    ).collect(Collectors.toList());
-        } catch (ExecutionException | InterruptedException e) {
-            if (e.getCause() instanceof ClusterNotInitializedException) {
-                throw (ClusterNotInitializedException) e.getCause();
-            }
-            throw new IgniteException(e);
-        }
+    public CompletableFuture<Collection<ClusterNodeDto>> logicalTopology() {
+        return cmgManager.clusterState()
+                .thenCompose(state -> {
+                    if (state == null) {
+                        throw new ClusterNotInitializedException();
+                    }
+
+                    return cmgManager.logicalTopology();
+                })
+                .thenApply(TopologyController::toClusterNodeDtos);
+    }
+
+    private static List<ClusterNodeDto> toClusterNodeDtos(Collection<ClusterNode> nodes) {
+        return nodes.stream().map(TopologyController::toClusterNodeDto).collect(toList());
+    }
+
+    private static ClusterNodeDto toClusterNodeDto(ClusterNode node) {
+        NetworkAddress addr = node.address();
+
+        var addrDto = new NetworkAddressDto(addr.host(), addr.port(), addr.consistentId());
+
+        return new ClusterNodeDto(node.id(), node.name(), addrDto);
     }
 }
