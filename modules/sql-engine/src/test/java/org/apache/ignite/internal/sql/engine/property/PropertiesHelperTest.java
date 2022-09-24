@@ -30,7 +30,7 @@ import org.junit.jupiter.api.Test;
 class PropertiesHelperTest {
     private static final String NON_STATIC_PROP_NAME = "non_static_prop";
 
-    static class TestProps {
+    public static class TestProps {
         public static final Property<Long> LONG_PROP = new Property<>("long_prop", Long.class);
         public static final Property<String> STRING_PROP = new Property<>("string_prop", String.class);
         private static final Property<String> PRIVATE_PROP = new Property<>("private_prop", String.class);

@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.schema.testutils.builder;
 
 import java.util.Map;
-import org.apache.ignite.schema.definition.index.SortedIndexDefinition;
+import org.apache.ignite.internal.schema.testutils.definition.index.SortedIndexDefinition;
 
 /**
  * Sorted index descriptor builder.

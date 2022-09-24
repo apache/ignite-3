@@ -25,11 +25,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.Arrays;
-import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
-import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
-import org.apache.ignite.schema.definition.ColumnType;
-import org.apache.ignite.schema.definition.TableDefinition;
-import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -43,11 +38,11 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
      */
     @BeforeAll
     static void initTestData() {
-        Table emp1 = createTable("EMP1");
-        Table emp2 = createTable("EMP2");
+        createTable("EMP1");
+        createTable("EMP2");
 
         int idx = 0;
-        insertData(emp1, new String[]{"ID", "NAME", "SALARY"}, new Object[][]{
+        insertData("PUBLIC.EMP1", new String[]{"ID", "NAME", "SALARY"}, new Object[][]{
                 {idx++, "Igor", 10d},
                 {idx++, "Igor", 11d},
                 {idx++, "Igor", 12d},
@@ -58,7 +53,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
         });
 
         idx = 0;
-        insertData(emp2, new String[]{"ID", "NAME", "SALARY"}, new Object[][]{
+        insertData("PUBLIC.EMP2", new String[]{"ID", "NAME", "SALARY"}, new Object[][]{
                 {idx++, "Roman", 10d},
                 {idx++, "Roman", 11d},
                 {idx++, "Roman", 12d},
@@ -363,20 +358,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
                 .check();
     }
 
-    private static Table createTable(String tableName) {
-        TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", tableName)
-                .columns(
-                        SchemaBuilders.column("ID", ColumnType.INT32).build(),
-                        SchemaBuilders.column("NAME", ColumnType.string()).asNullable(true).build(),
-                        SchemaBuilders.column("SALARY", ColumnType.DOUBLE).asNullable(true).build()
-                )
-                .withPrimaryKey("ID")
-                .build();
-
-        return CLUSTER_NODES.get(0).tables().createTable(schTbl1.canonicalName(), tblCh ->
-                SchemaConfigurationConverter.convert(schTbl1, tblCh)
-                        .changeReplicas(1)
-                        .changePartitions(10)
-        );
+    private static void createTable(String tableName) {
+        sql("CREATE TABLE " + tableName + "(id INT PRIMARY KEY, name VARCHAR, salary DOUBLE)");
     }
 }

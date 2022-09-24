@@ -72,7 +72,6 @@ import org.apache.ignite.internal.index.event.IndexEventParameters;
 import org.apache.ignite.internal.schema.configuration.IndexValidatorImpl;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.lang.ErrorGroups;
-import org.apache.ignite.lang.ErrorGroups.Table;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IndexNotFoundException;
 import org.apache.ignite.lang.TableNotFoundException;
@@ -232,7 +231,7 @@ public class IndexManagerTest {
         );
 
         assertTrue(IgniteTestUtils.hasCause(completionException, ConfigurationValidationException.class,
-                "At least one column should be specified"));
+                "Index must include at least one column"));
 
         assertThat(
                 (IgniteTestUtils.cause(completionException, ConfigurationValidationException.class)).getMessage(),
@@ -253,12 +252,7 @@ public class IndexManagerTest {
         );
 
         assertTrue(IgniteTestUtils.hasCause(completionException, ConfigurationValidationException.class,
-                "column must exist in the schema"));
-
-        assertThat(
-                (IgniteTestUtils.cause(completionException, ConfigurationValidationException.class)).getMessage(),
-                containsString(Table.TABLE_ERR_GROUP.name())
-        );
+                "Columns don't exist"));
     }
 
     @Test

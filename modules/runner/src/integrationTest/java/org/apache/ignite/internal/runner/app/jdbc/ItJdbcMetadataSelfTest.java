@@ -27,7 +27,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.DriverManager;
@@ -42,14 +41,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
-import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
-import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
-import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
-import org.apache.ignite.schema.definition.ColumnType;
-import org.apache.ignite.schema.definition.TableDefinition;
-import org.apache.ignite.table.Table;
-import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -60,38 +52,16 @@ import org.junit.jupiter.api.Test;
 public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
     /** Creates tables. */
     @BeforeAll
-    public static void createTables() {
+    public static void createTables() throws SQLException {
         assert !clusterNodes.isEmpty();
 
-        TableDefinition perTbl = SchemaBuilders.tableBuilder("PUBLIC", "PERSON").columns(
-                SchemaBuilders.column("NAME", ColumnType.string()).asNullable(true).build(),
-                SchemaBuilders.column("AGE", ColumnType.INT32).asNullable(true).build(),
-                SchemaBuilders.column("ORGID", ColumnType.INT32).build()
-        ).withPrimaryKey("ORGID").build();
+        try (Statement stmt = conn.createStatement()) {
+            stmt.executeUpdate("CREATE TABLE person(name VARCHAR, age INT, orgid INT PRIMARY KEY)");
+            stmt.executeUpdate("INSERT INTO person (orgid, name, age) VALUES (1, '111', 111)");
 
-        TableDefinition orgTbl = SchemaBuilders.tableBuilder("PUBLIC", "ORGANIZATION").columns(
-                SchemaBuilders.column("ID", ColumnType.INT32).build(),
-                SchemaBuilders.column("NAME", ColumnType.string()).asNullable(true).build(),
-                SchemaBuilders.column("BIGDATA", ColumnType.decimalOf(20, 10)).asNullable(true).build()
-        ).withPrimaryKey("ID").build();
-
-        clusterNodes.get(0).tables().createTable(perTbl.canonicalName(), tblCh ->
-                SchemaConfigurationConverter.convert(perTbl, tblCh)
-                        .changeReplicas(1)
-                        .changePartitions(10)
-        );
-
-        clusterNodes.get(0).tables().createTable(orgTbl.canonicalName(), tblCh ->
-                SchemaConfigurationConverter.convert(orgTbl, tblCh)
-                        .changeReplicas(1)
-                        .changePartitions(10)
-        );
-
-        Table tbl1 = clusterNodes.get(0).tables().table(perTbl.canonicalName());
-        Table tbl2 = clusterNodes.get(0).tables().table(orgTbl.canonicalName());
-
-        tbl1.recordView().insert(null, Tuple.create().set("ORGID", 1).set("NAME", "111").set("AGE", 111));
-        tbl2.recordView().insert(null, Tuple.create().set("ID", 1).set("NAME", "AAA").set("BIGDATA", BigDecimal.valueOf(10)));
+            stmt.executeUpdate("CREATE TABLE organization(id INT PRIMARY KEY, name VARCHAR, bigdata DECIMAL(20, 10))");
+            stmt.executeUpdate("INSERT INTO organization (id, name, bigdata) VALUES (1, 'AAA', 10)");
+        }
     }
 
     @Test
@@ -159,19 +129,13 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
     }
 
     private void createMetaTable() {
-        Ignite ignite = clusterNodes.get(0);
-
-        TableDefinition metaTableDef = SchemaBuilders.tableBuilder("PUBLIC", "METATEST")
-                .columns(
-                        SchemaBuilders.column("DECIMAL_COL", ColumnType.decimal()).build(),
-                        SchemaBuilders.column("DATE_COL", ColumnType.DATE).build(),
-                        SchemaBuilders.column("ID", ColumnType.INT32).asNullable(false).build())
-                .withPrimaryKey("ID")
-                .build();
-
-        ignite.tables().createTable(metaTableDef.canonicalName(), (tableChange) -> {
-            SchemaConfigurationConverter.convert(metaTableDef, tableChange).changeReplicas(1).changePartitions(10);
-        });
+        try (Connection conn = DriverManager.getConnection(URL);
+                Statement stmt = conn.createStatement();
+        ) {
+            stmt.executeUpdate("CREATE TABLE metatest(decimal_col DECIMAL, date_col DATE, id INT PRIMARY KEY)");
+        } catch (SQLException ex) {
+            throw new RuntimeException(ex);
+        }
     }
 
     @Test

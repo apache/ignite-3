@@ -20,6 +20,8 @@ package org.apache.ignite.internal.util;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import java.io.IOException;
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
 import java.nio.ByteBuffer;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.FileVisitResult;
@@ -31,10 +33,12 @@ import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CancellationException;
@@ -827,5 +831,35 @@ public class IgniteUtils {
         } finally {
             busyLock.leaveBusy();
         }
+    }
+
+    /**
+     * Collects all the fields of given class which are defined as a public static within the specified class.
+     *
+     * @param sourceCls The class to lookup fields in.
+     * @param targetCls Type of the fields of interest.
+     * @return A mapping name to property itself.
+     */
+    public static <T> List<T> collectStaticFields(Class<?> sourceCls, Class<? extends T> targetCls) {
+        List<T> result = new ArrayList<>();
+
+        for (Field f : sourceCls.getDeclaredFields()) {
+            if (!targetCls.equals(f.getType())
+                    || !Modifier.isStatic(f.getModifiers())
+                    || !Modifier.isPublic(f.getModifiers())) {
+                continue;
+            }
+
+            try {
+                T value = targetCls.cast(f.get(sourceCls));
+
+                result.add(value);
+            } catch (IllegalAccessException e) {
+                // should not happen
+                throw new AssertionError(e);
+            }
+        }
+
+        return result;
     }
 }

@@ -21,7 +21,6 @@ import io.micronaut.http.annotation.Body;
 import io.micronaut.http.annotation.Controller;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.cluster.management.ClusterInitializer;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.ClusterState;
@@ -61,18 +60,7 @@ public class ClusterManagementController implements ClusterManagementApi {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<ClusterStateDto> clusterState() {
-        try {
-            return clusterManagementGroupManager.clusterState()
-                    .thenApply(this::mapClusterState)
-                    .thenApply(res -> {
-                        if (res == null) {
-                            throw new ClusterNotInitializedException();
-                        }
-                        return res;
-                    });
-        } catch (ExecutionException | InterruptedException e) {
-            throw new IgniteException(e);
-        }
+        return clusterManagementGroupManager.clusterState().thenApply(this::mapClusterState);
     }
 
     /** {@inheritDoc} */
@@ -91,7 +79,7 @@ public class ClusterManagementController implements ClusterManagementApi {
 
     private ClusterStateDto mapClusterState(ClusterState clusterState) {
         if (clusterState == null) {
-            return null;
+            throw new ClusterNotInitializedException();
         }
 
         return new ClusterStateDto(

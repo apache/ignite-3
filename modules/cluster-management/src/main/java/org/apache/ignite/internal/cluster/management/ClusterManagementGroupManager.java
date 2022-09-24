@@ -193,10 +193,10 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     /**
      * Returns the cluster state future or the future that will be resolved to null if the cluster is not initialized yet.
      */
-    public CompletableFuture<ClusterState> clusterState() throws ExecutionException, InterruptedException {
-        return raftService != null && raftService.isDone()
-                ? raftService.get().readClusterState()
-                : CompletableFuture.completedFuture(null);
+    public CompletableFuture<ClusterState> clusterState() {
+        synchronized (raftServiceLock) {
+            return raftService == null ? completedFuture(null) : raftService.thenCompose(CmgRaftService::readClusterState);
+        }
     }
 
     /**
@@ -356,7 +356,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                         topologyService.addEventHandler(cmgLeaderTopologyEventHandler(service));
 
                         // Send the ClusterStateMessage to all members of the physical topology. We do not wait for the send operation
-                        // to being unable to send ClusterState messages should not fail the CMG service startup.
+                        // because being unable to send ClusterState messages should not fail the CMG service startup.
                         sendClusterState(state, clusterService.topologyService().allMembers());
                     } else {
                         LOG.info("Error when executing onLeaderElected callback", e);
@@ -700,7 +700,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
      * Returns a future that resolves to {@code true} if the current node is the CMG leader.
      */
     @TestOnly
-    public CompletableFuture<Boolean> isCmgLeader() {
+    CompletableFuture<Boolean> isCmgLeader() {
         if (!busyLock.enterBusy()) {
             return failedFuture(new NodeStoppingException());
         }

@@ -25,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -35,10 +36,13 @@ import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelRoot;
 import org.apache.calcite.rel.RelVisitor;
+import org.apache.calcite.rel.core.TableScan;
+import org.apache.calcite.rel.hint.HintStrategyTable;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.util.ImmutableIntList;
+import org.apache.calcite.util.Util;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
 import org.apache.ignite.internal.sql.engine.prepare.IgnitePlanner;
@@ -858,6 +862,34 @@ public class PlannerTest extends AbstractPlannerTest {
 
         // just check for planning completeness for finite time.
         assertPlan(sql, publicSchema, (k) -> true);
+    }
+
+    @Test
+    public void checkTableHintsHandling() throws Exception {
+        IgniteSchema publicSchema = createSchema(
+                createTable("PERSON", IgniteDistributions.affinity(0, "ignored", "ignored"),
+                        "PK", Integer.class, "ORG_ID", Integer.class
+                ),
+                createTable("COMPANY", IgniteDistributions.affinity(0, "ignored", "ignored"),
+                        "PK", Integer.class, "ID", Integer.class
+                )
+        );
+
+        String sql = "SELECT * FROM person /*+ use_index(ORG_ID), extra */ t1 JOIN company /*+ use_index(ID) */ t2 ON t1.org_id = t2.id";
+
+        HintStrategyTable hintStrategies = HintStrategyTable.builder()
+                .hintStrategy("use_index", (hint, rel) -> true)
+                .hintStrategy("extra", (hint, rel) -> true)
+                .build();
+
+        Predicate<RelNode> hintCheck = nodeOrAnyChild(isInstanceOf(TableScan.class)
+                .and(t -> "PERSON".equals(Util.last(t.getTable().getQualifiedName())))
+                .and(t -> t.getHints().size() == 2)
+        ).and(nodeOrAnyChild(isInstanceOf(TableScan.class)
+                .and(t -> "COMPANY".equals(Util.last(t.getTable().getQualifiedName())))
+                .and(t -> t.getHints().size() == 1)));
+
+        assertPlan(sql, Collections.singleton(publicSchema), hintCheck, hintStrategies);
     }
 
     /**

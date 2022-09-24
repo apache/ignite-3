@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.sql.engine.prepare.ddl;
 
 import java.util.Objects;
-import org.apache.ignite.schema.definition.DefaultValueGenerators;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -31,7 +30,6 @@ public class DefaultValueDefinition {
      *
      * @param name Name of the function to invoke to generate the value
      * @return Default value definition.
-     * @see DefaultValueGenerators
      */
     public static DefaultValueDefinition functionCall(String name) {
         return new FunctionCall(Objects.requireNonNull(name, "name"));

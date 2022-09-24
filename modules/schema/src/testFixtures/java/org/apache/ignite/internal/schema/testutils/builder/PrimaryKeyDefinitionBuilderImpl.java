@@ -22,11 +22,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.schema.definition.index.PrimaryKeyDefinitionImpl;
+import org.apache.ignite.internal.schema.testutils.definition.PrimaryKeyDefinition;
+import org.apache.ignite.internal.schema.testutils.definition.index.PrimaryKeyDefinitionImpl;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.IgniteObjectName;
-import org.apache.ignite.schema.definition.PrimaryKeyDefinition;
 
 /**
  * Primary key builder.

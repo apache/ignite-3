@@ -24,6 +24,7 @@ import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.core.TableScan;
+import org.apache.calcite.rel.hint.RelHint;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.schema.Schema;
@@ -78,7 +79,7 @@ public interface IgniteTable extends TranslatableTable, Wrapper {
     /** {@inheritDoc} */
     @Override
     default TableScan toRel(RelOptTable.ToRelContext context, RelOptTable relOptTable) {
-        return toRel(context.getCluster(), relOptTable);
+        return toRel(context.getCluster(), relOptTable, context.getTableHints());
     }
 
     /**
@@ -86,9 +87,10 @@ public interface IgniteTable extends TranslatableTable, Wrapper {
      *
      * @param cluster   Custer.
      * @param relOptTbl Table.
+     * @param hints     Hints.
      * @return Table relational expression.
      */
-    TableScan toRel(RelOptCluster cluster, RelOptTable relOptTbl);
+    TableScan toRel(RelOptCluster cluster, RelOptTable relOptTbl, List<RelHint> hints);
 
     /**
      * Returns table distribution.

@@ -28,8 +28,6 @@ import org.jetbrains.annotations.Nullable;
  *
  * <p>This storage serves as a sorted mapping from a subset of a table's columns (a.k.a. index columns) to a set of {@link RowId}s
  * from a single {@link org.apache.ignite.internal.storage.MvPartitionStorage} from the same table.
- *
- * @see org.apache.ignite.schema.definition.index.SortedIndexDefinition
  */
 public interface SortedIndexStorage {
     /** Exclude lower bound. */

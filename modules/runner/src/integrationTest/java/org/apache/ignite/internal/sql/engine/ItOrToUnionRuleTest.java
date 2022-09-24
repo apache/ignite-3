@@ -24,10 +24,10 @@ import static org.hamcrest.CoreMatchers.not;
 
 import java.util.List;
 import java.util.Map;
-import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
+import org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter;
 import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
-import org.apache.ignite.schema.definition.ColumnType;
-import org.apache.ignite.schema.definition.TableDefinition;
+import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
+import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
 import org.apache.ignite.table.Table;
 import org.hamcrest.CoreMatchers;
 import org.junit.jupiter.api.BeforeAll;
