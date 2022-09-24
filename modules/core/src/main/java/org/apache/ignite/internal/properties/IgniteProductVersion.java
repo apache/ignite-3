@@ -29,8 +29,9 @@ import org.jetbrains.annotations.Nullable;
  * Class representing an Ignite version.
  */
 public class IgniteProductVersion implements Serializable {
-    private static final Pattern VERSION_PATTERN =
-            Pattern.compile("(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<maintenance>\\d+)(\\.(?<patch>\\d+))?(-(?<preRelease>[0-9A-Za-z]+))?");
+    private static final Pattern VERSION_PATTERN = Pattern.compile(
+            "(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<maintenance>\\d+)(?:\\.(?<patch>\\d+))?(?:-(?<preRelease>[0-9A-Za-z]+))?"
+    );
 
     /** Version of the current node. */
     public static final IgniteProductVersion CURRENT_VERSION = fromString(IgniteProperties.get(IgniteProperties.VERSION));

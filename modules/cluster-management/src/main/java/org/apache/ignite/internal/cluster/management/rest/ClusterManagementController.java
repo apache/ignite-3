@@ -28,11 +28,9 @@ import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.rest.exception.InvalidArgumentClusterInitializationException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.rest.api.cluster.ClusterManagementApi;
 import org.apache.ignite.internal.rest.api.cluster.ClusterStateDto;
 import org.apache.ignite.internal.rest.api.cluster.ClusterTagDto;
-import org.apache.ignite.internal.rest.api.cluster.IgniteProductVersionDto;
 import org.apache.ignite.internal.rest.api.cluster.InitCommand;
 import org.apache.ignite.internal.rest.exception.ClusterNotInitializedException;
 import org.apache.ignite.lang.IgniteException;
@@ -96,19 +94,12 @@ public class ClusterManagementController implements ClusterManagementApi {
             return null;
         }
 
-        IgniteProductVersion igniteVersion = clusterState.igniteVersion();
-
         return new ClusterStateDto(
                 clusterState.cmgNodes(),
                 clusterState.metaStorageNodes(),
-                new IgniteProductVersionDto(
-                        igniteVersion.major(),
-                        igniteVersion.minor(),
-                        igniteVersion.maintenance(),
-                        igniteVersion.patch(),
-                        igniteVersion.preRelease()
-                ),
-                new ClusterTagDto(clusterState.clusterTag().clusterName(), clusterState.clusterTag().clusterId()));
+                clusterState.igniteVersion().toString(),
+                new ClusterTagDto(clusterState.clusterTag().clusterName(), clusterState.clusterTag().clusterId())
+        );
     }
 
     private RuntimeException mapException(Throwable ex) {
