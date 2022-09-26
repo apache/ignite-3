@@ -29,6 +29,29 @@ import org.jetbrains.annotations.Nullable;
  * Class representing an Ignite version.
  */
 public class IgniteProductVersion implements Serializable {
+    /**
+     * Ignite version in the following formats "major.minor.maintenance(.patch)?(-preRelease)?".
+     *
+     * <p>Given a version number major.minor.maintenance.patch, increment the:
+     * <ul>
+     *     <li>Major version when you make incompatible API changes.</li>
+     *     <li>Minor version when you add functionality in a backwards compatible manner.</li>
+     *     <li>Maintenance version when you make backwards compatible bug fixes.</li>
+     *     <li>Patch version when you make backwards compatible bug fixes for an existing release.</li>
+     * </ul>
+     *
+     * <p>Additional labels for pre-release and build metadata are available as extensions to the major.minor.maintenance.patch format.
+     *
+     * <p>Ignite Version examples:
+     * <ul>
+     *     <li>3.0.0</li>
+     *     <li>3.1.0</li>
+     *     <li>3.1.2</li>
+     *     <li>3.1.2.1</li>
+     *     <li>3.1.3-alpha1</li>
+     *     <li>3.1.3-SNAPSHOT</li>
+     * </ul>
+     */
     private static final Pattern VERSION_PATTERN = Pattern.compile(
             "(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<maintenance>\\d+)(?:\\.(?<patch>\\d+))?(?:-(?<preRelease>[0-9A-Za-z]+))?"
     );
@@ -62,7 +85,7 @@ public class IgniteProductVersion implements Serializable {
     }
 
     /**
-     * Parsing the Ignite version in the following formats "major.minor.maintenance(.patch)?((-preRelease)+)?".
+     * Parsing the Ignite version in the following formats "major.minor.maintenance(.patch)?(-preRelease)?".
      *
      * @param versionStr String representation of an Ignite version.
      * @return Parsed Ignite version.
@@ -113,14 +136,14 @@ public class IgniteProductVersion implements Serializable {
     }
 
     /**
-     * Returns the patch version number.
+     * Returns the patch version number, {@code null} if no patch version has been specified.
      */
     public @Nullable Byte patch() {
         return patch;
     }
 
     /**
-     * Returns the pre-release version.
+     * Returns the pre-release version, {@code null} if no pre-release version has been specified.
      */
     public @Nullable String preRelease() {
         return preRelease;
