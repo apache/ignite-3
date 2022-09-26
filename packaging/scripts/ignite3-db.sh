@@ -17,13 +17,16 @@
 # limitations under the License.
 #
 
-
-start() {
-  ############# STAGE 1: SETUP ENV ###############
+############# STAGE 1: SETUP ENV ###############
 
   # LOAD VARIABLES
+  if [ -z ${IGNITE_HOME+x} ]; then IGNITE_HOME=$(pwd); fi
+
   . $IGNITE_HOME/config/bootstrap-config
 
+
+
+start() {
 
   ############# STAGE 2: BUILD CMD ###############
 
@@ -69,7 +72,7 @@ case $1 in
 		start
 		;;
 	*)
-		echo "Cannot execute $1, available commands: start, stop, restart"
+		echo "Unknown command '$1', available commands: start, stop, restart"
 		exit 1
 		;;
   esac
