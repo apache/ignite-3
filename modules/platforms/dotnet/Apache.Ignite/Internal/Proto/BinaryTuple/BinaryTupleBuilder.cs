@@ -316,7 +316,12 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="value">Value.</param>
         public void AppendDate(LocalDate value)
         {
-            // TODO IGNITE-15431
+            if (value != default)
+            {
+                PutDate(value);
+            }
+
+            OnWrite();
         }
 
         /// <summary>
@@ -566,6 +571,18 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                 long time = (hour << 22) | (minute << 16) | (second << 10) | (nanos / 1000000);
                 PutInt((int)time);
             }
+        }
+
+        private void PutDate(LocalDate value)
+        {
+            int year = value.Year;
+            int month = value.Month;
+            int day = value.Day;
+
+            int date = (year << 9) | (month << 5) | day;
+
+            PutShort((short) date);
+            PutByte((sbyte) (date >> 16));
         }
 
         /// <summary>
