@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.table;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.stream.Collectors.toMap;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
@@ -38,6 +40,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.BitSet;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -50,6 +53,8 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeType;
@@ -60,20 +65,25 @@ import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
+import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
 import org.apache.ignite.internal.table.distributed.command.response.MultiRowsResponse;
+import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteMultiRowReplicaRequest;
+import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
-import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
+import org.apache.ignite.internal.tx.storage.state.test.TestConcurrentHashMapTxStateTableStorage;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupService;
@@ -112,6 +122,8 @@ public class ItColocationTest {
         ClusterService clusterService = Mockito.mock(ClusterService.class, RETURNS_DEEP_STUBS);
         when(clusterService.topologyService().localMember().address()).thenReturn(DummyInternalTableImpl.ADDR);
 
+        ClusterNode clusterNode = new ClusterNode(UUID.randomUUID().toString(), "node", new NetworkAddress("", 0));
+
         ReplicaService replicaService = Mockito.mock(ReplicaService.class, RETURNS_DEEP_STUBS);
 
         TxManager txManager = new TxManagerImpl(clusterService, replicaService,  new HeapLockManager()) {
@@ -122,16 +134,21 @@ public class ItColocationTest {
                     boolean commit,
                     Map<ClusterNode, List<IgniteBiTuple<String, Long>>> groups,
                     UUID txId) {
-                return CompletableFuture.completedFuture(null);
+                return completedFuture(null);
             }
         };
         txManager.start();
 
         Int2ObjectMap<RaftGroupService> partRafts = new Int2ObjectOpenHashMap<>();
+        Map<String, RaftGroupService> groupRafts = new HashMap<>();
 
         for (int i = 0; i < PARTS; ++i) {
+            String groupId = "PUBLIC.TEST_part_" + i;
+
             RaftGroupService r = Mockito.mock(RaftGroupService.class);
             when(r.leader()).thenReturn(Mockito.mock(Peer.class));
+            when(r.groupId()).thenReturn(groupId);
+            when(r.refreshAndGetLeaderWithTerm()).thenReturn(completedFuture(new IgniteBiTuple<>(new Peer(clusterNode.address()), 0L)));
 
             final int part = i;
             doAnswer(invocation -> {
@@ -144,14 +161,33 @@ public class ItColocationTest {
                 });
 
                 if (cmd instanceof UpdateAllCommand) {
-                    return CompletableFuture.completedFuture(new MultiRowsResponse(List.of()));
+                    return completedFuture(new MultiRowsResponse(List.of()).getValues());
                 } else {
-                    return CompletableFuture.completedFuture(true);
+                    return completedFuture(true);
                 }
             }).when(r).run(any());
 
             partRafts.put(i, r);
+            groupRafts.put(groupId, r);
         }
+
+        when(replicaService.invoke(any(), any())).thenAnswer(invocation -> {
+            ReplicaRequest request = invocation.getArgument(1);
+
+            RaftGroupService r = groupRafts.get(request.groupId());
+
+            if (request instanceof ReadWriteMultiRowReplicaRequest) {
+                Map<RowId, BinaryRow> rows = ((ReadWriteMultiRowReplicaRequest) request).binaryRows()
+                        .stream()
+                        .collect(toMap(row -> new RowId(0), row -> row));
+
+                return r.run(new UpdateAllCommand(rows, UUID.randomUUID()));
+            } else {
+                assertThat(request, is(instanceOf(ReadWriteSingleRowReplicaRequest.class)));
+
+                return r.run(new UpdateCommand(new RowId(0), ((ReadWriteSingleRowReplicaRequest) request).binaryRow(), UUID.randomUUID()));
+            }
+        });
 
         INT_TABLE = new InternalTableImpl(
                 "PUBLIC.TEST",
@@ -159,11 +195,11 @@ public class ItColocationTest {
                 partRafts,
                 PARTS,
                 null,
-                null,
+                address -> clusterNode,
                 txManager,
                 Mockito.mock(MvTableStorage.class),
-                Mockito.mock(TxStateTableStorage.class),
-                Mockito.mock(ReplicaService.class),
+                new TestConcurrentHashMapTxStateTableStorage(),
+                replicaService,
                 Mockito.mock(HybridClock.class)
         );
     }
@@ -288,7 +324,7 @@ public class ItColocationTest {
 
             int part = INT_TABLE.partition(r);
 
-            assertThat(CollectionUtils.first(CMDS_MAP.get(part)), is(instanceOf(UpdateAllCommand.class)));
+            assertThat(CollectionUtils.first(CMDS_MAP.get(part)), is(instanceOf(UpdateCommand.class)));
         }
     }
 
