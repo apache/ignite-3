@@ -35,6 +35,7 @@ import static org.hamcrest.CoreMatchers.nullValue;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.anyOf;
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.hasSize;
 
@@ -54,6 +55,7 @@ import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
@@ -225,10 +227,44 @@ public abstract class AbstractSortedIndexStorageTest {
     }
 
     @Test
-    public void testEmpty() throws Exception {
+    void testEmpty() throws Exception {
         SortedIndexStorage index = createIndexStorage(shuffledRandomDefinitions());
 
         assertThat(scan(index, null, null, 0), is(empty()));
+    }
+
+    @Test
+    void testGet() throws Exception {
+        List<ColumnDefinition> columns = List.of(
+                column(ColumnType.string().typeSpec().name(), ColumnType.string()).asNullable(false).build(),
+                column(ColumnType.INT32.typeSpec().name(), ColumnType.INT32).asNullable(false).build()
+        );
+
+        SortedIndexDefinition indexDefinition = SchemaBuilders.sortedIndex(randomString(random, 10))
+                .addIndexColumn(columns.get(0).name()).asc().done()
+                .addIndexColumn(columns.get(1).name()).asc().done()
+                .build();
+
+        SortedIndexStorage index = createIndexStorage(indexDefinition);
+
+        var serializer = new BinaryTupleRowSerializer(index.indexDescriptor());
+
+        IndexRow val1090 = serializer.serializeRow(new Object[]{ "10", 90 }, new RowId(0));
+        IndexRow otherVal1090 = serializer.serializeRow(new Object[]{ "10", 90 }, new RowId(0));
+        IndexRow val1080 = serializer.serializeRow(new Object[]{ "10", 80 }, new RowId(0));
+        IndexRow val2090 = serializer.serializeRow(new Object[]{ "20", 90 }, new RowId(0));
+
+        put(index, val1090);
+        put(index, otherVal1090);
+        put(index, val1080);
+
+        assertThat(get(index, val1090.indexColumns()), containsInAnyOrder(val1090.rowId(), otherVal1090.rowId()));
+
+        assertThat(get(index, otherVal1090.indexColumns()), containsInAnyOrder(val1090.rowId(), otherVal1090.rowId()));
+
+        assertThat(get(index, val1080.indexColumns()), containsInAnyOrder(val1080.rowId()));
+
+        assertThat(get(index, val2090.indexColumns()), is(empty()));
     }
 
     /**
@@ -247,7 +283,7 @@ public abstract class AbstractSortedIndexStorageTest {
     void testPutIdempotence() throws Exception {
         List<ColumnDefinition> columns = List.of(
                 column(ColumnType.string().typeSpec().name(), ColumnType.string()).asNullable(false).build(),
-                column(ColumnType.INT32.typeSpec().name(), ColumnType.string()).asNullable(false).build()
+                column(ColumnType.INT32.typeSpec().name(), ColumnType.INT32).asNullable(false).build()
         );
 
         SortedIndexDefinition indexDefinition = SchemaBuilders.sortedIndex(randomString(random, 10))
@@ -267,7 +303,7 @@ public abstract class AbstractSortedIndexStorageTest {
         put(index, row);
         put(index, row);
 
-        IndexRow actualRow = getSingle(index, serializer.serializeRowPrefix(columnValues));
+        IndexRow actualRow = getSingle(index, row.indexColumns());
 
         assertThat(actualRow.rowId(), is(equalTo(row.rowId())));
     }
@@ -279,7 +315,7 @@ public abstract class AbstractSortedIndexStorageTest {
     void testMultiplePuts() throws Exception {
         List<ColumnDefinition> columns = List.of(
                 column(ColumnType.string().typeSpec().name(), ColumnType.string()).asNullable(false).build(),
-                column(ColumnType.INT32.typeSpec().name(), ColumnType.string()).asNullable(false).build()
+                column(ColumnType.INT32.typeSpec().name(), ColumnType.INT32).asNullable(false).build()
         );
 
         SortedIndexDefinition indexDefinition = SchemaBuilders.sortedIndex(randomString(random, 10))
@@ -317,7 +353,7 @@ public abstract class AbstractSortedIndexStorageTest {
     void testRemove() throws Exception {
         List<ColumnDefinition> columns = List.of(
                 column(ColumnType.string().typeSpec().name(), ColumnType.string()).asNullable(false).build(),
-                column(ColumnType.INT32.typeSpec().name(), ColumnType.string()).asNullable(false).build()
+                column(ColumnType.INT32.typeSpec().name(), ColumnType.INT32).asNullable(false).build()
         );
 
         SortedIndexDefinition indexDefinition = SchemaBuilders.sortedIndex(randomString(random, 10))
@@ -421,7 +457,7 @@ public abstract class AbstractSortedIndexStorageTest {
     public void testBoundsAndOrder() throws Exception {
         List<ColumnDefinition> columns = List.of(
                 column(ColumnType.string().typeSpec().name(), ColumnType.string()).asNullable(false).build(),
-                column(ColumnType.INT32.typeSpec().name(), ColumnType.string()).asNullable(false).build()
+                column(ColumnType.INT32.typeSpec().name(), ColumnType.INT32).asNullable(false).build()
         );
 
         SortedIndexDefinition index1Definition = SchemaBuilders.sortedIndex(randomString(random, 10))
@@ -606,38 +642,36 @@ public abstract class AbstractSortedIndexStorageTest {
         // using a cycle here to protect against equal keys being generated
         do {
             entry2 = TestIndexRow.randomRow(indexStorage);
-        } while (entry1.equals(entry2));
+        } while (entry1.indexColumns().byteBuffer().equals(entry2.indexColumns().byteBuffer()));
 
         put(indexStorage, entry1);
         put(indexStorage, entry2);
 
         assertThat(
-                getSingle(indexStorage, entry1.prefix(indexSchema.size())).rowId(),
+                getSingle(indexStorage, entry1.indexColumns()).rowId(),
                 is(equalTo(entry1.rowId()))
         );
 
         assertThat(
-                getSingle(indexStorage, entry2.prefix(indexSchema.size())).rowId(),
+                getSingle(indexStorage, entry2.indexColumns()).rowId(),
                 is(equalTo(entry2.rowId()))
         );
 
         remove(indexStorage, entry1);
 
-        assertThat(getSingle(indexStorage, entry1.prefix(indexSchema.size())), is(nullValue()));
+        assertThat(getSingle(indexStorage, entry1.indexColumns()), is(nullValue()));
     }
 
     /**
      * Extracts a single value by a given key or {@code null} if it does not exist.
      */
     @Nullable
-    private static IndexRow getSingle(SortedIndexStorage indexStorage, BinaryTuplePrefix fullPrefix) throws Exception {
-        try (Cursor<IndexRow> cursor = indexStorage.scan(fullPrefix, fullPrefix, GREATER_OR_EQUAL | LESS_OR_EQUAL)) {
-            List<IndexRow> values = cursor.stream().collect(toList());
+    private static IndexRow getSingle(SortedIndexStorage indexStorage, BinaryTuple fullPrefix) throws Exception {
+        List<RowId> rowIds = get(indexStorage, fullPrefix);
 
-            assertThat(values, anyOf(empty(), hasSize(1)));
+        assertThat(rowIds, anyOf(empty(), hasSize(1)));
 
-            return values.isEmpty() ? null : values.get(0);
-        }
+        return rowIds.isEmpty() ? null : new IndexRowImpl(fullPrefix, rowIds.get(0));
     }
 
     private static BinaryTuplePrefix prefix(SortedIndexStorage index, Object... vals) {
@@ -658,6 +692,12 @@ public abstract class AbstractSortedIndexStorageTest {
             return cursor.stream()
                     .map(serializer::deserializeColumns)
                     .collect(toUnmodifiableList());
+        }
+    }
+
+    private static List<RowId> get(SortedIndexStorage index, BinaryTuple key) throws Exception {
+        try (Cursor<RowId> cursor = index.get(key)) {
+            return cursor.stream().collect(toUnmodifiableList());
         }
     }
 

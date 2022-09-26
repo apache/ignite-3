@@ -23,6 +23,7 @@ import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
+import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.jetbrains.annotations.Nullable;
 
@@ -31,11 +32,11 @@ import org.jetbrains.annotations.Nullable;
  */
 public interface MvTableStorage {
     /**
-     * Retrieves or creates a partition for the current table. Not expected to be called concurrently with the same partition id.
+     * Retrieves or creates a partition for the current table. Not expected to be called concurrently with the same Partition ID.
      *
-     * @param partitionId Partition id.
+     * @param partitionId Partition ID.
      * @return Partition storage.
-     * @throws IllegalArgumentException If partition id is out of configured bounds.
+     * @throws IllegalArgumentException If Partition ID is out of configured bounds.
      * @throws StorageException If an error has occurred during the partition creation.
      */
     MvPartitionStorage getOrCreateMvPartition(int partitionId) throws StorageException;
@@ -43,20 +44,30 @@ public interface MvTableStorage {
     /**
      * Returns the partition storage or {@code null} if the requested storage doesn't exist.
      *
-     * @param partitionId Partition id.
+     * @param partitionId Partition ID.
      * @return Partition storage or {@code null} if it does not exist.
-     * @throws IllegalArgumentException If partition id is out of configured bounds.
+     * @throws IllegalArgumentException If Partition ID is out of configured bounds.
      */
     @Nullable MvPartitionStorage getMvPartition(int partitionId);
 
     /**
      * Destroys a partition and all associated indices.
      *
-     * @param partitionId Partition id.
-     * @throws IllegalArgumentException If partition id is out of bounds.
+     * @param partitionId Partition ID.
+     * @throws IllegalArgumentException If Partition ID is out of bounds.
      * @throws StorageException If an error has occurred during the partition destruction.
      */
     CompletableFuture<Void> destroyPartition(int partitionId) throws StorageException;
+
+    /**
+     * Returns an already created Index (either Sorted or Hash) with the given name or creates a new one if it does not exist.
+     *
+     * @param partitionId Partition ID.
+     * @param indexId Index ID.
+     * @return Index Storage.
+     * @throws StorageException If the given partition does not exist, or if the given index does not exist.
+     */
+    IndexStorage getOrCreateIndex(int partitionId, UUID indexId);
 
     /**
      * Returns an already created Sorted Index with the given name or creates a new one if it does not exist.

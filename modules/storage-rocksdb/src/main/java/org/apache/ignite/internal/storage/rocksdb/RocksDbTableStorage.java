@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.storage.rocksdb;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.ignite.configuration.schemas.table.TableIndexConfigurationSchema.HASH_INDEX_TYPE;
+import static org.apache.ignite.configuration.schemas.table.TableIndexConfigurationSchema.SORTED_INDEX_TYPE;
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.HASH_INDEX_CF_NAME;
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.META_CF_NAME;
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.PARTITION_CF_NAME;
@@ -38,8 +40,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
+import org.apache.ignite.configuration.schemas.table.TableIndexConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
+import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
@@ -49,6 +53,7 @@ import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
+import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.ColumnFamilyType;
@@ -397,6 +402,24 @@ public class RocksDbTableStorage implements MvTableStorage {
                         LOG.error("Error when closing partition storage for partId = {}", ex, partitionId);
                     }
                 });
+    }
+
+    @Override
+    public IndexStorage getOrCreateIndex(int partitionId, UUID indexId) {
+        TableIndexConfiguration indexConfig = ConfigurationUtil.getByInternalId(tablesCfg.indexes(), indexId);
+
+        if (indexConfig == null) {
+            throw new StorageException(String.format("Index configuration for \"%s\" could not be found", indexId));
+        }
+
+        switch (indexConfig.type().value()) {
+            case HASH_INDEX_TYPE:
+                return getOrCreateHashIndex(partitionId, indexId);
+            case SORTED_INDEX_TYPE:
+                return getOrCreateSortedIndex(partitionId, indexId);
+            default:
+                throw new StorageException("Unknown index type: " + indexConfig.type().value());
+        }
     }
 
     /** {@inheritDoc} */

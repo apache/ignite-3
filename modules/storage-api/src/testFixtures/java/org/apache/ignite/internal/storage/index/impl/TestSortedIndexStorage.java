@@ -32,6 +32,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.BinaryTupleComparator;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
@@ -62,6 +63,13 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
     @Override
     public SortedIndexDescriptor indexDescriptor() {
         return descriptor;
+    }
+
+    @Override
+    public Cursor<RowId> get(BinaryTuple key) throws StorageException {
+        Set<RowId> rowIds = index.getOrDefault(key.byteBuffer(), Set.of());
+
+        return Cursor.fromIterator(rowIds.iterator());
     }
 
     @Override

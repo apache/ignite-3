@@ -17,17 +17,23 @@
 
 package org.apache.ignite.internal.storage.chm;
 
+import static org.apache.ignite.configuration.schemas.table.TableIndexConfigurationSchema.HASH_INDEX_TYPE;
+import static org.apache.ignite.configuration.schemas.table.TableIndexConfigurationSchema.SORTED_INDEX_TYPE;
+
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
+import org.apache.ignite.configuration.schemas.table.TableIndexConfiguration;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
+import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
+import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
@@ -109,6 +115,24 @@ public class TestConcurrentHashMapMvTableStorage implements MvTableStorage {
         hashIndicesById.values().forEach(indices -> indices.storageByPartitionId.remove(boxedPartitionId));
 
         return CompletableFuture.completedFuture(null);
+    }
+
+    @Override
+    public IndexStorage getOrCreateIndex(int partitionId, UUID indexId) {
+        TableIndexConfiguration indexConfig = ConfigurationUtil.getByInternalId(tablesCfg.indexes(), indexId);
+
+        if (indexConfig == null) {
+            throw new StorageException(String.format("Index configuration for \"%s\" could not be found", indexId));
+        }
+
+        switch (indexConfig.type().value()) {
+            case HASH_INDEX_TYPE:
+                return getOrCreateHashIndex(partitionId, indexId);
+            case SORTED_INDEX_TYPE:
+                return getOrCreateSortedIndex(partitionId, indexId);
+            default:
+                throw new StorageException("Unknown index type: " + indexConfig.type().value());
+        }
     }
 
     @Override

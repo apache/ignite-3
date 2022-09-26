@@ -17,20 +17,26 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
+import static org.apache.ignite.configuration.schemas.table.TableIndexConfigurationSchema.HASH_INDEX_TYPE;
+import static org.apache.ignite.configuration.schemas.table.TableIndexConfigurationSchema.SORTED_INDEX_TYPE;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
+import org.apache.ignite.configuration.schemas.table.TableIndexConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
+import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
+import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage;
 import org.apache.ignite.internal.tostring.S;
@@ -47,7 +53,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
 
     protected volatile boolean started;
 
-    protected volatile AtomicReferenceArray<AbstractPageMemoryMvPartitionStorage> mvPartitions;
+    private volatile AtomicReferenceArray<AbstractPageMemoryMvPartitionStorage> mvPartitions;
 
     /**
      * Constructor.
@@ -142,13 +148,43 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
     }
 
     @Override
+    public IndexStorage getOrCreateIndex(int partitionId, UUID indexId) {
+        TableIndexConfiguration indexConfig = ConfigurationUtil.getByInternalId(tablesConfiguration.indexes(), indexId);
+
+        if (indexConfig == null) {
+            throw new StorageException(String.format("Index configuration for \"%s\" could not be found", indexId));
+        }
+
+        switch (indexConfig.type().value()) {
+            case HASH_INDEX_TYPE:
+                return getOrCreateHashIndex(partitionId, indexId);
+            case SORTED_INDEX_TYPE:
+                return getOrCreateSortedIndex(partitionId, indexId);
+            default:
+                throw new StorageException("Unknown index type: " + indexConfig.type().value());
+        }
+    }
+
+    @Override
     public SortedIndexStorage getOrCreateSortedIndex(int partitionId, UUID indexId) {
-        return getOrCreateMvPartition(partitionId).getOrCreateSortedIndex(indexId);
+        AbstractPageMemoryMvPartitionStorage partitionStorage = getMvPartition(partitionId);
+
+        if (partitionStorage == null) {
+            throw new StorageException(String.format("Partition ID %d does not exist", partitionId));
+        }
+
+        return partitionStorage.getOrCreateSortedIndex(indexId);
     }
 
     @Override
     public HashIndexStorage getOrCreateHashIndex(int partitionId, UUID indexId) {
-        return getOrCreateMvPartition(partitionId).getOrCreateHashIndex(indexId);
+        AbstractPageMemoryMvPartitionStorage partitionStorage = getMvPartition(partitionId);
+
+        if (partitionStorage == null) {
+            throw new StorageException(String.format("Partition ID %d does not exist", partitionId));
+        }
+
+        return partitionStorage.getOrCreateHashIndex(indexId);
     }
 
     @Override
