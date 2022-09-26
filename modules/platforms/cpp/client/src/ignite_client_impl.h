@@ -62,7 +62,7 @@ public:
      * @param callback Callback.
      */
     void start(std::function<void(IgniteResult<void>)> callback) {
-        m_connection->start(std::move(callback));
+        m_connection->startAsync(std::move(callback));
     }
 
     /**

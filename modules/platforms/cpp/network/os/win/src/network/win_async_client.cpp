@@ -46,8 +46,7 @@ WinAsyncClient::~WinAsyncClient()
     if (State::IN_POOL == m_state)
         shutdown(std::nullopt);
 
-    if (State::CLOSED != m_state)
-        close();
+    close();
 }
 
 bool WinAsyncClient::shutdown(std::optional<IgniteError> err)
@@ -115,12 +114,12 @@ bool WinAsyncClient::sendNextPacketLocked()
     if (m_sendPackets.empty())
         return true;
 
-    const DataBuffer& packet0 = m_sendPackets.front();
+    auto dataView = m_sendPackets.front().getBytesView();
     DWORD flags = 0;
 
     WSABUF buffer;
-    buffer.buf = (CHAR*)packet0.getData();
-    buffer.len = packet0.getSize();
+    buffer.buf = (CHAR*)dataView.data();
+    buffer.len = (ULONG)dataView.size();
 
     int ret = ::WSASend(m_socket, &buffer, 1, NULL, flags, &m_currentSend.overlapped, NULL); // NOLINT(modernize-use-nullptr)
 

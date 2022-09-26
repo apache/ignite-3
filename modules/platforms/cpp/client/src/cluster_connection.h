@@ -84,7 +84,7 @@ public:
      *
      * @param callback Callback.
      */
-    void start(std::function<void(IgniteResult<void>)> callback);
+    void startAsync(std::function<void(IgniteResult<void>)> callback);
 
     /**
      * Stop connection.

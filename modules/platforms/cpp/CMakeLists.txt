@@ -30,10 +30,6 @@ if(EXISTS ${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
     conan_basic_setup()
 endif()
 
-if (UNIX)
-    include(GNUInstallDirs)
-endif()
-
 if (MSVC)
     add_compile_options(/source-charset:utf-8 /execution-charset:utf-8)
     add_definitions(-D_CRT_SECURE_NO_WARNINGS -D_SCL_SECURE_NO_WARNINGS)

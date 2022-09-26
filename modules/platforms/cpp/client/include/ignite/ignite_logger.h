@@ -32,7 +32,7 @@ class IgniteLogger
 public:
     // Default
     IgniteLogger() = default;
-    ~IgniteLogger() = default;
+    virtual ~IgniteLogger() = default;
     IgniteLogger(IgniteLogger&&) = default;
     IgniteLogger(const IgniteLogger&) = default;
     IgniteLogger& operator=(IgniteLogger&&) = default;

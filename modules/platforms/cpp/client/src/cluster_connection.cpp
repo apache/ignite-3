@@ -39,7 +39,7 @@ ClusterConnection::ClusterConnection(IgniteClientConfiguration configuration) :
     m_logger(m_configuration.getLogger()),
     m_generator(std::random_device()()) { }
 
-void ClusterConnection::start(std::function<void(IgniteResult<void>)> callback)
+void ClusterConnection::startAsync(std::function<void(IgniteResult<void>)> callback)
 {
     using namespace network;
 

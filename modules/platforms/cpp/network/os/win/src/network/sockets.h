@@ -25,7 +25,6 @@
 #include <ws2tcpip.h>
 #include <mstcpip.h>
 
-#include <cstdint>
 #include <string>
 
 namespace ignite::network
