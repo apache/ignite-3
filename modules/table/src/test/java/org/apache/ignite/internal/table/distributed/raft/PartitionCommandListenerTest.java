@@ -106,9 +106,7 @@ public class PartitionCommandListenerTest {
 
         ReplicaService replicaService = Mockito.mock(ReplicaService.class, RETURNS_DEEP_STUBS);
 
-        UUID tblId = UUID.randomUUID();
-
-        var txManager = new TxManagerImpl(clusterService, replicaService, new HeapLockManager());
+        var txManager = new TxManagerImpl(replicaService, new HeapLockManager());
 
         commandListener = new PartitionListener(
                 mvPartitionStorage,

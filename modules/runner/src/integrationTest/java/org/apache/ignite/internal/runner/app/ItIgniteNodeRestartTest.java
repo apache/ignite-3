@@ -229,7 +229,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         var raftMgr = new Loza(clusterSvc, dir, new HybridClock());
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-17523
-        var txManager = new TxManagerImpl(clusterSvc, null, new HeapLockManager());
+        var txManager = new TxManagerImpl(null, new HeapLockManager());
 
         var cmgManager = new ClusterManagementGroupManager(
                 vault,

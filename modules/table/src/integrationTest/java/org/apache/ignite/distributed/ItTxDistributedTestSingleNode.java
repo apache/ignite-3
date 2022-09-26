@@ -255,7 +255,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
             replicaServices.put(node, replicaSvc);
 
-            TxManagerImpl txMgr = new TxManagerImpl(cluster.get(i), replicaSvc, new HeapLockManager());
+            TxManagerImpl txMgr = new TxManagerImpl(replicaSvc, new HeapLockManager());
 
             txMgr.start();
 
@@ -278,7 +278,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
         TxManager txMgr;
 
         if (startClient()) {
-            txMgr = new TxManagerImpl(client, clientReplicaSvc, new HeapLockManager());
+            txMgr = new TxManagerImpl(clientReplicaSvc, new HeapLockManager());
         } else {
             // Collocated mode.
             txMgr = txManagers.get(accRaftClients.get(0).clusterService().topologyService().localMember());

@@ -436,7 +436,7 @@ public class ItRebalanceDistributedTest {
                     new HybridClock()
             );
 
-            txManager = new TxManagerImpl(clusterService, replicaSvc, lockManager);
+            txManager = new TxManagerImpl(replicaSvc, lockManager);
 
             cmgManager = new ClusterManagementGroupManager(
                     vaultManager,

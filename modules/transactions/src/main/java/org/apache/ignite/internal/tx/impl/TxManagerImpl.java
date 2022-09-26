@@ -56,9 +56,6 @@ public class TxManagerImpl implements TxManager {
     /** Tx messages factory. */
     private static final TxMessagesFactory FACTORY = new TxMessagesFactory();
 
-    /** Cluster service. */
-    protected final ClusterService clusterService;
-
     private ReplicaService replicaService;
 
     /** Lock manager. */
@@ -72,11 +69,9 @@ public class TxManagerImpl implements TxManager {
     /**
      * The constructor.
      *
-     * @param clusterService Cluster service.
      * @param lockManager Lock manager.
      */
-    public TxManagerImpl(ClusterService clusterService, ReplicaService replicaService,  LockManager lockManager) {
-        this.clusterService = clusterService;
+    public TxManagerImpl(ReplicaService replicaService,  LockManager lockManager) {
         this.replicaService = replicaService;
         this.lockManager = lockManager;
     }
@@ -237,12 +232,6 @@ public class TxManagerImpl implements TxManager {
         }
 
         return allOf(cleanupFutures);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public boolean isLocal(NetworkAddress node) {
-        return clusterService.topologyService().localMember().address().equals(node);
     }
 
     /** {@inheritDoc} */

@@ -105,7 +105,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
     @Override
     public void beforeFollowerStop(RaftGroupService service) throws Exception {
         // TODO: https://issues.apache.org/jira/browse/IGNITE-17523
-        TxManagerImpl txManager = new TxManagerImpl(clientService(), null, new HeapLockManager());
+        TxManagerImpl txManager = new TxManagerImpl(null, new HeapLockManager());
 
         managers.add(txManager);
 
@@ -132,7 +132,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
     @Override
     public void afterFollowerStop(RaftGroupService service) throws Exception {
         // TODO: https://issues.apache.org/jira/browse/IGNITE-17523
-        TxManagerImpl txManager = new TxManagerImpl(clientService(), null, new HeapLockManager());
+        TxManagerImpl txManager = new TxManagerImpl(null, new HeapLockManager());
 
         managers.add(txManager);
 
@@ -165,7 +165,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
     @Override
     public void afterSnapshot(RaftGroupService service) throws Exception {
         // TODO: https://issues.apache.org/jira/browse/IGNITE-17523
-        TxManager txManager = new TxManagerImpl(clientService(), null, new HeapLockManager());
+        TxManager txManager = new TxManagerImpl(null, new HeapLockManager());
 
         managers.add(txManager);
 
@@ -227,7 +227,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 .map(Map.Entry::getKey)
                 .findAny()
                 .orElseGet(() -> {
-                    TxManagerImpl txManager = new TxManagerImpl(service, null, new HeapLockManager());
+                    TxManagerImpl txManager = new TxManagerImpl(null, new HeapLockManager());
 
                     txManager.start(); // Init listener.
 

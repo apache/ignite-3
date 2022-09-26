@@ -114,7 +114,7 @@ public class ItColocationTest {
 
         ReplicaService replicaService = Mockito.mock(ReplicaService.class, RETURNS_DEEP_STUBS);
 
-        TxManager txManager = new TxManagerImpl(clusterService, replicaService,  new HeapLockManager()) {
+        TxManager txManager = new TxManagerImpl(replicaService,  new HeapLockManager()) {
             @Override
             public CompletableFuture<Void> finish(
                     ClusterNode recipientNode,

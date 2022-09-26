@@ -66,7 +66,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         replicaService = Mockito.mock(ReplicaService.class, RETURNS_DEEP_STUBS);
 
-        txManager = new TxManagerImpl(clusterService, replicaService, new HeapLockManager());
+        txManager = new TxManagerImpl(replicaService, new HeapLockManager());
     }
 
     @Test

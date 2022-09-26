@@ -101,7 +101,7 @@ public class InternalTableImpl implements InternalTable {
     private final Function<NetworkAddress, ClusterNode> clusterNodeResolver;
 
     /** Transactional manager. */
-    private final TxManager txManager;
+    protected final TxManager txManager;
 
     /** Storage for table data. */
     private final MvTableStorage tableStorage;
@@ -861,7 +861,6 @@ public class InternalTableImpl implements InternalTable {
 
         // TODO asch IGNITE-15091 fixme need to map to the same leaseholder.
         // TODO asch a leader race is possible when enlisting different keys from the same partition.
-        // TODO: not sure whether we should use clusterNode or peer as replicaService.ingoke parameter.
         return fut0.handle((primaryPeerAndTerm, e) -> {
             if (primaryPeerAndTerm.get1() == null || e != null) {
                 throw new TransactionException("Failed to get the primary replica.");

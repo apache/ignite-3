@@ -169,14 +169,6 @@ public interface TxManager extends IgniteComponent {
             );
 
     /**
-     * Checks if a passed address belongs to a local node.
-     *
-     * @param addr The address.
-     * @return {@code True} if a local node.
-     */
-    boolean isLocal(NetworkAddress addr);
-
-    /**
      * Returns a number of finished transactions.
      *
      * @return A number of finished transactions.

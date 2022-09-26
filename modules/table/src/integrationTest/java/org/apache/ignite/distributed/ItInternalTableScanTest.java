@@ -177,7 +177,7 @@ public class ItInternalTableScanTest {
 
         mockStorage = mock(MvPartitionStorage.class);
 
-        txManager = new TxManagerImpl(network, replicaService, new HeapLockManager());
+        txManager = new TxManagerImpl(replicaService, new HeapLockManager());
 
         txManager.start();
 

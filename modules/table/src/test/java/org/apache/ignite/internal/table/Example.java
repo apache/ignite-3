@@ -21,15 +21,13 @@ import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.binary.BinaryObject;
 import org.apache.ignite.binary.BinaryObjects;
+import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
-import org.apache.ignite.internal.tx.impl.HeapLockManager;
-import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
@@ -40,6 +38,7 @@ import org.apache.ignite.table.mapper.TypeConverter;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.mockito.Mockito;
 
 /**
  * Example.
@@ -51,9 +50,7 @@ public class Example {
      * Returns table implementation.
      */
     private static List<Table> tableFactory() {
-        TxManagerImpl txManager = new TxManagerImpl(null, null,  new HeapLockManager());
-
-        return Collections.singletonList(new TableImpl(new DummyInternalTableImpl(txManager, new AtomicLong()), null));
+        return Collections.singletonList(new TableImpl(new DummyInternalTableImpl(Mockito.mock(ReplicaService.class)), null));
     }
 
     /**

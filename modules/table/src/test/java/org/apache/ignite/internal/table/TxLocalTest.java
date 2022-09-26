@@ -19,11 +19,7 @@ package org.apache.ignite.internal.table;
 
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 
-import java.util.List;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.Function;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.tx.LockManager;
@@ -55,38 +51,23 @@ public class TxLocalTest extends TxAbstractTest {
         ClusterService clusterService = Mockito.mock(ClusterService.class, RETURNS_DEEP_STUBS);
         Mockito.when(clusterService.topologyService().localMember().address()).thenReturn(DummyInternalTableImpl.ADDR);
 
-        ReplicaService replicaService = Mockito.mock(ReplicaService.class, RETURNS_DEEP_STUBS);
-
         lockManager = new HeapLockManager();
 
-        txManager = new TxManagerImpl(clusterService, replicaService, lockManager);
+        ReplicaService replicaSvc = Mockito.mock(ReplicaService.class, RETURNS_DEEP_STUBS);
+
+        txManager = new TxManagerImpl(replicaSvc, lockManager);
 
         igniteTransactions = new IgniteTransactionsImpl(txManager);
 
-        AtomicLong accountsRaftIndex = new AtomicLong();
-
-        DummyInternalTableImpl table = new DummyInternalTableImpl(
-                txManager,
-                accountsRaftIndex
-        );
+        DummyInternalTableImpl table = new DummyInternalTableImpl(replicaSvc);
 
         accounts = new TableImpl(table, new DummySchemaManagerImpl(ACCOUNTS_SCHEMA));
 
-        AtomicLong customersRaftIndex = new AtomicLong();
-        DummyInternalTableImpl table2 = new DummyInternalTableImpl(
-                txManager,
-                customersRaftIndex
-        );
+        DummyInternalTableImpl table2 = new DummyInternalTableImpl(replicaSvc);
 
         customers = new TableImpl(table2, new DummySchemaManagerImpl(CUSTOMERS_SCHEMA));
 
-        List<PartitionListener> partitionListeners = List.of(table.getPartitionListener(), table2.getPartitionListener());
-
-        Function<PartitionListener, AtomicLong> raftIndexfactory = pl ->
-                pl == table.getPartitionListener() ? accountsRaftIndex : customersRaftIndex;
-
-        MessagingService messagingService = MessagingServiceTestUtils.mockMessagingService(txManager, partitionListeners, raftIndexfactory);
-        Mockito.when(clusterService.messagingService()).thenReturn(messagingService);
+        Mockito.when(clusterService.messagingService()).thenReturn(Mockito.mock(MessagingService.class, RETURNS_DEEP_STUBS));
     }
 
     @Disabled

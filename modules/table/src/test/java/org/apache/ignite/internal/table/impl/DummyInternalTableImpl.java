@@ -23,27 +23,34 @@ import static org.mockito.Mockito.mock;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import java.io.Serializable;
+import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Flow;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.BiFunction;
 import javax.naming.OperationNotSupportedException;
 import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
+import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapMvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
+import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestConcurrentHashMapTxStateStorage;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.Peer;
@@ -63,30 +70,43 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
     private PartitionListener partitionListener;
 
+    private ReplicaListener replicaListener;
+
     /**
      * Creates a new local table.
      *
-     * @param txManager Transaction manager.
+     * @param replicaSvc Replica service.
      */
-    public DummyInternalTableImpl(TxManager txManager, AtomicLong raftIndex) {
+    public DummyInternalTableImpl(ReplicaService replicaSvc) {
         super(
                 "test",
                 UUID.randomUUID(),
                 Int2ObjectMaps.singleton(0, mock(RaftGroupService.class)),
                 1,
-                null,
-                null,
-                txManager,
+                NetworkAddress::toString,
+                addr -> Mockito.mock(ClusterNode.class),
+                new TxManagerImpl(replicaSvc, new HeapLockManager()),
                 mock(MvTableStorage.class),
                 mock(TxStateTableStorage.class),
-                mock(ReplicaService.class),
+                replicaSvc,
                 mock(HybridClock.class)
         );
-
         RaftGroupService svc = partitionMap.get(0);
 
         Mockito.doReturn("testGrp").when(svc).groupId();
-        Mockito.doReturn(new Peer(ADDR)).when(svc).leader();
+        Peer leaderPeer = new Peer(ADDR);
+        Mockito.doReturn(leaderPeer).when(svc).leader();
+        Mockito.doReturn(CompletableFuture.completedFuture(new IgniteBiTuple<>(leaderPeer, 1L))).when(svc).refreshAndGetLeaderWithTerm();
+
+        // Delegate replica requests directly to replica listener.
+        doAnswer(
+                invocationOnMock -> {
+                    CompletableFuture<Object> invoke = replicaListener.invoke(invocationOnMock.getArgument(1));
+                    return invoke;
+                }
+        ).when(replicaSvc).invoke(any(), any());
+
+        AtomicLong raftIndex = new AtomicLong();
 
         // Delegate directly to listener.
         doAnswer(
@@ -97,78 +117,59 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
                     CompletableFuture<Serializable> res = new CompletableFuture<>();
 
-                    CompletableFuture<Void> fut = partitionListener.onBeforeApply(cmd);
-
-                    fut.handle(new BiFunction<Void, Throwable, Void>() {
+                    // All read commands are handled directly throw partition replica listener.
+                    CommandClosure<WriteCommand> clo = new CommandClosure<>() {
+                        /** {@inheritDoc} */
                         @Override
-                        public Void apply(Void ignored, Throwable err) {
-                            if (err == null) {
-                                //TODO: IGNITE-17523 Code follow should be moved to a demo replica listener.
-                                /*if (cmd instanceof GetCommand || cmd instanceof GetAllCommand) {
-                                    CommandClosure<ReadCommand> clo = new CommandClosure<>() {
-                                        @Override
-                                        public ReadCommand command() {
-                                            return (ReadCommand) cmd;
-                                        }
-
-                                        @Override
-                                        public void result(@Nullable Serializable r) {
-                                            res.complete(r);
-                                        }
-                                    };
-
-                                    try {
-                                        partitionListener.onRead(List.of(clo).iterator());
-                                    } catch (Throwable e) {
-                                        res.completeExceptionally(new TransactionException(e));
-                                    }
-                                } else*/ {
-                                    CommandClosure<WriteCommand> clo = new CommandClosure<>() {
-                                        /** {@inheritDoc} */
-                                        @Override
-                                        public long index() {
-                                            return commandIndex;
-                                        }
-
-                                        /** {@inheritDoc} */
-                                        @Override
-                                        public WriteCommand command() {
-                                            return (WriteCommand) cmd;
-                                        }
-
-                                        /** {@inheritDoc} */
-                                        @Override
-                                        public void result(@Nullable Serializable r) {
-                                            res.complete(r);
-                                        }
-                                    };
-
-                                    try {
-                                        partitionListener.onWrite(List.of(clo).iterator());
-                                    } catch (Throwable e) {
-                                        res.completeExceptionally(new TransactionException(e));
-                                    }
-                                }
-                            } else {
-                                res.completeExceptionally(err);
-                            }
-
-                            return null;
+                        public long index() {
+                            return commandIndex;
                         }
-                    });
+
+                        /** {@inheritDoc} */
+                        @Override
+                        public WriteCommand command() {
+                            return (WriteCommand) cmd;
+                        }
+
+                        /** {@inheritDoc} */
+                        @Override
+                        public void result(@Nullable Serializable r) {
+                            res.complete(r);
+                        }
+                    };
+
+                    try {
+                        partitionListener.onWrite(List.of(clo).iterator());
+                    } catch (Throwable e) {
+                        res.completeExceptionally(new TransactionException(e));
+                    }
 
                     return res;
                 }
         ).when(svc).run(any());
 
-        var mvPartStorage = new TestConcurrentHashMapMvPartitionStorage(0);
+        MvPartitionStorage mvPartStorage = new TestConcurrentHashMapMvPartitionStorage(0);
+
+        var primaryIndex = new ConcurrentHashMap<ByteBuffer, RowId>();
+
+        replicaListener = new PartitionReplicaListener(
+                mvPartStorage,
+                partitionMap.get(0),
+                txManager,
+                txManager.lockManager(),
+                0,
+                "testGrp",
+                tableId(),
+                primaryIndex,
+                new HybridClock()
+        );
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-17523
         partitionListener = new PartitionListener(
                 mvPartStorage,
                 new TestConcurrentHashMapTxStateStorage(),
                 txManager,
-                new ConcurrentHashMap<>()
+                primaryIndex
         );
     }
 

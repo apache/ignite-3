@@ -29,21 +29,15 @@ import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 
 import java.util.Collection;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaMismatchException;
-import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.table.impl.TestTupleBuilder;
-import org.apache.ignite.internal.tx.LockManager;
-import org.apache.ignite.internal.tx.TxManager;
-import org.apache.ignite.internal.tx.impl.HeapLockManager;
-import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
@@ -690,23 +684,9 @@ public class RecordBinaryViewOperationsTest {
         ClusterService clusterService = Mockito.mock(ClusterService.class, RETURNS_DEEP_STUBS);
         Mockito.when(clusterService.topologyService().localMember().address()).thenReturn(DummyInternalTableImpl.ADDR);
 
-        LockManager lockManager = new HeapLockManager();
+        DummyInternalTableImpl table = new DummyInternalTableImpl(Mockito.mock(ReplicaService.class, RETURNS_DEEP_STUBS));
 
-        ReplicaService replicaService = Mockito.mock(ReplicaService.class, RETURNS_DEEP_STUBS);
-
-        TxManager txManager = new TxManagerImpl(clusterService, replicaService, lockManager);
-
-        AtomicLong raftIndex = new AtomicLong();
-
-        DummyInternalTableImpl table = new DummyInternalTableImpl(
-                txManager,
-                raftIndex
-        );
-
-        List<PartitionListener> partitionListeners = List.of(table.getPartitionListener());
-
-        MessagingService messagingService = MessagingServiceTestUtils.mockMessagingService(txManager, partitionListeners, pl -> raftIndex);
-        Mockito.when(clusterService.messagingService()).thenReturn(messagingService);
+        Mockito.when(clusterService.messagingService()).thenReturn(Mockito.mock(MessagingService.class, RETURNS_DEEP_STUBS));
 
         return new TableImpl(table, new DummySchemaManagerImpl(schema));
     }
