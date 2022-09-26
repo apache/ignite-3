@@ -15,17 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.network.messages;
 
-import java.util.Map;
-import org.apache.ignite.internal.network.serialization.SimpleSerializableObject;
+package org.apache.ignite.internal.network.messages;
+
 import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Marshallable;
-import org.apache.ignite.network.annotations.Transferable;
 
-/** Message with a marshallable field. */
-@Transferable(TestMessageTypes.TEST_MESSAGE_WITH_MARSHALLABLE)
-public interface MessageWithMarshallable extends NetworkMessage {
-    @Marshallable
-    Map<String, SimpleSerializableObject> marshallableMap();
+/**
+ * {@link NetworkMessage} implementation.
+ */
+interface NetworkMessage1 extends NetworkMessage {
+    int intY();
 }

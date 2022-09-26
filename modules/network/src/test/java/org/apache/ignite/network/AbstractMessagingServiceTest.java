@@ -29,7 +29,7 @@ import java.lang.reflect.Field;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import org.apache.ignite.network.annotations.MessageGroup;
-import org.apache.ignite.network.messages.TestMessageTypes;
+import org.apache.ignite.internal.network.messages.TestMessageTypes;
 import org.junit.jupiter.api.Test;
 
 /**

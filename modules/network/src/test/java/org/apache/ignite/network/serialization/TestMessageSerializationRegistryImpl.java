@@ -17,8 +17,8 @@
 
 package org.apache.ignite.network.serialization;
 
+import org.apache.ignite.internal.network.messages.TestMessagesSerializationRegistryInitializer;
 import org.apache.ignite.network.MessageSerializationRegistryImpl;
-import org.apache.ignite.network.messages.TestMessagesSerializationRegistryInitializer;
 
 /**
  * Implementation of a {@link MessageSerializationRegistry} for tests.

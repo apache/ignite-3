@@ -44,6 +44,8 @@ import java.util.List;
 import java.util.Map;
 import org.apache.ignite.internal.network.direct.DirectMessageWriter;
 import org.apache.ignite.internal.network.message.ClassDescriptorMessage;
+import org.apache.ignite.internal.network.messages.MessageWithMarshallable;
+import org.apache.ignite.internal.network.messages.TestMessagesFactory;
 import org.apache.ignite.internal.network.netty.ConnectionManager;
 import org.apache.ignite.internal.network.netty.InboundDecoder;
 import org.apache.ignite.internal.network.netty.OutboundEncoder;
@@ -52,8 +54,6 @@ import org.apache.ignite.internal.network.serialization.marshal.MarshalledObject
 import org.apache.ignite.internal.network.serialization.marshal.UserObjectMarshaller;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.OutNetworkObject;
-import org.apache.ignite.network.messages.MessageWithMarshallable;
-import org.apache.ignite.network.messages.TestMessagesFactory;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.network.serialization.MessageSerializer;
 import org.apache.ignite.network.serialization.TestMessageSerializationRegistryImpl;

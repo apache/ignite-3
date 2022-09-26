@@ -15,15 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.network.messages;
+package org.apache.ignite.internal.network.messages;
 
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.network.annotations.MessageGroup;
 
 /**
- * {@link NetworkMessage} implementation.
+ * Test message types.
  */
-@Transferable(TestMessageTypes.INHERITED_MESSAGE)
-public interface InheritedMessage extends NetworkMessage2 {
-    int intZ();
+@MessageGroup(groupName = "TestMessages", groupType = 2)
+public class TestMessageTypes {
+    /** Type of {@link SerializationOrderMessage}. */
+    public static final short SERIALIZATION_ORDER_MESSAGE = 1;
+
+    /** Type of {@link InheritedMessage}. */
+    public static final short INHERITED_MESSAGE = 2;
+
+    /** Type of {@link EmptyMessage}. */
+    public static final short EMPTY_MESSAGE = 3;
+
+    public static final short ALL_TYPES = 4;
+
+    public static final short TEST = 5;
+
+    public static final short NESTED_MESSAGE = 6;
+
+    public static final short TEST_MESSAGE_WITH_MARSHALLABLE = 7;
 }

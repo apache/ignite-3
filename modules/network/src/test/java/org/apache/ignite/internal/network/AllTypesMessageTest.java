@@ -21,7 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.fail;
 
-import org.apache.ignite.network.messages.AllTypesMessage;
+import org.apache.ignite.internal.network.messages.AllTypesMessage;
 import org.junit.jupiter.api.Test;
 
 /**

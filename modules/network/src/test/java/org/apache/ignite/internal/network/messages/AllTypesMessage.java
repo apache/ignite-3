@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.network.messages;
+package org.apache.ignite.internal.network.messages;
 
 import java.io.Serializable;
 import java.util.BitSet;

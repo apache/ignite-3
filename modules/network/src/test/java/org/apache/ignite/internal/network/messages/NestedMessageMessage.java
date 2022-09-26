@@ -15,19 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.network.messages;
+package org.apache.ignite.internal.network.messages;
 
-import java.io.Serializable;
-import java.util.Map;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * {@link NetworkMessage} implementation.
+ * Nested {@link NetworkMessage} implementation.
  */
-@Transferable(TestMessageTypes.TEST)
-public interface TestMessage extends NetworkMessage, Serializable {
-    String msg();
-
-    Map<Integer, String> map();
+@Transferable(TestMessageTypes.NESTED_MESSAGE)
+public interface NestedMessageMessage extends NetworkMessage {
+    NetworkMessage nestedMessage();
 }

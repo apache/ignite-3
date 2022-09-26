@@ -15,15 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.network.messages;
+package org.apache.ignite.internal.network.messages;
 
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Nested {@link NetworkMessage} implementation.
+ * Empty {@link NetworkMessage} implementation.
  */
-@Transferable(TestMessageTypes.NESTED_MESSAGE)
-public interface NestedMessageMessage extends NetworkMessage {
-    NetworkMessage nestedMessage();
+@Transferable(TestMessageTypes.EMPTY_MESSAGE)
+public interface EmptyMessage extends NetworkMessage {
 }

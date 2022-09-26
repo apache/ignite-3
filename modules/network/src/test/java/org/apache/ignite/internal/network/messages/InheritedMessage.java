@@ -15,21 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.network.messages;
+package org.apache.ignite.internal.network.messages;
 
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Test message used in {@link SerializationOrderTest}.
+ * {@link NetworkMessage} implementation.
  */
-@Transferable(TestMessageTypes.SERIALIZATION_ORDER_MESSAGE)
-public interface SerializationOrderMessage extends NetworkMessage {
-    String strB();
-
-    String strD();
-
-    int intC();
-
-    int intA();
+@Transferable(TestMessageTypes.INHERITED_MESSAGE)
+public interface InheritedMessage extends NetworkMessage2 {
+    int intZ();
 }
