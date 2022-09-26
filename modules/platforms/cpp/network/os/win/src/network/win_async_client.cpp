@@ -154,7 +154,7 @@ void WinAsyncClient::clearReceiveBuffer()
 
 DataBuffer WinAsyncClient::processReceived(size_t bytes)
 {
-    return {m_recvPacket, 0, static_cast<int32_t>(bytes)};
+    return {m_recvPacket, 0, bytes};
 }
 
 bool WinAsyncClient::processSent(size_t bytes)

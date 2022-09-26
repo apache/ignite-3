@@ -138,7 +138,7 @@ void ClusterConnection::onConnectionClosed(uint64_t id, std::optional<IgniteErro
 void ClusterConnection::onMessageReceived(uint64_t id, const network::DataBuffer &msg)
 {
     m_logger->logDebug("Message on Connection ID " + std::to_string(id) +
-        ", size: " + std::to_string(msg.getSize()));
+        ", size: " + std::to_string(msg.getBytesView().size()));
 
     std::shared_ptr<NodeConnection> connection;
     {

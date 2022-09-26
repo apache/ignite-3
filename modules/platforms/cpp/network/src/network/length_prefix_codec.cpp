@@ -79,16 +79,13 @@ DataBuffer LengthPrefixCodec::decode(DataBuffer& data)
     return {};
 }
 
-void LengthPrefixCodec::consume(DataBuffer &data, int32_t desired)
+void LengthPrefixCodec::consume(DataBuffer &data, size_t desired)
 {
-    int32_t toCopy = desired - int32_t(m_packet.size());
+    auto toCopy = desired - m_packet.size();
     if (toCopy <= 0)
         return;
 
-    if (data.getSize() < toCopy)
-        toCopy = data.getSize();
-
-    data.beConsumed(m_packet, toCopy);
+    data.consumeBy(m_packet, size_t(toCopy));
 }
 
 } // namespace ignite::network

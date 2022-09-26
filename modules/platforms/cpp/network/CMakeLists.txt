@@ -25,7 +25,6 @@ set(SOURCES
     src/network/async_client_pool_adapter.cpp
     src/network/error_handling_filter.cpp
     src/network/codec_data_filter.cpp
-    src/network/data_buffer.cpp
     src/network/length_prefix_codec.cpp
     src/network/network.cpp
     src/network/tcp_range.cpp

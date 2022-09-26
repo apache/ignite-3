@@ -29,21 +29,27 @@ namespace ignite::network
 
 /**
  * Data buffer.
+ *
+ * Represents a consumable chunk of data.
  */
 class DataBuffer
 {
 public:
-    /**
-     * Default constructor.
-     */
-    DataBuffer();
+    // Default
+    DataBuffer() = default;
+    ~DataBuffer() = default;
+    DataBuffer(DataBuffer&&) = default;
+    DataBuffer(const DataBuffer&) = default;
+    DataBuffer& operator=(DataBuffer&&) = default;
+    DataBuffer& operator=(const DataBuffer&) = default;
 
     /**
      * Constructor.
      *
      * @param data Data.
      */
-    explicit DataBuffer(BytesView data);
+    explicit DataBuffer(BytesView data) :
+        m_data(data) { }
 
     /**
      * Constructor.
@@ -52,58 +58,56 @@ public:
      * @param pos Start of data.
      * @param len Length.
      */
-    DataBuffer(BytesView data, int32_t pos, int32_t len);
+    DataBuffer(BytesView data, size_t pos, size_t len) :
+        m_data(data.substr(pos, len)) { }
 
     /**
-     * Destructor.
-     */
-    ~DataBuffer() = default;
-
-    /**
-     * Consume data from buffer to the vector.
+     * Consume buffer data by the vector.
      *
      * @param dst Vector to append data to.
-     * @param size Number of bytes to copy.
+     * @param bytes Number of bytes to consume.
      */
-    void beConsumed(std::vector<std::byte>& dst, int32_t toCopy);
+    void consumeBy(std::vector<std::byte>& dst, size_t bytes) {
+        if (bytes > m_data.size())
+            bytes = m_data.size();
 
-    /**
-     * Get data pointer.
-     *
-     * @return Data.
-     */
-    [[nodiscard]]
-    const int8_t* getData() const;
-
-    /**
-     * Get packet size.
-     *
-     * @return Packet size.
-     */
-    [[nodiscard]]
-    int32_t getSize() const;
+        dst.insert(dst.end(), m_data.begin(), m_data.begin() + ptrdiff_t(bytes));
+        skip(bytes);
+    }
 
     /**
      * Check whether data buffer was fully consumed.
      *
-     * @return @c true if consumed and @c false otherwise.
+     * @return @c true if the buffer is empty and @c false otherwise.
      */
     [[nodiscard]]
-    bool isEmpty() const;
+    bool isEmpty() const {
+        return m_data.empty();
+    }
 
     /**
      * Consume the whole buffer.
      *
      * @return Buffer containing consumed data.
      */
-    DataBuffer consumeEntirely();
+    DataBuffer consumeEntirely() {
+        DataBuffer res(*this);
+        m_data = {};
+
+        return res;
+    }
 
     /**
      * Skip specified number of bytes.
      *
      * @param bytes Bytes to skip.
      */
-    void skip(int32_t bytes);
+    void skip(size_t bytes) {
+        if (bytes >= m_data.size())
+            m_data = {};
+        else
+            m_data = m_data.substr(bytes);
+    }
 
     /**
      * Get bytes view.
@@ -111,24 +115,13 @@ public:
      * @return Bytes view.
      */
     [[nodiscard]]
-    BytesView getBytesView() const;
+    BytesView getBytesView() const {
+        return m_data;
+    }
 
 private:
-    /**
-     * Advance position in packet by specified value.
-     *
-     * @param val Bytes to advance.
-     */
-    void advance(int32_t val);
-
-    /** Position in current data. */
-    int32_t m_position;
-
-    /** Data length. */
-    int32_t m_length;
-
     /** Data. */
-    const BytesView m_data;
+    BytesView m_data;
 };
 
 } // namespace ignite::network

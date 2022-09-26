@@ -34,7 +34,7 @@ class LengthPrefixCodec : public Codec
 {
 public:
     /** Packet header size in bytes. */
-    static constexpr int32_t PACKET_HEADER_SIZE = 4;
+    static constexpr size_t PACKET_HEADER_SIZE = 4;
 
     // Default
     ~LengthPrefixCodec() override = default;
@@ -71,7 +71,7 @@ private:
      * @param data Data to consume.
      * @param desired Desired resulting size of packet.
      */
-    void consume(DataBuffer& data, int32_t desired);
+    void consume(DataBuffer& data, size_t desired);
 
     /**
      * Reset packet buffer.
