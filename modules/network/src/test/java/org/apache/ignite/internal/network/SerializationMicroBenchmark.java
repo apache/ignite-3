@@ -27,6 +27,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.network.messages.AllTypesMessage;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorFactory;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorRegistry;
 import org.apache.ignite.internal.network.serialization.marshal.DefaultUserObjectMarshaller;
@@ -34,7 +35,6 @@ import org.apache.ignite.internal.network.serialization.marshal.MarshalException
 import org.apache.ignite.internal.network.serialization.marshal.MarshalledObject;
 import org.apache.ignite.internal.network.serialization.marshal.UnmarshalException;
 import org.apache.ignite.internal.network.serialization.marshal.UserObjectMarshaller;
-import org.apache.ignite.internal.network.messages.AllTypesMessage;
 import org.jetbrains.annotations.Nullable;
 import org.objenesis.strategy.StdInstantiatorStrategy;
 import org.openjdk.jmh.annotations.Benchmark;
