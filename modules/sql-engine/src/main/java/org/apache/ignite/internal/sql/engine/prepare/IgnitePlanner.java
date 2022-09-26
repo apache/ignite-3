@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
+import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_INVALID_ERR;
+
 import java.io.PrintWriter;
 import java.io.Reader;
 import java.io.StringWriter;
@@ -233,7 +235,7 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
             sqlNode = parser.parseQuery();
         } catch (SqlParseException e) {
             //            throw new IgniteSQLException("parse failed", IgniteQueryErrorCode.PARSING, e);
-            throw new IgniteException("parse failed", e);
+            throw new IgniteException(QUERY_INVALID_ERR, "parse failed", e);
         }
 
         CalciteCatalogReader catalogReader = this.catalogReader.withSchemaPath(schemaPath);
