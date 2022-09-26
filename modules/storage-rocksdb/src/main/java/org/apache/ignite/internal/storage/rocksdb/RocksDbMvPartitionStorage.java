@@ -675,7 +675,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             public void close() throws Exception {
                 super.close();
 
-                IgniteUtils.closeAll(it, options, upperBound);
+                IgniteUtils.closeAll(options, upperBound);
             }
         };
     }

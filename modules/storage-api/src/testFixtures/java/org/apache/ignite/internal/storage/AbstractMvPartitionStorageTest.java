@@ -994,27 +994,19 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
         List<TestValue> values = new ArrayList<>(List.of(value, value2));
 
         for (TestValue value : values) {
-            storage.runConsistently(() -> {
-                storage.addWrite(rowId, binaryRow(key, value), newTransactionId(), UUID.randomUUID(), PARTITION_ID);
+            addWrite(rowId, binaryRow(key, value), newTransactionId());
 
-                storage.commitWrite(rowId, clock.now());
-
-                return null;
-            });
+            commitWrite(rowId, clock.now());
         }
 
         // Put rows before and after.
-        storage.runConsistently(() -> {
-            RowId lowRowId = new RowId(PARTITION_ID, 99, 0);
-            RowId highRowId = new RowId(PARTITION_ID, 101, 0);
+        RowId lowRowId = new RowId(PARTITION_ID, 99, 0);
+        RowId highRowId = new RowId(PARTITION_ID, 101, 0);
 
-            List.of(lowRowId, highRowId).forEach(newRowId ->  {
-                storage.addWrite(newRowId, binaryRow(key, value), newTransactionId(), UUID.randomUUID(), PARTITION_ID);
+        List.of(lowRowId, highRowId).forEach(newRowId ->  {
+            addWrite(newRowId, binaryRow(key, value), newTransactionId());
 
-                storage.commitWrite(newRowId, clock.now());
-            });
-
-            return null;
+            commitWrite(newRowId, clock.now());
         });
 
         // Reverse expected values to simplify comparison - they are returned in reversed order, newest to oldest.
@@ -1037,28 +1029,20 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
     void testScanVersionsWithWriteIntent() throws Exception {
         RowId rowId = new RowId(PARTITION_ID, 100, 0);
 
-        storage.runConsistently(() -> {
-            storage.addWrite(rowId, binaryRow(key, value), newTransactionId(), UUID.randomUUID(), PARTITION_ID);
+        addWrite(rowId, binaryRow(key, value), newTransactionId());
 
-            storage.commitWrite(rowId, clock.now());
+        commitWrite(rowId, clock.now());
 
-            storage.addWrite(rowId, binaryRow(key, value2), newTransactionId(), UUID.randomUUID(), PARTITION_ID);
-
-            return null;
-        });
+        addWrite(rowId, binaryRow(key, value2), newTransactionId());
 
         // Put rows before and after.
-        storage.runConsistently(() -> {
-            RowId lowRowId = new RowId(PARTITION_ID, 99, 0);
-            RowId highRowId = new RowId(PARTITION_ID, 101, 0);
+        RowId lowRowId = new RowId(PARTITION_ID, 99, 0);
+        RowId highRowId = new RowId(PARTITION_ID, 101, 0);
 
-            List.of(lowRowId, highRowId).forEach(newRowId ->  {
-                storage.addWrite(newRowId, binaryRow(key, value), newTransactionId(), UUID.randomUUID(), PARTITION_ID);
+        List.of(lowRowId, highRowId).forEach(newRowId ->  {
+            addWrite(newRowId, binaryRow(key, value), newTransactionId());
 
-                storage.commitWrite(newRowId, clock.now());
-            });
-
-            return null;
+            commitWrite(newRowId, clock.now());
         });
 
         List<IgniteBiTuple<TestKey, TestValue>> list = toList(storage.scanVersions(rowId));
