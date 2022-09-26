@@ -344,7 +344,13 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="value">Value.</param>
         public void AppendDateTime(LocalDateTime value)
         {
-            // TODO IGNITE-15431
+            if (value != default)
+            {
+                PutDate(value.Date);
+                PutTime(value.TimeOfDay);
+            }
+
+            OnWrite();
         }
 
         /// <summary>
