@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.util;
 
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
@@ -31,6 +32,10 @@ public interface Cursor<T> extends Iterator<T>, Iterable<T>, AutoCloseable {
     @Override
     default Iterator<T> iterator() {
         return this;
+    }
+
+    static <T> Cursor<T> empty() {
+        return fromIterator(Collections.emptyIterator());
     }
 
     /**

@@ -38,6 +38,7 @@ import java.util.function.BiConsumer;
 import java.util.function.Predicate;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.hlc.HybridTimestamp;
+import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -648,6 +649,37 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         return rowId.mostSignificantBits() == keyByf.getLong() && rowId.leastSignificantBits() == keyByf.getLong();
     }
 
+    @Override
+    public Cursor<BinaryRow> scanVersions(RowId rowId) throws StorageException {
+        ByteBuffer keyBuf = prepareHeapKeyBuf(rowId);
+
+        byte[] lowerBound = copyOf(keyBuf.array(), ROW_PREFIX_SIZE);
+
+        incrementRowId(keyBuf);
+
+        Slice upperBound = new Slice(copyOf(keyBuf.array(), ROW_PREFIX_SIZE));
+
+        var options = new ReadOptions().setIterateUpperBound(upperBound).setTotalOrderSeek(true);
+
+        RocksIterator it = db.newIterator(cf, options);
+
+        it.seek(lowerBound);
+
+        return new RocksIteratorAdapter<>(it) {
+            @Override
+            protected BinaryRow decodeEntry(byte[] key, byte[] value) {
+                return wrapValueIntoBinaryRow(value, key.length == ROW_PREFIX_SIZE);
+            }
+
+            @Override
+            public void close() throws Exception {
+                super.close();
+
+                IgniteUtils.closeAll(it, options, upperBound);
+            }
+        };
+    }
+
     //TODO IGNITE-16914 Play with prefix settings and benchmark results.
     /** {@inheritDoc} */
     @Override
@@ -836,31 +868,31 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             public void close() throws Exception {
                 IgniteUtils.closeAll(it, options);
             }
-
-            private void incrementRowId(ByteBuffer buf) {
-                long lsb = 1 + buf.getLong(ROW_ID_OFFSET + Long.BYTES);
-
-                buf.putLong(ROW_ID_OFFSET + Long.BYTES, lsb);
-
-                if (lsb != 0L) {
-                    return;
-                }
-
-                long msb = 1 + buf.getLong(ROW_ID_OFFSET);
-
-                buf.putLong(ROW_ID_OFFSET, msb);
-
-                if (msb != 0L) {
-                    return;
-                }
-
-                short partitionId = (short) (1 + buf.getShort(0));
-
-                assert partitionId != 0;
-
-                buf.putShort(0, partitionId);
-            }
         };
+    }
+
+    private void incrementRowId(ByteBuffer buf) {
+        long lsb = 1 + buf.getLong(ROW_ID_OFFSET + Long.BYTES);
+
+        buf.putLong(ROW_ID_OFFSET + Long.BYTES, lsb);
+
+        if (lsb != 0L) {
+            return;
+        }
+
+        long msb = 1 + buf.getLong(ROW_ID_OFFSET);
+
+        buf.putLong(ROW_ID_OFFSET, msb);
+
+        if (msb != 0L) {
+            return;
+        }
+
+        short partitionId = (short) (1 + buf.getShort(0));
+
+        assert partitionId != 0;
+
+        buf.putShort(0, partitionId);
     }
 
     @Override

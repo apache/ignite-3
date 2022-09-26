@@ -33,6 +33,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -46,6 +47,7 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.Pair;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -982,6 +984,53 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
         assertNotNull(res);
         assertNull(res.binaryRow());
         assertNull(res.newestCommitTimestamp());
+    }
+
+    @Test
+    void testScanVersions() throws Exception {
+        RowId rowId = new RowId(PARTITION_ID, 100, 0);
+
+        // Populate storage with several versions for the same row id.
+        List<TestValue> values = new ArrayList<>(List.of(value, value2));
+
+        for (TestValue value : values) {
+            storage.runConsistently(() -> {
+                storage.addWrite(rowId, binaryRow(key, value), newTransactionId(), UUID.randomUUID(), PARTITION_ID);
+
+                storage.commitWrite(rowId, clock.now());
+
+                return null;
+            });
+        }
+
+        // Put rows before and after.
+        storage.runConsistently(() -> {
+            RowId lowRowId = new RowId(PARTITION_ID, 99, 0);
+            RowId highRowId = new RowId(PARTITION_ID, 101, 0);
+
+            List.of(lowRowId, highRowId).forEach(newRowId ->  {
+                storage.addWrite(newRowId, binaryRow(key, value), newTransactionId(), UUID.randomUUID(), PARTITION_ID);
+
+                storage.commitWrite(newRowId, clock.now());
+            });
+
+            return null;
+        });
+
+        // Reverse expected values to simplify comparison - they are returned in reversed order, newest to oldest.
+        Collections.reverse(values);
+
+        List<IgniteBiTuple<TestKey, TestValue>> list = toList(storage.scanVersions(rowId));
+
+        assertEquals(values.size(), list.size());
+
+        for (int i = 0; i < list.size(); i++) {
+            IgniteBiTuple<TestKey, TestValue> kv = list.get(i);
+
+            assertEquals(key, kv.getKey());
+
+            assertEquals(values.get(i), kv.getValue());
+        }
     }
 
     /**
