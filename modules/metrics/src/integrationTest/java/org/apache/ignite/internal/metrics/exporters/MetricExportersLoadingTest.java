@@ -39,7 +39,7 @@ public class MetricExportersLoadingTest {
     @InjectConfiguration(
             value = "mock.exporters = {"
                     + "testPull = {exporterName = testPull},"
-                    + "testPush = {exporterName = testPush, period = 100},\n"
+                    + "testPush = {exporterName = testPush, period = 100},"
                     + "}",
             polymorphicExtensions = {
                     TestPushMetricsExporterConfigurationSchema.class,
