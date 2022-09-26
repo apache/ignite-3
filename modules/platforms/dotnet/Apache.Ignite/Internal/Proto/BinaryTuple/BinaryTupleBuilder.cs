@@ -18,8 +18,11 @@
 namespace Apache.Ignite.Internal.Proto.BinaryTuple
 {
     using System;
+    using System.Collections;
     using System.Diagnostics;
+    using System.Numerics;
     using Buffers;
+    using NodaTime;
 
     /// <summary>
     /// Binary tuple builder.
@@ -278,6 +281,41 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             }
 
             OnWrite();
+        }
+
+        public void AppendBitmask(BitArray value)
+        {
+            // TODO IGNITE-15431
+        }
+
+        public void AppendDecimal(decimal value)
+        {
+            // TODO IGNITE-15431
+        }
+
+        public void AppendBigInteger(BigInteger value)
+        {
+            // TODO IGNITE-15431
+        }
+
+        public void AppendDate(LocalDate value)
+        {
+            // TODO IGNITE-15431
+        }
+
+        public void AppendTime(LocalTime value)
+        {
+            // TODO IGNITE-15431
+        }
+
+        public void AppendDateTime(LocalDateTime value)
+        {
+            // TODO IGNITE-15431
+        }
+
+        public void AppendTimestamp(Instant value)
+        {
+            // TODO IGNITE-15431
         }
 
         /// <summary>
