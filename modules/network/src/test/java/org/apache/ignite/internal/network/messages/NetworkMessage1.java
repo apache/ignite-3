@@ -16,7 +16,7 @@
  */
 
 
-package org.apache.ignite.internal.network.processor;
+package org.apache.ignite.internal.network.messages;
 
 import org.apache.ignite.network.NetworkMessage;
 

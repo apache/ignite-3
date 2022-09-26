@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network;
+package org.apache.ignite.internal.network.processor;
 
 import java.io.Serializable;
 import java.util.BitSet;
@@ -24,13 +24,12 @@ import java.util.Map;
 import java.util.UUID;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.TestMessageTypes;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
  * {@link NetworkMessage} implementation.
  */
-@Transferable(TestMessageTypes.ALL_TYPES)
+@Transferable(1)
 public interface AllTypesMessage extends NetworkMessage, Serializable {
     byte byteA();
 

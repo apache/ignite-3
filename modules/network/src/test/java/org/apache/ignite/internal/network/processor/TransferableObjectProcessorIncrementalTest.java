@@ -56,10 +56,10 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
- * Integration tests for the {@link TransferableObjectProcessor} incremental compilation.
+ * Tests for the {@link TransferableObjectProcessor} incremental compilation.
  */
 @ExtendWith(MockitoExtension.class)
-public class ItTransferableObjectProcessorIncrementalTest {
+public class TransferableObjectProcessorIncrementalTest {
     /**
      * Package name of the test sources.
      */
@@ -255,38 +255,38 @@ public class ItTransferableObjectProcessorIncrementalTest {
     private JavaFileObject createTransferable(String className, int msgId) {
         @Language("JAVA") String code =
                 "package " + RESOURCE_PACKAGE_NAME + ";\n"
-                  + "import org.apache.ignite.network.NetworkMessage;\n"
-                  + "import org.apache.ignite.network.annotations.Transferable;\n"
-                    + "\n"
-                + "\n"
-                + "@Transferable(value = " + msgId + ")\n"
-                + "public interface " + className + " extends NetworkMessage {\n"
-                    + "    String foo();\n"
-                    + "}\n";
+                        + "import org.apache.ignite.network.NetworkMessage;\n"
+                        + "import org.apache.ignite.network.annotations.Transferable;\n"
+                        + "\n"
+                        + "\n"
+                        + "@Transferable(value = " + msgId + ")\n"
+                        + "public interface " + className + " extends NetworkMessage {\n"
+                        + "    String foo();\n"
+                        + "}\n";
         return JavaFileObjects.forSourceString(className, code);
     }
 
     private JavaFileObject createMessageGroup(String className, String groupName) {
         @Language("JAVA") String code =
                 "package " + RESOURCE_PACKAGE_NAME + ";\n"
-                    + "\n"
-                    + "    import org.apache.ignite.network.annotations.MessageGroup;\n"
-                    + "\n"
-                    + "@MessageGroup(groupType = 1, groupName = \"" + groupName + "\")\n"
-                    + "public class " + className + " {\n"
-                    + "}\n";
+                        + "\n"
+                        + "    import org.apache.ignite.network.annotations.MessageGroup;\n"
+                        + "\n"
+                        + "@MessageGroup(groupType = 1, groupName = \"" + groupName + "\")\n"
+                        + "public class " + className + " {\n"
+                        + "}\n";
         return JavaFileObjects.forSourceString(className, code);
     }
 
     private JavaFileObject createNonTransferable(String className) {
         @Language("JAVA") String code =
-            "package " + RESOURCE_PACKAGE_NAME + ";\n"
-                + "import org.apache.ignite.network.NetworkMessage;\n"
-                + "\n"
-                + "\n"
-                + "public interface " + className + " extends NetworkMessage {\n"
-                + "    String foo();\n"
-                + "}\n";
+                "package " + RESOURCE_PACKAGE_NAME + ";\n"
+                        + "import org.apache.ignite.network.NetworkMessage;\n"
+                        + "\n"
+                        + "\n"
+                        + "public interface " + className + " extends NetworkMessage {\n"
+                        + "    String foo();\n"
+                        + "}\n";
         return JavaFileObjects.forSourceString(className, code);
     }
 

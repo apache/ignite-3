@@ -15,10 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.processor;
+package org.apache.ignite.internal.network.messages;
 
-import org.apache.ignite.network.annotations.MessageGroup;
+import java.io.Serializable;
+import java.util.Map;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Transferable;
 
-@MessageGroup(groupType = 1, groupName = "NetworkMessageProcessorTest")
-public class ItTestMessageGroup {
+/**
+ * {@link NetworkMessage} implementation.
+ */
+@Transferable(TestMessageTypes.TEST)
+public interface TestMessage extends NetworkMessage, Serializable {
+    String msg();
+
+    Map<Integer, String> map();
 }

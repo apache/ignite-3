@@ -15,15 +15,13 @@
  * limitations under the License.
  */
 
-
 package org.apache.ignite.internal.network.processor;
 
-import java.io.Serializable;
+import java.util.Collection;
 import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Transferable;
 
-/**
- * {@link NetworkMessage} implementation.
- */
-interface NetworkMessage2 extends NetworkMessage1, Serializable {
-    int intX();
+@Transferable(1)
+public interface ConflictingTypeMessage extends NetworkMessage {
+    Collection<Integer> a();
 }

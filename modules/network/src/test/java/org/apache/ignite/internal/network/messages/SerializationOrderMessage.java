@@ -15,12 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.processor;
+package org.apache.ignite.internal.network.messages;
 
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
 
-@Transferable(1)
-public interface ConflictingTypeMessage extends NetworkMessage {
-    Collection<Integer> a();
+/**
+ * Test message used in {@link SerializationOrderTest}.
+ */
+@Transferable(TestMessageTypes.SERIALIZATION_ORDER_MESSAGE)
+public interface SerializationOrderMessage extends NetworkMessage {
+    String strB();
+
+    String strD();
+
+    int intC();
+
+    int intA();
 }
