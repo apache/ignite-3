@@ -32,7 +32,7 @@ public class ClusterStateDto {
 
     private final Collection<String> msNodes;
 
-    private final IgniteProductVersionDto igniteVersion;
+    private final String igniteVersion;
 
     private final ClusterTagDto clusterTag;
 
@@ -48,7 +48,7 @@ public class ClusterStateDto {
     public ClusterStateDto(
             @JsonProperty("cmgNodes") Collection<String> cmgNodes,
             @JsonProperty("msNodes") Collection<String> msNodes,
-            @JsonProperty("igniteVersion") IgniteProductVersionDto igniteVersion,
+            @JsonProperty("igniteVersion") String igniteVersion,
             @JsonProperty("clusterTag") ClusterTagDto clusterTag
     ) {
         this.cmgNodes = cmgNodes;
@@ -68,7 +68,7 @@ public class ClusterStateDto {
     }
 
     @JsonProperty
-    public IgniteProductVersionDto igniteVersion() {
+    public String igniteVersion() {
         return igniteVersion;
     }
 

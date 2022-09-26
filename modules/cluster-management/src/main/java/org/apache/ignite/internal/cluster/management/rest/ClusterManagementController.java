@@ -30,7 +30,6 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.rest.api.cluster.ClusterManagementApi;
 import org.apache.ignite.internal.rest.api.cluster.ClusterStateDto;
 import org.apache.ignite.internal.rest.api.cluster.ClusterTagDto;
-import org.apache.ignite.internal.rest.api.cluster.IgniteProductVersionDto;
 import org.apache.ignite.internal.rest.api.cluster.InitCommand;
 import org.apache.ignite.internal.rest.exception.ClusterNotInitializedException;
 import org.apache.ignite.lang.IgniteException;
@@ -86,10 +85,9 @@ public class ClusterManagementController implements ClusterManagementApi {
         return new ClusterStateDto(
                 clusterState.cmgNodes(),
                 clusterState.metaStorageNodes(),
-                new IgniteProductVersionDto(clusterState.igniteVersion().major(), clusterState.igniteVersion().minor(),
-                        clusterState.igniteVersion().maintenance(), clusterState.igniteVersion().snapshot(),
-                        clusterState.igniteVersion().alphaVersion()),
-                new ClusterTagDto(clusterState.clusterTag().clusterName(), clusterState.clusterTag().clusterId()));
+                clusterState.igniteVersion().toString(),
+                new ClusterTagDto(clusterState.clusterTag().clusterName(), clusterState.clusterTag().clusterId())
+        );
     }
 
     private RuntimeException mapException(Throwable ex) {
