@@ -344,6 +344,58 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
             Assert.AreEqual(guid, reader.GetGuid(1));
         }
 
+        [Test]
+        public void TestBytes()
+        {
+            Assert.Fail("TODO IGNITE-15431");
+        }
+
+        [Test]
+        public void TestBitMask()
+        {
+            Assert.Fail("TODO IGNITE-15431");
+        }
+
+        [Test]
+        public void TestBigInteger()
+        {
+            Assert.Fail("TODO IGNITE-15431");
+        }
+
+        [Test]
+        public void TestDecimal()
+        {
+            Assert.Fail("TODO IGNITE-15431");
+        }
+
+        [Test]
+        public void TestDate()
+        {
+            // TODO NodaTime?
+            Assert.Fail("TODO IGNITE-15431");
+        }
+
+        [Test]
+        public void TestTime()
+        {
+            // TODO NodaTime?
+            Assert.Fail("TODO IGNITE-15431");
+        }
+
+        [Test]
+        public void TestDateTime()
+        {
+            // TODO NodaTime?
+            Assert.Fail("TODO IGNITE-15431");
+        }
+
+        [Test]
+        public void TestTimestamp()
+        {
+            // TODO NodaTime?
+            Assert.Fail("TODO IGNITE-15431");
+        }
+
         private static BinaryTupleReader BuildAndRead(BinaryTupleBuilderAction build, int numElements = 1)
         {
             var bytes = Build(build, numElements);
