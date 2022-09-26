@@ -83,6 +83,7 @@ namespace Apache.Ignite.Internal.Proto
         public static void WriteObject(this ref MessagePackWriter writer, object? obj)
         {
             // TODO: Support all types (IGNITE-15431).
+            // TODO: Throw exceptions on DateTime with description to use NodaTime types?
             switch (obj)
             {
                 case null:
