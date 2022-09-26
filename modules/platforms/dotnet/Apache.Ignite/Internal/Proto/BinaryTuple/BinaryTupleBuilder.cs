@@ -325,7 +325,12 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="value">Value.</param>
         public void AppendTime(LocalTime value)
         {
-            // TODO IGNITE-15431
+            if (value != default)
+            {
+                PutTime(value);
+            }
+
+            OnWrite();
         }
 
         /// <summary>
@@ -534,6 +539,32 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             if (nanos != 0)
             {
                 PutInt(nanos);
+            }
+        }
+
+        private void PutTime(LocalTime value)
+        {
+            long hour = value.Hour;
+            long minute = value.Minute;
+            long second = value.Second;
+            long nanos = value.NanosecondOfSecond;
+
+            if ((nanos % 1000) != 0)
+            {
+                long time = (hour << 42) | (minute << 36) | (second << 30) | nanos;
+                PutInt((int)time);
+                PutShort((short)(time >> 32));
+            }
+            else if ((nanos % 1000000) != 0)
+            {
+                long time = (hour << 32) | (minute << 26) | (second << 20) | (nanos / 1000);
+                PutInt((int)time);
+                PutByte((sbyte)(time >> 32));
+            }
+            else
+            {
+                long time = (hour << 22) | (minute << 16) | (second << 10) | (nanos / 1000000);
+                PutInt((int)time);
             }
         }
 
