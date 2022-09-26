@@ -283,39 +283,72 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             OnWrite();
         }
 
+        /// <summary>
+        /// Appends a bitmask.
+        /// </summary>
+        /// <param name="value">Value.</param>
         public void AppendBitmask(BitArray value)
         {
             // TODO IGNITE-15431
         }
 
+        /// <summary>
+        /// Appends a decimal.
+        /// </summary>
+        /// <param name="value">Value.</param>
         public void AppendDecimal(decimal value)
         {
             // TODO IGNITE-15431
         }
 
+        /// <summary>
+        /// Appends a big integer.
+        /// </summary>
+        /// <param name="value">Value.</param>
         public void AppendBigInteger(BigInteger value)
         {
             // TODO IGNITE-15431
         }
 
+        /// <summary>
+        /// Appends a date.
+        /// </summary>
+        /// <param name="value">Value.</param>
         public void AppendDate(LocalDate value)
         {
             // TODO IGNITE-15431
         }
 
+        /// <summary>
+        /// Appends a time.
+        /// </summary>
+        /// <param name="value">Value.</param>
         public void AppendTime(LocalTime value)
         {
             // TODO IGNITE-15431
         }
 
+        /// <summary>
+        /// Appends a date and time.
+        /// </summary>
+        /// <param name="value">Value.</param>
         public void AppendDateTime(LocalDateTime value)
         {
             // TODO IGNITE-15431
         }
 
+        /// <summary>
+        /// Appends a timestamp (instant).
+        /// </summary>
+        /// <param name="value">Value.</param>
         public void AppendTimestamp(Instant value)
         {
-            // TODO IGNITE-15431
+            if (value != default)
+            {
+                PutTimestamp(value);
+            }
+
+            OnWrite();
         }
 
         /// <summary>
@@ -487,6 +520,21 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             var actualBytes = BinaryTupleCommon.StringEncoding.GetBytes(value, span);
 
             _buffer.Advance(actualBytes);
+        }
+
+        private void PutTimestamp(Instant value)
+        {
+            var sinceEpoch = value - default(Instant);
+
+            long seconds = (long)sinceEpoch.TotalSeconds;
+            int nanos = sinceEpoch.SubsecondNanoseconds;
+
+            PutLong(seconds);
+
+            if (nanos != 0)
+            {
+                PutInt(nanos);
+            }
         }
 
         /// <summary>
