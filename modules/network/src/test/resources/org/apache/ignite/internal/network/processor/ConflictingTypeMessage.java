@@ -17,20 +17,11 @@
 
 package org.apache.ignite.internal.network.processor;
 
+import java.util.Collection;
 import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.TestMessageTypes;
 import org.apache.ignite.network.annotations.Transferable;
 
-/**
- * Test message used in {@link SerializationOrderTest}.
- */
-@Transferable(TestMessageTypes.SERIALIZATION_ORDER_MESSAGE)
-public interface SerializationOrderMessage extends NetworkMessage {
-    String strB();
-
-    String strD();
-
-    int intC();
-
-    int intA();
+@Transferable(1)
+public interface ConflictingTypeMessage extends NetworkMessage {
+    Collection<Integer> a();
 }

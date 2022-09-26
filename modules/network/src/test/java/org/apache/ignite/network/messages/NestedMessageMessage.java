@@ -15,15 +15,15 @@
  * limitations under the License.
  */
 
+package org.apache.ignite.network.messages;
 
-package org.apache.ignite.internal.network.processor;
-
-import java.io.Serializable;
 import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * {@link NetworkMessage} implementation.
+ * Nested {@link NetworkMessage} implementation.
  */
-interface NetworkMessage2 extends NetworkMessage1, Serializable {
-    int intX();
+@Transferable(TestMessageTypes.NESTED_MESSAGE)
+public interface NestedMessageMessage extends NetworkMessage {
+    NetworkMessage nestedMessage();
 }

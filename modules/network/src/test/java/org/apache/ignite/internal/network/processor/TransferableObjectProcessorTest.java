@@ -33,9 +33,9 @@ import org.apache.ignite.network.annotations.Transferable;
 import org.junit.jupiter.api.Test;
 
 /**
- * Integration tests for the {@link TransferableObjectProcessor}.
+ * Tests for the {@link TransferableObjectProcessor}.
  */
-public class ItTransferableObjectProcessorTest {
+public class TransferableObjectProcessorTest {
     /**
      * Package name of the test sources.
      */
@@ -94,7 +94,7 @@ public class ItTransferableObjectProcessorTest {
     @Test
     void testCompileMultipleMessage() {
         Compilation compilation = compiler.compile(
-                sources("AllTypesMessage", "TransitiveMessage", "ItTestMessageGroup")
+                sources("AllTypesMessage", "TransitiveMessage", "TestMessageGroup")
         );
 
         assertThat(compilation).succeededWithoutWarnings();
@@ -182,12 +182,12 @@ public class ItTransferableObjectProcessorTest {
     @Test
     void testMultipleMessageGroups() {
         Compilation compilation = compiler.compile(
-                sources("AllTypesMessage", "ConflictingTypeMessage", "ItTestMessageGroup", "SecondGroup")
+                sources("AllTypesMessage", "ConflictingTypeMessage", "TestMessageGroup", "SecondGroup")
         );
 
         assertThat(compilation).hadErrorContaining(String.format(
                 "Invalid number of message groups (classes annotated with @%s), "
-                    + "only one can be present in a compilation unit: [%s.ItTestMessageGroup, %s.SecondGroup]",
+                        + "only one can be present in a compilation unit: [%s.SecondGroup, %s.TestMessageGroup]",
                 MessageGroup.class.getSimpleName(),
                 RESOURCE_PACKAGE_NAME,
                 RESOURCE_PACKAGE_NAME
@@ -212,7 +212,7 @@ public class ItTransferableObjectProcessorTest {
         assertThrows(
                 AssertionError.class,
                 () -> assertThat(compilation)
-                    .generatedSourceFile(fileName("UnmarshallableTypeNonSerializableMessageSerializer"))
+                        .generatedSourceFile(fileName("UnmarshallableTypeNonSerializableMessageSerializer"))
         );
     }
 
@@ -222,27 +222,38 @@ public class ItTransferableObjectProcessorTest {
     @Test
     void testConflictingMessageTypes() {
         Compilation compilation = compiler.compile(
-                sources("AllTypesMessage", "ConflictingTypeMessage", "ItTestMessageGroup")
+                sources("AllTypesMessage", "ConflictingTypeMessage", "TestMessageGroup")
         );
 
         assertThat(compilation).hadErrorContaining("message with type 1 already exists");
     }
 
     /**
-     * Tests that if a message getter clashes with a getter in a superinterface, an appropriate error is displayed.
+     * Tests that compilation is successful in case a message getter clashes with a getter in a superinterface.
      */
     @Test
     void testInheritedMessageClash() {
         Compilation compilation = compile("InheritedMessageClash");
 
-        assertThat(compilation).hadErrorContaining("Getter with name 'x' is already defined");
+        assertThat(compilation).succeededWithoutWarnings();
+
+        assertThat(compilation).generatedSourceFile(fileName("InheritedMessageClashBuilder"));
+        assertThat(compilation).generatedSourceFile(fileName("InheritedMessageClashImpl"));
+        assertThat(compilation).generatedSourceFile(fileName("NetworkMessageProcessorTestFactory"));
+
+        assertThat(compilation).generatedSourceFile(fileName("InheritedMessageClashSerializer"));
+        assertThat(compilation).generatedSourceFile(fileName("InheritedMessageClashDeserializer"));
+        assertThat(compilation).generatedSourceFile(fileName("InheritedMessageClashSerializationFactory"));
+        assertThat(compilation).generatedSourceFile(
+                fileName("NetworkMessageProcessorTestSerializationRegistryInitializer")
+        );
     }
 
     /**
      * Compiles the given network message.
      */
     private Compilation compile(String messageSource) {
-        return compiler.compile(sources(messageSource, "ItTestMessageGroup"));
+        return compiler.compile(sources(messageSource, "TestMessageGroup"));
     }
 
     /**

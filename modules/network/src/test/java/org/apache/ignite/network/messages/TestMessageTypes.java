@@ -15,11 +15,8 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.network;
+package org.apache.ignite.network.messages;
 
-import org.apache.ignite.internal.network.processor.EmptyMessage;
-import org.apache.ignite.internal.network.processor.InheritedMessage;
-import org.apache.ignite.internal.network.processor.SerializationOrderMessage;
 import org.apache.ignite.network.annotations.MessageGroup;
 
 /**

@@ -34,6 +34,7 @@ import org.apache.ignite.internal.network.serialization.marshal.MarshalException
 import org.apache.ignite.internal.network.serialization.marshal.MarshalledObject;
 import org.apache.ignite.internal.network.serialization.marshal.UnmarshalException;
 import org.apache.ignite.internal.network.serialization.marshal.UserObjectMarshaller;
+import org.apache.ignite.network.messages.AllTypesMessage;
 import org.jetbrains.annotations.Nullable;
 import org.objenesis.strategy.StdInstantiatorStrategy;
 import org.openjdk.jmh.annotations.Benchmark;

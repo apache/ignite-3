@@ -15,16 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network;
+package org.apache.ignite.network.serialization;
 
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.TestMessageTypes;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.network.MessageSerializationRegistryImpl;
+import org.apache.ignite.network.messages.TestMessagesSerializationRegistryInitializer;
 
 /**
- * Nested {@link NetworkMessage} implementation.
+ * Implementation of a {@link MessageSerializationRegistry} for tests.
  */
-@Transferable(TestMessageTypes.NESTED_MESSAGE)
-public interface NestedMessageMessage extends NetworkMessage {
-    NetworkMessage nestedMessage();
+public class TestMessageSerializationRegistryImpl extends MessageSerializationRegistryImpl {
+    /**
+     * Default constructor.
+     */
+    public TestMessageSerializationRegistryImpl() {
+        TestMessagesSerializationRegistryInitializer.registerFactories(this);
+    }
 }

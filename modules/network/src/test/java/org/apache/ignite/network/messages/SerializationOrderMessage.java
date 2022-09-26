@@ -15,15 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.processor;
+package org.apache.ignite.network.messages;
 
 import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.TestMessageTypes;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Empty {@link NetworkMessage} implementation.
+ * Test message used in {@link SerializationOrderTest}.
  */
-@Transferable(TestMessageTypes.EMPTY_MESSAGE)
-public interface EmptyMessage extends NetworkMessage {
+@Transferable(TestMessageTypes.SERIALIZATION_ORDER_MESSAGE)
+public interface SerializationOrderMessage extends NetworkMessage {
+    String strB();
+
+    String strD();
+
+    int intC();
+
+    int intA();
 }

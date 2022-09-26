@@ -28,7 +28,10 @@ import java.util.stream.IntStream;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.lang.IgniteUuidGenerator;
 import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.TestMessagesFactory;
+import org.apache.ignite.network.messages.AllTypesMessage;
+import org.apache.ignite.network.messages.AllTypesMessageBuilder;
+import org.apache.ignite.network.messages.AllTypesMessageImpl;
+import org.apache.ignite.network.messages.TestMessagesFactory;
 import org.jetbrains.annotations.Nullable;
 
 /**

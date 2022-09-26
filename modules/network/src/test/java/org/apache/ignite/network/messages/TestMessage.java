@@ -15,68 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network;
+package org.apache.ignite.network.messages;
 
 import java.io.Serializable;
-import java.util.BitSet;
-import java.util.Collection;
 import java.util.Map;
-import java.util.UUID;
-import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.TestMessageTypes;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
  * {@link NetworkMessage} implementation.
  */
-@Transferable(TestMessageTypes.ALL_TYPES)
-public interface AllTypesMessage extends NetworkMessage, Serializable {
-    byte byteA();
+@Transferable(TestMessageTypes.TEST)
+public interface TestMessage extends NetworkMessage, Serializable {
+    String msg();
 
-    short shortB();
-
-    int intC();
-
-    long longD();
-
-    float floatE();
-
-    double doubleF();
-
-    char charG();
-
-    boolean booleanH();
-
-    byte[] byteArrI();
-
-    short[] shortArrJ();
-
-    int[] intArrK();
-
-    long[] longArrL();
-
-    float[] floatArrM();
-
-    double[] doubleArrN();
-
-    char[] charArrO();
-
-    boolean[] booleanArrP();
-
-    String strQ();
-
-    BitSet bitSetR();
-
-    UUID uuidS();
-
-    IgniteUuid igniteUuidT();
-
-    NetworkMessage netMsgU();
-
-    NetworkMessage[] netMsgArrV();
-
-    Collection<NetworkMessage> netMsgCollW();
-
-    Map<String, NetworkMessage> newMsgMapX();
+    Map<Integer, String> map();
 }

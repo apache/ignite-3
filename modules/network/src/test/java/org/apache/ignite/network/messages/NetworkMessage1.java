@@ -15,18 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.network;
 
-import org.apache.ignite.network.serialization.MessageSerializationRegistry;
+package org.apache.ignite.network.messages;
+
+import org.apache.ignite.network.NetworkMessage;
 
 /**
- * Implementation of a {@link MessageSerializationRegistry} for tests.
+ * {@link NetworkMessage} implementation.
  */
-public class TestMessageSerializationRegistryImpl extends MessageSerializationRegistryImpl {
-    /**
-     * Default constructor.
-     */
-    public TestMessageSerializationRegistryImpl() {
-        TestMessagesSerializationRegistryInitializer.registerFactories(this);
-    }
+interface NetworkMessage1 extends NetworkMessage {
+    int intY();
 }

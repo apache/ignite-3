@@ -52,10 +52,11 @@ import org.apache.ignite.internal.network.serialization.marshal.MarshalledObject
 import org.apache.ignite.internal.network.serialization.marshal.UserObjectMarshaller;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.OutNetworkObject;
-import org.apache.ignite.network.TestMessageSerializationRegistryImpl;
-import org.apache.ignite.network.TestMessagesFactory;
+import org.apache.ignite.network.messages.MessageWithMarshallable;
+import org.apache.ignite.network.messages.TestMessagesFactory;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.network.serialization.MessageSerializer;
+import org.apache.ignite.network.serialization.TestMessageSerializationRegistryImpl;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 

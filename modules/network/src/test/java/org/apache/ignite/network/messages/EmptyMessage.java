@@ -15,12 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.processor;
+package org.apache.ignite.network.messages;
 
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
 
-@Transferable(1)
-public interface ConflictingTypeMessage extends NetworkMessage {
-    Collection<Integer> a();
+/**
+ * Empty {@link NetworkMessage} implementation.
+ */
+@Transferable(TestMessageTypes.EMPTY_MESSAGE)
+public interface EmptyMessage extends NetworkMessage {
 }
