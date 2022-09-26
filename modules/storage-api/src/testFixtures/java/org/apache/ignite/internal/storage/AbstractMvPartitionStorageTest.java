@@ -1033,6 +1033,47 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
         }
     }
 
+    @Test
+    void testScanVersionsWithWriteIntent() throws Exception {
+        RowId rowId = new RowId(PARTITION_ID, 100, 0);
+
+        storage.runConsistently(() -> {
+            storage.addWrite(rowId, binaryRow(key, value), newTransactionId(), UUID.randomUUID(), PARTITION_ID);
+
+            storage.commitWrite(rowId, clock.now());
+
+            storage.addWrite(rowId, binaryRow(key, value2), newTransactionId(), UUID.randomUUID(), PARTITION_ID);
+
+            return null;
+        });
+
+        // Put rows before and after.
+        storage.runConsistently(() -> {
+            RowId lowRowId = new RowId(PARTITION_ID, 99, 0);
+            RowId highRowId = new RowId(PARTITION_ID, 101, 0);
+
+            List.of(lowRowId, highRowId).forEach(newRowId ->  {
+                storage.addWrite(newRowId, binaryRow(key, value), newTransactionId(), UUID.randomUUID(), PARTITION_ID);
+
+                storage.commitWrite(newRowId, clock.now());
+            });
+
+            return null;
+        });
+
+        List<IgniteBiTuple<TestKey, TestValue>> list = toList(storage.scanVersions(rowId));
+
+        assertEquals(2, list.size());
+
+        for (int i = 0; i < list.size(); i++) {
+            assertEquals(key, list.get(i).getKey());
+        }
+
+        assertEquals(value2, list.get(0).getValue());
+
+        assertEquals(value, list.get(1).getValue());
+    }
+
     /**
      * Returns row id that is lexicographically smaller (by the value of one) than the argument.
      *
