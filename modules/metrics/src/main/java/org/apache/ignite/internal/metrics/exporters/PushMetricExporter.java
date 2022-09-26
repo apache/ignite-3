@@ -46,7 +46,7 @@ public abstract class PushMetricExporter<CfgT extends ExporterConfiguration> ext
     @Override
     public void start() {
         scheduler =
-                Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("metrics-exporter", log));
+                Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("metrics-exporter-" + name(), log));
 
         fut = scheduler.scheduleWithFixedDelay(() -> {
             try {
