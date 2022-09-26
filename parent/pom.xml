@@ -1591,6 +1591,7 @@
                         <exclude>packaging/deb/rules</exclude>
                         <exclude>packaging/deb/control</exclude>
                         <exclude>packaging/scripts/bootstrap-config</exclude>
+                        <exclude>packaging/docker/Dockerfile</exclude>
                         <exclude>**/*.bat</exclude> <!-- Files in bat format -->
                         <exclude>**/*.ini</exclude> <!-- Files in ini format -->
                         <exclude>modules/runner/src/integrationTest/sql/**</exclude> <!-- SQL logic tests. -->
