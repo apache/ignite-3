@@ -91,7 +91,7 @@ public class MetricManager implements IgniteComponent {
             checkAndStartExporter(exporterName, metricConfiguration.exporters().get(exporterName));
         }
 
-        metricConfiguration.exporters().listenElements(new ExporterConfigurationListeter());
+        metricConfiguration.exporters().listenElements(new ExporterConfigurationListener());
     }
 
     /** {@inheritDoc} */
@@ -209,7 +209,7 @@ public class MetricManager implements IgniteComponent {
 
     }
 
-    private class ExporterConfigurationListeter implements ConfigurationNamedListListener<ExporterView> {
+    private class ExporterConfigurationListener implements ConfigurationNamedListListener<ExporterView> {
         @Override
         public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<ExporterView> ctx) {
             checkAndStartExporter(ctx.newValue().exporterName(), (ExporterConfiguration) ctx.newValue());
