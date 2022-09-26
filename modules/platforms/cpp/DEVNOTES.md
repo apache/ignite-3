@@ -25,7 +25,7 @@ Building in debug mode with tests. In this dir:
 ```shell
 mkdir cmake-build-debug
 cd cmake-build-debug
-conan install .. -pr:b=default --build=missing -s build_type=Debug -o boost:shared=True
+conan install .. --build=missing -s build_type=Debug -s compiler.libcxx=libstdc++11 -o boost:shared=True
 cmake .. -DENABLE_TESTS=ON -DCMAKE_BUILD_TYPE=Debug
 cmake --build . -j8 
 ```
@@ -45,7 +45,7 @@ Building in release mode without tests. In this dir:
 ```shell
 mkdir cmake-build-release
 cd cmake-build-release
-conan install .. -pr:b=default --build=missing -s build_type=Release -o boost:shared=True
+conan install .. --build=missing -s build_type=Release -s compiler.libcxx=libstdc++11 -o boost:shared=True
 cmake .. -DENABLE_TESTS=ON -DCMAKE_BUILD_TYPE=Release
 cmake --build . -j8 
 ```
