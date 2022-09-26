@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
+import static org.apache.ignite.lang.ErrorGroups.Sql.OPERATION_INTERRUPTED_ERR;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.util.Collection;
@@ -175,7 +176,7 @@ public abstract class AbstractNode<RowT> implements Node<RowT> {
             throw new ExecutionCancelledException();
         }
         if (Thread.interrupted()) {
-            throw new IgniteInternalCheckedException("Thread was interrupted.");
+            throw new IgniteInternalCheckedException(OPERATION_INTERRUPTED_ERR, "Thread was interrupted.");
         }
         if (!IgniteUtils.assertionsEnabled()) {
             return;

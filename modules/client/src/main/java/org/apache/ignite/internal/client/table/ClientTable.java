@@ -283,18 +283,8 @@ public class ClientTable implements Table {
 
         return CompletableFuture.allOf(schemaFut, partitionsFut)
                 .thenCompose(v -> {
-                    List<String> partitions = partitionsFut.getNow(null);
                     ClientSchema schema = schemaFut.getNow(null);
-
-                    String preferredNodeId = null;
-
-                    if (partitions != null && partitions.size() > 0 && hashFunction != null) {
-                        Integer hash = hashFunction.apply(schema);
-
-                        if (hash != null) {
-                            preferredNodeId = partitions.get(Math.abs(hash % partitions.size()));
-                        }
-                    }
+                    String preferredNodeId = getPreferredNodeId(hashFunction, partitionsFut.getNow(null), schema);
 
                     return ch.serviceAsync(opCode,
                             w -> writer.accept(schema, w),
@@ -323,6 +313,30 @@ public class ClientTable implements Table {
                         ch.serviceAsync(opCode,
                                 w -> writer.accept(schema, w),
                                 r -> reader.apply(r.in())));
+    }
+
+    <T> CompletableFuture<T> doSchemaOutOpAsync(
+            int opCode,
+            BiConsumer<ClientSchema, PayloadOutputChannel> writer,
+            Function<ClientMessageUnpacker, T> reader,
+            Function<ClientSchema, Integer> hashFunction) {
+
+        CompletableFuture<ClientSchema> schemaFut = getLatestSchema();
+        CompletableFuture<List<String>> partitionsFut = hashFunction == null
+                ? CompletableFuture.completedFuture(null)
+                : getPartitionAssignment();
+
+        return CompletableFuture.allOf(schemaFut, partitionsFut)
+                .thenCompose(v -> {
+                    ClientSchema schema = schemaFut.getNow(null);
+                    String preferredNodeId = getPreferredNodeId(hashFunction, partitionsFut.getNow(null), schema);
+
+                    return ch.serviceAsync(opCode,
+                            w -> writer.accept(schema, w),
+                            r -> reader.apply(r.in()),
+                            null,
+                            preferredNodeId);
+                });
     }
 
     private <T> Object readSchemaAndReadData(
@@ -402,5 +416,20 @@ public class ClientTable implements Table {
 
                     return res;
                 });
+    }
+
+    @Nullable
+    private static String getPreferredNodeId(Function<ClientSchema, Integer> hashFunction, List<String> partitions, ClientSchema schema) {
+        if (partitions == null || partitions.isEmpty() || hashFunction == null) {
+            return null;
+        }
+
+        Integer hash = hashFunction.apply(schema);
+
+        if (hash == null) {
+            return null;
+        }
+
+        return partitions.get(Math.abs(hash % partitions.size()));
     }
 }
