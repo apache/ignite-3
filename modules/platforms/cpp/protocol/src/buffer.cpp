@@ -30,7 +30,7 @@ Buffer::Buffer() :
     m_buffer(),
     m_lengthPos(std::numeric_limits<std::size_t>::max()) { }
 
-    [[maybe_unused]] Buffer::Buffer(std::vector<std::byte> data) :
+Buffer::Buffer(std::vector<std::byte> data) :
     m_buffer(std::move(data)),
     m_lengthPos(std::numeric_limits<std::size_t>::max()) { }
 
