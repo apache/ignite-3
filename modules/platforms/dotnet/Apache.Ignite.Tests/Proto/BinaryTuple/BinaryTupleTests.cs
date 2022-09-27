@@ -436,7 +436,26 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
         [Test]
         public void TestTime()
         {
-            Assert.Fail("TODO IGNITE-15431");
+            var val = LocalDateTime.FromDateTime(DateTime.UtcNow).TimeOfDay;
+
+            var reader = BuildAndRead(
+                (ref BinaryTupleBuilder b) =>
+                {
+                    b.AppendTime(default);
+                    b.AppendTime(val);
+                    b.AppendTime(LocalTime.MinValue);
+                    b.AppendTime(LocalTime.MaxValue);
+                    b.AppendTime(LocalTime.Midnight);
+                    b.AppendTime(LocalTime.Noon);
+                },
+                6);
+
+            Assert.AreEqual(default(LocalTime), reader.GetTime(0));
+            Assert.AreEqual(val, reader.GetTime(1));
+            Assert.AreEqual(LocalTime.MinValue, reader.GetTime(2));
+            Assert.AreEqual(LocalTime.MaxValue, reader.GetTime(3));
+            Assert.AreEqual(LocalTime.Midnight, reader.GetTime(4));
+            Assert.AreEqual(LocalTime.Noon, reader.GetTime(5));
         }
 
         [Test]
