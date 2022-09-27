@@ -664,6 +664,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
             Span<byte> buf = stackalloc byte[4];
             BinaryPrimitives.WriteInt32LittleEndian(buf, date << 8);
+            Console.WriteLine(buf.ToArray());
 
             buf[1..].CopyTo(GetSpan(3));
         }
