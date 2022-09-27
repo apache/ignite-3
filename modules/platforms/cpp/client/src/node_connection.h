@@ -111,7 +111,7 @@ public:
             }
         }
 
-        bool sent = m_pool->send(m_id, network::DataBufferShared(std::move(message)));
+        bool sent = m_pool->send(m_id, std::move(message));
         if (!sent)
         {
             std::lock_guard<std::mutex> lock(m_requestHandlersMutex);

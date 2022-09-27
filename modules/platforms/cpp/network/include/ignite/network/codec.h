@@ -43,7 +43,7 @@ public:
      *
      * @throw IgniteError on error.
      */
-    virtual DataBufferShared encode(DataBufferShared& data) = 0;
+    virtual DataBufferOwning encode(DataBufferOwning& data) = 0;
 
     /**
      * Decode provided data.

@@ -15,8 +15,6 @@
  * limitations under the License.
  */
 
-#include <iostream>
-
 #include "ignite/protocol/utils.h"
 
 #include <ignite/network/length_prefix_codec.h>
@@ -29,11 +27,11 @@ LengthPrefixCodec::LengthPrefixCodec() :
     m_packet(),
     m_magicReceived(false) { }
 
-DataBufferShared LengthPrefixCodec::encode(DataBufferShared& data)
+DataBufferOwning LengthPrefixCodec::encode(DataBufferOwning& data)
 {
     // Just pass data as is, because we encode message size in
     // the application to avoid unnecessary re-allocations and copying.
-    return data.consumeEntirely();
+    return std::move(data.consumeEntirely());
 }
 
 void LengthPrefixCodec::resetBuffer()

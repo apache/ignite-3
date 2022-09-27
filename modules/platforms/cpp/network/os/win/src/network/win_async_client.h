@@ -124,7 +124,7 @@ public:
      * @param data Data to send.
      * @return @c true on success.
      */
-    bool send(const DataBufferShared& data);
+    bool send(std::vector<std::byte>&& data);
 
     /**
      * Initiate next receive of data.
@@ -252,7 +252,7 @@ private:
     IoOperation m_currentSend{};
 
     /** Packets that should be sent. */
-    std::deque<DataBufferShared> m_sendPackets;
+    std::deque<DataBufferOwning> m_sendPackets;
 
     /** Send critical section. */
     std::mutex m_sendMutex;

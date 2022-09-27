@@ -76,7 +76,7 @@ bool LinuxAsyncClient::close()
     return true;
 }
 
-bool LinuxAsyncClient::send(const DataBufferShared& data)
+bool LinuxAsyncClient::send(const DataBufferOwning& data)
 {
     std::lock_guard<std::mutex> lock(m_sendMutex);
 

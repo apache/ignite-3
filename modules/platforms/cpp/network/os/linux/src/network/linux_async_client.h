@@ -96,7 +96,7 @@ public:
      * @param data Data to send.
      * @return @c true on success.
      */
-    bool send(const DataBufferShared& data);
+    bool send(const DataBufferOwning& data);
 
     /**
      * Initiate next receive of data.
@@ -228,7 +228,7 @@ private:
     TcpRange m_range;
 
     /** Packets that should be sent. */
-    std::deque<DataBufferShared> m_sendPackets;
+    std::deque<DataBufferOwning> m_sendPackets;
 
     /** Send critical section. */
     std::mutex m_sendMutex;

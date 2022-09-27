@@ -63,7 +63,7 @@ void LinuxAsyncClientPool::stop()
     internalStop();
 }
 
-bool LinuxAsyncClientPool::send(uint64_t id, const DataBufferShared& data)
+bool LinuxAsyncClientPool::send(uint64_t id, std::vector<std::byte>&& data)
 {
     if (m_stopping)
         return false;

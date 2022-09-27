@@ -185,7 +185,7 @@ void ClusterConnection::onMessageReceived(uint64_t id, const network::DataBuffer
 
             return;
         }
-        else
+        else if (it != m_connections.end())
             connection = it->second;
     }
 
@@ -224,11 +224,9 @@ void ClusterConnection::handshake(uint64_t id, ProtocolContext& context)
         });
     }
 
-    network::DataBufferShared dataBuffer(std::move(message));
-
     try
     {
-        bool res = m_pool->send(id, dataBuffer);
+        bool res = m_pool->send(id, std::move(message));
         if (!res)
         {
             m_logger->logWarning("Failed to send handshake request: Connection already closed.");

@@ -25,21 +25,19 @@ CodecDataFilter::CodecDataFilter(std::shared_ptr<Factory<Codec>> factory) :
     m_codecs(),
     m_codecsMutex() { }
 
-bool CodecDataFilter::send(uint64_t id, const DataBufferShared& data)
+bool CodecDataFilter::send(uint64_t id, std::vector<std::byte>&& data)
 {
     std::shared_ptr<Codec> codec = FindCodec(id);
     if (!codec)
         return false;
 
-    DataBufferShared data0(data);
-    while (true)
-    {
-        DataBufferShared out = codec->encode(data0);
-
+    DataBufferOwning data0(std::move(data));
+    while (true) {
+        auto out = codec->encode(data0);
         if (out.isEmpty())
             break;
 
-        bool res = DataFilterAdapter::send(id, out);
+        bool res = DataFilterAdapter::send(id, std::move(out).extractData());
         if (!res)
             return res;
     }

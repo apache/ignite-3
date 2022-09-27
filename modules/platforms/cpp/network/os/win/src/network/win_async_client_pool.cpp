@@ -165,7 +165,7 @@ void WinAsyncClientPool::handleMessageSent(uint64_t id)
         asyncHandler0->onMessageSent(id);
 }
 
-bool WinAsyncClientPool::send(uint64_t id, const DataBufferShared& data)
+bool WinAsyncClientPool::send(uint64_t id, std::vector<std::byte>&& data)
 {
     if (m_stopping)
         return false;
@@ -174,7 +174,7 @@ bool WinAsyncClientPool::send(uint64_t id, const DataBufferShared& data)
     if (!client)
         return false;
 
-    return client->send(data);
+    return client->send(std::move(data));
 }
 
 void WinAsyncClientPool::closeAndRelease(uint64_t id, std::optional<IgniteError> err)

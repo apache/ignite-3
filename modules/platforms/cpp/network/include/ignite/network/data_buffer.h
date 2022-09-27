@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <cassert>
 #include <cstdint>
 #include <memory>
 #include <vector>
@@ -128,17 +129,18 @@ private:
  *
  * Represents a consumable chunk of data. Holds data ownership.
  */
-class DataBufferShared
+class DataBufferOwning
 {
 public:
     /**
      * Constructor.
      *
      * @param data Data.
+     * @param pos Position.
      */
-    explicit DataBufferShared(std::vector<std::byte>&& data) :
-        m_memory(std::make_shared<std::vector<std::byte>>(std::move(data))),
-        m_data(*m_memory) { }
+    explicit DataBufferOwning(std::vector<std::byte>&& data, size_t pos = 0) :
+        m_memory(std::move(data)),
+        m_pos(pos) { }
 
     /**
      * Consume buffer data by the vector.
@@ -147,10 +149,9 @@ public:
      * @param bytes Number of bytes to consume.
      */
     void consumeBy(std::vector<std::byte>& dst, size_t bytes) {
-        if (bytes > m_data.size())
-            bytes = m_data.size();
+        bytes = std::min(m_memory.size() - m_pos, bytes);
 
-        dst.insert(dst.end(), m_data.begin(), m_data.begin() + ptrdiff_t(bytes));
+        dst.insert(dst.end(), m_memory.data() + m_pos, m_memory.data() + m_pos + bytes);
         skip(bytes);
     }
 
@@ -161,7 +162,7 @@ public:
      */
     [[nodiscard]]
     bool isEmpty() const {
-        return m_data.empty();
+        return getSize() == 0;
     }
 
     /**
@@ -169,12 +170,10 @@ public:
      *
      * @return Buffer containing consumed data.
      */
-    DataBufferShared consumeEntirely() {
-        DataBufferShared res(*this);
-        m_data = {};
-        m_memory.reset();
-
-        return res;
+    DataBufferOwning consumeEntirely() {
+        DataBufferOwning copy(*this);
+        skip(getSize());
+        return copy;
     }
 
     /**
@@ -183,10 +182,7 @@ public:
      * @param bytes Bytes to skip.
      */
     void skip(size_t bytes) {
-        if (bytes >= m_data.size())
-            m_data = {};
-        else
-            m_data.remove_prefix(bytes);
+        m_pos += std::min(bytes, getSize());
     }
 
     /**
@@ -196,15 +192,45 @@ public:
      */
     [[nodiscard]]
     BytesView getBytesView() const {
-        return m_data;
+        return {m_memory.data() + m_pos, getSize()};
+    }
+
+    /**
+     * Convert to underlying data.
+     *
+     * @return Data vector.
+     */
+    [[nodiscard]]
+    std::vector<std::byte> extractData() && {
+        if (!m_pos)
+            return std::move(m_memory);
+
+        auto pos = ptrdiff_t(m_pos);
+
+        std::vector<std::byte> buf(m_memory.begin() + pos, m_memory.end());
+        m_pos = 0;
+        m_memory.clear();
+
+        return buf;
     }
 
 private:
+    /**
+     * Get size.
+     *
+     * @return Size.
+     */
+    [[nodiscard]]
+    size_t getSize() const {
+        assert(m_memory.size() >= m_pos);
+        return m_memory.size() - m_pos;
+    }
+
     /** Memory. */
-    std::shared_ptr<std::vector<std::byte>> m_memory;
+    std::vector<std::byte> m_memory;
 
     /** Data. */
-    BytesView m_data;
+    size_t m_pos{0};
 };
 
 } // namespace ignite::network

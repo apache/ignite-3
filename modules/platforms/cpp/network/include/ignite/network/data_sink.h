@@ -41,7 +41,7 @@ public:
      *
      * @throw IgniteError on error.
      */
-    virtual bool send(uint64_t id, const DataBufferShared& data) = 0;
+    virtual bool send(uint64_t id, std::vector<std::byte>&& data) = 0;
 
     /**
      * Closes specified connection if it's established. Connection to the specified address is planned for

@@ -96,14 +96,14 @@ HANDLE WinAsyncClient::addToIocp(HANDLE iocp)
     return res;
 }
 
-bool WinAsyncClient::send(const DataBufferShared& data)
+bool WinAsyncClient::send(std::vector<std::byte>&& data)
 {
     std::lock_guard<std::mutex> lock(m_sendMutex);
 
     if (State::CONNECTED != m_state && State::IN_POOL != m_state)
         return false;
 
-    m_sendPackets.push_back(data);
+    m_sendPackets.emplace_back(std::move(data));
 
     if (m_sendPackets.size() > 1)
         return true;

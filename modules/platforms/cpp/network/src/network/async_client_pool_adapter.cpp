@@ -57,9 +57,9 @@ void AsyncClientPoolAdapter::setHandler(std::weak_ptr<AsyncHandler> handler)
     m_pool->setHandler(std::move(handler0));
 }
 
-bool AsyncClientPoolAdapter::send(uint64_t id, const DataBufferShared& data)
+bool AsyncClientPoolAdapter::send(uint64_t id, std::vector<std::byte>&& data)
 {
-    return m_sink->send(id, data);
+    return m_sink->send(id, std::move(data));
 }
 
 void AsyncClientPoolAdapter::close(uint64_t id, std::optional<IgniteError> err)

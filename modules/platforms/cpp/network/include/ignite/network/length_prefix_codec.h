@@ -52,7 +52,7 @@ public:
      *
      * @throw IgniteError on error.
      */
-    DataBufferShared encode(DataBufferShared& data) override;
+    DataBufferOwning encode(DataBufferOwning& data) override;
 
     /**
      * Decode provided data.

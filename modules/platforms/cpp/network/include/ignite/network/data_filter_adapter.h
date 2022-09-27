@@ -41,11 +41,11 @@ public:
      *
      * @throw IgniteError on error.
      */
-    bool send(uint64_t id, const DataBufferShared& data) override
+    bool send(uint64_t id, std::vector<std::byte>&& data) override
     {
         DataSink* sink = m_sink;
         if (sink)
-            return sink->send(id, data);
+            return sink->send(id, std::move(data));
 
         return false;
     }
