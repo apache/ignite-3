@@ -615,10 +615,8 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
         private void PutTimestamp(Instant value)
         {
-            var sinceEpoch = value - default(Instant);
-
-            long seconds = (long)sinceEpoch.TotalSeconds;
-            int nanos = sinceEpoch.SubsecondNanoseconds;
+            long seconds = value.ToUnixTimeSeconds();
+            int nanos = (value - NodaConstants.UnixEpoch).SubsecondNanoseconds;
 
             PutLong(seconds);
 
