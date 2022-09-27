@@ -19,6 +19,7 @@ package org.apache.ignite.internal.storage.chm;
 
 import java.util.Iterator;
 import java.util.Map.Entry;
+import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -30,6 +31,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
@@ -327,14 +329,72 @@ public class TestConcurrentHashMapMvPartitionStorage implements MvPartitionStora
 
     /** {@inheritDoc} */
     @Override
-    public Cursor<BinaryRow> scan(Predicate<BinaryRow> filter, HybridTimestamp timestamp) {
-        Iterator<BinaryRow> iterator = map.values().stream()
-                .map(versionChain -> read(versionChain, timestamp, null, filter))
-                .map(ReadResult::binaryRow)
-                .filter(Objects::nonNull)
-                .iterator();
+    public PartitionTimestampCursor scan(Predicate<BinaryRow> filter, HybridTimestamp timestamp) {
+        Iterator<VersionChain> iterator = map.values().iterator();
 
-        return Cursor.fromIterator(iterator);
+        return new PartitionTimestampCursor() {
+
+            private VersionChain currentChain;
+
+            private ReadResult currentReadResult;
+
+            @Override
+            public @Nullable BinaryRow committed(HybridTimestamp timestamp) {
+                if (currentChain == null) {
+                    throw new IllegalStateException();
+                }
+
+                // We don't check if row conforms the key filter here, because we've already checked it.
+                ReadResult read = read(currentChain, timestamp, null, null);
+
+                if (read.transactionId() == null) {
+                    return read.binaryRow();
+                }
+
+                return null;
+            }
+
+            @Override
+            public void close() {
+                // No-op.
+            }
+
+            @Override
+            public boolean hasNext() {
+                if (currentReadResult != null) {
+                    return true;
+                }
+
+                currentChain = null;
+
+                while (iterator.hasNext()) {
+                    VersionChain chain = iterator.next();
+                    ReadResult readResult = read(chain, timestamp, null, filter);
+
+                    if (!readResult.isEmpty()) {
+                        currentChain = chain;
+                        currentReadResult = readResult;
+
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+
+            @Override
+            public ReadResult next() {
+                if (!hasNext()) {
+                    throw new NoSuchElementException();
+                }
+
+                ReadResult res = currentReadResult;
+
+                currentReadResult = null;
+
+                return res;
+            }
+        };
     }
 
     /** {@inheritDoc} */

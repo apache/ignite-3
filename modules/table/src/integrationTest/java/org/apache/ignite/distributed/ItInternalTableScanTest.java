@@ -56,6 +56,8 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.storage.DataRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.PartitionTimestampCursor;
+import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.InternalTable;
@@ -68,7 +70,6 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.util.ByteUtils;
-import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
@@ -305,7 +306,7 @@ public class ItInternalTableScanTest {
         AtomicReference<Throwable> gotException = new AtomicReference<>();
 
         when(mockStorage.scan(any(), any(Timestamp.class))).thenAnswer(invocation -> {
-            var cursor = mock(Cursor.class);
+            var cursor = mock(PartitionTimestampCursor.class);
 
             when(cursor.hasNext()).thenAnswer(hnInvocation -> true);
 
@@ -518,11 +519,12 @@ public class ItInternalTableScanTest {
         List<BinaryRow> retrievedItems = Collections.synchronizedList(new ArrayList<>());
 
         when(mockStorage.scan(any(), any(Timestamp.class))).thenAnswer(invocation -> {
-            var cursor = mock(Cursor.class);
+            var cursor = mock(PartitionTimestampCursor.class);
 
             when(cursor.hasNext()).thenAnswer(hnInvocation -> cursorTouchCnt.get() < submittedItems.size());
 
-            when(cursor.next()).thenAnswer(ninvocation -> submittedItems.get(cursorTouchCnt.getAndIncrement()));
+            when(cursor.next()).thenAnswer(ninvocation ->
+                    ReadResult.createFromCommitted(submittedItems.get(cursorTouchCnt.getAndIncrement())));
 
             return cursor;
         });
@@ -585,7 +587,7 @@ public class ItInternalTableScanTest {
         CountDownLatch subscriberFinishedLatch = new CountDownLatch(2);
 
         when(mockStorage.scan(any(), any(Timestamp.class))).thenAnswer(invocation -> {
-            var cursor = mock(Cursor.class);
+            var cursor = mock(PartitionTimestampCursor.class);
 
             doAnswer(
                     invocationClose -> {

@@ -228,7 +228,7 @@ public interface MvPartitionStorage extends AutoCloseable {
      * @deprecated Use {@link #scan(Predicate, HybridTimestamp)}
      */
     @Deprecated
-    default Cursor<BinaryRow> scan(Predicate<BinaryRow> keyFilter, Timestamp timestamp) throws StorageException {
+    default PartitionTimestampCursor scan(Predicate<BinaryRow> keyFilter, Timestamp timestamp) throws StorageException {
         return scan(keyFilter, convertTimestamp(timestamp));
     }
 
@@ -241,7 +241,7 @@ public interface MvPartitionStorage extends AutoCloseable {
      * @throws TxIdMismatchException If there's another pending update associated with different transaction id.
      * @throws StorageException If failed to read data from the storage.
      */
-    Cursor<BinaryRow> scan(Predicate<BinaryRow> keyFilter, HybridTimestamp timestamp) throws StorageException;
+    PartitionTimestampCursor scan(Predicate<BinaryRow> keyFilter, HybridTimestamp timestamp) throws StorageException;
 
     /**
      * Returns rows count belongs to current storage.
