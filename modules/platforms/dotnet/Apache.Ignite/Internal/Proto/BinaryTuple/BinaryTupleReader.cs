@@ -246,7 +246,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         public LocalTime GetTime(int index) => Seek(index) switch
         {
             { IsEmpty: true } => default,
-            var s => new BitArray(s.ToArray())
+            var s => ReadTime(s)
         };
 
         /// <summary>
@@ -257,7 +257,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         public LocalDateTime GetDateTime(int index) => Seek(index) switch
         {
             { IsEmpty: true } => default,
-            var s => new BitArray(s.ToArray())
+            var s => ReadDate(s) + ReadTime(s[3..])
         };
 
         /// <summary>
@@ -314,7 +314,6 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
         private static LocalTime ReadTime(ReadOnlySpan<byte> span)
         {
-            // long time = Integer.toUnsignedLong(buffer.getInt(offset));
             long time = BinaryPrimitives.ReadUInt32LittleEndian(span);
             var length = span.Length;
 
