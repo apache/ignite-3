@@ -20,6 +20,7 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
     using System;
     using System.Collections;
     using System.Linq;
+    using System.Numerics;
     using Internal.Proto.BinaryTuple;
     using NUnit.Framework;
 
@@ -378,9 +379,14 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
         }
 
         [Test]
-        public void TestBigInteger()
+        public void TestBigInteger([Values(0, 15, 123)] long val, [Values(1, 33, 456, 9876)] int exp)
         {
-            Assert.Fail("TODO IGNITE-15431");
+            var bigInt = BigInteger.Pow(val, exp);
+
+            var reader = BuildAndRead((ref BinaryTupleBuilder b) => b.AppendNumber(bigInt));
+            var res = reader.GetNumber(0);
+
+            Assert.AreEqual(bigInt, res);
         }
 
         [Test]
