@@ -465,7 +465,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                     AppendDecimal((decimal)value, scale);
                     break;
 
-                case ClientDataType.BigInteger:
+                case ClientDataType.Number:
                     AppendNumber((BigInteger)value);
                     break;
 

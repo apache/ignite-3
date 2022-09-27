@@ -314,7 +314,6 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                 ClientDataType.DateTime => GetDateTime(index),
                 ClientDataType.Timestamp => GetTimestamp(index),
                 ClientDataType.Number => GetNumber(index),
-                ClientDataType.BigInteger => GetNumber(index),
                 _ => throw new IgniteClientException(ErrorGroups.Client.Protocol, "Unsupported type: " + columnType)
             };
         }
