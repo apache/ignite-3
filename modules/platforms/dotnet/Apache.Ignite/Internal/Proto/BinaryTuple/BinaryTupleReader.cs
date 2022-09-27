@@ -334,8 +334,11 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
         private static LocalDate ReadDate(ReadOnlySpan<byte> span)
         {
-            int date = BinaryPrimitives.ReadUInt16LittleEndian(span);
-            date |= (sbyte)span[2..][0] << 16;
+            // Read int32 from 3 bytes, preserving sign.
+            Span<byte> buf = stackalloc byte[4];
+            span.CopyTo(buf[1..]);
+
+            int date = BinaryPrimitives.ReadInt32LittleEndian(buf) >> 8;
 
             int day = date & 31;
             int month = (date >> 5) & 15;

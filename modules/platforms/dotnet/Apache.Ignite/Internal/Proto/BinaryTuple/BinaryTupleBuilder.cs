@@ -662,9 +662,9 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
             int date = (year << 9) | (month << 5) | day;
 
+            // Write int32 as 3 bytes, preserving sign.
             Span<byte> buf = stackalloc byte[4];
             BinaryPrimitives.WriteInt32LittleEndian(buf, date << 8);
-            Console.WriteLine(buf.ToArray());
 
             buf[1..].CopyTo(GetSpan(3));
         }
