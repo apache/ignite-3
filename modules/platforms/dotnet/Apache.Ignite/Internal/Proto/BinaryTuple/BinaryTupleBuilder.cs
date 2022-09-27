@@ -315,13 +315,19 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             var bits = decimal.GetBits(value);
             var valueScale = (bits[3] & 0x00FF0000) >> 16;
 
+            var bytes = MemoryMarshal.Cast<int, byte>(bits.AsSpan(0, 3));
+            var unscaledValue = new BigInteger(bytes);
+
             if (valueScale != scale)
             {
-                // TODO IGNITE-15431 adjust scale by converting to BigInteger and multiplication.
+                unscaledValue *= BigInteger.Pow(new BigInteger(10), scale - valueScale);
             }
 
-            var bytes = MemoryMarshal.Cast<int, byte>(bits.AsSpan(0, 3));
-            bytes.CopyTo(GetSpan(bytes.Length));
+            var destination = GetSpan(unscaledValue.GetByteCount());
+            var success = unscaledValue.TryWriteBytes(destination, out int written);
+
+            Debug.Assert(success, "success");
+            Debug.Assert(written == destination.Length, "written == destination.Length");
         }
 
         /// <summary>
@@ -332,11 +338,11 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         {
             if (value != default)
             {
-                var target = GetSpan(value.GetByteCount());
-                var success = value.TryWriteBytes(target, out int written);
+                var destination = GetSpan(value.GetByteCount());
+                var success = value.TryWriteBytes(destination, out int written);
 
                 Debug.Assert(success, "success");
-                Debug.Assert(written == target.Length, "written == target.Length");
+                Debug.Assert(written == destination.Length, "written == destination.Length");
             }
 
             OnWrite();
