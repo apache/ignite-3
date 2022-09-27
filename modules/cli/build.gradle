@@ -122,6 +122,18 @@ task generateApiClient(type: GenerateTask) {
 
 generateApiClient.dependsOn copyOpenapiDefinition
 
+idea.module {
+    sourceDirs += generatedClientDir.get().dir('src/main/java').asFile
+    resourceDirs += generatedClientDir.get().dir('src/main/resources').asFile
+    generatedSourceDirs += generatedClientDir.get().dir('src/main/java').asFile
+    resourceDirs += sourceSets.main.output.resourcesDir
+}
+
+compileJava {
+    dependsOn generateApiClient
+    source generatedClientDir.get().dir('src/main/java')
+}
+
 task generateAutocompletionScript(type: JavaExec) {
     classpath = sourceSets.main.runtimeClasspath
     mainClass.set("picocli.AutoComplete")
@@ -137,43 +149,15 @@ task generateAutocompletionScript(type: JavaExec) {
 
 build.dependsOn generateAutocompletionScript
 
-application {
-    mainClass = 'org.apache.ignite.internal.cli.Main'
-}
-
-distributions {
-    main {
-        startScripts.applicationName ='ignite3-cli'
-        distributionBaseName = 'ignite3-cli'
-        contents {
-            into('') {
-                File.createTempDir().with {
-                    ["log"].each {new File(absolutePath, it).mkdirs() }
-                    from (absolutePath) {
-                        includeEmptyDirs = true
-                    }
-                }
-            }
-            into('') {
-                from ("$rootDir/LICENSE")
-                from ("$rootDir/NOTICE")
-                from ("$rootDir/assembly/README.md")
-            }
-            into('bin') {
-                from (generateAutocompletionScript)
-            }
-        }
+configurations {
+    cliScripts {
+        canBeConsumed = true
+        canBeResolved = false
     }
 }
 
-idea.module {
-    sourceDirs += generatedClientDir.get().dir('src/main/java').asFile
-    resourceDirs += generatedClientDir.get().dir('src/main/resources').asFile
-    generatedSourceDirs += generatedClientDir.get().dir('src/main/java').asFile
-    resourceDirs += sourceSets.main.output.resourcesDir
-}
-
-compileJava {
-    dependsOn generateApiClient
-    source generatedClientDir.get().dir('src/main/java')
+artifacts {
+    cliScripts(new File("${buildDir}/ignite_completion.sh")) {
+        builtBy(generateAutocompletionScript)
+    }
 }

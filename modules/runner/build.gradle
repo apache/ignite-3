@@ -100,39 +100,3 @@ dependencies {
 checkstyleMain {
     enabled = false
 }
-
-application {
-    mainClass = 'org.apache.ignite.app.IgniteCliRunner'
-}
-
-distributions {
-    startScripts.enabled = false
-    main {
-        distributionBaseName = 'ignite3-db'
-        contents {
-            // create empty dirs
-            into('') {
-                File.createTempDir().with {
-                    ["log", "config", "work"].each {new File(absolutePath, it).mkdirs() }
-                    from (absolutePath) {
-                        includeEmptyDirs = true
-                    }
-                }
-            }
-            into('') {
-                from ("$rootDir/LICENSE")
-                from ("$rootDir/NOTICE")
-                from ("$rootDir/assembly/README.md")
-            }
-            into('config') {
-                from ("$rootDir/packaging/scripts/bootstrap-config")
-                from ("$rootDir/packaging/config/ignite-config.conf")
-                from ("$rootDir/packaging/config/ignite.java.util.logging.properties")
-            }
-            into('bin') {
-                fileMode 0755
-                from ("$rootDir/packaging/scripts/ignite3-db.sh")
-            }
-        }
-    }
-}

@@ -22,7 +22,7 @@
   # LOAD VARIABLES
   if [ -z ${IGNITE_HOME+x} ]; then IGNITE_HOME=$(pwd); fi
 
-  . $IGNITE_HOME/config/bootstrap-config
+  . $IGNITE_HOME/etc/bootstrap-config
 
 
 
@@ -31,7 +31,7 @@ start() {
   ############# STAGE 2: BUILD CMD ###############
 
   # FORM A START COMMAND
-  CMD="$JAVA_HOME/bin/java \
+  CMD="java \
   --add-opens java.base/java.lang=ALL-UNNAMED \
   --add-opens java.base/java.lang.invoke=ALL-UNNAMED \
   --add-opens java.base/java.lang.reflect=ALL-UNNAMED \
