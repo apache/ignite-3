@@ -209,42 +209,66 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// </summary>
         /// <param name="index">Index.</param>
         /// <returns>Value.</returns>
-        public decimal GetDecimal(int index) => throw new Exception("TODO");
+        public decimal GetDecimal(int index) => Seek(index) switch
+        {
+            { IsEmpty: true } => default,
+            var s => new BitArray(s.ToArray())
+        };
 
         /// <summary>
         /// Gets a number (big integer) value.
         /// </summary>
         /// <param name="index">Index.</param>
         /// <returns>Value.</returns>
-        public BigInteger GetNumber(int index) => throw new Exception("TODO");
+        public BigInteger GetNumber(int index) => Seek(index) switch
+        {
+            { IsEmpty: true } => default,
+            var s => new BitArray(s.ToArray())
+        };
 
         /// <summary>
         /// Gets a local date value.
         /// </summary>
         /// <param name="index">Index.</param>
         /// <returns>Value.</returns>
-        public LocalDate GetDate(int index) => throw new Exception("TODO");
+        public LocalDate GetDate(int index) => Seek(index) switch
+        {
+            { IsEmpty: true } => default,
+            var s => new BitArray(s.ToArray())
+        };
 
         /// <summary>
         /// Gets a local time value.
         /// </summary>
         /// <param name="index">Index.</param>
         /// <returns>Value.</returns>
-        public LocalTime GetTime(int index) => throw new Exception("TODO");
+        public LocalTime GetTime(int index) => Seek(index) switch
+        {
+            { IsEmpty: true } => default,
+            var s => new BitArray(s.ToArray())
+        };
 
         /// <summary>
         /// Gets a local date and time value.
         /// </summary>
         /// <param name="index">Index.</param>
         /// <returns>Value.</returns>
-        public LocalDateTime GetDateTime(int index) => throw new Exception("TODO");
+        public LocalDateTime GetDateTime(int index) => Seek(index) switch
+        {
+            { IsEmpty: true } => default,
+            var s => new BitArray(s.ToArray())
+        };
 
         /// <summary>
         /// Gets a timestamp (instant) value.
         /// </summary>
         /// <param name="index">Index.</param>
         /// <returns>Value.</returns>
-        public Instant GetTimestamp(int index) => throw new Exception("TODO");
+        public Instant GetTimestamp(int index) => Seek(index) switch
+        {
+            { IsEmpty: true } => default,
+            var s => new BitArray(s.ToArray())
+        };
 
         /// <summary>
         /// Gets an object value according to the specified type.
