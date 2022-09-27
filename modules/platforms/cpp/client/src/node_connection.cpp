@@ -29,8 +29,21 @@ NodeConnection::NodeConnection(uint64_t id, std::shared_ptr<network::AsyncClient
     m_reqIdGen(0),
     m_logger(std::move(logger)) { }
 
-void NodeConnection::processMessage(const network::DataBuffer &msg)
-{
+
+NodeConnection::~NodeConnection() {
+    for (auto& handler : m_requestHandlers) {
+        auto handlingRes = IgniteResult<void>::ofOperation([&] () {
+            auto res = handler.second->setError(IgniteError("Connection closed before response was received"));
+            if (res.hasError())
+                m_logger->logError("Uncaught user callback exception while handling operation error: " +
+                    res.getError().whatStr());
+        });
+        if (handlingRes.hasError())
+            m_logger->logError("Uncaught user callback exception: " + handlingRes.getError().whatStr());
+    }
+}
+
+void NodeConnection::processMessage(const network::DataBuffer &msg) {
     protocol::Reader reader(msg.getBytesView());
 
     auto responseType = reader.readInt32();
@@ -49,16 +62,20 @@ void NodeConnection::processMessage(const network::DataBuffer &msg)
 
     auto err = protocol::readError(reader);
     if (err) {
-        handler->setError(std::move(err.value()));
         m_logger->logError("Error: " + err->whatStr());
+        auto res = handler->setError(std::move(err.value()));
+        if (res.hasError())
+            m_logger->logError("Uncaught user callback exception while handling operation error: " +
+                res.getError().whatStr());
         return;
     }
 
-    handler->handle(reader);
+    auto handlingRes = handler->handle(reader);
+    if (handlingRes.hasError())
+        m_logger->logError("Uncaught user callback exception: " + handlingRes.getError().whatStr());
 }
 
-std::shared_ptr<ResponseHandler> NodeConnection::getAndRemoveHandler(int64_t id)
-{
+std::shared_ptr<ResponseHandler> NodeConnection::getAndRemoveHandler(int64_t id) {
     std::lock_guard<std::mutex> lock(m_requestHandlersMutex);
 
     auto it = m_requestHandlers.find(id);

@@ -46,12 +46,14 @@ public:
     /**
      * Handle response.
      */
-    virtual void handle(protocol::Reader&) = 0;
+    [[nodiscard]]
+    virtual IgniteResult<void> handle(protocol::Reader&) = 0;
 
     /**
      * Set error.
      */
-    virtual void setError(IgniteError) = 0;
+     [[nodiscard]]
+    virtual IgniteResult<void> setError(IgniteError) = 0;
 };
 
 
@@ -87,13 +89,14 @@ public:
      *
      * @param reader Reader to be used to read response.
      */
-    void handle(protocol::Reader& reader) override {
+    [[nodiscard]]
+    IgniteResult<void> handle(protocol::Reader& reader) override {
         IgniteCallback<T> callback = removeCallback();
         if (!callback)
-            return;
+            return {};
 
         auto res = IgniteResult<T>::ofOperation([&] () { return m_readFunc(reader); });
-        callback(std::move(res));
+        return IgniteResult<void>::ofOperation([&] () { callback(std::move(res)); } );
     }
 
     /**
@@ -101,12 +104,13 @@ public:
      *
      * @param err Error to set.
      */
-    void setError(IgniteError err) override {
+    [[nodiscard]]
+    IgniteResult<void> setError(IgniteError err) override {
         IgniteCallback<T> callback = removeCallback();
         if (!callback)
-            return;
+            return {};
 
-        callback({std::move(err)});
+        return IgniteResult<void>::ofOperation([&] () { callback({std::move(err)}); } );
     }
 
 private:

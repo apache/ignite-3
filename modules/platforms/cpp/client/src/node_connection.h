@@ -54,8 +54,10 @@ public:
     NodeConnection& operator=(NodeConnection&&) = delete;
     NodeConnection& operator=(const NodeConnection&) = delete;
 
-    // Default
-    ~NodeConnection() = default;
+    /**
+     * Destructor.
+     */
+    ~NodeConnection();
 
     /**
      * Constructor.

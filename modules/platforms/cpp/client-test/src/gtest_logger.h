@@ -21,13 +21,15 @@
 #include <string>
 #include <sstream>
 
+#include <gtest/gtest.h>
+
 namespace ignite
 {
 
 /**
  * Test logger.
  */
-class TestLogger : public IgniteLogger
+class GtestLogger : public IgniteLogger
 {
 public:
     /**
@@ -36,26 +38,25 @@ public:
      * @param includeTs Include timestamps.
      * @param debug Enable debug.
      */
-    TestLogger(bool includeTs, bool debug) :
+    GtestLogger(bool includeTs, bool debug) :
         m_includeTs(includeTs),
         m_debug(debug) { }
 
     void logError(std::string_view message) override {
-        std::cout << getTimestamp() << "[ERROR]   " << message << std::endl;
+        std::cout << "[          ] [ ERROR ]   " + std::string(message) << std::endl;
     }
 
     void logWarning(std::string_view message) override {
-        std::cout << getTimestamp() << "[WARNING] " << message << std::endl;
+        std::cout << "[          ] [ WARNING ] " + std::string(message) << std::endl;
     }
 
     void logInfo(std::string_view message) override {
-        std::cout << getTimestamp() << "[INFO]    " << message << std::endl;
+        std::cout << "[          ] [ INFO ]    " + std::string(message) << std::endl;
     }
 
     void logDebug(std::string_view message) override {
-        if (m_debug) {
-            std::cout << getTimestamp() << "[DEBUG]  " << message << std::endl;
-        }
+        if (m_debug)
+            std::cout << "[          ] [ DEBUG ]   " + std::string(message) << std::endl;
     }
 
 private:
