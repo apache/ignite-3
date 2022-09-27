@@ -181,7 +181,8 @@ public:
      * @param operation Operation to wrap.
      * @return IgniteResult
      */
-    static IgniteResult ofOperation(std::function<T()>&& operation) noexcept {
+    static IgniteResult ofOperation(const std::function<T()>& operation) noexcept {
+        // TODO: IGNITE-17760 Move to common once it's re-factored
         try {
             return {operation()};
         } catch (const IgniteError& err) {
@@ -204,7 +205,8 @@ public:
      * @return Promise setter.
      */
     static std::function<void(IgniteResult<T>)> promiseSetter(std::shared_ptr<std::promise<T>> pr) {
-        return [pr = std::move(pr)] (IgniteResult<T> res) mutable {
+        // TODO: IGNITE-17760 Move to common once it's re-factored
+        return [pr = std::move(pr)] (IgniteResult<T>&& res) mutable {
             IgniteResult<T>::setPromise(*pr, std::move(res));
         };
     }
@@ -312,7 +314,8 @@ public:
      * @param operation Operation to wrap.
      * @return IgniteResult
      */
-    static IgniteResult ofOperation(std::function<void()>&& operation) noexcept {
+    static IgniteResult ofOperation(const std::function<void()>& operation) noexcept {
+        // TODO: IGNITE-17760 Move to common once it's re-factored
         try {
             operation();
             return {};
@@ -335,7 +338,8 @@ public:
      * @return Promise setter.
      */
     static std::function<void(IgniteResult<void>)> promiseSetter(std::shared_ptr<std::promise<void>> pr) {
-        return [pr = std::move(pr)] (IgniteResult<void> res) mutable {
+        // TODO: IGNITE-17760 Move to common once it's re-factored
+        return [pr = std::move(pr)] (IgniteResult<void>&& res) mutable {
             IgniteResult<void>::setPromise(*pr, std::move(res));
         };
     }
@@ -360,6 +364,6 @@ private:
 };
 
 template<typename T>
-using IgniteCallback = std::function<void(IgniteResult<T>)>;
+using IgniteCallback = std::function<void(IgniteResult<T>&&)>;
 
 } // namespace ignite

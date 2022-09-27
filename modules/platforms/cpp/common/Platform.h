@@ -17,15 +17,6 @@
 
 #pragma once
 
-/**
- * Macro SWITCH_WIN_OTHER that uses first option on Windows and second on any other OS.
- */
-#ifdef WIN32
-#   define SWITCH_WIN_OTHER(x, y) x
-#else
-#   define SWITCH_WIN_OTHER(x, y) y
-#endif
-
 namespace ignite::platform
 {
 

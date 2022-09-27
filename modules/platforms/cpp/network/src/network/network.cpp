@@ -21,7 +21,7 @@
 #   include "network/linux_async_client_pool.h"
 #endif
 
-#include "common/Platform.h"
+#include "common/Config.h"
 
 #include "ignite/network/network.h"
 #include "network/async_client_pool_adapter.h"

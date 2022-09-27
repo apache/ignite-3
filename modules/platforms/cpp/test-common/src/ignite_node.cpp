@@ -20,7 +20,7 @@
 #include <iostream>
 #include <sstream>
 
-#include "common/Platform.h"
+#include "common/Config.h"
 
 #include "ignite_runner.h"
 #include "test_utils.h"
