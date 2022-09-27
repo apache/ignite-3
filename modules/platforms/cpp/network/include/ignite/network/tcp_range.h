@@ -75,82 +75,8 @@ struct TcpRange
      * @return @c true if empty.
      */
     [[nodiscard]]
-    bool isEmpty() const
-    {
+    bool isEmpty() const {
         return host.empty();
-    }
-
-    /**
-     * Comparison operator.
-     *
-     * @param val1 First value.
-     * @param val2 Second value.
-     * @return True if equal.
-     */
-    friend bool operator==(const TcpRange& val1, const TcpRange& val2)
-    {
-        return val1.port == val2.port && val1.range == val2.range && val1.host == val2.host;
-    }
-
-
-    /**
-     * Comparison operator.
-     *
-     * @param val1 First value.
-     * @param val2 Second value.
-     * @return True if not equal.
-     */
-    friend bool operator!=(const TcpRange& val1, const TcpRange& val2)
-    {
-        return !(val1 == val2);
-    }
-
-    /**
-     * Comparison operator.
-     *
-     * @param val1 First value.
-     * @param val2 Second value.
-     * @return True if less.
-     */
-    friend bool operator<(const TcpRange& val1, const TcpRange& val2)
-    {
-        return val1.compare(val2) < 0;
-    }
-
-    /**
-     * Comparison operator.
-     *
-     * @param val1 First value.
-     * @param val2 Second value.
-     * @return True if less or equal.
-     */
-    friend bool operator<=(const TcpRange& val1, const TcpRange& val2)
-    {
-        return val1.compare(val2) <= 0;
-    }
-
-    /**
-     * Comparison operator.
-     *
-     * @param val1 First value.
-     * @param val2 Second value.
-     * @return True if greater.
-     */
-    friend bool operator>(const TcpRange& val1, const TcpRange& val2)
-    {
-        return val1.compare(val2) > 0;
-    }
-
-    /**
-     * Comparison operator.
-     *
-     * @param val1 First value.
-     * @param val2 Second value.
-     * @return True if greater or equal.
-     */
-    friend bool operator>=(const TcpRange& val1, const TcpRange& val2)
-    {
-        return val1.compare(val2) >= 0;
     }
 
     /**
@@ -159,7 +85,9 @@ struct TcpRange
      * @return String representation.
      */
     [[nodiscard]]
-    std::string toString() const;
+    std::string toString() const {
+        return host + ':' + std::to_string(port) + ".." + std::to_string(port + range);
+    }
 
     /** Remote host. */
     std::string host;
@@ -170,5 +98,73 @@ struct TcpRange
     /** Number of ports after the port that should be tried if the previous are unavailable. */
     uint16_t range{0};
 };
+
+/**
+ * Comparison operator.
+ *
+ * @param val1 First value.
+ * @param val2 Second value.
+ * @return True if equal.
+ */
+inline bool operator==(const TcpRange& val1, const TcpRange& val2) {
+    return val1.port == val2.port && val1.range == val2.range && val1.host == val2.host;
+}
+
+
+/**
+ * Comparison operator.
+ *
+ * @param val1 First value.
+ * @param val2 Second value.
+ * @return True if not equal.
+ */
+inline bool operator!=(const TcpRange& val1, const TcpRange& val2) {
+    return !(val1 == val2);
+}
+
+/**
+ * Comparison operator.
+ *
+ * @param val1 First value.
+ * @param val2 Second value.
+ * @return True if less.
+ */
+inline bool operator<(const TcpRange& val1, const TcpRange& val2) {
+    return val1.compare(val2) < 0;
+}
+
+/**
+ * Comparison operator.
+ *
+ * @param val1 First value.
+ * @param val2 Second value.
+ * @return True if less or equal.
+ */
+inline bool operator<=(const TcpRange& val1, const TcpRange& val2) {
+    return val1.compare(val2) <= 0;
+}
+
+/**
+ * Comparison operator.
+ *
+ * @param val1 First value.
+ * @param val2 Second value.
+ * @return True if greater.
+ */
+inline bool operator>(const TcpRange& val1, const TcpRange& val2) {
+    return val1.compare(val2) > 0;
+}
+
+/**
+ * Comparison operator.
+ *
+ * @param val1 First value.
+ * @param val2 Second value.
+ * @return True if greater or equal.
+ */
+inline bool operator>=(const TcpRange& val1, const TcpRange& val2) {
+    return val1.compare(val2) >= 0;
+}
+
 
 } // namespace ignite::network
