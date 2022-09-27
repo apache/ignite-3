@@ -268,7 +268,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         public Instant GetTimestamp(int index) => Seek(index) switch
         {
             { IsEmpty: true } => default,
-            var s => new BitArray(s.ToArray())
+            var s => ReadInstant(s)
         };
 
         /// <summary>
@@ -298,6 +298,20 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                 // TODO: Support all types (IGNITE-15431).
                 _ => throw new IgniteClientException(ErrorGroups.Client.Protocol, "Unsupported type: " + columnType)
             };
+        }
+
+        private static Instant ReadInstant(ReadOnlySpan<byte> span)
+        {
+            var len = span.Length;
+            if (len == 0)
+            {
+                return default;
+            }
+
+            long seconds = BinaryPrimitives.ReadInt64LittleEndian(span);
+            int nanos = len == 8 ? 0 : BinaryPrimitives.ReadInt32LittleEndian(span[8..]);
+
+            return Instant.FromUnixTimeSeconds(seconds).PlusNanoseconds(nanos);
         }
 
         private static LocalDate ReadDate(ReadOnlySpan<byte> span)
