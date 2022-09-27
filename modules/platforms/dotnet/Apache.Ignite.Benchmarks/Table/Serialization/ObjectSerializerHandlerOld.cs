@@ -60,7 +60,7 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
                 }
             }
 
-            return (T)(object)res;
+            return res;
         }
 
         /// <inheritdoc/>
