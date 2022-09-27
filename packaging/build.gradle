@@ -114,7 +114,3 @@ task allDistZip(type: Zip) {
 }
 
 allDistZip.dependsOn cliDistZip, dbDistZip
-
-
-
-

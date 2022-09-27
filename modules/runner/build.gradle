@@ -15,9 +15,6 @@
  * limitations under the License.
  */
 
-plugins {
-    id 'application'
-}
 
 apply from: "$rootDir/buildscripts/java-core.gradle"
 apply from: "$rootDir/buildscripts/java-junit5.gradle"

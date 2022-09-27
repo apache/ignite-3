@@ -20,7 +20,6 @@ import org.openapitools.generator.gradle.plugin.tasks.GenerateTask
 plugins {
     alias(libs.plugins.openapiGenerator)
     id 'idea'
-    id 'application'
 }
 
 apply from: "$rootDir/buildscripts/java-core.gradle"
