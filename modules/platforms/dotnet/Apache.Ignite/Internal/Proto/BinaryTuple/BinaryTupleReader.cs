@@ -208,11 +208,12 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// Gets a decimal value.
         /// </summary>
         /// <param name="index">Index.</param>
+        /// <param name="scale">Decimal scale.</param>
         /// <returns>Value.</returns>
-        public decimal GetDecimal(int index) => Seek(index) switch
+        public decimal GetDecimal(int index, int scale) => Seek(index) switch
         {
             { IsEmpty: true } => default,
-            var s => new BitArray(s.ToArray())
+            var s => ReadDecimal2(s, scale)
         };
 
         /// <summary>
@@ -223,7 +224,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         public BigInteger GetNumber(int index) => Seek(index) switch
         {
             { IsEmpty: true } => default,
-            var s => new BitArray(s.ToArray())
+            var s => new BigInteger(s)
         };
 
         /// <summary>
@@ -297,6 +298,77 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                 // TODO: Support all types (IGNITE-15431).
                 _ => throw new IgniteClientException(ErrorGroups.Client.Protocol, "Unsupported type: " + columnType)
             };
+        }
+
+        private static decimal ReadDecimal2(ReadOnlySpan<byte> span, int scale)
+        {
+            var unscaled = new BigInteger(span);
+            var res = (decimal)unscaled;
+
+            if (scale > 0)
+            {
+                res /= (decimal)BigInteger.Pow(10, scale);
+            }
+
+            return res;
+        }
+
+        private static decimal ReadDecimal(ReadOnlySpan<byte> span, int scale)
+        {
+            Span<byte> mag = stackalloc byte[span.Length];
+            span.CopyTo(mag);
+
+            bool negative = false;
+
+            if ((sbyte)mag[0] < 0)
+            {
+                mag[0] &= 0x7F;
+
+                negative = true;
+            }
+
+            if (scale < 0 || scale > 28)
+            {
+                throw new OverflowException("Decimal value scale overflow (must be between 0 and 28): " + scale);
+            }
+
+            if (mag.Length > 13)
+            {
+                throw new OverflowException("Decimal magnitude overflow (must be less than 96 bits): " + mag.Length * 8);
+            }
+
+            if (mag.Length == 13 && mag[0] != 0)
+            {
+                throw new OverflowException("Decimal magnitude overflow (must be less than 96 bits): " + mag.Length * 8);
+            }
+
+            int hi = 0;
+            int mid = 0;
+            int lo = 0;
+
+            int ctr = -1;
+
+            for (int i = mag.Length - 12; i < mag.Length; i++)
+            {
+                if (++ctr == 4)
+                {
+                    mid = lo;
+                    lo = 0;
+                }
+                else if (ctr == 8)
+                {
+                    hi = mid;
+                    mid = lo;
+                    lo = 0;
+                }
+
+                if (i >= 0)
+                {
+                    lo = (lo << 8) + mag[i];
+                }
+            }
+
+            return new decimal(lo, mid, hi, negative, (byte)scale);
         }
 
         private int GetOffset(int position)
