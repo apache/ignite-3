@@ -19,6 +19,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <memory>
 #include <string_view>
 
 #include <msgpack.h>
@@ -35,6 +36,9 @@ namespace ignite::protocol
 class Writer
 {
 public:
+    // Default
+    ~Writer() = default;
+
     // Deleted
     Writer() = delete;
     Writer(Writer&&) = delete;
@@ -55,64 +59,87 @@ public:
      *
      * @param buffer Buffer.
      */
-    explicit Writer(Buffer& buffer);
-
-    /**
-     * Destructor.
-     */
-    virtual ~Writer();
-
-    /**
-     * Write int value.
-     *
-     * @param value Value to write.
-     */
-    void write(int8_t value);
+    explicit Writer(Buffer& buffer) :
+        m_buffer(buffer),
+        m_packer(msgpack_packer_new(&m_buffer, writeCallback), msgpack_packer_free) {
+        assert(m_packer.get());
+    }
 
     /**
      * Write int value.
      *
      * @param value Value to write.
      */
-    void write(int16_t value);
+    void write(int8_t value) {
+        msgpack_pack_int8(m_packer.get(), value);
+    }
 
     /**
      * Write int value.
      *
      * @param value Value to write.
      */
-    void write(int32_t value);
+    void write(int16_t value) {
+        msgpack_pack_int16(m_packer.get(), value);
+    }
 
     /**
      * Write int value.
      *
      * @param value Value to write.
      */
-    void write(int64_t value);
+    void write(int32_t value) {
+        msgpack_pack_int32(m_packer.get(), value);
+    }
+
+    /**
+     * Write int value.
+     *
+     * @param value Value to write.
+     */
+    void write(int64_t value) {
+        msgpack_pack_int64(m_packer.get(), value);
+    }
 
     /**
      * Write string value.
      *
      * @param value Value to write.
      */
-    void write(std::string_view value);
+    void write(std::string_view value) {
+        msgpack_pack_str_with_body(m_packer.get(), value.data(), value.size());
+    }
 
     /**
      * Write empty binary data.
      */
-    void writeBinaryEmpty();
+    void writeBinaryEmpty() {
+        msgpack_pack_bin(m_packer.get(), 0);
+    }
 
     /**
      * Write empty map.
      */
-    void writeMapEmpty();
+    void writeMapEmpty() {
+        msgpack_pack_map(m_packer.get(), 0);
+    }
 
 private:
+    /**
+     * Write callback.
+     *
+     * @param data Pointer to the instance.
+     * @param buf Data to write.
+     * @param len Data length.
+     * @return Write result.
+     */
+    static int writeCallback(void* data, const char* buf, size_t len);
+
     /** Buffer. */
     Buffer& m_buffer;
 
     /** Packer. */
-    msgpack_packer* m_packer;
+    std::unique_ptr<msgpack_packer, void(*)(msgpack_packer*)> m_packer;
 };
 
 } // namespace ignite::protocol

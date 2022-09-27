@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include <limits>
+
 #include <msgpack.h>
 
 #include "common/Types.h"
@@ -24,20 +26,18 @@
 namespace ignite::protocol
 {
 
-class Writer;
-
 /**
  * Buffer.
  */
 class Buffer
 {
-    friend class Writer;
 public:
     /** Length header size in bytes. */
     static constexpr size_t LENGTH_HEADER_SIZE = 4;
 
     // Default
-    virtual ~Buffer() = default;
+    Buffer() = default;
+    ~Buffer() = default;
     Buffer(Buffer&&) = default;
     Buffer(const Buffer& other) = default;
     Buffer& operator=(Buffer&&) = default;
@@ -45,22 +45,21 @@ public:
 
     /**
      * Constructor.
-     */
-    Buffer();
-
-    /**
-     * Constructor.
      *
      * @param data Data.
      */
-    explicit Buffer(std::vector<std::byte> data);
+    explicit Buffer(std::vector<std::byte> data) :
+        m_buffer(std::move(data)),
+        m_lengthPos(std::numeric_limits<std::size_t>::max()) { }
 
     /**
      * Write raw data.
      *
      * @param data Data to write.
      */
-    void writeRawData(BytesView data);
+    void writeRawData(BytesView data){
+        m_buffer.insert(m_buffer.end(), data.begin(), data.end());
+    }
 
     /**
      * Get underlying data buffer view.
@@ -68,15 +67,17 @@ public:
      * @return Underlying data buffer view.
      */
     [[nodiscard]]
-    BytesView getData() const
-    {
+    BytesView getData() const {
         return m_buffer;
     }
 
     /**
      * Reserving space for length header.
      */
-    void reserveLengthHeader();
+    void reserveLengthHeader() {
+        m_lengthPos = m_buffer.size();
+        m_buffer.insert(m_buffer.end(), 4, std::byte{0});
+    }
 
     /**
      * Write buffer length to previously reserved position.
@@ -95,21 +96,11 @@ public:
     }
 
 private:
-    /**
-     * Write callback.
-     *
-     * @param data Pointer to the instance.
-     * @param buf Data to write.
-     * @param len Data length.
-     * @return Write result.
-     */
-    static int writeCallback(void* data, const char* buf, size_t len);
-
     /** Buffer. */
-    std::vector<std::byte> m_buffer;
+    std::vector<std::byte> m_buffer{};
 
     /** Length position. */
-    std::size_t m_lengthPos;
+    std::size_t m_lengthPos{std::numeric_limits<std::size_t>::max()};
 };
 
 } // namespace ignite::protocol

@@ -41,23 +41,7 @@ Reader::Reader(BytesView buffer) :
     next();
 }
 
-Reader::~Reader()
-{
-    msgpack_unpacker_destroy(&m_unpacker);
-}
-
-std::int16_t Reader::readInt16()
-{
-    return std::int16_t(readInt64());
-}
-
-std::int32_t Reader::readInt32()
-{
-    return std::int32_t(readInt64());
-}
-
-std::int64_t Reader::readInt64()
-{
+std::int64_t Reader::readInt64() {
     checkDataInStream();
 
     msgpack_object object = m_currentVal.data;
@@ -71,8 +55,7 @@ std::int64_t Reader::readInt64()
     return res;
 }
 
-std::string Reader::readString()
-{
+std::string Reader::readString() {
     checkDataInStream();
 
     msgpack_object object = m_currentVal.data;
@@ -86,16 +69,14 @@ std::string Reader::readString()
     return res;
 }
 
-std::optional<std::string> Reader::readStringNullable()
-{
+std::optional<std::string> Reader::readStringNullable() {
     if (tryReadNil())
         return std::nullopt;
 
     return readString();
 }
 
-Guid Reader::readGuid()
-{
+Guid Reader::readGuid() {
     checkDataInStream();
 
     if (m_currentVal.data.type != MSGPACK_OBJECT_EXT && m_currentVal.data.via.ext.type != std::int8_t(ExtensionTypes::GUID))
@@ -115,8 +96,7 @@ Guid Reader::readGuid()
     return res;
 }
 
-bool Reader::tryReadNil()
-{
+bool Reader::tryReadNil() {
     if (m_currentVal.data.type != MSGPACK_OBJECT_NIL)
         return false;
 
@@ -124,20 +104,13 @@ bool Reader::tryReadNil()
     return true;
 }
 
-void Reader::skip()
-{
-    next();
-}
-
-void Reader::next()
-{
+void Reader::next() {
     checkDataInStream();
 
     m_moveRes = msgpack_unpacker_next(&m_unpacker, &m_currentVal);
 }
 
-void Reader::checkDataInStream()
-{
+void Reader::checkDataInStream() {
     if (m_moveRes < 0)
         throw IgniteError("No more data in stream");
 }

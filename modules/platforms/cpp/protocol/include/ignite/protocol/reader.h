@@ -51,7 +51,9 @@ public:
     /**
      * Destructor.
      */
-    virtual ~Reader();
+    ~Reader() {
+        msgpack_unpacker_destroy(&m_unpacker);
+    }
 
     /**
      * Read int16.
@@ -59,7 +61,9 @@ public:
      * @return Value.
      */
     [[nodiscard]]
-    std::int16_t readInt16();
+    std::int16_t readInt16() {
+        return std::int16_t(readInt64());
+    }
 
     /**
      * Read int32.
@@ -67,7 +71,9 @@ public:
      * @return Value.
      */
     [[nodiscard]]
-    std::int32_t readInt32();
+    std::int32_t readInt32() {
+        return std::int32_t(readInt64());
+    }
 
     /**
      * Read int64 number.
@@ -111,7 +117,9 @@ public:
     /**
      * Skip next value.
      */
-    void skip();
+    void skip() {
+        next();
+    }
 
 private:
     /**

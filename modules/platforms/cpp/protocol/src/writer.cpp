@@ -20,8 +20,7 @@
 namespace ignite::protocol
 {
 
-void Writer::writeMessageToBuffer(Buffer &buffer, const std::function<void(Writer &)> &script)
-{
+void Writer::writeMessageToBuffer(Buffer &buffer, const std::function<void(Writer &)> &script) {
     buffer.reserveLengthHeader();
 
     protocol::Writer writer(buffer);
@@ -30,48 +29,20 @@ void Writer::writeMessageToBuffer(Buffer &buffer, const std::function<void(Write
     buffer.writeLengthHeader();
 }
 
-Writer::Writer(Buffer& buffer) :
-    m_buffer(buffer),
-    m_packer(msgpack_packer_new(&m_buffer, Buffer::writeCallback)) { }
+int Writer::writeCallback(void *data, const char *buf, size_t len) {
+    if (!data)
+        return 0;
 
-Writer::~Writer()
-{
-    msgpack_packer_free(m_packer);
-}
+    auto buffer = static_cast<Buffer*>(data);
 
-void Writer::write(int8_t value)
-{
-    msgpack_pack_int8(m_packer, value);
-}
+    // We do not support messages larger than MAX_INT32
+    if (buffer->getData().size() + len > std::numeric_limits<int32_t>::max())
+        return -1;
 
-void Writer::write(int16_t value)
-{
-    msgpack_pack_int16(m_packer, value);
-}
+    auto bytes = reinterpret_cast<const std::byte*>(buf);
+    buffer->writeRawData(BytesView{bytes, len});
 
-void Writer::write(int32_t value)
-{
-    msgpack_pack_int32(m_packer, value);
-}
-
-void Writer::write(int64_t value)
-{
-    msgpack_pack_int64(m_packer, value);
-}
-
-void Writer::write(std::string_view value)
-{
-    msgpack_pack_str_with_body(m_packer, value.data(), value.size());
-}
-
-void Writer::writeBinaryEmpty()
-{
-    msgpack_pack_bin(m_packer, 0);
-}
-
-void Writer::writeMapEmpty()
-{
-    msgpack_pack_map(m_packer, 0);
+    return 0;
 }
 
 } // namespace ignite::protocol
