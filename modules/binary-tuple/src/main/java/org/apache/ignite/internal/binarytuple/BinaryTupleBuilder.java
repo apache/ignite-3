@@ -296,7 +296,10 @@ public class BinaryTupleBuilder {
      * @return {@code this} for chaining.
      */
     public BinaryTupleBuilder appendNumberNotNull(BigInteger value) {
-        putBytes(value.toByteArray());
+        if (!value.equals(BigInteger.ZERO)) {
+            putBytes(value.toByteArray());
+        }
+
         return proceed();
     }
 
