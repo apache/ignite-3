@@ -392,34 +392,36 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
         [Test]
         public void TestDecimal()
         {
-            Assert.Fail("TODO IGNITE-15431");
+            // TODO: Test scale rounding, different scales.
+            var val = 1.1m;
+
+            var reader = BuildAndRead((ref BinaryTupleBuilder b) => b.AppendDecimal(val, 1));
+            var res = reader.GetDecimal(0, 1);
+
+            Assert.AreEqual(val, res);
         }
 
         [Test]
         public void TestDate()
         {
-            // TODO NodaTime?
             Assert.Fail("TODO IGNITE-15431");
         }
 
         [Test]
         public void TestTime()
         {
-            // TODO NodaTime?
             Assert.Fail("TODO IGNITE-15431");
         }
 
         [Test]
         public void TestDateTime()
         {
-            // TODO NodaTime?
             Assert.Fail("TODO IGNITE-15431");
         }
 
         [Test]
         public void TestTimestamp()
         {
-            // TODO NodaTime?
             Assert.Fail("TODO IGNITE-15431");
         }
 
