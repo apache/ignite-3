@@ -200,7 +200,7 @@ public:
      *
      * @param bytes Number of received bytes.
      */
-    DataBufferRef processReceived(size_t bytes);
+    BytesView processReceived(size_t bytes);
 
     /**
      * Get closing error for the connection. Can be IGNITE_SUCCESS.

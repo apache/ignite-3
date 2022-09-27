@@ -75,7 +75,7 @@ public:
      * @param id Async client ID.
      * @param msg Received message.
      */
-    void onMessageReceived(uint64_t id, const DataBufferRef& msg) override;
+    void onMessageReceived(uint64_t id, BytesView msg) override;
 
 private:
     /**

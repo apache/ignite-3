@@ -106,7 +106,7 @@ void WinAsyncWorkerThread::run()
                 {
                     auto data = client->processReceived(bytesTransferred);
 
-                    if (!data.isEmpty())
+                    if (!data.empty())
                         m_clientPool->handleMessageReceived(client->getId(), data);
 
                     bool success = client->receive();

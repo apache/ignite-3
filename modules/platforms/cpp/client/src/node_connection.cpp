@@ -43,8 +43,8 @@ NodeConnection::~NodeConnection() {
     }
 }
 
-void NodeConnection::processMessage(const network::DataBufferRef& msg) {
-    protocol::Reader reader(msg.getBytesView());
+void NodeConnection::processMessage(BytesView msg) {
+    protocol::Reader reader(msg);
 
     auto responseType = reader.readInt32();
     if (MessageType(responseType) != MessageType::RESPONSE) {

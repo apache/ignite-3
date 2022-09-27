@@ -154,9 +154,9 @@ void WinAsyncClient::clearReceiveBuffer()
         m_recvPacket.resize(m_bufLen);
 }
 
-DataBufferRef WinAsyncClient::processReceived(size_t bytes)
+BytesView WinAsyncClient::processReceived(size_t bytes)
 {
-    return {m_recvPacket, 0, bytes};
+    return {m_recvPacket.data(), bytes};
 }
 
 bool WinAsyncClient::processSent(size_t bytes)

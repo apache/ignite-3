@@ -17,8 +17,6 @@
 
 #include <iterator>
 
-#include "common/utils.h"
-
 #include "ignite/network/codec.h"
 #include "ignite/network/codec_data_filter.h"
 #include "ignite/network/length_prefix_codec.h"
@@ -135,10 +133,10 @@ void ClusterConnection::onConnectionClosed(uint64_t id, std::optional<IgniteErro
     }
 }
 
-void ClusterConnection::onMessageReceived(uint64_t id, const network::DataBufferRef &msg)
+void ClusterConnection::onMessageReceived(uint64_t id, BytesView msg)
 {
     m_logger->logDebug("Message on Connection ID " + std::to_string(id) +
-        ", size: " + std::to_string(msg.getBytesView().size()));
+        ", size: " + std::to_string(msg.size()));
 
     std::shared_ptr<NodeConnection> connection;
     {
@@ -271,11 +269,11 @@ void ClusterConnection::handshakeResult(std::optional<IgniteError> err)
     m_onInitialConnect = {};
 }
 
-void ClusterConnection::handshakeRsp(ProtocolContext& protocolCtx, const network::DataBufferRef& buffer)
+void ClusterConnection::handshakeRsp(ProtocolContext& protocolCtx, BytesView buffer)
 {
     m_logger->logDebug("Got handshake response");
 
-    protocol::Reader reader(buffer.getBytesView());
+    protocol::Reader reader(buffer);
 
     auto verMajor = reader.readInt16();
     auto verMinor = reader.readInt16();

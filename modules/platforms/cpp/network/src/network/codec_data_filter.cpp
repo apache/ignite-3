@@ -68,7 +68,7 @@ void CodecDataFilter::onConnectionClosed(uint64_t id, std::optional<IgniteError>
     DataFilterAdapter::onConnectionClosed(id, std::move(err));
 }
 
-void CodecDataFilter::onMessageReceived(uint64_t id, const DataBufferRef& msg)
+void CodecDataFilter::onMessageReceived(uint64_t id, BytesView msg)
 {
     std::shared_ptr<Codec> codec = FindCodec(id);
     if (!codec)
@@ -82,7 +82,7 @@ void CodecDataFilter::onMessageReceived(uint64_t id, const DataBufferRef& msg)
         if (out.isEmpty())
             break;
 
-        DataFilterAdapter::onMessageReceived(id, out);
+        DataFilterAdapter::onMessageReceived(id, out.getBytesView());
     }
 }
 

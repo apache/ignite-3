@@ -128,7 +128,7 @@ private:
      *
      * @param msg Received message.
      */
-    void processMessage(const network::DataBufferRef& msg);
+    void processMessage(BytesView msg);
 
     /**
      * Generate next request ID.
