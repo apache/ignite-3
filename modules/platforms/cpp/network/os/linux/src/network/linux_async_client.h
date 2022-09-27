@@ -96,14 +96,14 @@ public:
      * @param data Data to send.
      * @return @c true on success.
      */
-    bool send(const DataBufferOwning& data);
+    bool send(std::vector<std::byte>&& data);
 
     /**
      * Initiate next receive of data.
      *
      * @return @c true on success.
      */
-    DataBufferRef receive();
+    BytesView receive();
 
     /**
      * Process sent data.

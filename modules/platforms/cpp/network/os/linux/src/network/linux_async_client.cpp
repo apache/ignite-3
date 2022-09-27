@@ -76,11 +76,11 @@ bool LinuxAsyncClient::close()
     return true;
 }
 
-bool LinuxAsyncClient::send(const DataBufferOwning& data)
+bool LinuxAsyncClient::send(std::vector<std::byte>&& data)
 {
     std::lock_guard<std::mutex> lock(m_sendMutex);
 
-    m_sendPackets.push_back(data);
+    m_sendPackets.emplace_back(std::move(data));
     if (m_sendPackets.size() > 1)
         return true;
 
@@ -106,13 +106,13 @@ bool LinuxAsyncClient::sendNextPacketLocked()
     return true;
 }
 
-DataBufferRef LinuxAsyncClient::receive()
+BytesView LinuxAsyncClient::receive()
 {
     ssize_t res = recv(m_fd, m_recvPacket.data(), m_recvPacket.size(), 0);
     if (res < 0)
         return {};
 
-    return {m_recvPacket, 0, size_t(res)};
+    return {m_recvPacket.data(), size_t(res)};
 }
 
 bool LinuxAsyncClient::startMonitoring(int epoll0)

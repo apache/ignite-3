@@ -146,7 +146,7 @@ public:
      * @param id Async client ID.
      * @param msg Received message.
      */
-    void handleMessageReceived(uint64_t id, const DataBufferRef& msg);
+    void handleMessageReceived(uint64_t id, BytesView msg);
 
     /**
      * Handle sent message event.

@@ -252,8 +252,7 @@ void LinuxAsyncWorkerThread::handleConnectionEvents()
         if (currentEvent.events & EPOLLIN)
         {
             auto msg = client->receive();
-            if (msg.isEmpty())
-            {
+            if (msg.empty()) {
                 handleConnectionClosed(client);
 
                 continue;

@@ -72,7 +72,7 @@ bool LinuxAsyncClientPool::send(uint64_t id, std::vector<std::byte>&& data)
     if (!client)
         return false;
 
-    return client->send(data);
+    return client->send(std::move(data));
 }
 
 void LinuxAsyncClientPool::close(uint64_t id, std::optional<IgniteError> err)
@@ -159,7 +159,7 @@ void LinuxAsyncClientPool::handleConnectionClosed(uint64_t id, std::optional<Ign
         asyncHandler0->onConnectionClosed(id, std::move(err));
 }
 
-void LinuxAsyncClientPool::handleMessageReceived(uint64_t id, const DataBufferRef& msg)
+void LinuxAsyncClientPool::handleMessageReceived(uint64_t id, BytesView msg)
 {
     auto asyncHandler0 = m_asyncHandler.lock();
     if (asyncHandler0)
