@@ -324,11 +324,12 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                 unscaledValue *= BigInteger.Pow(new BigInteger(10), scale - valueScale);
             }
 
-            var destination = GetSpan(unscaledValue.GetByteCount());
+            var size = unscaledValue.GetByteCount();
+            var destination = GetSpan(size);
             var success = unscaledValue.TryWriteBytes(destination, out int written);
 
             Debug.Assert(success, "success");
-            Debug.Assert(written == destination.Length, "written == destination.Length");
+            Debug.Assert(written == size, "written == size");
 
             OnWrite();
         }
@@ -341,11 +342,12 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         {
             if (value != default)
             {
-                var destination = GetSpan(value.GetByteCount());
+                var size = value.GetByteCount();
+                var destination = GetSpan(size);
                 var success = value.TryWriteBytes(destination, out int written);
 
                 Debug.Assert(success, "success");
-                Debug.Assert(written == destination.Length, "written == destination.Length");
+                Debug.Assert(written == size, "written == size");
             }
 
             OnWrite();
