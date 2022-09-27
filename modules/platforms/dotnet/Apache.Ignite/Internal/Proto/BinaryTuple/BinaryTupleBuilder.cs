@@ -319,9 +319,13 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             var bytes = MemoryMarshal.Cast<int, byte>(bits.AsSpan(0, 3));
             var unscaledValue = new BigInteger(bytes);
 
-            if (valueScale != scale)
+            if (scale > valueScale)
             {
                 unscaledValue *= BigInteger.Pow(new BigInteger(10), scale - valueScale);
+            }
+            else if (scale < valueScale)
+            {
+                unscaledValue /= BigInteger.Pow(new BigInteger(10), valueScale - scale);
             }
 
             var size = unscaledValue.GetByteCount();
