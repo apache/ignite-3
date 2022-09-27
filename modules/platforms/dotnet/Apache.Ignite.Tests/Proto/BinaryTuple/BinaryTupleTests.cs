@@ -392,13 +392,19 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
         [Test]
         public void TestDecimal()
         {
-            // TODO: Test scale rounding, different scales.
-            var val = 1.1m;
+            Test(12345.6789m, 4);
+            Test(12345.678m, 4);
+            Test(12345.67m, 4);
 
-            var reader = BuildAndRead((ref BinaryTupleBuilder b) => b.AppendDecimal(val, 1));
-            var res = reader.GetDecimal(0, 1);
+            Test(12345.6789m, 2, 12345.67m);
 
-            Assert.AreEqual(val, res);
+            static void Test(decimal val, int scale, decimal? expected = null)
+            {
+                var reader = BuildAndRead((ref BinaryTupleBuilder b) => b.AppendDecimal(val, scale));
+                var res = reader.GetDecimal(0, scale);
+
+                Assert.AreEqual(expected ?? val, res);
+            }
         }
 
         [Test]
