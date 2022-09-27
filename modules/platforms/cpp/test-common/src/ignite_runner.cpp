@@ -31,7 +31,7 @@ namespace
 /**
  * System shell command string.
  */
-constexpr std::string_view SYSTEM_SHELL = SWITCH_WIN_OTHER("cmd.exe", "/bin/bash");
+constexpr std::string_view SYSTEM_SHELL = SWITCH_WIN_OTHER("cmd.exe", "/bin/sh");
 constexpr std::string_view SYSTEM_SHELL_ARG_0 = SWITCH_WIN_OTHER("/c ", "-c");
 
 } // anonymous namespace
