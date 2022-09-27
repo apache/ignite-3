@@ -89,6 +89,9 @@ addrinfo* ConnectingContext::next()
 
 EndPoint ConnectingContext::getAddress() const
 {
+    if (!m_currentInfo)
+        throw IgniteError("There is no current address");
+
     return {m_range.host, uint16_t(m_nextPort - 1)};
 }
 

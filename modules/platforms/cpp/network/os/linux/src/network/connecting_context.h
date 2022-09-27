@@ -36,11 +36,6 @@ namespace ignite::network
 class ConnectingContext
 {
 public:
-    // Deleted
-    ConnectingContext() = delete;
-    ConnectingContext(const ConnectingContext&) = delete;
-    ConnectingContext& operator=(const ConnectingContext&) = delete;
-
     // Default
     ConnectingContext(ConnectingContext&&) = default;
     ConnectingContext& operator=(ConnectingContext&&) = default;
@@ -49,7 +44,6 @@ public:
      * Constructor.
      */
     explicit ConnectingContext(TcpRange range);
-    
 
     /**
      * Destructor.

@@ -40,16 +40,13 @@ class LinuxAsyncClient
     /**
      * State.
      */
-    struct State
+    enum class State
     {
-        enum Type
-        {
-            CONNECTED,
+        CONNECTED,
 
-            SHUTDOWN,
+        SHUTDOWN,
 
-            CLOSED,
-        };
+        CLOSED,
     };
 
 public:
@@ -213,7 +210,7 @@ private:
     bool sendNextPacketLocked();
 
     /** State. */
-    State::Type m_state;
+    State m_state;
 
     /** Socket file descriptor. */
     int m_fd;

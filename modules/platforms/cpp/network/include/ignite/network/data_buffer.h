@@ -105,7 +105,7 @@ public:
         if (bytes >= m_data.size())
             m_data = {};
         else
-            m_data = m_data.substr(bytes);
+            m_data.remove_prefix(bytes);
     }
 
     /**
@@ -186,7 +186,7 @@ public:
         if (bytes >= m_data.size())
             m_data = {};
         else
-            m_data = m_data.substr(bytes);
+            m_data.remove_prefix(bytes);
     }
 
     /**
