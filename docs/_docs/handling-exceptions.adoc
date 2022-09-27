@@ -29,7 +29,6 @@ When the exception happens, Apache Ignite 3 provides a UUID of the specific exce
 |`IGN-CMN-1`|Unexpected error occurred.
 |`IGN-CMN-2`|Operation was stopped because node is stopping.
 |`IGN-CMN-3`|Required component was not started.
-|`IGN-CMN-0xFFFF`|Deprecated. Unknown error occurred. Replaced by `IGN-CMN-1`.
 |===
 
 == Table Exceptions
