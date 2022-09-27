@@ -38,10 +38,12 @@ public:
     // Default
     ResponseHandler() = default;
     virtual ~ResponseHandler() = default;
-    ResponseHandler(ResponseHandler&&) = default;
-    ResponseHandler(const ResponseHandler&) = default;
     ResponseHandler& operator=(ResponseHandler&&) = default;
     ResponseHandler& operator=(const ResponseHandler&) = default;
+
+    // Delete
+    ResponseHandler(ResponseHandler&&) = delete;
+    ResponseHandler(const ResponseHandler&) = delete;
 
     /**
      * Handle response.
@@ -90,7 +92,7 @@ public:
      * @param reader Reader to be used to read response.
      */
     [[nodiscard]]
-    IgniteResult<void> handle(protocol::Reader& reader) override {
+    IgniteResult<void> handle(protocol::Reader& reader) final {
         IgniteCallback<T> callback = removeCallback();
         if (!callback)
             return {};
@@ -105,7 +107,7 @@ public:
      * @param err Error to set.
      */
     [[nodiscard]]
-    IgniteResult<void> setError(IgniteError err) override {
+    IgniteResult<void> setError(IgniteError err) final {
         IgniteCallback<T> callback = removeCallback();
         if (!callback)
             return {};

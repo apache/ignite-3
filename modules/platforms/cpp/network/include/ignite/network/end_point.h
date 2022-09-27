@@ -31,14 +31,6 @@ namespace ignite::network
  */
 struct EndPoint
 {
-    // Default
-    EndPoint() = default;
-    ~EndPoint() = default;
-    EndPoint(EndPoint&&) = default;
-    EndPoint(const EndPoint&) = default;
-    EndPoint& operator=(EndPoint&&) = default;
-    EndPoint& operator=(const EndPoint&) = default;
-
     /**
      * Constructor.
      *
@@ -55,12 +47,8 @@ struct EndPoint
      * @return String form.
      */
     [[nodiscard]]
-    std::string toString() const
-    {
-        std::stringstream ss;
-        ss << host << ':' << port;
-
-        return ss.str();
+    std::string toString() const {
+        return host + ":" + std::to_string(port);
     }
 
     /**
@@ -71,8 +59,7 @@ struct EndPoint
      *   another instance.
      */
     [[nodiscard]]
-    int compare(const EndPoint& other) const
-    {
+    int compare(const EndPoint& other) const {
         if (port < other.port)
             return -1;
 
@@ -89,8 +76,7 @@ struct EndPoint
      * @param val2 Second value.
      * @return True if equal.
      */
-    friend bool operator==(const EndPoint& val1, const EndPoint& val2)
-    {
+    friend bool operator==(const EndPoint& val1, const EndPoint& val2) {
         return val1.port == val2.port && val1.host == val2.host;
     }
 
@@ -102,8 +88,7 @@ struct EndPoint
      * @param val2 Second value.
      * @return True if not equal.
      */
-    friend bool operator!=(const EndPoint& val1, const EndPoint& val2)
-    {
+    friend bool operator!=(const EndPoint& val1, const EndPoint& val2) {
         return !(val1 == val2);
     }
 
@@ -114,8 +99,7 @@ struct EndPoint
      * @param val2 Second value.
      * @return True if less.
      */
-    friend bool operator<(const EndPoint& val1, const EndPoint& val2)
-    {
+    friend bool operator<(const EndPoint& val1, const EndPoint& val2) {
         return val1.compare(val2) < 0;
     }
 
@@ -126,8 +110,7 @@ struct EndPoint
      * @param val2 Second value.
      * @return True if less or equal.
      */
-    friend bool operator<=(const EndPoint& val1, const EndPoint& val2)
-    {
+    friend bool operator<=(const EndPoint& val1, const EndPoint& val2) {
         return val1.compare(val2) <= 0;
     }
 
@@ -136,10 +119,9 @@ struct EndPoint
      *
      * @param val1 First value.
      * @param val2 Second value.
-     * @return True if gretter.
+     * @return True if greater.
      */
-    friend bool operator>(const EndPoint& val1, const EndPoint& val2)
-    {
+    friend bool operator>(const EndPoint& val1, const EndPoint& val2) {
         return val1.compare(val2) > 0;
     }
 
@@ -148,10 +130,9 @@ struct EndPoint
      *
      * @param val1 First value.
      * @param val2 Second value.
-     * @return True if gretter or equal.
+     * @return True if greater or equal.
      */
-    friend bool operator>=(const EndPoint& val1, const EndPoint& val2)
-    {
+    friend bool operator>=(const EndPoint& val1, const EndPoint& val2) {
         return val1.compare(val2) >= 0;
     }
 
