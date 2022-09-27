@@ -272,12 +272,24 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         };
 
         /// <summary>
+        /// Gets bytes.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <returns>Value.</returns>
+        public byte[] GetBytes(int index) => Seek(index) switch
+        {
+            { IsEmpty: true } => Array.Empty<byte>(),
+            var s => s.ToArray()
+        };
+
+        /// <summary>
         /// Gets an object value according to the specified type.
         /// </summary>
         /// <param name="index">Index.</param>
         /// <param name="columnType">Column type.</param>
+        /// <param name="scale">Column decimal scale.</param>
         /// <returns>Value.</returns>
-        public object? GetObject(int index, ClientDataType columnType)
+        public object? GetObject(int index, ClientDataType columnType, int scale)
         {
             if (IsNull(index))
             {
@@ -294,8 +306,15 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                 ClientDataType.Double => GetDouble(index),
                 ClientDataType.Uuid => GetGuid(index),
                 ClientDataType.String => GetString(index),
-
-                // TODO: Support all types (IGNITE-15431).
+                ClientDataType.Decimal => GetDecimal(index, scale),
+                ClientDataType.Bytes => GetBytes(index),
+                ClientDataType.BitMask => GetBitmask(index),
+                ClientDataType.Date => GetDate(index),
+                ClientDataType.Time => GetTime(index),
+                ClientDataType.DateTime => GetDateTime(index),
+                ClientDataType.Timestamp => GetTimestamp(index),
+                ClientDataType.Number => GetNumber(index),
+                ClientDataType.BigInteger => GetNumber(index),
                 _ => throw new IgniteClientException(ErrorGroups.Client.Protocol, "Unsupported type: " + columnType)
             };
         }
@@ -370,6 +389,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             return res;
         }
 
+        // ReSharper disable once UnusedMember.Local (TODO IGNITE-15431)
         private static decimal ReadDecimal(ReadOnlySpan<byte> span, int scale)
         {
             Span<byte> mag = stackalloc byte[span.Length];

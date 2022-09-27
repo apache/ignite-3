@@ -67,7 +67,7 @@ namespace Apache.Ignite.Internal.Proto
         /// <summary> Timestamp (instant). </summary>
         Timestamp = 15,
 
-        /// <summary> BitMask. </summary>
+        /// <summary> TODO: What's the difference between this and BigInteger? </summary>
         Number = 16,
 
         /// <summary> BigInt. </summary>
