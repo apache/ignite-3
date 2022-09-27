@@ -23,8 +23,6 @@
 
 #include "common/Types.h"
 
-#include "ignite/protocol/buffer.h"
-
 namespace ignite::network
 {
 
@@ -133,21 +131,13 @@ private:
 class DataBufferShared
 {
 public:
-    // Default
-    DataBufferShared() = default;
-    ~DataBufferShared() = default;
-    DataBufferShared(DataBufferShared&&) = default;
-    DataBufferShared(const DataBufferShared&) = default;
-    DataBufferShared& operator=(DataBufferShared&&) = default;
-    DataBufferShared& operator=(const DataBufferShared&) = default;
-
     /**
      * Constructor.
      *
      * @param data Data.
      */
-    explicit DataBufferShared(protocol::Buffer&& data) :
-        m_memory(std::make_shared<std::vector<std::byte>>(std::move(data.extractData()))),
+    explicit DataBufferShared(std::vector<std::byte>&& data) :
+        m_memory(std::make_shared<std::vector<std::byte>>(std::move(data))),
         m_data(*m_memory) { }
 
     /**

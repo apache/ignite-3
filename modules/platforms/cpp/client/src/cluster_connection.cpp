@@ -221,7 +221,7 @@ void ClusterConnection::handshake(uint64_t id, ProtocolContext& context)
         writer.writeMapEmpty();
     });
 
-    network::DataBufferShared dataBuffer(std::move(buffer));
+    network::DataBufferShared dataBuffer(std::move(buffer).extractData());
 
     try
     {

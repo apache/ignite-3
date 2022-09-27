@@ -15,8 +15,9 @@
  * limitations under the License.
  */
 
+#include <cassert>
+
 #include <algorithm>
-#include <iostream>
 
 #include <network/utils.h>
 
@@ -121,9 +122,6 @@ bool WinAsyncClient::sendNextPacketLocked()
     WSABUF buffer;
     buffer.buf = (CHAR*)dataView.data();
     buffer.len = (ULONG)dataView.size();
-
-    if (buffer.buf[0] && buffer.buf[0] != 'I')
-        std::cout << buffer.buf[0] + std::string("\n");
 
     int ret = ::WSASend(m_socket, &buffer, 1, NULL, flags, &m_currentSend.overlapped, NULL); // NOLINT(modernize-use-nullptr)
 

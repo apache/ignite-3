@@ -108,19 +108,9 @@ inline std::string getLastSystemError(std::string_view description, std::string_
  * @param description Error description.
  * @param advice User advice.
  */
-inline void throwLastSystemError(std::string_view description, std::string_view advice)
+inline void throwLastSystemError(std::string_view description, std::string_view advice = {})
 {
     throw IgniteError(StatusCode::OS, getLastSystemError(description, advice));
-}
-
-/**
- * Try extract from system error stack and throw platform-specific error.
- *
- * @param description Error description.
- */
-inline void throwLastSystemError(std::string_view description)
-{
-    throwLastSystemError(description, "");
 }
 
 } // namespace ignite::network

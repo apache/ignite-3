@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+#include <cassert>
 #include <random>
 
 #include "network/utils.h"

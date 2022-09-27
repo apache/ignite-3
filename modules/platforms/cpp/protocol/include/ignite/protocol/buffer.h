@@ -90,8 +90,7 @@ public:
      * @return Underlying data.
      */
      [[nodiscard]]
-    std::vector<std::byte> extractData() {
-        m_lengthPos = 0;
+    std::vector<std::byte>&& extractData() && {
         return std::move(m_buffer);
     }
 

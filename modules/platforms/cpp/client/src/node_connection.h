@@ -108,7 +108,7 @@ public:
             m_requestHandlers[reqId] = std::move(handler);
         }
 
-        bool sent = m_pool->send(m_id, network::DataBufferShared(std::move(buffer)));
+        bool sent = m_pool->send(m_id, network::DataBufferShared(std::move(buffer).extractData()));
         if (!sent)
         {
             std::lock_guard<std::mutex> lock(m_requestHandlersMutex);

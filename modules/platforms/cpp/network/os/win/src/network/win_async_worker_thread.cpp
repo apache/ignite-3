@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+#include <cassert>
 #include <algorithm>
 
 #include "network/sockets.h"

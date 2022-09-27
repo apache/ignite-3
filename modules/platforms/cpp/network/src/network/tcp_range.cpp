@@ -95,7 +95,7 @@ std::optional<TcpRange> TcpRange::parse(std::string_view str, uint16_t defPort) 
 
         if (!res.port)
             return std::nullopt;
-        return {res};
+        return {std::move(res)};
     }
 
     if (sepPos + 2 > portRange.size() || portRange[sepPos + 1] != '.')
@@ -115,7 +115,7 @@ std::optional<TcpRange> TcpRange::parse(std::string_view str, uint16_t defPort) 
     res.port = rangeBegin;
     res.range = rangeEnd - rangeBegin;
 
-    return {res};
+    return {std::move(res)};
 }
 
 int TcpRange::compare(const TcpRange &other) const {
