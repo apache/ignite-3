@@ -40,6 +40,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.Flow.Publisher;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -121,6 +122,7 @@ import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
@@ -1200,19 +1202,20 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         /** {@inheritDoc} */
         @Override
-        public Cursor<BinaryTuple> scan(BinaryTuple key, BitSet columns) {
+        public Publisher<BinaryTuple> scan(int partId, InternalTransaction tx, BinaryTuple key, BitSet columns) {
             throw new AssertionError("Should not be called");
         }
 
         /** {@inheritDoc} */
         @Override
-        public Cursor<BinaryTuple> scan(BinaryTuple left, BinaryTuple right, BitSet columns) {
+        public Publisher<BinaryTuple> scan(int partId, InternalTransaction tx, BinaryTuple left, BinaryTuple right, BitSet columns) {
             throw new AssertionError("Should not be called");
         }
 
         /** {@inheritDoc} */
         @Override
-        public Cursor<BinaryTuple> scan(BinaryTuple left, BinaryTuple right, byte includeBounds, BitSet columns) {
+        public Publisher<BinaryTuple> scan(int partId, InternalTransaction tx,
+                @Nullable BinaryTuple leftBound, @Nullable BinaryTuple rightBound, int flags, BitSet columnsToInclude) {
             throw new AssertionError("Should not be called");
         }
     }
@@ -1260,7 +1263,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         /** {@inheritDoc} */
         @Override
-        public Cursor<BinaryTuple> scan(BinaryTuple key, BitSet columns) {
+        public Publisher<BinaryTuple> scan(int partId, InternalTransaction tx, BinaryTuple key, BitSet columns) {
             throw new AssertionError("Should not be called");
         }
     }
