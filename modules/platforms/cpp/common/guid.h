@@ -55,6 +55,7 @@ public:
      *
      * @return The most significant 64 bits of this instance.
      */
+    [[nodiscard]]
     std::int64_t getMostSignificantBits() const
     {
         return m_most;
@@ -65,6 +66,7 @@ public:
      *
      * @return The least significant 64 bits of this instance.
      */
+    [[nodiscard]]
     std::int64_t getLeastSignificantBits() const
     {
         return m_least;
@@ -82,6 +84,7 @@ public:
      *
      * @return The version number of this instance.
      */
+    [[nodiscard]]
     std::int32_t getVersion() const
     {
         return static_cast<int32_t>((m_most >> 12) & 0x0F);
@@ -99,9 +102,10 @@ public:
      *
      * @return The variant number of this instance.
      */
+    [[nodiscard]]
     std::int32_t getVariant() const
     {
-        std::uint64_t least = static_cast<uint64_t>(m_least);
+        auto least = static_cast<uint64_t>(m_least);
 
         return static_cast<std::int32_t>((least >> (64 - (least >> 62))) & (least >> 63));
     }
@@ -112,6 +116,7 @@ public:
      * @param other Instance to compare to.
      * @return Zero if equals, negative number if less and positive if more.
      */
+    [[nodiscard]]
     std::int64_t compare(const Guid& other) const
     {
         if (m_most < other.m_most)
@@ -129,78 +134,6 @@ public:
         return 0;
     }
 
-    /**
-     * Comparison operator.
-     *
-     * @param val1 First value.
-     * @param val2 Second value.
-     * @return True if equal.
-     */
-    friend bool operator==(const Guid& val1, const Guid& val2)
-    {
-        return val1.compare(val2) == 0;
-    }
-
-    /**
-     * Comparison operator.
-     *
-     * @param val1 First value.
-     * @param val2 Second value.
-     * @return True if not equal.
-     */
-    friend bool operator!=(const Guid& val1, const Guid& val2)
-    {
-        return val1.compare(val2) != 0;
-    }
-
-    /**
-     * Comparison operator.
-     *
-     * @param val1 First value.
-     * @param val2 Second value.
-     * @return True if less.
-     */
-    friend bool operator<(const Guid& val1, const Guid& val2)
-    {
-        return val1.compare(val2) < 0;
-    }
-
-    /**
-     * Comparison operator.
-     *
-     * @param val1 First value.
-     * @param val2 Second value.
-     * @return True if less or equal.
-     */
-    friend bool operator<=(const Guid& val1, const Guid& val2)
-    {
-        return val1.compare(val2) <= 0;
-    }
-
-    /**
-     * Comparison operator.
-     *
-     * @param val1 First value.
-     * @param val2 Second value.
-     * @return True if greater.
-     */
-    friend bool operator>(const Guid& val1, const Guid& val2)
-    {
-        return val1.compare(val2) > 0;
-    }
-
-    /**
-     * Comparison operator.
-     *
-     * @param val1 First value.
-     * @param val2 Second value.
-     * @return True if greater or equal.
-     */
-    friend bool operator>=(const Guid& val1, const Guid& val2)
-    {
-        return val1.compare(val2) >= 0;
-    }
-
 private:
     /** Most significant bits. */
     std::int64_t m_most{0};
@@ -208,6 +141,72 @@ private:
     /** Least significant bits. */
     std::int64_t m_least{0};
 };
+
+/**
+ * Comparison operator.
+ *
+ * @param val1 First value.
+ * @param val2 Second value.
+ * @return True if equal.
+ */
+inline bool operator==(const Guid& val1, const Guid& val2) {
+    return val1.compare(val2) == 0;
+}
+
+/**
+ * Comparison operator.
+ *
+ * @param val1 First value.
+ * @param val2 Second value.
+ * @return True if not equal.
+ */
+inline bool operator!=(const Guid& val1, const Guid& val2) {
+    return val1.compare(val2) != 0;
+}
+
+/**
+ * Comparison operator.
+ *
+ * @param val1 First value.
+ * @param val2 Second value.
+ * @return True if less.
+ */
+inline bool operator<(const Guid& val1, const Guid& val2) {
+    return val1.compare(val2) < 0;
+}
+
+/**
+ * Comparison operator.
+ *
+ * @param val1 First value.
+ * @param val2 Second value.
+ * @return True if less or equal.
+ */
+inline bool operator<=(const Guid& val1, const Guid& val2) {
+    return val1.compare(val2) <= 0;
+}
+
+/**
+ * Comparison operator.
+ *
+ * @param val1 First value.
+ * @param val2 Second value.
+ * @return True if greater.
+ */
+inline bool operator>(const Guid& val1, const Guid& val2) {
+    return val1.compare(val2) > 0;
+}
+
+/**
+ * Comparison operator.
+ *
+ * @param val1 First value.
+ * @param val2 Second value.
+ * @return True if greater or equal.
+ */
+inline bool operator>=(const Guid& val1, const Guid& val2) {
+    return val1.compare(val2) >= 0;
+}
 
 /**
  * Output operator.
@@ -219,10 +218,10 @@ private:
 template<typename C>
 ::std::basic_ostream<C>& operator<<(std::basic_ostream<C>& os, const Guid& guid)
 {
-    uint32_t part1 = static_cast<uint32_t>(guid.getMostSignificantBits() >> 32);
-    uint16_t part2 = static_cast<uint16_t>(guid.getMostSignificantBits() >> 16);
-    uint16_t part3 = static_cast<uint16_t>(guid.getMostSignificantBits());
-    uint16_t part4 = static_cast<uint16_t>(guid.getLeastSignificantBits() >> 48);
+    auto part1 = uint32_t(guid.getMostSignificantBits() >> 32);
+    auto part2 = uint16_t(guid.getMostSignificantBits() >> 16);
+    auto part3 = uint16_t(guid.getMostSignificantBits());
+    auto part4 = uint16_t(guid.getLeastSignificantBits() >> 48);
     uint64_t part5 = guid.getLeastSignificantBits() & 0x0000FFFFFFFFFFFFU;
 
     os  << std::hex
@@ -259,7 +258,7 @@ template<typename C>
 
     is >> std::hex >> parts[4];
 
-    guid = Guid((parts[0] << 32) | (parts[1] << 16) | parts[2], (parts[3] << 48) | parts[4]);
+    guid = Guid(int64_t((parts[0] << 32) | (parts[1] << 16) | parts[2]), int64_t((parts[3] << 48) | parts[4]));
 
     return is;
 }

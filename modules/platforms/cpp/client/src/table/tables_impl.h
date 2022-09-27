@@ -34,14 +34,6 @@ namespace ignite::detail
 class TablesImpl
 {
 public:
-    // Default
-    TablesImpl() = default;
-    ~TablesImpl() = default;
-    TablesImpl(TablesImpl&&) = default;
-    TablesImpl(const TablesImpl&) = default;
-    TablesImpl& operator=(TablesImpl&&) = default;
-    TablesImpl& operator=(const TablesImpl&) = default;
-
     /**
      * Constructor.
      *
@@ -51,7 +43,7 @@ public:
         m_connection(std::move(connection)) { }
 
     /**
-     * Gets a table implementation by name.
+     * Gets a table by name.
      * See Table::getTableAsync() for details.
      *
      * @param name Table name.
@@ -59,7 +51,7 @@ public:
      * @return TableImpl with corresponding name.
      * @throw IgniteError In case of error.
      */
-    void getTableImplAsync(const std::string& name, IgniteCallback<std::optional<Table>> callback);
+    void getTableAsync(const std::string& name, IgniteCallback<std::optional<Table>> callback);
 
 private:
     /** Cluster connection. */

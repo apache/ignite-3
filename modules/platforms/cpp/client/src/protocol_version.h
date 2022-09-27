@@ -29,14 +29,6 @@ namespace ignite::detail
 class ProtocolVersion
 {
 public:
-    // Default
-    ProtocolVersion() = default;
-    ~ProtocolVersion() = default;
-    ProtocolVersion(ProtocolVersion&&) = default;
-    ProtocolVersion(const ProtocolVersion&) = default;
-    ProtocolVersion& operator=(ProtocolVersion&&) = default;
-    ProtocolVersion& operator=(const ProtocolVersion&) = default;
-
     /**
      * Constructor.
      *
@@ -103,78 +95,6 @@ public:
     }
 
     /**
-     * Comparison operator.
-     *
-     * @param val1 First value.
-     * @param val2 Second value.
-     * @return True if equal.
-     */
-    friend bool operator==(const ProtocolVersion &val1, const ProtocolVersion &val2)
-    {
-        return val1.compare(val2) == 0;
-    }
-
-    /**
-     * Comparison operator.
-     *
-     * @param val1 First value.
-     * @param val2 Second value.
-     * @return True if not equal.
-     */
-    friend bool operator!=(const ProtocolVersion &val1, const ProtocolVersion &val2)
-    {
-        return val1.compare(val2) != 0;
-    }
-
-    /**
-     * Comparison operator.
-     *
-     * @param val1 First value.
-     * @param val2 Second value.
-     * @return True if less.
-     */
-    friend bool operator<(const ProtocolVersion &val1, const ProtocolVersion &val2)
-    {
-        return val1.compare(val2) < 0;
-    }
-
-    /**
-     * Comparison operator.
-     *
-     * @param val1 First value.
-     * @param val2 Second value.
-     * @return True if less or equal.
-     */
-    friend bool operator<=(const ProtocolVersion &val1, const ProtocolVersion &val2)
-    {
-        return val1.compare(val2) <= 0;
-    }
-
-    /**
-     * Comparison operator.
-     *
-     * @param val1 First value.
-     * @param val2 Second value.
-     * @return True if greater.
-     */
-    friend bool operator>(const ProtocolVersion &val1, const ProtocolVersion &val2)
-    {
-        return val1.compare(val2) > 0;
-    }
-
-    /**
-     * Comparison operator.
-     *
-     * @param val1 First value.
-     * @param val2 Second value.
-     * @return True if greater or equal.
-     */
-    friend bool operator>=(const ProtocolVersion &val1, const ProtocolVersion &val2)
-    {
-        return val1.compare(val2) >= 0;
-    }
-
-    /**
      * Convert to string value.
      *
      * @return Protocol version.
@@ -198,5 +118,71 @@ private:
     /** Maintenance part. */
     int16_t m_patch;
 };
+
+/**
+ * Comparison operator.
+ *
+ * @param val1 First value.
+ * @param val2 Second value.
+ * @return True if equal.
+ */
+inline bool operator==(const ProtocolVersion &val1, const ProtocolVersion &val2) {
+    return val1.compare(val2) == 0;
+}
+
+/**
+ * Comparison operator.
+ *
+ * @param val1 First value.
+ * @param val2 Second value.
+ * @return True if not equal.
+ */
+inline bool operator!=(const ProtocolVersion &val1, const ProtocolVersion &val2) {
+    return val1.compare(val2) != 0;
+}
+
+/**
+ * Comparison operator.
+ *
+ * @param val1 First value.
+ * @param val2 Second value.
+ * @return True if less.
+ */
+inline bool operator<(const ProtocolVersion &val1, const ProtocolVersion &val2) {
+    return val1.compare(val2) < 0;
+}
+
+/**
+ * Comparison operator.
+ *
+ * @param val1 First value.
+ * @param val2 Second value.
+ * @return True if less or equal.
+ */
+inline bool operator<=(const ProtocolVersion &val1, const ProtocolVersion &val2) {
+    return val1.compare(val2) <= 0;
+}
+
+/**
+ * Comparison operator.
+ *
+ * @param val1 First value.
+ * @param val2 Second value.
+ * @return True if greater.
+ */
+inline bool operator>(const ProtocolVersion &val1, const ProtocolVersion &val2) {
+    return val1.compare(val2) > 0;
+}
+
+/**
+ * Comparison operator.
+ *
+ * @param val1 First value.
+ * @param val2 Second value.
+ * @return True if greater or equal.
+ */
+inline bool operator>=(const ProtocolVersion &val1, const ProtocolVersion &val2) {
+    return val1.compare(val2) >= 0;
+}
 
 } // namespace ignite::detail

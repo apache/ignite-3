@@ -27,7 +27,6 @@ set(SOURCES
     src/table/tables_impl.cpp
     src/cluster_connection.cpp
     src/ignite_client.cpp
-    src/ignite_client_impl.cpp
     src/node_connection.cpp
 )
 

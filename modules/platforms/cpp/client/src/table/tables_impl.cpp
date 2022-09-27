@@ -24,7 +24,7 @@
 namespace ignite::detail
 {
 
-void TablesImpl::getTableImplAsync(const std::string &name, IgniteCallback<std::optional<Table>> callback) {
+void TablesImpl::getTableAsync(const std::string &name, IgniteCallback<std::optional<Table>> callback) {
     auto readerFunc = [name] (protocol::Reader& reader) -> std::optional<Table>  {
         if (reader.tryReadNil())
             return std::nullopt;

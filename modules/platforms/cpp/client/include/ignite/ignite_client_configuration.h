@@ -61,8 +61,7 @@ public:
      * @return Endpoints.
      */
     [[nodiscard]]
-    const std::vector<std::string>& getEndpoints() const
-    {
+    const std::vector<std::string>& getEndpoints() const {
         return m_endpoints;
     }
 
@@ -82,8 +81,7 @@ public:
      *
      * @param endpoints Endpoints.
      */
-    void setEndpoints(std::initializer_list<std::string_view> endpoints)
-    {
+    void setEndpoints(std::initializer_list<std::string_view> endpoints) {
         IgniteClientConfiguration::m_endpoints.assign(endpoints.begin(), endpoints.end());
     }
 
@@ -93,8 +91,7 @@ public:
      * @return Current logger.
      */
     [[nodiscard]]
-    std::shared_ptr<IgniteLogger> getLogger() const
-    {
+    const std::shared_ptr<IgniteLogger>& getLogger() const {
         return m_logger;
     }
 
@@ -105,8 +102,7 @@ public:
      *
      * @param logger Logger to use.
      */
-    void setLogger(std::shared_ptr<IgniteLogger> logger)
-    {
+    void setLogger(std::shared_ptr<IgniteLogger> logger) {
         m_logger = std::move(logger);
     }
 
@@ -124,8 +120,7 @@ public:
      * @return Active connection limit.
      */
     [[nodiscard]]
-    uint32_t getConnectionLimit() const
-    {
+    uint32_t getConnectionLimit() const {
         return m_connectionsLimit;
     }
 
@@ -136,8 +131,7 @@ public:
      *
      * @param connectionsLimit Connections limit to set.
      */
-    void setConnectionLimit(uint32_t limit)
-    {
+    void setConnectionLimit(uint32_t limit) {
         m_connectionsLimit = limit;
     }
 

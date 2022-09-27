@@ -17,9 +17,6 @@
 
 #pragma once
 
-#include <memory>
-
-#include "ignite/network/data_buffer.h"
 #include "protocol_version.h"
 
 namespace ignite::detail
@@ -34,15 +31,6 @@ class ProtocolContext
 {
 public:
     static constexpr ProtocolVersion CURRENT_VERSION{3, 0, 0};
-
-    // Default
-    ProtocolContext() = default;
-    ~ProtocolContext() = default;
-    ProtocolContext(ProtocolContext&&) = default;
-    ProtocolContext(const ProtocolContext&) = default;
-    ProtocolContext& operator=(ProtocolContext&&) = default;
-    ProtocolContext& operator=(const ProtocolContext&) = default;
-
     /**
      * Get protocol version.
      *

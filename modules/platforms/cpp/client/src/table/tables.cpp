@@ -26,7 +26,7 @@ namespace ignite
 {
 
 void Tables::getTableAsync(const std::string &name, IgniteCallback<std::optional<Table>> callback) {
-    getImpl().getTableImplAsync(name, std::move(callback));
+    getImpl().getTableAsync(name, std::move(callback));
 }
 
 Tables::Tables(std::shared_ptr<void> impl) :
