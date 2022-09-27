@@ -329,6 +329,8 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
             Debug.Assert(success, "success");
             Debug.Assert(written == destination.Length, "written == destination.Length");
+
+            OnWrite();
         }
 
         /// <summary>
