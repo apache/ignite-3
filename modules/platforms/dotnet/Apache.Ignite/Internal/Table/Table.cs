@@ -214,16 +214,17 @@ namespace Apache.Ignite.Internal.Table
             {
                 var propertyCount = r.ReadArrayHeader();
 
-                Debug.Assert(propertyCount >= 4, "propertyCount >= 4");
+                Debug.Assert(propertyCount >= 5, "propertyCount >= 5");
 
                 var name = r.ReadString();
                 var type = r.ReadInt32();
                 var isKey = r.ReadBoolean();
                 var isNullable = r.ReadBoolean();
+                var scale = r.ReadInt32();
 
-                r.Skip(propertyCount - 4);
+                r.Skip(propertyCount - 5);
 
-                var column = new Column(name, (ClientDataType)type, isNullable, isKey, i);
+                var column = new Column(name, (ClientDataType)type, isNullable, isKey, i, scale);
 
                 columns[i] = column;
 

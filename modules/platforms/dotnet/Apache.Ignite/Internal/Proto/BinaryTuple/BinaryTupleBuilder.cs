@@ -410,7 +410,8 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// </summary>
         /// <param name="value">Value.</param>
         /// <param name="colType">Column type.</param>
-        public void AppendObject(object? value, ClientDataType colType)
+        /// <param name="scale">Decimal scale.</param>
+        public void AppendObject(object? value, ClientDataType colType, int scale)
         {
             if (value == null)
             {
@@ -457,9 +458,35 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                     break;
 
                 case ClientDataType.BitMask:
+                    AppendBitmask((BitArray)value);
+                    break;
+
                 case ClientDataType.Decimal:
+                    AppendDecimal((decimal)value, scale);
+                    break;
+
+                case ClientDataType.BigInteger:
+                    AppendNumber((BigInteger)value);
+                    break;
+
+                case ClientDataType.Date:
+                    AppendDate((LocalDate)value);
+                    break;
+
+                case ClientDataType.Time:
+                    AppendTime((LocalTime)value);
+                    break;
+
+                case ClientDataType.DateTime:
+                    AppendDateTime((LocalDateTime)value);
+                    break;
+
+                case ClientDataType.Timestamp:
+                    AppendTimestamp((Instant)value);
+                    break;
+
                 default:
-                    // TODO: Support all types (IGNITE-15431).
+                    // TODO IGNITE-15431 For known types like DateTime, Timestamp, DateTimeOffset produce a message with explanation.
                     throw new IgniteClientException(ErrorGroups.Client.Protocol, "Unsupported type: " + colType);
             }
         }
