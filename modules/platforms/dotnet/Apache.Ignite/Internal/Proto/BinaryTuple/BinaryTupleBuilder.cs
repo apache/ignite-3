@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Internal.Proto.BinaryTuple
 {
     using System;
+    using System.Buffers.Binary;
     using System.Collections;
     using System.Diagnostics;
     using System.Numerics;
@@ -661,8 +662,10 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
             int date = (year << 9) | (month << 5) | day;
 
-            PutShort((short) date);
-            PutByte((sbyte) (date >> 16));
+            Span<byte> buf = stackalloc byte[4];
+            BinaryPrimitives.WriteInt32LittleEndian(buf, date << 8);
+
+            buf.Slice(1).CopyTo(GetSpan(3));
         }
 
         /// <summary>
