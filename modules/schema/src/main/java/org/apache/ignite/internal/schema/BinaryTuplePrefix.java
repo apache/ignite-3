@@ -39,7 +39,7 @@ public class BinaryTuplePrefix extends BinaryTupleReader implements InternalTupl
      * @param bytes Serialized representation of a Binary Tuple Prefix.
      */
     public BinaryTuplePrefix(BinaryTupleSchema schema, byte[] bytes) {
-        super(schema.elementCount() + 1, bytes);
+        super(schema.elementCount(), bytes);
         this.schema = schema;
     }
 
@@ -50,7 +50,7 @@ public class BinaryTuplePrefix extends BinaryTupleReader implements InternalTupl
      * @param buffer Serialized representation of a Binary Tuple Prefix.
      */
     public BinaryTuplePrefix(BinaryTupleSchema schema, ByteBuffer buffer) {
-        super(schema.elementCount() + 1, buffer);
+        super(schema.elementCount(), buffer);
         this.schema = schema;
     }
 
@@ -66,6 +66,8 @@ public class BinaryTuplePrefix extends BinaryTupleReader implements InternalTupl
 
     @Override
     public int elementCount() {
-        return intValue(super.elementCount() - 1);
+        ByteBuffer buffer = byteBuffer();
+
+        return buffer.getInt(buffer.limit() - Integer.BYTES);
     }
 }
