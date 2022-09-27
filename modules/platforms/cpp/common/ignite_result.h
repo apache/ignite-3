@@ -49,7 +49,7 @@ public:
      * @param value Value.
      */
     IgniteResult(T&& value) : // NOLINT(google-explicit-constructor)
-        m_value(std::forward<T>(value)),
+        m_value(std::move(value)),
         m_error(std::nullopt) { }
 
     /**
@@ -59,7 +59,7 @@ public:
      */
     IgniteResult(IgniteError&& error) : // NOLINT(google-explicit-constructor)
         m_value(std::nullopt),
-        m_error(std::forward<IgniteError>(error)) { }
+        m_error(std::move(error)) { }
 
     /**
      * Has value.
@@ -89,7 +89,7 @@ public:
      * @return Value.
      */
     [[nodiscard]]
-    T&& getValue()
+    T&& getValue() &&
     {
         if (!hasValue())
             throw IgniteError("No value is present in result");
@@ -103,7 +103,21 @@ public:
      * @return Value.
      */
     [[nodiscard]]
-    const T& getValue() const
+    const T& getValue() const &
+    {
+        if (!hasValue())
+            throw IgniteError("No value is present in result");
+
+        return m_value.value();
+    }
+
+    /**
+     * Get value.
+     *
+     * @return Value.
+     */
+    [[nodiscard]]
+    T& getValue() &
     {
         if (!hasValue())
             throw IgniteError("No value is present in result");
@@ -117,7 +131,7 @@ public:
      * @return Error.
      */
     [[nodiscard]]
-    IgniteError&& getError()
+    IgniteError&& getError() &&
     {
         if (!hasError())
             throw IgniteError("No error is present in result");
@@ -131,7 +145,21 @@ public:
      * @return Error.
      */
     [[nodiscard]]
-    const IgniteError& getError() const
+    const IgniteError& getError() const &
+    {
+        if (!hasError())
+            throw IgniteError("No error is present in result");
+
+        return m_error.value();
+    }
+
+    /**
+     * Get error.
+     *
+     * @return Error.
+     */
+    [[nodiscard]]
+    IgniteError& getError() &
     {
         if (!hasError())
             throw IgniteError("No error is present in result");
@@ -155,7 +183,7 @@ public:
      */
     static IgniteResult ofOperation(std::function<T()>&& operation) noexcept {
         try {
-            return {std::forward<std::function<T()>>(operation)()};
+            return {operation()};
         } catch (const IgniteError& err) {
             return {IgniteError(err)};
         } catch (const std::exception& err) {
@@ -229,7 +257,7 @@ public:
      * @param message Message.
      */
     IgniteResult(IgniteError&& error) : // NOLINT(google-explicit-constructor)
-        m_error(std::forward<IgniteError>(error)) { }
+        m_error(std::move(error)) { }
 
     /**
      * Has error.
@@ -286,7 +314,7 @@ public:
      */
     static IgniteResult ofOperation(std::function<void()>&& operation) noexcept {
         try {
-            std::forward<std::function<void()>>(operation)();
+            operation();
             return {};
         } catch (const IgniteError& err) {
             return {IgniteError(err)};

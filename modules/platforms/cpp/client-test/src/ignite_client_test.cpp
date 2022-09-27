@@ -116,7 +116,7 @@ TEST_F(ClientTest, TablesGetTableCallbacks)
         if (!checkAndSetOperationError(*operation0, clientRes))
             return;
 
-        client = std::move(clientRes.getValue());
+        client = std::move(clientRes).getValue();
         auto tables = client.getTables();
 
         operation0->set_value();
@@ -124,7 +124,7 @@ TEST_F(ClientTest, TablesGetTableCallbacks)
             if (!checkAndSetOperationError(*operation1, tableRes))
                 return;
 
-            auto tableUnknown = tableRes.getValue();
+            auto tableUnknown = std::move(tableRes).getValue();
             if (tableUnknown.has_value()) {
                 operation1->set_exception(std::make_exception_ptr(IgniteError("Table should be null")));
                 return;
@@ -137,7 +137,7 @@ TEST_F(ClientTest, TablesGetTableCallbacks)
             if (!checkAndSetOperationError(*operation2, tableRes))
                 return;
 
-            auto table = tableRes.getValue();
+            auto table = std::move(tableRes).getValue();
             if (!table.has_value()) {
                 operation2->set_exception(std::make_exception_ptr(IgniteError("Table should not be null")));
                 return;
