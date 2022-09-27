@@ -207,11 +207,11 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         return super.get(keyRow, tx);
     }
 
-//    /** {@inheritDoc} */
-//    @Override
-//    public Flow.Publisher<BinaryRow> scan(int p, InternalTransaction tx) {
-//        throw new IgniteInternalException(new OperationNotSupportedException());
-//    }
+    ///** {@inheritDoc} */
+    //@Override
+    //public Flow.Publisher<BinaryRow> scan(int p, InternalTransaction tx) {
+    //    throw new IgniteInternalException(new OperationNotSupportedException());
+    //}
 
     /** {@inheritDoc} */
     @Override
