@@ -24,7 +24,7 @@ find_package(msgpack)
 include_directories(include)
 
 set(SOURCES
-    src/buffer.cpp
+    src/buffer_adapter.cpp
     src/reader.cpp
     src/utils.cpp
     src/writer.cpp

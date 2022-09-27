@@ -27,29 +27,21 @@ namespace ignite::protocol
 {
 
 /**
- * Buffer.
+ * BufferAdapter.
  */
-class Buffer
+class BufferAdapter
 {
 public:
     /** Length header size in bytes. */
     static constexpr size_t LENGTH_HEADER_SIZE = 4;
-
-    // Default
-    Buffer() = default;
-    ~Buffer() = default;
-    Buffer(Buffer&&) = default;
-    Buffer(const Buffer& other) = default;
-    Buffer& operator=(Buffer&&) = default;
-    Buffer& operator=(const Buffer&) = default;
 
     /**
      * Constructor.
      *
      * @param data Data.
      */
-    explicit Buffer(std::vector<std::byte> data) :
-        m_buffer(std::move(data)),
+    explicit BufferAdapter(std::vector<std::byte>& data) :
+        m_buffer(data),
         m_lengthPos(std::numeric_limits<std::size_t>::max()) { }
 
     /**
@@ -84,19 +76,9 @@ public:
      */
     void writeLengthHeader();
 
-    /**
-     * Get underlying data. Leaves buffer empty.
-     *
-     * @return Underlying data.
-     */
-     [[nodiscard]]
-    std::vector<std::byte>&& extractData() && {
-        return std::move(m_buffer);
-    }
-
 private:
-    /** Buffer. */
-    std::vector<std::byte> m_buffer{};
+    /** BufferAdapter. */
+    std::vector<std::byte>& m_buffer;
 
     /** Length position. */
     std::size_t m_lengthPos{std::numeric_limits<std::size_t>::max()};

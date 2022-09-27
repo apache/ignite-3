@@ -25,7 +25,7 @@
 #include <msgpack.h>
 
 #include "common/Types.h"
-#include "ignite/protocol/buffer.h"
+#include "ignite/protocol/buffer_adapter.h"
 
 namespace ignite::protocol
 {
@@ -52,14 +52,14 @@ public:
      * @param buffer Buffer to use.
      * @param script Function.
      */
-    static void writeMessageToBuffer(Buffer& buffer, const std::function<void(Writer&)>& script);
+    static void writeMessageToBuffer(BufferAdapter& buffer, const std::function<void(Writer&)>& script);
 
     /**
      * Constructor.
      *
      * @param buffer Buffer.
      */
-    explicit Writer(Buffer& buffer) :
+    explicit Writer(BufferAdapter& buffer) :
         m_buffer(buffer),
         m_packer(msgpack_packer_new(&m_buffer, writeCallback), msgpack_packer_free) {
         assert(m_packer.get());
@@ -135,8 +135,8 @@ private:
      */
     static int writeCallback(void* data, const char* buf, size_t len);
 
-    /** Buffer. */
-    Buffer& m_buffer;
+    /** Buffer adapter. */
+    BufferAdapter& m_buffer;
 
     /** Packer. */
     std::unique_ptr<msgpack_packer, void(*)(msgpack_packer*)> m_packer;

@@ -93,22 +93,25 @@ public:
         std::shared_ptr<ResponseHandlerImpl<T>> handler)
     {
         auto reqId = generateRequestId();
-        protocol::Buffer buffer;
-        buffer.reserveLengthHeader();
-
-        protocol::Writer writer(buffer);
-        writer.write(int32_t(op));
-        writer.write(reqId);
-        wr(writer);
-
-        buffer.writeLengthHeader();
-
+        std::vector<std::byte> message;
         {
-            std::lock_guard<std::mutex> lock(m_requestHandlersMutex);
-            m_requestHandlers[reqId] = std::move(handler);
+            protocol::BufferAdapter buffer(message);
+            buffer.reserveLengthHeader();
+
+            protocol::Writer writer(buffer);
+            writer.write(int32_t(op));
+            writer.write(reqId);
+            wr(writer);
+
+            buffer.writeLengthHeader();
+
+            {
+                std::lock_guard<std::mutex> lock(m_requestHandlersMutex);
+                m_requestHandlers[reqId] = std::move(handler);
+            }
         }
 
-        bool sent = m_pool->send(m_id, network::DataBufferShared(std::move(buffer).extractData()));
+        bool sent = m_pool->send(m_id, network::DataBufferShared(std::move(message)));
         if (!sent)
         {
             std::lock_guard<std::mutex> lock(m_requestHandlersMutex);

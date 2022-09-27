@@ -202,26 +202,29 @@ void ClusterConnection::handshake(uint64_t id, ProtocolContext& context)
 {
     static constexpr int8_t CLIENT_TYPE = 2;
 
-    protocol::Buffer buffer;
-    buffer.writeRawData(BytesView(protocol::MAGIC_BYTES.data(), protocol::MAGIC_BYTES.size()));
+    std::vector<std::byte> message;
+    {
+        protocol::BufferAdapter buffer(message);
+        buffer.writeRawData(BytesView(protocol::MAGIC_BYTES.data(), protocol::MAGIC_BYTES.size()));
 
-    protocol::Writer::writeMessageToBuffer(buffer, [&context](protocol::Writer& writer) {
-        auto ver = context.getVersion();
+        protocol::Writer::writeMessageToBuffer(buffer, [&context](protocol::Writer& writer) {
+            auto ver = context.getVersion();
 
-        writer.write(ver.getMajor());
-        writer.write(ver.getMinor());
-        writer.write(ver.getPatch());
+            writer.write(ver.getMajor());
+            writer.write(ver.getMinor());
+            writer.write(ver.getPatch());
 
-        writer.write(CLIENT_TYPE);
+            writer.write(CLIENT_TYPE);
 
-        // Features.
-        writer.writeBinaryEmpty();
+            // Features.
+            writer.writeBinaryEmpty();
 
-        // Extensions.
-        writer.writeMapEmpty();
-    });
+            // Extensions.
+            writer.writeMapEmpty();
+        });
+    }
 
-    network::DataBufferShared dataBuffer(std::move(buffer).extractData());
+    network::DataBufferShared dataBuffer(std::move(message));
 
     try
     {
