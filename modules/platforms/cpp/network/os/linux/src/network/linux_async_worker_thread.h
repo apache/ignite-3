@@ -50,7 +50,7 @@ public:
     /**
      * Destructor.
      */
-    virtual ~LinuxAsyncWorkerThread();
+    ~LinuxAsyncWorkerThread();
 
     /**
      * Start worker thread.

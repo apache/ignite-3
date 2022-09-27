@@ -42,26 +42,23 @@ void BeforeAll()
 
 int main(int argc, char** argv)
 {
+    int res = 0;
+    BeforeAll();
+    ignite::IgniteRunner runner;
     try {
-        BeforeAll();
-
-        ignite::IgniteRunner runner;
         runner.start(false);
 
         // TODO: Implement node startup await
         std::this_thread::sleep_for(std::chrono::seconds(20));
 
         ::testing::InitGoogleTest(&argc, argv);
-        auto res = RUN_ALL_TESTS();
-
-        runner.stop();
-
-        return res;
+        res = RUN_ALL_TESTS();
     } catch (const std::exception& err) {
         std::cout << "Uncaught error: " << err.what() << std::endl;
     } catch (...) {
         std::cout << "Unknown uncaught error" << std::endl;
     }
+    runner.stop();
 
-    return 0;
+    return res;
 }
