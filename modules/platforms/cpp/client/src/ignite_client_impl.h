@@ -42,9 +42,6 @@ public:
     IgniteClientImpl& operator=(IgniteClientImpl&&) = delete;
     IgniteClientImpl& operator=(const IgniteClientImpl&) = delete;
 
-    // Default
-    ~IgniteClientImpl() = default;
-
     /**
      * Constructor.
      *
@@ -54,6 +51,13 @@ public:
         m_configuration(std::move(configuration)),
         m_connection(ClusterConnection::create(m_configuration)),
         m_tables(std::make_shared<TablesImpl>(m_connection)) { }
+
+    /**
+     * Destructor.
+     */
+    ~IgniteClientImpl() {
+        stop();
+    }
 
     /**
      * Start client.
@@ -68,8 +72,7 @@ public:
     /**
      * Stop client.
      */
-    void stop()
-    {
+    void stop() {
         m_connection->stop();
     }
 

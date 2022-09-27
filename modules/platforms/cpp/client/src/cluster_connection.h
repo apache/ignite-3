@@ -76,8 +76,12 @@ public:
     ClusterConnection& operator=(ClusterConnection&&) = delete;
     ClusterConnection& operator=(const ClusterConnection&) = delete;
 
-    // Default
-    ~ClusterConnection() override = default;
+    /**
+     * Destructor.
+     */
+    ~ClusterConnection() override {
+        stop();
+    }
 
     /**
      * Start establishing connection.
