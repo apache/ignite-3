@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Tests.Proto.BinaryTuple
 {
     using System;
+    using System.Collections;
     using System.Linq;
     using Internal.Proto.BinaryTuple;
     using NUnit.Framework;
@@ -350,15 +351,25 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
         {
             var bytes = Enumerable.Range(1, count).Select(x => (byte)x).ToArray();
             var reader = BuildAndRead((ref BinaryTupleBuilder b) => b.AppendBytes(bytes));
-
             var res = reader.GetBytes(0);
+
             CollectionAssert.AreEqual(bytes, res);
         }
 
         [Test]
-        public void TestBitMask()
+        public void TestBitMask([Values(0, 1, 123)] int count)
         {
-            Assert.Fail("TODO IGNITE-15431");
+            var bitMask = new BitArray(count);
+
+            for (var i = 0; i < count; i++)
+            {
+                bitMask.Set(i, i % 2 == 0);
+            }
+
+            var reader = BuildAndRead((ref BinaryTupleBuilder b) => b.AppendBitmask(bitMask));
+            var res = reader.GetBitmask(0);
+
+            Assert.AreEqual(bitMask, res);
         }
 
         [Test]
