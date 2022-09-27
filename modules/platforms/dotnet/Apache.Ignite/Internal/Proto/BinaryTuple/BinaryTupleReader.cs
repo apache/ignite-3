@@ -336,7 +336,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         {
             // Read int32 from 3 bytes, preserving sign.
             Span<byte> buf = stackalloc byte[4];
-            span.CopyTo(buf[1..]);
+            span[..3].CopyTo(buf[1..]);
 
             int date = BinaryPrimitives.ReadInt32LittleEndian(buf) >> 8;
 
