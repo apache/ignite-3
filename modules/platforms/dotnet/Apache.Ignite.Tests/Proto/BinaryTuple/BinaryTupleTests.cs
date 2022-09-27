@@ -369,7 +369,12 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
             var reader = BuildAndRead((ref BinaryTupleBuilder b) => b.AppendBitmask(bitMask));
             var res = reader.GetBitmask(0);
 
-            Assert.AreEqual(bitMask, res);
+            Assert.GreaterOrEqual(res.Length, bitMask.Length); // Resulting bitmask may be padded with false bits to the byte boundary.
+
+            for (var i = 0; i < count; i++)
+            {
+                Assert.AreEqual(i % 2 == 0, res.Get(i));
+            }
         }
 
         [Test]
