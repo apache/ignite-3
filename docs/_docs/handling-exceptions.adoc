@@ -26,10 +26,10 @@ When the exception happens, Apache Ignite 3 provides a UUID of the specific exce
 [cols="20%,80%", width="100%"]
 |===
 |Exception	|Description
-|`UNEXPECTED_ERR`|Unexpected error occurred.
-|`NODE_STOPPING_ERR`|An error occurred when stopping the node.
-|`COMPONENT_NOT_STARTED_ERR`|Required component was not started.
-|`UNKNOWN_ERR`|Deprecated. Unknown error occurred. Replaced by `UNEXPECTED_ERR`.
+|`IGN-CMN-1`|Unexpected error occurred.
+|`IGN-CMN-2`|Operation was stopped because node is stopping.
+|`IGN-CMN-3`|Required component was not started.
+|`IGN-CMN-0xFFFF`|Deprecated. Unknown error occurred. Replaced by `IGN-CMN-1`.
 |===
 
 == Table Exceptions
@@ -37,10 +37,10 @@ When the exception happens, Apache Ignite 3 provides a UUID of the specific exce
 [cols="20%,80%", width="100%"]
 |===
 |Exception	|Description
-|`TABLE_ALREADY_EXISTS_ERR`|Table already exists.
-|`TABLE_NOT_FOUND_ERR`|Table not found.
-|`COLUMN_ALREADY_EXISTS_ERR`|Column already exists.
-|`COLUMN_NOT_FOUND_ERR`|Column not found.
+|`IGN-TBL-1`|Table already exists.
+|`IGN-TBL-2`|Table not found.
+|`IGN-TBL-3`|Column already exists.
+|`IGN-TBL-4`|Column not found.
 |===
 
 == Client Exceptions
@@ -48,13 +48,13 @@ When the exception happens, Apache Ignite 3 provides a UUID of the specific exce
 [cols="20%,80%", width="100%"]
 |===
 |Exception	|Description
-|`CONNECTION_ERR`|Connection to client failed.
-|`PROTOCOL_ERR`|An issue happened with connection protocol.
-|`PROTOCOL_COMPATIBILITY_ERR`|Incompatible protocol version.
-|`TABLE_ID_NOT_FOUND_ERR`|Table not found by ID.
-|`AUTHENTICATION_ERR`|An error with authentication parameters.
-|`AUTHORIZATION_ERR`|An error occurred during server authorization.
-|`CONFIGURATION_ERR`|An error occurred while reading client configuration.
+|`IGN-CLIENT-1`|Connection to client failed.
+|`IGN-CLIENT-2`|An issue happened with connection protocol.
+|`IGN-CLIENT-3`|Incompatible protocol version.
+|`IGN-CLIENT-4`|Table not found by ID.
+|`IGN-CLIENT-5`|An error with authentication parameters.
+|`IGN-CLIENT-6`|An error occurred during server authorization.
+|`IGN-CLIENT-7`|An error occurred while reading client configuration.
 |===
 
 == SQL  Exceptions
@@ -62,16 +62,39 @@ When the exception happens, Apache Ignite 3 provides a UUID of the specific exce
 [cols="20%,80%", width="100%"]
 |===
 |Exception	|Description
-|`CURSOR_NO_MORE_PAGES_ERR`|Ignite tried to read a page after last one.
-|`SESSION_NOT_FOUND_ERR`|The specified either does not exist or is closed.
-|`QUERY_INVALID_ERR`|SQL query is incorrect.
-|`QUERY_NO_RESULT_SET_ERR`|Query returned no result set.
-|`PRIMARY_KEY_MISSING_ERR`|Table is missing primary key.
-|`PRIMARY_KEYS_MULTIPLE_ERR`|Multiple primary keys found in a table.
-|`SCHEMA_NOT_FOUND_ERR`|Failed to find schema.
-|`STORAGE_ENGINE_NOT_VALID_ERR`|Specified storage engine is not supperted.
-|`CURSOR_CLOSED_ERR`|Cursor is already closed when another operation starts.
-|`DUPLICATE_KEYS_ERR`|Some keys could not be inserted because they are duplicates.
+|`IGN-SQL-1`|Ignite tried to read a page after last one.
+|`IGN-SQL-2`|The specified either does not exist or is closed.
+|`IGN-SQL-3`|SQL query is incorrect.
+|`IGN-SQL-4`|Query returned no result set.
+|`IGN-SQL-5`|Table is missing primary key.
+|`IGN-SQL-6`|Multiple primary keys found in a table.
+|`IGN-SQL-7`|Failed to find schema.
+|`IGN-SQL-8`|Specified storage engine is not supperted.
+|`IGN-SQL-9`|Cursor is already closed when another operation starts.
+|`IGN-SQL-10`|Some keys could not be inserted because they are duplicates.
+|`IGN-SQL-11`|Cannot delete a column that belongs to the primary key.
+|`IGN-SQL-12`|Too many grouping expressions.
+|`IGN-SQL-13`|Unsupported SQL operation.
+|`IGN-SQL-14`|Unsupported DDL operation.
+|`IGN-SQL-15`|Query validation error.
+|`IGN-SQL-16`|Specified table not found.
+|`IGN-SQL-17`|Specified table version not found.
+|`IGN-SQL-18`|Invalid table option specified.
+|`IGN-SQL-19`|Query mapping error.
+|`IGN-SQL-20`|DDL execution error.
+|`IGN-SQL-21`|DML result error.
+|`IGN-SQL-22`|Failed to map SQL data type to relational.
+|`IGN-SQL-23`|Failed to serialize relational expression.
+|`IGN-SQL-24`|Failed to deserialized relational expression.
+|`IGN-SQL-25`|Class not found.
+|`IGN-SQL-26`|Failed to compile an SQL expression.
+|`IGN-SQL-27`|Node left the cluster.
+|`IGN-SQL-28`|Failed to send a message.
+|`IGN-SQL-29`|Operation aborted or interrupted.
+|`IGN-SQL-30`|An error occurred while canceling the operation.
+|`IGN-SQL-31`|Session expired.
+|`IGN-SQL-32`|Session evaluation error.
+|`IGN-SQL-33`|Execution cancelled.
 |===
 
 == Meta Storage Exceptions
@@ -79,17 +102,17 @@ When the exception happens, Apache Ignite 3 provides a UUID of the specific exce
 [cols="20%,80%", width="100%"]
 |===
 |Exception	|Description
-|`STARTING_STORAGE_ERR`|Failed to start the underlying key value storage.
-|`RESTORING_STORAGE_ERR`|Failed to restore the underlying key value storage.
-|`CLOSING_STORAGE_ERR`|Failed to close the underlying key value storage.
-|`COMPACTION_ERR`|Failed to compact the underlying key value storage.
-|`OP_EXECUTION_ERR`|Failed to perform an operation on the underlying key value storage.
-|`OP_EXECUTION_TIMEOUT_ERR`|Failed to perform an operation within a specified time period. Usually in such cases the operation should be retried.
-|`WATCH_EXECUTION_ERR`|Failed to iterate over the underlying key value storage.
-|`WATCH_STOPPING_ERR`|Failed to stop a watcher.
-|`DEPLOYING_WATCH_ERR`|Failed to deploy or update a watcher.
-|`CURSOR_EXECUTION_ERR`|Failed to iterate over meta storage cursor.
-|`CURSOR_CLOSING_ERR`|Failed to close a cursor.
+|`IGN-META-1`|Failed to start the underlying key value storage.
+|`IGN-META-2`|Failed to restore the underlying key value storage.
+|`IGN-META-3`|Failed to close the underlying key value storage.
+|`IGN-META-4`|Failed to compact the underlying key value storage.
+|`IGN-META-5`|Failed to perform an operation on the underlying key value storage.
+|`IGN-META-6`|Failed to perform an operation within a specified time period. Usually in such cases the operation should be retried.
+|`IGN-META-7`|Failed to iterate over the underlying key value storage.
+|`IGN-META-8`|Failed to stop a watcher.
+|`IGN-META-9`|Failed to deploy or update a watcher.
+|`IGN-META-10`|Failed to iterate over meta storage cursor.
+|`IGN-META-11`|Failed to close a cursor.
 |===
 
 == Index Exceptions
@@ -97,8 +120,8 @@ When the exception happens, Apache Ignite 3 provides a UUID of the specific exce
 [cols="20%,80%", width="100%"]
 |===
 |Exception	|Description
-|`INVALID_INDEX_DEFINITION_ERR`|Invalid index definition.
-|`INDEX_NOT_FOUND_ERR`|Failed to find the specified index.
+|`IGN-IDX-1`|Invalid index definition.
+|`IGN-IDX-2`|Failed to find the specified index.
 |===
 
 == Transactions Exceptions
@@ -106,8 +129,8 @@ When the exception happens, Apache Ignite 3 provides a UUID of the specific exce
 [cols="20%,80%", width="100%"]
 |===
 |Exception	|Description
-|`TX_STATE_STORAGE_CREATE_ERR`|Failed to create a transaction state storage.
-|`TX_STATE_STORAGE_DESTROY_ERR`|Failed to destroy the transaction state storage.
-|`TX_STATE_STORAGE_ERR`|Failed to work with the transaction state storage.
-|`TX_STATE_STORAGE_STOPPED_ERR`|Transaction state storage is stopped when a different operation is planned.
+|`IGN-TX-1`|Failed to create a transaction state storage.
+|`IGN-TX-2`|Failed to destroy the transaction state storage.
+|`IGN-TX-3`|Failed to work with the transaction state storage.
+|`IGN-TX-4`|Transaction state storage is stopped when a different operation is planned.
 |===
