@@ -116,7 +116,7 @@ public class PartitionListener implements RaftGroupListener {
         iterator.forEachRemaining((CommandClosure<? extends ReadCommand> clo) -> {
             Command command = clo.command();
 
-            assert false : "No read commands expected, [cmd=" + clo.command() + ']';
+            assert false : "No read commands expected, [cmd=" + command + ']';
         });
     }
 

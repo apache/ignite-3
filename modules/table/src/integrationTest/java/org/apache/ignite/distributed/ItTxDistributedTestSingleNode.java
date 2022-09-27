@@ -379,7 +379,6 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                             try {
                                 replicaManagers.get(node).startReplica(
                                         grpId,
-                                        raftSvc,
                                         new PartitionReplicaListener(
                                                 testMpPartStorage,
                                                 raftSvc,

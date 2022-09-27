@@ -21,7 +21,6 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.lang.IgniteStringFormatter;
-import org.apache.ignite.raft.client.service.RaftGroupService;
 
 /**
  * Replica server.
@@ -31,9 +30,6 @@ public class Replica {
     /** Replica group identity, this id is the same as the considered partition's id. */
     private final String replicaGrpId;
 
-    /** Raft group service. */
-    private final RaftGroupService raftGroupService;
-
     /** Replica listener. */
     private final ReplicaListener listener;
 
@@ -41,16 +37,13 @@ public class Replica {
      * The constructor of replica server.
      *
      * @param replicaGrpId Replication group id.
-     * @param raftGroupService Raft group service.
      * @param listener Replica listener.
      */
     public Replica(
             String replicaGrpId,
-            RaftGroupService raftGroupService,
             ReplicaListener listener
     ) {
         this.replicaGrpId = replicaGrpId;
-        this.raftGroupService = raftGroupService;
         this.listener = listener;
     }
 
