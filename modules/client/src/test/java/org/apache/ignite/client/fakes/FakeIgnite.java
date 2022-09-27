@@ -18,7 +18,6 @@
 package org.apache.ignite.client.fakes;
 
 import java.util.Collection;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;

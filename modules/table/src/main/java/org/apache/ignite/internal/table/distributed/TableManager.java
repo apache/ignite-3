@@ -996,12 +996,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             throw new StorageException("Failed to create transaction state storage directory for " + tableCfg.value().name(), e);
         }
 
-        TxStateTableStorage txStateTableStorage =  new TxStateRocksDbTableStorage(
-            tableCfg,
-            path,
-            txStateStorageScheduledPool,
-            txStateStoragePool,
-            TX_STATE_STORAGE_FLUSH_DELAY_SUPPLIER
+        TxStateTableStorage txStateTableStorage = new TxStateRocksDbTableStorage(
+                tableCfg,
+                path,
+                txStateStorageScheduledPool,
+                txStateStoragePool,
+                TX_STATE_STORAGE_FLUSH_DELAY_SUPPLIER
         );
 
         txStateTableStorage.start();

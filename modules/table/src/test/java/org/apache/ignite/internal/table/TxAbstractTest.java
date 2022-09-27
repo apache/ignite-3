@@ -215,6 +215,77 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         assertEquals(5, txManager(accounts).finished());
     }
 
+    @Test
+    public void testBatchPutConcurrently() {
+        Transaction tx = igniteTransactions.begin();
+        Transaction tx2 = igniteTransactions.begin();
+
+        log.info("Tx " + tx);
+        log.info("Tx2 " + tx2);
+
+        ArrayList<Tuple> rows = new ArrayList<>();
+        ArrayList<Tuple> rows2 = new ArrayList<>();
+
+        for (int i = 0; i < 1; i++) {
+            rows.add(makeValue(i, i * 100.));
+            rows2.add(makeValue(i, 2 * i * 100.));
+        }
+
+        var table = accounts.recordView();
+        var table2 = accounts.recordView();
+
+        table2.upsertAll(tx2, rows2);
+
+        Exception err = assertThrows(Exception.class, () -> table.upsertAll(tx, rows));
+
+        assertTrue(err.getMessage().contains("Failed to acquire a lock"), err.getMessage());
+
+        tx2.commit();
+    }
+
+    @Test
+    public void testBatchReadPutConcurrently() {
+        Transaction tx = igniteTransactions.begin();
+        Transaction tx2 = igniteTransactions.begin();
+
+        log.info("Tx " + tx);
+        log.info("Tx2 " + tx2);
+
+        var table = accounts.recordView();
+        var table2 = accounts.recordView();
+
+        ArrayList<Tuple> keys = new ArrayList<>();
+        ArrayList<Tuple> keys2 = new ArrayList<>();
+
+        for (int i = 0; i < 1; i++) {
+            keys.add(makeKey(i));
+            keys2.add(makeKey(i));
+        }
+
+        table2.getAll(tx, keys);
+        table2.getAll(tx2, keys2);
+
+        ArrayList<Tuple> rows = new ArrayList<>();
+        ArrayList<Tuple> rows2 = new ArrayList<>();
+
+        for (int i = 0; i < 1; i++) {
+            rows.add(makeValue(i, i * 100.));
+            rows2.add(makeValue(i, 2 * i * 100.));
+        }
+
+        var futUpd2 = table2.upsertAllAsync(tx2, rows2);
+
+        assertFalse(futUpd2.isDone());
+
+        table.upsertAll(tx, rows);
+
+        tx.commit();
+
+        Exception err = assertThrows(Exception.class, () -> futUpd2.join());
+
+        assertTrue(err.getMessage().contains("Failed to acquire a lock"), err.getMessage());
+    }
+
     /**
      * Tests an asynchronous transaction.
      */
