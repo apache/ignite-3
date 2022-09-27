@@ -235,7 +235,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         public LocalDate GetDate(int index) => Seek(index) switch
         {
             { IsEmpty: true } => default,
-            var s => new BitArray(s.ToArray())
+            var s => ReadDate(s)
         };
 
         /// <summary>
@@ -311,6 +311,18 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             }
 
             return res;
+        }
+
+        private static LocalDate ReadDate(ReadOnlySpan<byte> span)
+        {
+            int date = BinaryPrimitives.ReadUInt16LittleEndian(span);
+            date |= span[2..][0] << 16;
+
+            int day = date & 31;
+            int month = (date >> 5) & 15;
+            int year = (date >> 9); // Sign matters.
+
+            return new LocalDate(year, month, day);
         }
 
         private static decimal ReadDecimal(ReadOnlySpan<byte> span, int scale)
