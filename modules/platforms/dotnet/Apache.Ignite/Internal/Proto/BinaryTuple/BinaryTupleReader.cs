@@ -300,6 +300,50 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             };
         }
 
+        private static LocalDate ReadDate(ReadOnlySpan<byte> span)
+        {
+            int date = BinaryPrimitives.ReadUInt16LittleEndian(span);
+            date |= span[2..][0] << 16;
+
+            int day = date & 31;
+            int month = (date >> 5) & 15;
+            int year = (date >> 9); // Sign matters.
+
+            return new LocalDate(year, month, day);
+        }
+
+        private static LocalTime ReadTime(ReadOnlySpan<byte> span)
+        {
+            // long time = Integer.toUnsignedLong(buffer.getInt(offset));
+            long time = BinaryPrimitives.ReadUInt32LittleEndian(span);
+            var length = span.Length;
+
+            int nanos;
+            if (length == 4)
+            {
+                nanos = ((int) time & ((1 << 10) - 1)) * 1000 * 1000;
+                time >>= 10;
+            }
+            else if (length == 5)
+            {
+                time |= (long)span[4] << 32;
+                nanos = ((int) time & ((1 << 20) - 1)) * 1000;
+                time >>= 20;
+            }
+            else
+            {
+                time |= (long)BinaryPrimitives.ReadUInt16LittleEndian(span[4..]) << 32;
+                nanos = ((int)time & ((1 << 30) - 1));
+                time >>= 30;
+            }
+
+            int second = ((int) time) & 63;
+            int minute = ((int) time >> 6) & 63;
+            int hour = ((int) time >> 12) & 31;
+
+            return LocalTime.FromHourMinuteSecondNanosecond(hour, minute, second, nanos);
+        }
+
         private static decimal ReadDecimal2(ReadOnlySpan<byte> span, int scale)
         {
             var unscaled = new BigInteger(span);
@@ -311,18 +355,6 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             }
 
             return res;
-        }
-
-        private static LocalDate ReadDate(ReadOnlySpan<byte> span)
-        {
-            int date = BinaryPrimitives.ReadUInt16LittleEndian(span);
-            date |= span[2..][0] << 16;
-
-            int day = date & 31;
-            int month = (date >> 5) & 15;
-            int year = (date >> 9); // Sign matters.
-
-            return new LocalDate(year, month, day);
         }
 
         private static decimal ReadDecimal(ReadOnlySpan<byte> span, int scale)
