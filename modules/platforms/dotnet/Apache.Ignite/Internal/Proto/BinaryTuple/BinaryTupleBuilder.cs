@@ -21,6 +21,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
     using System.Collections;
     using System.Diagnostics;
     using System.Numerics;
+    using System.Runtime.InteropServices;
     using Buffers;
     using NodaTime;
 
@@ -308,9 +309,19 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// Appends a decimal.
         /// </summary>
         /// <param name="value">Value.</param>
-        public void AppendDecimal(decimal value)
+        /// <param name="scale">Decimal scale from schema.</param>
+        public void AppendDecimal(decimal value, int scale)
         {
-            // TODO IGNITE-15431
+            var bits = decimal.GetBits(value);
+            var valueScale = (bits[3] & 0x00FF0000) >> 16;
+
+            if (valueScale != scale)
+            {
+                // TODO IGNITE-15431 adjust scale by converting to BigInteger and multiplication.
+            }
+
+            var bytes = MemoryMarshal.Cast<int, byte>(bits.AsSpan(0, 3));
+            bytes.CopyTo(GetSpan(bytes.Length));
         }
 
         /// <summary>
