@@ -50,22 +50,19 @@ public:
             m_running(false),
             m_command(std::move(command)),
             m_args(std::move(args)),
-            m_workDir(std::move(workDir))
-    { }
+            m_workDir(std::move(workDir)) { }
 
     /**
      * Destructor.
      */
-    ~LinuxProcess() override
-    {
-        killInternal();
+    ~LinuxProcess() override {
+        kill();
     }
 
     /**
      * Start process.
      */
-    bool start() override
-    {
+    bool start() final {
         if (m_running)
             return false;
 
@@ -112,16 +109,7 @@ public:
     /**
      * Kill the process.
      */
-    void kill() override
-    {
-        killInternal();
-    }
-
-    /**
-     * Kill the process.
-     */
-    void killInternal() const
-    {
+    void kill() final {
         if (!m_running)
             return;
 
@@ -133,7 +121,7 @@ public:
      *
      * @param timeout Timeout.
      */
-    void join(std::chrono::milliseconds) override
+    void join(std::chrono::milliseconds) final
     {
         // Ignoring timeout in Linux...
         ::waitpid(m_pid, nullptr, 0);

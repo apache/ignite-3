@@ -16,6 +16,8 @@
  */
 
 #include <mutex>
+#include <random>
+#include <sstream>
 
 #include "ignite/protocol/utils.h"
 

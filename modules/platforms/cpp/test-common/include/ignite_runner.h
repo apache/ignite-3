@@ -34,16 +34,6 @@ class IgniteRunner
 {
 public:
     /**
-     * Constructor.
-     */
-    IgniteRunner() = default;
-
-    /**
-     * Destructor.
-     */
-    ~IgniteRunner() = default;
-
-    /**
      * Start node.
      *
      * @param dryRun Perform a dry run. Mostly used to ensure that code is compiled and all artifacts are downloaded.

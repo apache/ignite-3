@@ -22,8 +22,6 @@
 
 #include <array>
 #include <optional>
-#include <random>
-#include <sstream>
 
 #include "common/Types.h"
 #include "common/ignite_error.h"
@@ -45,6 +43,7 @@ static constexpr std::array<std::byte, 4> MAGIC_BYTES =
  */
 inline uint64_t readUint64(const std::byte* data, size_t offset = 0)
 {
+    // TODO IGNITE-17760: Replace read and write functions with ones from common/Bytes.h
     return (std::uint64_t(data[offset]) << 56) |
         (std::uint64_t(data[offset + 1]) << 48) |
         (std::uint64_t(data[offset + 2]) << 40) |

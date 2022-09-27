@@ -22,7 +22,7 @@ set(TARGET ${PROJECT_NAME})
 include_directories(include)
 
 set(SOURCES
-    src/ignite_node.cpp
+    src/ignite_runner.cpp
     src/process.cpp
     src/test_utils.cpp
 )

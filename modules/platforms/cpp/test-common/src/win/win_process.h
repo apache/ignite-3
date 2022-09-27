@@ -98,16 +98,14 @@ public:
     /**
      * Destructor.
      */
-    ~WinProcess() override
-    {
-        killInternal();
+    ~WinProcess() override {
+        kill();
     }
 
     /**
      * Start process.
      */
-    bool start() override
-    {
+    bool start() final {
         if (m_running)
             return false;
 
@@ -139,16 +137,7 @@ public:
     /**
      * Kill the process.
      */
-    void kill() override
-    {
-        killInternal();
-    }
-
-    /**
-     * Kill the process.
-     */
-    void killInternal()
-    {
+    void kill() final {
         if (!m_running)
             return;
 
@@ -176,8 +165,7 @@ public:
      *
      * @param timeout Timeout.
      */
-    void join(std::chrono::milliseconds timeout) override
-    {
+    void join(std::chrono::milliseconds timeout) final {
         auto msecs = timeout.count() < 0 ? INFINITE : static_cast<DWORD>(timeout.count());
 
         WaitForSingleObject(m_info.hProcess, msecs);

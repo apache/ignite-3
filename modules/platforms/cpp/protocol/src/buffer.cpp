@@ -41,10 +41,8 @@ void Buffer::writeRawData(BytesView data)
 
 void Buffer::reserveLengthHeader()
 {
-    static constexpr std::array<std::byte, 4> empty = {std::byte{0}, std::byte{0}, std::byte{0}, std::byte{0}};
-
     m_lengthPos = m_buffer.size();
-    writeRawData({empty.data(), empty.size()});
+    m_buffer.insert(m_buffer.end(), 4, std::byte{0});
 }
 
 void Buffer::writeLengthHeader()
