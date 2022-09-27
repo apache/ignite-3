@@ -67,7 +67,7 @@ public:
      * @param id Async client ID.
      * @param msg Received message.
      */
-    virtual void onMessageReceived(uint64_t id, const DataBuffer& msg) = 0;
+    virtual void onMessageReceived(uint64_t id, const DataBufferRef& msg) = 0;
 
     /**
      * Callback that called when message is sent.

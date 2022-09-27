@@ -25,16 +25,16 @@ CodecDataFilter::CodecDataFilter(std::shared_ptr<Factory<Codec>> factory) :
     m_codecs(),
     m_codecsMutex() { }
 
-bool CodecDataFilter::send(uint64_t id, const DataBuffer &data)
+bool CodecDataFilter::send(uint64_t id, const DataBufferShared& data)
 {
     std::shared_ptr<Codec> codec = FindCodec(id);
     if (!codec)
         return false;
 
-    DataBuffer data0(data);
+    DataBufferShared data0(data);
     while (true)
     {
-        DataBuffer out = codec->encode(data0);
+        DataBufferShared out = codec->encode(data0);
 
         if (out.isEmpty())
             break;
@@ -70,16 +70,16 @@ void CodecDataFilter::onConnectionClosed(uint64_t id, std::optional<IgniteError>
     DataFilterAdapter::onConnectionClosed(id, std::move(err));
 }
 
-void CodecDataFilter::onMessageReceived(uint64_t id, const DataBuffer &msg)
+void CodecDataFilter::onMessageReceived(uint64_t id, const DataBufferRef& msg)
 {
     std::shared_ptr<Codec> codec = FindCodec(id);
     if (!codec)
         return;
 
-    DataBuffer msg0(msg);
+    DataBufferRef msg0(msg);
     while (true)
     {
-        DataBuffer out = codec->decode(msg0);
+        DataBufferRef out = codec->decode(msg0);
 
         if (out.isEmpty())
             break;

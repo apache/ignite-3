@@ -19,6 +19,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <vector>
 
 #include "common/Types.h"
 
@@ -28,27 +29,27 @@ namespace ignite::network
 {
 
 /**
- * Data buffer.
+ * Non-owning data buffer.
  *
- * Represents a consumable chunk of data.
+ * Represents a consumable chunk of data. Does not hold data ownership.
  */
-class DataBuffer
+class DataBufferRef
 {
 public:
     // Default
-    DataBuffer() = default;
-    ~DataBuffer() = default;
-    DataBuffer(DataBuffer&&) = default;
-    DataBuffer(const DataBuffer&) = default;
-    DataBuffer& operator=(DataBuffer&&) = default;
-    DataBuffer& operator=(const DataBuffer&) = default;
+    DataBufferRef() = default;
+    ~DataBufferRef() = default;
+    DataBufferRef(DataBufferRef&&) = default;
+    DataBufferRef(const DataBufferRef&) = default;
+    DataBufferRef& operator=(DataBufferRef&&) = default;
+    DataBufferRef& operator=(const DataBufferRef&) = default;
 
     /**
      * Constructor.
      *
      * @param data Data.
      */
-    explicit DataBuffer(BytesView data) :
+    explicit DataBufferRef(BytesView data) :
         m_data(data) { }
 
     /**
@@ -58,7 +59,7 @@ public:
      * @param pos Start of data.
      * @param len Length.
      */
-    DataBuffer(BytesView data, size_t pos, size_t len) :
+    DataBufferRef(BytesView data, size_t pos, size_t len) :
         m_data(data.substr(pos, len)) { }
 
     /**
@@ -90,8 +91,8 @@ public:
      *
      * @return Buffer containing consumed data.
      */
-    DataBuffer consumeEntirely() {
-        DataBuffer res(*this);
+    DataBufferRef consumeEntirely() {
+        DataBufferRef res(*this);
         m_data = {};
 
         return res;
@@ -120,6 +121,98 @@ public:
     }
 
 private:
+    /** Data. */
+    BytesView m_data;
+};
+
+/**
+ * Owning data buffer.
+ *
+ * Represents a consumable chunk of data. Holds data ownership.
+ */
+class DataBufferShared
+{
+public:
+    // Default
+    DataBufferShared() = default;
+    ~DataBufferShared() = default;
+    DataBufferShared(DataBufferShared&&) = default;
+    DataBufferShared(const DataBufferShared&) = default;
+    DataBufferShared& operator=(DataBufferShared&&) = default;
+    DataBufferShared& operator=(const DataBufferShared&) = default;
+
+    /**
+     * Constructor.
+     *
+     * @param data Data.
+     */
+    explicit DataBufferShared(protocol::Buffer&& data) :
+        m_memory(std::make_shared<std::vector<std::byte>>(std::move(data.extractData()))),
+        m_data(*m_memory) { }
+
+    /**
+     * Consume buffer data by the vector.
+     *
+     * @param dst Vector to append data to.
+     * @param bytes Number of bytes to consume.
+     */
+    void consumeBy(std::vector<std::byte>& dst, size_t bytes) {
+        if (bytes > m_data.size())
+            bytes = m_data.size();
+
+        dst.insert(dst.end(), m_data.begin(), m_data.begin() + ptrdiff_t(bytes));
+        skip(bytes);
+    }
+
+    /**
+     * Check whether data buffer was fully consumed.
+     *
+     * @return @c true if the buffer is empty and @c false otherwise.
+     */
+    [[nodiscard]]
+    bool isEmpty() const {
+        return m_data.empty();
+    }
+
+    /**
+     * Consume the whole buffer.
+     *
+     * @return Buffer containing consumed data.
+     */
+    DataBufferShared consumeEntirely() {
+        DataBufferShared res(*this);
+        m_data = {};
+        m_memory.reset();
+
+        return res;
+    }
+
+    /**
+     * Skip specified number of bytes.
+     *
+     * @param bytes Bytes to skip.
+     */
+    void skip(size_t bytes) {
+        if (bytes >= m_data.size())
+            m_data = {};
+        else
+            m_data = m_data.substr(bytes);
+    }
+
+    /**
+     * Get bytes view.
+     *
+     * @return Bytes view.
+     */
+    [[nodiscard]]
+    BytesView getBytesView() const {
+        return m_data;
+    }
+
+private:
+    /** Memory. */
+    std::shared_ptr<std::vector<std::byte>> m_memory;
+
     /** Data. */
     BytesView m_data;
 };

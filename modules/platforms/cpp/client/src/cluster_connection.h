@@ -163,7 +163,7 @@ private:
      * @param id Async client ID.
      * @param msg Received message.
      */
-    void onMessageReceived(uint64_t id, const network::DataBuffer& msg) override;
+    void onMessageReceived(uint64_t id, const network::DataBufferRef& msg) override;
 
     /**
      * Callback that called when message is sent.
@@ -201,7 +201,7 @@ private:
      * @param protocolCtx Handshake context.
      * @param buffer Message.
      */
-    void handshakeRsp(ProtocolContext &protocolCtx, const network::DataBuffer &buffer);
+    void handshakeRsp(ProtocolContext &protocolCtx, const network::DataBufferRef& buffer);
 
     /** Configuration. */
     const IgniteClientConfiguration m_configuration;

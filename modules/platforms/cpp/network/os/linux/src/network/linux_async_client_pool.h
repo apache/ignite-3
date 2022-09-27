@@ -88,7 +88,7 @@ public:
      *
      * @throw IgniteError on error.
      */
-    bool send(uint64_t id, const DataBuffer& data) override;
+    bool send(uint64_t id, const DataBufferShared& data) override;
 
     /**
      * Closes specified connection if it's established. Connection to the specified address is planned for

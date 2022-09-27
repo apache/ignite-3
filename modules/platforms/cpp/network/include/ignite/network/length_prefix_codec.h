@@ -52,7 +52,7 @@ public:
      *
      * @throw IgniteError on error.
      */
-    DataBuffer encode(DataBuffer& data) override;
+    DataBufferShared encode(DataBufferShared& data) override;
 
     /**
      * Decode provided data.
@@ -62,7 +62,7 @@ public:
      *
      * @throw IgniteError on error.
      */
-    DataBuffer decode(DataBuffer& data) override;
+    DataBufferRef decode(DataBufferRef& data) override;
 
 private:
     /**
@@ -71,7 +71,7 @@ private:
      * @param data Data to consume.
      * @param desired Desired resulting size of packet.
      */
-    void consume(DataBuffer& data, size_t desired);
+    void consume(DataBufferRef& data, size_t desired);
 
     /**
      * Reset packet buffer.

@@ -108,7 +108,7 @@ public:
             m_requestHandlers[reqId] = std::move(handler);
         }
 
-        bool sent = m_pool->send(m_id, network::DataBuffer(buffer.getData()));
+        bool sent = m_pool->send(m_id, network::DataBufferShared(std::move(buffer)));
         if (!sent)
         {
             std::lock_guard<std::mutex> lock(m_requestHandlersMutex);
@@ -125,7 +125,7 @@ private:
      *
      * @param msg Received message.
      */
-    void processMessage(const network::DataBuffer& msg);
+    void processMessage(const network::DataBufferRef& msg);
 
     /**
      * Generate next request ID.

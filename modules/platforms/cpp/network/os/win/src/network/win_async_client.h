@@ -124,7 +124,7 @@ public:
      * @param data Data to send.
      * @return @c true on success.
      */
-    bool send(const DataBuffer& data);
+    bool send(const DataBufferShared& data);
 
     /**
      * Initiate next receive of data.
@@ -200,7 +200,7 @@ public:
      *
      * @param bytes Number of received bytes.
      */
-    DataBuffer processReceived(size_t bytes);
+    DataBufferRef processReceived(size_t bytes);
 
     /**
      * Get closing error for the connection. Can be IGNITE_SUCCESS.
@@ -252,7 +252,7 @@ private:
     IoOperation m_currentSend{};
 
     /** Packets that should be sent. */
-    std::deque<DataBuffer> m_sendPackets;
+    std::deque<DataBufferShared> m_sendPackets;
 
     /** Send critical section. */
     std::mutex m_sendMutex;

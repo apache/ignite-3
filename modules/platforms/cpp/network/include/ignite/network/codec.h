@@ -43,7 +43,7 @@ public:
      *
      * @throw IgniteError on error.
      */
-    virtual DataBuffer encode(DataBuffer& data) = 0;
+    virtual DataBufferShared encode(DataBufferShared& data) = 0;
 
     /**
      * Decode provided data.
@@ -53,7 +53,7 @@ public:
      *
      * @throw IgniteError on error.
      */
-    virtual DataBuffer decode(DataBuffer& data) = 0;
+    virtual DataBufferRef decode(DataBufferRef& data) = 0;
 };
 
 } // namespace ignite::network

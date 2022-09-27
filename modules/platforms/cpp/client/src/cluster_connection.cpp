@@ -135,7 +135,7 @@ void ClusterConnection::onConnectionClosed(uint64_t id, std::optional<IgniteErro
     }
 }
 
-void ClusterConnection::onMessageReceived(uint64_t id, const network::DataBuffer &msg)
+void ClusterConnection::onMessageReceived(uint64_t id, const network::DataBufferRef &msg)
 {
     m_logger->logDebug("Message on Connection ID " + std::to_string(id) +
         ", size: " + std::to_string(msg.getBytesView().size()));
@@ -221,7 +221,7 @@ void ClusterConnection::handshake(uint64_t id, ProtocolContext& context)
         writer.writeMapEmpty();
     });
 
-    network::DataBuffer dataBuffer(buffer.getData());
+    network::DataBufferShared dataBuffer(std::move(buffer));
 
     try
     {
@@ -270,7 +270,7 @@ void ClusterConnection::handshakeResult(std::optional<IgniteError> err)
     m_onInitialConnect = {};
 }
 
-void ClusterConnection::handshakeRsp(ProtocolContext& protocolCtx, const network::DataBuffer& buffer)
+void ClusterConnection::handshakeRsp(ProtocolContext& protocolCtx, const network::DataBufferRef& buffer)
 {
     m_logger->logDebug("Got handshake response");
 

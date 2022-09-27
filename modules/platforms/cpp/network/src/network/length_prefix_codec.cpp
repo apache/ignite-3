@@ -29,7 +29,7 @@ LengthPrefixCodec::LengthPrefixCodec() :
     m_packet(),
     m_magicReceived(false) { }
 
-DataBuffer LengthPrefixCodec::encode(DataBuffer& data)
+DataBufferShared LengthPrefixCodec::encode(DataBufferShared& data)
 {
     // Just pass data as is, because we encode message size in
     // the application to avoid unnecessary re-allocations and copying.
@@ -42,7 +42,7 @@ void LengthPrefixCodec::resetBuffer()
     m_packet.clear();
 }
 
-DataBuffer LengthPrefixCodec::decode(DataBuffer& data)
+DataBufferRef LengthPrefixCodec::decode(DataBufferRef& data)
 {
     if (!m_magicReceived)
     {
@@ -79,7 +79,7 @@ DataBuffer LengthPrefixCodec::decode(DataBuffer& data)
     return {};
 }
 
-void LengthPrefixCodec::consume(DataBuffer &data, size_t desired)
+void LengthPrefixCodec::consume(DataBufferRef &data, size_t desired)
 {
     auto toCopy = desired - m_packet.size();
     if (toCopy <= 0)

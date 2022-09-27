@@ -24,7 +24,7 @@
 #include "ignite/ignite_client_configuration.h"
 #include "ignite/ignite_client.h"
 
-#include "test_logger.h"
+#include "gtest_logger.h"
 
 using namespace ignite;
 
@@ -43,8 +43,8 @@ protected:
      *
      * @return Logger for tests.
      */
-    static std::shared_ptr<TestLogger> getLogger() {
-        return std::make_shared<TestLogger>(true, true);
+    static std::shared_ptr<GtestLogger> getLogger() {
+        return std::make_shared<GtestLogger>(true, true);
     }
 };
 
@@ -88,8 +88,22 @@ TEST_F(ClientTest, TablesGetTablePromises)
     EXPECT_EQ(table->getName(), "PUB.tbl1");
 }
 
+template<typename T>
+bool checkAndSetOperationError(std::promise<void>& operation, const IgniteResult<T>& res) {
+    if (res.hasError()) {
+        operation.set_exception(std::make_exception_ptr(res.getError()));
+        return false;
+    }
+    if (!res.hasValue()) {
+        operation.set_exception(std::make_exception_ptr(IgniteError("There is no value in client result")));
+        return false;
+    }
+    return true;
+}
+
 TEST_F(ClientTest, TablesGetTableCallbacks)
 {
+    auto operation0 = std::make_shared<std::promise<void>>();
     auto operation1 = std::make_shared<std::promise<void>>();
     auto operation2 = std::make_shared<std::promise<void>>();
 
@@ -99,34 +113,46 @@ TEST_F(ClientTest, TablesGetTableCallbacks)
     IgniteClient client;
 
     IgniteClient::startAsync(cfg, std::chrono::seconds(5), [&] (IgniteResult<IgniteClient> clientRes) {
-        EXPECT_FALSE(clientRes.hasError());
-        EXPECT_TRUE(clientRes.hasValue());
+        if (!checkAndSetOperationError(*operation0, clientRes))
+            return;
 
         client = std::move(clientRes.getValue());
         auto tables = client.getTables();
+
+        operation0->set_value();
         tables.getTableAsync("PUB.some_unknown", [&] (auto tableRes) {
-            EXPECT_FALSE(tableRes.hasError());
-            EXPECT_TRUE(tableRes.hasValue());
+            if (!checkAndSetOperationError(*operation1, tableRes))
+                return;
 
             auto tableUnknown = tableRes.getValue();
-            EXPECT_FALSE(tableUnknown.has_value());
+            if (tableUnknown.has_value()) {
+                operation1->set_exception(std::make_exception_ptr(IgniteError("Table should be null")));
+                return;
+            }
 
             operation1->set_value();
         });
 
         tables.getTableAsync("PUB.tbl1", [&] (auto tableRes) {
-            EXPECT_FALSE(tableRes.hasError());
-            EXPECT_TRUE(tableRes.hasValue());
+            if (!checkAndSetOperationError(*operation2, tableRes))
+                return;
 
             auto table = tableRes.getValue();
-            ASSERT_TRUE(table.has_value());
-            EXPECT_EQ(table->getName(), "PUB.tbl1");
+            if (!table.has_value()) {
+                operation2->set_exception(std::make_exception_ptr(IgniteError("Table should not be null")));
+                return;
+            }
+            if (table->getName() != "PUB.tbl1") {
+                operation2->set_exception(std::make_exception_ptr(IgniteError("Table has unexpected name: " + table->getName())));
+                return;
+            }
 
             operation2->set_value();
         });
     });
 
-    // Waiting for both operation to complete
+    // Waiting for all operations to complete
+    operation0->get_future().get();
     operation1->get_future().get();
     operation2->get_future().get();
 }

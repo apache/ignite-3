@@ -43,20 +43,20 @@ public:
         m_debug(debug) { }
 
     void logError(std::string_view message) override {
-        std::cout << "[          ] [ ERROR ]   " + std::string(message) << std::endl;
+        std::cout << "[          ] [ ERROR ]   " + std::string(message) + '\n' << std::flush;
     }
 
     void logWarning(std::string_view message) override {
-        std::cout << "[          ] [ WARNING ] " + std::string(message) << std::endl;
+        std::cout << "[          ] [ WARNING ] " + std::string(message) + '\n' << std::flush;
     }
 
     void logInfo(std::string_view message) override {
-        std::cout << "[          ] [ INFO ]    " + std::string(message) << std::endl;
+        std::cout << "[          ] [ INFO ]    " + std::string(message) + '\n' << std::flush;
     }
 
     void logDebug(std::string_view message) override {
         if (m_debug)
-            std::cout << "[          ] [ DEBUG ]   " + std::string(message) << std::endl;
+            std::cout << "[          ] [ DEBUG ]   " + std::string(message) + '\n' << std::flush;
     }
 
 private:

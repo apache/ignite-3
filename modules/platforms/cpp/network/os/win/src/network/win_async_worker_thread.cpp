@@ -103,7 +103,7 @@ void WinAsyncWorkerThread::run()
 
                 case IoOperationKind::RECEIVE:
                 {
-                    DataBuffer data = client->processReceived(bytesTransferred);
+                    auto data = client->processReceived(bytesTransferred);
 
                     if (!data.isEmpty())
                         m_clientPool->handleMessageReceived(client->getId(), data);

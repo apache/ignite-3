@@ -84,6 +84,17 @@ public:
      */
     void writeLengthHeader();
 
+    /**
+     * Get underlying data. Leaves buffer empty.
+     *
+     * @return Underlying data.
+     */
+     [[nodiscard]]
+    std::vector<std::byte> extractData() {
+        m_lengthPos = 0;
+        return std::move(m_buffer);
+    }
+
 private:
     /**
      * Write callback.

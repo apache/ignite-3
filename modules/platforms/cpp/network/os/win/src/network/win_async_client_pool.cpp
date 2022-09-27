@@ -151,7 +151,7 @@ void WinAsyncClientPool::handleConnectionClosed(uint64_t id, std::optional<Ignit
         asyncHandler0->onConnectionClosed(id, std::move(err));
 }
 
-void WinAsyncClientPool::handleMessageReceived(uint64_t id, const DataBuffer &msg)
+void WinAsyncClientPool::handleMessageReceived(uint64_t id, const DataBufferRef &msg)
 {
     auto asyncHandler0 = m_asyncHandler.lock();
     if (asyncHandler0)
@@ -165,7 +165,7 @@ void WinAsyncClientPool::handleMessageSent(uint64_t id)
         asyncHandler0->onMessageSent(id);
 }
 
-bool WinAsyncClientPool::send(uint64_t id, const DataBuffer& data)
+bool WinAsyncClientPool::send(uint64_t id, const DataBufferShared& data)
 {
     if (m_stopping)
         return false;

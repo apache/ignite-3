@@ -16,6 +16,7 @@
  */
 
 #include <algorithm>
+#include <iostream>
 
 #include <network/utils.h>
 
@@ -94,7 +95,7 @@ HANDLE WinAsyncClient::addToIocp(HANDLE iocp)
     return res;
 }
 
-bool WinAsyncClient::send(const DataBuffer& data)
+bool WinAsyncClient::send(const DataBufferShared& data)
 {
     std::lock_guard<std::mutex> lock(m_sendMutex);
 
@@ -120,6 +121,9 @@ bool WinAsyncClient::sendNextPacketLocked()
     WSABUF buffer;
     buffer.buf = (CHAR*)dataView.data();
     buffer.len = (ULONG)dataView.size();
+
+    if (buffer.buf[0] && buffer.buf[0] != 'I')
+        std::cout << buffer.buf[0] + std::string("\n");
 
     int ret = ::WSASend(m_socket, &buffer, 1, NULL, flags, &m_currentSend.overlapped, NULL); // NOLINT(modernize-use-nullptr)
 
@@ -152,7 +156,7 @@ void WinAsyncClient::clearReceiveBuffer()
         m_recvPacket.resize(m_bufLen);
 }
 
-DataBuffer WinAsyncClient::processReceived(size_t bytes)
+DataBufferRef WinAsyncClient::processReceived(size_t bytes)
 {
     return {m_recvPacket, 0, bytes};
 }
@@ -161,7 +165,7 @@ bool WinAsyncClient::processSent(size_t bytes)
 {
     std::lock_guard<std::mutex> lock(m_sendMutex);
 
-    DataBuffer& front = m_sendPackets.front();
+    auto& front = m_sendPackets.front();
 
     front.skip(static_cast<int32_t>(bytes));
 

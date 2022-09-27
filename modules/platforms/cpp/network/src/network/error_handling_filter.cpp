@@ -49,7 +49,7 @@ void ErrorHandlingFilter::onConnectionClosed(uint64_t id, std::optional<IgniteEr
     }
 }
 
-void ErrorHandlingFilter::onMessageReceived(uint64_t id, const DataBuffer &data)
+void ErrorHandlingFilter::onMessageReceived(uint64_t id, const DataBufferRef& data)
 {
     closeConnectionOnException(id, [this, id, &data] { DataFilterAdapter::onMessageReceived(id, data); });
 }
