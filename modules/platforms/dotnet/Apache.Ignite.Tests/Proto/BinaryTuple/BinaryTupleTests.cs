@@ -483,20 +483,21 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
         public void TestTimestamp()
         {
             var val = Instant.FromDateTimeUtc(DateTime.UtcNow);
+            var max = Instant.MaxValue - Duration.FromMinutes(1); // TODO: use actual max value.
 
             var reader = BuildAndRead(
                 (ref BinaryTupleBuilder b) =>
                 {
                     b.AppendTimestamp(default);
                     b.AppendTimestamp(val);
-                    b.AppendTimestamp(Instant.MaxValue);
+                    b.AppendTimestamp(max);
                     b.AppendTimestamp(Instant.MinValue);
                 },
                 4);
 
             Assert.AreEqual(default(Instant), reader.GetTimestamp(0));
             Assert.AreEqual(val, reader.GetTimestamp(1));
-            Assert.AreEqual(Instant.MaxValue, reader.GetTimestamp(2));
+            Assert.AreEqual(max, reader.GetTimestamp(2));
             Assert.AreEqual(Instant.MinValue, reader.GetTimestamp(3));
         }
 
