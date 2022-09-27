@@ -99,14 +99,14 @@ public:
      * @param data Data to send.
      * @return @c true on success.
      */
-    bool send(const DataBuffer& data);
+    bool send(const DataBufferShared& data);
 
     /**
      * Initiate next receive of data.
      *
      * @return @c true on success.
      */
-    DataBuffer receive();
+    DataBufferRef receive();
 
     /**
      * Process sent data.
@@ -143,6 +143,7 @@ public:
      *
      * @return Client ID.
      */
+    [[nodiscard]]
     uint64_t getId() const
     {
         return m_id;
@@ -163,6 +164,7 @@ public:
      *
      * @return Address.
      */
+    [[nodiscard]]
     const EndPoint& getAddress() const
     {
         return m_addr;
@@ -173,6 +175,7 @@ public:
      *
      * @return Range.
      */
+    [[nodiscard]]
     const TcpRange& getRange() const
     {
         return m_range;
@@ -183,6 +186,7 @@ public:
      *
      * @return @c true if closed.
      */
+    [[nodiscard]]
     bool isClosed() const
     {
         return m_state == State::CLOSED;
@@ -193,6 +197,7 @@ public:
      *
      * @return Connection error.
      */
+    [[nodiscard]]
     const IgniteError& getCloseError() const
     {
         return m_closeErr;
@@ -226,7 +231,7 @@ private:
     TcpRange m_range;
 
     /** Packets that should be sent. */
-    std::deque<DataBuffer> m_sendPackets;
+    std::deque<DataBufferShared> m_sendPackets;
 
     /** Send critical section. */
     std::mutex m_sendMutex;

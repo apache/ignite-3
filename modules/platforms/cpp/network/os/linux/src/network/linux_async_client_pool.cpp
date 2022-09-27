@@ -63,7 +63,7 @@ void LinuxAsyncClientPool::stop()
     internalStop();
 }
 
-bool LinuxAsyncClientPool::send(uint64_t id, const DataBuffer &data)
+bool LinuxAsyncClientPool::send(uint64_t id, const DataBufferShared& data)
 {
     if (m_stopping)
         return false;
@@ -159,7 +159,7 @@ void LinuxAsyncClientPool::handleConnectionClosed(uint64_t id, std::optional<Ign
         asyncHandler0->onConnectionClosed(id, std::move(err));
 }
 
-void LinuxAsyncClientPool::handleMessageReceived(uint64_t id, const DataBuffer &msg)
+void LinuxAsyncClientPool::handleMessageReceived(uint64_t id, const DataBufferRef& msg)
 {
     auto asyncHandler0 = m_asyncHandler.lock();
     if (asyncHandler0)

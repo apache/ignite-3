@@ -76,7 +76,7 @@ bool LinuxAsyncClient::close()
     return true;
 }
 
-bool LinuxAsyncClient::send(const DataBuffer& data)
+bool LinuxAsyncClient::send(const DataBufferShared& data)
 {
     std::lock_guard<std::mutex> lock(m_sendMutex);
 
@@ -92,9 +92,10 @@ bool LinuxAsyncClient::sendNextPacketLocked()
     if (m_sendPackets.empty())
         return true;
 
-    DataBuffer& packet = m_sendPackets.front();
+    auto& packet = m_sendPackets.front();
+    auto dataView = packet.getBytesView();
 
-    ssize_t ret = ::send(m_fd, packet.getData(), packet.getSize(), 0);
+    ssize_t ret = ::send(m_fd, dataView.data(), dataView.size(), 0);
     if (ret < 0)
         return false;
 
@@ -105,13 +106,13 @@ bool LinuxAsyncClient::sendNextPacketLocked()
     return true;
 }
 
-DataBuffer LinuxAsyncClient::receive()
+DataBufferRef LinuxAsyncClient::receive()
 {
     ssize_t res = recv(m_fd, m_recvPacket.data(), m_recvPacket.size(), 0);
     if (res < 0)
         return {};
 
-    return {m_recvPacket, 0, static_cast<int32_t>(res)};
+    return {m_recvPacket, 0, size_t(res)};
 }
 
 bool LinuxAsyncClient::startMonitoring(int epoll0)
@@ -133,7 +134,7 @@ bool LinuxAsyncClient::startMonitoring(int epoll0)
     return true;
 }
 
-void LinuxAsyncClient::stopMonitoring()
+void LinuxAsyncClient::stopMonitoring() // NOLINT(readability-make-member-function-const)
 {
     epoll_event event{};
     memset(&event, 0, sizeof(event));
@@ -172,9 +173,7 @@ bool LinuxAsyncClient::processSent()
         return true;
     }
 
-    DataBuffer& front = m_sendPackets.front();
-
-    if (front.isEmpty())
+    if (m_sendPackets.front().isEmpty())
         m_sendPackets.pop_front();
 
     return sendNextPacketLocked();
