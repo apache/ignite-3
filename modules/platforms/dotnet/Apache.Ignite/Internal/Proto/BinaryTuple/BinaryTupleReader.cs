@@ -19,7 +19,10 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 {
     using System;
     using System.Buffers.Binary;
+    using System.Collections;
     using System.Diagnostics;
+    using System.Numerics;
+    using NodaTime;
 
     /// <summary>
     /// Binary tuple reader.
@@ -190,7 +193,58 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             var s => BitConverter.Int64BitsToDouble(BinaryPrimitives.ReadInt64LittleEndian(s))
         };
 
-        // TODO BitMask, Decimal, Number, Date, Time, DateTime, Timestamp
+        /// <summary>
+        /// Gets a bit mask value.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <returns>Value.</returns>
+        public BitArray GetBitmask(int index) => Seek(index) switch
+        {
+            { IsEmpty: true } => new BitArray(0),
+            var s => new BitArray(s.ToArray())
+        };
+
+        /// <summary>
+        /// Gets a decimal value.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <returns>Value.</returns>
+        public decimal GetDecimal(int index) => throw new Exception("TODO");
+
+        /// <summary>
+        /// Gets a number (big integer) value.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <returns>Value.</returns>
+        public BigInteger GetNumber(int index) => throw new Exception("TODO");
+
+        /// <summary>
+        /// Gets a local date value.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <returns>Value.</returns>
+        public LocalDate GetDate(int index) => throw new Exception("TODO");
+
+        /// <summary>
+        /// Gets a local time value.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <returns>Value.</returns>
+        public LocalTime GetTime(int index) => throw new Exception("TODO");
+
+        /// <summary>
+        /// Gets a local date and time value.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <returns>Value.</returns>
+        public LocalDateTime GetDateTime(int index) => throw new Exception("TODO");
+
+        /// <summary>
+        /// Gets a timestamp (instant) value.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <returns>Value.</returns>
+        public Instant GetTimestamp(int index) => throw new Exception("TODO");
 
         /// <summary>
         /// Gets an object value according to the specified type.
