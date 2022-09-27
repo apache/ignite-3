@@ -98,7 +98,6 @@ public class PartitionCommandListenerTest {
      * Initializes a table listener before tests.
      */
     @BeforeEach
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-17523
     public void before() {
         ClusterService clusterService = Mockito.mock(ClusterService.class, RETURNS_DEEP_STUBS);
         NetworkAddress addr = new NetworkAddress("127.0.0.1", 5003);
@@ -106,12 +105,10 @@ public class PartitionCommandListenerTest {
 
         ReplicaService replicaService = Mockito.mock(ReplicaService.class, RETURNS_DEEP_STUBS);
 
-        var txManager = new TxManagerImpl(replicaService, new HeapLockManager());
-
         commandListener = new PartitionListener(
                 mvPartitionStorage,
                 new TestConcurrentHashMapTxStateStorage(),
-                txManager,
+                new TxManagerImpl(replicaService, new HeapLockManager()),
                 primaryIndex
         );
     }

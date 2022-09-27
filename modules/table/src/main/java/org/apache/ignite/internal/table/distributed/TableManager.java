@@ -313,8 +313,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             MetaStorageManager metaStorageMgr,
             SchemaManager schemaManager,
             LogStorageFactoryCreator volatileLogStorageFactoryCreator,
-            HybridClock clock,
-            Path workDir
+            HybridClock clock
     ) {
         this.tablesCfg = tablesCfg;
         this.raftMgr = raftMgr;
