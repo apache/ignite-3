@@ -24,7 +24,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
     /// <summary>
     /// Binary tuple reader.
     /// </summary>
-    internal readonly ref struct BinaryTupleReader // TODO: Support all types (IGNITE-15431).
+    internal readonly ref struct BinaryTupleReader
     {
         /** Buffer. */
         private readonly ReadOnlyMemory<byte> _buffer;
@@ -189,6 +189,8 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             { Length: 4 } s => BitConverter.Int32BitsToSingle(BinaryPrimitives.ReadInt32LittleEndian(s)),
             var s => BitConverter.Int64BitsToDouble(BinaryPrimitives.ReadInt64LittleEndian(s))
         };
+
+        // TODO BitMask, Decimal, Number, Date, Time, DateTime, Timestamp
 
         /// <summary>
         /// Gets an object value according to the specified type.

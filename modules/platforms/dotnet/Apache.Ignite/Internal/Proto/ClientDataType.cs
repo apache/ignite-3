@@ -22,59 +22,55 @@ namespace Apache.Ignite.Internal.Proto
     /// </summary>
     internal enum ClientDataType
     {
-        /// <summary>
-        /// Byte.
-        /// </summary>
+        /// <summary> Byte. </summary>
         Int8 = 1,
 
-        /// <summary>
-        /// Short.
-        /// </summary>
+        /// <summary> Short. </summary>
         Int16 = 2,
 
-        /// <summary>
-        /// Int.
-        /// </summary>
+        /// <summary> Int. </summary>
         Int32 = 3,
 
-        /// <summary>
-        /// Long.
-        /// </summary>
+        /// <summary> Long. </summary>
         Int64 = 4,
 
-        /// <summary>
-        /// Float.
-        /// </summary>
+        /// <summary> Float. </summary>
         Float = 5,
 
-        /// <summary>
-        /// Double.
-        /// </summary>
+        /// <summary> Double. </summary>
         Double = 6,
 
-        /// <summary>
-        /// Decimal.
-        /// </summary>
+        /// <summary> Decimal. </summary>
         Decimal = 7,
 
-        /// <summary>
-        /// UUID / Guid.
-        /// </summary>
+        /// <summary> UUID / Guid. </summary>
         Uuid = 8,
 
-        /// <summary>
-        /// String.
-        /// </summary>
+        /// <summary> String. </summary>
         String = 9,
 
-        /// <summary>
-        /// Byte array.
-        /// </summary>
+        /// <summary> Byte array. </summary>
         Bytes = 10,
 
-        /// <summary>
-        /// BitMask.
-        /// </summary>
+        /// <summary> BitMask. </summary>
         BitMask = 11,
+
+        /// <summary> Local date. </summary>
+        Date = 12,
+
+        /// <summary> Local time. </summary>
+        Time = 13,
+
+        /// <summary> Local date and time. </summary>
+        DateTime = 14,
+
+        /// <summary> Timestamp (instant). </summary>
+        Timestamp = 15,
+
+        /// <summary> BitMask. </summary>
+        Number = 16,
+
+        /// <summary> BigInt. </summary>
+        BigInteger = 17
     }
 }
