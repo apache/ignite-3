@@ -37,14 +37,14 @@ public abstract class PushMetricExporter<CfgT extends ExporterConfiguration> ext
     protected final IgniteLogger log = Loggers.forClass(getClass());
 
     /** Export task future. */
-    protected ScheduledFuture<?> fut;
+    private ScheduledFuture<?> fut;
 
     /** Export scheduler. */
     private ScheduledExecutorService scheduler;
 
     /** {@inheritDoc} */
     @Override
-    public void start() {
+    public synchronized void start() {
         scheduler =
                 Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("metrics-exporter-" + name(), log));
 
@@ -63,10 +63,14 @@ public abstract class PushMetricExporter<CfgT extends ExporterConfiguration> ext
 
     /** {@inheritDoc} */
     @Override
-    public void stop() {
-        fut.cancel(false);
+    public synchronized void stop() {
+        if (fut != null) {
+            fut.cancel(false);
+        }
 
-        IgniteUtils.shutdownAndAwaitTermination(scheduler, 10, TimeUnit.SECONDS);
+        if (scheduler != null) {
+            IgniteUtils.shutdownAndAwaitTermination(scheduler, 10, TimeUnit.SECONDS);
+        }
     }
 
     /**
