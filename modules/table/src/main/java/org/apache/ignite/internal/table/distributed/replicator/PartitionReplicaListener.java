@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table.distributed.replicator;
 
 import static java.util.concurrent.CompletableFuture.allOf;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -201,7 +202,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param txId Transaction id.
      * @throws Exception When an issue happens on cursor closing.
      */
-    public void closeAllTransactionCursors(UUID txId) {
+    private void closeAllTransactionCursors(UUID txId) {
         var lowCursorId = new IgniteUuid(txId, Long.MIN_VALUE);
         var upperCursorId = new IgniteUuid(txId, Long.MAX_VALUE);
 
@@ -346,6 +347,12 @@ public class PartitionReplicaListener implements ReplicaListener {
      */
     // TODO: need to properly handle primary replica changes https://issues.apache.org/jira/browse/IGNITE-17615
     private CompletableFuture processTxCleanupAction(TxCleanupReplicaRequest request) {
+        try {
+            closeAllTransactionCursors(request.txId());
+        } catch (Exception e) {
+            return failedFuture(e);
+        }
+
         return raftClient
                 .run(new TxCleanupCommand(request.txId(), request.commit(), request.commitTimestamp()))
                 .thenRun(() -> lockManager.locks(request.txId()).forEachRemaining(lockManager::release));

@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.table.impl;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
@@ -28,7 +28,6 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Flow;
 import java.util.concurrent.atomic.AtomicLong;
 import javax.naming.OperationNotSupportedException;
 import org.apache.ignite.hlc.HybridClock;
@@ -78,6 +77,16 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      * @param replicaSvc Replica service.
      */
     public DummyInternalTableImpl(ReplicaService replicaSvc) {
+        this(replicaSvc, new TestConcurrentHashMapMvPartitionStorage(0));
+    }
+
+    /**
+     * Creates a new local table.
+     *
+     * @param replicaSvc Replica service.
+     * @param mvPartStorage Multi version partition storage.
+     */
+    public DummyInternalTableImpl(ReplicaService replicaSvc, MvPartitionStorage mvPartStorage) {
         super(
                 "test",
                 UUID.randomUUID(),
@@ -93,13 +102,13 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         );
         RaftGroupService svc = partitionMap.get(0);
 
-        Mockito.doReturn("testGrp").when(svc).groupId();
+        lenient().doReturn("testGrp").when(svc).groupId();
         Peer leaderPeer = new Peer(ADDR);
-        Mockito.doReturn(leaderPeer).when(svc).leader();
-        Mockito.doReturn(CompletableFuture.completedFuture(new IgniteBiTuple<>(leaderPeer, 1L))).when(svc).refreshAndGetLeaderWithTerm();
+        lenient().doReturn(leaderPeer).when(svc).leader();
+        lenient().doReturn(CompletableFuture.completedFuture(new IgniteBiTuple<>(leaderPeer, 1L))).when(svc).refreshAndGetLeaderWithTerm();
 
         // Delegate replica requests directly to replica listener.
-        doAnswer(
+        lenient().doAnswer(
                 invocationOnMock -> {
                     CompletableFuture<Object> invoke = replicaListener.invoke(invocationOnMock.getArgument(1));
                     return invoke;
@@ -109,7 +118,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         AtomicLong raftIndex = new AtomicLong();
 
         // Delegate directly to listener.
-        doAnswer(
+        lenient().doAnswer(
                 invocationClose -> {
                     Command cmd = invocationClose.getArgument(0);
 
@@ -147,8 +156,6 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                     return res;
                 }
         ).when(svc).run(any());
-
-        MvPartitionStorage mvPartStorage = new TestConcurrentHashMapMvPartitionStorage(0);
 
         var primaryIndex = new ConcurrentHashMap<ByteBuffer, RowId>();
 
@@ -200,11 +207,11 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         return super.get(keyRow, tx);
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public Flow.Publisher<BinaryRow> scan(int p, InternalTransaction tx) {
-        throw new IgniteInternalException(new OperationNotSupportedException());
-    }
+//    /** {@inheritDoc} */
+//    @Override
+//    public Flow.Publisher<BinaryRow> scan(int p, InternalTransaction tx) {
+//        throw new IgniteInternalException(new OperationNotSupportedException());
+//    }
 
     /** {@inheritDoc} */
     @Override
