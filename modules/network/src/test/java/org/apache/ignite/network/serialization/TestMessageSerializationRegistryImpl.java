@@ -15,18 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.network;
+package org.apache.ignite.network.serialization;
 
-import java.io.Serializable;
-import java.util.Map;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.internal.network.messages.TestMessagesSerializationRegistryInitializer;
+import org.apache.ignite.network.MessageSerializationRegistryImpl;
 
 /**
- * {@link NetworkMessage} implementation.
+ * Implementation of a {@link MessageSerializationRegistry} for tests.
  */
-@Transferable(TestMessageTypes.TEST)
-public interface TestMessage extends NetworkMessage, Serializable {
-    String msg();
-
-    Map<Integer, String> map();
+public class TestMessageSerializationRegistryImpl extends MessageSerializationRegistryImpl {
+    /**
+     * Default constructor.
+     */
+    public TestMessageSerializationRegistryImpl() {
+        TestMessagesSerializationRegistryInitializer.registerFactories(this);
+    }
 }

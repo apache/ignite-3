@@ -18,7 +18,10 @@
 package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
+import static org.apache.ignite.lang.ErrorGroups.Sql.OPERATION_INTERRUPTED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_INVALID_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.SCHEMA_NOT_FOUND_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.SESSION_EXPIRED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.SESSION_NOT_FOUND_ERR;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
@@ -282,7 +285,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     public List<CompletableFuture<AsyncSqlCursor<List<Object>>>> queryAsync(QueryContext context, String schemaName,
             String qry, Object... params) {
         if (!busyLock.enterBusy()) {
-            throw new IgniteInternalException(new NodeStoppingException());
+            throw new IgniteInternalException(OPERATION_INTERRUPTED_ERR, new NodeStoppingException());
         }
 
         try {
@@ -298,7 +301,7 @@ public class SqlQueryProcessor implements QueryProcessor {
             SessionId sessionId, QueryContext context, String qry, Object... params
     ) {
         if (!busyLock.enterBusy()) {
-            throw new IgniteInternalException(new NodeStoppingException());
+            throw new IgniteInternalException(OPERATION_INTERRUPTED_ERR, new NodeStoppingException());
         }
 
         try {
@@ -344,7 +347,8 @@ public class SqlQueryProcessor implements QueryProcessor {
         SchemaPlus schema = sqlSchemaManager.schema(schemaName);
 
         if (schema == null) {
-            return CompletableFuture.failedFuture(new IgniteInternalException(format("Schema not found [schemaName={}]", schemaName)));
+            return CompletableFuture.failedFuture(
+                    new IgniteInternalException(SCHEMA_NOT_FOUND_ERR, format("Schema not found [schemaName={}]", schemaName)));
         }
 
         InternalTransaction outerTx = context.unwrap(InternalTransaction.class);
@@ -361,7 +365,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         try {
             session.registerResource(closeableResource);
         } catch (IllegalStateException ex) {
-            return CompletableFuture.failedFuture(new IgniteInternalException(
+            return CompletableFuture.failedFuture(new IgniteInternalException(SESSION_EXPIRED_ERR,
                     format("Session has been expired [{}]", session.sessionId()), ex));
         }
 
@@ -449,7 +453,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         SchemaPlus schema = sqlSchemaManager.schema(schemaName);
 
         if (schema == null) {
-            throw new IgniteInternalException(format("Schema not found [schemaName={}]", schemaName));
+            throw new IgniteInternalException(SCHEMA_NOT_FOUND_ERR, format("Schema not found [schemaName={}]", schemaName));
         }
 
         SqlNodeList nodes = Commons.parse(sql, FRAMEWORK_CONFIG.getParserConfig());

@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.sql.engine.util.BaseQueryContext.CLUSTE
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCauseAndCode;
 import static org.apache.ignite.lang.ErrorGroup.extractCauseMessage;
+import static org.apache.ignite.lang.ErrorGroups.Sql.EXPRESSION_COMPILATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_INVALID_ERR;
 
 import it.unimi.dsi.fastutil.ints.IntArrayList;
@@ -108,7 +109,6 @@ import org.apache.ignite.internal.sql.engine.trait.RewindabilityTraitDef;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
 import org.apache.ignite.internal.util.ArrayUtils;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteSystemProperties;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlException;
@@ -499,7 +499,7 @@ public final class Commons {
 
             return (T) cbe.createInstance(new StringReader(body));
         } catch (Exception e) {
-            throw new IgniteException(e);
+            throw new SqlException(EXPRESSION_COMPILATION_ERR, e);
         }
     }
 

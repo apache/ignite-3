@@ -15,18 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.network;
+package org.apache.ignite.internal.network.processor;
 
-import org.apache.ignite.network.serialization.MessageSerializationRegistry;
+import org.apache.ignite.network.annotations.MessageGroup;
 
-/**
- * Implementation of a {@link MessageSerializationRegistry} for tests.
- */
-public class TestMessageSerializationRegistryImpl extends MessageSerializationRegistryImpl {
-    /**
-     * Default constructor.
-     */
-    public TestMessageSerializationRegistryImpl() {
-        TestMessagesSerializationRegistryInitializer.registerFactories(this);
-    }
+@MessageGroup(groupType = 1, groupName = "NetworkMessageProcessorTest")
+public class TestMessageGroup {
 }

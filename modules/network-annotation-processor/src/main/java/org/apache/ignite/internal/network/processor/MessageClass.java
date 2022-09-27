@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.TreeMap;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.ElementKind;
@@ -81,16 +82,13 @@ public class MessageClass {
                 .filter(e -> !typeUtils.isSameType(e.asType(), NetworkMessage.class))
                 .flatMap(e -> e.getEnclosedElements().stream())
                 .filter(e -> e.getKind() == ElementKind.METHOD)
-                .filter(e -> !((ExecutableElement) e).isDefault())
+                .map(ExecutableElement.class::cast)
+                .filter(e -> !e.isDefault())
                 // use a tree map to sort getters by name and remove duplicates
                 .collect(Collectors.toMap(
                         e -> e.getSimpleName().toString(),
-                        ExecutableElement.class::cast,
-                        (e1, e2) -> {
-                            throw new ProcessingException(
-                                    String.format("Getter with name '%s' is already defined", e2.getSimpleName()), null, e2
-                            );
-                        },
+                        Function.identity(),
+                        (e1, e2) -> e1,
                         TreeMap::new
                 ));
 

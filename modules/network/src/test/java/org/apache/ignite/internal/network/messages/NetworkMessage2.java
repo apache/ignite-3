@@ -15,15 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.processor;
 
+package org.apache.ignite.internal.network.messages;
+
+import java.io.Serializable;
 import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.TestMessageTypes;
-import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Empty {@link NetworkMessage} implementation.
+ * {@link NetworkMessage} implementation.
  */
-@Transferable(TestMessageTypes.EMPTY_MESSAGE)
-public interface EmptyMessage extends NetworkMessage {
+interface NetworkMessage2 extends NetworkMessage1, Serializable {
+    int intX();
 }

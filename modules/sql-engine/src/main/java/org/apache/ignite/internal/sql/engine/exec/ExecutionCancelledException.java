@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_CANCELLED_ERR;
+
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
@@ -24,4 +26,10 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class ExecutionCancelledException extends IgniteInternalCheckedException {
+    /**
+     * Constructs a new exception with null as its detail message.
+     */
+    public ExecutionCancelledException() {
+        super(EXECUTION_CANCELLED_ERR);
+    }
 }

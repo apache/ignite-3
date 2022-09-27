@@ -22,6 +22,9 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.schema.SchemaUtils.extractSchema;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.SCHEMA_EVALUATION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.TABLE_NOT_FOUND_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.TABLE_VER_NOT_FOUND_ERR;
 
 import java.util.Comparator;
 import java.util.HashMap;
@@ -110,7 +113,8 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                 if (throwable != null) {
                     calciteSchemaVv.completeExceptionally(
                             token,
-                            new IgniteInternalException("Couldn't evaluate sql schemas for causality token: " + token, throwable)
+                            new IgniteInternalException(
+                                    SCHEMA_EVALUATION_ERR, "Couldn't evaluate sql schemas for causality token: " + token, throwable)
                     );
 
                     return;
@@ -153,12 +157,12 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
             }
 
             if (table == null) {
-                throw new IgniteInternalException(
+                throw new IgniteInternalException(TABLE_NOT_FOUND_ERR,
                         IgniteStringFormatter.format("Table not found [tableId={}]", id));
             }
 
             if (table.version() < ver) {
-                throw new IgniteInternalException(
+                throw new IgniteInternalException(TABLE_VER_NOT_FOUND_ERR,
                         IgniteStringFormatter.format("Table version not found [tableId={}, requiredVer={}, latestKnownVer={}]",
                                 id, ver, table.version()));
             }
