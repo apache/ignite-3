@@ -22,6 +22,7 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
     using System.Linq;
     using System.Numerics;
     using Internal.Proto.BinaryTuple;
+    using NodaTime;
     using NUnit.Framework;
 
     /// <summary>
@@ -414,7 +415,22 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
         [Test]
         public void TestDate()
         {
-            Assert.Fail("TODO IGNITE-15431");
+            var val = LocalDate.FromDateTime(DateTime.UtcNow);
+
+            var reader = BuildAndRead(
+                (ref BinaryTupleBuilder b) =>
+                {
+                    b.AppendDate(default);
+                    b.AppendDate(val);
+                    b.AppendDate(LocalDate.MaxIsoValue);
+                    b.AppendDate(LocalDate.MinIsoValue);
+                },
+                4);
+
+            Assert.AreEqual(default(LocalDate), reader.GetDate(0));
+            Assert.AreEqual(val, reader.GetDate(1));
+            Assert.AreEqual(LocalDate.MaxIsoValue, reader.GetDate(2));
+            Assert.AreEqual(LocalDate.MinIsoValue, reader.GetDate(3));
         }
 
         [Test]
