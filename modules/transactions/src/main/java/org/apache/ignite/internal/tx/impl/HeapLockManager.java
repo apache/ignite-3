@@ -22,6 +22,7 @@ import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.DOWNGRADE_LOCK_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.RELEASE_LOCK_ERR;
 
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -71,6 +72,11 @@ public class HeapLockManager implements LockManager {
 
     @Override
     public CompletableFuture<Lock> acquire(UUID txId, LockKey lockKey, LockMode lockMode) {
+        //TODO: IGNITE-17733 Resume honest index lock
+        if (lockKey.key() instanceof ByteBuffer) {
+            lockMode = LockMode.NAL;
+        }
+
         while (true) {
             LockState state = lockState(lockKey);
 
