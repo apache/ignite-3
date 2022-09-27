@@ -290,14 +290,15 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="value">Value.</param>
         public void AppendBitmask(BitArray value)
         {
-            var size = value.Length / 8 + 1;
+            var size = (value.Length + 7) / 8; // Ceiling division.
             var arr = ByteArrayPool.Rent(size);
 
             try
             {
                 value.CopyTo(arr, 0);
+                PutBytes(arr.AsSpan()[..size]);
 
-                PutBytes(arr);
+                OnWrite();
             }
             finally
             {
