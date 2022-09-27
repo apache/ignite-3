@@ -22,7 +22,7 @@ package org.apache.ignite.internal.tx;
  */
 public enum LockMode {
     /** Not a lock. */
-    NAL,
+    NA,
 
     /** Intention shared. */
     IS,
@@ -61,7 +61,7 @@ public enum LockMode {
 
     /** Lock mode upgrade matrix. */
     private static final LockMode[][] UPGRADE_MATRIX = {
-            {NAL, IS, IX, S, SIX, X},
+            {NA, IS, IX, S, SIX, X},
             {IS, IS, IX, S, SIX, X},
             {IX, IX, IX, SIX, SIX, X},
             {S, S, SIX, S, SIX, X},

@@ -74,7 +74,7 @@ public class HeapLockManager implements LockManager {
     public CompletableFuture<Lock> acquire(UUID txId, LockKey lockKey, LockMode lockMode) {
         //TODO: IGNITE-17733 Resume honest index lock
         if (lockKey.key() instanceof ByteBuffer) {
-            lockMode = LockMode.NAL;
+            lockMode = LockMode.NA;
         }
 
         while (true) {
