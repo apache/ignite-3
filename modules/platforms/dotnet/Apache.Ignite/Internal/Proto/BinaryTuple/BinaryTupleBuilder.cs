@@ -302,12 +302,21 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         }
 
         /// <summary>
-        /// Appends a big integer.
+        /// Appends a number.
         /// </summary>
         /// <param name="value">Value.</param>
-        public void AppendBigInteger(BigInteger value)
+        public void AppendNumber(BigInteger value)
         {
-            // TODO IGNITE-15431
+            if (value != default)
+            {
+                var target = GetSpan(value.GetByteCount());
+                var success = value.TryWriteBytes(target, out int written);
+
+                Debug.Assert(success, "success");
+                Debug.Assert(written == target.Length, "written == target.Length");
+            }
+
+            OnWrite();
         }
 
         /// <summary>
