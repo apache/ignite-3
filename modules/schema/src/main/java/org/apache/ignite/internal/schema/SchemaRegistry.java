@@ -61,7 +61,7 @@ public interface SchemaRegistry {
     /**
      * Get last registered schema version.
      */
-    public int lastSchemaVersion();
+    int lastSchemaVersion();
 
     /**
      * Resolve binary row against given schema.

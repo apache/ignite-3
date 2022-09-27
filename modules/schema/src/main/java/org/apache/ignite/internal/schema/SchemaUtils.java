@@ -17,13 +17,17 @@
 
 package org.apache.ignite.internal.schema;
 
+import static org.apache.ignite.internal.schema.SchemaManager.SCHEMA_STORE_PREDICATE;
+
 import java.util.Optional;
+import java.util.UUID;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.internal.schema.configuration.ColumnView;
 import org.apache.ignite.internal.schema.configuration.ConfigurationToSchemaDescriptorConverter;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.mapping.ColumnMapper;
 import org.apache.ignite.internal.schema.mapping.ColumnMapping;
+import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteStringFormatter;
 
 /**
@@ -138,5 +142,26 @@ public class SchemaUtils {
         }
 
         return true;
+    }
+
+    /**
+     * Forms schema history key.
+     *
+     * @param tblId Table id.
+     * @param ver Schema version.
+     * @return {@link ByteArray} representation.
+     */
+    public static ByteArray schemaWithVerHistKey(UUID tblId, int ver) {
+        return ByteArray.fromString(tblId + SCHEMA_STORE_PREDICATE + ver);
+    }
+
+    /**
+     * Forms schema history predicate.
+     *
+     * @param tblId Table id.
+     * @return {@link ByteArray} representation.
+     */
+    public static ByteArray schemaHistPredicate(UUID tblId) {
+        return ByteArray.fromString(tblId + SCHEMA_STORE_PREDICATE);
     }
 }

@@ -23,13 +23,13 @@ import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine.EN
 import static org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -46,6 +46,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -241,7 +242,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         dataStorageManager.start();
 
-        schemaManager = new SchemaManager(revisionUpdater, tblsCfg);
+        schemaManager = new SchemaManager(revisionUpdater, tblsCfg, msm);
 
         schemaManager.start();
 
@@ -674,18 +675,21 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         SchemaRegistry schemaRegistry = (((TableImpl) tblManager.tables().get(0)).schemaView());
 
-        runAsync(() -> {
-            Thread.sleep(3000);
-            readFirst(queryProc.queryAsync("PUBLIC", String.format("ALTER TABLE %s DROP COLUMN c4", curMethodName)));
-        });
-
         int lastSchemaVersion = schemaRegistry.lastSchemaVersion();
 
+        CountDownLatch alter = new CountDownLatch(1);
+        CountDownLatch watcher = new CountDownLatch(1);
+
+        runAsync(() -> {
+            watcher.await();
+            readFirst(queryProc.queryAsync("PUBLIC", String.format("ALTER TABLE %s DROP COLUMN c4", curMethodName)));
+            alter.countDown();
+        });
+
         //Ensure that we can get schema for the future update
-        assertTrue(waitForCondition(
-                () -> schemaRegistry.schema(lastSchemaVersion + 1).version() == lastSchemaVersion + 1,
-                5000
-        ));
+        watcher.countDown();
+        alter.await();
+        assertEquals(schemaRegistry.schema(lastSchemaVersion + 1).version(), lastSchemaVersion + 1);
     }
 
     // todo copy-paste from TableManagerTest will be removed after https://issues.apache.org/jira/browse/IGNITE-16050

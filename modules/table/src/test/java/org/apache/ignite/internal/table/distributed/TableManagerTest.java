@@ -299,16 +299,11 @@ public class TableManagerTest extends IgniteAbstractTest {
                 }
 
                 extConfCh.changeAssignments(ByteUtils.toBytes(assignment))
-                        .changeSchemas(schemasCh -> schemasCh.create(
-                                String.valueOf(1),
-                                schemaCh -> {
-                                    SchemaDescriptor schemaDesc = SchemaUtils.prepareSchemaDescriptor(
-                                            ((ExtendedTableView) tableChange).schemas().size(),
-                                            tableChange);
+                        .changeSchema(schemaCh -> {
+                            SchemaDescriptor schemaDesc = SchemaUtils.prepareSchemaDescriptor(1, tableChange);
 
-                                    schemaCh.changeSchema(SchemaSerializerImpl.INSTANCE.serialize(schemaDesc));
-                                }
-                        ));
+                            schemaCh.changeSchema(SchemaSerializerImpl.INSTANCE.serialize(schemaDesc));
+                        });
             });
         }).join();
 
@@ -758,7 +753,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                 dsm = createDataStorageManager(configRegistry, workDir, rocksDbEngineConfig),
                 workDir,
                 msm,
-                sm = new SchemaManager(revisionUpdater, tblsCfg),
+                sm = new SchemaManager(revisionUpdater, tblsCfg, msm),
                 budgetView -> new LocalLogStorageFactory(),
                 null
         );

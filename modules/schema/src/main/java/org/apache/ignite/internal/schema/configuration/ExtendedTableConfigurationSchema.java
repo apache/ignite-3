@@ -18,9 +18,9 @@
 package org.apache.ignite.internal.schema.configuration;
 
 import java.util.UUID;
+import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.InternalConfiguration;
 import org.apache.ignite.configuration.annotation.InternalId;
-import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
 
 /**
@@ -41,6 +41,6 @@ public class ExtendedTableConfigurationSchema extends TableConfigurationSchema {
     public byte[] assignments;
 
     /** Schemas history as named list where name is schema version and value is serialized version of schema itself. */
-    @NamedConfigValue
-    public SchemaConfigurationSchema schemas;
+    @ConfigValue
+    public SchemaConfigurationSchema schema;
 }

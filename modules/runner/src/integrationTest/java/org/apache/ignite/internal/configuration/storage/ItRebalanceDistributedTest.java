@@ -506,7 +506,7 @@ public class ItRebalanceDistributedTest {
                     metaStorageManager,
                     clusterService);
 
-            schemaManager = new SchemaManager(registry, tablesCfg);
+            schemaManager = new SchemaManager(registry, tablesCfg, metaStorageManager);
 
             tableManager = new TableManager(
                     name,

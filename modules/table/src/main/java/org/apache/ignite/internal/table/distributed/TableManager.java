@@ -188,7 +188,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /**
      * If this property is set to {@code true} then an attempt to get the configuration property directly from the meta storage will be
      * skipped, and the local property will be returned.
-     * TODO: IGNITE-16774 This property and overall approach, access configuration directly through the Metostorage,
+     * TODO: IGNITE-16774 This property and overall approach, access configuration directly through the Metastorage,
      * TODO: will be removed after fix of the issue.
      */
     private final boolean getMetadataLocallyOnly = IgniteSystemProperties.getBoolean("IGNITE_GET_METADATA_LOCALLY_ONLY");
@@ -1152,30 +1152,22 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                         // Affinity assignments calculation.
                         extConfCh.changeAssignments(ByteUtils.toBytes(AffinityUtils.calculateAssignments(
-                                        baselineMgr.nodes(),
-                                        tableChange.partitions(),
-                                        tableChange.replicas(),
-                                        HashSet::new)))
+                                baselineMgr.nodes(),
+                                tableChange.partitions(),
+                                tableChange.replicas(),
+                                HashSet::new)))
                                 // Table schema preparation.
-                                .changeSchemas(schemasCh -> schemasCh.create(
-                                        String.valueOf(INITIAL_SCHEMA_VERSION),
-                                        schemaCh -> {
-                                            SchemaDescriptor schemaDesc;
+                                .changeSchema(schemaCh -> {
+                                    SchemaDescriptor schemaDesc;
 
-                                            //TODO IGNITE-15747 Remove try-catch and force configuration
-                                            // validation here to ensure a valid configuration passed to
-                                            // prepareSchemaDescriptor() method.
-                                            try {
-                                                schemaDesc = SchemaUtils.prepareSchemaDescriptor(
-                                                        ((ExtendedTableView) tableChange).schemas().size(),
-                                                        tableChange);
-                                            } catch (IllegalArgumentException ex) {
-                                                throw new ConfigurationValidationException(ex.getMessage());
-                                            }
+                                    try {
+                                        schemaDesc = SchemaUtils.prepareSchemaDescriptor(INITIAL_SCHEMA_VERSION, tableChange);
+                                    } catch (IllegalArgumentException ex) {
+                                        throw new ConfigurationValidationException(ex.getMessage());
+                                    }
 
-                                            schemaCh.changeSchema(SchemaSerializerImpl.INSTANCE.serialize(schemaDesc));
-                                        }
-                                ));
+                                    schemaCh.changeSchema(SchemaSerializerImpl.INSTANCE.serialize(schemaDesc));
+                                });
                     });
                 })).exceptionally(t -> {
                     Throwable ex = getRootCause(t);
@@ -1237,42 +1229,42 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     }
 
                     ch.update(name, tblCh -> {
-                                tableChange.accept(tblCh);
+                        tableChange.accept(tblCh);
 
-                                ((ExtendedTableChange) tblCh).changeSchemas(schemasCh ->
-                                        schemasCh.createOrUpdate(String.valueOf(schemasCh.size() + 1), schemaCh -> {
-                                            ExtendedTableView currTableView = (ExtendedTableView) tablesCfg.tables().get(name).value();
+                        ((ExtendedTableChange) tblCh).changeSchema(schemaCh -> {
+                            ExtendedTableView currTableView = (ExtendedTableView) tablesCfg.tables().get(name).value();
 
-                                            SchemaDescriptor descriptor;
+                            SchemaDescriptor prevSchema = SchemaSerializerImpl.INSTANCE.deserialize(schemaCh.schema());
 
-                                            //TODO IGNITE-15747 Remove try-catch and force configuration validation
-                                            // here to ensure a valid configuration passed to prepareSchemaDescriptor() method.
-                                            try {
-                                                descriptor = SchemaUtils.prepareSchemaDescriptor(
-                                                        ((ExtendedTableView) tblCh).schemas().size(),
-                                                        tblCh);
+                            int lastSchemaVer = prevSchema.version();
 
-                                                descriptor.columnMapping(SchemaUtils.columnMapper(
-                                                        tblImpl.schemaView().schema(currTableView.schemas().size()),
-                                                        currTableView.columns(),
-                                                        descriptor,
-                                                        tblCh.columns()));
-                                            } catch (IllegalArgumentException ex) {
-                                                // Convert unexpected exceptions here,
-                                                // because validation actually happens later,
-                                                // when bulk configuration update is applied.
-                                                ConfigurationValidationException e =
-                                                        new ConfigurationValidationException(ex.getMessage());
+                            SchemaDescriptor schemaDesc;
 
-                                                e.addSuppressed(ex);
+                            //TODO IGNITE-15747 Remove try-catch and force configuration validation
+                            // here to ensure a valid configuration passed to prepareSchemaDescriptor() method.
+                            try {
+                                schemaDesc = SchemaUtils.prepareSchemaDescriptor(lastSchemaVer + 1, tblCh);
 
-                                                throw e;
-                                            }
+                                schemaDesc.columnMapping(SchemaUtils.columnMapper(
+                                        tblImpl.schemaView().schema(lastSchemaVer),
+                                        currTableView.columns(),
+                                        schemaDesc,
+                                        tblCh.columns()));
+                            } catch (IllegalArgumentException ex) {
+                                // Convert unexpected exceptions here,
+                                // because validation actually happens later,
+                                // when bulk configuration update is applied.
+                                ConfigurationValidationException e =
+                                        new ConfigurationValidationException(ex.getMessage());
 
-                                            schemaCh.changeSchema(SchemaSerializerImpl.INSTANCE.serialize(descriptor));
-                                        }));
+                                e.addSuppressed(ex);
+
+                                throw e;
                             }
-                    );
+
+                            schemaCh.changeSchema(SchemaSerializerImpl.INSTANCE.serialize(schemaDesc));
+                        });
+                    });
                 }).whenComplete((res, t) -> {
                     if (t != null) {
                         Throwable ex = getRootCause(t);

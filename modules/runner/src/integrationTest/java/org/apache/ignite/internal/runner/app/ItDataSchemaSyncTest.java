@@ -23,6 +23,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -32,6 +33,9 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
+import org.apache.ignite.internal.schema.testutils.definition.ColumnDefinition;
+import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -97,7 +101,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
      * Starts a cluster before every test started.
      */
     @BeforeEach
-    void beforeEach() throws Exception {
+    void beforeEach() {
         List<CompletableFuture<Ignite>> futures = nodesBootstrapCfg.entrySet().stream()
                 .map(e -> IgnitionManager.start(e.getKey(), e.getValue(), workDir.resolve(e.getKey())))
                 .collect(toList());
@@ -123,6 +127,63 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
                 .collect(toList());
 
         IgniteUtils.closeAll(closeables);
+    }
+
+    /**
+     * Test correctness of schema updates on lagged node.
+     */
+    @Test
+    public void checkSchemasCorrectUpdate() throws Exception {
+        Ignite ignite0 = clusterNodes.get(0);
+        IgniteImpl ignite1 = (IgniteImpl) clusterNodes.get(1);
+        IgniteImpl ignite2 = (IgniteImpl) clusterNodes.get(2);
+
+        createTable(ignite0, SCHEMA, SHORT_TABLE_NAME);
+
+        TableImpl table = (TableImpl) ignite0.tables().table(TABLE_NAME);
+
+        assertEquals(1, table.schemaView().schema().version());
+
+        WatchListenerInhibitor listenerInhibitor = WatchListenerInhibitor.metastorageEventsInhibitor(ignite1);
+
+        listenerInhibitor.startInhibit();
+
+        ColumnDefinition columnDefinition = SchemaBuilders.column("valStr2", ColumnType.string())
+                .withDefaultValue("default")
+                .build();
+
+        ignite0.tables().alterTable(TABLE_NAME,
+                tblChanger -> tblChanger.changeColumns(cols ->
+                        cols.create(columnDefinition.name(), colChg -> convert(columnDefinition, colChg))
+                )
+        );
+
+        table = (TableImpl) ignite2.tables().table(TABLE_NAME);
+
+        TableImpl table0 = table;
+        assertTrue(waitForCondition(() -> table0.schemaView().schema().version() == 2, 5_000));
+
+        table = (TableImpl) ignite1.tables().table(TABLE_NAME);
+
+        assertEquals(1, table.schemaView().schema().version());
+
+        String nodeToStop = ignite1.name();
+
+        IgnitionManager.stop(nodeToStop);
+
+        listenerInhibitor.stopWithoutResend();
+
+        CompletableFuture<Ignite> ignite1Fut = nodesBootstrapCfg.entrySet().stream()
+                .filter(k -> k.getKey().equals(nodeToStop))
+                .map(e -> IgnitionManager.start(e.getKey(), e.getValue(), workDir.resolve(e.getKey())))
+                .findFirst().get();
+
+        ignite1 = (IgniteImpl) ignite1Fut.get();
+
+        table = (TableImpl) ignite1.tables().table(TABLE_NAME);
+
+        TableImpl table1 = table;
+        assertTrue(waitForCondition(() -> table1.schemaView().schema().version() == 2, 5_000));
     }
 
     /**
