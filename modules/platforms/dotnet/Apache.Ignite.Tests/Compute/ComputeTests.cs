@@ -159,7 +159,7 @@ namespace Apache.Ignite.Tests.Compute
             StringAssert.Contains("Specified node is not present in the cluster: y", ex!.Message);
         }
 
-        // TODO: Support all types (IGNITE-15431).
+        // TODO IGNITE-17777 Thin 3.0: use BinaryTuple for Compute and SQL results and arguments
         [Test]
         public async Task TestAllSupportedArgTypes()
         {

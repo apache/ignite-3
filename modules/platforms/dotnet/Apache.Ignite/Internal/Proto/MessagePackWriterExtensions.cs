@@ -76,84 +76,13 @@ namespace Apache.Ignite.Internal.Proto
         }
 
         /// <summary>
-        /// Writes an object.
-        /// </summary>
-        /// <param name="writer">Writer.</param>
-        /// <param name="obj">Object.</param>
-        public static void WriteObject(this ref MessagePackWriter writer, object? obj)
-        {
-            // TODO: Support all types (IGNITE-15431).
-            // TODO: Throw exceptions on DateTime with description to use NodaTime types?
-            switch (obj)
-            {
-                case null:
-                    writer.WriteNil();
-                    return;
-
-                case string str:
-                    writer.Write(str);
-                    return;
-
-                case Guid g:
-                    writer.Write(g);
-                    return;
-
-                case byte b:
-                    writer.Write(b);
-                    return;
-
-                case sbyte sb:
-                    writer.Write(sb);
-                    return;
-
-                case short s:
-                    writer.Write(s);
-                    return;
-
-                case ushort us:
-                    writer.Write(us);
-                    return;
-
-                case int i:
-                    writer.Write(i);
-                    return;
-
-                case uint ui:
-                    writer.Write(ui);
-                    return;
-
-                case long l:
-                    writer.Write(l);
-                    return;
-
-                case ulong ul:
-                    writer.Write(ul);
-                    return;
-
-                case char ch:
-                    writer.Write(ch);
-                    return;
-
-                case float f:
-                    writer.Write(f);
-                    return;
-
-                case double d:
-                    writer.Write(d);
-                    return;
-            }
-
-            throw new IgniteClientException(ErrorGroups.Client.Protocol, "Unsupported type: " + obj.GetType());
-        }
-
-        /// <summary>
         /// Writes an object with type code.
         /// </summary>
         /// <param name="writer">Writer.</param>
         /// <param name="obj">Object.</param>
         public static void WriteObjectWithType(this ref MessagePackWriter writer, object? obj)
         {
-            // TODO: Support all types (IGNITE-15431).
+            // TODO IGNITE-17777 Thin 3.0: use BinaryTuple for Compute and SQL results and arguments
             switch (obj)
             {
                 case null:

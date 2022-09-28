@@ -55,8 +55,6 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
 
         internal static readonly ObjectSerializerHandler<Car> ObjectSerializerHandler = new();
 
-        internal static readonly ObjectSerializerHandlerOld<Car> ObjectSerializerHandlerOld = new();
-
         protected Consumer Consumer { get; } = new();
 
         internal static void VerifyWritten(PooledArrayBufferWriter pooledWriter)
