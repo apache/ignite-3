@@ -619,7 +619,7 @@ namespace Apache.Ignite.Tests.Table
         }
 
         [Test]
-        public async Task TestUnsupportedColumnTypeThrowsExceptionWithAlternativeSuggestion()
+        public async Task TestUnsupportedColumnTypeThrowsException()
         {
             var table = await Client.Tables.GetTableAsync(TableAllColumnsName);
             var pocoView = table!.GetRecordView<UnsupportedByteType>();
@@ -627,7 +627,7 @@ namespace Apache.Ignite.Tests.Table
             var ex = Assert.ThrowsAsync<IgniteClientException>(async () => await pocoView.UpsertAsync(null, new UnsupportedByteType(1)));
             Assert.AreEqual(
                 "Can't map field 'UnsupportedByteType.<Int8>k__BackingField' of type 'System.Byte' " +
-                "to column 'INT8' of type 'System.SByte' - types do not match. TODO",
+                "to column 'INT8' of type 'System.SByte' - types do not match.",
                 ex!.Message);
         }
 
