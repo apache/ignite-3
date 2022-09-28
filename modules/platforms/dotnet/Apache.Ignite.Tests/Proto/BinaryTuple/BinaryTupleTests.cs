@@ -415,13 +415,23 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
         [Test]
         public void TestDecimalScaleOverflow()
         {
-            Assert.Fail("TODO");
+            const int scale = 100;
+
+            var ex = Assert.Throws<OverflowException>(
+                () => BuildAndRead((ref BinaryTupleBuilder b) => b.AppendDecimal(12.34m, scale)).GetDecimal(0, scale));
+
+            Assert.AreEqual("Value was either too large or too small for a Decimal.", ex!.Message);
         }
 
         [Test]
         public void TestDecimalMagnitudeOverflow()
         {
-            Assert.Fail("TODO");
+            var magnitude = Enumerable.Range(1, 100).Select(_ => (byte)250).ToArray();
+
+            var ex = Assert.Throws<OverflowException>(
+                () => BuildAndRead((ref BinaryTupleBuilder b) => b.AppendBytes(magnitude)).GetDecimal(0, 0));
+
+            Assert.AreEqual("Value was either too large or too small for a Decimal.", ex!.Message);
         }
 
         [Test]
