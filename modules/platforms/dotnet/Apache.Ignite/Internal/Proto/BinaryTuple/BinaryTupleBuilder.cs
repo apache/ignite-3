@@ -29,7 +29,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
     /// <summary>
     /// Binary tuple builder.
     /// </summary>
-    internal ref struct BinaryTupleBuilder // TODO: Support all types (IGNITE-15431).
+    internal ref struct BinaryTupleBuilder
     {
         /** Number of elements in the tuple. */
         private readonly int _numElements;
@@ -496,7 +496,6 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                     break;
 
                 default:
-                    // TODO IGNITE-15431 For known types like DateTime, Timestamp, DateTimeOffset produce a message with explanation.
                     throw new IgniteClientException(ErrorGroups.Client.Protocol, "Unsupported type: " + colType);
             }
         }
