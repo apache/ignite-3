@@ -122,10 +122,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         public static MethodInfo GetReadMethod(Type valueType) =>
             ReadMethods.TryGetValue(valueType, out var method) ? method : throw GetUnsupportedTypeException(valueType);
 
-        private static IgniteClientException GetUnsupportedTypeException(Type valueType)
-        {
-            // TODO IGNITE-15431 When types like byte, uint, DateTime, TimeSpan are used, include alternative type name in the message.
-            return new IgniteClientException(ErrorGroups.Client.Configuration, "Unsupported type: " + valueType);
-        }
+        private static IgniteClientException GetUnsupportedTypeException(Type valueType) =>
+            new(ErrorGroups.Client.Configuration, "Unsupported type: " + valueType);
     }
 }
