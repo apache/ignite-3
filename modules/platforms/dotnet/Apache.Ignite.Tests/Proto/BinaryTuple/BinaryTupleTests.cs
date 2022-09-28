@@ -393,7 +393,6 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
         [Test]
         public void TestDecimal()
         {
-            // TODO IGNITE-15431 check overflow scenarios (use interop tests?)
             Test(0, 3);
             Test(0, 0);
 
@@ -411,6 +410,18 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
 
                 Assert.AreEqual(expected ?? val, res);
             }
+        }
+
+        [Test]
+        public void TestDecimalScaleOverflow()
+        {
+            Assert.Fail("TODO");
+        }
+
+        [Test]
+        public void TestDecimalMagnitudeOverflow()
+        {
+            Assert.Fail("TODO");
         }
 
         [Test]
