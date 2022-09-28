@@ -18,33 +18,80 @@
 cmake_minimum_required(VERSION 3.10)
 project(Ignite.C++ VERSION 3 LANGUAGES CXX)
 
-find_package(Boost REQUIRED COMPONENTS unit_test_framework)
-
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-include(GNUInstallDirs)
+set(CMAKE_PROJECT_VERSION ${PROJECT_VERSION})
+
+if(EXISTS ${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
+    message(STATUS "Conan detected. Enabling...")
+    include(${CMAKE_BINARY_DIR}/conan_paths.cmake)
+    include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
+    conan_basic_setup()
+endif()
+
+if (MSVC)
+    add_compile_options(/source-charset:utf-8 /execution-charset:utf-8)
+    add_definitions(-D_CRT_SECURE_NO_WARNINGS -D_SCL_SECURE_NO_WARNINGS)
+endif()
+
+if (WIN32)
+    add_definitions(-DNOMINMAX)
+    set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+endif()
+
 set(INSTALL_INCLUDEDIR ${CMAKE_INSTALL_INCLUDEDIR}/ignite)
 
 option(ENABLE_ADDRESS_SANITIZER "If address sanitizer is enabled" OFF)
 option(ENABLE_UB_SANITIZER "If undefined behavior sanitizer is enabled" OFF)
+option(ENABLE_CLIENT "Build Ignite.C++ Client module" ON)
+option(ENABLE_TESTS "Build Ignite.C++ tests" OFF)
+option(WARNINGS_AS_ERRORS "Treat warning as errors" OFF)
 
 # Turn on DLL export directives
 add_compile_definitions(IGNITE_IMPL)
 
-if (ENABLE_ADDRESS_SANITIZER)
-    add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-fsanitize=address>)
-    add_link_options($<$<COMPILE_LANGUAGE:CXX>:-fsanitize=address>)
+if (CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+    include(GNUInstallDirs)
+    if (ENABLE_ADDRESS_SANITIZER)
+        add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-fsanitize=address>)
+        add_link_options($<$<COMPILE_LANGUAGE:CXX>:-fsanitize=address>)
+    endif()
+
+    if (ENABLE_UB_SANITIZER)
+        add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-fsanitize=undefined>)
+        add_link_options($<$<COMPILE_LANGUAGE:CXX>:-fsanitize=undefined>)
+    endif()
 endif()
 
-if (ENABLE_UB_SANITIZER)
-    add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-fsanitize=undefined>)
-    add_link_options($<$<COMPILE_LANGUAGE:CXX>:-fsanitize=undefined>)
+if (CMAKE_BUILD_TYPE STREQUAL "Debug" AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fstandalone-debug")
 endif()
+
+if (${WARNINGS_AS_ERRORS})
+    if (MSVC)
+        add_compile_options(/WX)
+    else()
+        add_compile_options(-Wall -Wextra -Werror -Wno-variadic-macros)
+    endif()
+endif()
+
+enable_testing()
 
 add_subdirectory(common)
 add_subdirectory(schema)
 
-enable_testing()
+if (${ENABLE_CLIENT})
+    add_subdirectory(protocol)
+    add_subdirectory(network)
+    add_subdirectory(client)
+endif()
 
-add_subdirectory(tests)
+if (${ENABLE_TESTS})
+    add_subdirectory(tests)
+    if (${ENABLE_CLIENT})
+        add_subdirectory(test-common)
+        add_subdirectory(client-test)
+    endif()
+endif()
