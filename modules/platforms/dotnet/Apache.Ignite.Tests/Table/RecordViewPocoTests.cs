@@ -617,5 +617,21 @@ namespace Apache.Ignite.Tests.Table
             Assert.AreEqual(poco.Time, res.Time);
             Assert.AreEqual(poco.DateTime, res.DateTime);
         }
+
+        [Test]
+        public async Task TestUnsupportedColumnTypeThrowsExceptionWithAlternativeSuggestion()
+        {
+            var table = await Client.Tables.GetTableAsync(TableAllColumnsName);
+            var pocoView = table!.GetRecordView<UnsupportedByteType>();
+
+            var ex = Assert.ThrowsAsync<IgniteClientException>(async () => await pocoView.UpsertAsync(null, new UnsupportedByteType(1)));
+            Assert.AreEqual(
+                "Can't map field 'UnsupportedByteType.<Int8>k__BackingField' of type 'System.Byte' " +
+                "to column 'INT8' of type 'System.SByte' - types do not match. TODO",
+                ex!.Message);
+        }
+
+        // ReSharper disable once NotAccessedPositionalProperty.Local
+        private record UnsupportedByteType(byte Int8);
     }
 }
