@@ -205,6 +205,13 @@ public interface MvPartitionStorage extends AutoCloseable {
     void commitWrite(RowId rowId, HybridTimestamp timestamp) throws StorageException;
 
     /**
+     * Scans all versions of a single row.
+     *
+     * @param rowId Row id.
+     */
+    Cursor<BinaryRow> scanVersions(RowId rowId) throws StorageException;
+
+    /**
      * Scans the partition and returns a cursor of values. All filtered values must either be uncommitted in current transaction
      * or already committed in different transaction.
      *
