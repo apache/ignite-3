@@ -268,7 +268,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         public Instant GetTimestamp(int index) => Seek(index) switch
         {
             { IsEmpty: true } => default,
-            var s => ReadInstant(s)
+            var s => ReadTimestamp(s)
         };
 
         /// <summary>
@@ -318,7 +318,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             };
         }
 
-        private static Instant ReadInstant(ReadOnlySpan<byte> span)
+        private static Instant ReadTimestamp(ReadOnlySpan<byte> span)
         {
             var len = span.Length;
             if (len == 0)
