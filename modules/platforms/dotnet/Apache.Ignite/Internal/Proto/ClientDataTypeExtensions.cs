@@ -19,6 +19,8 @@ namespace Apache.Ignite.Internal.Proto
 {
     using System;
     using System.Collections;
+    using System.Numerics;
+    using NodaTime;
 
     /// <summary>
     /// Extension methods for <see cref="ClientDataType"/>.
@@ -45,6 +47,11 @@ namespace Apache.Ignite.Internal.Proto
                 ClientDataType.String => (typeof(string), null),
                 ClientDataType.Bytes => (typeof(byte[]), null),
                 ClientDataType.BitMask => (typeof(BitArray), null),
+                ClientDataType.Date => (typeof(LocalDate), null),
+                ClientDataType.Time => (typeof(LocalTime), null),
+                ClientDataType.DateTime => (typeof(LocalDateTime), null),
+                ClientDataType.Timestamp => (typeof(Instant), null),
+                ClientDataType.Number => (typeof(BigInteger), null),
                 _ => throw new ArgumentOutOfRangeException(nameof(clientDataType), clientDataType, null)
             };
         }
