@@ -50,6 +50,7 @@ dependencies {
     testFixturesImplementation libs.hamcrest.core
     testFixturesImplementation libs.junit5.api
     testFixturesImplementation libs.junit5.impl
+    testFixturesImplementation libs.junit5.params
 }
 
 description = 'ignite-storage-api'
