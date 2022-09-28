@@ -16,17 +16,17 @@ The current alpha version includes the following features:
 
 ## Installation
 
-1. Download Ignite 3 Alpha 5:
+1. Download Ignite 3 Beta 1:
    ```
    curl -L "https://www.apache.org/dyn/mirrors/mirrors.cgi?action=download&filename=ignite/3.0.0-beta1/ignite3-3.0.0-beta1.zip" -o ignite3-3.0.0-beta1.zip
    ```
 2. Unzip the downloaded file:
    ```
-   unzip ignite3-3.0.0-beta1.zip && cd ignite3-3.0.0-beta1 && cd ignite3-db-3.0.0-beta1
+   unzip ignite3-3.0.0-beta1.zip && cd ignite3-db-3.0.0-beta1
    ```
 3. Add your installation directory to the PATH environment variable:
    ```
-   echo 'export IGNITE_HOME="'`pwd`'"' >> ~/.bash_profile
+   export IGNITE_HOME=$(pwd)
    ```
 4. (optional) If you start the cluster locally then install the core artifacts:
    ```
@@ -48,19 +48,19 @@ The following examples are included:
 
 To run any other example, do the following:
 1. Import the examples project into your IDE.
-2. Start a server node using the CLI tool:
+2. Start a server node using the startup script:
    ```
    sh $IGNITE_HOME/bin/ignite3-db start
    ```
 3. (optional) Setup ignite3-cli in your terminal:
 ```
    cd  ignite3-cli-3.0.0-beta1
-   alias ignite='`pwd`'/bin/ignite3-cli >> ~/.bash_profile
+   alias ignite="$(pwd)/bin/ignite3-cli" >> ~/.bash_profile
    source bin/ignite_completion.sh 
 ```
 4. (optional) If the cluster is not initialized then initialize the cluster:
    ```
-   ignite cluster init --cluster-name=ignite-cluster --node-endpoint=localhost:10300 --meta-storage-node=defauldNode
+   ignite cluster init --cluster-name=ignite-cluster --cluster-endpoint-url=http://localhost:10300 --meta-storage-node=defauldNode
    ```
 5. Run the preferred example in the IDE.
 

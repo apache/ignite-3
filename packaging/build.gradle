@@ -32,8 +32,12 @@ dependencies {
     cliScripts(project(path: ':ignite-cli', configuration: 'cliScripts'))
 }
 
+// task that generates start script for cli
 task cliStartScript(type: CreateStartScripts) {
+    // will be passed to exec "java ... <mainClassName>"
     mainClassName = "org.apache.ignite.internal.cli.Main"
+    // forms a classpath string that will be passed to exec "java -cp <classpath> .."
+    // it is expected to locate the "lib" dir together with "bin"
     classpath = files(new File("../lib/${project(':ignite-cli').name}-${project(':ignite-cli').version}.jar"), new File("../lib/*"))
     outputDir = startScripts.outputDir
     applicationName = 'ignite3-cli'
@@ -44,7 +48,7 @@ distributions {
         startScripts.enabled = false
         distributionBaseName = 'ignite3-db'
         contents {
-            // create empty dirs
+            // create empty dirs that are required to start Ignite
             into('') {
                 File.createTempDir().with {
                     ["log", "etc", "work"].each {new File(absolutePath, it).mkdirs() }
