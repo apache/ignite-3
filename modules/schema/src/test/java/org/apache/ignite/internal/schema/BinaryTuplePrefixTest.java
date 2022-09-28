@@ -74,7 +74,7 @@ public class BinaryTuplePrefixTest {
      * Tests a corner case when a new internal buffer needs to be allocated to add the count value.
      */
     @Test
-    public void testSmallPrefix() {
+    public void testInternalBufferReallocation() {
         BinaryTupleSchema schema = BinaryTupleSchema.create(new Element[]{
                 new Element(NativeTypes.INT32, false)
         });
