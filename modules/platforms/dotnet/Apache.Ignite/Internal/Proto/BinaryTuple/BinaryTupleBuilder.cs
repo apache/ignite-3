@@ -615,10 +615,13 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
         private void PutTimestamp(Instant value)
         {
-            // NOTE: retrieving nanos like this seems a bit weird.
-            // Left a comment in the NodaTime repo: https://github.com/nodatime/nodatime/issues/1644#issuecomment-1260524451
+            // Logic taken from
+            // https://github.com/nodatime/nodatime.serialization/blob/main/src/NodaTime.Serialization.Protobuf/NodaExtensions.cs#L69
+            // (Apache License).
+            // See discussion: https://github.com/nodatime/nodatime/issues/1644#issuecomment-1260524451
             long seconds = value.ToUnixTimeSeconds();
-            int nanos = (value - NodaConstants.UnixEpoch).SubsecondNanoseconds;
+            Duration remainder = value - Instant.FromUnixTimeSeconds(seconds);
+            int nanos = (int)remainder.NanosecondOfDay;
 
             PutLong(seconds);
 
