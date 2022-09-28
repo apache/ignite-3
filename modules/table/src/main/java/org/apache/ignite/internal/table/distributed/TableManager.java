@@ -37,6 +37,7 @@ import static org.apache.ignite.internal.utils.RebalanceUtil.updatePendingAssign
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -108,6 +109,7 @@ import org.apache.ignite.internal.schema.event.SchemaEventParameters;
 import org.apache.ignite.internal.schema.marshaller.schema.SchemaSerializerImpl;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
@@ -677,6 +679,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 CompletableFuture<Void> startGroupFut = CompletableFuture.completedFuture(null);
 
+                ConcurrentHashMap<ByteBuffer, RowId> primaryIndex = new ConcurrentHashMap<>();
+
                 if (raftMgr.shouldHaveRaftGroupLocally(nodes)) {
                     startGroupFut = CompletableFuture
                             .supplyAsync(() -> internalTbl.storage().getOrCreateMvPartition(partId), ioExecutor)
@@ -730,7 +734,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                     partitionStorage,
                                                     internalTbl.txStateStorage().getOrCreateTxStateStorage(partId),
                                                     txManager,
-                                                    new ConcurrentHashMap<>()
+                                                    primaryIndex
                                             ),
                                                 new RebalanceRaftGroupEventsListener(
                                                         metaStorageMgr,
@@ -780,7 +784,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                             partId,
                                                             grpId,
                                                             tblId,
-                                                            new ConcurrentHashMap<>(),
+                                                            primaryIndex,
                                                             clock
                                                     )
                                             );
@@ -1722,6 +1726,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             .filter(p -> !assignments.contains(p))
                             .collect(Collectors.toList());
 
+                    ConcurrentHashMap<ByteBuffer, RowId> primaryIndex = new ConcurrentHashMap<>();
+
                     try {
                         LOG.info("Received update on pending assignments. Check if new raft group should be started"
                                         + " [key={}, partition={}, table={}, localMemberAddress={}]",
@@ -1741,7 +1747,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                     partitionStorage,
                                     tbl.internalTable().txStateStorage().getOrCreateTxStateStorage(part),
                                     txManager,
-                                    new ConcurrentHashMap<>()
+                                    primaryIndex
                             );
 
                             RaftGroupEventsListener raftGrpEvtsLsnr = new RebalanceRaftGroupEventsListener(
@@ -1777,7 +1783,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                             part,
                                             partId,
                                             tblId,
-                                            new ConcurrentHashMap<>(),
+                                            primaryIndex,
                                             clock
                                     )
                             );

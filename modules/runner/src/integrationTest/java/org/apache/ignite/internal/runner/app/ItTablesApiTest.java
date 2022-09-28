@@ -215,7 +215,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
 
         Table tbl = createTable(ignite0, SCHEMA, SHORT_TABLE_NAME);
 
-        Tuple tableKey = Tuple.create()
+        final Tuple tableKey = Tuple.create()
                 .set("key", 123L);
 
         Tuple value = Tuple.create()
