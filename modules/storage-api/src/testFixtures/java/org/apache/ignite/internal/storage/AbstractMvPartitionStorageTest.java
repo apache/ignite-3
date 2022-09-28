@@ -365,8 +365,9 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
         RowId rowId1 = new RowId(PARTITION_ID, 10, 10);
         RowId rowId2 = new RowId(PARTITION_ID, 10, 20);
 
-        BinaryRow binaryRow11 = binaryRow(new TestKey(1, "1"), value11);
-        BinaryRow binaryRow12 = binaryRow(new TestKey(1, "1"), value12);
+        TestKey key1 = new TestKey(1, "1");
+        BinaryRow binaryRow11 = binaryRow(key1, value11);
+        BinaryRow binaryRow12 = binaryRow(key1, value12);
 
         addWrite(rowId1, binaryRow11, txId);
         HybridTimestamp commitTs1 = clock.now();
@@ -374,8 +375,9 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
 
         addWrite(rowId1, binaryRow12, newTransactionId());
 
-        BinaryRow binaryRow21 = binaryRow(new TestKey(2, "2"), value21);
-        BinaryRow binaryRow22 = binaryRow(new TestKey(2, "2"), value22);
+        TestKey key2 = new TestKey(2, "2");
+        BinaryRow binaryRow21 = binaryRow(key2, value21);
+        BinaryRow binaryRow22 = binaryRow(key2, value22);
 
         addWrite(rowId2, binaryRow21, txId);
         HybridTimestamp commitTs2 = clock.now();
@@ -387,34 +389,38 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
             assertThrows(IllegalStateException.class, () -> cursor.committed(commitTs1));
 
             assertTrue(cursor.hasNext());
-            assertTrue(cursor.hasNext());
+            while (cursor.hasNext()) {
+                assertTrue(cursor.hasNext());
 
-            ReadResult res = cursor.next();
+                ReadResult res = cursor.next();
 
-            assertNotNull(res);
-            assertTrue(res.isWriteIntent());
-            assertFalse(res.isEmpty());
-            assertRowMatches(res.binaryRow(), binaryRow12);
+                assertNotNull(res);
+                assertTrue(res.isWriteIntent());
+                assertFalse(res.isEmpty());
 
-            BinaryRow previousRow = cursor.committed(commitTs1);
+                BinaryRow expectedRow1;
+                BinaryRow expectedRow2;
+                HybridTimestamp commitTs;
 
-            assertNotNull(previousRow);
-            assertRowMatches(previousRow, binaryRow11);
+                TestKey readKey = key(res.binaryRow());
 
-            assertTrue(cursor.hasNext());
-            assertTrue(cursor.hasNext());
+                if (readKey.equals(key1)) {
+                    expectedRow1 = binaryRow11;
+                    expectedRow2 = binaryRow12;
+                    commitTs = commitTs1;
+                } else {
+                    expectedRow1 = binaryRow21;
+                    expectedRow2 = binaryRow22;
+                    commitTs = commitTs2;
+                }
 
-            res = cursor.next();
+                assertRowMatches(res.binaryRow(), expectedRow2);
 
-            assertNotNull(res);
-            assertTrue(res.isWriteIntent());
-            assertFalse(res.isEmpty());
-            assertRowMatches(res.binaryRow(), binaryRow22);
+                BinaryRow previousRow = cursor.committed(commitTs);
 
-            previousRow = cursor.committed(commitTs2);
-
-            assertNotNull(previousRow);
-            assertRowMatches(previousRow, binaryRow21);
+                assertNotNull(previousRow);
+                assertRowMatches(previousRow, expectedRow1);
+            }
 
             assertFalse(cursor.hasNext());
             assertFalse(cursor.hasNext());
