@@ -213,6 +213,8 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
     private Predicate<ByteBuffer> startsWith(BinaryTuplePrefix prefix) {
         var comparator = new BinaryTupleComparator(descriptor);
 
+        ByteBuffer prefixBuffer = prefix.byteBuffer();
+
         return key -> {
             // First, compare the partitionIDs.
             boolean partitionIdCompare = key.getShort(0) == partitionStorage.partitionId();
@@ -222,9 +224,7 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
             }
 
             // Finally, compare the remaining parts of the tuples.
-            // TODO: This part may be optimized by comparing binary tuple representations directly. However, currently BinaryTuple prefixes
-            //  are not binary compatible with regular tuples. See https://issues.apache.org/jira/browse/IGNITE-17711.
-            return comparator.compare(prefix.byteBuffer(), binaryTupleSlice(key)) == 0;
+            return comparator.compare(prefixBuffer, binaryTupleSlice(key)) == 0;
         };
     }
 

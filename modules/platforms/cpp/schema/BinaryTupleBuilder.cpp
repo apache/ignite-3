@@ -19,6 +19,7 @@
 #include "BinaryTupleParser.h"
 
 #include <stdexcept>
+#include <string>
 
 namespace ignite {
 
@@ -76,7 +77,7 @@ SizeT BinaryTupleBuilder::sizeOf(DATA_TYPE type, BytesView bytes) {
             return sizeOfDouble(BinaryTupleParser::getDouble(bytes));
         case DATA_TYPE::STRING:
         case DATA_TYPE::BINARY:
-            return bytes.size();
+            return static_cast<SizeT>(bytes.size());
 
         case DATA_TYPE::UUID:
         case DATA_TYPE::DATE:
@@ -109,21 +110,21 @@ void BinaryTupleBuilder::putInt8(BytesView bytes) {
 void BinaryTupleBuilder::putInt16(BytesView bytes) {
     SizeT size = sizeOfInt16(BinaryTupleParser::getInt16(bytes));
     assert(size <= bytes.size());
-    static_assert(BYTE_ORDER == LITTLE_ENDIAN);
+    static_assert(platform::ByteOrder::littleEndian);
     putBytes(BytesView{bytes.data(), size});
 }
 
 void BinaryTupleBuilder::putInt32(BytesView bytes) {
     SizeT size = sizeOfInt32(BinaryTupleParser::getInt32(bytes));
     assert(size <= bytes.size());
-    static_assert(BYTE_ORDER == LITTLE_ENDIAN);
+    static_assert(platform::ByteOrder::littleEndian);
     putBytes(BytesView{bytes.data(), size});
 }
 
 void BinaryTupleBuilder::putInt64(BytesView bytes) {
     SizeT size = sizeOfInt64(BinaryTupleParser::getInt64(bytes));
     assert(size <= bytes.size());
-    static_assert(BYTE_ORDER == LITTLE_ENDIAN);
+    static_assert(platform::ByteOrder::littleEndian);
     putBytes(BytesView{bytes.data(), size});
 }
 
@@ -140,7 +141,7 @@ void BinaryTupleBuilder::putDouble(BytesView bytes) {
     if (size != sizeof(float)) {
         putBytes(BytesView{bytes.data(), size});
     } else {
-        float floatValue = value;
+        float floatValue = static_cast<float>(value);
         putBytes(BytesView{reinterpret_cast<std::byte*>(&floatValue), sizeof(float)});
     }
 }

@@ -72,7 +72,7 @@ public:
      *
      * @return Number of elements.
      */
-    IntT numElements() const noexcept { return elements.size(); }
+    IntT numElements() const noexcept { return static_cast<IntT>(elements.size()); }
 
     /**
      * @brief Gets element info.
