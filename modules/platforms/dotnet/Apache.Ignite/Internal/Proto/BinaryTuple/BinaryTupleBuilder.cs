@@ -272,6 +272,12 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         }
 
         /// <summary>
+        /// Appends bytes.
+        /// </summary>
+        /// <param name="value">Value.</param>
+        public void AppendBytes(byte[] value) => AppendBytes(value.AsSpan());
+
+        /// <summary>
         /// Appends a guid.
         /// </summary>
         /// <param name="value">Value.</param>

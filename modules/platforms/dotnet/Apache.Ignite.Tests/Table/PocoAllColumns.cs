@@ -42,7 +42,7 @@ namespace Apache.Ignite.Tests.Table
         LocalDate Date,
         BitArray BitMask,
         LocalTime Time,
-        LocalDateTime LocalDateTime,
+        LocalDateTime DateTime,
         Instant Timestamp,
         byte[] Blob,
         decimal Decimal);
