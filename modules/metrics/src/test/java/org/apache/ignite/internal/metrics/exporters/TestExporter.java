@@ -20,6 +20,9 @@ package org.apache.ignite.internal.metrics.exporters;
 import org.apache.ignite.internal.metrics.MetricProvider;
 import org.jetbrains.annotations.Nullable;
 
+/**
+ * Simple test exporter with 1 configuration parameter and "started" flag.
+ */
 public class TestExporter extends BasicMetricExporter<TestExporterView> {
 
     private volatile boolean started = false;

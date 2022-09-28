@@ -34,6 +34,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
+/**
+ * Tests for exporters' configurations.
+ */
 @ExtendWith(ConfigurationExtension.class)
 public class MetricConfigurationTest {
 
