@@ -177,35 +177,27 @@ private:
     void onMessageSent(uint64_t id) override;
 
     /**
-     * Perform handshake.
-     *
-     * @param id Connection id.
-     * @param context Handshake context.
-     */
-    void handshake(uint64_t id, ProtocolContext &context);
-
-    /**
-     * Process handshake failure.
+     * Remove client.
      *
      * @param id Connection ID.
-     * @param err Error. If set, connection is stopped and failed.
      */
-    void handshakeFail(uint64_t id, std::optional<IgniteError> err);
+    void removeClient(uint64_t id);
 
     /**
-     * Report handshake result.
+     * Handle initial connection result.
      *
-     * @param err Error. If set, connection is stopped and failed.
+     * @param res Connect result.
      */
-    void handshakeResult(std::optional<IgniteError> err);
+    void initialConnectResult(IgniteResult<void>&& res);
 
     /**
-     * Process handshake response.
+     * Find and return client.
      *
-     * @param protocolCtx Handshake context.
-     * @param buffer Message.
+     * @param id Client ID.
+     * @return Client if found and nullptr otherwise.
      */
-    void handshakeRsp(ProtocolContext &protocolCtx, BytesView buffer);
+    [[nodiscard]]
+    std::shared_ptr<NodeConnection> findClient(uint64_t id);
 
     /** Configuration. */
     const IgniteClientConfiguration m_configuration;
@@ -221,12 +213,6 @@ private:
 
     /** Logger. */
     std::shared_ptr<IgniteLogger> m_logger;
-
-    /** Node connections in progress. */
-    std::unordered_map<uint64_t, std::shared_ptr<ProtocolContext>> m_inProgress;
-
-    /** Node connections in progress mutex. */
-    std::recursive_mutex m_inProgressMutex;
 
     /** Node connections. */
     std::unordered_map<uint64_t, std::shared_ptr<NodeConnection>> m_connections;

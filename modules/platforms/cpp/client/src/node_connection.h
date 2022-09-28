@@ -31,6 +31,7 @@
 #include "ignite/ignite_client_configuration.h"
 
 #include "client_operation.h"
+#include "protocol_context.h"
 #include "response_handler.h"
 
 namespace ignite::detail
@@ -74,9 +75,18 @@ public:
      * @return ID.
      */
     [[nodiscard]]
-    uint64_t getId() const
-    {
+    uint64_t getId() const {
         return m_id;
+    }
+
+    /**
+     * Check whether handshake complete.
+     *
+     * @return @c true if the handshake complete.
+     */
+    [[nodiscard]]
+    bool isHandshakeComplete() const {
+        return m_handshakeComplete;
     }
 
     /**
@@ -86,12 +96,11 @@ public:
      * @param op Operation code.
      * @param wr Writer function.
      * @param rd Reader function.
-     * @return Future result.
+     * @return @c true on success and @c false otherwise.
      */
     template<typename T>
     bool performRequest(ClientOperation op, const std::function<void(protocol::Writer&)>& wr,
-        std::shared_ptr<ResponseHandlerImpl<T>> handler)
-    {
+        std::shared_ptr<ResponseHandlerImpl<T>> handler) {
         auto reqId = generateRequestId();
         std::vector<std::byte> message;
         {
@@ -122,7 +131,13 @@ public:
         return true;
     }
 
-private:
+    /**
+     * Perform handshake.
+     *
+     * @return @c true on success and @c false otherwise.
+     */
+    bool handshake();
+
     /**
      * Callback that called when new message is received.
      *
@@ -131,13 +146,20 @@ private:
     void processMessage(BytesView msg);
 
     /**
+     * Process handshake response.
+     *
+     * @param msg Handshake response message.
+     */
+    IgniteResult<void> processHandshakeRsp(BytesView msg);
+
+private:
+    /**
      * Generate next request ID.
      *
      * @return New request ID.
      */
     [[nodiscard]]
-    int64_t generateRequestId()
-    {
+    int64_t generateRequestId() {
         return m_reqIdGen.fetch_add(1, std::memory_order_relaxed);
     }
 
@@ -149,17 +171,20 @@ private:
      */
     std::shared_ptr<ResponseHandler> getAndRemoveHandler(int64_t reqId);
 
-    /** Connection ID. */
-    uint64_t m_id;
+    /** Handshake complete. */
+    bool m_handshakeComplete{false};
 
-    /** Handshake result. */
-    std::promise<void> handshakeRes;
+    /** Protocol context. */
+    ProtocolContext m_protocolContext;
+
+    /** Connection ID. */
+    uint64_t m_id{0};
 
     /** Connection pool. */
     std::shared_ptr<network::AsyncClientPool> m_pool;
 
     /** Request ID generator. */
-    std::atomic_int64_t m_reqIdGen;
+    std::atomic_int64_t m_reqIdGen{0};
 
     /** Pending request handlers. */
     std::unordered_map<int64_t, std::shared_ptr<ResponseHandler>> m_requestHandlers;

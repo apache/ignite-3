@@ -26,7 +26,6 @@ NodeConnection::NodeConnection(uint64_t id, std::shared_ptr<network::AsyncClient
     std::shared_ptr<IgniteLogger> logger) :
     m_id(id),
     m_pool(std::move(pool)),
-    m_reqIdGen(0),
     m_logger(std::move(logger)) { }
 
 
@@ -43,9 +42,36 @@ NodeConnection::~NodeConnection() {
     }
 }
 
+bool NodeConnection::handshake() {
+    static constexpr int8_t CLIENT_TYPE = 2;
+
+    std::vector<std::byte> message;
+    {
+        protocol::BufferAdapter buffer(message);
+        buffer.writeRawData(BytesView(protocol::MAGIC_BYTES.data(), protocol::MAGIC_BYTES.size()));
+
+        protocol::Writer::writeMessageToBuffer(buffer, [&context = m_protocolContext](protocol::Writer& writer) {
+            auto ver = context.getVersion();
+
+            writer.write(ver.getMajor());
+            writer.write(ver.getMinor());
+            writer.write(ver.getPatch());
+
+            writer.write(CLIENT_TYPE);
+
+            // Features.
+            writer.writeBinaryEmpty();
+
+            // Extensions.
+            writer.writeMapEmpty();
+        });
+    }
+
+    return m_pool->send(m_id, std::move(message));
+}
+
 void NodeConnection::processMessage(BytesView msg) {
     protocol::Reader reader(msg);
-
     auto responseType = reader.readInt32();
     if (MessageType(responseType) != MessageType::RESPONSE) {
         m_logger->logWarning("Unsupported message type: " + std::to_string(responseType));
@@ -73,6 +99,39 @@ void NodeConnection::processMessage(BytesView msg) {
     auto handlingRes = handler->handle(reader);
     if (handlingRes.hasError())
         m_logger->logError("Uncaught user callback exception: " + handlingRes.getError().whatStr());
+}
+
+IgniteResult<void> NodeConnection::processHandshakeRsp(BytesView msg) {
+    m_logger->logDebug("Got handshake response");
+
+    protocol::Reader reader(msg);
+
+    auto verMajor = reader.readInt16();
+    auto verMinor = reader.readInt16();
+    auto verPatch = reader.readInt16();
+
+    ProtocolVersion ver(verMajor, verMinor, verPatch);
+    m_logger->logDebug("Server-side protocol version: " + ver.toString());
+
+    // We now only support a single version
+    if (ver != ProtocolContext::CURRENT_VERSION)
+        return {IgniteError("Unsupported server version: " + ver.toString())};
+
+    auto err = protocol::readError(reader);
+    if (err)
+        return {IgniteError(err.value())};
+
+    (void) reader.readInt64(); // TODO: IGNITE-17606 Implement heartbeats
+    (void) reader.readStringNullable(); // Cluster node ID. Needed for partition-aware compute.
+    (void) reader.readStringNullable(); // Cluster node name. Needed for partition-aware compute.
+
+    reader.skip(); // Features.
+    reader.skip(); // Extensions.
+
+    m_protocolContext.setVersion(ver);
+    m_handshakeComplete = true;
+
+    return {};
 }
 
 std::shared_ptr<ResponseHandler> NodeConnection::getAndRemoveHandler(int64_t id) {

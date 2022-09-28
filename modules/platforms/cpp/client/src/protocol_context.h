@@ -30,15 +30,16 @@ namespace ignite::detail
 class ProtocolContext
 {
 public:
+    /** The latest currently supported version. */
     static constexpr ProtocolVersion CURRENT_VERSION{3, 0, 0};
+
     /**
      * Get protocol version.
      *
      * @return protocol version.
      */
     [[nodiscard]]
-    ProtocolVersion getVersion() const
-    {
+    ProtocolVersion getVersion() const {
         return m_version;
     }
 
@@ -47,14 +48,13 @@ public:
      *
      * @param ver Version to set.
      */
-    void setVersion(ProtocolVersion ver)
-    {
+    void setVersion(ProtocolVersion ver) {
         m_version = ver;
     }
 
 private:
     /** Protocol version. */
-    ProtocolVersion m_version = CURRENT_VERSION;
+    ProtocolVersion m_version{CURRENT_VERSION};
 };
 
 } // namespace ignite::detail

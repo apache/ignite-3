@@ -23,8 +23,6 @@
 #include "ignite/network/network.h"
 
 #include "ignite/protocol/writer.h"
-#include "ignite/protocol/reader.h"
-#include "ignite/protocol/utils.h"
 
 #include "cluster_connection.h"
 
@@ -37,8 +35,7 @@ ClusterConnection::ClusterConnection(IgniteClientConfiguration configuration) :
     m_logger(m_configuration.getLogger()),
     m_generator(std::random_device()()) { }
 
-void ClusterConnection::startAsync(std::function<void(IgniteResult<void>)> callback)
-{
+void ClusterConnection::startAsync(std::function<void(IgniteResult<void>)> callback) {
     using namespace network;
 
     if (m_pool)
@@ -70,239 +67,108 @@ void ClusterConnection::startAsync(std::function<void(IgniteResult<void>)> callb
     m_pool->start(std::move(addrs), m_configuration.getConnectionLimit());
 }
 
-void ClusterConnection::stop()
-{
+void ClusterConnection::stop() {
     auto pool = m_pool;
     if (pool)
         pool->stop();
 }
 
-void ClusterConnection::onConnectionSuccess(const network::EndPoint &addr, uint64_t id)
-{
+void ClusterConnection::onConnectionSuccess(const network::EndPoint &addr, uint64_t id) {
     m_logger->logInfo("Established connection with remote host " + addr.toString());
     m_logger->logDebug("Connection ID: " + std::to_string(id));
 
-    auto protocolCtx = std::make_shared<ProtocolContext>();
-
+    auto connection = std::make_shared<NodeConnection>(id, m_pool, m_logger);
     {
         [[maybe_unused]]
-        std::unique_lock<std::recursive_mutex> lock(m_inProgressMutex);
+        std::unique_lock<std::recursive_mutex> lock(m_connectionsMutex);
 
-        if (m_inProgress.find(id) != m_inProgress.end())
+        auto [_it, wasNew] = m_connections.insert_or_assign(id, connection);
+        if (!wasNew)
             m_logger->logError("Unknown error: connecting is already in progress. Connection ID: " + std::to_string(id));
-
-        m_inProgress[id] = protocolCtx;
     }
 
-    handshake(id, *protocolCtx);
-}
-
-void ClusterConnection::onConnectionError(const network::EndPoint &addr, IgniteError err)
-{
-    m_logger->logWarning("Failed to establish connection with remote host " + addr.toString() +
-        ", reason: " + err.what());
-
-    if (err.getStatusCode() == StatusCode::OS)
-        handshakeFail(0, std::move(err));
-}
-
-void ClusterConnection::onConnectionClosed(uint64_t id, std::optional<IgniteError> err)
-{
-    m_logger->logDebug("Closed Connection ID " + std::to_string(id) + ", error=" + (err ? err->what() : "none"));
-
-    {
-        [[maybe_unused]]
-        std::unique_lock<std::recursive_mutex> lock(m_inProgressMutex);
-
-        auto it = m_inProgress.find(id);
-        if (it != m_inProgress.end())
-        {
-            handshakeFail(id, std::nullopt);
-
-            // No sense in locking connections mutex - connection was not established.
-            // Returning early.
-            return;
-        }
-    }
-
-    {
-        [[maybe_unused]]
-        std::unique_lock<std::recursive_mutex> lock(m_connectionsMutex);
-
-        m_connections.erase(id);
-    }
-}
-
-void ClusterConnection::onMessageReceived(uint64_t id, BytesView msg)
-{
-    m_logger->logDebug("Message on Connection ID " + std::to_string(id) +
-        ", size: " + std::to_string(msg.size()));
-
-    std::shared_ptr<NodeConnection> connection;
-    {
-        [[maybe_unused]]
-        std::unique_lock<std::recursive_mutex> lock(m_inProgressMutex);
-
-        auto it = m_inProgress.find(id);
-        if (it != m_inProgress.end())
-        {
-            try
-            {
-                handshakeRsp(*it->second, msg);
-
-                connection = std::make_shared<NodeConnection>(id, m_pool, m_logger);
-
-                m_inProgress.erase(it);
-            }
-            catch (const IgniteError& err)
-            {
-                handshakeFail(id, err);
-
-                // No sense in locking connections mutex - connection was not established.
-                // Returning early.
-                return;
-            }
-        }
-    }
-
-    {
-        [[maybe_unused]]
-        std::unique_lock<std::recursive_mutex> lock(m_connectionsMutex);
-
-        auto it = m_connections.find(id);
-        if (connection)
-        {
-            if (it != m_connections.end())
-                m_logger->logError("Unknown error: connection already established. Connection ID: " + std::to_string(id));
-
-            m_connections[id] = connection;
-
-            lock.unlock();
-
-            handshakeResult(std::nullopt);
-
-            return;
-        }
-        else if (it != m_connections.end())
-            connection = it->second;
-    }
-
-    if (connection)
-        connection->processMessage(msg);
-}
-
-void ClusterConnection::onMessageSent(uint64_t id)
-{
-    m_logger->logDebug("Message sent successfully on Connection ID " + std::to_string(id));
-}
-
-void ClusterConnection::handshake(uint64_t id, ProtocolContext& context)
-{
-    static constexpr int8_t CLIENT_TYPE = 2;
-
-    std::vector<std::byte> message;
-    {
-        protocol::BufferAdapter buffer(message);
-        buffer.writeRawData(BytesView(protocol::MAGIC_BYTES.data(), protocol::MAGIC_BYTES.size()));
-
-        protocol::Writer::writeMessageToBuffer(buffer, [&context](protocol::Writer& writer) {
-            auto ver = context.getVersion();
-
-            writer.write(ver.getMajor());
-            writer.write(ver.getMinor());
-            writer.write(ver.getPatch());
-
-            writer.write(CLIENT_TYPE);
-
-            // Features.
-            writer.writeBinaryEmpty();
-
-            // Extensions.
-            writer.writeMapEmpty();
-        });
-    }
-
-    try
-    {
-        bool res = m_pool->send(id, std::move(message));
-        if (!res)
-        {
+    try {
+        bool res = connection->handshake();
+        if (!res) {
             m_logger->logWarning("Failed to send handshake request: Connection already closed.");
-            handshakeFail(id, std::nullopt);
+            removeClient(id);
             return;
         }
         m_logger->logDebug("Handshake sent successfully");
     }
-    catch (const IgniteError& err)
-    {
+    catch (const IgniteError& err) {
         m_logger->logWarning("Failed to send handshake request: " + err.whatStr());
-        handshakeFail(id, std::nullopt);
+        removeClient(id);
     }
 }
 
-void ClusterConnection::handshakeFail(uint64_t id, std::optional<IgniteError> err)
-{
-    {
-        [[maybe_unused]]
-        std::unique_lock<std::recursive_mutex> lock(m_inProgressMutex);
+void ClusterConnection::onConnectionError(const network::EndPoint &addr, IgniteError err) {
+    m_logger->logWarning("Failed to establish connection with remote host " + addr.toString() +
+        ", reason: " + err.what());
 
-        m_inProgress.erase(id);
-    }
-
-    if (err)
-        handshakeResult(std::move(err));
+    if (err.getStatusCode() == StatusCode::OS)
+        initialConnectResult(std::move(err));
 }
 
-void ClusterConnection::handshakeResult(std::optional<IgniteError> err)
-{
+void ClusterConnection::onConnectionClosed(uint64_t id, std::optional<IgniteError> err) {
+    m_logger->logDebug("Closed Connection ID " + std::to_string(id) + ", error=" + (err ? err->what() : "none"));
+    removeClient(id);
+}
+
+void ClusterConnection::onMessageReceived(uint64_t id, BytesView msg) {
+    m_logger->logDebug("Message on Connection ID " + std::to_string(id) +
+        ", size: " + std::to_string(msg.size()));
+
+    std::shared_ptr<NodeConnection> connection = findClient(id);
+    if (!connection)
+        return;
+
+    if (connection->isHandshakeComplete()) {
+        connection->processMessage(msg);
+        return;
+    }
+
+    auto res = connection->processHandshakeRsp(msg);
+    if (res.hasError())
+        removeClient(connection->getId());
+
+    initialConnectResult(std::move(res));
+}
+
+std::shared_ptr<NodeConnection> ClusterConnection::findClient(uint64_t id) {
+    [[maybe_unused]]
+    std::unique_lock<std::recursive_mutex> lock(m_connectionsMutex);
+
+    auto it = m_connections.find(id);
+    if (it != m_connections.end())
+        return it->second;
+
+    return {};
+}
+
+void ClusterConnection::onMessageSent(uint64_t id) {
+    m_logger->logDebug("Message sent successfully on Connection ID " + std::to_string(id));
+}
+
+void ClusterConnection::removeClient(uint64_t id) {
+    [[maybe_unused]]
+    std::unique_lock<std::recursive_mutex> lock(m_connectionsMutex);
+
+    m_connections.erase(id);
+}
+
+void ClusterConnection::initialConnectResult(IgniteResult<void>&& res) {
     [[maybe_unused]]
     std::lock_guard<std::mutex> lock(m_onInitialConnectMutex);
 
     if (!m_onInitialConnect)
         return;
 
-    IgniteResult<void> res;
-    if (err)
-        res = {std::move(err.value())};
-
     m_onInitialConnect(std::move(res));
     m_onInitialConnect = {};
 }
 
-void ClusterConnection::handshakeRsp(ProtocolContext& protocolCtx, BytesView buffer)
-{
-    m_logger->logDebug("Got handshake response");
-
-    protocol::Reader reader(buffer);
-
-    auto verMajor = reader.readInt16();
-    auto verMinor = reader.readInt16();
-    auto verPatch = reader.readInt16();
-
-    ProtocolVersion ver(verMajor, verMinor, verPatch);
-
-    m_logger->logDebug("Server-side protocol version: " + ver.toString());
-
-    // We now only support a single version
-    if (ver != ProtocolContext::CURRENT_VERSION)
-        throw IgniteError("Unsupported server version: " + ver.toString());
-
-    auto err = protocol::readError(reader);
-    if (err)
-        throw IgniteError(err.value());
-
-    (void) reader.readInt64(); // TODO: IGNITE-17606 Implement heartbeats
-    (void) reader.readStringNullable(); // Cluster node ID. Needed for partition-aware compute.
-    (void) reader.readStringNullable(); // Cluster node name. Needed for partition-aware compute.
-
-    reader.skip(); // Features.
-    reader.skip(); // Extensions.
-
-    protocolCtx.setVersion(ver);
-}
-
-std::shared_ptr<NodeConnection> ClusterConnection::getRandomChannel()
-{
+std::shared_ptr<NodeConnection> ClusterConnection::getRandomChannel() {
     [[maybe_unused]]
     std::unique_lock<std::recursive_mutex> lock(m_connectionsMutex);
 
