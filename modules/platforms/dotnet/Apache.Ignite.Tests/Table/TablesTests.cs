@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Tests.Table
 {
     using System;
+    using System.Linq;
     using System.Threading.Tasks;
     using Ignite.Table;
     using NUnit.Framework;
@@ -30,10 +31,11 @@ namespace Apache.Ignite.Tests.Table
         [Test]
         public async Task TestGetTables()
         {
-            var tables = await Client.Tables.GetTablesAsync();
+            var tables = (await Client.Tables.GetTablesAsync()).OrderBy(x => x.Name).ToList();
 
-            Assert.AreEqual(1, tables.Count);
-            Assert.AreEqual(TableName, tables[0].Name);
+            Assert.AreEqual(2, tables.Count);
+            Assert.AreEqual(TableAllColumnsName, tables[0].Name);
+            Assert.AreEqual(TableName, tables[1].Name);
         }
 
         [Test]
