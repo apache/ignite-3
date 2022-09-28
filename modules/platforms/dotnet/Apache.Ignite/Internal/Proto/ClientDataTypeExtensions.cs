@@ -32,28 +32,25 @@ namespace Apache.Ignite.Internal.Proto
         /// </summary>
         /// <param name="clientDataType">Client data type.</param>
         /// <returns>Corresponding CLR type.</returns>
-        public static Type ToType(this ClientDataType clientDataType)
+        public static Type ToType(this ClientDataType clientDataType) => clientDataType switch
         {
-            return clientDataType switch
-            {
-                ClientDataType.Int8 => typeof(sbyte),
-                ClientDataType.Int16 => typeof(short),
-                ClientDataType.Int32 => typeof(int),
-                ClientDataType.Int64 => typeof(long),
-                ClientDataType.Float => typeof(float),
-                ClientDataType.Double => typeof(double),
-                ClientDataType.Decimal => typeof(decimal),
-                ClientDataType.Uuid => typeof(Guid),
-                ClientDataType.String => typeof(string),
-                ClientDataType.Bytes => typeof(byte[]),
-                ClientDataType.BitMask => typeof(BitArray),
-                ClientDataType.Date => typeof(LocalDate),
-                ClientDataType.Time => typeof(LocalTime),
-                ClientDataType.DateTime => typeof(LocalDateTime),
-                ClientDataType.Timestamp => typeof(Instant),
-                ClientDataType.Number => typeof(BigInteger),
-                _ => throw new ArgumentOutOfRangeException(nameof(clientDataType), clientDataType, null)
-            };
-        }
+            ClientDataType.Int8 => typeof(sbyte),
+            ClientDataType.Int16 => typeof(short),
+            ClientDataType.Int32 => typeof(int),
+            ClientDataType.Int64 => typeof(long),
+            ClientDataType.Float => typeof(float),
+            ClientDataType.Double => typeof(double),
+            ClientDataType.Decimal => typeof(decimal),
+            ClientDataType.Uuid => typeof(Guid),
+            ClientDataType.String => typeof(string),
+            ClientDataType.Bytes => typeof(byte[]),
+            ClientDataType.BitMask => typeof(BitArray),
+            ClientDataType.Date => typeof(LocalDate),
+            ClientDataType.Time => typeof(LocalTime),
+            ClientDataType.DateTime => typeof(LocalDateTime),
+            ClientDataType.Timestamp => typeof(Instant),
+            ClientDataType.Number => typeof(BigInteger),
+            _ => throw new ArgumentOutOfRangeException(nameof(clientDataType), clientDataType, null)
+        };
     }
 }
