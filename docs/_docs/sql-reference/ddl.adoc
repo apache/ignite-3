@@ -31,7 +31,7 @@ CREATE TABLE [IF NOT EXISTS] [simpleName | schemaName.simpleName] (<tableColumn>
 
 Parameters:
 
-* `tableName` - name of the table.
+* `tableName` - name of the table. Can be schema-qualified.
 * `tableColumn` - name and type of a column to be created in the new table.
 * `IF NOT EXISTS` - create the table only if a table with the same name does not exist.
 * `ENGINE` - selects the storage engine to use. Currently `pagememory` and `rocksdb` are available.
@@ -40,7 +40,7 @@ Parameters:
 
 ** `Replicas` - sets the number of partition copies, including the master copy.
 ** `Partitions` - sets the number of table partitions.
-** `dataRegion` - sets the data region to work with.
+** Other parameters, depending on the databalse engine.
 
 image::images/svg/create_table_bnf1.svg[Embedded,opts=inline]
 image::images/svg/create_table_bnf2.svg[Embedded,opts=inline]
@@ -115,32 +115,29 @@ Parameters:
 - `ADD` - adds a new column or several columns to a previously created table. Once a column is added, it can be accessed using link:sql-reference/dml[DML commands,window=_blank] and indexed with the CREATE INDEX statement.
 - `COLUMN` - name of the defined column.
 - `IF NOT EXISTS` - do not throw an error if a column with the same name already exists.
-- `column_definition_or_list` - the name of the column or the list of columns to be added.
+- `column_definition_or_list` - definition of the column to add to the table.
 
 image::images/svg/alter_table_column_no_bnf1.svg[Embedded,opts=inline]
 image::images/svg/alter_table_column_no_bnf2.svg[Embedded,opts=inline]
 
-* *ALTER TABLE IF EXISTS table ADD COLUMN IF EXISTS (column1, column2 int)*
+* *ALTER TABLE IF EXISTS table DROP COLUMN IF EXISTS (column1, column2 int)*
 
 [source,sql]
 ----
-ALTER TABLE [IF EXISTS] tableName DROP [COLUMN] {[IF EXISTS] (columnName [column1, column2 int])}
+ALTER TABLE [IF EXISTS] tableName DROP [COLUMN] {[IF NOT EXISTS] (columnName [column1, column2 int])}
 ----
 
 Parameters:
 
-- `IF EXISTS` - if applied to `TABLE`, do not throw an error if a table with the specified table name does not exist. If applied to `COLUMN`, do not throw an error if a column with the specified name does not exist.
+- `IF NOT EXISTS` - if applied to `TABLE`, do not throw an error if a table with the specified table name does not exist. If applied to `COLUMN`, do not throw an error if a column with the specified name does not exist.
 - `qualified_table_name` - the name of the table.
 - `DROP` - removes an existing column or multiple columns from a table. Once a column is removed, it cannot be accessed within queries. Consider the following notes and limitations:
-- `COLUMN` - name of the defined column.
 - `column_list` - the name of the list of columns to be removed.
 
 image::images/svg/alter_table_column_yes_bnf1.svg[Embedded,opts=inline]
 image::images/svg/alter_table_column_yes_bnf2.svg[Embedded,opts=inline]
 
-- The command does not remove actual data from the cluster which means that if the column 'name' is dropped, the value of the 'name' is still stored in the cluster. This limitation is to be addressed in the next releases.
 - If the column was indexed, the index has to be dropped manually in advance by using the 'DROP INDEX' command.
-- It is not possible to remove a column that is a primary key or a part of such a key.
 - It is not possible to remove a column if it represents the whole value stored in the cluster. The limitation is relevant for primitive values.
 Ignite stores data in the form of key-value pairs and all the new columns will belong to the value. It's not possible to change a set of columns of the key (`PRIMARY KEY`).
 
@@ -168,7 +165,7 @@ Add a column​ only if the table exists:
 
 [source,sql]
 ----
-ALTER TABLE IF EXISTS Missing ADD number long;
+ALTER TABLE IF EXISTS Missing ADD number bigint;
 ----
 
 Add several columns to the table at once:
@@ -224,7 +221,7 @@ DROP TABLE [IF EXISTS] tableName
 
 Parameters:
 
-- `tableName` - the name of the table.
+- `tableName` - the name of the table. Can be schema-qualified.
 - `IF EXISTS` - do not throw an error if a table with the same name does not exist.
 
 image::images/svg/drop_table_bnf.svg[Embedded,opts=inline]
@@ -258,7 +255,7 @@ Parameters:
 
 
 * `name` - name of the index.
-* `tableName` - name of the table to create the index on.
+* `tableName` - name of the table to create the index on. Can be schema-qualified.
 * `IF NOT EXISTS` - create the index only if an index with the same name does not exist.
 * `USING` - specifies whether the command creates a sorted index or a hash index. Possible values: `HASH`, `TREE`.
 
