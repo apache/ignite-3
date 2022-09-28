@@ -82,10 +82,10 @@ public class PartitionListener implements RaftGroupListener {
     private final ConcurrentHashMap<ByteBuffer, RowId> primaryIndex;
 
     /** Keys that were inserted by the transaction. */
-    private HashMap<UUID, Set<RowId>> txsInsertedKeys = new HashMap<>();
+    private HashMap<UUID, Set<ByteBuffer>> txsInsertedKeys = new HashMap<>();
 
     /** Keys that were removed by the transaction. */
-    private HashMap<UUID, Set<RowId>> txsRemovedKeys = new HashMap<>();
+    private HashMap<UUID, Set<ByteBuffer>> txsRemovedKeys = new HashMap<>();
 
     /** Rows that were inserted, updated or removed. */
     private HashMap<UUID, Set<RowId>> txsPendingRowIds = new HashMap<>();
@@ -171,10 +171,12 @@ public class PartitionListener implements RaftGroupListener {
 
             if (row == null) {
                 // Remove entry.
-                txsRemovedKeys.computeIfAbsent(txId, entry -> new HashSet<>()).add(rowId);
+                ByteBuffer key = primaryIndex.entrySet().stream().filter((e) -> e.getValue().equals(rowId)).findAny().get().getKey()
+                        .slice();
+                txsRemovedKeys.computeIfAbsent(txId, entry -> new HashSet<>()).add(key);
             } else if (!primaryIndex.contains(row.keySlice())) {
                 // Insert entry.
-                txsInsertedKeys.computeIfAbsent(txId, entry -> new HashSet<>()).add(rowId);
+                txsInsertedKeys.computeIfAbsent(txId, entry -> new HashSet<>()).add(row.keySlice());
 
                 primaryIndex.put(row.keySlice(), rowId);
             }
@@ -204,10 +206,10 @@ public class PartitionListener implements RaftGroupListener {
 
                     if (entry.getValue() == null) {
                         // Remove entry.
-                        txsRemovedKeys.computeIfAbsent(txId, entry0 -> new HashSet<>()).add(entry.getKey());
+                        txsRemovedKeys.computeIfAbsent(txId, entry0 -> new HashSet<>()).add(entry.getValue().keySlice());
                     } else if (!primaryIndex.contains(entry.getValue().keySlice())) {
                         // Insert entry.
-                        txsInsertedKeys.computeIfAbsent(txId, entry0 -> new HashSet<>()).add(entry.getKey());
+                        txsInsertedKeys.computeIfAbsent(txId, entry0 -> new HashSet<>()).add(entry.getValue().keySlice());
 
                         primaryIndex.put(entry.getValue().keySlice(), entry.getKey());
                     }
@@ -267,9 +269,9 @@ public class PartitionListener implements RaftGroupListener {
         storage.runConsistently(() -> {
             UUID txId = cmd.txId();
 
-            Set<RowId> removedRowIds = txsRemovedKeys.getOrDefault(txId, Collections.emptySet());
+            Set<ByteBuffer> removedRowIds = txsRemovedKeys.getOrDefault(txId, Collections.emptySet());
 
-            Set<RowId> insertedRowIds = txsInsertedKeys.getOrDefault(txId, Collections.emptySet());
+            Set<ByteBuffer> insertedRowIds = txsInsertedKeys.getOrDefault(txId, Collections.emptySet());
 
             Set<RowId> pendingRowIds = txsPendingRowIds.getOrDefault(txId, Collections.emptySet());
 
@@ -280,12 +282,12 @@ public class PartitionListener implements RaftGroupListener {
             }
 
             if (cmd.commit()) {
-                for (RowId rowId : removedRowIds) {
-                    primaryIndex.remove(rowId);
+                for (ByteBuffer binaryRow : removedRowIds) {
+                    primaryIndex.remove(binaryRow);
                 }
             } else {
-                for (RowId rowId : insertedRowIds) {
-                    primaryIndex.remove(rowId);
+                for (ByteBuffer binaryRow : insertedRowIds) {
+                    primaryIndex.remove(binaryRow);
                 }
             }
 
