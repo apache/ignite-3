@@ -138,7 +138,7 @@ private:
     [[nodiscard]]
     int64_t generateRequestId()
     {
-        return m_reqIdGen.fetch_add(1, std::memory_order_seq_cst);
+        return m_reqIdGen.fetch_add(1, std::memory_order_relaxed);
     }
 
     /**

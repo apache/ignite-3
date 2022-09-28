@@ -30,7 +30,6 @@ class DataFilterAdapter : public DataFilter
 public:
     // Default
     DataFilterAdapter() = default;
-    ~DataFilterAdapter() override = default;
 
     /**
      * Send data to specific established connection.

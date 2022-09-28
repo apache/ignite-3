@@ -67,7 +67,7 @@ void ClusterConnection::startAsync(std::function<void(IgniteResult<void>)> callb
 
     m_onInitialConnect = std::move(callback);
 
-    m_pool->start(addrs, m_configuration.getConnectionLimit());
+    m_pool->start(std::move(addrs), m_configuration.getConnectionLimit());
 }
 
 void ClusterConnection::stop()

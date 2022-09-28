@@ -35,10 +35,6 @@ class Guid
 public:
     // Default
     Guid() = default;
-    Guid(Guid&&) = default;
-    Guid(const Guid&) = default;
-    Guid& operator=(Guid&&) = default;
-    Guid& operator=(const Guid&) = default;
 
     /**
      * Constructor.
@@ -56,8 +52,7 @@ public:
      * @return The most significant 64 bits of this instance.
      */
     [[nodiscard]]
-    std::int64_t getMostSignificantBits() const
-    {
+    std::int64_t getMostSignificantBits() const {
         return m_most;
     }
 
@@ -67,8 +62,7 @@ public:
      * @return The least significant 64 bits of this instance.
      */
     [[nodiscard]]
-    std::int64_t getLeastSignificantBits() const
-    {
+    std::int64_t getLeastSignificantBits() const {
         return m_least;
     }
 
@@ -85,8 +79,7 @@ public:
      * @return The version number of this instance.
      */
     [[nodiscard]]
-    std::int32_t getVersion() const
-    {
+    std::int32_t getVersion() const {
         return static_cast<int32_t>((m_most >> 12) & 0x0F);
     }
 
@@ -103,10 +96,8 @@ public:
      * @return The variant number of this instance.
      */
     [[nodiscard]]
-    std::int32_t getVariant() const
-    {
+    std::int32_t getVariant() const {
         auto least = static_cast<uint64_t>(m_least);
-
         return static_cast<std::int32_t>((least >> (64 - (least >> 62))) & (least >> 63));
     }
 
@@ -117,8 +108,7 @@ public:
      * @return Zero if equals, negative number if less and positive if more.
      */
     [[nodiscard]]
-    std::int64_t compare(const Guid& other) const
-    {
+    std::int64_t compare(const Guid& other) const {
         if (m_most < other.m_most)
             return -1;
 
@@ -216,8 +206,7 @@ inline bool operator>=(const Guid& val1, const Guid& val2) {
  * @return Reference to the first param.
  */
 template<typename C>
-::std::basic_ostream<C>& operator<<(std::basic_ostream<C>& os, const Guid& guid)
-{
+::std::basic_ostream<C>& operator<<(std::basic_ostream<C>& os, const Guid& guid) {
     auto part1 = uint32_t(guid.getMostSignificantBits() >> 32);
     auto part2 = uint16_t(guid.getMostSignificantBits() >> 16);
     auto part3 = uint16_t(guid.getMostSignificantBits());
@@ -242,24 +231,18 @@ template<typename C>
  * @return Reference to the first param.
  */
 template<typename C>
-::std::basic_istream<C>& operator>>(std::basic_istream<C>& is, Guid& guid)
-{
+::std::basic_istream<C>& operator>>(std::basic_istream<C>& is, Guid& guid) {
     uint64_t parts[5];
 
     C delim;
-
-    for (int i = 0; i < 4; ++i)
-    {
+    for (int i = 0; i < 4; ++i) {
         is >> std::hex >> parts[i] >> delim;
-
         if (delim != static_cast<C>('-'))
             return is;
     }
 
     is >> std::hex >> parts[4];
-
     guid = Guid(int64_t((parts[0] << 32) | (parts[1] << 16) | parts[2]), int64_t((parts[3] << 48) | parts[4]));
-
     return is;
 }
 

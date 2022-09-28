@@ -37,11 +37,6 @@ class IgniteResult
 public:
     // Default
     IgniteResult() = default;
-    ~IgniteResult() = default;
-    IgniteResult(IgniteResult&&) noexcept = default;
-    IgniteResult(const IgniteResult&) = default;
-    IgniteResult& operator=(IgniteResult&&) noexcept = default;
-    IgniteResult& operator=(const IgniteResult&) = default;
 
     /**
      * Constructor.
@@ -240,13 +235,6 @@ template<>
 class IgniteResult<void>
 {
 public:
-    // Default
-    ~IgniteResult() = default;
-    IgniteResult(IgniteResult&&) noexcept = default;
-    IgniteResult(const IgniteResult&) = default;
-    IgniteResult& operator=(IgniteResult&&) noexcept = default;
-    IgniteResult& operator=(const IgniteResult&) = default;
-
     /**
      * Constructor.
      */

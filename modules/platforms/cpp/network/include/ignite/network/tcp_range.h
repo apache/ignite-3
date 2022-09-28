@@ -31,11 +31,6 @@ struct TcpRange
 {
     // Default
     TcpRange() = default;
-    ~TcpRange() = default;
-    TcpRange(TcpRange&&) = default;
-    TcpRange(const TcpRange&) = default;
-    TcpRange& operator=(TcpRange&&) = default;
-    TcpRange& operator=(const TcpRange&) = default;
 
     /**
      * Parse string and try to get TcpRange.

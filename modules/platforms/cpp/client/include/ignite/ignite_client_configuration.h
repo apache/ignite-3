@@ -39,11 +39,6 @@ public:
 
     // Default
     IgniteClientConfiguration() = default;
-    ~IgniteClientConfiguration() = default;
-    IgniteClientConfiguration(IgniteClientConfiguration&&) = default;
-    IgniteClientConfiguration(const IgniteClientConfiguration&) = default;
-    IgniteClientConfiguration& operator=(IgniteClientConfiguration&&) = default;
-    IgniteClientConfiguration& operator=(const IgniteClientConfiguration&) = default;
 
     /**
      * Constructor.

@@ -30,11 +30,6 @@ struct EndPoint
 {
     // Default
     EndPoint() = default;
-    ~EndPoint() = default;
-    EndPoint(EndPoint&&) = default;
-    EndPoint(const EndPoint&) = default;
-    EndPoint& operator=(EndPoint&&) = default;
-    EndPoint& operator=(const EndPoint&) = default;
 
     /**
      * Constructor.

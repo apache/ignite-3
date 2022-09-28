@@ -37,11 +37,6 @@ class DataBufferRef
 public:
     // Default
     DataBufferRef() = default;
-    ~DataBufferRef() = default;
-    DataBufferRef(DataBufferRef&&) = default;
-    DataBufferRef(const DataBufferRef&) = default;
-    DataBufferRef& operator=(DataBufferRef&&) = default;
-    DataBufferRef& operator=(const DataBufferRef&) = default;
 
     /**
      * Constructor.
@@ -202,16 +197,11 @@ public:
      */
     [[nodiscard]]
     std::vector<std::byte> extractData() && {
-        if (!m_pos)
-            return std::move(m_memory);
-
-        auto pos = ptrdiff_t(m_pos);
-
-        std::vector<std::byte> buf(m_memory.begin() + pos, m_memory.end());
-        m_pos = 0;
-        m_memory.clear();
-
-        return buf;
+        if (m_pos) {
+            m_memory.erase(m_memory.begin(), m_memory.begin() + ptrdiff_t(m_pos));
+            m_pos = 0;
+        }
+        return std::move(m_memory);
     }
 
 private:

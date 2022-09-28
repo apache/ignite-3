@@ -48,11 +48,6 @@ class IgniteError : public std::exception
 public:
     // Default
     IgniteError() = default;
-    ~IgniteError() override = default;
-    IgniteError(IgniteError&&) = default;
-    IgniteError(const IgniteError&) = default;
-    IgniteError& operator=(IgniteError&&) = default;
-    IgniteError& operator=(const IgniteError&) = default;
 
     /**
      * Constructor.
