@@ -590,7 +590,7 @@ namespace Apache.Ignite.Tests.Table
                 64.64,
                 Guid.NewGuid(),
                 dt.Date,
-                new BitArray(new[] { 1 }),
+                new BitArray(new byte[] { 1 }),
                 dt.TimeOfDay,
                 dt,
                 Instant.FromDateTimeUtc(DateTime.UtcNow),
@@ -601,7 +601,21 @@ namespace Apache.Ignite.Tests.Table
 
             var res = await pocoView.GetAsync(null, poco);
 
-            Assert.AreEqual(poco, res);
+            Assert.AreEqual(poco.Blob, res!.Blob);
+            Assert.AreEqual(poco.Date, res.Date);
+            Assert.AreEqual(poco.Decimal, res.Decimal);
+            Assert.AreEqual(poco.Double, res.Double);
+            Assert.AreEqual(poco.Float, res.Float);
+            Assert.AreEqual(poco.Int8, res.Int8);
+            Assert.AreEqual(poco.Int16, res.Int16);
+            Assert.AreEqual(poco.Int32, res.Int32);
+            Assert.AreEqual(poco.Int64, res.Int64);
+            Assert.AreEqual(poco.Str, res.Str);
+            Assert.AreEqual(poco.Uuid, res.Uuid);
+            Assert.AreEqual(poco.BitMask, res.BitMask);
+            Assert.AreEqual(poco.Timestamp, res.Timestamp);
+            Assert.AreEqual(poco.Time, res.Time);
+            Assert.AreEqual(poco.DateTime, res.DateTime);
         }
     }
 }
