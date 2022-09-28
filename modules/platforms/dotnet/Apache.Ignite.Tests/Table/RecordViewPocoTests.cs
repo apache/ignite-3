@@ -595,6 +595,8 @@ namespace Apache.Ignite.Tests.Table
                 dt,
                 Instant.FromDateTimeUtc(DateTime.UtcNow),
                 new byte[] { 1, 2, 3 });
+
+            await pocoView.UpsertAsync(null, poco);
         }
     }
 }

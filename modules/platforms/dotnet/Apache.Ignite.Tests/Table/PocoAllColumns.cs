@@ -32,7 +32,7 @@ namespace Apache.Ignite.Tests.Table
     public record PocoAllColumns(
         long Key,
         string? Str,
-        byte Int8,
+        sbyte Int8,
         short Int16,
         int Int32,
         long Int64,

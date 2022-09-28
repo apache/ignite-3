@@ -82,6 +82,8 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// <param name="valueType">Type of the value to write.</param>
         /// <returns>Write method for the specified value type.</returns>
         public static MethodInfo GetWriteMethod(Type valueType) =>
+
+            // TODO IGNITE-15431 When types like byte, uint, DateTime, TimeSpan are used, include alternative type name in the message.
             WriteMethods.TryGetValue(valueType, out var method)
                 ? method
                 : throw new IgniteClientException(ErrorGroups.Client.Configuration, "Unsupported type: " + valueType);
@@ -92,6 +94,8 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// <param name="valueType">Type of the value to read.</param>
         /// <returns>Read method for the specified value type.</returns>
         public static MethodInfo GetReadMethod(Type valueType) =>
+
+            // TODO IGNITE-15431 When types like byte, uint, DateTime, TimeSpan are used, include alternative type name in the message.
             ReadMethods.TryGetValue(valueType, out var method)
                 ? method
                 : throw new IgniteClientException(ErrorGroups.Client.Configuration, "Unsupported type: " + valueType);
