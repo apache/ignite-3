@@ -580,22 +580,22 @@ namespace Apache.Ignite.Tests.Table
 
             var dt = LocalDateTime.FromDateTime(DateTime.UtcNow);
             var poco = new PocoAllColumns(
-                123,
-                "str",
-                8,
-                16,
-                32,
-                64,
-                32.32f,
-                64.64,
-                Guid.NewGuid(),
-                dt.Date,
-                new BitArray(new byte[] { 1 }),
-                dt.TimeOfDay,
-                dt,
-                Instant.FromDateTimeUtc(DateTime.UtcNow),
-                new byte[] { 1, 2, 3 },
-                123.456m);
+                Key: 123,
+                Str: "str",
+                Int8: 8,
+                Int16: 16,
+                Int32: 32,
+                Int64: 64,
+                Float: 32.32f,
+                Double: 64.64,
+                Uuid: Guid.NewGuid(),
+                Date: dt.Date,
+                BitMask: new BitArray(new byte[] { 1 }),
+                Time: dt.TimeOfDay,
+                DateTime: dt,
+                Timestamp: Instant.FromDateTimeUtc(DateTime.UtcNow),
+                Blob: new byte[] { 1, 2, 3 },
+                Decimal: 123.456m);
 
             await pocoView.UpsertAsync(null, poco);
 
