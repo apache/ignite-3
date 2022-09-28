@@ -594,9 +594,14 @@ namespace Apache.Ignite.Tests.Table
                 dt.TimeOfDay,
                 dt,
                 Instant.FromDateTimeUtc(DateTime.UtcNow),
-                new byte[] { 1, 2, 3 });
+                new byte[] { 1, 2, 3 },
+                123.456m);
 
             await pocoView.UpsertAsync(null, poco);
+
+            var res = await pocoView.GetAsync(null, poco);
+
+            Assert.AreEqual(poco, res);
         }
     }
 }

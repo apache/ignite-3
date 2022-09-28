@@ -18,8 +18,10 @@
 namespace Apache.Ignite.Internal.Table.Serialization
 {
     using System;
+    using System.Collections;
     using System.Collections.Generic;
     using System.Reflection;
+    using NodaTime;
     using Proto.BinaryTuple;
 
     /// <summary>
@@ -41,6 +43,12 @@ namespace Apache.Ignite.Internal.Table.Serialization
         private static readonly MethodInfo AppendDouble = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendDouble))!;
         private static readonly MethodInfo AppendGuid = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendGuid))!;
         private static readonly MethodInfo AppendString = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendStringNullable))!;
+        private static readonly MethodInfo AppendDate = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendDate))!;
+        private static readonly MethodInfo AppendBitmask = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendBitmask))!;
+        private static readonly MethodInfo AppendTime = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendTime))!;
+        private static readonly MethodInfo AppendDateTime = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendDateTime))!;
+        private static readonly MethodInfo AppendTimestamp = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendTimestamp))!;
+        private static readonly MethodInfo AppendBytes = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendBytes))!;
 
         private static readonly MethodInfo GetByte = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetByte))!;
         private static readonly MethodInfo GetShort = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetShort))!;
@@ -50,6 +58,12 @@ namespace Apache.Ignite.Internal.Table.Serialization
         private static readonly MethodInfo GetDouble = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetDouble))!;
         private static readonly MethodInfo GetGuid = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetGuid))!;
         private static readonly MethodInfo GetString = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetStringNullable))!;
+        private static readonly MethodInfo GetDate = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetDate))!;
+        private static readonly MethodInfo GetBitmask = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetBitmask))!;
+        private static readonly MethodInfo GetTime = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetTime))!;
+        private static readonly MethodInfo GetDateTime = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetDateTime))!;
+        private static readonly MethodInfo GetTimestamp = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetTimestamp))!;
+        private static readonly MethodInfo GetBytes = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetBytes))!;
 
         // TODO: Support all types (IGNITE-15431).
         private static readonly IReadOnlyDictionary<Type, MethodInfo> WriteMethods = new Dictionary<Type, MethodInfo>
@@ -61,7 +75,13 @@ namespace Apache.Ignite.Internal.Table.Serialization
             { typeof(long), AppendLong },
             { typeof(float), AppendFloat },
             { typeof(double), AppendDouble },
-            { typeof(Guid), AppendGuid }
+            { typeof(Guid), AppendGuid },
+            { typeof(LocalDate), AppendDate },
+            { typeof(BitArray), AppendBitmask },
+            { typeof(LocalTime), AppendTime },
+            { typeof(LocalDateTime), AppendDateTime },
+            { typeof(Instant), AppendTimestamp },
+            { typeof(byte[]), AppendBytes }
         };
 
         private static readonly IReadOnlyDictionary<Type, MethodInfo> ReadMethods = new Dictionary<Type, MethodInfo>
@@ -73,7 +93,13 @@ namespace Apache.Ignite.Internal.Table.Serialization
             { typeof(long), GetLong },
             { typeof(float), GetFloat },
             { typeof(double), GetDouble },
-            { typeof(Guid), GetGuid }
+            { typeof(Guid), GetGuid },
+            { typeof(LocalDate), GetDate },
+            { typeof(BitArray), GetBitmask },
+            { typeof(LocalTime), GetTime },
+            { typeof(LocalDateTime), GetDateTime },
+            { typeof(Instant), GetTimestamp },
+            { typeof(byte[]), GetBytes }
         };
 
         /// <summary>
