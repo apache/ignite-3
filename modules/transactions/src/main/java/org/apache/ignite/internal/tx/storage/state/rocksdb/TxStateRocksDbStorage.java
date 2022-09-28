@@ -345,7 +345,8 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     }
 
     /** {@inheritDoc} */
-    @Override public void destroy() {
+    @Override
+    public void destroy() {
         try (WriteBatch writeBatch = new WriteBatch()) {
             close();
 
@@ -353,7 +354,8 @@ public class TxStateRocksDbStorage implements TxStateStorage {
 
             db.write(writeOptions, writeBatch);
         } catch (Exception e) {
-            throw new StorageException("Failed to destroy partition " + partitionId + " of table " + tableStorage.configuration().name(), e);
+            throw new StorageException("Failed to destroy partition " + partitionId + " of table " + tableStorage.configuration().name(),
+                    e);
         }
     }
 

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -186,10 +186,9 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
         return awaitFlush(false).whenComplete((v, e) -> {
             try {
                 storage.close();
-            }
-            catch (Exception ex) {
+            } catch (Exception ex) {
                 LOG.error("Couldn't close the transaction state storage of partition "
-                    + partitionId + ", table " + tableCfg.value().name());
+                        + partitionId + ", table " + tableCfg.value().name());
             }
         });
     }
