@@ -163,7 +163,8 @@ public class PlatformTestNodeRunner {
                 SchemaBuilders.column("time", ColumnType.time()).asNullable(true).build(),
                 SchemaBuilders.column("datetime", ColumnType.datetime()).asNullable(true).build(),
                 SchemaBuilders.column("timestamp", ColumnType.timestamp()).asNullable(true).build(),
-                SchemaBuilders.column("blob", ColumnType.blob()).asNullable(true).build()
+                SchemaBuilders.column("blob", ColumnType.blob()).asNullable(true).build(),
+                SchemaBuilders.column("decimal", ColumnType.decimal()).asNullable(true).build()
         ).withPrimaryKey(keyCol).build();
 
         node.tables().createTable(schTbl2.canonicalName(), tblCh ->
