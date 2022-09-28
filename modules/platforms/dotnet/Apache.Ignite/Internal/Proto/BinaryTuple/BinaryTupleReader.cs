@@ -213,7 +213,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         public decimal GetDecimal(int index, int scale) => Seek(index) switch
         {
             { IsEmpty: true } => default,
-            var s => ReadDecimal2(s, scale)
+            var s => ReadDecimal(s, scale)
         };
 
         /// <summary>
@@ -378,7 +378,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             return LocalTime.FromHourMinuteSecondNanosecond(hour, minute, second, nanos);
         }
 
-        private static decimal ReadDecimal2(ReadOnlySpan<byte> span, int scale)
+        private static decimal ReadDecimal(ReadOnlySpan<byte> span, int scale)
         {
             var unscaled = new BigInteger(span);
             var res = (decimal)unscaled;
@@ -389,65 +389,6 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             }
 
             return res;
-        }
-
-        // ReSharper disable once UnusedMember.Local (TODO IGNITE-15431)
-        private static decimal ReadDecimal(ReadOnlySpan<byte> span, int scale)
-        {
-            Span<byte> mag = stackalloc byte[span.Length];
-            span.CopyTo(mag);
-
-            bool negative = false;
-
-            if ((sbyte)mag[0] < 0)
-            {
-                mag[0] &= 0x7F;
-
-                negative = true;
-            }
-
-            if (scale < 0 || scale > 28)
-            {
-                throw new OverflowException("Decimal value scale overflow (must be between 0 and 28): " + scale);
-            }
-
-            if (mag.Length > 13)
-            {
-                throw new OverflowException("Decimal magnitude overflow (must be less than 96 bits): " + mag.Length * 8);
-            }
-
-            if (mag.Length == 13 && mag[0] != 0)
-            {
-                throw new OverflowException("Decimal magnitude overflow (must be less than 96 bits): " + mag.Length * 8);
-            }
-
-            int hi = 0;
-            int mid = 0;
-            int lo = 0;
-
-            int ctr = -1;
-
-            for (int i = mag.Length - 12; i < mag.Length; i++)
-            {
-                if (++ctr == 4)
-                {
-                    mid = lo;
-                    lo = 0;
-                }
-                else if (ctr == 8)
-                {
-                    hi = mid;
-                    mid = lo;
-                    lo = 0;
-                }
-
-                if (i >= 0)
-                {
-                    lo = (lo << 8) + mag[i];
-                }
-            }
-
-            return new decimal(lo, mid, hi, negative, (byte)scale);
         }
 
         private int GetOffset(int position)
