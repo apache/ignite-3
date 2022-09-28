@@ -18,10 +18,12 @@
 namespace Apache.Ignite.Tests.Table
 {
     using System;
+    using System.Collections;
     using System.Collections.Generic;
     using System.Globalization;
     using System.Linq;
     using System.Threading.Tasks;
+    using NodaTime;
     using NUnit.Framework;
 
     /// <summary>
@@ -568,6 +570,31 @@ namespace Apache.Ignite.Tests.Table
             Assert.AreEqual(poco.Prop8, res.Prop8);
             Assert.AreEqual(poco.Prop9, res.Prop9);
             Assert.AreEqual(poco.Prop10, res.Prop10);
+        }
+
+        [Test]
+        public async Task TestAllColumnsPoco()
+        {
+            var table = await Client.Tables.GetTableAsync(TableAllColumnsName);
+            var pocoView = table!.GetRecordView<PocoAllColumns>();
+
+            var dt = LocalDateTime.FromDateTime(DateTime.UtcNow);
+            var poco = new PocoAllColumns(
+                123,
+                "str",
+                8,
+                16,
+                32,
+                64,
+                32.32f,
+                64.64,
+                Guid.NewGuid(),
+                dt.Date,
+                new BitArray(new[] { 1 }),
+                dt.TimeOfDay,
+                dt,
+                Instant.FromDateTimeUtc(DateTime.UtcNow),
+                new byte[] { 1, 2, 3 });
         }
     }
 }
