@@ -43,6 +43,7 @@ import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.LockMode;
 import org.apache.ignite.internal.tx.Waiter;
 import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.lang.IgniteSystemProperties;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -70,10 +71,16 @@ import org.jetbrains.annotations.Nullable;
 public class HeapLockManager implements LockManager {
     private ConcurrentHashMap<LockKey, LockState> locks = new ConcurrentHashMap<>();
 
+    /**
+     * It is a test only property which is removing after IGNITE-17733.
+     * We are forced to avoid all locks types except key lock in production code.
+     */
+    private final boolean allLockTypesAreUsed = IgniteSystemProperties.getBoolean("IGNITE_ALL_LOCK_TYPES_ARE_USED");
+
     @Override
     public CompletableFuture<Lock> acquire(UUID txId, LockKey lockKey, LockMode lockMode) {
         //TODO: IGNITE-17733 Resume honest index lock
-        if (! (lockKey.key() instanceof ByteBuffer)) { // Takes a lock on keys only.
+        if (! (lockKey.key() instanceof ByteBuffer) && !allLockTypesAreUsed) { // Takes a lock on keys only.
             lockMode = LockMode.NL;
         }
 
