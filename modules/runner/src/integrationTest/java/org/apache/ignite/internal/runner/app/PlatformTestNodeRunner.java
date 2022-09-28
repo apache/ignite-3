@@ -160,9 +160,12 @@ public class PlatformTestNodeRunner {
                 SchemaBuilders.column("uuid", ColumnType.UUID).asNullable(true).build(),
                 SchemaBuilders.column("date", ColumnType.DATE).asNullable(true).build(),
                 SchemaBuilders.column("bitmask", ColumnType.bitmaskOf(64)).asNullable(true).build(),
-                SchemaBuilders.column("time", ColumnType.time()).asNullable(true).build(),
-                SchemaBuilders.column("datetime", ColumnType.datetime()).asNullable(true).build(),
-                SchemaBuilders.column("timestamp", ColumnType.timestamp()).asNullable(true).build(),
+                SchemaBuilders.column("time", ColumnType.time(ColumnType.TemporalColumnType.MAX_TIME_PRECISION))
+                        .asNullable(true).build(),
+                SchemaBuilders.column("datetime", ColumnType.datetime(ColumnType.TemporalColumnType.MAX_TIME_PRECISION))
+                        .asNullable(true).build(),
+                SchemaBuilders.column("timestamp", ColumnType.timestamp(ColumnType.TemporalColumnType.MAX_TIME_PRECISION))
+                        .asNullable(true).build(),
                 SchemaBuilders.column("blob", ColumnType.blob()).asNullable(true).build(),
                 SchemaBuilders.column("decimal", ColumnType.decimal()).asNullable(true).build()
         ).withPrimaryKey(keyCol).build();
