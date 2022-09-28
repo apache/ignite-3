@@ -48,6 +48,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         private static readonly MethodInfo AppendTime = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendTime))!;
         private static readonly MethodInfo AppendDateTime = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendDateTime))!;
         private static readonly MethodInfo AppendTimestamp = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendTimestamp))!;
+        private static readonly MethodInfo AppendDecimal = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendDecimal))!;
         private static readonly MethodInfo AppendBytes =
             typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendBytes), new[] { typeof(byte[]) })!;
 
@@ -64,6 +65,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         private static readonly MethodInfo GetTime = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetTime))!;
         private static readonly MethodInfo GetDateTime = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetDateTime))!;
         private static readonly MethodInfo GetTimestamp = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetTimestamp))!;
+        private static readonly MethodInfo GetDecimal = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetDecimal))!;
         private static readonly MethodInfo GetBytes = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetBytes))!;
 
         // TODO: Support all types (IGNITE-15431).
@@ -82,7 +84,8 @@ namespace Apache.Ignite.Internal.Table.Serialization
             { typeof(LocalTime), AppendTime },
             { typeof(LocalDateTime), AppendDateTime },
             { typeof(Instant), AppendTimestamp },
-            { typeof(byte[]), AppendBytes }
+            { typeof(byte[]), AppendBytes },
+            { typeof(decimal), AppendDecimal }
         };
 
         private static readonly IReadOnlyDictionary<Type, MethodInfo> ReadMethods = new Dictionary<Type, MethodInfo>
@@ -100,6 +103,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             { typeof(LocalTime), GetTime },
             { typeof(LocalDateTime), GetDateTime },
             { typeof(Instant), GetTimestamp },
+            { typeof(decimal), GetDecimal },
             { typeof(byte[]), GetBytes }
         };
 
