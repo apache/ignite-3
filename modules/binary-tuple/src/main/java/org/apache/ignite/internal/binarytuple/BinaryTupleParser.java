@@ -319,8 +319,7 @@ public class BinaryTupleParser {
         byte[] bytes;
         int len = end - begin;
 
-        if (len == 0)
-        {
+        if (len == 0) {
             return BigInteger.ZERO;
         }
 
