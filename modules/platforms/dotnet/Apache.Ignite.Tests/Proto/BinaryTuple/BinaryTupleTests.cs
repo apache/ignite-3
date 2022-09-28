@@ -393,6 +393,7 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
         [Test]
         public void TestDecimal()
         {
+            // TODO IGNITE-15431 check overflow scenarios (use interop tests?)
             Test(0, 3);
             Test(0, 0);
 
