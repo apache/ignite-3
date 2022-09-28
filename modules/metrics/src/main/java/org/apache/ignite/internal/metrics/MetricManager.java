@@ -17,11 +17,11 @@
 
 package org.apache.ignite.internal.metrics;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.ServiceLoader;
 import java.util.ServiceLoader.Provider;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
@@ -53,7 +53,7 @@ public class MetricManager implements IgniteComponent {
 
     private final MetricProvider metricsProvider;
 
-    private final Map<String, MetricExporter> enabledMetricExporters = new HashMap<>();
+    private final Map<String, MetricExporter> enabledMetricExporters = new ConcurrentHashMap<>();
 
     /** Metrics' exporters. */
     private Map<String, MetricExporter> availableExporters;
