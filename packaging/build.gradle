@@ -18,6 +18,7 @@
 plugins {
     id 'java'
     id 'application'
+    alias(libs.plugins.nebula)
 }
 
 configurations {
@@ -25,6 +26,8 @@ configurations {
     cliArtifacts
     cliScripts
 }
+
+import org.apache.tools.ant.filters.ReplaceTokens
 
 dependencies {
     dbArtifacts(project(':ignite-runner'))
@@ -118,3 +121,86 @@ task allDistZip(type: Zip) {
 }
 
 allDistZip.dependsOn cliDistZip, dbDistZip
+
+def tokens = [
+        PRODUCT_NAME            : 'ignite3db',
+        PRODUCT_DISPLAY_NAME    : 'Apache Ignite',
+        USERNAME                : 'ignite3',
+        GROUPNAME               : 'ignite3',
+        INSTALL_DIR             : '/usr/share/ignite3db',
+        CONF_DIR                : '/etc/ignite3db',
+        LOG_DIR                 : '/var/log/ignite3db',
+        PID_DIR                 : '/var/run/ignite3db',
+        VARS_FILE_NAME          : 'vars.env',
+        MIN_PRODUCT_VERSION     : project.version.toString(),
+        PRODUCT_VERSION         : project.version.toString(),
+        IGNITE_CONF_FILE        : 'ignite-config.conf',
+        IGNITE_WORK_DIR         : '/usr/share/ignite3db/work'
+]
+
+task replaceScriptVars(type: Copy) {
+    from("${rootDir}/packaging/linux")
+    filter(ReplaceTokens, tokens: tokens)
+    into("${buildDir}/packaging/linux")
+}
+
+buildRpm {
+    dependsOn replaceScriptVars
+    configurationFile = "/etc/ignite3/vars.env"
+
+    installUtils file("${buildDir}/packaging/linux/service/vars.env")
+    installUtils file("${buildDir}/packaging/linux/common.sh")
+    preInstall file("${buildDir}/packaging/linux/preInstall.sh")
+    postInstall file("${buildDir}/packaging/linux/postInstall.sh")
+    preUninstall file("${buildDir}/packaging/linux/rpm/preUninstall.sh")
+    postUninstall file("${buildDir}/packaging/linux/rpm/postUninstall.sh")
+}
+
+buildDeb {
+    dependsOn replaceScriptVars
+    configurationFile = "/etc/ignite3/vars.env"
+
+    installUtils file("${buildDir}/packaging/linux/service/vars.env")
+    installUtils file("${buildDir}/packaging/linux/common.sh")
+    preInstall file("${buildDir}/packaging/linux/preInstall.sh")
+    postInstall file("${buildDir}/packaging/linux/postInstall.sh")
+    preUninstall file("${buildDir}/packaging/linux/deb/preUninstall.sh")
+    postUninstall file("${buildDir}/packaging/linux/deb/postUninstall.sh")
+}
+
+ospackage {
+    license "ASL 2.0"
+    packageName 'ignite3db'
+    packageGroup "System Environment/Daemons"
+    url "https://ignite.apache.org"
+    user "ignite3"
+    packageDescription "This package will install Apache Ignite"
+    os LINUX
+
+    into(tokens.INSTALL_DIR) {
+        into("") {
+            from "${buildDir}/packaging/linux/service/ignite3db.service"
+            from "${buildDir}/packaging/linux/service/ignite3db.conf"
+            from("${buildDir}/packaging/linux/start.sh") {
+                fileMode 0755
+            }
+        }
+
+        into("lib") {
+            from configurations.dbArtifacts
+        }
+
+        into("etc") {
+            fileType CONFIG
+            from "${buildDir}/packaging/linux/service/vars.env"
+            from "${rootDir}/packaging/config/ignite.java.util.logging.properties"
+            from "${rootDir}/packaging/config/ignite-config.conf"
+        }
+
+        into("etc") {
+            from sourceSets.main.resources
+        }
+    }
+    link "/etc/ignite3db", "${tokens.INSTALL_DIR}/etc/"
+    link "/opt/ignite3db", "${tokens.INSTALL_DIR}"
+}
