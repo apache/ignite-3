@@ -28,8 +28,6 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
@@ -45,9 +43,6 @@ import org.jetbrains.annotations.Nullable;
  * <p>Delegates state management to tx manager.
  */
 public class TransactionImpl implements InternalTransaction {
-    /** The logger. */
-    private static final IgniteLogger LOG = Loggers.forClass(TransactionImpl.class);
-
     /** The id. */
     private final UUID id;
 
@@ -158,7 +153,8 @@ public class TransactionImpl implements InternalTransaction {
         // TODO: add proper exception handling.
         return CompletableFuture
                 .allOf(enlistedResults.toArray(new CompletableFuture[0]))
-                .thenCompose(ignored -> {
+                .thenCompose(
+                        ignored -> {
                             if (!enlisted.isEmpty()) {
                                 return txManager.finish(
                                         enlisted.entrySet().iterator().next().getValue().get1(),

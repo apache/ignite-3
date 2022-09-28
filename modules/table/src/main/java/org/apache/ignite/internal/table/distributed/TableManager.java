@@ -188,7 +188,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * TODO: IGNITE-16774 This property and overall approach, access configuration directly through the Metostorage,
      * TODO: will be removed after fix of the issue.
      */
-    @TestOnly
     private final boolean getMetadataLocallyOnly = IgniteSystemProperties.getBoolean("IGNITE_GET_METADATA_LOCALLY_ONLY");
 
     /** Tables configuration. */
@@ -775,7 +774,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                                         try {
                                             replicaMgr.startReplica(grpId,
-                                                    updatedRaftGroupService,
                                                     new PartitionReplicaListener(
                                                             partitionStorage,
                                                             updatedRaftGroupService,
@@ -1000,12 +998,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             throw new StorageException("Failed to create transaction state storage directory for " + tableCfg.value().name(), e);
         }
 
-        TxStateTableStorage txStateTableStorage =  new TxStateRocksDbTableStorage(
-            tableCfg,
-            path,
-            txStateStorageScheduledPool,
-            txStateStoragePool,
-            TX_STATE_STORAGE_FLUSH_DELAY_SUPPLIER
+        TxStateTableStorage txStateTableStorage = new TxStateRocksDbTableStorage(
+                tableCfg,
+                path,
+                txStateStorageScheduledPool,
+                txStateStoragePool,
+                TX_STATE_STORAGE_FLUSH_DELAY_SUPPLIER
         );
 
         txStateTableStorage.start();
@@ -1774,7 +1772,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             MvPartitionStorage partitionStorage = tbl.internalTable().storage().getOrCreateMvPartition(part);
 
                             replicaMgr.startReplica(partId,
-                                    tbl.internalTable().partitionRaftGroupService(part),
                                     new PartitionReplicaListener(
                                             partitionStorage,
                                             tbl.internalTable().partitionRaftGroupService(part),

@@ -36,6 +36,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.LongAdder;
@@ -112,6 +113,56 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
 
         assertNull(lockManager.waiter(key, txId1));
         assertNull(lockManager.waiter(key, txId2));
+    }
+
+    @Test
+    public void downgradeLockOutOfTurnTest() throws Exception {
+        UUID txId0 = Timestamp.nextVersion().toUuid();
+        UUID txId1 = Timestamp.nextVersion().toUuid();
+        UUID txId2 = Timestamp.nextVersion().toUuid();
+
+        LockKey key = new LockKey("test");
+
+        lockManager.acquire(txId0, key, S).join();
+        lockManager.acquire(txId2, key, S).join();
+
+        CompletableFuture<Lock> fut2 = lockManager.acquire(txId2, key, X);
+        assertFalse(fut2.isDone());
+
+        CompletableFuture<Lock> fut0 = lockManager.acquire(txId0, key, X);
+        fut0.get(10, TimeUnit.SECONDS);
+
+        CompletableFuture<Lock> fut1 = lockManager.acquire(txId1, key, S);
+        assertFalse(fut1.isDone());
+
+        assertFalse(fut2.isDone());
+        fut0.thenAccept(lock -> lockManager.release(lock));
+
+        fut1.join();
+        expectConflict(fut2);
+    }
+
+    @Test
+    public void upgradeLockImmediatelyTest() throws LockException {
+        UUID txId0 = Timestamp.nextVersion().toUuid();
+        UUID txId1 = Timestamp.nextVersion().toUuid();
+        UUID txId2 = Timestamp.nextVersion().toUuid();
+
+        LockKey key = new LockKey("test");
+
+        CompletableFuture<Lock> fut = lockManager.acquire(txId0, key, IS);
+        assertTrue(fut.isDone());
+
+        CompletableFuture<Lock> fut0 = lockManager.acquire(txId1, key, IS);
+        assertTrue(fut0.isDone());
+
+        CompletableFuture<Lock> fut1 = lockManager.acquire(txId2, key, IS);
+        assertTrue(fut1.isDone());
+
+        CompletableFuture<Lock> fut2 = lockManager.acquire(txId1, key, IX);
+        assertTrue(fut2.isDone());
+
+        lockManager.release(fut1.join());
     }
 
     @Test
