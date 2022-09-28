@@ -20,7 +20,6 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
 
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.List;
 import java.util.Queue;
@@ -33,13 +32,8 @@ import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import org.apache.calcite.rel.core.TableModify.Operation;
 import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.util.ImmutableBitSet;
-import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
-import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
-import org.apache.ignite.internal.binarytuple.BinaryTuplePrefixBuilder;
 import org.apache.ignite.internal.index.SortedIndex;
 import org.apache.ignite.internal.schema.BinaryConverter;
-import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
@@ -101,12 +95,12 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
     /**
      * Constructor.
      *
-     * @param ctx             Execution context.
-     * @param rowType         Output type of the current node.
-     * @param schemaTable     The table this node should scan.
-     * @param parts           Partition numbers to scan.
-     * @param filters         Optional filter to filter out rows.
-     * @param rowTransformer  Optional projection function.
+     * @param ctx Execution context.
+     * @param rowType Output type of the current node.
+     * @param schemaTable The table this node should scan.
+     * @param parts Partition numbers to scan.
+     * @param filters Optional filter to filter out rows.
+     * @param rowTransformer Optional projection function.
      * @param requiredColumns Optional set of column of interest.
      */
     public IndexScanNode(
@@ -267,6 +261,7 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
     private class SubscriberImpl implements Flow.Subscriber<BinaryTuple> {
 
         private int received = 0; // HB guarded here.
+
         /** {@inheritDoc} */
         @Override
         public void onSubscribe(Subscription subscription) {
@@ -318,16 +313,16 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
     //TODO: Change table row layout -> index row layout.
     @Contract("null -> null")
     private @Nullable BinaryTuple extractIndexColumns(@Nullable Supplier<RowT> lowerCond) {
-        if (lowerCond == null)
+        if (lowerCond == null) {
             return null;
+        }
 
         TableDescriptor desc = schemaTable.descriptor();
 
-        BinaryTupleSchema binaryTupleSchema = BinaryTupleSchema.create( IntStream.range(0, desc.columnsCount())
+        BinaryTupleSchema binaryTupleSchema = BinaryTupleSchema.create(IntStream.range(0, desc.columnsCount())
                 .mapToObj(i -> desc.columnDescriptor(i))
                 .map(colDesc -> new Element(colDesc.physicalType(), colDesc.nullable()))
                 .toArray(Element[]::new));
-
 
         BinaryRowEx binaryRowEx = schemaTable.toModifyRow(context(), lowerCond.get(), Operation.INSERT, null).getRow();
 
