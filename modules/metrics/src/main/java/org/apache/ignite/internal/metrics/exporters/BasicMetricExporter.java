@@ -1,6 +1,6 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
@@ -20,13 +20,14 @@ package org.apache.ignite.internal.metrics.exporters;
 import java.util.Map;
 import org.apache.ignite.internal.metrics.MetricProvider;
 import org.apache.ignite.internal.metrics.MetricSet;
-import org.apache.ignite.internal.metrics.exporters.configuration.ExporterConfiguration;
+import org.apache.ignite.internal.metrics.exporters.configuration.ExporterView;
 import org.apache.ignite.lang.IgniteBiTuple;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Base class for new metrics exporters implementations.
  */
-public abstract class BasicMetricExporter<CfgT extends ExporterConfiguration> implements MetricExporter<CfgT> {
+public abstract class BasicMetricExporter<CfgT extends ExporterView> implements MetricExporter<CfgT> {
     /** Metrics provider. */
     private MetricProvider metricsProvider;
 
@@ -37,6 +38,12 @@ public abstract class BasicMetricExporter<CfgT extends ExporterConfiguration> im
     public void init(MetricProvider metricsProvider, CfgT configuration) {
         this.metricsProvider = metricsProvider;
         this.configuration = configuration;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void reconfigure(@Nullable CfgT newValue) {
+        configuration = newValue;
     }
 
     /**

@@ -27,7 +27,7 @@ import org.apache.ignite.internal.metrics.MetricSet;
 /**
  * Test push metrics exporter.
  */
-public class TestPushMetricExporter extends PushMetricExporter<TestPushMetricsExporterConfiguration> {
+public class TestPushMetricExporter extends PushMetricExporter<TestPushMetricsExporterView> {
     public static final String EXPORTER_NAME = "testPush";
 
     private static OutputStream outputStream;
@@ -35,10 +35,10 @@ public class TestPushMetricExporter extends PushMetricExporter<TestPushMetricsEx
     private long period;
 
     @Override
-    public void init(MetricProvider metricsProvider, TestPushMetricsExporterConfiguration configuration) {
+    public void init(MetricProvider metricsProvider, TestPushMetricsExporterView configuration) {
         super.init(metricsProvider, configuration);
 
-        period = configuration.period().value();
+        period = configuration.period();
     }
 
     public static void setOutputStream(OutputStream outputStream) {

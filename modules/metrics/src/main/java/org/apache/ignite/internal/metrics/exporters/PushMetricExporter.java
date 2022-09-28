@@ -1,6 +1,6 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
@@ -23,7 +23,7 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.metrics.exporters.configuration.ExporterConfiguration;
+import org.apache.ignite.internal.metrics.exporters.configuration.ExporterView;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 
@@ -32,7 +32,7 @@ import org.apache.ignite.internal.util.IgniteUtils;
  * Every {@code period} of time {@link PushMetricExporter#report()} will be called
  * to push metrics to the external system.
  */
-public abstract class PushMetricExporter<CfgT extends ExporterConfiguration> extends BasicMetricExporter<CfgT> {
+public abstract class PushMetricExporter<CfgT extends ExporterView> extends BasicMetricExporter<CfgT> {
     /** Logger. */
     protected final IgniteLogger log = Loggers.forClass(getClass());
 

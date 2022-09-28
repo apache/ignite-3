@@ -29,7 +29,7 @@ import org.apache.ignite.internal.metrics.MetricSet;
  * Simple pull exporter, which simulate the pull principe throw primitive wait/notify API
  * instead of the complex TCP/IP etc. endpoints.
  */
-public class TestPullMetricExporter extends BasicMetricExporter<TestPullMetricsExporterConfiguration> {
+public class TestPullMetricExporter extends BasicMetricExporter<TestPullMetricsExporterView> {
 
     public static final String EXPORTER_NAME = "testPull";
     private static OutputStream outputStream;

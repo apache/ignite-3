@@ -1,6 +1,6 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
@@ -32,10 +32,10 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
 import org.apache.ignite.internal.metrics.configuration.MetricView;
 import org.apache.ignite.internal.metrics.exporters.MetricExporter;
-import org.apache.ignite.internal.metrics.exporters.configuration.ExporterConfiguration;
 import org.apache.ignite.internal.metrics.exporters.configuration.ExporterView;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.VisibleForTesting;
 
 
 /**
@@ -83,12 +83,22 @@ public class MetricManager implements IgniteComponent {
 
     /** {@inheritDoc} */
     @Override public void start() {
-        availableExporters = loadExporters();
+        start(loadExporters());
+    }
+
+    /**
+     * Start component.
+     *
+     * @param availableExporters Map of (name, exporter) with available exporters.
+     */
+    @VisibleForTesting
+    public void start(Map<String, MetricExporter> availableExporters) {
+        this.availableExporters = availableExporters;
 
         MetricView conf = metricConfiguration.value();
 
         for (String exporterName : conf.exporters().namedListKeys()) {
-            checkAndStartExporter(exporterName, metricConfiguration.exporters().get(exporterName));
+            checkAndStartExporter(exporterName, (ExporterView) metricConfiguration.exporters().get(exporterName));
         }
 
         metricConfiguration.exporters().listenElements(new ExporterConfigurationListener());
@@ -192,7 +202,7 @@ public class MetricManager implements IgniteComponent {
         return registry.metricSnapshot();
     }
 
-    private <T extends ExporterConfiguration> void checkAndStartExporter(
+    private <T extends ExporterView> void checkAndStartExporter(
             String exporterName,
             T exporterConfiguration) {
         MetricExporter<T> exporter = availableExporters.get(exporterName);
@@ -212,7 +222,7 @@ public class MetricManager implements IgniteComponent {
     private class ExporterConfigurationListener implements ConfigurationNamedListListener<ExporterView> {
         @Override
         public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<ExporterView> ctx) {
-            checkAndStartExporter(ctx.newValue().exporterName(), (ExporterConfiguration) ctx.newValue());
+            checkAndStartExporter(ctx.newValue().exporterName(), ctx.newValue());
 
             return CompletableFuture.completedFuture(null);
         }
@@ -223,6 +233,17 @@ public class MetricManager implements IgniteComponent {
 
             if (removed != null) {
                 removed.stop();
+            }
+
+            return CompletableFuture.completedFuture(null);
+        }
+
+        @Override
+        public CompletableFuture<?> onUpdate(ConfigurationNotificationEvent<ExporterView> ctx) {
+            MetricExporter exporter = enabledMetricExporters.get(ctx.newValue().exporterName());
+
+            if (exporter != null) {
+                exporter.reconfigure(ctx.newValue());
             }
 
             return CompletableFuture.completedFuture(null);
