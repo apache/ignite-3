@@ -615,8 +615,8 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
         private void PutTimestamp(Instant value)
         {
-            // TODO IGNITE-15431 File NodaTime Issue or PR about asymmetric API (see ReadInstant)
-            // Or rather write here https://github.com/nodatime/nodatime/issues/1644
+            // NOTE: retrieving nanos like this seems a bit weird.
+            // Left a comment in the NodaTime repo: https://github.com/nodatime/nodatime/issues/1644#issuecomment-1260524451
             long seconds = value.ToUnixTimeSeconds();
             int nanos = (value - NodaConstants.UnixEpoch).SubsecondNanoseconds;
 
