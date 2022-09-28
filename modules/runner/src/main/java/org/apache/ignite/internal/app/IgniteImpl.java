@@ -67,6 +67,7 @@ import org.apache.ignite.internal.recovery.ConfigurationCatchUpListener;
 import org.apache.ignite.internal.recovery.RecoveryCompletionFutureFactory;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.message.ReplicaMessagesSerializationRegistryInitializer;
 import org.apache.ignite.internal.rest.RestComponent;
 import org.apache.ignite.internal.rest.RestFactory;
 import org.apache.ignite.internal.rest.configuration.PresentationsFactory;
@@ -256,6 +257,7 @@ public class IgniteImpl implements Ignite {
         TxMessagesSerializationRegistryInitializer.registerFactories(serializationRegistry);
         ComputeMessagesSerializationRegistryInitializer.registerFactories(serializationRegistry);
         TableMessagesSerializationRegistryInitializer.registerFactories(serializationRegistry);
+        ReplicaMessagesSerializationRegistryInitializer.registerFactories(serializationRegistry);
 
         var clusterLocalConfiguration = new ClusterLocalConfiguration(name, serializationRegistry);
 
