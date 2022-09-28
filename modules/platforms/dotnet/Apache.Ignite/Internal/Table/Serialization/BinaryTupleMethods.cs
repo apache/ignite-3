@@ -68,7 +68,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
         private static readonly MethodInfo GetDecimal = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetDecimal))!;
         private static readonly MethodInfo GetBytes = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetBytes))!;
 
-        // TODO: Support all types (IGNITE-15431).
         private static readonly IReadOnlyDictionary<Type, MethodInfo> WriteMethods = new Dictionary<Type, MethodInfo>
         {
             { typeof(string), AppendString },
