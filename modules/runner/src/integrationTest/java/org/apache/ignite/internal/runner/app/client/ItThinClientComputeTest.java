@@ -212,7 +212,6 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         testEchoArg(LocalTime.now());
         testEchoArg(LocalDateTime.now());
         testEchoArg(Instant.now());
-        testEchoArg(true);
         testEchoArg(BigInteger.TEN);
     }
 
