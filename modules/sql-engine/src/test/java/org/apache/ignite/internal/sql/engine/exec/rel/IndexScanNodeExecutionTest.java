@@ -35,7 +35,6 @@ import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest;
-import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest.TestTable;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
@@ -45,6 +44,10 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 //TODO: check merge multiple tries.
+
+/**
+ * Test {@link IndexScanNode} contract.
+ */
 public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
     @Test
     public void sortedIndex() {
