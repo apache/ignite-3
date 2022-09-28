@@ -546,9 +546,9 @@ namespace Apache.Ignite.Tests.Table
             var dt = LocalDateTime.FromDateTime(DateTime.UtcNow);
             var tuple = new IgniteTuple
             {
-                ["Key"] = 123,
+                ["Key"] = 123L,
                 ["Str"] = "str",
-                ["Int8"] = (byte)8,
+                ["Int8"] = (sbyte)8,
                 ["Int16"] = (short)16,
                 ["Int32"] = 32,
                 ["Int64"] = 64L,
