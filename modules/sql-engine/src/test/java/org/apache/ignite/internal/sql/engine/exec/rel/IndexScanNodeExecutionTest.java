@@ -43,8 +43,8 @@ import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
-//TODO: check merge multiple tries.
-
+//TODO: check merging of multiple sorted index tries is correct.
+//TODO: add test for hash index.
 /**
  * Test {@link IndexScanNode} contract.
  */
@@ -68,7 +68,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
                         {6, "Andrey", 2L}
                 },
                 ImmutableBitSet.of(0, 2),
-                // TODO: sort data
+                // TODO: sort data, once IndexScanNode will support merging.
                 new Object[][]{
                         {1, "Roman", null},
                         {2, "Igor", null},
@@ -103,7 +103,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
         AbstractPlannerTest.TestTable table = new AbstractPlannerTest.TestTable(rowType) {
             @Override
             public IgniteDistribution distribution() {
-                return IgniteDistributions.any();
+                return IgniteDistributions.broadcast();
             }
         };
 
@@ -174,6 +174,4 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
             s.onComplete();
         };
     }
-
-    //TODO: Add hash index.
 }
