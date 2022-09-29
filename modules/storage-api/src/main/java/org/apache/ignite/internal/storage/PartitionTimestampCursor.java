@@ -27,7 +27,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public interface PartitionTimestampCursor extends Cursor<ReadResult> {
     /**
-     * Returns a committed row within the current row id that conform the given timestamp.
+     * Returns a committed row within the current row id that is associated with the given timestamp.
      *
      * @param timestamp Commit timestamp.
      * @return Row or {@code null} if there is no row for the given timestamp.
