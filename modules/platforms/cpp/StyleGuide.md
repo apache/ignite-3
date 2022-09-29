@@ -117,6 +117,15 @@ private:
 } // namespace ignite::sample
 ```
 
+Template parameters are an exception from this rule.
+
+```
+template <typename T, typename IterT>
+void function foo(T a, IterT b) {
+    // ...
+}
+```
+
 ## Header File Include Order
 
 Header files are included in order from more specific to less specific:
