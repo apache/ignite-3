@@ -284,7 +284,6 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         ReplicaService replicaSvc = new ReplicaService(
                 replicaMgr,
                 clusterSvc.messagingService(),
-                clusterSvc.topologyService(),
                 null);
 
         TableManager tableManager = new TableManager(

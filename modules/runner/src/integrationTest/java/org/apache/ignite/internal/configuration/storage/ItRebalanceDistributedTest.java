@@ -428,7 +428,6 @@ public class ItRebalanceDistributedTest {
             ReplicaService replicaSvc = new ReplicaService(
                     replicaManager,
                     clusterService.messagingService(),
-                    clusterService.topologyService(),
                     new HybridClock()
             );
 
