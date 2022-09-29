@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
 
 /**
  * Asynchronous cursor.
