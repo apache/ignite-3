@@ -47,7 +47,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
 
     protected volatile boolean started;
 
-    protected volatile AtomicReferenceArray<AbstractPageMemoryMvPartitionStorage> mvPartitions;
+    private volatile AtomicReferenceArray<AbstractPageMemoryMvPartitionStorage> mvPartitions;
 
     /**
      * Constructor.
@@ -62,6 +62,11 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
     @Override
     public TableConfiguration configuration() {
         return tableCfg;
+    }
+
+    @Override
+    public TablesConfiguration tablesConfiguration() {
+        return tablesConfiguration;
     }
 
     /**
@@ -143,12 +148,24 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
 
     @Override
     public SortedIndexStorage getOrCreateSortedIndex(int partitionId, UUID indexId) {
-        return getOrCreateMvPartition(partitionId).getOrCreateSortedIndex(indexId);
+        AbstractPageMemoryMvPartitionStorage partitionStorage = getMvPartition(partitionId);
+
+        if (partitionStorage == null) {
+            throw new StorageException(String.format("Partition ID %d does not exist", partitionId));
+        }
+
+        return partitionStorage.getOrCreateSortedIndex(indexId);
     }
 
     @Override
     public HashIndexStorage getOrCreateHashIndex(int partitionId, UUID indexId) {
-        return getOrCreateMvPartition(partitionId).getOrCreateHashIndex(indexId);
+        AbstractPageMemoryMvPartitionStorage partitionStorage = getMvPartition(partitionId);
+
+        if (partitionStorage == null) {
+            throw new StorageException(String.format("Partition ID %d does not exist", partitionId));
+        }
+
+        return partitionStorage.getOrCreateHashIndex(indexId);
     }
 
     @Override

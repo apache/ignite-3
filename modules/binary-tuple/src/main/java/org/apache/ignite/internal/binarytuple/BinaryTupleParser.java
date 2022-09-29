@@ -46,11 +46,11 @@ public class BinaryTupleParser {
         void nextElement(int index, int begin, int end);
     }
 
+    /** Byte order of ByteBuffers that contain the tuple. */
+    public static final ByteOrder ORDER = ByteOrder.LITTLE_ENDIAN;
+
     /** UUID size in bytes. */
     private static final int UUID_SIZE = 16;
-
-    /** Byte order of ByteBuffers that contain the tuple. */
-    private static final ByteOrder ORDER = ByteOrder.LITTLE_ENDIAN;
 
     /** Number of elements in the tuple. */
     private final int numElements;
