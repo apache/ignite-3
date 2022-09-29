@@ -261,7 +261,7 @@ namespace Apache.Ignite.Internal.Sql
                 case SqlColumnType.Decimal:
                 case SqlColumnType.Timestamp:
                 default:
-                    // TODO: Support all types (IGNITE-15431).
+                    // TODO IGNITE-17777 Thin 3.0: use BinaryTuple for Compute and SQL results and arguments
                     throw new ArgumentOutOfRangeException(nameof(type), type, null);
             }
         }

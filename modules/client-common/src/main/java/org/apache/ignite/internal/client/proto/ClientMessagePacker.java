@@ -814,10 +814,7 @@ public class ClientMessagePacker implements AutoCloseable {
 
         Class<?> cls = obj.getClass();
 
-        if (cls == Boolean.class) {
-            packInt(ClientDataType.BOOLEAN);
-            packBoolean((Boolean) obj);
-        } else if (cls == Byte.class) {
+        if (cls == Byte.class) {
             packInt(ClientDataType.INT8);
             packByte((Byte) obj);
         } else if (cls == Short.class) {

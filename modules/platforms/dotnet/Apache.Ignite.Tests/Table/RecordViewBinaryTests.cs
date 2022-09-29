@@ -18,11 +18,13 @@
 namespace Apache.Ignite.Tests.Table
 {
     using System;
+    using System.Collections;
     using System.Collections.Generic;
     using System.Globalization;
     using System.Linq;
     using System.Threading.Tasks;
     using Ignite.Table;
+    using NodaTime;
     using NUnit.Framework;
 
     /// <summary>
@@ -533,6 +535,54 @@ namespace Apache.Ignite.Tests.Table
             Assert.AreEqual(2, resTuple.FieldCount);
             Assert.AreEqual(key, resTuple["key"]);
             Assert.AreEqual(val, resTuple["val"]);
+        }
+
+        [Test]
+        public async Task TestAllColumns()
+        {
+            var table = await Client.Tables.GetTableAsync(TableAllColumnsName);
+            var tupleView = table!.RecordBinaryView;
+
+            var dt = LocalDateTime.FromDateTime(DateTime.UtcNow);
+            var tuple = new IgniteTuple
+            {
+                ["Key"] = 123L,
+                ["Str"] = "str",
+                ["Int8"] = (sbyte)8,
+                ["Int16"] = (short)16,
+                ["Int32"] = 32,
+                ["Int64"] = 64L,
+                ["Float"] = 32.32f,
+                ["Double"] = 64.64,
+                ["Uuid"] = Guid.NewGuid(),
+                ["Date"] = dt.Date,
+                ["BitMask"] = new BitArray(new byte[] { 1 }),
+                ["Time"] = dt.TimeOfDay,
+                ["DateTime"] = dt,
+                ["Timestamp"] = Instant.FromDateTimeUtc(DateTime.UtcNow),
+                ["Blob"] = new byte[] { 1, 2, 3 },
+                ["Decimal"] = 123.456m
+            };
+
+            await tupleView.UpsertAsync(null, tuple);
+
+            var res = await tupleView.GetAsync(null, tuple);
+
+            Assert.AreEqual(tuple["Blob"], res!["Blob"]);
+            Assert.AreEqual(tuple["Date"], res["Date"]);
+            Assert.AreEqual(tuple["Decimal"], res["Decimal"]);
+            Assert.AreEqual(tuple["Double"], res["Double"]);
+            Assert.AreEqual(tuple["Float"], res["Float"]);
+            Assert.AreEqual(tuple["Int8"], res["Int8"]);
+            Assert.AreEqual(tuple["Int16"], res["Int16"]);
+            Assert.AreEqual(tuple["Int32"], res["Int32"]);
+            Assert.AreEqual(tuple["Int64"], res["Int64"]);
+            Assert.AreEqual(tuple["Str"], res["Str"]);
+            Assert.AreEqual(tuple["Uuid"], res["Uuid"]);
+            Assert.AreEqual(tuple["BitMask"], res["BitMask"]);
+            Assert.AreEqual(tuple["Timestamp"], res["Timestamp"]);
+            Assert.AreEqual(tuple["Time"], res["Time"]);
+            Assert.AreEqual(tuple["DateTime"], res["DateTime"]);
         }
     }
 }

@@ -213,17 +213,20 @@ namespace Apache.Ignite.Internal.Table
             for (var i = 0; i < columnCount; i++)
             {
                 var propertyCount = r.ReadArrayHeader();
+                const int expectedCount = 6;
 
-                Debug.Assert(propertyCount >= 4, "propertyCount >= 4");
+                Debug.Assert(propertyCount >= expectedCount, "propertyCount >= " + expectedCount);
 
                 var name = r.ReadString();
                 var type = r.ReadInt32();
                 var isKey = r.ReadBoolean();
                 var isNullable = r.ReadBoolean();
+                r.ReadBoolean(); // IsColocation.
+                var scale = r.ReadInt32();
 
-                r.Skip(propertyCount - 4);
+                r.Skip(propertyCount - expectedCount);
 
-                var column = new Column(name, (ClientDataType)type, isNullable, isKey, i);
+                var column = new Column(name, (ClientDataType)type, isNullable, isKey, i, scale);
 
                 columns[i] = column;
 

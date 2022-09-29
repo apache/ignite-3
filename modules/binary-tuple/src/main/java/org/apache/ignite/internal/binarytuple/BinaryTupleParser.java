@@ -318,6 +318,11 @@ public class BinaryTupleParser {
     public final BigInteger numberValue(int begin, int end) {
         byte[] bytes;
         int len = end - begin;
+
+        if (len == 0) {
+            return BigInteger.ZERO;
+        }
+
         if (buffer.hasArray()) {
             bytes = buffer.array();
             begin += buffer.arrayOffset();

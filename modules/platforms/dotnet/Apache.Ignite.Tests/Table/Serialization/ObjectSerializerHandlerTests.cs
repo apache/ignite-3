@@ -34,8 +34,8 @@ namespace Apache.Ignite.Tests.Table.Serialization
     {
         private static readonly Schema Schema = new(1, 1, new[]
         {
-            new Column("Key", ClientDataType.Int64, false, true, 0),
-            new Column("Val", ClientDataType.String, false, false, 1)
+            new Column("Key", ClientDataType.Int64, false, true, 0, 0),
+            new Column("Val", ClientDataType.String, false, false, 1, 0)
         });
 
         [Test]
