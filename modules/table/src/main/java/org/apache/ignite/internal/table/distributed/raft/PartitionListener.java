@@ -183,12 +183,17 @@ public class PartitionListener implements RaftGroupListener {
 
                 if (keys.size() == 1) {
                     txsRemovedKeys.computeIfAbsent(txId, entry -> new HashSet<>()).add(keys.get(0));
+                    txsInsertedKeys.computeIfAbsent(txId, entry -> new HashSet<>()).remove(keys.get(0));
                 }
-            } else if (!primaryIndex.contains(row.keySlice())) {
+            } else if (!primaryIndex.containsKey(row.keySlice())) {
                 // Insert entry.
                 txsInsertedKeys.computeIfAbsent(txId, entry -> new HashSet<>()).add(row.keySlice());
+                txsRemovedKeys.computeIfAbsent(txId, entry -> new HashSet<>()).remove(row.keySlice());
 
                 primaryIndex.put(row.keySlice(), rowId);
+            }
+            else if (primaryIndex.containsKey(row.keySlice())) {
+                txsRemovedKeys.computeIfAbsent(txId, entry -> new HashSet<>()).remove(row.keySlice());
             }
 
             storage.lastAppliedIndex(commandIndex);
@@ -225,12 +230,17 @@ public class PartitionListener implements RaftGroupListener {
 
                         if (keys.size() == 1) {
                             txsRemovedKeys.computeIfAbsent(txId, entry0 -> new HashSet<>()).add(keys.get(0));
+                            txsInsertedKeys.computeIfAbsent(txId, entry0 -> new HashSet<>()).remove(keys.get(0));
                         }
-                    } else if (!primaryIndex.contains(entry.getValue().keySlice())) {
+                    } else if (!primaryIndex.containsKey(entry.getValue().keySlice())) {
                         // Insert entry.
                         txsInsertedKeys.computeIfAbsent(txId, entry0 -> new HashSet<>()).add(entry.getValue().keySlice());
+                        txsRemovedKeys.computeIfAbsent(txId, entry0 -> new HashSet<>()).remove(entry.getValue().keySlice());
 
                         primaryIndex.put(entry.getValue().keySlice(), entry.getKey());
+                    }
+                    else if (primaryIndex.containsKey(entry.getValue().keySlice())) {
+                        txsRemovedKeys.computeIfAbsent(txId, entry0 -> new HashSet<>()).remove(entry.getValue().keySlice());
                     }
                 }
             }

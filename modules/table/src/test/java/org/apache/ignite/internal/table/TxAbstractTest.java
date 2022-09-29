@@ -114,6 +114,45 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     public abstract void before() throws Exception;
 
     @Test
+    public void testDeleteUpsertCommit() throws TransactionException {
+        accounts.recordView().upsert(null, makeValue(1, 100.));
+
+        InternalTransaction tx = (InternalTransaction) igniteTransactions.begin();
+
+        accounts.recordView().delete(tx, makeKey(1));
+        accounts.recordView().upsert(tx, makeValue(1, 200.));
+
+        tx.commit();
+
+        assertEquals(200., accounts.recordView().get(null, makeKey(1)).doubleValue("balance"));
+    }
+
+    @Test
+    public void testDeleteUpsertRollback() throws TransactionException {
+        accounts.recordView().upsert(null, makeValue(1, 100.));
+
+        InternalTransaction tx = (InternalTransaction) igniteTransactions.begin();
+
+        accounts.recordView().delete(tx, makeKey(1));
+        accounts.recordView().upsert(tx, makeValue(1, 200.));
+
+        tx.rollback();
+
+        assertEquals(100., accounts.recordView().get(null, makeKey(1)).doubleValue("balance"));
+    }
+
+    @Test
+    public void test3() throws TransactionException {
+        System.out.println("UPSERT");
+        accounts.recordView().upsert(null, makeValue(1, 100.));
+        assertNotNull(accounts.recordView().get(null, makeKey(1)));
+        accounts.recordView().upsert(null, makeValue(1, 100.));
+        assertNotNull(accounts.recordView().get(null, makeKey(1)));
+        accounts.recordView().upsert(null, makeValue(1, 100.));
+        assertNotNull(accounts.recordView().get(null, makeKey(1)));
+    }
+
+    @Test
     public void testMixedPutGet() throws TransactionException {
         accounts.recordView().upsert(null, makeValue(1, BALANCE_1));
 
