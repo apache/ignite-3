@@ -52,7 +52,7 @@ namespace Apache.Ignite.Tests
                 var stream = new MemoryStream();
                 var formatter = new BinaryFormatter();
 
-#pragma warning disable SYSLIB0011
+#pragma warning disable SYSLIB0011 // BinaryFormatter is obsolete
                 formatter.Serialize(stream, ex);
                 stream.Seek(0, SeekOrigin.Begin);
 
@@ -60,7 +60,7 @@ namespace Apache.Ignite.Tests
                 Assert.AreEqual("myMessage", res.Message);
                 Assert.AreEqual(traceId, res.TraceId);
                 Assert.AreEqual(123, res.Code);
-#pragma warning restore SYSLIB0011
+#pragma warning restore SYSLIB0011 // BinaryFormatter is obsolete
             }
         }
 
