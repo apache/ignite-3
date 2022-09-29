@@ -38,7 +38,7 @@ public interface AsyncCursor<T> {
      * @param rows Desired amount of rows.
      * @return A completion stage that will be completed with batch of size {@code rows} or less if there is no more data.
      */
-    CompletionStage<BatchedResult<T>> requestNextAsync(int rows);
+    CompletableFuture<BatchedResult<T>> requestNextAsync(int rows);
 
     /**
      * Releases resources acquired by the cursor.

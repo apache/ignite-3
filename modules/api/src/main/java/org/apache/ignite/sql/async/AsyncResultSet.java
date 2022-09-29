@@ -17,6 +17,7 @@
 
 package org.apache.ignite.sql.async;
 
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSet;
@@ -118,7 +119,7 @@ public interface AsyncResultSet {
      * @return Operation future.
      * @throws NoRowSetExpectedException if no row set is expected as a query result.
      */
-    CompletionStage<? extends AsyncResultSet> fetchNextPage();
+    CompletableFuture<? extends AsyncResultSet> fetchNextPage();
 
     /**
      * Returns whether there are more pages of results.
@@ -132,5 +133,5 @@ public interface AsyncResultSet {
      *
      * @return Operation future.
      */
-    CompletionStage<Void> closeAsync();
+    CompletableFuture<Void> closeAsync();
 }
