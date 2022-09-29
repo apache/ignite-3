@@ -33,7 +33,7 @@ public enum ClientOperationType {
      */
     CHANNEL_CONNECT,
 
-     /**
+    /**
      * Get tables ({@link IgniteTables#tables()}).
      */
     TABLES_GET,
