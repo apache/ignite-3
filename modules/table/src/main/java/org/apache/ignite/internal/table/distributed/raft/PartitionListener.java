@@ -213,15 +213,17 @@ public class PartitionListener implements RaftGroupListener {
 
             if (!CollectionUtils.nullOrEmpty(rowsToUpdate)) {
                 for (Map.Entry<RowId, BinaryRow> entry : rowsToUpdate.entrySet()) {
+                    RowId rowId = entry.getKey();
+                    BinaryRow row = entry.getValue();
                     // TODO: IGNITE-17759 Need pass appropriate commitTableId and commitPartitionId.
-                    storage.addWrite(entry.getKey(), entry.getValue(), txId, UUID.randomUUID(), 0);
+                    storage.addWrite(rowId, row, txId, UUID.randomUUID(), 0);
 
-                    txsPendingRowIds.computeIfAbsent(txId, entry0 -> new HashSet<>()).add(entry.getKey());
+                    txsPendingRowIds.computeIfAbsent(txId, entry0 -> new HashSet<>()).add(rowId);
 
-                    if (entry.getValue() == null) {
+                    if (row == null) {
                         // Remove entry.
                         List<ByteBuffer> keys = primaryIndex.entrySet().stream()
-                                .filter(e -> e.getValue().equals(entry.getKey()))
+                                .filter(e -> e.getValue().equals(rowId))
                                 .map(Entry::getKey)
                                 .collect(Collectors.toList());
 
@@ -231,14 +233,14 @@ public class PartitionListener implements RaftGroupListener {
                             txsRemovedKeys.computeIfAbsent(txId, entry0 -> new HashSet<>()).add(keys.get(0));
                             txsInsertedKeys.computeIfAbsent(txId, entry0 -> new HashSet<>()).remove(keys.get(0));
                         }
-                    } else if (!primaryIndex.containsKey(entry.getValue().keySlice())) {
+                    } else if (!primaryIndex.containsKey(row.keySlice())) {
                         // Insert entry.
-                        txsInsertedKeys.computeIfAbsent(txId, entry0 -> new HashSet<>()).add(entry.getValue().keySlice());
-                        txsRemovedKeys.computeIfAbsent(txId, entry0 -> new HashSet<>()).remove(entry.getValue().keySlice());
+                        txsInsertedKeys.computeIfAbsent(txId, entry0 -> new HashSet<>()).add(row.keySlice());
+                        txsRemovedKeys.computeIfAbsent(txId, entry0 -> new HashSet<>()).remove(row.keySlice());
 
-                        primaryIndex.put(entry.getValue().keySlice(), entry.getKey());
-                    } else if (primaryIndex.containsKey(entry.getValue().keySlice())) {
-                        txsRemovedKeys.computeIfAbsent(txId, entry0 -> new HashSet<>()).remove(entry.getValue().keySlice());
+                        primaryIndex.put(row.keySlice(), rowId);
+                    } else if (primaryIndex.containsKey(row.keySlice())) {
+                        txsRemovedKeys.computeIfAbsent(txId, entry0 -> new HashSet<>()).remove(row.keySlice());
                     }
                 }
             }
