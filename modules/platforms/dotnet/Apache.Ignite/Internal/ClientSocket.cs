@@ -603,7 +603,7 @@ namespace Apache.Ignite.Internal
             {
                 foreach (var reqId in _requests.Keys.ToArray())
                 {
-                    if (_requests.TryRemove(reqId, out var req) && req != null)
+                    if (_requests.TryRemove(reqId, out var req))
                     {
                         req.TrySetException(ex);
                     }
