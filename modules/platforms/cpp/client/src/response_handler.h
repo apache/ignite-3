@@ -46,12 +46,12 @@ public:
     /**
      * Handle response.
      */
-    [[nodiscard]] virtual IgniteResult<void> handle(protocol::Reader &) = 0;
+    [[nodiscard]] virtual ignite_result<void> handle(protocol::Reader &) = 0;
 
     /**
      * Set error.
      */
-    [[nodiscard]] virtual IgniteResult<void> setError(IgniteError) = 0;
+    [[nodiscard]] virtual ignite_result<void> setError(ignite_error) = 0;
 };
 
 /**
@@ -75,7 +75,7 @@ public:
      *
      * @param func Function.
      */
-    explicit ResponseHandlerImpl(std::function<T(protocol::Reader &)> readFunc, IgniteCallback<T> callback)
+    explicit ResponseHandlerImpl(std::function<T(protocol::Reader &)> readFunc, ignite_callback<T> callback)
         : m_readFunc(std::move(readFunc))
         , m_callback(std::move(callback))
         , m_mutex() { }
@@ -85,13 +85,13 @@ public:
      *
      * @param reader Reader to be used to read response.
      */
-    [[nodiscard]] IgniteResult<void> handle(protocol::Reader &reader) final {
-        IgniteCallback<T> callback = removeCallback();
+    [[nodiscard]] ignite_result<void> handle(protocol::Reader &reader) final {
+        ignite_callback<T> callback = removeCallback();
         if (!callback)
             return {};
 
-        auto res = IgniteResult<T>::ofOperation([&]() { return m_readFunc(reader); });
-        return IgniteResult<void>::ofOperation([&]() { callback(std::move(res)); });
+        auto res = ignite_result<T>::of_operation([&]() { return m_readFunc(reader); });
+        return ignite_result<void>::of_operation([&]() { callback(std::move(res)); });
     }
 
     /**
@@ -99,12 +99,12 @@ public:
      *
      * @param err Error to set.
      */
-    [[nodiscard]] IgniteResult<void> setError(IgniteError err) final {
-        IgniteCallback<T> callback = removeCallback();
+    [[nodiscard]] ignite_result<void> setError(ignite_error err) final {
+        ignite_callback<T> callback = removeCallback();
         if (!callback)
             return {};
 
-        return IgniteResult<void>::ofOperation([&]() { callback({std::move(err)}); });
+        return ignite_result<void>::of_operation([&]() { callback({std::move(err)}); });
     }
 
 private:
@@ -113,9 +113,9 @@ private:
      *
      * @return Callback.
      */
-    IgniteCallback<T> removeCallback() {
+    ignite_callback<T> removeCallback() {
         std::lock_guard<std::mutex> guard(m_mutex);
-        IgniteCallback<T> callback = {};
+        ignite_callback<T> callback = {};
         std::swap(callback, m_callback);
         return callback;
     }
@@ -124,7 +124,7 @@ private:
     std::function<T(protocol::Reader &)> m_readFunc;
 
     /** Promise. */
-    IgniteCallback<T> m_callback;
+    ignite_callback<T> m_callback;
 
     /** Callback mutex. */
     std::mutex m_mutex;

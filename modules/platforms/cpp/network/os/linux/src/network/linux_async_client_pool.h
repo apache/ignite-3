@@ -91,7 +91,7 @@ public:
      *
      * @param id Client ID.
      */
-    void close(uint64_t id, std::optional<IgniteError> err) override;
+    void close(uint64_t id, std::optional<ignite_error> err) override;
 
     /**
      * Closes and releases memory allocated for client with specified ID.
@@ -101,7 +101,7 @@ public:
      * @param err Error to report. May be null.
      * @return @c true if connection with specified ID was found.
      */
-    void closeAndRelease(uint64_t id, std::optional<IgniteError> err);
+    void closeAndRelease(uint64_t id, std::optional<ignite_error> err);
 
     /**
      * Add client to connection map. Notify user.
@@ -117,7 +117,7 @@ public:
      * @param addr Connection address.
      * @param err Error.
      */
-    void handleConnectionError(const EndPoint &addr, IgniteError err);
+    void handleConnectionError(const EndPoint &addr, ignite_error err);
 
     /**
      * Handle successful connection establishment.
@@ -133,7 +133,7 @@ public:
      * @param id Async client ID.
      * @param err Error. Can be null if connection closed without error.
      */
-    void handleConnectionClosed(uint64_t id, std::optional<IgniteError> err);
+    void handleConnectionClosed(uint64_t id, std::optional<ignite_error> err);
 
     /**
      * Handle new message.
@@ -141,7 +141,7 @@ public:
      * @param id Async client ID.
      * @param msg Received message.
      */
-    void handleMessageReceived(uint64_t id, BytesView msg);
+    void handleMessageReceived(uint64_t id, bytes_view msg);
 
     /**
      * Handle sent message event.

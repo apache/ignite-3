@@ -135,8 +135,8 @@ void InitWsa() {
             networkInited = WSAStartup(MAKEWORD(2, 2), &wsaData) == 0;
 
             if (!networkInited)
-                throw IgniteError(
-                    StatusCode::NETWORK, "Networking initialisation failed: " + getLastSocketErrorMessage());
+                throw ignite_error(
+                    status_code::NETWORK, "Networking initialisation failed: " + getLastSocketErrorMessage());
         }
     }
 }

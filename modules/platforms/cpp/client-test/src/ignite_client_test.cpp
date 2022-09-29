@@ -64,20 +64,20 @@ TEST_F(ClientTest, TablesGetTablePromises) {
     cfg.setLogger(getLogger());
 
     auto clientPromise = std::make_shared<std::promise<IgniteClient>>();
-    IgniteClient::startAsync(cfg, std::chrono::seconds(5), IgniteResult<IgniteClient>::promiseSetter(clientPromise));
+    IgniteClient::startAsync(cfg, std::chrono::seconds(5), ignite_result<IgniteClient>::promise_setter(clientPromise));
 
     auto client = clientPromise->get_future().get();
 
     auto tables = client.getTables();
 
     auto tablePromise = std::make_shared<std::promise<std::optional<Table>>>();
-    tables.getTableAsync("PUB.some_unknown", IgniteResult<std::optional<Table>>::promiseSetter(tablePromise));
+    tables.getTableAsync("PUB.some_unknown", ignite_result<std::optional<Table>>::promise_setter(tablePromise));
 
     auto tableUnknown = tablePromise->get_future().get();
     EXPECT_FALSE(tableUnknown.has_value());
 
     tablePromise = std::make_shared<std::promise<std::optional<Table>>>();
-    tables.getTableAsync("PUB.tbl1", IgniteResult<std::optional<Table>>::promiseSetter(tablePromise));
+    tables.getTableAsync("PUB.tbl1", ignite_result<std::optional<Table>>::promise_setter(tablePromise));
 
     auto table = tablePromise->get_future().get();
     ASSERT_TRUE(table.has_value());
@@ -85,13 +85,13 @@ TEST_F(ClientTest, TablesGetTablePromises) {
 }
 
 template <typename T>
-bool checkAndSetOperationError(std::promise<void> &operation, const IgniteResult<T> &res) {
-    if (res.hasError()) {
-        operation.set_exception(std::make_exception_ptr(res.getError()));
+bool checkAndSetOperationError(std::promise<void> &operation, const ignite_result<T> &res) {
+    if (res.has_error()) {
+        operation.set_exception(std::make_exception_ptr(res.error()));
         return false;
     }
-    if (!res.hasValue()) {
-        operation.set_exception(std::make_exception_ptr(IgniteError("There is no value in client result")));
+    if (!res.has_value()) {
+        operation.set_exception(std::make_exception_ptr(ignite_error("There is no value in client result")));
         return false;
     }
     return true;
@@ -107,11 +107,11 @@ TEST_F(ClientTest, TablesGetTableCallbacks) {
 
     IgniteClient client;
 
-    IgniteClient::startAsync(cfg, std::chrono::seconds(5), [&](IgniteResult<IgniteClient> clientRes) {
+    IgniteClient::startAsync(cfg, std::chrono::seconds(5), [&](ignite_result<IgniteClient> clientRes) {
         if (!checkAndSetOperationError(*operation0, clientRes))
             return;
 
-        client = std::move(clientRes).getValue();
+        client = std::move(clientRes).value();
         auto tables = client.getTables();
 
         operation0->set_value();
@@ -119,9 +119,9 @@ TEST_F(ClientTest, TablesGetTableCallbacks) {
             if (!checkAndSetOperationError(*operation1, tableRes))
                 return;
 
-            auto tableUnknown = std::move(tableRes).getValue();
+            auto tableUnknown = std::move(tableRes).value();
             if (tableUnknown.has_value()) {
-                operation1->set_exception(std::make_exception_ptr(IgniteError("Table should be null")));
+                operation1->set_exception(std::make_exception_ptr(ignite_error("Table should be null")));
                 return;
             }
 
@@ -132,14 +132,14 @@ TEST_F(ClientTest, TablesGetTableCallbacks) {
             if (!checkAndSetOperationError(*operation2, tableRes))
                 return;
 
-            auto table = std::move(tableRes).getValue();
+            auto table = std::move(tableRes).value();
             if (!table.has_value()) {
-                operation2->set_exception(std::make_exception_ptr(IgniteError("Table should not be null")));
+                operation2->set_exception(std::make_exception_ptr(ignite_error("Table should not be null")));
                 return;
             }
             if (table->getName() != "PUB.tbl1") {
                 operation2->set_exception(
-                    std::make_exception_ptr(IgniteError("Table has unexpected name: " + table->getName())));
+                    std::make_exception_ptr(ignite_error("Table has unexpected name: " + table->getName())));
                 return;
             }
 

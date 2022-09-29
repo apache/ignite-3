@@ -44,7 +44,7 @@ public:
      *
      * @param buffer Buffer.
      */
-    explicit Reader(BytesView buffer);
+    explicit Reader(bytes_view buffer);
 
     /**
      * Destructor.
@@ -112,12 +112,12 @@ private:
     void next();
 
     /**
-     * Check whether there is a data in stream and throw IgniteError if there is none.
+     * Check whether there is a data in stream and throw ignite_error if there is none.
      */
     void checkDataInStream();
 
     /** Buffer. */
-    BytesView m_buffer;
+    bytes_view m_buffer;
 
     /** Unpacker. */
     msgpack_unpacker m_unpacker;

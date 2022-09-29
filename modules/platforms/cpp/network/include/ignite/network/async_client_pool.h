@@ -44,7 +44,7 @@ public:
      * @param addrs Addresses to connect to.
      * @param connLimit Connection upper limit. Zero means limit is disabled.
      *
-     * @throw IgniteError on error.
+     * @throw ignite_error on error.
      */
     virtual void start(std::vector<TcpRange> addrs, uint32_t connLimit) = 0;
 

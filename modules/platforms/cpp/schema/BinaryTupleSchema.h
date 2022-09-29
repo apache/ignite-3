@@ -116,7 +116,7 @@ public:
      * @return true If the required null-bit is set.
      * @return false If the required null-bit is clear.
      */
-    static bool hasNull(const BytesView &tuple, IntT index) noexcept {
+    static bool hasNull(const bytes_view &tuple, IntT index) noexcept {
         return (tuple[getNullOffset(index)] & getNullMask(index)) != std::byte{0};
     }
 };

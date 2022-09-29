@@ -48,13 +48,13 @@ WinAsyncClient::~WinAsyncClient() {
     close();
 }
 
-bool WinAsyncClient::shutdown(std::optional<IgniteError> err) {
+bool WinAsyncClient::shutdown(std::optional<ignite_error> err) {
     std::lock_guard<std::mutex> lock(m_sendMutex);
 
     if (State::CONNECTED != m_state && State::IN_POOL != m_state)
         return false;
 
-    m_closeErr = err ? std::move(*err) : IgniteError("Connection closed by application");
+    m_closeErr = err ? std::move(*err) : ignite_error("Connection closed by application");
 
     ::shutdown(m_socket, SD_BOTH);
 
@@ -146,7 +146,7 @@ void WinAsyncClient::clearReceiveBuffer() {
         m_recvPacket.resize(m_bufLen);
 }
 
-BytesView WinAsyncClient::processReceived(size_t bytes) {
+bytes_view WinAsyncClient::processReceived(size_t bytes) {
     return {m_recvPacket.data(), bytes};
 }
 

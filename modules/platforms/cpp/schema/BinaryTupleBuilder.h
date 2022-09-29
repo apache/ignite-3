@@ -104,7 +104,7 @@ public:
      * @param type Element type.
      * @param bytes Binary element value.
      */
-    void claim(DATA_TYPE type, const BytesView &bytes) noexcept { claim(sizeOf(type, bytes)); }
+    void claim(DATA_TYPE type, const bytes_view &bytes) noexcept { claim(sizeOf(type, bytes)); }
 
     /**
      * @brief Assigns a value or null for the next element.
@@ -157,7 +157,7 @@ public:
      * @param type Element type.
      * @param value Value of an internal tuple field.
      */
-    void append(DATA_TYPE type, const BytesView &bytes);
+    void append(DATA_TYPE type, const bytes_view &bytes);
 
     /**
      * @brief Appends a value or null for the next element.
@@ -314,23 +314,14 @@ private:
      * @param bytes Binary element value.
      * @return Required size.
      */
-    static SizeT sizeOf(DATA_TYPE type, BytesView bytes);
+    static SizeT sizeOf(DATA_TYPE type, bytes_view bytes);
 
     /**
      * @brief Writes binary value of specified element.
      *
      * @param bytes Binary element value.
      */
-    void putBytes(BytesView bytes);
-
-    /**
-     * @brief Writes binary value of specified element.
-     *
-     * The written value may differ from the original because of value compression.
-     *
-     * @param bytes Binary element value.
-     */
-    void putInt8(BytesView bytes);
+    void putBytes(bytes_view bytes);
 
     /**
      * @brief Writes binary value of specified element.
@@ -339,7 +330,7 @@ private:
      *
      * @param bytes Binary element value.
      */
-    void putInt16(BytesView bytes);
+    void putInt8(bytes_view bytes);
 
     /**
      * @brief Writes binary value of specified element.
@@ -348,7 +339,7 @@ private:
      *
      * @param bytes Binary element value.
      */
-    void putInt32(BytesView bytes);
+    void putInt16(bytes_view bytes);
 
     /**
      * @brief Writes binary value of specified element.
@@ -357,7 +348,7 @@ private:
      *
      * @param bytes Binary element value.
      */
-    void putInt64(BytesView bytes);
+    void putInt32(bytes_view bytes);
 
     /**
      * @brief Writes binary value of specified element.
@@ -366,7 +357,7 @@ private:
      *
      * @param bytes Binary element value.
      */
-    void putFloat(BytesView bytes);
+    void putInt64(bytes_view bytes);
 
     /**
      * @brief Writes binary value of specified element.
@@ -375,7 +366,16 @@ private:
      *
      * @param bytes Binary element value.
      */
-    void putDouble(BytesView bytes);
+    void putFloat(bytes_view bytes);
+
+    /**
+     * @brief Writes binary value of specified element.
+     *
+     * The written value may differ from the original because of value compression.
+     *
+     * @param bytes Binary element value.
+     */
+    void putDouble(bytes_view bytes);
 
     /**
      * @brief Adds an entry to the offset table.

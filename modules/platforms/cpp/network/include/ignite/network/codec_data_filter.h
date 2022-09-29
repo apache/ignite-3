@@ -38,7 +38,7 @@ public:
      *
      * @param factory Codec factory.
      */
-    explicit CodecDataFilter(std::shared_ptr<Factory<Codec>> factory);
+    explicit CodecDataFilter(std::shared_ptr<factory<Codec>> factory);
 
     /**
      * Send data to specific established connection.
@@ -65,7 +65,7 @@ public:
      * @param id Async client ID.
      * @param err Error. Can be null if connection closed without error.
      */
-    void onConnectionClosed(uint64_t id, std::optional<IgniteError> err) override;
+    void onConnectionClosed(uint64_t id, std::optional<ignite_error> err) override;
 
     /**
      * Callback that called when new message is received.
@@ -73,7 +73,7 @@ public:
      * @param id Async client ID.
      * @param msg Received message.
      */
-    void onMessageReceived(uint64_t id, BytesView msg) override;
+    void onMessageReceived(uint64_t id, bytes_view msg) override;
 
 private:
     /**
@@ -85,7 +85,7 @@ private:
     std::shared_ptr<Codec> FindCodec(uint64_t id);
 
     /** Codec factory. */
-    std::shared_ptr<Factory<Codec>> m_codecFactory;
+    std::shared_ptr<factory<Codec>> m_codecFactory;
 
     /** Codecs. */
     std::map<uint64_t, std::shared_ptr<Codec>> m_codecs;

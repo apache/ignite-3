@@ -24,7 +24,7 @@ namespace ignite::protocol {
 
 void BufferAdapter::writeLengthHeader() {
     if (m_lengthPos == std::numeric_limits<std::size_t>::max() || m_lengthPos + LENGTH_HEADER_SIZE > m_buffer.size())
-        throw IgniteError("Length header was not reserved properly in buffer");
+        throw ignite_error("Length header was not reserved properly in buffer");
 
     auto length = std::int32_t(m_buffer.size() - (m_lengthPos + LENGTH_HEADER_SIZE));
 

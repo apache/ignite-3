@@ -39,7 +39,7 @@ int Writer::writeCallback(void *data, const char *buf, size_t len) {
         return -1;
 
     auto bytes = reinterpret_cast<const std::byte *>(buf);
-    buffer->writeRawData(BytesView{bytes, len});
+    buffer->writeRawData(bytes_view{bytes, len});
 
     return 0;
 }

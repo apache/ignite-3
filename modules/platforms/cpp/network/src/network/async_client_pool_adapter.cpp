@@ -54,7 +54,7 @@ bool AsyncClientPoolAdapter::send(uint64_t id, std::vector<std::byte> &&data) {
     return m_sink->send(id, std::move(data));
 }
 
-void AsyncClientPoolAdapter::close(uint64_t id, std::optional<IgniteError> err) {
+void AsyncClientPoolAdapter::close(uint64_t id, std::optional<ignite_error> err) {
     m_sink->close(id, std::move(err));
 }
 

@@ -61,7 +61,7 @@ void BinaryTupleBuilder::layout() {
     elementIndex = 0;
 }
 
-SizeT BinaryTupleBuilder::sizeOf(DATA_TYPE type, BytesView bytes) {
+SizeT BinaryTupleBuilder::sizeOf(DATA_TYPE type, bytes_view bytes) {
     switch (type) {
         case DATA_TYPE::INT8:
             return sizeOfInt8(BinaryTupleParser::getInt8(bytes));
@@ -93,7 +93,7 @@ SizeT BinaryTupleBuilder::sizeOf(DATA_TYPE type, BytesView bytes) {
     }
 }
 
-void BinaryTupleBuilder::putBytes(BytesView bytes) {
+void BinaryTupleBuilder::putBytes(bytes_view bytes) {
     assert(elementIndex < elementCount);
     assert(nextValue + bytes.size() <= valueBase + valueAreaSize);
     std::memcpy(nextValue, bytes.data(), bytes.size());
@@ -101,52 +101,52 @@ void BinaryTupleBuilder::putBytes(BytesView bytes) {
     appendEntry();
 }
 
-void BinaryTupleBuilder::putInt8(BytesView bytes) {
+void BinaryTupleBuilder::putInt8(bytes_view bytes) {
     SizeT size = sizeOfInt8(BinaryTupleParser::getInt8(bytes));
     assert(size <= bytes.size());
-    putBytes(BytesView{bytes.data(), size});
+    putBytes(bytes_view{bytes.data(), size});
 }
 
-void BinaryTupleBuilder::putInt16(BytesView bytes) {
+void BinaryTupleBuilder::putInt16(bytes_view bytes) {
     SizeT size = sizeOfInt16(BinaryTupleParser::getInt16(bytes));
     assert(size <= bytes.size());
     static_assert(platform::ByteOrder::littleEndian);
-    putBytes(BytesView{bytes.data(), size});
+    putBytes(bytes_view{bytes.data(), size});
 }
 
-void BinaryTupleBuilder::putInt32(BytesView bytes) {
+void BinaryTupleBuilder::putInt32(bytes_view bytes) {
     SizeT size = sizeOfInt32(BinaryTupleParser::getInt32(bytes));
     assert(size <= bytes.size());
     static_assert(platform::ByteOrder::littleEndian);
-    putBytes(BytesView{bytes.data(), size});
+    putBytes(bytes_view{bytes.data(), size});
 }
 
-void BinaryTupleBuilder::putInt64(BytesView bytes) {
+void BinaryTupleBuilder::putInt64(bytes_view bytes) {
     SizeT size = sizeOfInt64(BinaryTupleParser::getInt64(bytes));
     assert(size <= bytes.size());
     static_assert(platform::ByteOrder::littleEndian);
-    putBytes(BytesView{bytes.data(), size});
+    putBytes(bytes_view{bytes.data(), size});
 }
 
-void BinaryTupleBuilder::putFloat(BytesView bytes) {
+void BinaryTupleBuilder::putFloat(bytes_view bytes) {
     SizeT size = sizeOfFloat(BinaryTupleParser::getFloat(bytes));
     assert(size <= bytes.size());
-    putBytes(BytesView{bytes.data(), size});
+    putBytes(bytes_view{bytes.data(), size});
 }
 
-void BinaryTupleBuilder::putDouble(BytesView bytes) {
+void BinaryTupleBuilder::putDouble(bytes_view bytes) {
     double value = BinaryTupleParser::getDouble(bytes);
     SizeT size = sizeOfDouble(value);
     assert(size <= bytes.size());
     if (size != sizeof(float)) {
-        putBytes(BytesView{bytes.data(), size});
+        putBytes(bytes_view{bytes.data(), size});
     } else {
         float floatValue = static_cast<float>(value);
-        putBytes(BytesView{reinterpret_cast<std::byte *>(&floatValue), sizeof(float)});
+        putBytes(bytes_view{reinterpret_cast<std::byte *>(&floatValue), sizeof(float)});
     }
 }
 
-void BinaryTupleBuilder::append(DATA_TYPE type, const BytesView &bytes) {
+void BinaryTupleBuilder::append(DATA_TYPE type, const bytes_view &bytes) {
     switch (type) {
         case DATA_TYPE::INT8:
             return putInt8(bytes);

@@ -52,7 +52,7 @@ public:
      *
      * @param id Client ID.
      */
-    void close(uint64_t id, std::optional<IgniteError> err) override {
+    void close(uint64_t id, std::optional<ignite_error> err) override {
         DataSink *sink = m_sink;
         if (sink)
             sink->close(id, std::move(err));
@@ -76,7 +76,7 @@ public:
      * @param addr Connection address.
      * @param err Error.
      */
-    void onConnectionError(const EndPoint &addr, IgniteError err) override {
+    void onConnectionError(const EndPoint &addr, ignite_error err) override {
         auto handler = m_handler.lock();
         if (handler)
             handler->onConnectionError(addr, std::move(err));
@@ -88,7 +88,7 @@ public:
      * @param id Async client ID.
      * @param err Error. Can be null if connection closed without error.
      */
-    void onConnectionClosed(uint64_t id, std::optional<IgniteError> err) override {
+    void onConnectionClosed(uint64_t id, std::optional<ignite_error> err) override {
         auto handler = m_handler.lock();
         if (handler)
             handler->onConnectionClosed(id, std::move(err));
@@ -100,7 +100,7 @@ public:
      * @param id Async client ID.
      * @param msg Received message.
      */
-    void onMessageReceived(uint64_t id, BytesView msg) override {
+    void onMessageReceived(uint64_t id, bytes_view msg) override {
         auto handler = m_handler.lock();
         if (handler)
             handler->onMessageReceived(id, msg);

@@ -30,14 +30,14 @@ NodeConnection::NodeConnection(
 
 NodeConnection::~NodeConnection() {
     for (auto &handler : m_requestHandlers) {
-        auto handlingRes = IgniteResult<void>::ofOperation([&]() {
-            auto res = handler.second->setError(IgniteError("Connection closed before response was received"));
-            if (res.hasError())
+        auto handlingRes = ignite_result<void>::of_operation([&]() {
+            auto res = handler.second->setError(ignite_error("Connection closed before response was received"));
+            if (res.has_error())
                 m_logger->logError(
-                    "Uncaught user callback exception while handling operation error: " + res.getError().whatStr());
+                    "Uncaught user callback exception while handling operation error: " + res.error().what_str());
         });
-        if (handlingRes.hasError())
-            m_logger->logError("Uncaught user callback exception: " + handlingRes.getError().whatStr());
+        if (handlingRes.has_error())
+            m_logger->logError("Uncaught user callback exception: " + handlingRes.error().what_str());
     }
 }
 
@@ -47,7 +47,7 @@ bool NodeConnection::handshake() {
     std::vector<std::byte> message;
     {
         protocol::BufferAdapter buffer(message);
-        buffer.writeRawData(BytesView(protocol::MAGIC_BYTES.data(), protocol::MAGIC_BYTES.size()));
+        buffer.writeRawData(bytes_view(protocol::MAGIC_BYTES.data(), protocol::MAGIC_BYTES.size()));
 
         protocol::Writer::writeMessageToBuffer(buffer, [&context = m_protocolContext](protocol::Writer &writer) {
             auto ver = context.getVersion();
@@ -69,7 +69,7 @@ bool NodeConnection::handshake() {
     return m_pool->send(m_id, std::move(message));
 }
 
-void NodeConnection::processMessage(BytesView msg) {
+void NodeConnection::processMessage(bytes_view msg) {
     protocol::Reader reader(msg);
     auto responseType = reader.readInt32();
     if (MessageType(responseType) != MessageType::RESPONSE) {
@@ -87,20 +87,20 @@ void NodeConnection::processMessage(BytesView msg) {
 
     auto err = protocol::readError(reader);
     if (err) {
-        m_logger->logError("Error: " + err->whatStr());
+        m_logger->logError("Error: " + err->what_str());
         auto res = handler->setError(std::move(err.value()));
-        if (res.hasError())
+        if (res.has_error())
             m_logger->logError(
-                "Uncaught user callback exception while handling operation error: " + res.getError().whatStr());
+                "Uncaught user callback exception while handling operation error: " + res.error().what_str());
         return;
     }
 
     auto handlingRes = handler->handle(reader);
-    if (handlingRes.hasError())
-        m_logger->logError("Uncaught user callback exception: " + handlingRes.getError().whatStr());
+    if (handlingRes.has_error())
+        m_logger->logError("Uncaught user callback exception: " + handlingRes.error().what_str());
 }
 
-IgniteResult<void> NodeConnection::processHandshakeRsp(BytesView msg) {
+ignite_result<void> NodeConnection::processHandshakeRsp(bytes_view msg) {
     m_logger->logDebug("Got handshake response");
 
     protocol::Reader reader(msg);
@@ -114,11 +114,11 @@ IgniteResult<void> NodeConnection::processHandshakeRsp(BytesView msg) {
 
     // We now only support a single version
     if (ver != ProtocolContext::CURRENT_VERSION)
-        return {IgniteError("Unsupported server version: " + ver.toString())};
+        return {ignite_error("Unsupported server version: " + ver.toString())};
 
     auto err = protocol::readError(reader);
     if (err)
-        return {IgniteError(err.value())};
+        return {ignite_error(err.value())};
 
     (void)reader.readInt64(); // TODO: IGNITE-17606 Implement heartbeats
     (void)reader.readStringNullable(); // Cluster node ID. Needed for partition-aware compute.

@@ -48,7 +48,7 @@ public:
      * @param data Data to encode.
      * @return Encoded data. Returning null is ok.
      *
-     * @throw IgniteError on error.
+     * @throw ignite_error on error.
      */
     DataBufferOwning encode(DataBufferOwning &data) override;
 
@@ -58,7 +58,7 @@ public:
      * @param data Data to decode.
      * @return Decoded data. Returning null means data is not yet ready.
      *
-     * @throw IgniteError on error.
+     * @throw ignite_error on error.
      */
     DataBufferRef decode(DataBufferRef &data) override;
 
@@ -89,7 +89,7 @@ private:
 /**
  * Factory for LengthPrefixCodec.
  */
-class LengthPrefixCodecFactory : public Factory<Codec> {
+class LengthPrefixCodecFactory : public factory<Codec> {
 public:
     // Default
     LengthPrefixCodecFactory() = default;

@@ -49,7 +49,7 @@ public:
      * @param addr Connection address.
      * @param err Error.
      */
-    virtual void onConnectionError(const EndPoint &addr, IgniteError err) = 0;
+    virtual void onConnectionError(const EndPoint &addr, ignite_error err) = 0;
 
     /**
      * Callback that called on error during connection establishment.
@@ -57,7 +57,7 @@ public:
      * @param id Async client ID.
      * @param err Error. Can be null if connection closed without error.
      */
-    virtual void onConnectionClosed(uint64_t id, std::optional<IgniteError> err) = 0;
+    virtual void onConnectionClosed(uint64_t id, std::optional<ignite_error> err) = 0;
 
     /**
      * Callback that called when new message is received.
@@ -65,7 +65,7 @@ public:
      * @param id Async client ID.
      * @param msg Received message.
      */
-    virtual void onMessageReceived(uint64_t id, BytesView msg) = 0;
+    virtual void onMessageReceived(uint64_t id, bytes_view msg) = 0;
 
     /**
      * Callback that called when message is sent.

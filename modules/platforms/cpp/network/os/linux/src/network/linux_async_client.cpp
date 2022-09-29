@@ -49,12 +49,12 @@ LinuxAsyncClient::~LinuxAsyncClient() {
     close();
 }
 
-bool LinuxAsyncClient::shutdown(std::optional<IgniteError> err) {
+bool LinuxAsyncClient::shutdown(std::optional<ignite_error> err) {
     std::lock_guard<std::mutex> lock(m_sendMutex);
     if (m_state != State::CONNECTED)
         return false;
 
-    m_closeErr = err ? std::move(*err) : IgniteError("Connection closed by application");
+    m_closeErr = err ? std::move(*err) : ignite_error("Connection closed by application");
     ::shutdown(m_fd, SHUT_RDWR);
     m_state = State::SHUTDOWN;
 
@@ -101,7 +101,7 @@ bool LinuxAsyncClient::sendNextPacketLocked() {
     return true;
 }
 
-BytesView LinuxAsyncClient::receive() {
+bytes_view LinuxAsyncClient::receive() {
     ssize_t res = recv(m_fd, m_recvPacket.data(), m_recvPacket.size(), 0);
     if (res < 0)
         return {};

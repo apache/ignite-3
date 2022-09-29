@@ -24,11 +24,11 @@
 namespace ignite {
 
 void IgniteClient::startAsync(
-    IgniteClientConfiguration configuration, std::chrono::milliseconds timeout, IgniteCallback<IgniteClient> callback) {
+    IgniteClientConfiguration configuration, std::chrono::milliseconds timeout, ignite_callback<IgniteClient> callback) {
     // TODO: IGNITE-17762 Async start should not require starting thread internally. Replace with async timer.
     (void)std::async([cfg = std::move(configuration), timeout, callback = std::move(callback)]() mutable {
         auto res =
-            IgniteResult<IgniteClient>::ofOperation([cfg = std::move(cfg), timeout]() { return start(cfg, timeout); });
+            ignite_result<IgniteClient>::of_operation([cfg = std::move(cfg), timeout]() { return start(cfg, timeout); });
         callback(std::move(res));
     });
 }
@@ -39,10 +39,10 @@ IgniteClient IgniteClient::start(IgniteClientConfiguration configuration, std::c
     auto promise = std::make_shared<std::promise<void>>();
     auto future = promise->get_future();
 
-    impl->start([impl, promise](IgniteResult<void> res) mutable {
+    impl->start([impl, promise](ignite_result<void> res) mutable {
         if (!res) {
             impl->stop();
-            promise->set_exception(std::make_exception_ptr(res.getError()));
+            promise->set_exception(std::make_exception_ptr(res.error()));
         } else
             promise->set_value();
     });
@@ -50,7 +50,7 @@ IgniteClient IgniteClient::start(IgniteClientConfiguration configuration, std::c
     auto status = future.wait_for(timeout);
     if (status == std::future_status::timeout) {
         impl->stop();
-        throw IgniteError("Can not establish connection within timeout");
+        throw ignite_error("Can not establish connection within timeout");
     }
 
     return IgniteClient(std::move(impl));

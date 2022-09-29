@@ -61,7 +61,7 @@ public:
      * @param timeout Timeout.
      * @param callback Callback.
      */
-    void start(std::function<void(IgniteResult<void>)> callback) { m_connection->startAsync(std::move(callback)); }
+    void start(std::function<void(ignite_result<void>)> callback) { m_connection->startAsync(std::move(callback)); }
 
     /**
      * Stop client.

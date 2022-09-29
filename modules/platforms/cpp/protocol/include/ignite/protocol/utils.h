@@ -200,6 +200,6 @@ ignite::Guid makeRandomGuid();
  * @param reader Reader.
  * @return Error.
  */
-std::optional<IgniteError> readError(protocol::Reader &reader);
+std::optional<ignite_error> readError(protocol::Reader &reader);
 
 } // namespace ignite::protocol

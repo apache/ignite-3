@@ -92,7 +92,7 @@ void WinAsyncConnectingThread::run() {
                 if (it != m_nonConnected.end())
                     m_nonConnected.erase(it);
             }
-        } catch (const IgniteError &err) {
+        } catch (const ignite_error &err) {
             client->close();
 
             m_clientPool->handleConnectionError(client->getAddress(), err);
@@ -145,7 +145,7 @@ std::shared_ptr<WinAsyncClient> WinAsyncConnectingThread::tryConnect(const TcpRa
             SOCKET socket = tryConnect(addr);
 
             return std::make_shared<WinAsyncClient>(socket, addr, range, int32_t(BUFFER_SIZE));
-        } catch (const IgniteError &err) {
+        } catch (const ignite_error &err) {
             m_clientPool->handleConnectionError(addr, err);
         }
     }
@@ -170,7 +170,7 @@ SOCKET WinAsyncConnectingThread::tryConnect(const EndPoint &addr) {
     int res = getaddrinfo(addr.host.c_str(), strPort.c_str(), &hints, &result);
 
     if (res != 0)
-        throw IgniteError(StatusCode::NETWORK, "Can not resolve host: " + addr.host + ":" + strPort);
+        throw ignite_error(status_code::NETWORK, "Can not resolve host: " + addr.host + ":" + strPort);
 
     std::string lastErrorMsg = "Failed to resolve host";
 
@@ -183,7 +183,7 @@ SOCKET WinAsyncConnectingThread::tryConnect(const EndPoint &addr) {
         socket = WSASocket(it->ai_family, it->ai_socktype, it->ai_protocol, NULL, 0, WSA_FLAG_OVERLAPPED);
 
         if (socket == INVALID_SOCKET)
-            throw IgniteError(StatusCode::NETWORK, "Socket creation failed: " + getLastSocketErrorMessage());
+            throw ignite_error(status_code::NETWORK, "Socket creation failed: " + getLastSocketErrorMessage());
 
         trySetSocketOptions(socket, BUFFER_SIZE, TRUE, TRUE, TRUE);
 
@@ -208,7 +208,7 @@ SOCKET WinAsyncConnectingThread::tryConnect(const EndPoint &addr) {
     freeaddrinfo(result);
 
     if (socket == INVALID_SOCKET)
-        throw IgniteError(StatusCode::NETWORK, std::move(lastErrorMsg));
+        throw ignite_error(status_code::NETWORK, std::move(lastErrorMsg));
 
     return socket;
 }

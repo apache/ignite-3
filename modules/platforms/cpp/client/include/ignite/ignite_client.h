@@ -68,7 +68,7 @@ public:
      * @param callback Callback to be called once operation is complete.
      */
     IGNITE_API static void startAsync(IgniteClientConfiguration configuration, std::chrono::milliseconds timeout,
-        IgniteCallback<IgniteClient> callback);
+        ignite_callback<IgniteClient> callback);
 
     /**
      * Start client synchronously.

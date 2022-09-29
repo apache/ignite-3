@@ -82,7 +82,7 @@ public:
      *
      * @param callback Callback.
      */
-    void startAsync(std::function<void(IgniteResult<void>)> callback);
+    void startAsync(std::function<void(ignite_result<void>)> callback);
 
     /**
      * Stop connection.
@@ -106,7 +106,7 @@ public:
         while (true) {
             auto channel = getRandomChannel();
             if (!channel)
-                throw IgniteError("No nodes connected");
+                throw ignite_error("No nodes connected");
 
             auto res = channel->performRequest(op, wr, std::move(handler));
             if (res)
@@ -143,7 +143,7 @@ private:
      * @param addr Connection address.
      * @param err Error.
      */
-    void onConnectionError(const network::EndPoint &addr, IgniteError err) override;
+    void onConnectionError(const network::EndPoint &addr, ignite_error err) override;
 
     /**
      * Callback that called on error during connection establishment.
@@ -151,7 +151,7 @@ private:
      * @param id Async client ID.
      * @param err Error. Can be null if connection closed without error.
      */
-    void onConnectionClosed(uint64_t id, std::optional<IgniteError> err) override;
+    void onConnectionClosed(uint64_t id, std::optional<ignite_error> err) override;
 
     /**
      * Callback that called when new message is received.
@@ -159,7 +159,7 @@ private:
      * @param id Async client ID.
      * @param msg Received message.
      */
-    void onMessageReceived(uint64_t id, BytesView msg) override;
+    void onMessageReceived(uint64_t id, bytes_view msg) override;
 
     /**
      * Callback that called when message is sent.
@@ -180,7 +180,7 @@ private:
      *
      * @param res Connect result.
      */
-    void initialConnectResult(IgniteResult<void> &&res);
+    void initialConnectResult(ignite_result<void> &&res);
 
     /**
      * Find and return client.
@@ -194,7 +194,7 @@ private:
     const IgniteClientConfiguration m_configuration;
 
     /** Callback to call on initial connect. */
-    std::function<void(IgniteResult<void>)> m_onInitialConnect;
+    std::function<void(ignite_result<void>)> m_onInitialConnect;
 
     /** Initial connect mutex. */
     std::mutex m_onInitialConnectMutex;

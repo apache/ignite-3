@@ -23,18 +23,18 @@
 
 BOOST_AUTO_TEST_CASE(construct) {
     {
-        ignite::Uuid uuid;
+        ignite::uuid uuid;
         BOOST_CHECK_EQUAL(0, uuid.getMostSignificantBits());
         BOOST_CHECK_EQUAL(0, uuid.getLeastSignificantBits());
     }
     {
-        ignite::Uuid uuid(1, 2);
+        ignite::uuid uuid(1, 2);
         BOOST_CHECK_EQUAL(1, uuid.getMostSignificantBits());
         BOOST_CHECK_EQUAL(2, uuid.getLeastSignificantBits());
     }
     {
-        ignite::Uuid uuid(1, 2);
-        ignite::Uuid uuid2(uuid);
+        ignite::uuid uuid(1, 2);
+        ignite::uuid uuid2(uuid);
         BOOST_CHECK_EQUAL(1, uuid2.getMostSignificantBits());
         BOOST_CHECK_EQUAL(2, uuid2.getLeastSignificantBits());
         BOOST_CHECK_EQUAL(uuid, uuid2);
@@ -47,7 +47,7 @@ BOOST_AUTO_TEST_CASE(stream) {
     std::stringstream stream;
     stream << uuidString;
 
-    ignite::Uuid uuid;
+    ignite::uuid uuid;
     stream >> uuid;
 
     BOOST_CHECK_EQUAL(0x123e4567e89b12d3, uuid.getMostSignificantBits());

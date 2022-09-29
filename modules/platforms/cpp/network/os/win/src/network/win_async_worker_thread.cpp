@@ -111,7 +111,7 @@ void WinAsyncWorkerThread::run() {
                 default:
                     break;
             }
-        } catch (const IgniteError &err) {
+        } catch (const ignite_error &err) {
             m_clientPool->closeAndRelease(client->getId(), err);
         }
     }

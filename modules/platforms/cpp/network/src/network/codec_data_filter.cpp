@@ -19,7 +19,7 @@
 
 namespace ignite::network {
 
-CodecDataFilter::CodecDataFilter(std::shared_ptr<Factory<Codec>> factory)
+CodecDataFilter::CodecDataFilter(std::shared_ptr<factory<Codec>> factory)
     : m_codecFactory(std::move(factory))
     , m_codecs()
     , m_codecsMutex() {
@@ -55,7 +55,7 @@ void CodecDataFilter::onConnectionSuccess(const EndPoint &addr, uint64_t id) {
     DataFilterAdapter::onConnectionSuccess(addr, id);
 }
 
-void CodecDataFilter::onConnectionClosed(uint64_t id, std::optional<IgniteError> err) {
+void CodecDataFilter::onConnectionClosed(uint64_t id, std::optional<ignite_error> err) {
     {
         std::lock_guard<std::mutex> lock(m_codecsMutex);
 
@@ -65,7 +65,7 @@ void CodecDataFilter::onConnectionClosed(uint64_t id, std::optional<IgniteError>
     DataFilterAdapter::onConnectionClosed(id, std::move(err));
 }
 
-void CodecDataFilter::onMessageReceived(uint64_t id, BytesView msg) {
+void CodecDataFilter::onMessageReceived(uint64_t id, bytes_view msg) {
     std::shared_ptr<Codec> codec = FindCodec(id);
     if (!codec)
         return;

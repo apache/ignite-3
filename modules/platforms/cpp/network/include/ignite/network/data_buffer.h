@@ -41,7 +41,7 @@ public:
      *
      * @param data Data.
      */
-    explicit DataBufferRef(BytesView data)
+    explicit DataBufferRef(bytes_view data)
         : m_data(data) { }
 
     /**
@@ -51,7 +51,7 @@ public:
      * @param pos Start of data.
      * @param len Length.
      */
-    DataBufferRef(BytesView data, size_t pos, size_t len)
+    DataBufferRef(bytes_view data, size_t pos, size_t len)
         : m_data(data.substr(pos, len)) { }
 
     /**
@@ -104,11 +104,11 @@ public:
      *
      * @return Bytes view.
      */
-    [[nodiscard]] BytesView getBytesView() const { return m_data; }
+    [[nodiscard]] bytes_view getBytesView() const { return m_data; }
 
 private:
     /** Data. */
-    BytesView m_data;
+    bytes_view m_data;
 };
 
 /**
@@ -171,7 +171,7 @@ public:
      *
      * @return Bytes view.
      */
-    [[nodiscard]] BytesView getBytesView() const { return {m_memory.data() + m_pos, getSize()}; }
+    [[nodiscard]] bytes_view getBytesView() const { return {m_memory.data() + m_pos, getSize()}; }
 
     /**
      * Convert to underlying data.

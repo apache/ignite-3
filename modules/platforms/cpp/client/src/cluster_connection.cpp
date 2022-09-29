@@ -35,25 +35,25 @@ ClusterConnection::ClusterConnection(IgniteClientConfiguration configuration)
     , m_generator(std::random_device()()) {
 }
 
-void ClusterConnection::startAsync(std::function<void(IgniteResult<void>)> callback) {
+void ClusterConnection::startAsync(std::function<void(ignite_result<void>)> callback) {
     using namespace network;
 
     if (m_pool)
-        throw IgniteError("Client is already started");
+        throw ignite_error("Client is already started");
 
     std::vector<TcpRange> addrs;
     addrs.reserve(m_configuration.getEndpoints().size());
     for (const auto &strAddr : m_configuration.getEndpoints()) {
         std::optional<TcpRange> ep = TcpRange::parse(strAddr, DEFAULT_TCP_PORT);
         if (!ep)
-            throw IgniteError("Can not parse address range: " + strAddr);
+            throw ignite_error("Can not parse address range: " + strAddr);
 
         addrs.push_back(std::move(ep.value()));
     }
 
     DataFilters filters;
 
-    std::shared_ptr<Factory<Codec>> codecFactory = std::make_shared<LengthPrefixCodecFactory>();
+    std::shared_ptr<factory<Codec>> codecFactory = std::make_shared<LengthPrefixCodecFactory>();
     std::shared_ptr<CodecDataFilter> codecFilter(new network::CodecDataFilter(codecFactory));
     filters.push_back(codecFilter);
 
@@ -94,26 +94,26 @@ void ClusterConnection::onConnectionSuccess(const network::EndPoint &addr, uint6
             return;
         }
         m_logger->logDebug("Handshake sent successfully");
-    } catch (const IgniteError &err) {
-        m_logger->logWarning("Failed to send handshake request: " + err.whatStr());
+    } catch (const ignite_error &err) {
+        m_logger->logWarning("Failed to send handshake request: " + err.what_str());
         removeClient(id);
     }
 }
 
-void ClusterConnection::onConnectionError(const network::EndPoint &addr, IgniteError err) {
+void ClusterConnection::onConnectionError(const network::EndPoint &addr, ignite_error err) {
     m_logger->logWarning(
         "Failed to establish connection with remote host " + addr.toString() + ", reason: " + err.what());
 
-    if (err.getStatusCode() == StatusCode::OS)
+    if (err.get_status_code() == status_code::OS)
         initialConnectResult(std::move(err));
 }
 
-void ClusterConnection::onConnectionClosed(uint64_t id, std::optional<IgniteError> err) {
+void ClusterConnection::onConnectionClosed(uint64_t id, std::optional<ignite_error> err) {
     m_logger->logDebug("Closed Connection ID " + std::to_string(id) + ", error=" + (err ? err->what() : "none"));
     removeClient(id);
 }
 
-void ClusterConnection::onMessageReceived(uint64_t id, BytesView msg) {
+void ClusterConnection::onMessageReceived(uint64_t id, bytes_view msg) {
     m_logger->logDebug("Message on Connection ID " + std::to_string(id) + ", size: " + std::to_string(msg.size()));
 
     std::shared_ptr<NodeConnection> connection = findClient(id);
@@ -126,7 +126,7 @@ void ClusterConnection::onMessageReceived(uint64_t id, BytesView msg) {
     }
 
     auto res = connection->processHandshakeRsp(msg);
-    if (res.hasError())
+    if (res.has_error())
         removeClient(connection->getId());
 
     initialConnectResult(std::move(res));
@@ -152,7 +152,7 @@ void ClusterConnection::removeClient(uint64_t id) {
     m_connections.erase(id);
 }
 
-void ClusterConnection::initialConnectResult(IgniteResult<void> &&res) {
+void ClusterConnection::initialConnectResult(ignite_result<void> &&res) {
     [[maybe_unused]] std::lock_guard<std::mutex> lock(m_onInitialConnectMutex);
 
     if (!m_onInitialConnect)

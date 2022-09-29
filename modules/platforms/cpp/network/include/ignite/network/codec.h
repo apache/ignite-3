@@ -39,7 +39,7 @@ public:
      * @param data Data to encode.
      * @return Encoded data. Returning null is ok.
      *
-     * @throw IgniteError on error.
+     * @throw ignite_error on error.
      */
     virtual DataBufferOwning encode(DataBufferOwning &data) = 0;
 
@@ -49,7 +49,7 @@ public:
      * @param data Data to decode.
      * @return Decoded data. Returning null means data is not yet ready.
      *
-     * @throw IgniteError on error.
+     * @throw ignite_error on error.
      */
     virtual DataBufferRef decode(DataBufferRef &data) = 0;
 };

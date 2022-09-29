@@ -46,7 +46,7 @@ WinAsyncClientPool::~WinAsyncClientPool() {
 
 void WinAsyncClientPool::start(std::vector<TcpRange> addrs, uint32_t connLimit) {
     if (!m_stopping)
-        throw IgniteError(StatusCode::GENERIC, "Client pool is already started");
+        throw ignite_error(status_code::GENERIC, "Client pool is already started");
 
     m_stopping = false;
 
@@ -121,7 +121,7 @@ bool WinAsyncClientPool::addClient(const std::shared_ptr<WinAsyncClient> &client
     return true;
 }
 
-void WinAsyncClientPool::handleConnectionError(const EndPoint &addr, const IgniteError &err) {
+void WinAsyncClientPool::handleConnectionError(const EndPoint &addr, const ignite_error &err) {
     auto asyncHandler0 = m_asyncHandler.lock();
     if (asyncHandler0)
         asyncHandler0->onConnectionError(addr, err);
@@ -133,13 +133,13 @@ void WinAsyncClientPool::handleConnectionSuccess(const EndPoint &addr, uint64_t 
         asyncHandler0->onConnectionSuccess(addr, id);
 }
 
-void WinAsyncClientPool::handleConnectionClosed(uint64_t id, std::optional<IgniteError> err) {
+void WinAsyncClientPool::handleConnectionClosed(uint64_t id, std::optional<ignite_error> err) {
     auto asyncHandler0 = m_asyncHandler.lock();
     if (asyncHandler0)
         asyncHandler0->onConnectionClosed(id, std::move(err));
 }
 
-void WinAsyncClientPool::handleMessageReceived(uint64_t id, BytesView msg) {
+void WinAsyncClientPool::handleMessageReceived(uint64_t id, bytes_view msg) {
     auto asyncHandler0 = m_asyncHandler.lock();
     if (asyncHandler0)
         asyncHandler0->onMessageReceived(id, msg);
@@ -162,7 +162,7 @@ bool WinAsyncClientPool::send(uint64_t id, std::vector<std::byte> &&data) {
     return client->send(std::move(data));
 }
 
-void WinAsyncClientPool::closeAndRelease(uint64_t id, std::optional<IgniteError> err) {
+void WinAsyncClientPool::closeAndRelease(uint64_t id, std::optional<ignite_error> err) {
     std::shared_ptr<WinAsyncClient> client;
     {
         std::lock_guard<std::mutex> lock(m_clientsMutex);
@@ -180,9 +180,9 @@ void WinAsyncClientPool::closeAndRelease(uint64_t id, std::optional<IgniteError>
     if (closed) {
         m_connectingThread.notifyFreeAddress(client->getRange());
 
-        IgniteError err0(client->getCloseError());
-        if (err0.getStatusCode() == StatusCode::SUCCESS)
-            err0 = IgniteError(StatusCode::NETWORK, "Connection closed by server");
+        ignite_error err0(client->getCloseError());
+        if (err0.get_status_code() == status_code::SUCCESS)
+            err0 = ignite_error(status_code::NETWORK, "Connection closed by server");
 
         if (!err)
             err = std::move(err0);
@@ -191,7 +191,7 @@ void WinAsyncClientPool::closeAndRelease(uint64_t id, std::optional<IgniteError>
     }
 }
 
-void WinAsyncClientPool::close(uint64_t id, std::optional<IgniteError> err) {
+void WinAsyncClientPool::close(uint64_t id, std::optional<ignite_error> err) {
     auto client = findClient(id);
     if (client && !client->isClosed())
         client->shutdown(std::move(err));

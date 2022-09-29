@@ -100,7 +100,7 @@ inline std::string getLastSystemError(std::string_view description, std::string_
  * @param advice User advice.
  */
 inline void throwLastSystemError(std::string_view description, std::string_view advice = {}) {
-    throw IgniteError(StatusCode::OS, getLastSystemError(description, advice));
+    throw ignite_error(status_code::OS, getLastSystemError(description, advice));
 }
 
 } // namespace ignite::network

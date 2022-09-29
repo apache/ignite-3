@@ -59,9 +59,9 @@ public:
      *   "\"MySchema\".\"Tbl0\"" - "MySchema.Tbl0", etc.
      * @param callback Callback to be called once operation is complete.
      * @return Table with corresponding name or @c std::nullopt if the table does not exist.
-     * @throw IgniteError In case of error.
+     * @throw ignite_error In case of error.
      */
-    IGNITE_API void getTableAsync(const std::string &name, IgniteCallback<std::optional<Table>> callback);
+    IGNITE_API void getTableAsync(const std::string &name, ignite_callback<std::optional<Table>> callback);
 
 private:
     /**

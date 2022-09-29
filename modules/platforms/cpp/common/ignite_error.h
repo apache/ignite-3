@@ -26,7 +26,7 @@ namespace ignite {
 /**
  * Status code.
  */
-enum class StatusCode : std::int32_t {
+enum class status_code : std::int32_t {
     SUCCESS = 0,
 
     GENERIC,
@@ -41,18 +41,18 @@ enum class StatusCode : std::int32_t {
 /**
  * Ignite Error.
  */
-class IgniteError : public std::exception {
+class ignite_error : public std::exception {
 public:
     // Default
-    IgniteError() = default;
+    ignite_error() = default;
 
     /**
      * Constructor.
      *
      * @param message Message.
      */
-    explicit IgniteError(std::string message)
-        : m_statusCode(StatusCode::GENERIC)
+    explicit ignite_error(std::string message)
+        : m_status_code(status_code::GENERIC)
         , m_message(std::move(message))
         , m_cause() { } // NOLINT(bugprone-throw-keyword-missing)
 
@@ -62,8 +62,8 @@ public:
      * @param statusCode Status code.
      * @param message Message.
      */
-    explicit IgniteError(StatusCode statusCode, std::string message)
-        : m_statusCode(statusCode)
+    explicit ignite_error(status_code statusCode, std::string message)
+        : m_status_code(statusCode)
         , m_message(std::move(message))
         , m_cause() { } // NOLINT(bugprone-throw-keyword-missing)
 
@@ -74,8 +74,8 @@ public:
      * @param message Message.
      * @param cause Error cause.
      */
-    explicit IgniteError(StatusCode statusCode, std::string message, const std::exception_ptr &cause)
-        : m_statusCode(statusCode)
+    explicit ignite_error(status_code statusCode, std::string message, const std::exception_ptr &cause)
+        : m_status_code(statusCode)
         , m_message(std::move(message))
         , m_cause(cause) { } // NOLINT(bugprone-throw-keyword-missing)
 
@@ -87,25 +87,25 @@ public:
     /**
      * Get error message as std::string.
      */
-    [[nodiscard]] const std::string &whatStr() const { return m_message; }
+    [[nodiscard]] const std::string &what_str() const { return m_message; }
 
     /**
      * Get status code.
      *
      * @return Status code.
      */
-    [[nodiscard]] StatusCode getStatusCode() const { return m_statusCode; }
+    [[nodiscard]] status_code get_status_code() const { return m_status_code; }
 
     /**
      * Get error cause.
      *
      * @return Error cause. Can be empty.
      */
-    [[nodiscard]] std::exception_ptr getCause() { return m_cause; }
+    [[nodiscard]] std::exception_ptr get_cause() { return m_cause; }
 
 private:
     /** Status code. */
-    StatusCode m_statusCode{StatusCode::SUCCESS};
+    status_code m_status_code{status_code::SUCCESS};
 
     /** Message. */
     std::string m_message;

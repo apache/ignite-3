@@ -47,14 +47,14 @@ public:
      *
      * @param data Data to write.
      */
-    void writeRawData(BytesView data) { m_buffer.insert(m_buffer.end(), data.begin(), data.end()); }
+    void writeRawData(bytes_view data) { m_buffer.insert(m_buffer.end(), data.begin(), data.end()); }
 
     /**
      * Get underlying data buffer view.
      *
      * @return Underlying data buffer view.
      */
-    [[nodiscard]] BytesView getData() const { return m_buffer; }
+    [[nodiscard]] bytes_view getData() const { return m_buffer; }
 
     /**
      * Reserving space for length header.

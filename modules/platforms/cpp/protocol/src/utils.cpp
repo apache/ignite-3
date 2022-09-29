@@ -35,7 +35,7 @@ Guid makeRandomGuid() {
     return {distrib(gen), distrib(gen)};
 }
 
-std::optional<IgniteError> readError(Reader &reader) {
+std::optional<ignite_error> readError(Reader &reader) {
     if (reader.tryReadNil())
         return std::nullopt;
 
@@ -48,7 +48,7 @@ std::optional<IgniteError> readError(Reader &reader) {
 
     errMsgBuilder << className << ": " << message << " (" << code << ", " << traceId << ")";
 
-    return {IgniteError(StatusCode(code), errMsgBuilder.str())};
+    return {ignite_error(status_code(code), errMsgBuilder.str())};
 }
 
 } // namespace ignite::protocol

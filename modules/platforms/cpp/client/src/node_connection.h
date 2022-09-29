@@ -135,14 +135,14 @@ public:
      *
      * @param msg Received message.
      */
-    void processMessage(BytesView msg);
+    void processMessage(bytes_view msg);
 
     /**
      * Process handshake response.
      *
      * @param msg Handshake response message.
      */
-    IgniteResult<void> processHandshakeRsp(BytesView msg);
+    ignite_result<void> processHandshakeRsp(bytes_view msg);
 
 private:
     /**

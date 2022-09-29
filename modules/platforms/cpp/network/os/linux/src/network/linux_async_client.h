@@ -75,7 +75,7 @@ public:
      * @param err Error message. Can be null.
      * @return @c true if shutdown performed successfully.
      */
-    bool shutdown(std::optional<IgniteError> err);
+    bool shutdown(std::optional<ignite_error> err);
 
     /**
      * Close client.
@@ -100,7 +100,7 @@ public:
      *
      * @return @c true on success.
      */
-    BytesView receive();
+    bytes_view receive();
 
     /**
      * Process sent data.
@@ -172,7 +172,7 @@ public:
      *
      * @return Connection error.
      */
-    [[nodiscard]] const IgniteError &getCloseError() const { return m_closeErr; }
+    [[nodiscard]] const ignite_error &getCloseError() const { return m_closeErr; }
 
 private:
     /**
@@ -211,7 +211,7 @@ private:
     std::vector<std::byte> m_recvPacket;
 
     /** Closing error. */
-    IgniteError m_closeErr;
+    ignite_error m_closeErr;
 };
 
 } // namespace ignite::network

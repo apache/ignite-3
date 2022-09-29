@@ -48,7 +48,7 @@ public:
      * @param id Client ID.
      * @param err Optional error.
      */
-    virtual void close(uint64_t id, std::optional<IgniteError> err) = 0;
+    virtual void close(uint64_t id, std::optional<ignite_error> err) = 0;
 };
 
 } // namespace ignite::network
