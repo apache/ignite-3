@@ -43,6 +43,7 @@ import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
@@ -71,6 +72,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
     private ReplicaListener replicaListener;
 
+    private String groupId;
+
     /**
      * Creates a new local table.
      *
@@ -84,9 +87,39 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      * Creates a new local table.
      *
      * @param replicaSvc Replica service.
+     * @param txManager Transaction manager.
+     * @param crossTableUsage If this dummy table is going to be used in cross-table tests, it won't mock the calls of ReplicaService
+     *                        by itself.
+     */
+    public DummyInternalTableImpl(ReplicaService replicaSvc, TxManager txManager, boolean crossTableUsage) {
+        this(replicaSvc, new TestConcurrentHashMapMvPartitionStorage(0), txManager, crossTableUsage);
+    }
+
+    /**
+     * Creates a new local table.
+     *
+     * @param replicaSvc Replica service.
      * @param mvPartStorage Multi version partition storage.
      */
     public DummyInternalTableImpl(ReplicaService replicaSvc, MvPartitionStorage mvPartStorage) {
+        this(replicaSvc, mvPartStorage, null, false);
+    }
+
+    /**
+     * Creates a new local table.
+     *
+     * @param replicaSvc Replica service.
+     * @param mvPartStorage Multi version partition storage.
+     * @param txManager Transaction manager, if {@code null}, then default one will be created.
+     * @param crossTableUsage If this dummy table is going to be used in cross-table tests, it won't mock the calls of ReplicaService
+     *                        by itself.
+     */
+    public DummyInternalTableImpl(
+        ReplicaService replicaSvc,
+        MvPartitionStorage mvPartStorage,
+        @Nullable TxManager txManager,
+        boolean crossTableUsage
+    ) {
         super(
                 "test",
                 UUID.randomUUID(),
@@ -94,7 +127,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 1,
                 NetworkAddress::toString,
                 addr -> Mockito.mock(ClusterNode.class),
-                new TxManagerImpl(replicaSvc, new HeapLockManager()),
+                txManager == null ? new TxManagerImpl(replicaSvc, new HeapLockManager()) : txManager,
                 mock(MvTableStorage.class),
                 mock(TxStateTableStorage.class),
                 replicaSvc,
@@ -102,18 +135,22 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         );
         RaftGroupService svc = partitionMap.get(0);
 
-        lenient().doReturn("testGrp").when(svc).groupId();
+        groupId = crossTableUsage ? "testGrp-" + UUID.randomUUID() : "testGrp";
+
+        lenient().doReturn(groupId).when(svc).groupId();
         Peer leaderPeer = new Peer(ADDR);
         lenient().doReturn(leaderPeer).when(svc).leader();
         lenient().doReturn(CompletableFuture.completedFuture(new IgniteBiTuple<>(leaderPeer, 1L))).when(svc).refreshAndGetLeaderWithTerm();
 
-        // Delegate replica requests directly to replica listener.
-        lenient().doAnswer(
-                invocationOnMock -> {
-                    CompletableFuture<Object> invoke = replicaListener.invoke(invocationOnMock.getArgument(1));
-                    return invoke;
-                }
-        ).when(replicaSvc).invoke(any(), any());
+        if (!crossTableUsage) {
+            // Delegate replica requests directly to replica listener.
+            lenient().doAnswer(
+                    invocationOnMock -> {
+                        CompletableFuture<Object> invoke = replicaListener.invoke(invocationOnMock.getArgument(1));
+                        return invoke;
+                    }
+            ).when(replicaSvc).invoke(any(), any());
+        }
 
         AtomicLong raftIndex = new AtomicLong();
 
@@ -143,7 +180,11 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                         /** {@inheritDoc} */
                         @Override
                         public void result(@Nullable Serializable r) {
-                            res.complete(r);
+                            if (r instanceof Throwable) {
+                                res.completeExceptionally((Throwable) r);
+                            } else {
+                                res.complete(r);
+                            }
                         }
                     };
 
@@ -165,7 +206,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 txManager,
                 txManager.lockManager(),
                 0,
-                "testGrp",
+                groupId,
                 tableId(),
                 primaryIndex,
                 new HybridClock()
@@ -189,10 +230,28 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         return partitionListener;
     }
 
+    /**
+     * Replica listener.
+     *
+     * @return Replica listener.
+     */
+    public ReplicaListener getReplicaListener() {
+        return replicaListener;
+    }
+
     /** {@inheritDoc} */
     @Override
     public @NotNull UUID tableId() {
         return UUID.randomUUID();
+    }
+
+    /**
+     * Group id of single partition of this table.
+     *
+     * @return Group id.
+     */
+    public String groupId() {
+        return groupId;
     }
 
     /** {@inheritDoc} */
