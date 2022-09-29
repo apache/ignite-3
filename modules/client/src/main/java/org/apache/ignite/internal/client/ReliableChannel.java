@@ -575,7 +575,7 @@ public final class ReliableChannel implements AutoCloseable {
 
                 onChannelFailure(hld, c);
 
-                if (!shouldRetry(-1, attempt, e)) {
+                if (!shouldRetry(ClientOperationType.CHANNEL_CONNECT, attempt, e)) {
                     break;
                 }
             }
@@ -588,6 +588,11 @@ public final class ReliableChannel implements AutoCloseable {
     private boolean shouldRetry(int opCode, int iteration, IgniteClientConnectionException exception) {
         ClientOperationType opType = ClientUtils.opCodeToClientOperationType(opCode);
 
+        return shouldRetry(opType, iteration, exception);
+    }
+
+    /** Determines whether specified operation should be retried. */
+    private boolean shouldRetry(ClientOperationType opType, int iteration, IgniteClientConnectionException exception) {
         if (opType == null) {
             // System operation.
             return iteration < RetryLimitPolicy.DFLT_RETRY_LIMIT;
