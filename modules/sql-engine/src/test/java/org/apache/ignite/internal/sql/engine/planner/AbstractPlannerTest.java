@@ -77,6 +77,7 @@ import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.calcite.sql.SqlFunction;
 import org.apache.calcite.sql.SqlNode;
+import org.apache.calcite.sql.type.BasicSqlType;
 import org.apache.calcite.sql2rel.InitializerContext;
 import org.apache.calcite.sql2rel.SqlToRelConverter;
 import org.apache.calcite.util.ImmutableBitSet;
@@ -1020,7 +1021,10 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         @Override
         public ColumnDescriptor columnDescriptor(String fieldName) {
             RelDataTypeField field = rowType.getField(fieldName, false, false);
-            return new TestColumnDescriptor(field.getIndex(), fieldName);
+
+            NativeType nativeType = field.getType() instanceof BasicSqlType ? IgniteTypeFactory.relDataTypeToNative(field.getType()) : null;
+
+            return new TestColumnDescriptor(field.getIndex(), fieldName, nativeType);
         }
 
         /** {@inheritDoc} */
@@ -1028,7 +1032,9 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         public ColumnDescriptor columnDescriptor(int idx) {
             RelDataTypeField field = rowType.getFieldList().get(idx);
 
-            return new TestColumnDescriptor(field.getIndex(), field.getName());
+            NativeType nativeType = field.getType() instanceof BasicSqlType ? IgniteTypeFactory.relDataTypeToNative(field.getType()) : null;
+
+            return new TestColumnDescriptor(field.getIndex(), field.getName(), nativeType);
         }
 
         /** {@inheritDoc} */
@@ -1074,9 +1080,12 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         private final String name;
 
-        TestColumnDescriptor(int idx, String name) {
+        private final NativeType physicalType;
+
+        TestColumnDescriptor(int idx, String name, NativeType physicalType) {
             this.idx = idx;
             this.name = name;
+            this.physicalType = physicalType;
         }
 
         /** {@inheritDoc} */
@@ -1118,7 +1127,10 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         /** {@inheritDoc} */
         @Override
         public NativeType physicalType() {
-            throw new AssertionError();
+            if (physicalType == null)
+                throw new AssertionError();
+
+            return physicalType;
         }
 
         /** {@inheritDoc} */

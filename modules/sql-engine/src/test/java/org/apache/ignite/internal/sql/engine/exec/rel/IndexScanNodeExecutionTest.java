@@ -22,12 +22,16 @@ import static org.hamcrest.core.IsEqual.equalTo;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscription;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeFactory.Builder;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
+import org.apache.ignite.internal.index.ColumnCollation;
 import org.apache.ignite.internal.index.SortedIndex;
+import org.apache.ignite.internal.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.Column;
@@ -36,8 +40,10 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
+import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
@@ -45,6 +51,7 @@ import org.mockito.Mockito;
 
 //TODO: check merging of multiple sorted index tries is correct.
 //TODO: add test for hash index.
+
 /**
  * Test {@link IndexScanNode} contract.
  */
@@ -54,53 +61,74 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
         // Empty index.
         verifyIndexScan(
                 EMPTY,
-                ImmutableBitSet.of(0, 1),
+                ImmutableBitSet.of(1),
                 EMPTY
         );
 
         verifyIndexScan(
                 new Object[][]{
-                        {1, "Roman", null},
-                        {2, "Igor", 4L},
-                        {3, "Taras", 3L},
-                        {4, "Alexey", 1L},
-                        {5, "Ivan", 4L},
-                        {6, "Andrey", 2L}
+                        {1L, null, 1, "Roman"},
+                        {2L, 4, 2, "Igor"},
+                        {3L, 3, 1, "Taras"},
+                        {4L, 2, null, "Alexey"},
+                        {5L, 4, 1, "Ivan"},
+                        {6L, 2, 1, "Andrey"}
                 },
-                ImmutableBitSet.of(0, 2),
+                ImmutableBitSet.of(2),
                 // TODO: sort data, once IndexScanNode will support merging.
                 new Object[][]{
-                        {1, "Roman", null},
-                        {2, "Igor", null},
-                        {3, "Taras", null},
-                        {4, "Alexey", null},
-                        {5, "Ivan", null},
-                        {6, "Andrey", null}
+                        {1L, null, 1, "Roman"},
+                        {2L, 4, 2, "Igor"},
+                        {3L, 3, 1, "Taras"},
+                        {4L, 2, null, "Alexey"},
+                        {5L, 4, 1, "Ivan"},
+                        {6L, 2, 1, "Andrey"}
                 }
         );
     }
 
     private void verifyIndexScan(Object[][] tableData, ImmutableBitSet requiredColumns, Object[][] expRes) {
-        BinaryTuple[] tableRows = createRows(tableData);
+        SchemaDescriptor schemaDescriptor = new SchemaDescriptor(
+                1,
+                new Column[]{new Column("key", NativeTypes.INT64, false)},
+                new Column[]{
+                        new Column("idxCol1", NativeTypes.INT32, true),
+                        new Column("idxCol2", NativeTypes.INT32, true),
+                        new Column("val", NativeTypes.stringOf(Integer.MAX_VALUE), true)
+                }
+        );
+        BinaryTuple[] tableRows = convertToRows(tableData, schemaDescriptor);
 
         BinaryTuple[] part0Rows = Arrays.stream(tableRows).limit(tableRows.length / 2).toArray(BinaryTuple[]::new);
         BinaryTuple[] part2Rows = Arrays.stream(tableRows).skip(tableRows.length / 2).toArray(BinaryTuple[]::new);
 
         ExecutionContext<Object[]> ectx = executionContext(true);
 
-        RelDataType rowType = TypeUtils.createRowType(ectx.getTypeFactory(), long.class, String.class, int.class);
-
         IgniteIndex indexMock = Mockito.mock(IgniteIndex.class);
         SortedIndex sortedIndexMock = Mockito.mock(SortedIndex.class);
 
         Mockito.doReturn(sortedIndexMock).when(indexMock).index();
+        Mockito.doReturn(new SortedIndexDescriptor(
+                        "IDX1",
+                        List.of("idxCol2", "idxCol1"),
+                        List.of(ColumnCollation.ASC_NULLS_FIRST, ColumnCollation.ASC_NULLS_LAST)
+                ))
+                .when(sortedIndexMock).descriptor();
 
         Mockito.doReturn(dummyPublisher(part0Rows)).when(sortedIndexMock)
                 .scan(Mockito.eq(0), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.anyInt(), Mockito.any());
         Mockito.doReturn(dummyPublisher(part2Rows)).when(sortedIndexMock)
                 .scan(Mockito.eq(2), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.anyInt(), Mockito.any());
 
-        AbstractPlannerTest.TestTable table = new AbstractPlannerTest.TestTable(rowType) {
+        IgniteTypeFactory f = ectx.getTypeFactory();
+
+        RelDataType rowType = new Builder(f)
+                .add("key", TypeUtils.native2relationalType(f, NativeTypes.INT64, false))
+                .add("idxCol1", TypeUtils.native2relationalType(f, NativeTypes.INT32, true))
+                .add("idxCol2", TypeUtils.native2relationalType(f, NativeTypes.INT32, true))
+                .add("val", TypeUtils.native2relationalType(f, NativeTypes.STRING, true))
+                .build();
+        InternalIgniteTable table = new AbstractPlannerTest.TestTable(rowType) {
             @Override
             public IgniteDistribution distribution() {
                 return IgniteDistributions.broadcast();
@@ -132,21 +160,15 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
         assertThat(res.toArray(EMPTY), equalTo(expRes));
     }
 
-    private BinaryTuple[] createRows(Object[][] tableData) {
-        BinaryTupleSchema binaryTupleSchema = BinaryTupleSchema.createRowSchema(new SchemaDescriptor(
-                1,
-                new Column[]{new Column("key", NativeTypes.INT32, false)},
-                new Column[]{
-                        new Column("idxVal", NativeTypes.INT64, true),
-                        new Column("val", NativeTypes.stringOf(Integer.MAX_VALUE), true)
-                }
-        ));
+    private BinaryTuple[] convertToRows(Object[][] tableData, SchemaDescriptor schemaDescriptor) {
+        BinaryTupleSchema binaryTupleSchema = BinaryTupleSchema.createRowSchema(schemaDescriptor);
 
         return Arrays.stream(tableData)
-                .map(row -> new BinaryTuple(binaryTupleSchema, new BinaryTupleBuilder(3, true)
-                        .appendInt((int) row[0])
-                        .appendLong((Long) row[2])
-                        .appendString((String) row[1])
+                .map(row -> new BinaryTuple(binaryTupleSchema, new BinaryTupleBuilder(4, true)
+                        .appendLong((long) row[0])
+                        .appendInt((Integer) row[1])
+                        .appendInt((Integer) row[2])
+                        .appendString((String) row[3])
                         .build())
                 )
                 .toArray(BinaryTuple[]::new);
