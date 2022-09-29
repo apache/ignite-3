@@ -86,7 +86,7 @@ We use lower case with undescore between words for almost everything:
 
 For constants we use upper case with undescore between words. Macro constants must start with the `IGNITE_` prefix.
 
-For private/protected class fields it preferrable but not mandatory to use the `m_` prefix.
+For private/protected class fields it is allowed but not required to use the `m_` prefix.
 
 ```
 #ifndef IGNITE_FOO_LIMIT
@@ -130,10 +130,3 @@ Header files are included in order from more specific to less specific:
 
 These groups are separated by an empty line. Inside each group files are sorted in alphabetical
 order.
-
-## Drop-in Replacements for Standard Library Сlasses
-
-Sometimes we can provide a class intended as a drop-in replacement for a class from the standard
-C++ library. For example we can provide a a container to replace some standard container. In such
-cases it is preferred to switch from our naming conventions (`pushBack()`) to the standard library
-conventions (`push_back()`).
