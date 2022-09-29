@@ -142,17 +142,6 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void test3() throws TransactionException {
-        System.out.println("UPSERT");
-        accounts.recordView().upsert(null, makeValue(1, 100.));
-        assertNotNull(accounts.recordView().get(null, makeKey(1)));
-        accounts.recordView().upsert(null, makeValue(1, 100.));
-        assertNotNull(accounts.recordView().get(null, makeKey(1)));
-        accounts.recordView().upsert(null, makeValue(1, 100.));
-        assertNotNull(accounts.recordView().get(null, makeKey(1)));
-    }
-
-    @Test
     public void testMixedPutGet() throws TransactionException {
         accounts.recordView().upsert(null, makeValue(1, BALANCE_1));
 

@@ -191,8 +191,7 @@ public class PartitionListener implements RaftGroupListener {
                 txsRemovedKeys.computeIfAbsent(txId, entry -> new HashSet<>()).remove(row.keySlice());
 
                 primaryIndex.put(row.keySlice(), rowId);
-            }
-            else if (primaryIndex.containsKey(row.keySlice())) {
+            } else if (primaryIndex.containsKey(row.keySlice())) {
                 txsRemovedKeys.computeIfAbsent(txId, entry -> new HashSet<>()).remove(row.keySlice());
             }
 
@@ -238,8 +237,7 @@ public class PartitionListener implements RaftGroupListener {
                         txsRemovedKeys.computeIfAbsent(txId, entry0 -> new HashSet<>()).remove(entry.getValue().keySlice());
 
                         primaryIndex.put(entry.getValue().keySlice(), entry.getKey());
-                    }
-                    else if (primaryIndex.containsKey(entry.getValue().keySlice())) {
+                    } else if (primaryIndex.containsKey(entry.getValue().keySlice())) {
                         txsRemovedKeys.computeIfAbsent(txId, entry0 -> new HashSet<>()).remove(entry.getValue().keySlice());
                     }
                 }
