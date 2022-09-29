@@ -19,23 +19,22 @@
 
 #include "node_connection.h"
 
-namespace ignite::detail
-{
+namespace ignite::detail {
 
-NodeConnection::NodeConnection(uint64_t id, std::shared_ptr<network::AsyncClientPool> pool,
-    std::shared_ptr<IgniteLogger> logger) :
-    m_id(id),
-    m_pool(std::move(pool)),
-    m_logger(std::move(logger)) { }
-
+NodeConnection::NodeConnection(
+    uint64_t id, std::shared_ptr<network::AsyncClientPool> pool, std::shared_ptr<IgniteLogger> logger)
+    : m_id(id)
+    , m_pool(std::move(pool))
+    , m_logger(std::move(logger)) {
+}
 
 NodeConnection::~NodeConnection() {
-    for (auto& handler : m_requestHandlers) {
-        auto handlingRes = IgniteResult<void>::ofOperation([&] () {
+    for (auto &handler : m_requestHandlers) {
+        auto handlingRes = IgniteResult<void>::ofOperation([&]() {
             auto res = handler.second->setError(IgniteError("Connection closed before response was received"));
             if (res.hasError())
-                m_logger->logError("Uncaught user callback exception while handling operation error: " +
-                    res.getError().whatStr());
+                m_logger->logError(
+                    "Uncaught user callback exception while handling operation error: " + res.getError().whatStr());
         });
         if (handlingRes.hasError())
             m_logger->logError("Uncaught user callback exception: " + handlingRes.getError().whatStr());
@@ -50,7 +49,7 @@ bool NodeConnection::handshake() {
         protocol::BufferAdapter buffer(message);
         buffer.writeRawData(BytesView(protocol::MAGIC_BYTES.data(), protocol::MAGIC_BYTES.size()));
 
-        protocol::Writer::writeMessageToBuffer(buffer, [&context = m_protocolContext](protocol::Writer& writer) {
+        protocol::Writer::writeMessageToBuffer(buffer, [&context = m_protocolContext](protocol::Writer &writer) {
             auto ver = context.getVersion();
 
             writer.write(ver.getMajor());
@@ -91,8 +90,8 @@ void NodeConnection::processMessage(BytesView msg) {
         m_logger->logError("Error: " + err->whatStr());
         auto res = handler->setError(std::move(err.value()));
         if (res.hasError())
-            m_logger->logError("Uncaught user callback exception while handling operation error: " +
-                res.getError().whatStr());
+            m_logger->logError(
+                "Uncaught user callback exception while handling operation error: " + res.getError().whatStr());
         return;
     }
 
@@ -121,9 +120,9 @@ IgniteResult<void> NodeConnection::processHandshakeRsp(BytesView msg) {
     if (err)
         return {IgniteError(err.value())};
 
-    (void) reader.readInt64(); // TODO: IGNITE-17606 Implement heartbeats
-    (void) reader.readStringNullable(); // Cluster node ID. Needed for partition-aware compute.
-    (void) reader.readStringNullable(); // Cluster node name. Needed for partition-aware compute.
+    (void)reader.readInt64(); // TODO: IGNITE-17606 Implement heartbeats
+    (void)reader.readStringNullable(); // Cluster node ID. Needed for partition-aware compute.
+    (void)reader.readStringNullable(); // Cluster node name. Needed for partition-aware compute.
 
     reader.skip(); // Features.
     reader.skip(); // Extensions.

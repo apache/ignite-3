@@ -23,21 +23,19 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-#include <vector>
 #include <chrono>
-#include <string>
 #include <iostream>
+#include <string>
+#include <vector>
 
 #include "cmd_process.h"
 
-namespace ignite::lin
-{
+namespace ignite::lin {
 
 /**
  * Implementation of CmdProcess for Windows.
  */
-class LinuxProcess : public ignite::CmdProcess
-{
+class LinuxProcess : public ignite::CmdProcess {
 public:
     /**
      * Constructor.
@@ -46,18 +44,16 @@ public:
      * @param args Arguments.
      * @param workDir Working directory.
      */
-    LinuxProcess(std::string command, std::vector<std::string> args, std::string workDir) :
-            m_running(false),
-            m_command(std::move(command)),
-            m_args(std::move(args)),
-            m_workDir(std::move(workDir)) { }
+    LinuxProcess(std::string command, std::vector<std::string> args, std::string workDir)
+        : m_running(false)
+        , m_command(std::move(command))
+        , m_args(std::move(args))
+        , m_workDir(std::move(workDir)) { }
 
     /**
      * Destructor.
      */
-    ~LinuxProcess() override {
-        kill();
-    }
+    ~LinuxProcess() override { kill(); }
 
     /**
      * Start process.
@@ -68,28 +64,25 @@ public:
 
         m_pid = fork();
 
-        if (!m_pid)
-        {
+        if (!m_pid) {
             // Setting the group ID to be killed easily.
             int res = setpgid(0, 0);
-            if (res)
-            {
+            if (res) {
                 std::cout << "Failed set group ID of the forked process: " + std::to_string(res) << std::endl;
                 exit(1);
             }
 
             // Route for the forked process.
             res = chdir(m_workDir.c_str());
-            if (res)
-            {
+            if (res) {
                 std::cout << "Failed to change directory of the forked process: " + std::to_string(res) << std::endl;
                 exit(1);
             }
 
-            std::vector<const char*> args;
+            std::vector<const char *> args;
             args.push_back(m_command.c_str());
 
-            for (auto& arg : m_args) {
+            for (auto &arg : m_args) {
                 args.push_back(arg.c_str());
             }
 
@@ -121,8 +114,7 @@ public:
      *
      * @param timeout Timeout.
      */
-    void join(std::chrono::milliseconds) final
-    {
+    void join(std::chrono::milliseconds) final {
         // Ignoring timeout in Linux...
         ::waitpid(m_pid, nullptr, 0);
     }

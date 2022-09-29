@@ -15,14 +15,14 @@
  * limitations under the License.
  */
 
-#include <thread>
 #include <chrono>
 #include <string_view>
+#include <thread>
 
 #include <gtest/gtest.h>
 
-#include "ignite/ignite_client_configuration.h"
 #include "ignite/ignite_client.h"
+#include "ignite/ignite_client_configuration.h"
 
 #include "gtest_logger.h"
 
@@ -43,27 +43,23 @@ protected:
      *
      * @return Logger for tests.
      */
-    static std::shared_ptr<GtestLogger> getLogger() {
-        return std::make_shared<GtestLogger>(true, true);
-    }
+    static std::shared_ptr<GtestLogger> getLogger() { return std::make_shared<GtestLogger>(true, true); }
 };
 
-TEST_F(ClientTest, GetConfiguration)
-{
+TEST_F(ClientTest, GetConfiguration) {
     IgniteClientConfiguration cfg{NODE_ADDRS};
     cfg.setLogger(getLogger());
     cfg.setConnectionLimit(42);
 
     auto client = IgniteClient::start(cfg, std::chrono::seconds(5));
 
-    const auto& cfg2 = client.getConfiguration();
+    const auto &cfg2 = client.getConfiguration();
 
     EXPECT_EQ(cfg.getEndpoints(), cfg2.getEndpoints());
     EXPECT_EQ(cfg.getConnectionLimit(), cfg2.getConnectionLimit());
 }
 
-TEST_F(ClientTest, TablesGetTablePromises)
-{
+TEST_F(ClientTest, TablesGetTablePromises) {
     IgniteClientConfiguration cfg{NODE_ADDRS};
     cfg.setLogger(getLogger());
 
@@ -88,8 +84,8 @@ TEST_F(ClientTest, TablesGetTablePromises)
     EXPECT_EQ(table->getName(), "PUB.tbl1");
 }
 
-template<typename T>
-bool checkAndSetOperationError(std::promise<void>& operation, const IgniteResult<T>& res) {
+template <typename T>
+bool checkAndSetOperationError(std::promise<void> &operation, const IgniteResult<T> &res) {
     if (res.hasError()) {
         operation.set_exception(std::make_exception_ptr(res.getError()));
         return false;
@@ -101,8 +97,7 @@ bool checkAndSetOperationError(std::promise<void>& operation, const IgniteResult
     return true;
 }
 
-TEST_F(ClientTest, TablesGetTableCallbacks)
-{
+TEST_F(ClientTest, TablesGetTableCallbacks) {
     auto operation0 = std::make_shared<std::promise<void>>();
     auto operation1 = std::make_shared<std::promise<void>>();
     auto operation2 = std::make_shared<std::promise<void>>();
@@ -112,7 +107,7 @@ TEST_F(ClientTest, TablesGetTableCallbacks)
 
     IgniteClient client;
 
-    IgniteClient::startAsync(cfg, std::chrono::seconds(5), [&] (IgniteResult<IgniteClient> clientRes) {
+    IgniteClient::startAsync(cfg, std::chrono::seconds(5), [&](IgniteResult<IgniteClient> clientRes) {
         if (!checkAndSetOperationError(*operation0, clientRes))
             return;
 
@@ -120,7 +115,7 @@ TEST_F(ClientTest, TablesGetTableCallbacks)
         auto tables = client.getTables();
 
         operation0->set_value();
-        tables.getTableAsync("PUB.some_unknown", [&] (auto tableRes) {
+        tables.getTableAsync("PUB.some_unknown", [&](auto tableRes) {
             if (!checkAndSetOperationError(*operation1, tableRes))
                 return;
 
@@ -133,7 +128,7 @@ TEST_F(ClientTest, TablesGetTableCallbacks)
             operation1->set_value();
         });
 
-        tables.getTableAsync("PUB.tbl1", [&] (auto tableRes) {
+        tables.getTableAsync("PUB.tbl1", [&](auto tableRes) {
             if (!checkAndSetOperationError(*operation2, tableRes))
                 return;
 
@@ -143,7 +138,8 @@ TEST_F(ClientTest, TablesGetTableCallbacks)
                 return;
             }
             if (table->getName() != "PUB.tbl1") {
-                operation2->set_exception(std::make_exception_ptr(IgniteError("Table has unexpected name: " + table->getName())));
+                operation2->set_exception(
+                    std::make_exception_ptr(IgniteError("Table has unexpected name: " + table->getName())));
                 return;
             }
 

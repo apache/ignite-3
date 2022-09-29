@@ -26,38 +26,34 @@
 #include "cluster_connection.h"
 #include "table/tables_impl.h"
 
-namespace ignite::detail
-{
+namespace ignite::detail {
 
 /**
  * Ignite client implementation.
  */
-class IgniteClientImpl
-{
+class IgniteClientImpl {
 public:
     // Deleted
     IgniteClientImpl() = delete;
-    IgniteClientImpl(IgniteClientImpl&&) = delete;
-    IgniteClientImpl(const IgniteClientImpl&) = delete;
-    IgniteClientImpl& operator=(IgniteClientImpl&&) = delete;
-    IgniteClientImpl& operator=(const IgniteClientImpl&) = delete;
+    IgniteClientImpl(IgniteClientImpl &&) = delete;
+    IgniteClientImpl(const IgniteClientImpl &) = delete;
+    IgniteClientImpl &operator=(IgniteClientImpl &&) = delete;
+    IgniteClientImpl &operator=(const IgniteClientImpl &) = delete;
 
     /**
      * Constructor.
      *
      * @param configuration Configuration.
      */
-    explicit IgniteClientImpl(IgniteClientConfiguration configuration) :
-        m_configuration(std::move(configuration)),
-        m_connection(ClusterConnection::create(m_configuration)),
-        m_tables(std::make_shared<TablesImpl>(m_connection)) { }
+    explicit IgniteClientImpl(IgniteClientConfiguration configuration)
+        : m_configuration(std::move(configuration))
+        , m_connection(ClusterConnection::create(m_configuration))
+        , m_tables(std::make_shared<TablesImpl>(m_connection)) { }
 
     /**
      * Destructor.
      */
-    ~IgniteClientImpl() {
-        stop();
-    }
+    ~IgniteClientImpl() { stop(); }
 
     /**
      * Start client.
@@ -65,36 +61,26 @@ public:
      * @param timeout Timeout.
      * @param callback Callback.
      */
-    void start(std::function<void(IgniteResult<void>)> callback) {
-        m_connection->startAsync(std::move(callback));
-    }
+    void start(std::function<void(IgniteResult<void>)> callback) { m_connection->startAsync(std::move(callback)); }
 
     /**
      * Stop client.
      */
-    void stop() {
-        m_connection->stop();
-    }
+    void stop() { m_connection->stop(); }
 
     /**
      * Get client configuration.
      *
      * @return Configuration.
      */
-    [[nodiscard]]
-    const IgniteClientConfiguration& getConfiguration() const {
-        return m_configuration;
-    }
+    [[nodiscard]] const IgniteClientConfiguration &getConfiguration() const { return m_configuration; }
 
     /**
      * Get table management API implementation.
      *
      * @return Table management API implementation.
      */
-    [[nodiscard]]
-    std::shared_ptr<TablesImpl> getTablesImpl() const {
-        return m_tables;
-    }
+    [[nodiscard]] std::shared_ptr<TablesImpl> getTablesImpl() const { return m_tables; }
 
 private:
     /** Configuration. */

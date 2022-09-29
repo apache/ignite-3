@@ -28,17 +28,15 @@
 #include <ignite/network/async_handler.h>
 #include <ignite/network/tcp_range.h>
 
-#include "network/linux_async_worker_thread.h"
 #include "network/linux_async_client.h"
+#include "network/linux_async_worker_thread.h"
 
-namespace ignite::network
-{
+namespace ignite::network {
 
 /**
  * Linux-specific implementation of asynchronous client pool.
  */
-class LinuxAsyncClientPool : public AsyncClientPool
-{
+class LinuxAsyncClientPool : public AsyncClientPool {
 public:
     /**
      * Constructor
@@ -74,10 +72,7 @@ public:
      *
      * @param handler Handler to set.
      */
-    void setHandler(std::weak_ptr<AsyncHandler> handler) override
-    {
-        m_asyncHandler = std::move(handler);
-    }
+    void setHandler(std::weak_ptr<AsyncHandler> handler) override { m_asyncHandler = std::move(handler); }
 
     /**
      * Send data to specific established connection.
@@ -88,7 +83,7 @@ public:
      *
      * @throw IgniteError on error.
      */
-    bool send(uint64_t id, std::vector<std::byte>&& data) override;
+    bool send(uint64_t id, std::vector<std::byte> &&data) override;
 
     /**
      * Closes specified connection if it's established. Connection to the specified address is planned for
@@ -122,7 +117,7 @@ public:
      * @param addr Connection address.
      * @param err Error.
      */
-    void handleConnectionError(const EndPoint& addr, IgniteError err);
+    void handleConnectionError(const EndPoint &addr, IgniteError err);
 
     /**
      * Handle successful connection establishment.
@@ -130,7 +125,7 @@ public:
      * @param addr Address of the new connection.
      * @param id Connection ID.
      */
-    void handleConnectionSuccess(const EndPoint& addr, uint64_t id);
+    void handleConnectionSuccess(const EndPoint &addr, uint64_t id);
 
     /**
      * Handle error during connection establishment.
@@ -156,7 +151,7 @@ public:
     void handleMessageSent(uint64_t id);
 
 private:
-     /**
+    /**
      * Close all established connections and stops handling threads.
      */
     void internalStop();

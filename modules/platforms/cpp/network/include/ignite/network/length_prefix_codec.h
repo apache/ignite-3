@@ -17,21 +17,19 @@
 
 #pragma once
 
-#include <vector>
 #include <cstddef>
+#include <vector>
 
 #include <common/ignite_error.h>
 
 #include <ignite/network/codec.h>
 
-namespace ignite::network
-{
+namespace ignite::network {
 
 /**
  * Codec that decodes messages prefixed with int32 length.
  */
-class LengthPrefixCodec : public Codec
-{
+class LengthPrefixCodec : public Codec {
 public:
     /** Packet header size in bytes. */
     static constexpr size_t PACKET_HEADER_SIZE = 4;
@@ -52,7 +50,7 @@ public:
      *
      * @throw IgniteError on error.
      */
-    DataBufferOwning encode(DataBufferOwning& data) override;
+    DataBufferOwning encode(DataBufferOwning &data) override;
 
     /**
      * Decode provided data.
@@ -62,7 +60,7 @@ public:
      *
      * @throw IgniteError on error.
      */
-    DataBufferRef decode(DataBufferRef& data) override;
+    DataBufferRef decode(DataBufferRef &data) override;
 
 private:
     /**
@@ -71,7 +69,7 @@ private:
      * @param data Data to consume.
      * @param desired Desired resulting size of packet.
      */
-    void consume(DataBufferRef& data, size_t desired);
+    void consume(DataBufferRef &data, size_t desired);
 
     /**
      * Reset packet buffer.
@@ -91,8 +89,7 @@ private:
 /**
  * Factory for LengthPrefixCodec.
  */
-class LengthPrefixCodecFactory : public Factory<Codec>
-{
+class LengthPrefixCodecFactory : public Factory<Codec> {
 public:
     // Default
     LengthPrefixCodecFactory() = default;
@@ -102,10 +99,7 @@ public:
      *
      * @return New instance of type @c T.
      */
-    std::unique_ptr<Codec> build() override
-    {
-        return std::make_unique<LengthPrefixCodec>();
-    }
+    std::unique_ptr<Codec> build() override { return std::make_unique<LengthPrefixCodec>(); }
 };
 
 } // namespace ignite::network

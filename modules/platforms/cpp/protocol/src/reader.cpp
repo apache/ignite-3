@@ -17,19 +17,17 @@
 
 #include "common/ignite_error.h"
 
-#include "ignite/protocol/utils.h"
 #include "ignite/protocol/extension_types.h"
 #include "ignite/protocol/reader.h"
+#include "ignite/protocol/utils.h"
 
-namespace ignite::protocol
-{
+namespace ignite::protocol {
 
-Reader::Reader(BytesView buffer) :
-    m_buffer(buffer),
-    m_unpacker(),
-    m_currentVal(),
-    m_moveRes(MSGPACK_UNPACK_SUCCESS)
-{
+Reader::Reader(BytesView buffer)
+    : m_buffer(buffer)
+    , m_unpacker()
+    , m_currentVal()
+    , m_moveRes(MSGPACK_UNPACK_SUCCESS) {
     // TODO: Research if we can get rid of copying here.
     msgpack_unpacker_init(&m_unpacker, MSGPACK_UNPACKER_INIT_BUFFER_SIZE);
     msgpack_unpacker_reserve_buffer(&m_unpacker, m_buffer.size());
@@ -79,13 +77,14 @@ std::optional<std::string> Reader::readStringNullable() {
 Guid Reader::readGuid() {
     checkDataInStream();
 
-    if (m_currentVal.data.type != MSGPACK_OBJECT_EXT && m_currentVal.data.via.ext.type != std::int8_t(ExtensionTypes::GUID))
+    if (m_currentVal.data.type != MSGPACK_OBJECT_EXT
+        && m_currentVal.data.via.ext.type != std::int8_t(ExtensionTypes::GUID))
         throw IgniteError("The value in stream is not a GUID");
 
     if (m_currentVal.data.via.ext.size != 16)
         throw IgniteError("Unexpected value size");
 
-    auto data = reinterpret_cast<const std::byte*>(m_currentVal.data.via.ext.ptr);
+    auto data = reinterpret_cast<const std::byte *>(m_currentVal.data.via.ext.ptr);
 
     int64_t most = protocol::readInt64(data);
     int64_t least = protocol::readInt64(data, 8);

@@ -22,22 +22,22 @@
 
 #include "table/tables_impl.h"
 
-namespace ignite
-{
+namespace ignite {
 
 void Tables::getTableAsync(const std::string &name, IgniteCallback<std::optional<Table>> callback) {
     getImpl().getTableAsync(name, std::move(callback));
 }
 
-Tables::Tables(std::shared_ptr<void> impl) :
-    m_impl(std::move(impl)) { }
+Tables::Tables(std::shared_ptr<void> impl)
+    : m_impl(std::move(impl)) {
+}
 
 detail::TablesImpl &Tables::getImpl() {
-    return *((detail::TablesImpl*)(m_impl.get()));
+    return *((detail::TablesImpl *)(m_impl.get()));
 }
 
 const detail::TablesImpl &Tables::getImpl() const {
-    return *((detail::TablesImpl*)(m_impl.get()));
+    return *((detail::TablesImpl *)(m_impl.get()));
 }
 
 } // namespace ignite

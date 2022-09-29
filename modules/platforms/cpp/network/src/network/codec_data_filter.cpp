@@ -17,16 +17,15 @@
 
 #include <ignite/network/codec_data_filter.h>
 
-namespace ignite::network
-{
+namespace ignite::network {
 
-CodecDataFilter::CodecDataFilter(std::shared_ptr<Factory<Codec>> factory) :
-    m_codecFactory(std::move(factory)),
-    m_codecs(),
-    m_codecsMutex() { }
+CodecDataFilter::CodecDataFilter(std::shared_ptr<Factory<Codec>> factory)
+    : m_codecFactory(std::move(factory))
+    , m_codecs()
+    , m_codecsMutex() {
+}
 
-bool CodecDataFilter::send(uint64_t id, std::vector<std::byte>&& data)
-{
+bool CodecDataFilter::send(uint64_t id, std::vector<std::byte> &&data) {
     std::shared_ptr<Codec> codec = FindCodec(id);
     if (!codec)
         return false;
@@ -45,8 +44,7 @@ bool CodecDataFilter::send(uint64_t id, std::vector<std::byte>&& data)
     return true;
 }
 
-void CodecDataFilter::onConnectionSuccess(const EndPoint &addr, uint64_t id)
-{
+void CodecDataFilter::onConnectionSuccess(const EndPoint &addr, uint64_t id) {
     {
         std::lock_guard<std::mutex> lock(m_codecsMutex);
 
@@ -57,8 +55,7 @@ void CodecDataFilter::onConnectionSuccess(const EndPoint &addr, uint64_t id)
     DataFilterAdapter::onConnectionSuccess(addr, id);
 }
 
-void CodecDataFilter::onConnectionClosed(uint64_t id, std::optional<IgniteError> err)
-{
+void CodecDataFilter::onConnectionClosed(uint64_t id, std::optional<IgniteError> err) {
     {
         std::lock_guard<std::mutex> lock(m_codecsMutex);
 
@@ -68,15 +65,13 @@ void CodecDataFilter::onConnectionClosed(uint64_t id, std::optional<IgniteError>
     DataFilterAdapter::onConnectionClosed(id, std::move(err));
 }
 
-void CodecDataFilter::onMessageReceived(uint64_t id, BytesView msg)
-{
+void CodecDataFilter::onMessageReceived(uint64_t id, BytesView msg) {
     std::shared_ptr<Codec> codec = FindCodec(id);
     if (!codec)
         return;
 
     DataBufferRef msg0(msg);
-    while (true)
-    {
+    while (true) {
         DataBufferRef out = codec->decode(msg0);
 
         if (out.isEmpty())
@@ -86,8 +81,7 @@ void CodecDataFilter::onMessageReceived(uint64_t id, BytesView msg)
     }
 }
 
-std::shared_ptr<Codec> CodecDataFilter::FindCodec(uint64_t id)
-{
+std::shared_ptr<Codec> CodecDataFilter::FindCodec(uint64_t id) {
     std::lock_guard<std::mutex> lock(m_codecsMutex);
 
     auto it = m_codecs.find(id);

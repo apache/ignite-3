@@ -20,14 +20,13 @@
 
 #include <gtest/gtest.h>
 
-#include "ignite_runner.h"
 #include "common/ignite_error.h"
+#include "ignite_runner.h"
 
 /**
  * Run prior to any other tests.
  */
-void BeforeAll()
-{
+void BeforeAll() {
     ignite::IgniteRunner runner;
 
     // Ignite dry run to make sure everything is built, all artifacts downloaded
@@ -39,9 +38,7 @@ void BeforeAll()
     runner.stop();
 }
 
-
-int main(int argc, char** argv)
-{
+int main(int argc, char **argv) {
     int res = 0;
     BeforeAll();
     ignite::IgniteRunner runner;
@@ -53,7 +50,7 @@ int main(int argc, char** argv)
 
         ::testing::InitGoogleTest(&argc, argv);
         res = RUN_ALL_TESTS();
-    } catch (const std::exception& err) {
+    } catch (const std::exception &err) {
         std::cout << "Uncaught error: " << err.what() << std::endl;
     } catch (...) {
         std::cout << "Unknown uncaught error" << std::endl;

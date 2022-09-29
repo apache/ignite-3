@@ -18,42 +18,39 @@
 #pragma once
 
 #include <array>
+#include <functional>
 #include <future>
 #include <memory>
-#include <unordered_map>
 #include <mutex>
-#include <functional>
 #include <random>
+#include <unordered_map>
 
 #include "common/ignite_result.h"
 
+#include "ignite/network/async_client_pool.h"
 #include "ignite/protocol/reader.h"
 #include "ignite/protocol/writer.h"
-#include "ignite/network/async_client_pool.h"
 
+#include "client_operation.h"
 #include "ignite/ignite_client_configuration.h"
 #include "node_connection.h"
 #include "protocol_context.h"
-#include "client_operation.h"
 #include "response_handler.h"
 
-namespace ignite::protocol
-{
+namespace ignite::protocol {
 
 class Reader;
 
 }
 
-namespace ignite::detail
-{
+namespace ignite::detail {
 
 /**
  * Represents connection to the cluster.
  *
  * Considered established while there is connection to at least one server.
  */
-class ClusterConnection : public std::enable_shared_from_this<ClusterConnection>, public network::AsyncHandler
-{
+class ClusterConnection : public std::enable_shared_from_this<ClusterConnection>, public network::AsyncHandler {
 public:
     /** Default TCP port. */
     static constexpr uint16_t DEFAULT_TCP_PORT = 10800;
@@ -64,24 +61,21 @@ public:
      * @param configuration Configuration.
      * @return New instance.
      */
-    static std::shared_ptr<ClusterConnection> create(IgniteClientConfiguration configuration)
-    {
+    static std::shared_ptr<ClusterConnection> create(IgniteClientConfiguration configuration) {
         return std::shared_ptr<ClusterConnection>(new ClusterConnection(std::move(configuration)));
     }
 
     // Deleted
     ClusterConnection() = delete;
-    ClusterConnection(ClusterConnection&&) = delete;
-    ClusterConnection(const ClusterConnection&) = delete;
-    ClusterConnection& operator=(ClusterConnection&&) = delete;
-    ClusterConnection& operator=(const ClusterConnection&) = delete;
+    ClusterConnection(ClusterConnection &&) = delete;
+    ClusterConnection(const ClusterConnection &) = delete;
+    ClusterConnection &operator=(ClusterConnection &&) = delete;
+    ClusterConnection &operator=(const ClusterConnection &) = delete;
 
     /**
      * Destructor.
      */
-    ~ClusterConnection() override {
-        stop();
-    }
+    ~ClusterConnection() override { stop(); }
 
     /**
      * Start establishing connection.
@@ -97,7 +91,7 @@ public:
      */
     void stop();
 
-   /**
+    /**
      * Perform request.
      *
      * @tparam T Result type.
@@ -106,12 +100,10 @@ public:
      * @param rd Reader function.
      * @return Future result.
      */
-    template<typename T>
-    void performRequest(ClientOperation op, const std::function<void(protocol::Writer&)>& wr,
-        std::shared_ptr<ResponseHandlerImpl<T>> handler)
-    {
-        while (true)
-        {
+    template <typename T>
+    void performRequest(ClientOperation op, const std::function<void(protocol::Writer &)> &wr,
+        std::shared_ptr<ResponseHandlerImpl<T>> handler) {
+        while (true) {
             auto channel = getRandomChannel();
             if (!channel)
                 throw IgniteError("No nodes connected");
@@ -143,7 +135,7 @@ private:
      * @param addr Address of the new connection.
      * @param id Connection ID.
      */
-    void onConnectionSuccess(const network::EndPoint& addr, uint64_t id) override;
+    void onConnectionSuccess(const network::EndPoint &addr, uint64_t id) override;
 
     /**
      * Callback that called on error during connection establishment.
@@ -151,7 +143,7 @@ private:
      * @param addr Connection address.
      * @param err Error.
      */
-    void onConnectionError(const network::EndPoint& addr, IgniteError err) override;
+    void onConnectionError(const network::EndPoint &addr, IgniteError err) override;
 
     /**
      * Callback that called on error during connection establishment.
@@ -188,7 +180,7 @@ private:
      *
      * @param res Connect result.
      */
-    void initialConnectResult(IgniteResult<void>&& res);
+    void initialConnectResult(IgniteResult<void> &&res);
 
     /**
      * Find and return client.
@@ -196,8 +188,7 @@ private:
      * @param id Client ID.
      * @return Client if found and nullptr otherwise.
      */
-    [[nodiscard]]
-    std::shared_ptr<NodeConnection> findClient(uint64_t id);
+    [[nodiscard]] std::shared_ptr<NodeConnection> findClient(uint64_t id);
 
     /** Configuration. */
     const IgniteClientConfiguration m_configuration;

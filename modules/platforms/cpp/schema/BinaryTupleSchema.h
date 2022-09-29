@@ -44,10 +44,10 @@ public:
      * @brief Constructs a new Binary Tuple Schema object.
      *
      * @tparam T ColumnInfo iterator.
-     * @param begin 
-     * @param end 
+     * @param begin
+     * @param end
      */
-    template<typename T>
+    template <typename T>
     BinaryTupleSchema(T begin, T end) {
         elements.reserve(std::distance(begin, end));
         for (; begin < end; begin++) {

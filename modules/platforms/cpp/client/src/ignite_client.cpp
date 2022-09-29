@@ -21,34 +21,29 @@
 #include "ignite/ignite_client.h"
 #include "ignite_client_impl.h"
 
-namespace ignite
-{
+namespace ignite {
 
-void IgniteClient::startAsync(IgniteClientConfiguration configuration, std::chrono::milliseconds timeout,
-    IgniteCallback<IgniteClient> callback)
-{
+void IgniteClient::startAsync(
+    IgniteClientConfiguration configuration, std::chrono::milliseconds timeout, IgniteCallback<IgniteClient> callback) {
     // TODO: IGNITE-17762 Async start should not require starting thread internally. Replace with async timer.
-    (void) std::async([cfg = std::move(configuration), timeout, callback = std::move(callback)]() mutable {
-        auto res = IgniteResult<IgniteClient>::ofOperation([cfg = std::move(cfg), timeout] () {
-            return start(cfg, timeout);
-        });
+    (void)std::async([cfg = std::move(configuration), timeout, callback = std::move(callback)]() mutable {
+        auto res =
+            IgniteResult<IgniteClient>::ofOperation([cfg = std::move(cfg), timeout]() { return start(cfg, timeout); });
         callback(std::move(res));
     });
 }
 
-IgniteClient IgniteClient::start(IgniteClientConfiguration configuration, std::chrono::milliseconds timeout)
-{
+IgniteClient IgniteClient::start(IgniteClientConfiguration configuration, std::chrono::milliseconds timeout) {
     auto impl = std::make_shared<detail::IgniteClientImpl>(std::move(configuration));
 
     auto promise = std::make_shared<std::promise<void>>();
     auto future = promise->get_future();
 
-    impl->start([impl, promise] (IgniteResult<void> res) mutable {
+    impl->start([impl, promise](IgniteResult<void> res) mutable {
         if (!res) {
             impl->stop();
             promise->set_exception(std::make_exception_ptr(res.getError()));
-        }
-        else
+        } else
             promise->set_value();
     });
 
@@ -61,8 +56,9 @@ IgniteClient IgniteClient::start(IgniteClientConfiguration configuration, std::c
     return IgniteClient(std::move(impl));
 }
 
-IgniteClient::IgniteClient(std::shared_ptr<void> impl) :
-    m_impl(std::move(impl)) { }
+IgniteClient::IgniteClient(std::shared_ptr<void> impl)
+    : m_impl(std::move(impl)) {
+}
 
 const IgniteClientConfiguration &IgniteClient::getConfiguration() const noexcept {
     return getImpl().getConfiguration();
@@ -73,11 +69,11 @@ Tables IgniteClient::getTables() const noexcept {
 }
 
 detail::IgniteClientImpl &IgniteClient::getImpl() noexcept {
-    return *((detail::IgniteClientImpl*)(m_impl.get()));
+    return *((detail::IgniteClientImpl *)(m_impl.get()));
 }
 
 const detail::IgniteClientImpl &IgniteClient::getImpl() const noexcept {
-    return *((detail::IgniteClientImpl*)(m_impl.get()));
+    return *((detail::IgniteClientImpl *)(m_impl.get()));
 }
 
 } // namespace ignite

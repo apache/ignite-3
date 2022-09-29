@@ -35,3 +35,4 @@ IndentPPDirectives: AfterHash
 PPIndentWidth: 1
 NamespaceIndentation: None
 PointerAlignment: Right
+SpaceBeforeCpp11BracedList: false

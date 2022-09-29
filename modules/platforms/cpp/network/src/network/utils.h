@@ -17,23 +17,21 @@
 
 #pragma once
 
+#include <sstream>
 #include <string>
 #include <string_view>
-#include <sstream>
 
 #include "common/ignite_error.h"
 
-namespace ignite::network
-{
+namespace ignite::network {
 
 /**
  * Fibonacci sequence iterator.
  *
  * @tparam S Sequence length. Should be >= 2.
  */
-template<size_t S, typename T = size_t>
-class FibonacciSequence
-{
+template <size_t S, typename T = size_t>
+class FibonacciSequence {
 public:
     /** Size. */
     static constexpr size_t size = S > 2 ? S : 2;
@@ -41,8 +39,7 @@ public:
     /**
      * Constructor.
      */
-    constexpr FibonacciSequence()
-    {
+    constexpr FibonacciSequence() {
         for (size_t i = 2; i < size; ++i)
             sequence[i] = sequence[i - 1] + sequence[i - 2];
     }
@@ -53,11 +50,7 @@ public:
      * @param n Member position.
      * @return N-th member of sequence if n < size, or max member.
      */
-    [[nodiscard]]
-    constexpr T getValue(size_t n) const
-    {
-        return n < size ? sequence[n] : sequence[size-1];
-    }
+    [[nodiscard]] constexpr T getValue(size_t n) const { return n < size ? sequence[n] : sequence[size - 1]; }
 
 private:
     /** Sequence of fibonacci numbers */
@@ -71,8 +64,7 @@ private:
  * @param description Error details.
  * @param advice User advice.
  */
-inline std::string formatErrorMessage(std::string_view description, std::string_view details, std::string_view advice)
-{
+inline std::string formatErrorMessage(std::string_view description, std::string_view details, std::string_view advice) {
     std::stringstream messageBuilder;
     messageBuilder << description;
     if (!details.empty())
@@ -97,8 +89,7 @@ std::string getLastSystemError();
  * @param description Error description.
  * @return Error in human-readable format.
  */
-inline std::string getLastSystemError(std::string_view description, std::string_view advice)
-{
+inline std::string getLastSystemError(std::string_view description, std::string_view advice) {
     return formatErrorMessage(description, getLastSystemError(), advice);
 }
 
@@ -108,8 +99,7 @@ inline std::string getLastSystemError(std::string_view description, std::string_
  * @param description Error description.
  * @param advice User advice.
  */
-inline void throwLastSystemError(std::string_view description, std::string_view advice = {})
-{
+inline void throwLastSystemError(std::string_view description, std::string_view advice = {}) {
     throw IgniteError(StatusCode::OS, getLastSystemError(description, advice));
 }
 

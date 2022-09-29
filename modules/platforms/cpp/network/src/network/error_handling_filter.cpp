@@ -17,69 +17,48 @@
 
 #include "network/error_handling_filter.h"
 
-namespace ignite::network
-{
+namespace ignite::network {
 
-void ErrorHandlingFilter::onConnectionSuccess(const EndPoint &addr, uint64_t id)
-{
+void ErrorHandlingFilter::onConnectionSuccess(const EndPoint &addr, uint64_t id) {
     closeConnectionOnException(id, [this, &addr, id] { DataFilterAdapter::onConnectionSuccess(addr, id); });
 }
 
-void ErrorHandlingFilter::onConnectionError(const EndPoint &addr, IgniteError err)
-{
-    try
-    {
+void ErrorHandlingFilter::onConnectionError(const EndPoint &addr, IgniteError err) {
+    try {
         DataFilterAdapter::onConnectionError(addr, std::move(err));
-    }
-    catch (...)
-    {
+    } catch (...) {
         // No-op.
     }
 }
 
-void ErrorHandlingFilter::onConnectionClosed(uint64_t id, std::optional<IgniteError> err)
-{
-    try
-    {
+void ErrorHandlingFilter::onConnectionClosed(uint64_t id, std::optional<IgniteError> err) {
+    try {
         DataFilterAdapter::onConnectionClosed(id, std::move(err));
-    }
-    catch (...)
-    {
+    } catch (...) {
         // No-op.
     }
 }
 
-void ErrorHandlingFilter::onMessageReceived(uint64_t id, BytesView data)
-{
+void ErrorHandlingFilter::onMessageReceived(uint64_t id, BytesView data) {
     closeConnectionOnException(id, [this, id, &data] { DataFilterAdapter::onMessageReceived(id, data); });
 }
 
-void ErrorHandlingFilter::onMessageSent(uint64_t id)
-{
+void ErrorHandlingFilter::onMessageSent(uint64_t id) {
     closeConnectionOnException(id, [this, id] { DataFilterAdapter::onMessageSent(id); });
 }
 
-void ErrorHandlingFilter::closeConnectionOnException(uint64_t id, const std::function<void()>& func)
-{
-    try
-    {
+void ErrorHandlingFilter::closeConnectionOnException(uint64_t id, const std::function<void()> &func) {
+    try {
         func();
-    }
-    catch (const IgniteError& err)
-    {
+    } catch (const IgniteError &err) {
         DataFilterAdapter::close(id, err);
-    }
-    catch (std::exception& err)
-    {
+    } catch (std::exception &err) {
         std::string msg("Standard library exception is thrown: ");
         msg += err.what();
         IgniteError err0(StatusCode::GENERIC, msg);
         DataFilterAdapter::close(id, std::move(err0));
-    }
-    catch (...)
-    {
-        IgniteError err0(StatusCode::UNKNOWN,
-            "Unknown error is encountered when processing network event");
+    } catch (...) {
+        IgniteError err0(StatusCode::UNKNOWN, "Unknown error is encountered when processing network event");
         DataFilterAdapter::close(id, std::move(err0));
     }
 }

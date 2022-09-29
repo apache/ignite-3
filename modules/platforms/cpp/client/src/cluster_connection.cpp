@@ -26,14 +26,14 @@
 
 #include "cluster_connection.h"
 
-namespace ignite::detail
-{
+namespace ignite::detail {
 
-ClusterConnection::ClusterConnection(IgniteClientConfiguration configuration) :
-    m_configuration(std::move(configuration)),
-    m_pool(),
-    m_logger(m_configuration.getLogger()),
-    m_generator(std::random_device()()) { }
+ClusterConnection::ClusterConnection(IgniteClientConfiguration configuration)
+    : m_configuration(std::move(configuration))
+    , m_pool()
+    , m_logger(m_configuration.getLogger())
+    , m_generator(std::random_device()()) {
+}
 
 void ClusterConnection::startAsync(std::function<void(IgniteResult<void>)> callback) {
     using namespace network;
@@ -43,8 +43,7 @@ void ClusterConnection::startAsync(std::function<void(IgniteResult<void>)> callb
 
     std::vector<TcpRange> addrs;
     addrs.reserve(m_configuration.getEndpoints().size());
-    for (const auto& strAddr : m_configuration.getEndpoints())
-    {
+    for (const auto &strAddr : m_configuration.getEndpoints()) {
         std::optional<TcpRange> ep = TcpRange::parse(strAddr, DEFAULT_TCP_PORT);
         if (!ep)
             throw IgniteError("Can not parse address range: " + strAddr);
@@ -79,12 +78,12 @@ void ClusterConnection::onConnectionSuccess(const network::EndPoint &addr, uint6
 
     auto connection = std::make_shared<NodeConnection>(id, m_pool, m_logger);
     {
-        [[maybe_unused]]
-        std::unique_lock<std::recursive_mutex> lock(m_connectionsMutex);
+        [[maybe_unused]] std::unique_lock<std::recursive_mutex> lock(m_connectionsMutex);
 
         auto [_it, wasNew] = m_connections.insert_or_assign(id, connection);
         if (!wasNew)
-            m_logger->logError("Unknown error: connecting is already in progress. Connection ID: " + std::to_string(id));
+            m_logger->logError(
+                "Unknown error: connecting is already in progress. Connection ID: " + std::to_string(id));
     }
 
     try {
@@ -95,16 +94,15 @@ void ClusterConnection::onConnectionSuccess(const network::EndPoint &addr, uint6
             return;
         }
         m_logger->logDebug("Handshake sent successfully");
-    }
-    catch (const IgniteError& err) {
+    } catch (const IgniteError &err) {
         m_logger->logWarning("Failed to send handshake request: " + err.whatStr());
         removeClient(id);
     }
 }
 
 void ClusterConnection::onConnectionError(const network::EndPoint &addr, IgniteError err) {
-    m_logger->logWarning("Failed to establish connection with remote host " + addr.toString() +
-        ", reason: " + err.what());
+    m_logger->logWarning(
+        "Failed to establish connection with remote host " + addr.toString() + ", reason: " + err.what());
 
     if (err.getStatusCode() == StatusCode::OS)
         initialConnectResult(std::move(err));
@@ -116,8 +114,7 @@ void ClusterConnection::onConnectionClosed(uint64_t id, std::optional<IgniteErro
 }
 
 void ClusterConnection::onMessageReceived(uint64_t id, BytesView msg) {
-    m_logger->logDebug("Message on Connection ID " + std::to_string(id) +
-        ", size: " + std::to_string(msg.size()));
+    m_logger->logDebug("Message on Connection ID " + std::to_string(id) + ", size: " + std::to_string(msg.size()));
 
     std::shared_ptr<NodeConnection> connection = findClient(id);
     if (!connection)
@@ -136,8 +133,7 @@ void ClusterConnection::onMessageReceived(uint64_t id, BytesView msg) {
 }
 
 std::shared_ptr<NodeConnection> ClusterConnection::findClient(uint64_t id) {
-    [[maybe_unused]]
-    std::unique_lock<std::recursive_mutex> lock(m_connectionsMutex);
+    [[maybe_unused]] std::unique_lock<std::recursive_mutex> lock(m_connectionsMutex);
 
     auto it = m_connections.find(id);
     if (it != m_connections.end())
@@ -151,15 +147,13 @@ void ClusterConnection::onMessageSent(uint64_t id) {
 }
 
 void ClusterConnection::removeClient(uint64_t id) {
-    [[maybe_unused]]
-    std::unique_lock<std::recursive_mutex> lock(m_connectionsMutex);
+    [[maybe_unused]] std::unique_lock<std::recursive_mutex> lock(m_connectionsMutex);
 
     m_connections.erase(id);
 }
 
-void ClusterConnection::initialConnectResult(IgniteResult<void>&& res) {
-    [[maybe_unused]]
-    std::lock_guard<std::mutex> lock(m_onInitialConnectMutex);
+void ClusterConnection::initialConnectResult(IgniteResult<void> &&res) {
+    [[maybe_unused]] std::lock_guard<std::mutex> lock(m_onInitialConnectMutex);
 
     if (!m_onInitialConnect)
         return;
@@ -169,8 +163,7 @@ void ClusterConnection::initialConnectResult(IgniteResult<void>&& res) {
 }
 
 std::shared_ptr<NodeConnection> ClusterConnection::getRandomChannel() {
-    [[maybe_unused]]
-    std::unique_lock<std::recursive_mutex> lock(m_connectionsMutex);
+    [[maybe_unused]] std::unique_lock<std::recursive_mutex> lock(m_connectionsMutex);
 
     if (m_connections.empty())
         return {};

@@ -20,13 +20,11 @@
 #include <ignite/network/async_client_pool.h>
 #include <ignite/network/data_filter.h>
 
-namespace ignite::network
-{
+namespace ignite::network {
 /**
  * Asynchronous client pool adapter.
  */
-class AsyncClientPoolAdapter : public AsyncClientPool
-{
+class AsyncClientPoolAdapter : public AsyncClientPool {
 public:
     /**
      * Constructor.
@@ -74,7 +72,7 @@ public:
      *
      * @throw IgniteError on error.
      */
-    bool send(uint64_t id, std::vector<std::byte>&& data) override;
+    bool send(uint64_t id, std::vector<std::byte> &&data) override;
 
     /**
      * Closes specified connection if it's established. Connection to the specified address is planned for
@@ -92,7 +90,7 @@ private:
     std::shared_ptr<AsyncClientPool> m_pool;
 
     /** Lower level data sink. */
-    DataSink* m_sink;
+    DataSink *m_sink;
 };
 
 } // namespace ignite::network

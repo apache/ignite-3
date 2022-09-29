@@ -19,8 +19,7 @@
 
 #include "common/Bits.h"
 
-BOOST_AUTO_TEST_CASE(countRZero)
-{
+BOOST_AUTO_TEST_CASE(countRZero) {
     BOOST_CHECK_EQUAL(8, ignite::countRZero(uint8_t(0)));
     BOOST_CHECK_EQUAL(0, ignite::countRZero(uint8_t(1)));
     BOOST_CHECK_EQUAL(1, ignite::countRZero(uint8_t(2)));
@@ -104,8 +103,7 @@ BOOST_AUTO_TEST_CASE(countRZero)
     BOOST_CHECK_EQUAL(0, ignite::countRZero(uint64_t(0xffffffffffffffff)));
 }
 
-BOOST_AUTO_TEST_CASE(countLZero)
-{
+BOOST_AUTO_TEST_CASE(countLZero) {
     BOOST_CHECK_EQUAL(8, ignite::countLZero(uint8_t(0)));
     BOOST_CHECK_EQUAL(7, ignite::countLZero(uint8_t(1)));
     BOOST_CHECK_EQUAL(6, ignite::countLZero(uint8_t(2)));

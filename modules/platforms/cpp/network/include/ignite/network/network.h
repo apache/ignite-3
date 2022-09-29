@@ -22,8 +22,7 @@
 #include <ignite/network/async_client_pool.h>
 #include <ignite/network/data_filter.h>
 
-namespace ignite::network
-{
+namespace ignite::network {
 
 /**
  * Make asynchronous client pool.

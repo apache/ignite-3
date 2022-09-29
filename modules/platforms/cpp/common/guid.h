@@ -25,14 +25,12 @@
 #include <cstdint>
 #include <iomanip>
 
-namespace ignite
-{
+namespace ignite {
 
 /**
  * Global universally unique identifier (GUID).
  */
-class Guid
-{
+class Guid {
 public:
     // Default
     Guid() = default;
@@ -43,29 +41,23 @@ public:
      * @param most Most significant bits.
      * @param least Least significant bits.
      */
-    Guid(int64_t most, int64_t least) :
-        m_most(most),
-        m_least(least) { }
+    Guid(int64_t most, int64_t least)
+        : m_most(most)
+        , m_least(least) { }
 
     /**
      * Returns the most significant 64 bits of this instance.
      *
      * @return The most significant 64 bits of this instance.
      */
-    [[nodiscard]]
-    std::int64_t getMostSignificantBits() const {
-        return m_most;
-    }
+    [[nodiscard]] std::int64_t getMostSignificantBits() const { return m_most; }
 
     /**
      * Returns the least significant 64 bits of this instance.
      *
      * @return The least significant 64 bits of this instance.
      */
-    [[nodiscard]]
-    std::int64_t getLeastSignificantBits() const {
-        return m_least;
-    }
+    [[nodiscard]] std::int64_t getLeastSignificantBits() const { return m_least; }
 
     /**
      * The version number associated with this instance.  The version
@@ -79,10 +71,7 @@ public:
      *
      * @return The version number of this instance.
      */
-    [[nodiscard]]
-    std::int32_t getVersion() const {
-        return static_cast<int32_t>((m_most >> 12) & 0x0F);
-    }
+    [[nodiscard]] std::int32_t getVersion() const { return static_cast<int32_t>((m_most >> 12) & 0x0F); }
 
     /**
      * The variant number associated with this instance. The variant
@@ -96,8 +85,7 @@ public:
      *
      * @return The variant number of this instance.
      */
-    [[nodiscard]]
-    std::int32_t getVariant() const {
+    [[nodiscard]] std::int32_t getVariant() const {
         auto least = static_cast<uint64_t>(m_least);
         return static_cast<std::int32_t>((least >> (64 - (least >> 62))) & (least >> 63));
     }
@@ -108,8 +96,7 @@ public:
      * @param other Instance to compare to.
      * @return Zero if equals, negative number if less and positive if more.
      */
-    [[nodiscard]]
-    std::int64_t compare(const Guid& other) const {
+    [[nodiscard]] std::int64_t compare(const Guid &other) const {
         if (m_most < other.m_most)
             return -1;
 
@@ -140,7 +127,7 @@ private:
  * @param val2 Second value.
  * @return True if equal.
  */
-inline bool operator==(const Guid& val1, const Guid& val2) {
+inline bool operator==(const Guid &val1, const Guid &val2) {
     return val1.compare(val2) == 0;
 }
 
@@ -151,7 +138,7 @@ inline bool operator==(const Guid& val1, const Guid& val2) {
  * @param val2 Second value.
  * @return True if not equal.
  */
-inline bool operator!=(const Guid& val1, const Guid& val2) {
+inline bool operator!=(const Guid &val1, const Guid &val2) {
     return val1.compare(val2) != 0;
 }
 
@@ -162,7 +149,7 @@ inline bool operator!=(const Guid& val1, const Guid& val2) {
  * @param val2 Second value.
  * @return True if less.
  */
-inline bool operator<(const Guid& val1, const Guid& val2) {
+inline bool operator<(const Guid &val1, const Guid &val2) {
     return val1.compare(val2) < 0;
 }
 
@@ -173,7 +160,7 @@ inline bool operator<(const Guid& val1, const Guid& val2) {
  * @param val2 Second value.
  * @return True if less or equal.
  */
-inline bool operator<=(const Guid& val1, const Guid& val2) {
+inline bool operator<=(const Guid &val1, const Guid &val2) {
     return val1.compare(val2) <= 0;
 }
 
@@ -184,7 +171,7 @@ inline bool operator<=(const Guid& val1, const Guid& val2) {
  * @param val2 Second value.
  * @return True if greater.
  */
-inline bool operator>(const Guid& val1, const Guid& val2) {
+inline bool operator>(const Guid &val1, const Guid &val2) {
     return val1.compare(val2) > 0;
 }
 
@@ -195,7 +182,7 @@ inline bool operator>(const Guid& val1, const Guid& val2) {
  * @param val2 Second value.
  * @return True if greater or equal.
  */
-inline bool operator>=(const Guid& val1, const Guid& val2) {
+inline bool operator>=(const Guid &val1, const Guid &val2) {
     return val1.compare(val2) >= 0;
 }
 
@@ -206,20 +193,22 @@ inline bool operator>=(const Guid& val1, const Guid& val2) {
  * @param guid Guid to output.
  * @return Reference to the first param.
  */
-template<typename C>
-::std::basic_ostream<C>& operator<<(std::basic_ostream<C>& os, const Guid& guid) {
+template <typename C>
+::std::basic_ostream<C> &operator<<(std::basic_ostream<C> &os, const Guid &guid) {
     auto part1 = uint32_t(guid.getMostSignificantBits() >> 32);
     auto part2 = uint16_t(guid.getMostSignificantBits() >> 16);
     auto part3 = uint16_t(guid.getMostSignificantBits());
     auto part4 = uint16_t(guid.getLeastSignificantBits() >> 48);
     uint64_t part5 = guid.getLeastSignificantBits() & 0x0000FFFFFFFFFFFFU;
 
+    // clang-format off
     os  << std::hex
         << std::setfill<C>('0') << std::setw(8)  << part1 << '-'
         << std::setfill<C>('0') << std::setw(4)  << part2 << '-'
         << std::setfill<C>('0') << std::setw(4)  << part3 << '-'
         << std::setfill<C>('0') << std::setw(4)  << part4 << '-'
         << std::setfill<C>('0') << std::setw(12) << part5 << std::dec;
+    // clang-format on
 
     return os;
 }
@@ -231,8 +220,8 @@ template<typename C>
  * @param guid Guid to input.
  * @return Reference to the first param.
  */
-template<typename C>
-::std::basic_istream<C>& operator>>(std::basic_istream<C>& is, Guid& guid) {
+template <typename C>
+::std::basic_istream<C> &operator>>(std::basic_istream<C> &is, Guid &guid) {
     uint64_t parts[5];
 
     C delim;

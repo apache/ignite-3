@@ -132,7 +132,7 @@ BOOST_AUTO_TEST_CASE(rawAccess) {
 
     {
         std::int8_t x = 0x01;
-        std::array<std::byte, sizeof(x)> buf {std::byte{0}};
+        std::array<std::byte, sizeof(x)> buf{std::byte{0}};
 
         storeRaw(buf.data(), x);
         BOOST_CHECK_EQUAL(0x01, std::to_integer<char>(buf[0]));
@@ -142,7 +142,7 @@ BOOST_AUTO_TEST_CASE(rawAccess) {
     }
     {
         std::int16_t x = 0x0102;
-        std::array<std::byte, sizeof(x)> buf {std::byte{0}};
+        std::array<std::byte, sizeof(x)> buf{std::byte{0}};
 
         storeRaw(buf.data(), x);
         if (ignite::isLittleEndianPlatform()) {
@@ -158,7 +158,7 @@ BOOST_AUTO_TEST_CASE(rawAccess) {
     }
     {
         std::int32_t x = 0x01020304;
-        std::array<std::byte, sizeof(x)> buf {std::byte{0}};
+        std::array<std::byte, sizeof(x)> buf{std::byte{0}};
 
         storeRaw(buf.data(), x);
         if (ignite::isLittleEndianPlatform()) {
@@ -178,7 +178,7 @@ BOOST_AUTO_TEST_CASE(rawAccess) {
     }
     {
         std::int64_t x = 0x0102030405060708;
-        std::array<std::byte, sizeof(x)> buf {std::byte{0}};
+        std::array<std::byte, sizeof(x)> buf{std::byte{0}};
 
         storeRaw(buf.data(), x);
         if (ignite::isLittleEndianPlatform()) {
@@ -211,7 +211,7 @@ BOOST_AUTO_TEST_CASE(genericAccess) {
 
     {
         std::int8_t x = 0x01;
-        std::array<std::byte, sizeof(x)> buf {std::byte{0}};
+        std::array<std::byte, sizeof(x)> buf{std::byte{0}};
         constexpr auto E = ignite::Endian::LITTLE;
 
         store<E>(buf.data(), x);
@@ -222,7 +222,7 @@ BOOST_AUTO_TEST_CASE(genericAccess) {
     }
     {
         std::int8_t x = 0x01;
-        std::array<std::byte, sizeof(x)> buf {std::byte{0}};
+        std::array<std::byte, sizeof(x)> buf{std::byte{0}};
         constexpr auto E = ignite::Endian::BIG;
 
         store<E>(buf.data(), x);
@@ -233,7 +233,7 @@ BOOST_AUTO_TEST_CASE(genericAccess) {
     }
     {
         std::int16_t x = 0x0102;
-        std::array<std::byte, sizeof(x)> buf {std::byte{0}};
+        std::array<std::byte, sizeof(x)> buf{std::byte{0}};
         constexpr auto E = ignite::Endian::LITTLE;
 
         store<E>(buf.data(), x);
@@ -245,7 +245,7 @@ BOOST_AUTO_TEST_CASE(genericAccess) {
     }
     {
         std::int16_t x = 0x0102;
-        std::array<std::byte, sizeof(x)> buf {std::byte{0}};
+        std::array<std::byte, sizeof(x)> buf{std::byte{0}};
         constexpr auto E = ignite::Endian::BIG;
 
         store<E>(buf.data(), x);
@@ -257,7 +257,7 @@ BOOST_AUTO_TEST_CASE(genericAccess) {
     }
     {
         std::int32_t x = 0x01020304;
-        std::array<std::byte, sizeof(x)> buf {std::byte{0}};
+        std::array<std::byte, sizeof(x)> buf{std::byte{0}};
         constexpr auto E = ignite::Endian::LITTLE;
 
         store<E>(buf.data(), x);
@@ -271,7 +271,7 @@ BOOST_AUTO_TEST_CASE(genericAccess) {
     }
     {
         std::int32_t x = 0x01020304;
-        std::array<std::byte, sizeof(x)> buf {std::byte{0}};
+        std::array<std::byte, sizeof(x)> buf{std::byte{0}};
         constexpr auto E = ignite::Endian::BIG;
 
         store<E>(buf.data(), x);
@@ -285,7 +285,7 @@ BOOST_AUTO_TEST_CASE(genericAccess) {
     }
     {
         std::int64_t x = 0x0102030405060708;
-        std::array<std::byte, sizeof(x)> buf {std::byte{0}};
+        std::array<std::byte, sizeof(x)> buf{std::byte{0}};
         constexpr auto E = ignite::Endian::LITTLE;
 
         store<E>(buf.data(), x);
@@ -303,7 +303,7 @@ BOOST_AUTO_TEST_CASE(genericAccess) {
     }
     {
         std::int64_t x = 0x0102030405060708;
-        std::array<std::byte, sizeof(x)> buf {std::byte{0}};
+        std::array<std::byte, sizeof(x)> buf{std::byte{0}};
         constexpr auto E = ignite::Endian::BIG;
 
         store<E>(buf.data(), x);
@@ -326,8 +326,8 @@ BOOST_AUTO_TEST_CASE(genericAccessFloat) {
 
     {
         float x = 0.1234f;
-        std::array<std::byte, sizeof(x)> buf1 {std::byte{0}};
-        std::array<std::byte, sizeof(x)> buf2 {std::byte{0}};
+        std::array<std::byte, sizeof(x)> buf1{std::byte{0}};
+        std::array<std::byte, sizeof(x)> buf2{std::byte{0}};
         constexpr auto E1 = ignite::Endian::LITTLE;
         constexpr auto E2 = ignite::Endian::BIG;
 
@@ -344,8 +344,8 @@ BOOST_AUTO_TEST_CASE(genericAccessFloat) {
     }
     {
         double x = 0.1234;
-        std::array<std::byte, sizeof(x)> buf1 {std::byte{0}};
-        std::array<std::byte, sizeof(x)> buf2 {std::byte{0}};
+        std::array<std::byte, sizeof(x)> buf1{std::byte{0}};
+        std::array<std::byte, sizeof(x)> buf2{std::byte{0}};
         constexpr auto E1 = ignite::Endian::LITTLE;
         constexpr auto E2 = ignite::Endian::BIG;
 

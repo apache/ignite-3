@@ -17,20 +17,18 @@
 
 #pragma once
 
-#include <common/ignite_error.h>
 #include <common/factory.h>
+#include <common/ignite_error.h>
 
 #include <ignite/network/data_buffer.h>
 
-namespace ignite::network
-{
+namespace ignite::network {
 
 /**
  * Codec class.
  * Encodes and decodes data.
  */
-class Codec
-{
+class Codec {
 public:
     // Default
     virtual ~Codec() = default;
@@ -43,7 +41,7 @@ public:
      *
      * @throw IgniteError on error.
      */
-    virtual DataBufferOwning encode(DataBufferOwning& data) = 0;
+    virtual DataBufferOwning encode(DataBufferOwning &data) = 0;
 
     /**
      * Decode provided data.
@@ -53,7 +51,7 @@ public:
      *
      * @throw IgniteError on error.
      */
-    virtual DataBufferRef decode(DataBufferRef& data) = 0;
+    virtual DataBufferRef decode(DataBufferRef &data) = 0;
 };
 
 } // namespace ignite::network

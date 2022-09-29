@@ -23,11 +23,9 @@
 
 #include "common/Config.h"
 
-namespace ignite
-{
+namespace ignite {
 
-namespace detail
-{
+namespace detail {
 class TableImpl;
 class TablesImpl;
 }
@@ -35,27 +33,26 @@ class TablesImpl;
 /**
  * Table view.
  */
-class Table
-{
+class Table {
     friend class detail::TablesImpl;
+
 public:
     // Deleted
-    Table(const Table&) = delete;
-    Table& operator=(const Table&) = delete;
+    Table(const Table &) = delete;
+    Table &operator=(const Table &) = delete;
 
     // Default
     Table() = default;
     ~Table() = default;
-    Table(Table&&) = default;
-    Table& operator=(Table&&) = default;
+    Table(Table &&) = default;
+    Table &operator=(Table &&) = default;
 
     /**
      * Get table name.
      *
      * @return Table name.
      */
-    [[nodiscard]]
-    IGNITE_API const std::string& getName() const noexcept;
+    [[nodiscard]] IGNITE_API const std::string &getName() const noexcept;
 
 private:
     /**
@@ -63,24 +60,22 @@ private:
      *
      * @param impl Implementation
      */
-    explicit Table(std::shared_ptr<void> impl) :
-        m_impl(std::move(impl)) { }
+    explicit Table(std::shared_ptr<void> impl)
+        : m_impl(std::move(impl)) { }
 
     /**
      * Get implementation reference.
      *
      * @return Implementation reference.
      */
-    [[nodiscard]]
-    detail::TableImpl& getImpl() noexcept;
+    [[nodiscard]] detail::TableImpl &getImpl() noexcept;
 
     /**
      * Get implementation reference.
      *
      * @return Implementation reference.
      */
-    [[nodiscard]]
-    const detail::TableImpl& getImpl() const noexcept;
+    [[nodiscard]] const detail::TableImpl &getImpl() const noexcept;
 
     /** Implementation. */
     std::shared_ptr<void> m_impl;

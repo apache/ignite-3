@@ -25,11 +25,9 @@
 #include "common/ignite_result.h"
 #include "ignite/table/table.h"
 
-namespace ignite
-{
+namespace ignite {
 
-namespace detail
-{
+namespace detail {
 class TablesImpl;
 }
 
@@ -38,19 +36,19 @@ class IgniteClient;
 /**
  * Table management.
  */
-class Tables
-{
+class Tables {
     friend class IgniteClient;
+
 public:
     // Deleted
-    Tables(const Tables&) = delete;
-    Tables& operator=(const Tables&) = delete;
+    Tables(const Tables &) = delete;
+    Tables &operator=(const Tables &) = delete;
 
     // Default
     Tables() = default;
     ~Tables() = default;
-    Tables(Tables&&) = default;
-    Tables& operator=(Tables&&) = default;
+    Tables(Tables &&) = default;
+    Tables &operator=(Tables &&) = default;
 
     /**
      * Gets a table by name, if it was created before.
@@ -63,7 +61,7 @@ public:
      * @return Table with corresponding name or @c std::nullopt if the table does not exist.
      * @throw IgniteError In case of error.
      */
-    IGNITE_API void getTableAsync(const std::string& name, IgniteCallback<std::optional<Table>> callback);
+    IGNITE_API void getTableAsync(const std::string &name, IgniteCallback<std::optional<Table>> callback);
 
 private:
     /**
@@ -78,16 +76,14 @@ private:
      *
      * @return Implementation reference.
      */
-    [[nodiscard]]
-    detail::TablesImpl& getImpl();
+    [[nodiscard]] detail::TablesImpl &getImpl();
 
     /**
      * Get implementation reference.
      *
      * @return Implementation reference.
      */
-    [[nodiscard]]
-    const detail::TablesImpl& getImpl() const;
+    [[nodiscard]] const detail::TablesImpl &getImpl() const;
 
     /** Implementation. */
     std::shared_ptr<void> m_impl;

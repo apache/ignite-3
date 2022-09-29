@@ -19,21 +19,19 @@
 
 #include <cstdint>
 
-#include <vector>
 #include <memory>
+#include <vector>
 
 #include <ignite/network/async_handler.h>
 #include <ignite/network/data_sink.h>
 #include <ignite/network/tcp_range.h>
 
-namespace ignite::network
-{
+namespace ignite::network {
 
 /**
  * Asynchronous client pool.
  */
-class AsyncClientPool : public DataSink
-{
+class AsyncClientPool : public DataSink {
 public:
     // Default
     ~AsyncClientPool() override = default;

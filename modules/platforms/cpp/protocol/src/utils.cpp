@@ -21,11 +21,9 @@
 
 #include "ignite/protocol/utils.h"
 
-namespace ignite::protocol
-{
+namespace ignite::protocol {
 
-Guid makeRandomGuid()
-{
+Guid makeRandomGuid() {
     static std::mutex randomMutex;
     static std::random_device rd;
     static std::mt19937 gen(rd());
@@ -37,8 +35,7 @@ Guid makeRandomGuid()
     return {distrib(gen), distrib(gen)};
 }
 
-std::optional<IgniteError> readError(Reader &reader)
-{
+std::optional<IgniteError> readError(Reader &reader) {
     if (reader.tryReadNil())
         return std::nullopt;
 

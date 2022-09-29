@@ -15,10 +15,10 @@
  * limitations under the License.
  */
 
-#include <sys/socket.h>
-#include <netinet/tcp.h>
-#include <netdb.h>
 #include <fcntl.h>
+#include <netdb.h>
+#include <netinet/tcp.h>
+#include <sys/socket.h>
 
 #include <cerrno>
 #include <cstring>
@@ -27,11 +27,9 @@
 
 #include "network/sockets.h"
 
-namespace ignite::network::sockets
-{
+namespace ignite::network::sockets {
 
-std::string getSocketErrorMessage(int error)
-{
+std::string getSocketErrorMessage(int error) {
     std::stringstream res;
 
     res << "error_code=" << error;
@@ -39,40 +37,35 @@ std::string getSocketErrorMessage(int error)
     if (error == 0)
         return res.str();
 
-    char errBuf[1024] = { 0 };
+    char errBuf[1024] = {0};
 
-    const char* errStr = strerror_r(error, errBuf, sizeof(errBuf));
+    const char *errStr = strerror_r(error, errBuf, sizeof(errBuf));
     if (errStr)
         res << ", msg=" << errStr;
 
     return res.str();
 }
 
-std::string getLastSocketErrorMessage()
-{
+std::string getLastSocketErrorMessage() {
     int lastError = errno;
 
     return getSocketErrorMessage(lastError);
 }
 
-void trySetSocketOptions(int socketFd, int bufSize, bool noDelay, bool outOfBand, bool keepAlive)
-{
-    setsockopt(socketFd, SOL_SOCKET, SO_SNDBUF, reinterpret_cast<char*>(&bufSize), sizeof(bufSize));
-    setsockopt(socketFd, SOL_SOCKET, SO_RCVBUF, reinterpret_cast<char*>(&bufSize), sizeof(bufSize));
+void trySetSocketOptions(int socketFd, int bufSize, bool noDelay, bool outOfBand, bool keepAlive) {
+    setsockopt(socketFd, SOL_SOCKET, SO_SNDBUF, reinterpret_cast<char *>(&bufSize), sizeof(bufSize));
+    setsockopt(socketFd, SOL_SOCKET, SO_RCVBUF, reinterpret_cast<char *>(&bufSize), sizeof(bufSize));
 
     int iNoDelay = noDelay ? 1 : 0;
-    setsockopt(socketFd, IPPROTO_TCP, TCP_NODELAY, reinterpret_cast<char*>(&iNoDelay), sizeof(iNoDelay));
+    setsockopt(socketFd, IPPROTO_TCP, TCP_NODELAY, reinterpret_cast<char *>(&iNoDelay), sizeof(iNoDelay));
 
     int iOutOfBand = outOfBand ? 1 : 0;
-    setsockopt(socketFd, SOL_SOCKET, SO_OOBINLINE,
-        reinterpret_cast<char*>(&iOutOfBand), sizeof(iOutOfBand));
+    setsockopt(socketFd, SOL_SOCKET, SO_OOBINLINE, reinterpret_cast<char *>(&iOutOfBand), sizeof(iOutOfBand));
 
     int iKeepAlive = keepAlive ? 1 : 0;
-    int res = setsockopt(socketFd, SOL_SOCKET, SO_KEEPALIVE,
-        reinterpret_cast<char*>(&iKeepAlive), sizeof(iKeepAlive));
+    int res = setsockopt(socketFd, SOL_SOCKET, SO_KEEPALIVE, reinterpret_cast<char *>(&iKeepAlive), sizeof(iKeepAlive));
 
-    if (SOCKET_ERROR == res)
-    {
+    if (SOCKET_ERROR == res) {
         // There is no sense in configuring keep alive params if we failed to set up keep alive mode.
         return;
     }
@@ -86,17 +79,15 @@ void trySetSocketOptions(int socketFd, int bufSize, bool noDelay, bool outOfBand
     int idleOpt = KEEP_ALIVE_IDLE_TIME;
     int idleRetryOpt = KEEP_ALIVE_PROBES_PERIOD;
 #ifdef __APPLE__
-    setsockopt(socketFd, IPPROTO_TCP, TCP_KEEPALIVE, reinterpret_cast<char*>(&idleOpt), sizeof(idleOpt));
+    setsockopt(socketFd, IPPROTO_TCP, TCP_KEEPALIVE, reinterpret_cast<char *>(&idleOpt), sizeof(idleOpt));
 #else
-    setsockopt(socketFd, IPPROTO_TCP, TCP_KEEPIDLE, reinterpret_cast<char*>(&idleOpt), sizeof(idleOpt));
+    setsockopt(socketFd, IPPROTO_TCP, TCP_KEEPIDLE, reinterpret_cast<char *>(&idleOpt), sizeof(idleOpt));
 #endif
 
-    setsockopt(socketFd, IPPROTO_TCP, TCP_KEEPINTVL,
-        reinterpret_cast<char*>(&idleRetryOpt), sizeof(idleRetryOpt));
+    setsockopt(socketFd, IPPROTO_TCP, TCP_KEEPINTVL, reinterpret_cast<char *>(&idleRetryOpt), sizeof(idleRetryOpt));
 }
 
-bool setNonBlockingMode(int socketFd, bool nonBlocking)
-{
+bool setNonBlockingMode(int socketFd, bool nonBlocking) {
     int flags = fcntl(socketFd, F_GETFL, 0);
     if (flags == -1)
         return false;

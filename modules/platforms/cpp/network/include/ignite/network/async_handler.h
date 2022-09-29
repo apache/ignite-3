@@ -20,17 +20,15 @@
 #include <cstdint>
 
 #include <common/ignite_error.h>
-#include <ignite/network/end_point.h>
 #include <ignite/network/data_buffer.h>
+#include <ignite/network/end_point.h>
 
-namespace ignite::network
-{
+namespace ignite::network {
 
 /**
  * Asynchronous events handler.
  */
-class AsyncHandler
-{
+class AsyncHandler {
 public:
     /**
      * Destructor.
@@ -43,7 +41,7 @@ public:
      * @param addr Address of the new connection.
      * @param id Connection ID.
      */
-    virtual void onConnectionSuccess(const EndPoint& addr, uint64_t id) = 0;
+    virtual void onConnectionSuccess(const EndPoint &addr, uint64_t id) = 0;
 
     /**
      * Callback that called on error during connection establishment.
@@ -51,7 +49,7 @@ public:
      * @param addr Connection address.
      * @param err Error.
      */
-    virtual void onConnectionError(const EndPoint& addr, IgniteError err) = 0;
+    virtual void onConnectionError(const EndPoint &addr, IgniteError err) = 0;
 
     /**
      * Callback that called on error during connection establishment.

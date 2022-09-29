@@ -24,16 +24,14 @@
 
 #include "common/Types.h"
 
-namespace ignite::network
-{
+namespace ignite::network {
 
 /**
  * Non-owning data buffer.
  *
  * Represents a consumable chunk of data. Does not hold data ownership.
  */
-class DataBufferRef
-{
+class DataBufferRef {
 public:
     // Default
     DataBufferRef() = default;
@@ -43,8 +41,8 @@ public:
      *
      * @param data Data.
      */
-    explicit DataBufferRef(BytesView data) :
-        m_data(data) { }
+    explicit DataBufferRef(BytesView data)
+        : m_data(data) { }
 
     /**
      * Constructor.
@@ -53,8 +51,8 @@ public:
      * @param pos Start of data.
      * @param len Length.
      */
-    DataBufferRef(BytesView data, size_t pos, size_t len) :
-        m_data(data.substr(pos, len)) { }
+    DataBufferRef(BytesView data, size_t pos, size_t len)
+        : m_data(data.substr(pos, len)) { }
 
     /**
      * Consume buffer data by the vector.
@@ -62,7 +60,7 @@ public:
      * @param dst Vector to append data to.
      * @param bytes Number of bytes to consume.
      */
-    void consumeBy(std::vector<std::byte>& dst, size_t bytes) {
+    void consumeBy(std::vector<std::byte> &dst, size_t bytes) {
         if (bytes > m_data.size())
             bytes = m_data.size();
 
@@ -75,10 +73,7 @@ public:
      *
      * @return @c true if the buffer is empty and @c false otherwise.
      */
-    [[nodiscard]]
-    bool isEmpty() const {
-        return m_data.empty();
-    }
+    [[nodiscard]] bool isEmpty() const { return m_data.empty(); }
 
     /**
      * Consume the whole buffer.
@@ -109,10 +104,7 @@ public:
      *
      * @return Bytes view.
      */
-    [[nodiscard]]
-    BytesView getBytesView() const {
-        return m_data;
-    }
+    [[nodiscard]] BytesView getBytesView() const { return m_data; }
 
 private:
     /** Data. */
@@ -124,8 +116,7 @@ private:
  *
  * Represents a consumable chunk of data. Holds data ownership.
  */
-class DataBufferOwning
-{
+class DataBufferOwning {
 public:
     /**
      * Constructor.
@@ -133,9 +124,9 @@ public:
      * @param data Data.
      * @param pos Position.
      */
-    explicit DataBufferOwning(std::vector<std::byte>&& data, size_t pos = 0) :
-        m_memory(std::move(data)),
-        m_pos(pos) { }
+    explicit DataBufferOwning(std::vector<std::byte> &&data, size_t pos = 0)
+        : m_memory(std::move(data))
+        , m_pos(pos) { }
 
     /**
      * Consume buffer data by the vector.
@@ -143,7 +134,7 @@ public:
      * @param dst Vector to append data to.
      * @param bytes Number of bytes to consume.
      */
-    void consumeBy(std::vector<std::byte>& dst, size_t bytes) {
+    void consumeBy(std::vector<std::byte> &dst, size_t bytes) {
         bytes = std::min(m_memory.size() - m_pos, bytes);
 
         dst.insert(dst.end(), m_memory.data() + m_pos, m_memory.data() + m_pos + bytes);
@@ -155,10 +146,7 @@ public:
      *
      * @return @c true if the buffer is empty and @c false otherwise.
      */
-    [[nodiscard]]
-    bool isEmpty() const {
-        return getSize() == 0;
-    }
+    [[nodiscard]] bool isEmpty() const { return getSize() == 0; }
 
     /**
      * Consume the whole buffer.
@@ -176,27 +164,21 @@ public:
      *
      * @param bytes Bytes to skip.
      */
-    void skip(size_t bytes) {
-        m_pos += std::min(bytes, getSize());
-    }
+    void skip(size_t bytes) { m_pos += std::min(bytes, getSize()); }
 
     /**
      * Get bytes view.
      *
      * @return Bytes view.
      */
-    [[nodiscard]]
-    BytesView getBytesView() const {
-        return {m_memory.data() + m_pos, getSize()};
-    }
+    [[nodiscard]] BytesView getBytesView() const { return {m_memory.data() + m_pos, getSize()}; }
 
     /**
      * Convert to underlying data.
      *
      * @return Data vector.
      */
-    [[nodiscard]]
-    std::vector<std::byte> extractData() && {
+    [[nodiscard]] std::vector<std::byte> extractData() && {
         if (m_pos) {
             m_memory.erase(m_memory.begin(), m_memory.begin() + ptrdiff_t(m_pos));
             m_pos = 0;
@@ -210,8 +192,7 @@ private:
      *
      * @return Size.
      */
-    [[nodiscard]]
-    size_t getSize() const {
+    [[nodiscard]] size_t getSize() const {
         assert(m_memory.size() >= m_pos);
         return m_memory.size() - m_pos;
     }

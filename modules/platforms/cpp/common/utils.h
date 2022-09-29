@@ -23,8 +23,7 @@
 
 #include <common/ignite_error.h>
 
-namespace ignite
-{
+namespace ignite {
 
 /**
  * Make future error.
@@ -33,9 +32,8 @@ namespace ignite
  * @param err Error.
  * @return Failed future with the specified error.
  */
-template<typename T>
-std::future<T> makeFutureError(IgniteError err)
-{
+template <typename T>
+std::future<T> makeFutureError(IgniteError err) {
     std::promise<T> promise;
     promise.set_exception(std::make_exception_ptr(std::move(err)));
 
@@ -48,9 +46,8 @@ std::future<T> makeFutureError(IgniteError err)
  * @param value Value.
  * @return Failed future with the specified error.
  */
-template<typename T>
-std::future<T> makeFutureValue(T value)
-{
+template <typename T>
+std::future<T> makeFutureValue(T value) {
     std::promise<T> promise;
     promise.set_value(std::move(value));
 

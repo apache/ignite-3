@@ -26,29 +26,26 @@
 #include "ignite/ignite_client_configuration.h"
 #include "ignite/table/tables.h"
 
-namespace ignite
-{
+namespace ignite {
 
-namespace detail
-{
+namespace detail {
 class IgniteClientImpl;
 }
 
 /**
  * Ignite client.
  */
-class IgniteClient
-{
+class IgniteClient {
 public:
     // Deleted
-    IgniteClient(const IgniteClient&) = delete;
-    IgniteClient& operator=(const IgniteClient&) = delete;
+    IgniteClient(const IgniteClient &) = delete;
+    IgniteClient &operator=(const IgniteClient &) = delete;
 
     // Default
     IgniteClient() = default;
     ~IgniteClient() = default;
-    IgniteClient(IgniteClient&&) = default;
-    IgniteClient& operator=(IgniteClient&&) = default;
+    IgniteClient(IgniteClient &&) = default;
+    IgniteClient &operator=(IgniteClient &&) = default;
 
     /**
      * Start client asynchronously.
@@ -89,16 +86,14 @@ public:
      *
      * @return Configuration.
      */
-    [[nodiscard]]
-    IGNITE_API const IgniteClientConfiguration& getConfiguration() const noexcept;
+    [[nodiscard]] IGNITE_API const IgniteClientConfiguration &getConfiguration() const noexcept;
 
     /**
      * Get the table API.
      *
      * @return Table API.
      */
-    [[nodiscard]]
-    IGNITE_API Tables getTables() const noexcept;
+    [[nodiscard]] IGNITE_API Tables getTables() const noexcept;
 
 private:
     /**
@@ -113,16 +108,14 @@ private:
      *
      * @return Implementation reference.
      */
-    [[nodiscard]]
-    detail::IgniteClientImpl& getImpl() noexcept;
+    [[nodiscard]] detail::IgniteClientImpl &getImpl() noexcept;
 
     /**
      * Get implementation reference.
      *
      * @return Implementation reference.
      */
-    [[nodiscard]]
-    const detail::IgniteClientImpl& getImpl() const noexcept;
+    [[nodiscard]] const detail::IgniteClientImpl &getImpl() const noexcept;
 
     /** Implementation. */
     std::shared_ptr<void> m_impl;

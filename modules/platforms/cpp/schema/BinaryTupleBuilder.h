@@ -18,8 +18,8 @@
 #pragma once
 
 #include "BinaryTupleSchema.h"
-#include "common/Types.h"
 #include "common/Platform.h"
+#include "common/Types.h"
 
 #include <cassert>
 #include <cstring>
@@ -104,9 +104,7 @@ public:
      * @param type Element type.
      * @param bytes Binary element value.
      */
-    void claim(DATA_TYPE type, const BytesView &bytes) noexcept {
-        claim(sizeOf(type, bytes));
-    }
+    void claim(DATA_TYPE type, const BytesView &bytes) noexcept { claim(sizeOf(type, bytes)); }
 
     /**
      * @brief Assigns a value or null for the next element.
@@ -210,7 +208,8 @@ public:
      * @return Byte buffer with binary tuple.
      */
     template <typename BytesT>
-    const std::vector<std::byte> &build(const BinaryTupleSchema &schema, const std::vector<std::optional<BytesT>> &tuple) {
+    const std::vector<std::byte> &build(
+        const BinaryTupleSchema &schema, const std::vector<std::optional<BytesT>> &tuple) {
         start();
         claim(schema, tuple);
         layout();
@@ -228,7 +227,7 @@ private:
      * @return true If the source value can be compressed.
      * @return false If the source value cannot be compressed.
      */
-    template<typename T, typename U>
+    template <typename T, typename U>
     static bool fits(T value) noexcept {
         static_assert(std::is_signed_v<T>);
         static_assert(std::is_signed_v<U>);
@@ -242,9 +241,7 @@ private:
      * @param value Actual element value.
      * @return Required size.
      */
-    static SizeT sizeOfInt8(std::int8_t value) noexcept {
-        return value == 0 ? 0 : sizeof(std::int8_t);
-    }
+    static SizeT sizeOfInt8(std::int8_t value) noexcept { return value == 0 ? 0 : sizeof(std::int8_t); }
 
     /**
      * @brief Computes required binary size for a given value.
@@ -297,9 +294,7 @@ private:
      * @param value Actual element value.
      * @return Required size.
      */
-    static SizeT sizeOfFloat(float value) noexcept {
-        return value == 0.0f ? 0 : sizeof(float);
-    }
+    static SizeT sizeOfFloat(float value) noexcept { return value == 0.0f ? 0 : sizeof(float); }
 
     /**
      * @brief Computes required binary size for a given value.

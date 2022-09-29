@@ -23,16 +23,14 @@
 #include <ignite/network/codec.h>
 #include <ignite/network/data_filter_adapter.h>
 
-namespace ignite::network
-{
+namespace ignite::network {
 
 /**
  * Data filter that uses codecs inside to encode/decode data.
  */
-class CodecDataFilter : public DataFilterAdapter
-{
+class CodecDataFilter : public DataFilterAdapter {
 public:
-    //Default
+    // Default
     ~CodecDataFilter() override = default;
 
     /**
@@ -51,15 +49,15 @@ public:
      *
      * @throw IgniteError on error.
      */
-    bool send(uint64_t id, std::vector<std::byte>&& data) override;
+    bool send(uint64_t id, std::vector<std::byte> &&data) override;
 
     /**
-      * Callback that called on successful connection establishment.
-      *
-      * @param addr Address of the new connection.
-      * @param id Connection ID.
-      */
-    void onConnectionSuccess(const EndPoint& addr, uint64_t id) override;
+     * Callback that called on successful connection establishment.
+     *
+     * @param addr Address of the new connection.
+     * @param id Connection ID.
+     */
+    void onConnectionSuccess(const EndPoint &addr, uint64_t id) override;
 
     /**
      * Callback that called on error during connection establishment.

@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
-#include <cassert>
 #include <algorithm>
+#include <cassert>
 
 #include "network/sockets.h"
 #include "network/win_async_client.h"
@@ -25,20 +25,19 @@
 
 // Using NULLs as specified by WinAPI
 #ifdef __JETBRAINS_IDE__
-#   pragma ide diagnostic ignored "modernize-use-nullptr"
+# pragma ide diagnostic ignored "modernize-use-nullptr"
 #endif
 
-namespace ignite::network
-{
+namespace ignite::network {
 
-WinAsyncWorkerThread::WinAsyncWorkerThread() :
-    m_thread(),
-    m_stopping(false),
-    m_clientPool(nullptr),
-    m_iocp(NULL) { }
+WinAsyncWorkerThread::WinAsyncWorkerThread()
+    : m_thread()
+    , m_stopping(false)
+    , m_clientPool(nullptr)
+    , m_iocp(NULL) {
+}
 
-void WinAsyncWorkerThread::start(WinAsyncClientPool& clientPool0, HANDLE iocp0)
-{
+void WinAsyncWorkerThread::start(WinAsyncClientPool &clientPool0, HANDLE iocp0) {
     assert(iocp0 != NULL);
     m_iocp = iocp0;
     m_clientPool = &clientPool0;
@@ -46,12 +45,10 @@ void WinAsyncWorkerThread::start(WinAsyncClientPool& clientPool0, HANDLE iocp0)
     m_thread = std::thread(&WinAsyncWorkerThread::run, this);
 }
 
-void WinAsyncWorkerThread::run()
-{
+void WinAsyncWorkerThread::run() {
     assert(m_clientPool != nullptr);
 
-    while (!m_stopping)
-    {
+    while (!m_stopping) {
         DWORD bytesTransferred = 0;
         ULONG_PTR key = NULL;
         LPOVERLAPPED overlapped = NULL;
@@ -64,17 +61,15 @@ void WinAsyncWorkerThread::run()
         if (!key)
             continue;
 
-        auto client = reinterpret_cast<WinAsyncClient*>(key);
+        auto client = reinterpret_cast<WinAsyncClient *>(key);
 
-        if (!ok || (NULL != overlapped && 0 == bytesTransferred))
-        {
+        if (!ok || (NULL != overlapped && 0 == bytesTransferred)) {
             m_clientPool->closeAndRelease(client->getId(), std::nullopt);
 
             continue;
         }
 
-        if (!overlapped)
-        {
+        if (!overlapped) {
             // This mean new client is connected.
             m_clientPool->handleConnectionSuccess(client->getAddress(), client->getId());
 
@@ -85,13 +80,10 @@ void WinAsyncWorkerThread::run()
             continue;
         }
 
-        try
-        {
-            auto operation = reinterpret_cast<IoOperation*>(overlapped);
-            switch (operation->kind)
-            {
-                case IoOperationKind::SEND:
-                {
+        try {
+            auto operation = reinterpret_cast<IoOperation *>(overlapped);
+            switch (operation->kind) {
+                case IoOperationKind::SEND: {
                     bool success = client->processSent(bytesTransferred);
 
                     if (!success)
@@ -102,8 +94,7 @@ void WinAsyncWorkerThread::run()
                     break;
                 }
 
-                case IoOperationKind::RECEIVE:
-                {
+                case IoOperationKind::RECEIVE: {
                     auto data = client->processReceived(bytesTransferred);
 
                     if (!data.empty())
@@ -120,16 +111,13 @@ void WinAsyncWorkerThread::run()
                 default:
                     break;
             }
-        }
-        catch (const IgniteError& err)
-        {
+        } catch (const IgniteError &err) {
             m_clientPool->closeAndRelease(client->getId(), err);
         }
     }
 }
 
-void WinAsyncWorkerThread::stop()
-{
+void WinAsyncWorkerThread::stop() {
     if (m_stopping)
         return;
 
@@ -141,4 +129,3 @@ void WinAsyncWorkerThread::stop()
 }
 
 } // namespace ignite::network
-
