@@ -45,6 +45,7 @@ import java.util.stream.IntStream;
 import org.apache.ignite.client.ClientOperationType;
 import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.client.IgniteClientConnectionException;
+import org.apache.ignite.client.RetryLimitPolicy;
 import org.apache.ignite.client.RetryPolicy;
 import org.apache.ignite.client.RetryPolicyContext;
 import org.apache.ignite.internal.client.io.ClientConnectionMultiplexer;
@@ -589,7 +590,8 @@ public final class ReliableChannel implements AutoCloseable {
         ClientOperationType opType = ClientUtils.opCodeToClientOperationType(opCode);
 
         if (opType == null) {
-            return true; // System operation.
+            // System operation.
+            return iteration < RetryLimitPolicy.DFLT_RETRY_LIMIT;
         }
 
         RetryPolicy plc = clientCfg.retryPolicy();
