@@ -114,6 +114,74 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     public abstract void before() throws Exception;
 
     @Test
+    public void testDeleteUpsertCommit() throws TransactionException {
+        deleteUpsert().commit();
+
+        assertEquals(200., accounts.recordView().get(null, makeKey(1)).doubleValue("balance"));
+    }
+
+    @Test
+    public void testDeleteUpsertRollback() throws TransactionException {
+        deleteUpsert().rollback();
+
+        assertEquals(100., accounts.recordView().get(null, makeKey(1)).doubleValue("balance"));
+    }
+
+    private InternalTransaction deleteUpsert() {
+        accounts.recordView().upsert(null, makeValue(1, 100.));
+
+        InternalTransaction tx = (InternalTransaction) igniteTransactions.begin();
+
+        accounts.recordView().delete(tx, makeKey(1));
+
+        assertNull(accounts.recordView().get(tx, makeKey(1)));
+
+        accounts.recordView().upsert(tx, makeValue(1, 200.));
+
+        return tx;
+    }
+
+    @Test
+    public void testDeleteUpsertAllCommit() throws TransactionException {
+        deleteUpsertAll().commit();
+
+        assertEquals(200., accounts.recordView().get(null, makeKey(1)).doubleValue("balance"));
+        assertEquals(200., accounts.recordView().get(null, makeKey(2)).doubleValue("balance"));
+    }
+
+    @Test
+    public void testDeleteUpsertAllRollback() throws TransactionException {
+        deleteUpsertAll().rollback();
+
+        assertEquals(100., accounts.recordView().get(null, makeKey(1)).doubleValue("balance"));
+        assertEquals(100., accounts.recordView().get(null, makeKey(2)).doubleValue("balance"));
+    }
+
+    private InternalTransaction deleteUpsertAll() {
+        List<Tuple> tuples = new ArrayList<>();
+        tuples.add(makeValue(1, 100.));
+        tuples.add(makeValue(2, 100.));
+
+        accounts.recordView().upsertAll(null, tuples);
+
+        InternalTransaction tx = (InternalTransaction) igniteTransactions.begin();
+
+        tuples.clear();
+        tuples.add(makeKey(1));
+        tuples.add(makeKey(2));
+
+        accounts.recordView().deleteAll(tx, tuples);
+
+        tuples.clear();
+        tuples.add(makeValue(1, 200.));
+        tuples.add(makeValue(2, 200.));
+
+        accounts.recordView().upsertAll(tx, tuples);
+
+        return tx;
+    }
+
+    @Test
     public void testMixedPutGet() throws TransactionException {
         accounts.recordView().upsert(null, makeValue(1, BALANCE_1));
 

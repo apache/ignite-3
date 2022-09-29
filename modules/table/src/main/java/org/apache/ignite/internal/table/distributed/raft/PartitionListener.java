@@ -29,12 +29,15 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -82,10 +85,10 @@ public class PartitionListener implements RaftGroupListener {
     private final ConcurrentHashMap<ByteBuffer, RowId> primaryIndex;
 
     /** Keys that were inserted by the transaction. */
-    private HashMap<UUID, Set<RowId>> txsInsertedKeys = new HashMap<>();
+    private HashMap<UUID, Set<ByteBuffer>> txsInsertedKeys = new HashMap<>();
 
     /** Keys that were removed by the transaction. */
-    private HashMap<UUID, Set<RowId>> txsRemovedKeys = new HashMap<>();
+    private HashMap<UUID, Set<ByteBuffer>> txsRemovedKeys = new HashMap<>();
 
     /** Rows that were inserted, updated or removed. */
     private HashMap<UUID, Set<RowId>> txsPendingRowIds = new HashMap<>();
@@ -171,12 +174,25 @@ public class PartitionListener implements RaftGroupListener {
 
             if (row == null) {
                 // Remove entry.
-                txsRemovedKeys.computeIfAbsent(txId, entry -> new HashSet<>()).add(rowId);
-            } else if (!primaryIndex.contains(row.keySlice())) {
+                List<ByteBuffer> keys = primaryIndex.entrySet().stream()
+                        .filter(e -> e.getValue().equals(rowId))
+                        .map(Entry::getKey)
+                        .collect(Collectors.toList());
+
+                assert keys.size() <= 1;
+
+                if (keys.size() == 1) {
+                    txsRemovedKeys.computeIfAbsent(txId, entry -> new HashSet<>()).add(keys.get(0));
+                    txsInsertedKeys.computeIfAbsent(txId, entry -> new HashSet<>()).remove(keys.get(0));
+                }
+            } else if (!primaryIndex.containsKey(row.keySlice())) {
                 // Insert entry.
-                txsInsertedKeys.computeIfAbsent(txId, entry -> new HashSet<>()).add(rowId);
+                txsInsertedKeys.computeIfAbsent(txId, entry -> new HashSet<>()).add(row.keySlice());
+                txsRemovedKeys.computeIfAbsent(txId, entry -> new HashSet<>()).remove(row.keySlice());
 
                 primaryIndex.put(row.keySlice(), rowId);
+            } else if (primaryIndex.containsKey(row.keySlice())) {
+                txsRemovedKeys.computeIfAbsent(txId, entry -> new HashSet<>()).remove(row.keySlice());
             }
 
             storage.lastAppliedIndex(commandIndex);
@@ -197,19 +213,34 @@ public class PartitionListener implements RaftGroupListener {
 
             if (!CollectionUtils.nullOrEmpty(rowsToUpdate)) {
                 for (Map.Entry<RowId, BinaryRow> entry : rowsToUpdate.entrySet()) {
+                    RowId rowId = entry.getKey();
+                    BinaryRow row = entry.getValue();
                     // TODO: IGNITE-17759 Need pass appropriate commitTableId and commitPartitionId.
-                    storage.addWrite(entry.getKey(), entry.getValue(), txId, UUID.randomUUID(), 0);
+                    storage.addWrite(rowId, row, txId, UUID.randomUUID(), 0);
 
-                    txsPendingRowIds.computeIfAbsent(txId, entry0 -> new HashSet<>()).add(entry.getKey());
+                    txsPendingRowIds.computeIfAbsent(txId, entry0 -> new HashSet<>()).add(rowId);
 
-                    if (entry.getValue() == null) {
+                    if (row == null) {
                         // Remove entry.
-                        txsRemovedKeys.computeIfAbsent(txId, entry0 -> new HashSet<>()).add(entry.getKey());
-                    } else if (!primaryIndex.contains(entry.getValue().keySlice())) {
-                        // Insert entry.
-                        txsInsertedKeys.computeIfAbsent(txId, entry0 -> new HashSet<>()).add(entry.getKey());
+                        List<ByteBuffer> keys = primaryIndex.entrySet().stream()
+                                .filter(e -> e.getValue().equals(rowId))
+                                .map(Entry::getKey)
+                                .collect(Collectors.toList());
 
-                        primaryIndex.put(entry.getValue().keySlice(), entry.getKey());
+                        assert keys.size() <= 1;
+
+                        if (keys.size() == 1) {
+                            txsRemovedKeys.computeIfAbsent(txId, entry0 -> new HashSet<>()).add(keys.get(0));
+                            txsInsertedKeys.computeIfAbsent(txId, entry0 -> new HashSet<>()).remove(keys.get(0));
+                        }
+                    } else if (!primaryIndex.containsKey(row.keySlice())) {
+                        // Insert entry.
+                        txsInsertedKeys.computeIfAbsent(txId, entry0 -> new HashSet<>()).add(row.keySlice());
+                        txsRemovedKeys.computeIfAbsent(txId, entry0 -> new HashSet<>()).remove(row.keySlice());
+
+                        primaryIndex.put(row.keySlice(), rowId);
+                    } else if (primaryIndex.containsKey(row.keySlice())) {
+                        txsRemovedKeys.computeIfAbsent(txId, entry0 -> new HashSet<>()).remove(row.keySlice());
                     }
                 }
             }
@@ -267,9 +298,9 @@ public class PartitionListener implements RaftGroupListener {
         storage.runConsistently(() -> {
             UUID txId = cmd.txId();
 
-            Set<RowId> removedRowIds = txsRemovedKeys.getOrDefault(txId, Collections.emptySet());
+            Set<ByteBuffer> removedKeys = txsRemovedKeys.getOrDefault(txId, Collections.emptySet());
 
-            Set<RowId> insertedRowIds = txsInsertedKeys.getOrDefault(txId, Collections.emptySet());
+            Set<ByteBuffer> insertedKeys = txsInsertedKeys.getOrDefault(txId, Collections.emptySet());
 
             Set<RowId> pendingRowIds = txsPendingRowIds.getOrDefault(txId, Collections.emptySet());
 
@@ -280,12 +311,12 @@ public class PartitionListener implements RaftGroupListener {
             }
 
             if (cmd.commit()) {
-                for (RowId rowId : removedRowIds) {
-                    primaryIndex.remove(rowId);
+                for (ByteBuffer key : removedKeys) {
+                    primaryIndex.remove(key);
                 }
             } else {
-                for (RowId rowId : insertedRowIds) {
-                    primaryIndex.remove(rowId);
+                for (ByteBuffer key : insertedKeys) {
+                    primaryIndex.remove(key);
                 }
             }
 
