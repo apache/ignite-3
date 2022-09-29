@@ -18,6 +18,7 @@
 package org.apache.ignite.client;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.netty.util.ResourceLeakDetector;
 import java.util.ArrayList;
@@ -96,7 +97,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
         initPartitionAssignment(null);
 
-        IgniteTestUtils.waitForCondition(() -> client2.connections().size() == 2, 3000);
+        assertTrue(IgniteTestUtils.waitForCondition(() -> client2.connections().size() == 2, 3000));
     }
 
     @Test
