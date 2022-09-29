@@ -787,7 +787,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
                         BinaryRow binaryRow = wrapValueIntoBinaryRow(valueBytes, isWriteIntent);
 
-                        if (binaryRow != null && keyFilter.test(binaryRow)) {
+                        if (binaryRow != null && (keyFilter == null || keyFilter.test(binaryRow))) {
                             if (txId != null && isWriteIntent) {
                                 validateTxId(valueBytes, txId);
                             }
