@@ -17,7 +17,7 @@
 
 #include <boost/test/unit_test.hpp>
 
-#include "common/Uuid.h"
+#include "common/uuid.h"
 
 #include <sstream>
 

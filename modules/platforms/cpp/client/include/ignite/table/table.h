@@ -21,7 +21,7 @@
 #include <memory>
 #include <utility>
 
-#include "common/Config.h"
+#include "common/config.h"
 
 namespace ignite {
 

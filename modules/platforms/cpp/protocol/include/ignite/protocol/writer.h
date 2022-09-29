@@ -24,7 +24,7 @@
 
 #include <msgpack.h>
 
-#include "common/Types.h"
+#include "common/types.h"
 #include "ignite/protocol/buffer_adapter.h"
 
 namespace ignite::protocol {

@@ -23,8 +23,8 @@
 #include <array>
 #include <optional>
 
-#include "common/Types.h"
 #include "common/ignite_error.h"
+#include "common/types.h"
 
 #include "ignite/protocol/reader.h"
 

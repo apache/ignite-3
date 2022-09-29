@@ -22,7 +22,7 @@
 #include <memory>
 #include <vector>
 
-#include "common/Types.h"
+#include "common/types.h"
 
 namespace ignite::network {
 

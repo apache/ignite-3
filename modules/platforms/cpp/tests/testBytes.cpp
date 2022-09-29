@@ -17,7 +17,7 @@
 
 #include <boost/test/unit_test.hpp>
 
-#include "common/Bytes.h"
+#include "common/bytes.h"
 
 #include <array>
 
@@ -333,7 +333,7 @@ BOOST_AUTO_TEST_CASE(genericAccessFloat) {
 
         store<E1>(buf1.data(), x);
         store<E2>(buf2.data(), x);
-        for (int i = 0; i < sizeof(x); i++) {
+        for (std::size_t i = 0; i < sizeof(x); i++) {
             BOOST_CHECK_EQUAL(std::to_integer<char>(buf1[i]), std::to_integer<char>(buf2[sizeof(x) - i - 1]));
         }
 
@@ -351,7 +351,7 @@ BOOST_AUTO_TEST_CASE(genericAccessFloat) {
 
         store<E1>(buf1.data(), x);
         store<E2>(buf2.data(), x);
-        for (int i = 0; i < sizeof(x); i++) {
+        for (std::size_t i = 0; i < sizeof(x); i++) {
             BOOST_CHECK_EQUAL(std::to_integer<char>(buf1[i]), std::to_integer<char>(buf2[sizeof(x) - i - 1]));
         }
 

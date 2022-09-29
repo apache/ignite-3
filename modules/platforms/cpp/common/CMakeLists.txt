@@ -20,16 +20,15 @@ project(ignite-common)
 set(TARGET ${PROJECT_NAME})
 
 set(HEADERS
-    Bits.h
-    Bytes.h
-    Config.h
+    bits.h
+    bytes.h
+    config.h
     guid.h
     ignite_error.h
     ignite_result.h
-    Types.h
-    Uuid.h
-    Platform.h
-)
+    platform.h
+    types.h
+    uuid.h)
 
 add_library(${TARGET} INTERFACE)
 

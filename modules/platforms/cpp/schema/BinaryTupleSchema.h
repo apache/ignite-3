@@ -19,7 +19,7 @@
 
 #include "BinaryTupleHeader.h"
 #include "ColumnInfo.h"
-#include "common/Types.h"
+#include "common/types.h"
 
 #include <iterator>
 #include <vector>

@@ -16,7 +16,7 @@
  */
 
 #include "BinaryTupleParser.h"
-#include "common/Platform.h"
+#include "common/platform.h"
 
 #include <cassert>
 #include <cstring>

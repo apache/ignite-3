@@ -20,7 +20,7 @@
 #include <sstream>
 #include <stdexcept>
 
-#include "common/Config.h"
+#include "common/config.h"
 
 #include "ignite_runner.h"
 #include "test_utils.h"

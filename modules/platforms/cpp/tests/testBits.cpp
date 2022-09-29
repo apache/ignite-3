@@ -17,7 +17,7 @@
 
 #include <boost/test/unit_test.hpp>
 
-#include "common/Bits.h"
+#include "common/bits.h"
 
 BOOST_AUTO_TEST_CASE(countRZero) {
     BOOST_CHECK_EQUAL(8, ignite::countRZero(uint8_t(0)));

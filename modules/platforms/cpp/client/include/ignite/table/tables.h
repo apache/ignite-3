@@ -21,7 +21,7 @@
 #include <memory>
 #include <optional>
 
-#include "common/Config.h"
+#include "common/config.h"
 #include "common/ignite_result.h"
 #include "ignite/table/table.h"
 

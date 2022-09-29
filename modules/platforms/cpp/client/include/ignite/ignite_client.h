@@ -20,7 +20,7 @@
 #include <functional>
 #include <memory>
 
-#include "common/Config.h"
+#include "common/config.h"
 #include "common/ignite_result.h"
 
 #include "ignite/ignite_client_configuration.h"

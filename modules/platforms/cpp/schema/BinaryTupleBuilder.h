@@ -18,8 +18,8 @@
 #pragma once
 
 #include "BinaryTupleSchema.h"
-#include "common/Platform.h"
-#include "common/Types.h"
+#include "common/platform.h"
+#include "common/types.h"
 
 #include <cassert>
 #include <cstring>

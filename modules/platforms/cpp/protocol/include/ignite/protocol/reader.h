@@ -22,8 +22,8 @@
 
 #include <msgpack.h>
 
-#include "common/Types.h"
 #include "common/guid.h"
+#include "common/types.h"
 
 namespace ignite::protocol {
 
