@@ -303,7 +303,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         boolean commit = request.commit();
 
-        CompletableFuture<Object> chaneStateFuture = raftClient.run(
+        CompletableFuture<Object> changeStateFuture = raftClient.run(
                 new FinishTxCommand(
                         txId,
                         commit,
@@ -318,7 +318,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         request.groups().forEach(
                 (recipientNode, replicationGroupIds) ->
-                        cleanupFutures[cleanupFuturesCnt.getAndIncrement()] = chaneStateFuture.thenCompose(ignored ->
+                        cleanupFutures[cleanupFuturesCnt.getAndIncrement()] = changeStateFuture.thenCompose(ignored ->
                                 txManager.cleanup(
                                         recipientNode,
                                         replicationGroupIds,

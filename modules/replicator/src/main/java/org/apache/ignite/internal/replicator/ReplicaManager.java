@@ -92,7 +92,9 @@ public class ReplicaManager implements IgniteComponent {
             }
 
             try {
-                assert message instanceof ReplicaRequest : "Unexpected message [message=" + message + ']';
+                if (!(message instanceof ReplicaRequest)) {
+                    return;
+                }
 
                 ReplicaRequest request = (ReplicaRequest) message;
 

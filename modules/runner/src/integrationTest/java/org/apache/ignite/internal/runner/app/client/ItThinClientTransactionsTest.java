@@ -37,11 +37,13 @@ import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
  * Thin client transactions integration test.
  */
+@Disabled
 public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
     @Test
     void testKvViewOperations() {
