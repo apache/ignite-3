@@ -71,7 +71,7 @@ public abstract class AbstractClientTest {
      * After each.
      */
     @BeforeEach
-    public void beforeEach() {
+    public void beforeEach() throws InterruptedException {
         dropTables(server);
     }
 
