@@ -203,8 +203,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         replicaListener = new PartitionReplicaListener(
                 mvPartStorage,
                 partitionMap.get(0),
-                txManager,
-                txManager.lockManager(),
+                this.txManager,
+                this.txManager.lockManager(),
                 0,
                 groupId,
                 tableId(),
@@ -216,7 +216,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         partitionListener = new PartitionListener(
                 mvPartStorage,
                 new TestConcurrentHashMapTxStateStorage(),
-                txManager,
+                this.txManager,
                 primaryIndex
         );
     }
