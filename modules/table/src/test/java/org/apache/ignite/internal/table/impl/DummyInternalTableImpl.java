@@ -115,10 +115,10 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      *                        by itself.
      */
     public DummyInternalTableImpl(
-        ReplicaService replicaSvc,
-        MvPartitionStorage mvPartStorage,
-        @Nullable TxManager txManager,
-        boolean crossTableUsage
+            ReplicaService replicaSvc,
+            MvPartitionStorage mvPartStorage,
+            @Nullable TxManager txManager,
+            boolean crossTableUsage
     ) {
         super(
                 "test",
