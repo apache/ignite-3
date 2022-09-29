@@ -62,6 +62,7 @@ import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
@@ -206,6 +207,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
      * @throws Exception If failed.
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17775")
     public void testGetTableFromLaggedNode() throws Exception {
         clusterNodes.forEach(ign -> assertNull(ign.tables().table(TABLE_NAME)));
 
