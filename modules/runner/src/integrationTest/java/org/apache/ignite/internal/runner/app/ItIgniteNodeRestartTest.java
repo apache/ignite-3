@@ -115,6 +115,7 @@ import org.junit.jupiter.api.TestInfo;
  * These tests check node restart scenarios.
  */
 @WithSystemProperty(key = CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY, value = "0")
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-17302")
 public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     /** Default node port. */
     private static final int DEFAULT_NODE_PORT = 3344;
