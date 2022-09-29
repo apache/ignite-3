@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table.distributed;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.apache.ignite.raft.jraft.test.TestUtils.peersToIds;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -148,13 +149,13 @@ public class TableManagerTest extends IgniteAbstractTest {
     private static final IgniteLogger LOG = Loggers.forClass(TableManagerTest.class);
 
     /** The name of the table which is preconfigured. */
-    private static final String PRECONFIGURED_TABLE_NAME = "t1";
+    private static final String PRECONFIGURED_TABLE_NAME = "T1";
 
     /** The name of the table which will be configured dynamically. */
-    private static final String DYNAMIC_TABLE_NAME = "t2";
+    private static final String DYNAMIC_TABLE_NAME = "T2";
 
     /** The name of table to drop it. */
-    private static final String DYNAMIC_TABLE_FOR_DROP_NAME = "t3";
+    private static final String DYNAMIC_TABLE_FOR_DROP_NAME = "T3";
 
     /** Table partitions. */
     private static final int PARTITIONS = 32;
@@ -374,7 +375,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         TableManager tableManager = tblManagerFut.join();
 
-        tableManager.dropTable(scmTbl.canonicalName());
+        await(tableManager.dropTableAsync(DYNAMIC_TABLE_FOR_DROP_NAME));
 
         assertNull(tableManager.table(scmTbl.canonicalName()));
 
@@ -415,13 +416,10 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         TableManager igniteTables = tableManager;
 
-        assertThrows(IgniteException.class, () -> igniteTables.createTable(tblFullName, createTableChange));
         assertThrows(IgniteException.class, () -> igniteTables.createTableAsync(tblFullName, createTableChange));
 
-        assertThrows(IgniteException.class, () -> igniteTables.alterTable(tblFullName, addColumnChange));
         assertThrows(IgniteException.class, () -> igniteTables.alterTableAsync(tblFullName, addColumnChange));
 
-        assertThrows(IgniteException.class, () -> igniteTables.dropTable(tblFullName));
         assertThrows(IgniteException.class, () -> igniteTables.dropTableAsync(tblFullName));
 
         assertThrows(IgniteException.class, () -> igniteTables.tables());
@@ -537,9 +535,10 @@ public class TableManagerTest extends IgniteAbstractTest {
         assertNotNull(table);
 
         assertThrows(RuntimeException.class,
-                () -> tblManagerFut.join().createTable(scmTbl.canonicalName(), tblCh -> SchemaConfigurationConverter.convert(scmTbl, tblCh)
-                        .changeReplicas(REPLICAS)
-                        .changePartitions(PARTITIONS)));
+                () -> await(tblManagerFut.join().createTableAsync(DYNAMIC_TABLE_NAME,
+                        tblCh -> SchemaConfigurationConverter.convert(scmTbl, tblCh)
+                                .changeReplicas(REPLICAS)
+                                .changePartitions(PARTITIONS))));
 
         assertSame(table, tblManagerFut.join().table(scmTbl.canonicalName()));
     }

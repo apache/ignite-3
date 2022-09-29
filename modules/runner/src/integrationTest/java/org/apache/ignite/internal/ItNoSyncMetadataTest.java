@@ -17,10 +17,9 @@
 
 package org.apache.ignite.internal;
 
+import java.util.List;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
-import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
 import org.apache.ignite.internal.sql.engine.AbstractBasicIntegrationTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
@@ -41,14 +40,7 @@ public class ItNoSyncMetadataTest extends AbstractBasicIntegrationTest {
      */
     @BeforeAll
     void startNodes() {
-        createTable(
-                SchemaBuilders.tableBuilder("PUBLIC", "T1").columns(
-                        SchemaBuilders.column("ID", ColumnType.INT32).build(),
-                        SchemaBuilders.column("C1", ColumnType.INT32).build(),
-                        SchemaBuilders.column("C2", ColumnType.INT32).asNullable(true).build(),
-                        SchemaBuilders.column("C3", ColumnType.INT32).asNullable(true).build()
-                ).withPrimaryKey("ID")
-        );
+        sql("CREATE TABLE t1 (id INT PRIMARY KEY, c1 INT NOT NULL, c2 INT, c3 INT)");
 
         try {
             Assertions.assertTrue(IgniteTestUtils.waitForCondition(
@@ -66,7 +58,7 @@ public class ItNoSyncMetadataTest extends AbstractBasicIntegrationTest {
      */
     @Test
     public void test() {
-        insertData("PUBLIC.T1", new String[]{"ID", "C1", "C2", "C3"},
+        insertData("T1", List.of("ID", "C1", "C2", "C3"),
                 new Object[]{0, 1, 1, 1},
                 new Object[]{1, 2, null, 2},
                 new Object[]{2, 2, 2, 2},
@@ -76,7 +68,7 @@ public class ItNoSyncMetadataTest extends AbstractBasicIntegrationTest {
         );
 
         for (Ignite ignite : CLUSTER_NODES) {
-            checkData(ignite.tables().table("PUBLIC.T1"), new String[]{"ID", "C1", "C2", "C3"},
+            checkData(ignite.tables().table("T1"), new String[]{"ID", "C1", "C2", "C3"},
                     new Object[]{0, 1, 1, 1},
                     new Object[]{1, 2, null, 2},
                     new Object[]{2, 2, 2, 2},

@@ -119,7 +119,7 @@ import org.apache.ignite.internal.table.message.TableMessagesFactory;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.ByteUtils;
-import org.apache.ignite.internal.util.IgniteObjectName;
+import org.apache.ignite.internal.util.IgniteNameUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.utils.RebalanceUtil;
 import org.apache.ignite.lang.ByteArray;
@@ -154,6 +154,8 @@ import org.jetbrains.annotations.TestOnly;
  */
 public class TableManager extends Producer<TableEvent, TableEventParameters> implements IgniteTables, IgniteTablesInternal,
         IgniteComponent {
+    private static final String DEFAULT_SCHEMA_NAME = "PUBLIC";
+
     // TODO get rid of this in future? IGNITE-17307
     /** Timeout to complete the tablesByIdVv on revision update. */
     private static final long TABLES_COMPLETE_TIMEOUT = 120;
@@ -890,7 +892,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     /**
-     * Completes appropriate future to return result from API {@link TableManager#createTable(String, Consumer)}.
+     * Completes appropriate future to return result from API {@link TableManager#createTableAsync(String, Consumer)}.
      *
      * @param table Table.
      */
@@ -968,27 +970,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         return tblId + "_part_" + partition;
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public Table createTable(String name, Consumer<TableChange> tableInitChange) {
-        return join(createTableAsync(name, tableInitChange));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<Table> createTableAsync(String name, Consumer<TableChange> tableInitChange) {
-        if (!busyLock.enterBusy()) {
-            throw new IgniteException(new NodeStoppingException());
-        }
-        try {
-            return createTableAsyncInternal(IgniteObjectName.parseCanonicalName(name), tableInitChange);
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
     /**
-     * Internal method that creates a new table with the given {@code name} asynchronously. If a table with the same name already exists,
+     * Creates a new table with the given {@code name} asynchronously. If a table with the same name already exists,
      * a future will be completed with {@link TableAlreadyExistsException}.
      *
      * @param name            Table name.
@@ -1000,16 +983,28 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      *                         </ul>
      * @see TableAlreadyExistsException
      */
+    public CompletableFuture<Table> createTableAsync(String name, Consumer<TableChange> tableInitChange) {
+        if (!busyLock.enterBusy()) {
+            throw new IgniteException(new NodeStoppingException());
+        }
+        try {
+            return createTableAsyncInternal(name, tableInitChange);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    /** See {@link #createTableAsync(String, Consumer)} for details. */
     private CompletableFuture<Table> createTableAsyncInternal(String name, Consumer<TableChange> tableInitChange) {
         CompletableFuture<Table> tblFut = new CompletableFuture<>();
 
         tableAsyncInternal(name).thenAccept(tbl -> {
             if (tbl != null) {
-                tblFut.completeExceptionally(new TableAlreadyExistsException(name));
+                tblFut.completeExceptionally(new TableAlreadyExistsException(DEFAULT_SCHEMA_NAME, name));
             } else {
                 tablesCfg.change(tablesChange -> tablesChange.changeTables(tablesListChange -> {
                     if (tablesListChange.get(name) != null) {
-                        throw new TableAlreadyExistsException(name);
+                        throw new TableAlreadyExistsException(DEFAULT_SCHEMA_NAME, name);
                     }
 
                     tablesListChange.create(name, (tableChange) -> {
@@ -1076,30 +1071,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         return tblFut;
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public void alterTable(String name, Consumer<TableChange> tableChange) {
-        join(alterTableAsync(name, tableChange));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<Void> alterTableAsync(String name, Consumer<TableChange> tableChange) {
-        if (!busyLock.enterBusy()) {
-            throw new IgniteException(new NodeStoppingException());
-        }
-        try {
-            return alterTableAsyncInternal(IgniteObjectName.parseCanonicalName(name), tableChange);
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
     /**
-     * Internal method that alters a cluster table. If an appropriate table does not exist, a future will be
-     * completed with {@link TableNotFoundException}.
+     * Alters a cluster table. If an appropriate table does not exist, a future will be completed with {@link TableNotFoundException}.
      *
-     * @param name        Table name.
+     * @param name Table name.
      * @param tableChange Table changer.
      * @return Future representing pending completion of the operation.
      * @throws IgniteException If an unspecified platform exception has happened internally. Is thrown when:
@@ -1108,19 +1083,30 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      *                         </ul>
      * @see TableNotFoundException
      */
-    @NotNull
+    public CompletableFuture<Void> alterTableAsync(String name, Consumer<TableChange> tableChange) {
+        if (!busyLock.enterBusy()) {
+            throw new IgniteException(new NodeStoppingException());
+        }
+        try {
+            return alterTableAsyncInternal(name, tableChange);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    /** See {@link #alterTableAsync(String, Consumer)} for details. */
     private CompletableFuture<Void> alterTableAsyncInternal(String name, Consumer<TableChange> tableChange) {
         CompletableFuture<Void> tblFut = new CompletableFuture<>();
 
         tableAsync(name).thenAccept(tbl -> {
             if (tbl == null) {
-                tblFut.completeExceptionally(new TableNotFoundException(name));
+                tblFut.completeExceptionally(new TableNotFoundException(DEFAULT_SCHEMA_NAME, name));
             } else {
                 TableImpl tblImpl = (TableImpl) tbl;
 
                 tablesCfg.tables().change(ch -> {
                     if (ch.get(name) == null) {
-                        throw new TableNotFoundException(name);
+                        throw new TableNotFoundException(DEFAULT_SCHEMA_NAME, name);
                     }
 
                     ch.update(name, tblCh -> {
@@ -1209,27 +1195,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         return ex instanceof IgniteException ? (IgniteException) ex : new IgniteException(ex);
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public void dropTable(String name) {
-        join(dropTableAsync(name));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<Void> dropTableAsync(String name) {
-        if (!busyLock.enterBusy()) {
-            throw new IgniteException(new NodeStoppingException());
-        }
-        try {
-            return dropTableAsyncInternal(IgniteObjectName.parseCanonicalName(name));
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
     /**
-     * Internal method that drops a table with the name specified. If appropriate table does not be found, a future will be
+     * Drops a table with the name specified. If appropriate table does not be found, a future will be
      * completed with {@link TableNotFoundException}.
      *
      * @param name Table name.
@@ -1240,7 +1207,18 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      *                         </ul>
      * @see TableNotFoundException
      */
-    @NotNull
+    public CompletableFuture<Void> dropTableAsync(String name) {
+        if (!busyLock.enterBusy()) {
+            throw new IgniteException(new NodeStoppingException());
+        }
+        try {
+            return dropTableAsyncInternal(name);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    /** See {@link #dropTableAsync(String)} for details. */
     private CompletableFuture<Void> dropTableAsyncInternal(String name) {
         CompletableFuture<Void> dropTblFut = new CompletableFuture<>();
 
@@ -1248,14 +1226,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             // In case of drop it's an optimization that allows not to fire drop-change-closure if there's no such
             // distributed table and the local config has lagged behind.
             if (tbl == null) {
-                dropTblFut.completeExceptionally(new TableNotFoundException(name));
+                dropTblFut.completeExceptionally(new TableNotFoundException(DEFAULT_SCHEMA_NAME, name));
             } else {
                 tablesCfg.change(chg ->
                         chg.changeTables(tblChg -> {
                             TableView tableCfg = tblChg.get(name);
 
                             if (tableCfg == null) {
-                                throw new TableNotFoundException(name);
+                                throw new TableNotFoundException(DEFAULT_SCHEMA_NAME, name);
                             }
 
                             tblChg.delete(name);
@@ -1394,7 +1372,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Table> tableAsync(String name) {
-        return tableAsyncInternal(IgniteObjectName.parseCanonicalName(name))
+        return tableAsyncInternal(IgniteNameUtils.parseSimpleName(name))
                 .thenApply(Function.identity());
     }
 
@@ -1420,7 +1398,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<TableImpl> tableImplAsync(String name) {
-        return tableAsyncInternal(IgniteObjectName.parseCanonicalName(name));
+        return tableAsyncInternal(IgniteNameUtils.parseSimpleName(name));
     }
 
     /**

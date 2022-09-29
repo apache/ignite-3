@@ -18,11 +18,8 @@
 package org.apache.ignite.internal.index;
 
 import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
-import static org.apache.ignite.internal.schema.SchemaUtils.canonicalName;
-import static org.apache.ignite.internal.util.IgniteObjectName.parseCanonicalName;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.notNullValue;
@@ -127,7 +124,7 @@ public class IndexManagerTest {
         indexManager = new IndexManager(tablesConfig);
         indexManager.start();
 
-        tablesConfig.tables().change(tableChange -> tableChange.create("SNAME.TNAME", chg -> {
+        tablesConfig.tables().change(tableChange -> tableChange.create("tName", chg -> {
             chg.changeColumns(cols -> cols
                     .create("c1", col -> col.changeType(t -> t.changeType("STRING")))
                     .create("c2", col -> col.changeType(t -> t.changeType("STRING"))));
@@ -148,7 +145,7 @@ public class IndexManagerTest {
 
     @Test
     void configurationChangedWhenCreateIsInvoked() {
-        String indexTitle = "idx" + index.incrementAndGet();
+        String indexName = "idx" + index.incrementAndGet();
 
         NamedConfigurationTree<TableConfiguration, TableView, TableChange> cfg0 = tablesConfig.tables();
 
@@ -158,7 +155,7 @@ public class IndexManagerTest {
 
         UUID tableId = ids.get(0);
 
-        indexManager.createIndexAsync("sName", indexTitle, "tName", true, indexChange -> {
+        indexManager.createIndexAsync("sName", indexName, "tName", true, indexChange -> {
             SortedIndexChange sortedIndexChange = indexChange.convert(SortedIndexChange.class);
 
             sortedIndexChange.changeColumns(columns -> {
@@ -168,9 +165,6 @@ public class IndexManagerTest {
 
             sortedIndexChange.changeTableId(tableId);
         }).join();
-
-
-        String awaitIdxName = parseCanonicalName(canonicalName("sName", indexTitle));
 
         var expected = List.of(
                 Map.of(
@@ -184,7 +178,7 @@ public class IndexManagerTest {
                                         "name", "c2"
                                 )
                         ),
-                        "name", awaitIdxName,
+                        "name", indexName,
                         "type", "SORTED",
                         "uniq", false,
                         "tableId", tableId.toString()
@@ -202,7 +196,7 @@ public class IndexManagerTest {
         );
 
         assertTrue(IgniteTestUtils.hasCause(completionException, TableNotFoundException.class,
-                "The table does not exist [name=SNAME.TNAME_NOTEXIST]"));
+                "The table does not exist [name=\"sName\".\"tName_notExist\"]"));
     }
 
     @Test
@@ -232,20 +226,15 @@ public class IndexManagerTest {
 
         assertTrue(IgniteTestUtils.hasCause(completionException, ConfigurationValidationException.class,
                 "Index must include at least one column"));
-
-        assertThat(
-                (IgniteTestUtils.cause(completionException, ConfigurationValidationException.class)).getMessage(),
-                containsString(ErrorGroups.Index.INDEX_ERR_GROUP.name())
-        );
     }
 
     @Test
     public void createIndexForNonExistingColumn() {
-        String indexTitle = "idx" + index.incrementAndGet();
+        String indexName = "idx" + index.incrementAndGet();
 
         CompletionException completionException = assertThrows(
                 CompletionException.class,
-                () -> indexManager.createIndexAsync("sName", indexTitle, "tName", true,
+                () -> indexManager.createIndexAsync("sName", indexName, "tName", true,
                         indexChange ->
                                 indexChange.convert(HashIndexChange.class).changeColumnNames("nonExistingColumn")
                                         .changeTableId(UUID.randomUUID())).join()
@@ -263,15 +252,13 @@ public class IndexManagerTest {
         );
 
         assertTrue(IgniteTestUtils.hasCause(completionException, IndexNotFoundException.class,
-                "Index 'SNAME.NONEXISTING' does not exist"));
+                "Index '\"sName\".\"nonExisting\"' does not exist"));
     }
 
     @Test
     @SuppressWarnings("ConstantConditions")
     public void eventIsFiredWhenIndexCreated() {
-        String indexTitle = "idx" + index.incrementAndGet();
-
-        var indexName = "SNAME." + indexTitle.toUpperCase();
+        String indexName = "idx" + index.incrementAndGet();
 
         AtomicReference<IndexEventParameters> holder = new AtomicReference<>();
 
@@ -297,7 +284,7 @@ public class IndexManagerTest {
 
         UUID tableId = ids.get(0);
 
-        indexManager.createIndexAsync("SNAME", indexTitle, "tName", true, indexChange -> {
+        indexManager.createIndexAsync("sName", indexName, "tName", true, indexChange -> {
             SortedIndexChange sortedIndexChange = indexChange.convert(SortedIndexChange.class);
 
             sortedIndexChange.changeColumns(columns -> {
@@ -318,7 +305,7 @@ public class IndexManagerTest {
         assertThat(holder.get().index().tableId(), equalTo(tableId));
         assertThat(holder.get().index().name(), equalTo(indexName));
 
-        indexManager.dropIndexAsync("SNAME", indexTitle, true).join();
+        indexManager.dropIndexAsync("sName", indexName, true).join();
 
         assertThat(holder.get(), notNullValue());
         assertThat(holder.get().indexId(), equalTo(indexId));

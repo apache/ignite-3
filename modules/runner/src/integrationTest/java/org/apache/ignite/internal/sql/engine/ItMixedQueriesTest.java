@@ -25,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.Arrays;
+import java.util.List;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -42,7 +43,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
         createTable("EMP2");
 
         int idx = 0;
-        insertData("PUBLIC.EMP1", new String[]{"ID", "NAME", "SALARY"}, new Object[][]{
+        insertData("EMP1", List.of("ID", "NAME", "SALARY"), new Object[][]{
                 {idx++, "Igor", 10d},
                 {idx++, "Igor", 11d},
                 {idx++, "Igor", 12d},
@@ -53,7 +54,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
         });
 
         idx = 0;
-        insertData("PUBLIC.EMP2", new String[]{"ID", "NAME", "SALARY"}, new Object[][]{
+        insertData("EMP2", List.of("ID", "NAME", "SALARY"), new Object[][]{
                 {idx++, "Roman", 10d},
                 {idx++, "Roman", 11d},
                 {idx++, "Roman", 12d},

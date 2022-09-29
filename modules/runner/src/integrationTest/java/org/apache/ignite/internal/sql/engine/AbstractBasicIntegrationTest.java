@@ -31,7 +31,6 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -42,11 +41,6 @@ import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter;
-import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
-import org.apache.ignite.internal.schema.testutils.builder.TableDefinitionBuilder;
-import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
-import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
@@ -213,83 +207,35 @@ public class AbstractBasicIntegrationTest extends BaseIgniteAbstractTest {
         };
     }
 
-    protected static Table createAndPopulateTable() {
-        TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "PERSON").columns(
-                SchemaBuilders.column("ID", ColumnType.INT32).build(),
-                SchemaBuilders.column("NAME", ColumnType.string()).asNullable(true).build(),
-                SchemaBuilders.column("SALARY", ColumnType.DOUBLE).asNullable(true).build()
-        ).withPrimaryKey("ID").build();
-
-        Table tbl = CLUSTER_NODES.get(0).tables().createTable(schTbl1.canonicalName(), tblCh ->
-                SchemaConfigurationConverter.convert(schTbl1, tblCh)
-                        .changeReplicas(1)
-                        .changePartitions(10)
-        );
+    protected static void createAndPopulateTable() {
+        sql("CREATE TABLE person (id INT PRIMARY KEY, name VARCHAR, salary DOUBLE)");
 
         int idx = 0;
 
-        insertData(tbl, new String[]{"ID", "NAME", "SALARY"}, new Object[][]{
+        insertData("person", List.of("ID", "NAME", "SALARY"), new Object[][]{
                 {idx++, "Igor", 10d},
                 {idx++, null, 15d},
                 {idx++, "Ilya", 15d},
                 {idx++, "Roma", 10d},
                 {idx, "Roma", 10d}
         });
-
-        return tbl;
-    }
-
-    protected static void createTable(TableDefinitionBuilder tblBld) {
-        TableDefinition schTbl1 = tblBld.build();
-
-        CLUSTER_NODES.get(0).tables().createTable(schTbl1.canonicalName(), tblCh ->
-                SchemaConfigurationConverter.convert(schTbl1, tblCh)
-                        .changeReplicas(1)
-                        .changePartitions(10)
-        );
     }
 
     protected static Table table(String canonicalName) {
         return CLUSTER_NODES.get(0).tables().table(canonicalName);
     }
 
-    protected static void insertData(String tblName, String[] columnNames, Object[]... tuples) {
-        insertData(CLUSTER_NODES.get(0).tables().table(tblName), columnNames, tuples);
-    }
+    protected static void insertData(String tblName, List<String> columnNames, Object[]... tuples) {
+        Transaction tx = CLUSTER_NODES.get(0).transactions().begin();
 
-    protected static void insertData(Table table, String[] columnNames, Object[]... tuples) {
-        RecordView<Tuple> view = table.recordView();
+        String insertStmt = "INSERT INTO " + tblName + "(" + String.join(", ", columnNames) + ")"
+                + " VALUES (" + ", ?".repeat(columnNames.size()).substring(2) + ")";
 
-        int batchSize = 128;
-
-        List<Tuple> batch = new ArrayList<>(batchSize);
-        for (Object[] tuple : tuples) {
-            assert tuple != null && tuple.length == columnNames.length;
-
-            Tuple toInsert = Tuple.create();
-
-            for (int i = 0; i < tuple.length; i++) {
-                toInsert.set(columnNames[i], tuple[i]);
-            }
-
-            batch.add(toInsert);
-
-            if (batch.size() == batchSize) {
-                Collection<Tuple> duplicates = view.insertAll(null, batch);
-
-                if (!duplicates.isEmpty()) {
-                    throw new AssertionError("Duplicated rows detected: " + duplicates);
-                }
-
-                batch.clear();
-            }
+        for (Object[] args : tuples) {
+            sql(tx, insertStmt, args);
         }
 
-        if (!batch.isEmpty()) {
-            view.insertAll(null, batch);
-
-            batch.clear();
-        }
+        tx.commit();
     }
 
     protected static void checkData(Table table, String[] columnNames, Object[]... tuples) {

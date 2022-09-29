@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsOn
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsProject;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.util.List;
 import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -45,7 +46,7 @@ public class ItProjectScanMergeRuleTest extends AbstractBasicIntegrationTest {
 
         sql("CREATE INDEX " + IDX_CAT_ID + " ON products(cat_id)");
 
-        insertData("PUBLIC.PRODUCTS", new String[]{"ID", "CATEGORY", "CAT_ID", "SUBCATEGORY", "SUBCAT_ID", "NAME"}, new Object[][]{
+        insertData("PUBLIC.PRODUCTS", List.of("ID", "CATEGORY", "CAT_ID", "SUBCATEGORY", "SUBCAT_ID", "NAME"), new Object[][]{
                 {1, "prod1", 1, "cat1", 11, "noname1"},
                 {2, "prod2", 2, "cat1", 11, "noname2"},
                 {3, "prod3", 3, "cat1", 12, "noname3"},

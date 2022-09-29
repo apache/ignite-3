@@ -22,7 +22,7 @@ import org.apache.ignite.internal.schema.testutils.definition.ColumnDefinition;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnDefinitionImpl;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
 import org.apache.ignite.internal.schema.testutils.definition.DefaultValueDefinition;
-import org.apache.ignite.internal.util.IgniteObjectName;
+import org.apache.ignite.internal.util.IgniteNameUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -48,7 +48,7 @@ class ColumnDefinitionBuilderImpl implements ColumnDefinitionBuilder {
      * @param colType Column type.
      */
     public ColumnDefinitionBuilderImpl(String colName, ColumnType colType) {
-        this.colName = IgniteObjectName.parse(colName);
+        this.colName = IgniteNameUtils.parseSimpleName(colName);
         this.colType = colType;
     }
 

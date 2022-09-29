@@ -33,15 +33,14 @@ import java.util.Locale;
 import java.util.Random;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.jetbrains.annotations.NotNull;
@@ -738,13 +737,7 @@ public final class IgniteTestUtils {
         try {
             return stage.toCompletableFuture().get(timeout, unit);
         } catch (Throwable e) {
-            if (e instanceof ExecutionException) {
-                e = e.getCause();
-            } else if (e instanceof CompletionException) {
-                e = e.getCause();
-            }
-
-            sneakyThrow(e);
+            sneakyThrow(ExceptionUtils.unwrapCause(e));
         }
 
         assert false;

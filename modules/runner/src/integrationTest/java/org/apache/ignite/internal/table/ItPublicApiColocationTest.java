@@ -110,9 +110,9 @@ public class ItPublicApiColocationTest extends AbstractBasicIntegrationTest {
             sql("insert into test1 values(?, ?, ?)", i, generateValueByType(i, type), 0);
         }
 
-        int parts = ((TableImpl) CLUSTER_NODES.get(0).tables().table("public.test0")).internalTable().partitions();
-        TableImpl tbl0 = (TableImpl) CLUSTER_NODES.get(0).tables().table("public.test0");
-        TableImpl tbl1 = (TableImpl) CLUSTER_NODES.get(0).tables().table("public.test1");
+        int parts = ((TableImpl) CLUSTER_NODES.get(0).tables().table("test0")).internalTable().partitions();
+        TableImpl tbl0 = (TableImpl) CLUSTER_NODES.get(0).tables().table("test0");
+        TableImpl tbl1 = (TableImpl) CLUSTER_NODES.get(0).tables().table("test1");
 
         for (int i = 0; i < parts; ++i) {
             List<Tuple> r0 = getAll(tbl0, i);
@@ -147,9 +147,9 @@ public class ItPublicApiColocationTest extends AbstractBasicIntegrationTest {
             sql("insert into test1 values(?, ?, ?, ?)", i, generateValueByType(i, t0), generateValueByType(i, t1), 0);
         }
 
-        int parts = ((TableImpl) CLUSTER_NODES.get(0).tables().table("public.test0")).internalTable().partitions();
-        TableImpl tbl0 = (TableImpl) CLUSTER_NODES.get(0).tables().table("public.test0");
-        TableImpl tbl1 = (TableImpl) CLUSTER_NODES.get(0).tables().table("public.test1");
+        int parts = ((TableImpl) CLUSTER_NODES.get(0).tables().table("test0")).internalTable().partitions();
+        TableImpl tbl0 = (TableImpl) CLUSTER_NODES.get(0).tables().table("test0");
+        TableImpl tbl1 = (TableImpl) CLUSTER_NODES.get(0).tables().table("test1");
 
         Function<Tuple, Tuple> tupleColocationExtract = (t) -> {
             Tuple ret = Tuple.create();

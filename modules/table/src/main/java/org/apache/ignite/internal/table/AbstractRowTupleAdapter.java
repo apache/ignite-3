@@ -31,7 +31,7 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaAware;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.Row;
-import org.apache.ignite.internal.util.IgniteObjectName;
+import org.apache.ignite.internal.util.IgniteNameUtils;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.NotNull;
 
@@ -76,7 +76,7 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     public int columnIndex(@NotNull String columnName) {
         Objects.requireNonNull(columnName);
 
-        var col = row.schema().column(IgniteObjectName.parse(columnName));
+        var col = row.schema().column(IgniteNameUtils.parseSimpleName(columnName));
 
         return col == null ? -1 : col.schemaIndex();
     }
@@ -86,7 +86,7 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     public <T> T valueOrDefault(@NotNull String columnName, T defaultValue) {
         Objects.requireNonNull(columnName);
 
-        final Column col = row.schema().column(IgniteObjectName.parse(columnName));
+        final Column col = row.schema().column(IgniteNameUtils.parseSimpleName(columnName));
 
         return col == null ? defaultValue : (T) col.type().spec().objectValue(row, col.schemaIndex());
     }
@@ -382,7 +382,7 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     protected Column rowColumnByName(@NotNull String columnName) {
         Objects.requireNonNull(columnName);
 
-        final Column col = row.schema().column(IgniteObjectName.parse(columnName));
+        final Column col = row.schema().column(IgniteNameUtils.parseSimpleName(columnName));
 
         if (col == null) {
             throw new IllegalArgumentException("Invalid column name: columnName=" + columnName);

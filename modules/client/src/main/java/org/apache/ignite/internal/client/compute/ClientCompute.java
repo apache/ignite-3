@@ -48,6 +48,8 @@ import org.apache.ignite.table.mapper.Mapper;
  * Client compute implementation.
  */
 public class ClientCompute implements IgniteCompute {
+    private static final String DEFAULT_SCHEMA_NAME = "PUBLIC";
+
     /** Indicates a missing table. */
     private static final Object MISSING_TABLE_TOKEN = new Object();
 
@@ -252,7 +254,7 @@ public class ClientCompute implements IgniteCompute {
 
         return tables.tableAsync(tableName).thenApply(t -> {
             if (t == null) {
-                throw new TableNotFoundException(tableName);
+                throw new TableNotFoundException(DEFAULT_SCHEMA_NAME, tableName);
             }
 
             ClientTable clientTable = (ClientTable) t;

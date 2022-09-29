@@ -26,7 +26,7 @@ import org.apache.ignite.internal.schema.testutils.definition.PrimaryKeyDefiniti
 import org.apache.ignite.internal.schema.testutils.definition.index.PrimaryKeyDefinitionImpl;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.util.CollectionUtils;
-import org.apache.ignite.internal.util.IgniteObjectName;
+import org.apache.ignite.internal.util.IgniteNameUtils;
 
 /**
  * Primary key builder.
@@ -46,7 +46,7 @@ class PrimaryKeyDefinitionBuilderImpl implements SchemaObjectBuilder, PrimaryKey
     /** {@inheritDoc} */
     @Override
     public PrimaryKeyDefinitionBuilderImpl withColumns(String... columns) {
-        this.columns = Arrays.stream(columns).map(IgniteObjectName::parse).collect(Collectors.toList());
+        this.columns = Arrays.stream(columns).map(IgniteNameUtils::parseSimpleName).collect(Collectors.toList());
 
         return this;
     }
@@ -54,7 +54,7 @@ class PrimaryKeyDefinitionBuilderImpl implements SchemaObjectBuilder, PrimaryKey
     /** {@inheritDoc} */
     @Override
     public PrimaryKeyDefinitionBuilderImpl withColumns(List<String> columns) {
-        this.columns = columns.stream().map(IgniteObjectName::parse).collect(Collectors.toList());
+        this.columns = columns.stream().map(IgniteNameUtils::parseSimpleName).collect(Collectors.toList());
 
         return this;
     }
@@ -64,7 +64,7 @@ class PrimaryKeyDefinitionBuilderImpl implements SchemaObjectBuilder, PrimaryKey
     public PrimaryKeyDefinitionBuilderImpl withColocationColumns(String... colocationCols) {
         this.colocationColumns = colocationCols == null
                 ? null
-                : Arrays.stream(colocationCols).map(IgniteObjectName::parse).collect(Collectors.toList());
+                : Arrays.stream(colocationCols).map(IgniteNameUtils::parseSimpleName).collect(Collectors.toList());
 
         return this;
     }
@@ -74,7 +74,7 @@ class PrimaryKeyDefinitionBuilderImpl implements SchemaObjectBuilder, PrimaryKey
     public PrimaryKeyDefinitionBuilderImpl withColocationColumns(List<String> colocationCols) {
         this.colocationColumns = colocationCols == null
                 ? null
-                : colocationCols.stream().map(IgniteObjectName::parse).collect(Collectors.toList());
+                : colocationCols.stream().map(IgniteNameUtils::parseSimpleName).collect(Collectors.toList());
 
         return this;
     }

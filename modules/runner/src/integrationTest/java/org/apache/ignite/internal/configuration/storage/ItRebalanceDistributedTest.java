@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.configuration.storage;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -150,16 +151,16 @@ public class ItRebalanceDistributedTest {
                 SchemaBuilders.column("val", ColumnType.INT32).asNullable(true).build()
         ).withPrimaryKey("key").build();
 
-        nodes.get(0).tableManager.createTable(
-                "PUBLIC.tbl1",
+        await(nodes.get(0).tableManager.createTableAsync(
+                "TBL1",
                 tblChanger -> SchemaConfigurationConverter.convert(schTbl1, tblChanger)
                         .changeReplicas(1)
-                        .changePartitions(1));
+                        .changePartitions(1)));
 
         assertEquals(1, nodes.get(0).clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY)
-                .tables().get("PUBLIC.TBL1").replicas().value());
+                .tables().get("TBL1").replicas().value());
 
-        nodes.get(0).tableManager.alterTable("PUBLIC.TBL1", ch -> ch.changeReplicas(2));
+        await(nodes.get(0).tableManager.alterTableAsync("TBL1", ch -> ch.changeReplicas(2)));
 
         waitPartitionAssignmentsSyncedToExpected(0, 2);
 
@@ -175,17 +176,17 @@ public class ItRebalanceDistributedTest {
                 SchemaBuilders.column("val", ColumnType.INT32).asNullable(true).build()
         ).withPrimaryKey("key").build();
 
-        nodes.get(0).tableManager.createTable(
-                "PUBLIC.tbl1",
+        await(nodes.get(0).tableManager.createTableAsync(
+                "TBL1",
                 tblChanger -> SchemaConfigurationConverter.convert(schTbl1, tblChanger)
                         .changeReplicas(1)
-                        .changePartitions(1));
+                        .changePartitions(1)));
 
         assertEquals(1, nodes.get(0).clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY).tables()
-                .get("PUBLIC.TBL1").replicas().value());
+                .get("TBL1").replicas().value());
 
-        nodes.get(0).tableManager.alterTable("PUBLIC.TBL1", ch -> ch.changeReplicas(2));
-        nodes.get(0).tableManager.alterTable("PUBLIC.TBL1", ch -> ch.changeReplicas(3));
+        await(nodes.get(0).tableManager.alterTableAsync("TBL1", ch -> ch.changeReplicas(2)));
+        await(nodes.get(0).tableManager.alterTableAsync("TBL1", ch -> ch.changeReplicas(3)));
 
         waitPartitionAssignmentsSyncedToExpected(0, 3);
 
@@ -201,18 +202,18 @@ public class ItRebalanceDistributedTest {
                 SchemaBuilders.column("val", ColumnType.INT32).asNullable(true).build()
         ).withPrimaryKey("key").build();
 
-        nodes.get(0).tableManager.createTable(
-                "PUBLIC.tbl1",
+        await(nodes.get(0).tableManager.createTableAsync(
+                "TBL1",
                 tblChanger -> SchemaConfigurationConverter.convert(schTbl1, tblChanger)
                         .changeReplicas(1)
-                        .changePartitions(1));
+                        .changePartitions(1)));
 
         assertEquals(1, nodes.get(0).clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY).tables()
-                .get("PUBLIC.TBL1").replicas().value());
+                .get("TBL1").replicas().value());
 
-        nodes.get(0).tableManager.alterTable("PUBLIC.TBL1", ch -> ch.changeReplicas(2));
-        nodes.get(0).tableManager.alterTable("PUBLIC.TBL1", ch -> ch.changeReplicas(3));
-        nodes.get(0).tableManager.alterTable("PUBLIC.TBL1", ch -> ch.changeReplicas(2));
+        await(nodes.get(0).tableManager.alterTableAsync("TBL1", ch -> ch.changeReplicas(2)));
+        await(nodes.get(0).tableManager.alterTableAsync("TBL1", ch -> ch.changeReplicas(3)));
+        await(nodes.get(0).tableManager.alterTableAsync("TBL1", ch -> ch.changeReplicas(2)));
 
         waitPartitionAssignmentsSyncedToExpected(0, 2);
 
@@ -223,16 +224,16 @@ public class ItRebalanceDistributedTest {
 
     @Test
     void testOnLeaderElectedRebalanceRestart(@WorkDirectory Path workDir, TestInfo testInfo) throws Exception {
-        TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
+        TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "TBL1").columns(
                 SchemaBuilders.column("key", ColumnType.INT64).build(),
                 SchemaBuilders.column("val", ColumnType.INT32).asNullable(true).build()
         ).withPrimaryKey("key").build();
 
-        var table = (TableImpl) nodes.get(1).tableManager.createTable(
-                "PUBLIC.tbl1",
+        TableImpl table = (TableImpl) await(nodes.get(1).tableManager.createTableAsync(
+                "TBL1",
                 tblChanger -> SchemaConfigurationConverter.convert(schTbl1, tblChanger)
                         .changeReplicas(2)
-                        .changePartitions(1));
+                        .changePartitions(1)));
 
         Set<NetworkAddress> partitionNodesAddresses = getPartitionClusterNodes(0, 0)
                 .stream().map(ClusterNode::address).collect(Collectors.toSet());
@@ -244,7 +245,7 @@ public class ItRebalanceDistributedTest {
         NetworkAddress nonLeaderNodeAddress = partitionNodesAddresses
                 .stream().filter(n -> !n.equals(leaderNode.address())).findFirst().get();
 
-        TableImpl nonLeaderTable = (TableImpl) findNodeByAddress(nonLeaderNodeAddress).tableManager.table("PUBLIC.TBL1");
+        TableImpl nonLeaderTable = (TableImpl) findNodeByAddress(nonLeaderNodeAddress).tableManager.table("TBL1");
 
         var countDownLatch = new CountDownLatch(1);
 
@@ -261,7 +262,7 @@ public class ItRebalanceDistributedTest {
                     return false;
                 });
 
-        nodes.get(0).tableManager.alterTable("PUBLIC.TBL1", ch -> ch.changeReplicas(3));
+        await(nodes.get(0).tableManager.alterTableAsync("TBL1", ch -> ch.changeReplicas(3)));
 
         countDownLatch.await();
 
@@ -283,16 +284,16 @@ public class ItRebalanceDistributedTest {
                 SchemaBuilders.column("val", ColumnType.INT32).asNullable(true).build()
         ).withPrimaryKey("key").build();
 
-        nodes.get(0).tableManager.createTable(
-                "PUBLIC.tbl1",
+        await(nodes.get(0).tableManager.createTableAsync(
+                "TBL1",
                 tblChanger -> SchemaConfigurationConverter.convert(schTbl1, tblChanger)
                         .changeReplicas(1)
-                        .changePartitions(1));
+                        .changePartitions(1)));
 
         assertEquals(1, nodes.get(0).clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY)
-                .tables().get("PUBLIC.TBL1").replicas().value());
+                .tables().get("TBL1").replicas().value());
 
-        nodes.get(0).tableManager.alterTable("PUBLIC.TBL1", ch -> ch.changeReplicas(1));
+        await(nodes.get(0).tableManager.alterTableAsync("TBL1", ch -> ch.changeReplicas(1)));
 
         waitPartitionAssignmentsSyncedToExpected(0, 1);
 
@@ -315,7 +316,7 @@ public class ItRebalanceDistributedTest {
             return false;
         });
 
-        nodes.get(0).tableManager.alterTable("PUBLIC.TBL1", ch -> ch.changeReplicas(3));
+        await(nodes.get(0).tableManager.alterTableAsync("TBL1", ch -> ch.changeReplicas(3)));
 
         waitPartitionAssignmentsSyncedToExpected(0, 3);
 
@@ -336,7 +337,7 @@ public class ItRebalanceDistributedTest {
 
     private Set<ClusterNode> getPartitionClusterNodes(int nodeNum, int partNum) {
         var table = ((ExtendedTableConfiguration) nodes.get(nodeNum).clusterCfgMgr.configurationRegistry()
-                .getConfiguration(TablesConfiguration.KEY).tables().get("PUBLIC.TBL1"));
+                .getConfiguration(TablesConfiguration.KEY).tables().get("TBL1"));
 
         if (table != null) {
             var assignments = table.assignments().value();

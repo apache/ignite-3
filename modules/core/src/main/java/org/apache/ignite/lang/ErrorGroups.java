@@ -136,59 +136,62 @@ public class ErrorGroups {
         /** Query validation error. */
         public static final int QUERY_VALIDATION_ERR = SQL_ERR_GROUP.registerErrorCode(15);
 
-        /** Table not found. */
-        public static final int TABLE_NOT_FOUND_ERR = SQL_ERR_GROUP.registerErrorCode(16);
+        /** Object is not found in schema. */
+        public static final int OBJECT_NOT_FOUND_ERR = SQL_ERR_GROUP.registerErrorCode(16);
+
+        /** Object already exists in schema. */
+        public static final int OBJECT_ALREADY_EXISTS_ERR = SQL_ERR_GROUP.registerErrorCode(17);
 
         /** Table version not found. */
-        public static final int TABLE_VER_NOT_FOUND_ERR = SQL_ERR_GROUP.registerErrorCode(17);
+        public static final int TABLE_VER_NOT_FOUND_ERR = SQL_ERR_GROUP.registerErrorCode(18);
 
         /** Invalid table option. */
-        public static final int TABLE_OPTION_ERR = SQL_ERR_GROUP.registerErrorCode(18);
+        public static final int TABLE_OPTION_ERR = SQL_ERR_GROUP.registerErrorCode(19);
 
         /** Query mapping error. */
-        public static final int QUERY_MAPPING_ERR = SQL_ERR_GROUP.registerErrorCode(19);
+        public static final int QUERY_MAPPING_ERR = SQL_ERR_GROUP.registerErrorCode(20);
 
         /** DDL execution error. */
-        public static final int DDL_EXEC_ERR = SQL_ERR_GROUP.registerErrorCode(20);
+        public static final int DDL_EXEC_ERR = SQL_ERR_GROUP.registerErrorCode(21);
 
         /** DML result error. */
-        public static final int INVALID_DML_RESULT_ERR = SQL_ERR_GROUP.registerErrorCode(21);
+        public static final int INVALID_DML_RESULT_ERR = SQL_ERR_GROUP.registerErrorCode(22);
 
         /** SQL data type to relational conversion error. */
-        public static final int SQL_TO_REL_CONVERSION_ERR = SQL_ERR_GROUP.registerErrorCode(22);
+        public static final int SQL_TO_REL_CONVERSION_ERR = SQL_ERR_GROUP.registerErrorCode(23);
 
         /** Relational expression serialization error. */
-        public static final int REL_SERIALIZATION_ERR = SQL_ERR_GROUP.registerErrorCode(23);
+        public static final int REL_SERIALIZATION_ERR = SQL_ERR_GROUP.registerErrorCode(24);
 
         /** Relational expression deserialization error. */
-        public static final int REL_DESERIALIZATION_ERR = SQL_ERR_GROUP.registerErrorCode(24);
+        public static final int REL_DESERIALIZATION_ERR = SQL_ERR_GROUP.registerErrorCode(25);
 
         /** Class not found error. */
-        public static final int CLASS_NOT_FOUND_ERR = SQL_ERR_GROUP.registerErrorCode(25);
+        public static final int CLASS_NOT_FOUND_ERR = SQL_ERR_GROUP.registerErrorCode(26);
 
         /** Expression compilation error. */
-        public static final int EXPRESSION_COMPILATION_ERR = SQL_ERR_GROUP.registerErrorCode(26);
+        public static final int EXPRESSION_COMPILATION_ERR = SQL_ERR_GROUP.registerErrorCode(27);
 
         /** Node left the cluster. */
-        public static final int NODE_LEFT_ERR = SQL_ERR_GROUP.registerErrorCode(27);
+        public static final int NODE_LEFT_ERR = SQL_ERR_GROUP.registerErrorCode(28);
 
         /** Message send error. */
-        public static final int MESSAGE_SEND_ERR = SQL_ERR_GROUP.registerErrorCode(28);
+        public static final int MESSAGE_SEND_ERR = SQL_ERR_GROUP.registerErrorCode(29);
 
         /** Operation aborted/interrupted error. */
-        public static final int OPERATION_INTERRUPTED_ERR = SQL_ERR_GROUP.registerErrorCode(29);
+        public static final int OPERATION_INTERRUPTED_ERR = SQL_ERR_GROUP.registerErrorCode(30);
 
         /** An error occurred while canceling the operation. */
-        public static final int CANCEL_OPERATION_ERR = SQL_ERR_GROUP.registerErrorCode(30);
+        public static final int CANCEL_OPERATION_ERR = SQL_ERR_GROUP.registerErrorCode(31);
 
         /** Session expired error. */
-        public static final int SESSION_EXPIRED_ERR = SQL_ERR_GROUP.registerErrorCode(31);
+        public static final int SESSION_EXPIRED_ERR = SQL_ERR_GROUP.registerErrorCode(32);
 
         /** Session evaluation error. */
-        public static final int SCHEMA_EVALUATION_ERR = SQL_ERR_GROUP.registerErrorCode(32);
+        public static final int SCHEMA_EVALUATION_ERR = SQL_ERR_GROUP.registerErrorCode(33);
 
         /** Execution cancelled. */
-        public static final int EXECUTION_CANCELLED_ERR = SQL_ERR_GROUP.registerErrorCode(33);
+        public static final int EXECUTION_CANCELLED_ERR = SQL_ERR_GROUP.registerErrorCode(34);
     }
 
     /** Meta storage error group. */

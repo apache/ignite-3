@@ -168,7 +168,7 @@ public class StopCalciteModuleTest {
 
         schemaReg = new SchemaRegistryImpl((v) -> schemaDesc, () -> INITIAL_SCHEMA_VERSION, schemaDesc);
 
-        when(tbl.name()).thenReturn("PUBLIC.TEST");
+        when(tbl.name()).thenReturn("TEST");
 
         when(schemaManager.schemaRegistry(anyLong(), any())).thenReturn(completedFuture(schemaReg));
 

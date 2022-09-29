@@ -232,7 +232,7 @@ public class RetryPolicyTest {
 
     private void initServer(Function<Integer, Boolean> shouldDropConnection) {
         FakeIgnite ign = new FakeIgnite();
-        ign.tables().createTable("t", c -> {});
+        ((FakeIgniteTables) ign.tables()).createTable("t");
 
         server = new TestServer(10900, 10, 0, ign, shouldDropConnection, null);
     }

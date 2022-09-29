@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.runner.app;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -34,8 +35,9 @@ import org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter;
 import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
 import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
+import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.table.Table;
+import org.apache.ignite.sql.Session;
 
 /**
  * Helper class for non-Java platform tests (.NET, C++, Python, ...). Starts nodes, populates tables and data for tests.
@@ -47,9 +49,9 @@ public class PlatformTestNodeRunner {
     /** Test node name 2. */
     private static final String NODE_NAME2 = PlatformTestNodeRunner.class.getCanonicalName() + "_2";
 
-    private static final String SCHEMA_NAME = "PUB";
+    private static final String SCHEMA_NAME = "PUBLIC";
 
-    private static final String TABLE_NAME = "tbl1";
+    private static final String TABLE_NAME = "TBL1";
 
     private static final String TABLE_NAME_ALL_COLUMNS = "tbl_all_columns";
 
@@ -142,11 +144,11 @@ public class PlatformTestNodeRunner {
                 SchemaBuilders.column("val", ColumnType.string()).asNullable(true).build()
         ).withPrimaryKey(keyCol).build();
 
-        node.tables().createTable(schTbl.canonicalName(), tblCh ->
+        await(((TableManager) node.tables()).createTableAsync(schTbl.canonicalName(), tblCh ->
                 SchemaConfigurationConverter.convert(schTbl, tblCh)
                         .changeReplicas(1)
                         .changePartitions(10)
-        );
+        ));
 
         TableDefinition schTbl2 = SchemaBuilders.tableBuilder(SCHEMA_NAME, TABLE_NAME_ALL_COLUMNS).columns(
                 SchemaBuilders.column(keyCol, ColumnType.INT64).build(),
@@ -170,11 +172,11 @@ public class PlatformTestNodeRunner {
                 SchemaBuilders.column("decimal", ColumnType.decimal()).asNullable(true).build()
         ).withPrimaryKey(keyCol).build();
 
-        node.tables().createTable(schTbl2.canonicalName(), tblCh ->
+        await(((TableManager) node.tables()).createTableAsync(schTbl2.canonicalName(), tblCh ->
                 SchemaConfigurationConverter.convert(schTbl2, tblCh)
                         .changeReplicas(1)
                         .changePartitions(10)
-        );
+        ));
     }
 
     /**
@@ -196,15 +198,11 @@ public class PlatformTestNodeRunner {
         public String execute(JobExecutionContext context, Object... args) {
             String tableName = (String) args[0];
 
-            Table table = context.ignite().tables().createTable(
-                    tableName,
-                    tblChanger -> tblChanger
-                            .changeColumns(cols ->
-                                    cols.create("key", col -> col.changeType(t -> t.changeType("INT64")).changeNullable(false)))
-                            .changePrimaryKey(pk -> pk.changeColumns("key").changeColocationColumns("key"))
-            );
+            try (Session session = context.ignite().sql().createSession()) {
+                session.execute(null, "CREATE TABLE " + tableName + "(key BIGINT PRIMARY KEY)");
+            }
 
-            return table.name();
+            return tableName;
         }
     }
 
@@ -216,7 +214,9 @@ public class PlatformTestNodeRunner {
         @Override
         public String execute(JobExecutionContext context, Object... args) {
             String tableName = (String) args[0];
-            context.ignite().tables().dropTable(tableName);
+            try (Session session = context.ignite().sql().createSession()) {
+                session.execute(null, "DROP TABLE " + tableName);
+            }
 
             return tableName;
         }

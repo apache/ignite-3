@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.runner.app;
 
-import static org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter.convert;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -36,10 +35,6 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.raft.Loza;
-import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
-import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
-import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryDataStorageChange;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -49,6 +44,7 @@ import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupService;
+import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.intellij.lang.annotations.Language;
@@ -67,9 +63,6 @@ public class ItIgniteInMemoryNodeRestartTest extends IgniteAbstractTest {
 
     /** Value producer for table data, is used to create data and check it later. */
     private static final IntFunction<String> VALUE_PRODUCER = i -> "val " + i;
-
-    /** Prefix for full table name. */
-    private static final String SCHEMA_PREFIX = "PUBLIC.";
 
     /** Test table name. */
     private static final String TABLE_NAME = "Table1";
@@ -192,9 +185,7 @@ public class ItIgniteInMemoryNodeRestartTest extends IgniteAbstractTest {
         // Create a table with replica on every node.
         createTableWithData(ignite, TABLE_NAME, 3, 1);
 
-        String tableName = SCHEMA_PREFIX + TABLE_NAME;
-
-        TableImpl table = (TableImpl) ignite.tables().table(tableName);
+        TableImpl table = (TableImpl) ignite.tables().table(TABLE_NAME);
         String tableId = table.tableId().toString();
 
         // Find the leader of the table's partition group.
@@ -238,9 +229,7 @@ public class ItIgniteInMemoryNodeRestartTest extends IgniteAbstractTest {
         // Create a table with replica on every node.
         createTableWithData(ignite0, TABLE_NAME, 3, 1);
 
-        String tableName = SCHEMA_PREFIX + TABLE_NAME;
-
-        TableImpl table = (TableImpl) ignite0.tables().table(tableName);
+        TableImpl table = (TableImpl) ignite0.tables().table(TABLE_NAME);
         String tableId = table.tableId().toString();
 
         // Lose the majority.
@@ -274,9 +263,7 @@ public class ItIgniteInMemoryNodeRestartTest extends IgniteAbstractTest {
         // Create a table with replicas on every node.
         createTableWithData(ignite0, TABLE_NAME, 3, 1);
 
-        String tableName = SCHEMA_PREFIX + TABLE_NAME;
-
-        TableImpl table = (TableImpl) ignite0.tables().table(tableName);
+        TableImpl table = (TableImpl) ignite0.tables().table(TABLE_NAME);
         String tableId = table.tableId().toString();
 
         stopNode(0);
@@ -305,7 +292,7 @@ public class ItIgniteInMemoryNodeRestartTest extends IgniteAbstractTest {
      * @param name Table name.
      */
     private static void checkTableWithData(Ignite ignite, String name) {
-        Table table = ignite.tables().table(SCHEMA_PREFIX + name);
+        Table table = ignite.tables().table(name);
 
         assertNotNull(table);
 
@@ -325,26 +312,14 @@ public class ItIgniteInMemoryNodeRestartTest extends IgniteAbstractTest {
      * @param partitions Partitions count.
      */
     private static void createTableWithData(Ignite ignite, String name, int replicas, int partitions) {
-        TableDefinition scmTbl1 = SchemaBuilders.tableBuilder("PUBLIC", name).columns(
-                SchemaBuilders.column("id", ColumnType.INT32).build(),
-                SchemaBuilders.column("name", ColumnType.string()).asNullable(true).build()
-        ).withPrimaryKey(
-                SchemaBuilders.primaryKey()
-                        .withColumns("id")
-                        .build()
-        ).build();
+        try (Session session = ignite.sql().createSession()) {
+            session.execute(null, "CREATE TABLE " + name
+                    + "(id INT PRIMARY KEY, name VARCHAR) WITH replicas=" + replicas + ", partitions=" + partitions);
 
-        Table table = ignite.tables().createTable(
-                scmTbl1.canonicalName(),
-                tbl -> convert(scmTbl1, tbl).changeReplicas(replicas).changePartitions(partitions)
-                        .changeDataStorage(dsc -> dsc.convert(VolatilePageMemoryDataStorageChange.class))
-        );
-
-        for (int i = 0; i < 100; i++) {
-            Tuple key = Tuple.create().set("id", i);
-            Tuple val = Tuple.create().set("name", VALUE_PRODUCER.apply(i));
-
-            table.keyValueView().put(null, key, val);
+            for (int i = 0; i < 100; i++) {
+                session.execute(null, "INSERT INTO " + name + "(id, name) VALUES (?, ?)",
+                        i, VALUE_PRODUCER.apply(i));
+            }
         }
     }
 

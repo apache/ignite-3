@@ -40,6 +40,8 @@ import org.apache.ignite.table.mapper.Mapper;
  * Implementation of {@link IgniteCompute}.
  */
 public class IgniteComputeImpl implements IgniteCompute {
+    private static final String DEFAULT_SCHEMA_NAME = "PUBLIC";
+
     private final TopologyService topologyService;
     private final IgniteTablesInternal tables;
     private final ComputeComponent computeComponent;
@@ -172,7 +174,7 @@ public class IgniteComputeImpl implements IgniteCompute {
         return tables.tableImplAsync(tableName)
                 .thenApply(table -> {
                     if (table == null) {
-                        throw new TableNotFoundException(tableName);
+                        throw new TableNotFoundException(DEFAULT_SCHEMA_NAME, tableName);
                     }
                     return table;
                 });

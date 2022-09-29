@@ -21,8 +21,8 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Set;
-import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.util.IgniteNameUtils;
 
 /**
  * Table.
@@ -91,7 +91,7 @@ public class TableDefinitionImpl extends AbstractSchemaObject implements TableDe
     /** {@inheritDoc} */
     @Override
     public String canonicalName() {
-        return SchemaUtils.canonicalName(schemaName, name());
+        return IgniteNameUtils.canonicalName(schemaName, name());
     }
 
     /**
