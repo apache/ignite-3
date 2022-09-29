@@ -163,6 +163,11 @@ public class TestConcurrentHashMapMvTableStorage implements MvTableStorage {
     }
 
     @Override
+    public TablesConfiguration tablesConfiguration() {
+        return tablesCfg;
+    }
+
+    @Override
     public void start() throws StorageException {
     }
 

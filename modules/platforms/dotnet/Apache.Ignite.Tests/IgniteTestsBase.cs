@@ -31,6 +31,8 @@ namespace Apache.Ignite.Tests
     {
         protected const string TableName = "PUB.TBL1";
 
+        protected const string TableAllColumnsName = "PUB.TBL_ALL_COLUMNS";
+
         protected const string KeyCol = "key";
 
         protected const string ValCol = "val";

@@ -29,7 +29,7 @@ import org.jetbrains.annotations.Nullable;
  * <p>This storage serves as a sorted mapping from a subset of a table's columns (a.k.a. index columns) to a set of {@link RowId}s
  * from a single {@link org.apache.ignite.internal.storage.MvPartitionStorage} from the same table.
  */
-public interface SortedIndexStorage {
+public interface SortedIndexStorage extends IndexStorage {
     /** Exclude lower bound. */
     int GREATER = 0;
 
@@ -46,18 +46,6 @@ public interface SortedIndexStorage {
      * Returns the Index Descriptor of this storage.
      */
     SortedIndexDescriptor indexDescriptor();
-
-    /**
-     * Adds the given index row to the index.
-     */
-    void put(IndexRow row);
-
-    /**
-     * Removes the given row from the index.
-     *
-     * <p>Removing a non-existent row is a no-op.
-     */
-    void remove(IndexRow row);
 
     /**
      * Returns a range of index values between the lower bound and the upper bound.

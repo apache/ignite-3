@@ -48,11 +48,10 @@ public class BinaryTuplePrefixTest {
                 new Element(NativeTypes.DOUBLE, false)
         });
 
-        var builder = new BinaryTuplePrefixBuilder(3, 5);
-
         LocalDate date = LocalDate.now();
 
-        ByteBuffer tuple = builder.appendInt(42)
+        ByteBuffer tuple = new BinaryTuplePrefixBuilder(3, schema.elementCount())
+                .appendInt(42)
                 .appendString("foobar")
                 .appendDate(date)
                 .build();
@@ -69,6 +68,25 @@ public class BinaryTuplePrefixTest {
         assertThat(prefix.dateValue(2), is(date));
         assertThat(prefix.uuidValue(3), is(nullValue()));
         assertThat(prefix.doubleValueBoxed(4), is(nullValue()));
+    }
+
+    /**
+     * Tests a corner case when a new internal buffer needs to be allocated to add the count value.
+     */
+    @Test
+    public void testInternalBufferReallocation() {
+        BinaryTupleSchema schema = BinaryTupleSchema.create(new Element[]{
+                new Element(NativeTypes.INT32, false)
+        });
+
+        ByteBuffer tuple = new BinaryTuplePrefixBuilder(1, schema.elementCount(), 4)
+                .appendInt(Integer.MAX_VALUE)
+                .build();
+
+        var prefix = new BinaryTuplePrefix(schema, tuple);
+
+        assertThat(prefix.count(), is(1));
+        assertThat(prefix.intValue(0), is(Integer.MAX_VALUE));
     }
 
     /**

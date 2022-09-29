@@ -51,7 +51,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             for (var index = 0; index < count; index++)
             {
                 var column = columns[index];
-                tuple[column.Name] = tupleReader.GetObject(index, column.Type);
+                tuple[column.Name] = tupleReader.GetObject(index, column.Type, column.Scale);
             }
 
             return tuple;
@@ -74,7 +74,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 }
                 else
                 {
-                    tuple[column.Name] = tupleReader.GetObject(i - schema.KeyColumnCount, column.Type);
+                    tuple[column.Name] = tupleReader.GetObject(i - schema.KeyColumnCount, column.Type, column.Scale);
                 }
             }
 
@@ -99,7 +99,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
                     if (colIdx >= 0)
                     {
-                        tupleBuilder.AppendObject(record[colIdx], col.Type);
+                        tupleBuilder.AppendObject(record[colIdx], col.Type, col.Scale);
                     }
                     else
                     {

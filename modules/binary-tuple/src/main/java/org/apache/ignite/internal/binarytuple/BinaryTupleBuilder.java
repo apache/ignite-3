@@ -296,7 +296,10 @@ public class BinaryTupleBuilder {
      * @return {@code this} for chaining.
      */
     public BinaryTupleBuilder appendNumberNotNull(BigInteger value) {
-        putBytes(value.toByteArray());
+        if (!value.equals(BigInteger.ZERO)) {
+            putBytes(value.toByteArray());
+        }
+
         return proceed();
     }
 
@@ -574,6 +577,10 @@ public class BinaryTupleBuilder {
      * @return Buffer with tuple bytes.
      */
     public ByteBuffer build() {
+        return buildInternal().slice().order(ByteOrder.LITTLE_ENDIAN);
+    }
+
+    protected ByteBuffer buildInternal() {
         int offset = 0;
 
         int valueSize = buffer.position() - valueBase;
@@ -628,7 +635,7 @@ public class BinaryTupleBuilder {
 
         buffer.put(offset, flags);
 
-        return buffer.flip().position(offset).slice().order(ByteOrder.LITTLE_ENDIAN);
+        return buffer.flip().position(offset);
     }
 
     /** Put a byte value to the buffer extending it if needed. */
