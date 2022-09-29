@@ -121,7 +121,7 @@ Template parameters are an exception from this rule.
 
 ```
 template <typename T, typename IterT>
-void function foo(T a, IterT b) {
+void foo(T a, IterT b) {
     // ...
 }
 ```
