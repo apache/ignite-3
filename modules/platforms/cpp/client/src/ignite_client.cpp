@@ -23,12 +23,12 @@
 
 namespace ignite {
 
-void IgniteClient::startAsync(
-    IgniteClientConfiguration configuration, std::chrono::milliseconds timeout, ignite_callback<IgniteClient> callback) {
+void IgniteClient::startAsync(IgniteClientConfiguration configuration, std::chrono::milliseconds timeout,
+    ignite_callback<IgniteClient> callback) {
     // TODO: IGNITE-17762 Async start should not require starting thread internally. Replace with async timer.
     (void)std::async([cfg = std::move(configuration), timeout, callback = std::move(callback)]() mutable {
-        auto res =
-            ignite_result<IgniteClient>::of_operation([cfg = std::move(cfg), timeout]() { return start(cfg, timeout); });
+        auto res = ignite_result<IgniteClient>::of_operation(
+            [cfg = std::move(cfg), timeout]() { return start(cfg, timeout); });
         callback(std::move(res));
     });
 }

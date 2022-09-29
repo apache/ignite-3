@@ -176,8 +176,8 @@ public:
      */
     static std::function<void(ignite_result<T>)> promise_setter(std::shared_ptr<std::promise<T>> pr) {
         // TODO: IGNITE-17760 Move to common once it's re-factored
-        return
-            [pr = std::move(pr)](ignite_result<T> &&res) mutable { ignite_result<T>::set_promise(*pr, std::move(res)); };
+        return [pr = std::move(pr)](
+                   ignite_result<T> &&res) mutable { ignite_result<T>::set_promise(*pr, std::move(res)); };
     }
 
 private:
