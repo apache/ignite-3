@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.binarytuple.BinaryTupleCommon.PREFIX_FL
 
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import org.apache.ignite.internal.binarytuple.BinaryTuplePrefixBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.schema.row.InternalTuple;
@@ -67,7 +66,7 @@ public class BinaryTuplePrefix extends BinaryTupleReader implements InternalTupl
         ByteBuffer tupleBuffer = tuple.byteBuffer();
 
         ByteBuffer prefixBuffer = ByteBuffer.allocate(tupleBuffer.remaining() + Integer.BYTES)
-                .order(ByteOrder.LITTLE_ENDIAN)
+                .order(ORDER)
                 .put(tupleBuffer)
                 .putInt(tuple.count())
                 .flip();

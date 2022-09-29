@@ -184,6 +184,11 @@ public class RocksDbTableStorage implements MvTableStorage {
         return tableCfg;
     }
 
+    @Override
+    public TablesConfiguration tablesConfiguration() {
+        return tablesCfg;
+    }
+
     /** {@inheritDoc} */
     @Override
     public void start() throws StorageException {
@@ -402,24 +407,6 @@ public class RocksDbTableStorage implements MvTableStorage {
                         LOG.error("Error when closing partition storage for partId = {}", ex, partitionId);
                     }
                 });
-    }
-
-    @Override
-    public IndexStorage getOrCreateIndex(int partitionId, UUID indexId) {
-        TableIndexConfiguration indexConfig = ConfigurationUtil.getByInternalId(tablesCfg.indexes(), indexId);
-
-        if (indexConfig == null) {
-            throw new StorageException(String.format("Index configuration for \"%s\" could not be found", indexId));
-        }
-
-        switch (indexConfig.type().value()) {
-            case HASH_INDEX_TYPE:
-                return getOrCreateHashIndex(partitionId, indexId);
-            case SORTED_INDEX_TYPE:
-                return getOrCreateSortedIndex(partitionId, indexId);
-            default:
-                throw new StorageException("Unknown index type: " + indexConfig.type().value());
-        }
     }
 
     /** {@inheritDoc} */

@@ -62,6 +62,8 @@ import org.rocksdb.WriteBatchWithIndex;
 public class RocksDbSortedIndexStorage implements SortedIndexStorage {
     private static final int ROW_ID_SIZE = Long.BYTES * 2;
 
+    private static final ByteOrder ORDER = ByteOrder.BIG_ENDIAN;
+
     private final SortedIndexDescriptor descriptor;
 
     private final ColumnFamily indexCf;
@@ -181,7 +183,7 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
         return new RocksIteratorAdapter<>(it) {
             @Override
             protected ByteBuffer decodeEntry(byte[] key, byte[] value) {
-                return ByteBuffer.wrap(key).order(ByteOrder.BIG_ENDIAN);
+                return ByteBuffer.wrap(key).order(ORDER);
             }
 
             @Override
@@ -213,7 +215,7 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
         ByteBuffer bytes = prefix.byteBuffer();
 
         return ByteBuffer.allocate(Short.BYTES + bytes.remaining())
-                .order(ByteOrder.BIG_ENDIAN)
+                .order(ORDER)
                 .putShort((short) partitionStorage.partitionId())
                 .put(bytes)
                 .array();
@@ -223,7 +225,7 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
         ByteBuffer bytes = row.indexColumns().byteBuffer();
 
         return ByteBuffer.allocate(Short.BYTES + bytes.remaining() + ROW_ID_SIZE)
-                .order(ByteOrder.BIG_ENDIAN)
+                .order(ORDER)
                 .putShort((short) partitionStorage.partitionId())
                 .put(bytes)
                 .putLong(row.rowId().mostSignificantBits())
