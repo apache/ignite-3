@@ -509,7 +509,7 @@ namespace Apache.Ignite.Internal
 
                     // Invoke response handler in another thread to continue the receive loop.
                     // Response buffer should be disposed by the task handler.
-                    ThreadPool.QueueUserWorkItem(r => HandleResponse((PooledBuffer)r), response);
+                    ThreadPool.QueueUserWorkItem(r => HandleResponse((PooledBuffer)r!), response);
                 }
             }
             catch (Exception e)

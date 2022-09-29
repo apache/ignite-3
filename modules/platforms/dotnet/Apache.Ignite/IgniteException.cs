@@ -56,7 +56,7 @@ namespace Apache.Ignite
         {
             IgniteArgumentCheck.NotNull(serializationInfo, nameof(serializationInfo));
 
-            TraceId = (Guid)serializationInfo.GetValue(nameof(TraceId), typeof(Guid));
+            TraceId = (Guid)serializationInfo.GetValue(nameof(TraceId), typeof(Guid))!;
             Code = serializationInfo.GetInt32(nameof(Code));
         }
 
