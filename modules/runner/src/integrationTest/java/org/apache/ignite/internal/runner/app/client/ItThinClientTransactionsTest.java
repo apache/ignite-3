@@ -39,6 +39,7 @@ import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 /**
  * Thin client transactions integration test.
@@ -52,33 +53,24 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         kvView.put(null, key, "1");
 
         Transaction tx = client().transactions().begin();
+        kvView.put(tx, key, "22");
 
-        try {
-            kvView.put(tx, key, "22");
+        assertTrue(kvView.contains(tx, key));
+        assertFalse(kvView.remove(tx, key, "1"));
+        assertFalse(kvView.putIfAbsent(tx, key, "111"));
+        assertEquals("22", kvView.get(tx, key));
+        assertEquals("22", kvView.getAndPut(tx, key, "33"));
+        assertEquals("33", kvView.getAndReplace(tx, key, "44"));
+        assertTrue(kvView.replace(tx, key, "55"));
+        assertEquals("55", kvView.getAndRemove(tx, key));
+        assertFalse(kvView.contains(tx, key));
+        assertFalse(kvView.remove(tx, key));
 
-            assertTrue(kvView.contains(tx, key));
-            assertFalse(kvView.remove(tx, key, "1"));
-            assertFalse(kvView.putIfAbsent(tx, key, "111"));
-            assertEquals("22", kvView.get(tx, key));
-            assertEquals("22", kvView.getAndPut(tx, key, "33"));
-            assertEquals("33", kvView.getAndReplace(tx, key, "44"));
-            assertTrue(kvView.replace(tx, key, "55"));
-            assertEquals("55", kvView.getAndRemove(tx, key));
-            assertFalse(kvView.contains(tx, key));
-            assertFalse(kvView.remove(tx, key));
+        kvView.putAll(tx, Map.of(key, "6", 2, "7"));
+        assertEquals(2, kvView.getAll(tx, List.of(key, 2, 3)).size());
 
-            kvView.putAll(tx, Map.of(key, "6", 2, "7"));
-            assertEquals(2, kvView.getAll(tx, List.of(key, 2, 3)).size());
-
-            tx.rollback();
-            assertEquals("1", kvView.get(null, key));
-        } finally {
-            try {
-                tx.rollback();
-            } catch (TransactionException e) {
-                //Expected
-            }
-        }
+        tx.rollback();
+        assertEquals("1", kvView.get(null, key));
     }
 
     @Test
@@ -89,34 +81,24 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         kvView.put(null, key, val("1"));
 
         Transaction tx = client().transactions().begin();
+        kvView.put(tx, key, val("22"));
 
-        try {
-            kvView.put(tx, key, val("22"));
+        assertTrue(kvView.contains(tx, key));
+        assertFalse(kvView.remove(tx, key, val("1")));
+        assertFalse(kvView.putIfAbsent(tx, key, val("111")));
+        assertEquals(val("22"), kvView.get(tx, key));
+        assertEquals(val("22"), kvView.getAndPut(tx, key, val("33")));
+        assertEquals(val("33"), kvView.getAndReplace(tx, key, val("44")));
+        assertTrue(kvView.replace(tx, key, val("55")));
+        assertEquals(val("55"), kvView.getAndRemove(tx, key));
+        assertFalse(kvView.contains(tx, key));
+        assertFalse(kvView.remove(tx, key));
 
-            assertTrue(kvView.contains(tx, key));
-            assertFalse(kvView.remove(tx, key, val("1")));
-            assertFalse(kvView.putIfAbsent(tx, key, val("111")));
-            assertEquals(val("22"), kvView.get(tx, key));
-            assertEquals(val("22"), kvView.getAndPut(tx, key, val("33")));
-            assertEquals(val("33"), kvView.getAndReplace(tx, key, val("44")));
-            assertTrue(kvView.replace(tx, key, val("55")));
-            assertEquals(val("55"), kvView.getAndRemove(tx, key));
-            assertFalse(kvView.contains(tx, key));
-            assertFalse(kvView.remove(tx, key));
+        kvView.putAll(tx, Map.of(key, val("6"), key(2), val("7")));
+        assertEquals(2, kvView.getAll(tx, List.of(key, key(2), key(3))).size());
 
-            kvView.putAll(tx, Map.of(key, val("6"), key(2), val("7")));
-            assertEquals(2, kvView.getAll(tx, List.of(key, key(2), key(3))).size());
-
-            tx.rollback();
-
-            assertEquals(val("1"), kvView.get(null, key));
-        } finally {
-            try {
-                tx.rollback();
-            } catch (TransactionException e) {
-                //Expected
-            }
-        }
+        tx.rollback();
+        assertEquals(val("1"), kvView.get(null, key));
     }
 
     @Test
@@ -126,31 +108,22 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         recordView.upsert(null, rec(1, "1"));
 
         Transaction tx = client().transactions().begin();
+        recordView.upsert(tx, rec(1, "22"));
 
-        try {
-            recordView.upsert(tx, rec(1, "22"));
+        assertFalse(recordView.deleteExact(tx, rec(1, "1")));
+        assertFalse(recordView.insert(tx, rec(1, "111")));
+        assertEquals(rec(1, "22"), recordView.get(tx, key));
+        assertEquals(rec(1, "22"), recordView.getAndUpsert(tx, rec(1, "33")));
+        assertEquals(rec(1, "33"), recordView.getAndReplace(tx, rec(1, "44")));
+        assertTrue(recordView.replace(tx, rec(1, "55")));
+        assertEquals(rec(1, "55"), recordView.getAndDelete(tx, key));
+        assertFalse(recordView.delete(tx, key));
 
-            assertFalse(recordView.deleteExact(tx, rec(1, "1")));
-            assertFalse(recordView.insert(tx, rec(1, "111")));
-            assertEquals(rec(1, "22"), recordView.get(tx, key));
-            assertEquals(rec(1, "22"), recordView.getAndUpsert(tx, rec(1, "33")));
-            assertEquals(rec(1, "33"), recordView.getAndReplace(tx, rec(1, "44")));
-            assertTrue(recordView.replace(tx, rec(1, "55")));
-            assertEquals(rec(1, "55"), recordView.getAndDelete(tx, key));
-            assertFalse(recordView.delete(tx, key));
+        recordView.upsertAll(tx, List.of(rec(1, "6"), rec(2, "7")));
+        assertEquals(2, recordView.getAll(tx, List.of(key, rec(2, null), rec(3, null))).size());
 
-            recordView.upsertAll(tx, List.of(rec(1, "6"), rec(2, "7")));
-            assertEquals(2, recordView.getAll(tx, List.of(key, rec(2, null), rec(3, null))).size());
-
-            tx.rollback();
-            assertEquals(rec(1, "1"), recordView.get(null, key));
-        } finally {
-            try {
-                tx.rollback();
-            } catch (TransactionException e) {
-                //Expected
-            }
-        }
+        tx.rollback();
+        assertEquals(rec(1, "1"), recordView.get(null, key));
     }
 
     @Test
@@ -161,31 +134,22 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         recordView.upsert(null, kv(1, "1"));
 
         Transaction tx = client().transactions().begin();
+        recordView.upsert(tx, kv(1, "22"));
 
-        try {
-            recordView.upsert(tx, kv(1, "22"));
+        assertFalse(recordView.deleteExact(tx, kv(1, "1")));
+        assertFalse(recordView.insert(tx, kv(1, "111")));
+        assertEquals(kv(1, "22"), recordView.get(tx, key));
+        assertEquals(kv(1, "22"), recordView.getAndUpsert(tx, kv(1, "33")));
+        assertEquals(kv(1, "33"), recordView.getAndReplace(tx, kv(1, "44")));
+        assertTrue(recordView.replace(tx, kv(1, "55")));
+        assertEquals(kv(1, "55"), recordView.getAndDelete(tx, key));
+        assertFalse(recordView.delete(tx, key));
 
-            assertFalse(recordView.deleteExact(tx, kv(1, "1")));
-            assertFalse(recordView.insert(tx, kv(1, "111")));
-            assertEquals(kv(1, "22"), recordView.get(tx, key));
-            assertEquals(kv(1, "22"), recordView.getAndUpsert(tx, kv(1, "33")));
-            assertEquals(kv(1, "33"), recordView.getAndReplace(tx, kv(1, "44")));
-            assertTrue(recordView.replace(tx, kv(1, "55")));
-            assertEquals(kv(1, "55"), recordView.getAndDelete(tx, key));
-            assertFalse(recordView.delete(tx, key));
+        recordView.upsertAll(tx, List.of(kv(1, "6"), kv(2, "7")));
+        assertEquals(2, recordView.getAll(tx, List.of(key, key(2), key(3))).size());
 
-            recordView.upsertAll(tx, List.of(kv(1, "6"), kv(2, "7")));
-            assertEquals(2, recordView.getAll(tx, List.of(key, key(2), key(3))).size());
-
-            tx.rollback();
-            assertEquals(kv(1, "1"), recordView.get(null, key));
-        } finally {
-            try {
-                tx.rollback();
-            } catch (TransactionException e) {
-                //Expected
-            }
-        }
+        tx.rollback();
+        assertEquals(kv(1, "1"), recordView.get(null, key));
     }
 
     @Test
@@ -194,23 +158,14 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         kvView.put(null, 1, "1");
 
         Transaction tx = client().transactions().begin();
+        assertEquals("1", kvView.get(null, 1));
+        assertEquals("1", kvView.get(tx, 1));
 
-        try {
-            assertEquals("1", kvView.get(null, 1));
-            assertEquals("1", kvView.get(tx, 1));
+        kvView.put(tx, 1, "2");
+        assertEquals("2", kvView.get(tx, 1));
 
-            kvView.put(tx, 1, "2");
-            assertEquals("2", kvView.get(tx, 1));
-
-            tx.commit();
-            assertEquals("2", kvView.get(null, 1));
-        } finally {
-            try {
-                tx.rollback();
-            } catch (TransactionException e) {
-                //Expected
-            }
-        }
+        tx.commit();
+        assertEquals("2", kvView.get(null, 1));
     }
 
     @Test
@@ -219,23 +174,14 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         kvView.put(null, 1, "1");
 
         Transaction tx = client().transactions().begin();
+        assertEquals("1", kvView.get(null, 1));
+        assertEquals("1", kvView.get(tx, 1));
 
-        try {
-            assertEquals("1", kvView.get(null, 1));
-            assertEquals("1", kvView.get(tx, 1));
+        kvView.put(tx, 1, "2");
+        assertEquals("2", kvView.get(tx, 1));
 
-            kvView.put(tx, 1, "2");
-            assertEquals("2", kvView.get(tx, 1));
-
-            tx.rollback();
-            assertEquals("1", kvView.get(null, 1));
-        } finally {
-            try {
-                tx.rollback();
-            } catch (TransactionException e) {
-                //Expected
-            }
-        }
+        tx.rollback();
+        assertEquals("1", kvView.get(null, 1));
     }
 
     @Test
@@ -243,21 +189,12 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         KeyValueView<Integer, String> kvView = kvView();
 
         Transaction tx = client().transactions().begin();
+        kvView.put(tx, -100, "1");
 
-        try {
-            kvView.put(tx, -100, "1");
+        var ex = assertThrows(IgniteException.class, () -> kvView.get(null, -100));
+        assertThat(ex.getMessage(), containsString("TimeoutException"));
 
-            var ex = assertThrows(IgniteException.class, () -> kvView.get(null, -100));
-            assertThat(ex.getMessage(), containsString("TimeoutException"));
-
-            tx.rollback();
-        } finally {
-            try {
-                tx.rollback();
-            } catch (TransactionException e) {
-                //Expected
-            }
-        }
+        tx.rollback();
     }
 
     @Test
