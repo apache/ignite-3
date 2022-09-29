@@ -28,7 +28,7 @@
 
 namespace ignite::network {
 std::shared_ptr<AsyncClientPool> makeAsyncClientPool(DataFilters filters) {
-    auto platformPool = std::make_shared<SWITCH_WIN_OTHER(WinAsyncClientPool, LinuxAsyncClientPool)>();
+    auto platformPool = std::make_shared<IGNITE_SWITCH_WIN_OTHER(WinAsyncClientPool, LinuxAsyncClientPool)>();
 
     return std::make_shared<AsyncClientPoolAdapter>(std::move(filters), std::move(platformPool));
 }
