@@ -15,19 +15,31 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.rocksdb.index;
+package org.apache.ignite.internal.util;
 
+import java.util.Collections;
 import java.util.NoSuchElementException;
 import java.util.function.Function;
 import java.util.function.Predicate;
-import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Utility class for working with cursors.
  */
-class CursorUtils {
+public class CursorUtils {
+    /** Empty cursor instance. */
+    private static final Cursor<?> EMPTY = Cursor.fromIterator(Collections.emptyIterator());
+
+    /**
+     * Creates an empty cursor.
+     *
+     * @param <T> Type of elements in iterator.
+     * @return Cursor.
+     */
+    public static <T> Cursor<T> emptyCursor() {
+        return (Cursor<T>) EMPTY;
+    }
+
     /**
      * Cursor wrapper that discards elements while they match a given predicate. As soon as any element does not match the predicate,
      * no more elements will be discarded.
@@ -99,7 +111,7 @@ class CursorUtils {
      * @param <T> Cursor element type.
      * @return Cursor wrapper.
      */
-    static <T> Cursor<T> dropWhile(Cursor<T> cursor, Predicate<T> predicate) {
+    public static <T> Cursor<T> dropWhile(Cursor<T> cursor, Predicate<T> predicate) {
         return new DropWhileCursor<>(cursor, predicate);
     }
 
@@ -171,7 +183,7 @@ class CursorUtils {
      * @param <T> Cursor element type.
      * @return Cursor wrapper.
      */
-    static <T> Cursor<T> takeWhile(Cursor<T> cursor, Predicate<T> predicate) {
+    public static <T> Cursor<T> takeWhile(Cursor<T> cursor, Predicate<T> predicate) {
         return new TakeWhileCursor<>(cursor, predicate);
     }
 
@@ -216,7 +228,7 @@ class CursorUtils {
      * @param <U> Type of the transformed data.
      * @return Cursor wrapper.
      */
-    static <T, U> Cursor<U> map(Cursor<T> cursor, Function<T, U> mapper) {
+    public static <T, U> Cursor<U> map(Cursor<T> cursor, Function<T, U> mapper) {
         return new MapCursor<>(cursor, mapper);
     }
 
@@ -228,7 +240,7 @@ class CursorUtils {
      * @param <T> Cursor element type.
      * @return Cursor that iterates over both given cursors.
      */
-    static <T> Cursor<T> concat(Cursor<T> a, Cursor<T> b) {
+    public static <T> Cursor<T> concat(Cursor<T> a, Cursor<T> b) {
         return new Cursor<>() {
             private Cursor<T> currentCursor = a;
 
