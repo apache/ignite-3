@@ -360,7 +360,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
             }
 
             return lockUpgraded;
-            },
+        },
                 3000));
 
         assertFalse(futUpd2.isDone());
