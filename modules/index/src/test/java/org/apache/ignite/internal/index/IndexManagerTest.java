@@ -252,7 +252,7 @@ public class IndexManagerTest {
         );
 
         assertTrue(IgniteTestUtils.hasCause(completionException, IndexNotFoundException.class,
-                "Index '\"sName\".\"nonExisting\"' does not exist"));
+                "Index does not exist [name=\"sName\".\"nonExisting\"]"));
     }
 
     @Test

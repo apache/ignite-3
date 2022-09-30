@@ -88,12 +88,6 @@ public class TableDefinitionImpl extends AbstractSchemaObject implements TableDe
         return new ArrayList<>(colMap.values());
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public String canonicalName() {
-        return IgniteNameUtils.canonicalName(schemaName, name());
-    }
-
     /**
      * Check if specified column already exists.
      *

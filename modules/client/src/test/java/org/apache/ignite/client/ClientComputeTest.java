@@ -131,7 +131,7 @@ public class ClientComputeTest {
                     () -> client.compute().<String>executeColocated("bad-tbl", key, "job").join());
 
             var tblNotFoundEx = (TableNotFoundException) ex.getCause();
-            assertThat(tblNotFoundEx.getMessage(), containsString("The table does not exist [name=bad-tbl]"));
+            assertThat(tblNotFoundEx.getMessage(), containsString("The table does not exist [name=\"PUBLIC\".\"bad-tbl\"]"));
             assertEquals(TABLE_NOT_FOUND_ERR, tblNotFoundEx.code());
         }
     }

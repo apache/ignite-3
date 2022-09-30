@@ -144,7 +144,7 @@ public class PlatformTestNodeRunner {
                 SchemaBuilders.column("val", ColumnType.string()).asNullable(true).build()
         ).withPrimaryKey(keyCol).build();
 
-        await(((TableManager) node.tables()).createTableAsync(schTbl.canonicalName(), tblCh ->
+        await(((TableManager) node.tables()).createTableAsync(schTbl.name(), tblCh ->
                 SchemaConfigurationConverter.convert(schTbl, tblCh)
                         .changeReplicas(1)
                         .changePartitions(10)
@@ -172,7 +172,7 @@ public class PlatformTestNodeRunner {
                 SchemaBuilders.column("decimal", ColumnType.decimal()).asNullable(true).build()
         ).withPrimaryKey(keyCol).build();
 
-        await(((TableManager) node.tables()).createTableAsync(schTbl2.canonicalName(), tblCh ->
+        await(((TableManager) node.tables()).createTableAsync(schTbl2.name(), tblCh ->
                 SchemaConfigurationConverter.convert(schTbl2, tblCh)
                         .changeReplicas(1)
                         .changePartitions(10)

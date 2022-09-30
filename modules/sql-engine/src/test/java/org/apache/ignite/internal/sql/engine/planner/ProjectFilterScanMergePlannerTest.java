@@ -56,13 +56,13 @@ public class ProjectFilterScanMergePlannerTest extends AbstractPlannerTest {
                 .add("C", f.createSqlType(SqlTypeName.INTEGER))
                 .build();
 
-        createTable(publicSchema, "TBL", type, IgniteDistributions.hash(ImmutableIntList.of(0)));
+        createTable(publicSchema, "TBL", type, IgniteDistributions.single());
     }
 
     @Test
     public void testProjectFilterMerge() throws Exception {
         // Order of merge: ((scan + filter) + project).
-        assertPlan("SELECT a, b FROM tbl WHERE c = 0 LIMIT 10", publicSchema, isInstanceOf(IgniteTableScan.class)
+        assertPlan("SELECT a, b FROM tbl WHERE c = 0", publicSchema, isInstanceOf(IgniteTableScan.class)
                 .and(scan -> scan.projects() != null)
                 .and(scan -> "[$t0, $t1]".equals(scan.projects().toString()))
                 .and(scan -> scan.condition() != null)

@@ -42,7 +42,6 @@ public class TableDefinitionBuilderTest {
 
         TableDefinition tbl = builder.build();
 
-        assertEquals("\"SNAME\".\"TNAME\"", tbl.canonicalName());
         assertEquals("TNAME", tbl.name());
         assertEquals(1, tbl.keyColumns().size());
     }
