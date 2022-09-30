@@ -19,21 +19,19 @@
 
 #include <cstdint>
 
-#include <vector>
 #include <memory>
+#include <vector>
 
 #include <ignite/network/async_handler.h>
 #include <ignite/network/data_sink.h>
 #include <ignite/network/tcp_range.h>
 
-namespace ignite::network
-{
+namespace ignite::network {
 
 /**
  * Asynchronous client pool.
  */
-class AsyncClientPool : public DataSink
-{
+class AsyncClientPool : public DataSink {
 public:
     // Default
     ~AsyncClientPool() override = default;
@@ -46,7 +44,7 @@ public:
      * @param addrs Addresses to connect to.
      * @param connLimit Connection upper limit. Zero means limit is disabled.
      *
-     * @throw IgniteError on error.
+     * @throw ignite_error on error.
      */
     virtual void start(std::vector<TcpRange> addrs, uint32_t connLimit) = 0;
 

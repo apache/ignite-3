@@ -17,20 +17,18 @@
 
 #pragma once
 
-#include <vector>
 #include <memory>
+#include <vector>
 
-#include <ignite/network/data_sink.h>
 #include <ignite/network/async_handler.h>
+#include <ignite/network/data_sink.h>
 
-namespace ignite::network
-{
+namespace ignite::network {
 
 /**
  * Data buffer.
  */
-class DataFilter : public DataSink, public AsyncHandler
-{
+class DataFilter : public DataSink, public AsyncHandler {
 public:
     // Default
     DataFilter() = default;
@@ -41,44 +39,32 @@ public:
      *
      * @param sink Data sink
      */
-    void setSink(DataSink* sink)
-    {
-        m_sink = sink;
-    }
+    void setSink(DataSink *sink) { m_sink = sink; }
 
     /**
      * Get sink.
      *
      * @return Data sink.
      */
-    DataSink* getSink()
-    {
-        return m_sink;
-    }
+    DataSink *getSink() { return m_sink; }
 
     /**
      * Set handler.
      *
      * @param handler Event handler.
      */
-    void setHandler(std::weak_ptr<AsyncHandler> handler)
-    {
-        m_handler = std::move(handler);
-    }
+    void setHandler(std::weak_ptr<AsyncHandler> handler) { m_handler = std::move(handler); }
 
     /**
      * Get handler.
      *
      * @return Event handler.
      */
-    std::shared_ptr<AsyncHandler> getHandler()
-    {
-        return m_handler.lock();
-    }
+    std::shared_ptr<AsyncHandler> getHandler() { return m_handler.lock(); }
 
 protected:
     /** Sink. */
-    DataSink* m_sink{nullptr};
+    DataSink *m_sink{nullptr};
 
     /** Handler. */
     std::weak_ptr<AsyncHandler> m_handler{};
@@ -87,4 +73,3 @@ protected:
 typedef std::vector<std::shared_ptr<DataFilter>> DataFilters;
 
 } // namespace ignite::network
-

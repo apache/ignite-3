@@ -17,17 +17,15 @@
 
 #pragma once
 
-namespace ignite::platform
-{
+namespace ignite::platform {
 
 /**
  * Byte order utility class.
  */
-class ByteOrder
-{
+class ByteOrder {
 private:
     static constexpr uint32_t fourBytes = 0x01020304;
-    static constexpr uint8_t lesserByte = (const uint8_t&)fourBytes;
+    static constexpr uint8_t lesserByte = (const uint8_t &)fourBytes;
 
 public:
     ByteOrder() = delete;

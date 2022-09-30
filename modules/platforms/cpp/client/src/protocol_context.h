@@ -19,16 +19,14 @@
 
 #include "protocol_version.h"
 
-namespace ignite::detail
-{
+namespace ignite::detail {
 
 /**
  * Represents connection to the cluster.
  *
  * Considered established while there is connection to at least one server.
  */
-class ProtocolContext
-{
+class ProtocolContext {
 public:
     /** The latest currently supported version. */
     static constexpr ProtocolVersion CURRENT_VERSION{3, 0, 0};
@@ -38,19 +36,14 @@ public:
      *
      * @return protocol version.
      */
-    [[nodiscard]]
-    ProtocolVersion getVersion() const {
-        return m_version;
-    }
+    [[nodiscard]] ProtocolVersion getVersion() const { return m_version; }
 
     /**
      * Set version.
      *
      * @param ver Version to set.
      */
-    void setVersion(ProtocolVersion ver) {
-        m_version = ver;
-    }
+    void setVersion(ProtocolVersion ver) { m_version = ver; }
 
 private:
     /** Protocol version. */

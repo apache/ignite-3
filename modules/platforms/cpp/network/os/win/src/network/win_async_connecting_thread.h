@@ -17,10 +17,10 @@
 
 #pragma once
 
-#include <cstdint>
-#include <thread>
-#include <mutex>
 #include <condition_variable>
+#include <cstdint>
+#include <mutex>
+#include <thread>
 
 #include "common/ignite_error.h"
 
@@ -30,16 +30,14 @@
 
 #include "network/win_async_client.h"
 
-namespace ignite::network
-{
+namespace ignite::network {
 
 class WinAsyncClientPool;
 
 /**
  * Async pool connecting thread.
  */
-class WinAsyncConnectingThread
-{
+class WinAsyncConnectingThread {
     /** Send and receive buffers size. */
     static constexpr size_t BUFFER_SIZE = 0x10000;
 
@@ -56,7 +54,7 @@ public:
      * @param limit Connection limit.
      * @param addrs Addresses.
      */
-    void start(WinAsyncClientPool& clientPool, size_t limit, std::vector<TcpRange> addrs);
+    void start(WinAsyncClientPool &clientPool, size_t limit, std::vector<TcpRange> addrs);
 
     /**
      * Stop thread.
@@ -81,14 +79,14 @@ private:
      * @param range TCP range.
      * @return New client.
      */
-    std::shared_ptr<WinAsyncClient> tryConnect(const TcpRange& range);
+    std::shared_ptr<WinAsyncClient> tryConnect(const TcpRange &range);
 
     /**
      * Try establish connection to address.
      * @param addr Address.
      * @return Socket.
      */
-    static SOCKET tryConnect(const EndPoint& addr);
+    static SOCKET tryConnect(const EndPoint &addr);
 
     /**
      * Get next address.
@@ -102,7 +100,7 @@ private:
     std::thread m_thread;
 
     /** Client pool. */
-    WinAsyncClientPool* m_clientPool;
+    WinAsyncClientPool *m_clientPool;
 
     /** Flag to signal that thread is stopping. */
     volatile bool m_stopping;

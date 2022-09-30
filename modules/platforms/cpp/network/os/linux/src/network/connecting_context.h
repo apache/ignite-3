@@ -27,18 +27,16 @@
 
 #include "network/linux_async_client.h"
 
-namespace ignite::network
-{
+namespace ignite::network {
 
 /**
  * Connecting context.
  */
-class ConnectingContext
-{
+class ConnectingContext {
 public:
     // Default
-    ConnectingContext(ConnectingContext&&) = default;
-    ConnectingContext& operator=(ConnectingContext&&) = default;
+    ConnectingContext(ConnectingContext &&) = default;
+    ConnectingContext &operator=(ConnectingContext &&) = default;
 
     /**
      * Constructor.
@@ -60,7 +58,7 @@ public:
      *
      * @return Next address info for connection.
      */
-    addrinfo* next();
+    addrinfo *next();
 
     /**
      * Get last address.
@@ -85,10 +83,10 @@ private:
     uint16_t m_nextPort;
 
     /** Current address info. */
-    addrinfo* m_info;
+    addrinfo *m_info;
 
     /** Address info which is currently used for connection */
-    addrinfo* m_currentInfo;
+    addrinfo *m_currentInfo;
 };
 
 } // namespace ignite::network

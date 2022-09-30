@@ -18,19 +18,17 @@
 #pragma once
 
 #include <memory>
-#include <string>
 #include <sstream>
+#include <string>
 
 #include <gtest/gtest.h>
 
-namespace ignite
-{
+namespace ignite {
 
 /**
  * Test logger.
  */
-class GtestLogger : public IgniteLogger
-{
+class GtestLogger : public IgniteLogger {
 public:
     /**
      * Construct.
@@ -38,9 +36,9 @@ public:
      * @param includeTs Include timestamps.
      * @param debug Enable debug.
      */
-    GtestLogger(bool includeTs, bool debug) :
-        m_includeTs(includeTs),
-        m_debug(debug) { }
+    GtestLogger(bool includeTs, bool debug)
+        : m_includeTs(includeTs)
+        , m_debug(debug) { }
 
     void logError(std::string_view message) override {
         std::cout << "[          ] [ ERROR ]   " + std::string(message) + '\n' << std::flush;
@@ -65,9 +63,7 @@ private:
      *
      * @return Timestamp string.
      */
-    [[nodiscard]]
-    std::string getTimestamp() const
-    {
+    [[nodiscard]] std::string getTimestamp() const {
         if (!m_includeTs)
             return {};
 
@@ -79,7 +75,8 @@ private:
         auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch());
 
         std::stringstream ss;
-        ss << std::put_time(std::localtime(&cTime), "%H:%M:%S.") << std::setw(3) << std::setfill('0') << (ms.count() % 1000) << " ";
+        ss << std::put_time(std::localtime(&cTime), "%H:%M:%S.") << std::setw(3) << std::setfill('0')
+           << (ms.count() % 1000) << " ";
         return ss.str();
     }
 

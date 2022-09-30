@@ -22,8 +22,7 @@
 
 #include "common/ignite_error.h"
 
-namespace ignite::network
-{
+namespace ignite::network {
 
 /** Windows async client pool. */
 class WinAsyncClientPool;
@@ -31,8 +30,7 @@ class WinAsyncClientPool;
 /**
  * Async pool worker thread.
  */
-class WinAsyncWorkerThread
-{
+class WinAsyncWorkerThread {
 public:
     /**
      * Constructor.
@@ -45,7 +43,7 @@ public:
      * @param clientPool Client pool.
      * @param iocp Valid IOCP instance handle.
      */
-    void start(WinAsyncClientPool& clientPool, HANDLE iocp);
+    void start(WinAsyncClientPool &clientPool, HANDLE iocp);
 
     /**
      * Stop thread.
@@ -65,7 +63,7 @@ private:
     volatile bool m_stopping;
 
     /** Client pool. */
-    WinAsyncClientPool* m_clientPool;
+    WinAsyncClientPool *m_clientPool;
 
     /** IO Completion Port. Windows-specific primitive for asynchronous IO. */
     HANDLE m_iocp;

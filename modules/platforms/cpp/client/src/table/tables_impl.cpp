@@ -17,15 +17,14 @@
 
 #include "common/utils.h"
 
-#include "ignite/protocol/writer.h"
 #include "ignite/protocol/reader.h"
+#include "ignite/protocol/writer.h"
 #include "table/tables_impl.h"
 
-namespace ignite::detail
-{
+namespace ignite::detail {
 
-void TablesImpl::getTableAsync(const std::string &name, IgniteCallback<std::optional<Table>> callback) {
-    auto readerFunc = [name] (protocol::Reader& reader) -> std::optional<Table>  {
+void TablesImpl::getTableAsync(const std::string &name, ignite_callback<std::optional<Table>> callback) {
+    auto readerFunc = [name](protocol::Reader &reader) -> std::optional<Table> {
         if (reader.tryReadNil())
             return std::nullopt;
 
@@ -35,14 +34,11 @@ void TablesImpl::getTableAsync(const std::string &name, IgniteCallback<std::opti
         return std::make_optional(Table(tableImpl));
     };
 
-    auto handler = std::make_shared<ResponseHandlerImpl<std::optional<Table>>>(
-            std::move(readerFunc), std::move(callback));
+    auto handler =
+        std::make_shared<ResponseHandlerImpl<std::optional<Table>>>(std::move(readerFunc), std::move(callback));
 
-    m_connection->performRequest(ClientOperation::TABLE_GET,
-    [&name] (protocol::Writer& writer) {
-        writer.write(name);
-    },
-    std::move(handler));
+    m_connection->performRequest(
+        ClientOperation::TABLE_GET, [&name](protocol::Writer &writer) { writer.write(name); }, std::move(handler));
 }
 
 } // namespace ignite::detail

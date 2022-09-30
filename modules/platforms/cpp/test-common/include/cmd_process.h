@@ -18,18 +18,16 @@
 #pragma once
 
 #include <chrono>
-#include <string>
 #include <memory>
+#include <string>
 #include <vector>
 
-namespace ignite
-{
+namespace ignite {
 
 /**
  * Represents system process launched using commandline instruction.
  */
-class CmdProcess
-{
+class CmdProcess {
 public:
     /**
      * Destructor.
@@ -71,4 +69,3 @@ protected:
 };
 
 } // namespace ignite
-
