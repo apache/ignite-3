@@ -106,7 +106,7 @@ public abstract class ItAbstractThinClientTest extends IgniteAbstractTest {
 
         try (Session session = startedNodes.get(0).sql().createSession()) {
             session.execute(null, "CREATE TABLE " + TABLE_NAME + "("
-                    + COLUMN_KEY + " INT PRIMARY KEY, " + COLUMN_VAL + " VARCHAR)");
+                    + COLUMN_KEY + " INT PRIMARY KEY, " + COLUMN_VAL + " VARCHAR) WITH replicas=1, partitions=10");
         }
 
         client = IgniteClient.builder().addresses(getClientAddresses().toArray(new String[0])).build();

@@ -199,7 +199,7 @@ public class PlatformTestNodeRunner {
             String tableName = (String) args[0];
 
             try (Session session = context.ignite().sql().createSession()) {
-                session.execute(null, "CREATE TABLE " + tableName + "(key BIGINT PRIMARY KEY)");
+                session.execute(null, "CREATE TABLE " + tableName + "(key BIGINT PRIMARY KEY, val INT)");
             }
 
             return tableName;
