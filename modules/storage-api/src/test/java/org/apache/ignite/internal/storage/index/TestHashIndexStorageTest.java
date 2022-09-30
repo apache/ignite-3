@@ -25,9 +25,9 @@ import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapMvTableStorage;
-import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapStorageEngine;
-import org.apache.ignite.internal.storage.chm.schema.TestConcurrentHashMapDataStorageConfigurationSchema;
+import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
+import org.apache.ignite.internal.storage.impl.TestStorageEngine;
+import org.apache.ignite.internal.storage.impl.schema.TestDataStorageConfigurationSchema;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -40,19 +40,19 @@ public class TestHashIndexStorageTest extends AbstractHashIndexStorageTest {
     void setUp(
             @InjectConfiguration(
                     polymorphicExtensions = {
-                            TestConcurrentHashMapDataStorageConfigurationSchema.class,
+                            TestDataStorageConfigurationSchema.class,
                             UnknownDataStorageConfigurationSchema.class,
                             HashIndexConfigurationSchema.class,
                             NullValueDefaultConfigurationSchema.class,
                             UnlimitedBudgetConfigurationSchema.class
                     },
-                    value = "mock.tables.foo.dataStorage.name = " + TestConcurrentHashMapStorageEngine.ENGINE_NAME
+                    value = "mock.tables.foo.dataStorage.name = " + TestStorageEngine.ENGINE_NAME
             )
             TablesConfiguration tablesConfig
     ) {
         TableConfiguration tableConfig = tablesConfig.tables().get("foo");
 
-        var storage = new TestConcurrentHashMapMvTableStorage(tableConfig, tablesConfig);
+        var storage = new TestMvTableStorage(tableConfig, tablesConfig);
 
         initialize(storage, tablesConfig);
     }

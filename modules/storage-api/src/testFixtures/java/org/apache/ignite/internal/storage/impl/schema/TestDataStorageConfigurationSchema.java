@@ -15,17 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.chm.schema;
+package org.apache.ignite.internal.storage.impl.schema;
 
-import static org.apache.ignite.internal.storage.chm.TestConcurrentHashMapStorageEngine.ENGINE_NAME;
+import static org.apache.ignite.internal.storage.impl.TestStorageEngine.ENGINE_NAME;
 
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema;
-import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapStorageEngine;
+import org.apache.ignite.internal.storage.impl.TestStorageEngine;
 
 /**
- * Data storage configuration for {@link TestConcurrentHashMapStorageEngine}.
+ * Data storage configuration for {@link TestStorageEngine}.
  */
 @PolymorphicConfigInstance(ENGINE_NAME)
-public class TestConcurrentHashMapDataStorageConfigurationSchema extends DataStorageConfigurationSchema {
+public class TestDataStorageConfigurationSchema extends DataStorageConfigurationSchema {
 }

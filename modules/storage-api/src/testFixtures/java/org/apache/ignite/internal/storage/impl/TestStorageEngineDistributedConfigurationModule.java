@@ -15,18 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.chm;
+package org.apache.ignite.internal.storage.impl;
 
 import java.util.Collection;
 import java.util.List;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.internal.configuration.ConfigurationModule;
-import org.apache.ignite.internal.storage.chm.schema.TestConcurrentHashMapDataStorageConfigurationSchema;
+import org.apache.ignite.internal.storage.impl.schema.TestDataStorageConfigurationSchema;
 
 /**
- * Implementation for {@link TestConcurrentHashMapStorageEngine}.
+ * Implementation for {@link TestStorageEngine}.
  */
-public class TestConcurrentHashMapStorageEngineDistributedConfigurationModule implements ConfigurationModule {
+public class TestStorageEngineDistributedConfigurationModule implements ConfigurationModule {
     /** {@inheritDoc} */
     @Override
     public ConfigurationType type() {
@@ -36,6 +36,6 @@ public class TestConcurrentHashMapStorageEngineDistributedConfigurationModule im
     /** {@inheritDoc} */
     @Override
     public Collection<Class<?>> polymorphicSchemaExtensions() {
-        return List.of(TestConcurrentHashMapDataStorageConfigurationSchema.class);
+        return List.of(TestDataStorageConfigurationSchema.class);
     }
 }
