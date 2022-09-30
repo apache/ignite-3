@@ -50,7 +50,7 @@ public final class RowConverter {
      * @param binarySchema Binary tuple schema.
      * @param factory Row handler factory.
      * @param searchRow Search row.
-     * @param <RowT>
+     * @param <RowT> Row type.
      * @return Binary tuple.
      */
     public static <RowT> BinaryTuple toBinaryTuple(

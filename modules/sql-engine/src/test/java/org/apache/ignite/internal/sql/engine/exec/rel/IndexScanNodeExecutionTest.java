@@ -139,6 +139,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
 
         if (type == Type.SORTED) {
             SortedIndex sortedIndexMock = Mockito.mock(SortedIndex.class);
+
             Mockito.doReturn(sortedIndexMock).when(indexMock).index();
             Mockito.doReturn(new SortedIndexDescriptor(
                     "IDX1",
@@ -152,6 +153,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
                     .scan(Mockito.eq(2), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.anyInt(), Mockito.any());
         } else {
             Index<IndexDescriptor> hashIndexMock = Mockito.mock(Index.class);
+
             Mockito.doReturn(hashIndexMock).when(indexMock).index();
             Mockito.doReturn(new IndexDescriptor("IDX1", List.of("idxCol2", "idxCol1"))).when(hashIndexMock).descriptor();
             Mockito.doReturn(dummyPublisher(part0Rows)).when(hashIndexMock)
