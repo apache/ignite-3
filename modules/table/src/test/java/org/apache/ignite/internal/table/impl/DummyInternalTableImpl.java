@@ -212,7 +212,6 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 new HybridClock()
         );
 
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-17523
         partitionListener = new PartitionListener(
                 mvPartStorage,
                 new TestConcurrentHashMapTxStateStorage(),
