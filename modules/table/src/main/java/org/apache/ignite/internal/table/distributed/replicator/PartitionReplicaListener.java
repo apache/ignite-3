@@ -903,8 +903,18 @@ public class PartitionReplicaListener implements ReplicaListener {
             return lockManager.acquire(txId, new LockKey(tableId), LockMode.IX) // IX lock on table
                     .thenCompose(tblLock -> {
                         if (rowId != null) {
-                            return lockManager.acquire(txId, new LockKey(tableId, rowId), LockMode.X) // X lock on RowId
-                                    .thenApply(rowLock -> rowId);
+                            return lockManager.acquire(txId, new LockKey(tableId, rowId), LockMode.S) // S lock on RowId
+                                    .thenCompose(sharedRowLock -> {
+                                        BinaryRow curVal = mvDataStorage.read(rowId, txId);
+
+                                        if (curVal != null) {
+                                            return lockManager.acquire(txId, new LockKey(tableId, rowId),
+                                                            LockMode.X) // X lock on RowId
+                                                    .thenApply(exclusiveRowLock -> rowId);
+                                        }
+
+                                        return CompletableFuture.completedFuture(null);
+                                    });
                         }
 
                         return CompletableFuture.completedFuture(null);
