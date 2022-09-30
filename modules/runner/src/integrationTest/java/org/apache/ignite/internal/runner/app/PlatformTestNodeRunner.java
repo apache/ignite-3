@@ -199,7 +199,7 @@ public class PlatformTestNodeRunner {
             String tableName = (String) args[0];
 
             try (Session session = context.ignite().sql().createSession()) {
-                session.execute(null, "CREATE TABLE " + tableName + "(key BIGINT PRIMARY KEY, val INT)");
+                session.execute(null, "CREATE TABLE \"" + tableName + "\"(key BIGINT PRIMARY KEY, val INT)");
             }
 
             return tableName;
@@ -215,7 +215,7 @@ public class PlatformTestNodeRunner {
         public String execute(JobExecutionContext context, Object... args) {
             String tableName = (String) args[0];
             try (Session session = context.ignite().sql().createSession()) {
-                session.execute(null, "DROP TABLE " + tableName);
+                session.execute(null, "DROP TABLE \"" + tableName + "\"");
             }
 
             return tableName;
