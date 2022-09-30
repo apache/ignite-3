@@ -37,7 +37,8 @@ import org.jetbrains.annotations.Nullable;
  *
  * <p>All timestamps in the chain must go in decreasing order, giving us a N2O (newest to oldest) order of search.
  *
- * <p>Each MvPartitionStorage instance represents exactly one partition.
+ * <p>Each MvPartitionStorage instance represents exactly one partition. All RowIds within a partition are sorted consistently with the
+ * {@link RowId::compareTo} comparison order.
  */
 public interface MvPartitionStorage extends AutoCloseable {
     /**
