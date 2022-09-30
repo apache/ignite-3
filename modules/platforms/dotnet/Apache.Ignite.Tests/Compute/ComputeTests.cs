@@ -235,7 +235,7 @@ namespace Apache.Ignite.Tests.Compute
         {
             // Create table and use it in ExecuteColocated.
             var nodes = await GetNodeAsync(0);
-            var tableName = await Client.Compute.ExecuteAsync<string>(nodes, CreateTableJob, "PUB.drop-me");
+            var tableName = await Client.Compute.ExecuteAsync<string>(nodes, CreateTableJob, "drop-me");
 
             try
             {
