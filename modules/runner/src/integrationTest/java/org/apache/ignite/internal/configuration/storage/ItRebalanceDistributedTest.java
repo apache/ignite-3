@@ -426,6 +426,7 @@ public class ItRebalanceDistributedTest {
             replicaManager = new ReplicaManager(clusterService, new HybridClock());
 
             ReplicaService replicaSvc = new ReplicaService(
+                    replicaManager,
                     clusterService.messagingService(),
                     new HybridClock()
             );

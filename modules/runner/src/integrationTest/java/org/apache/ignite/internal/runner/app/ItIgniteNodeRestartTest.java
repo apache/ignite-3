@@ -72,6 +72,7 @@ import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
 import org.apache.ignite.internal.recovery.ConfigurationCatchUpListener;
 import org.apache.ignite.internal.recovery.RecoveryCompletionFutureFactory;
+import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
@@ -277,7 +278,11 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         SchemaManager schemaManager = new SchemaManager(registry, tblCfg);
 
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-17523 seems that it's possible not to instantiate replicaMgr in this test.
+        ReplicaManager replicaMgr = new ReplicaManager(clusterSvc, null);
+
         ReplicaService replicaSvc = new ReplicaService(
+                replicaMgr,
                 clusterSvc.messagingService(),
                 null);
 
@@ -328,6 +333,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 nettyBootstrapFactory,
                 clusterSvc,
                 raftMgr,
+                replicaMgr,
                 cmgManager,
                 txManager,
                 metaStorageMgr,
