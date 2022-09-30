@@ -15,33 +15,30 @@
  * limitations under the License.
  */
 
-#include <sys/socket.h>
 #include <netdb.h>
 #include <sys/epoll.h>
+#include <sys/socket.h>
 
 #include <cstring>
 #include <iterator>
 
 #include "network/connecting_context.h"
 
-namespace ignite::network
-{
+namespace ignite::network {
 
-ConnectingContext::ConnectingContext(TcpRange range) :
-    m_range(std::move(range)),
-    m_nextPort(range.port),
-    m_info(nullptr),
-    m_currentInfo(nullptr) { }
+ConnectingContext::ConnectingContext(TcpRange range)
+    : m_range(std::move(range))
+    , m_nextPort(range.port)
+    , m_info(nullptr)
+    , m_currentInfo(nullptr) {
+}
 
-ConnectingContext::~ConnectingContext()
-{
+ConnectingContext::~ConnectingContext() {
     reset();
 }
 
-void ConnectingContext::reset()
-{
-    if (m_info)
-    {
+void ConnectingContext::reset() {
+    if (m_info) {
         freeaddrinfo(m_info);
         m_info = nullptr;
         m_currentInfo = nullptr;
@@ -50,15 +47,12 @@ void ConnectingContext::reset()
     m_nextPort = m_range.port;
 }
 
-addrinfo* ConnectingContext::next()
-{
+addrinfo *ConnectingContext::next() {
     if (m_currentInfo)
         m_currentInfo = m_currentInfo->ai_next;
 
-    while (!m_currentInfo)
-    {
-        if (m_info)
-        {
+    while (!m_currentInfo) {
+        if (m_info) {
             freeaddrinfo(m_info);
             m_info = nullptr;
         }
@@ -87,16 +81,14 @@ addrinfo* ConnectingContext::next()
     return m_currentInfo;
 }
 
-EndPoint ConnectingContext::getAddress() const
-{
+EndPoint ConnectingContext::getAddress() const {
     if (!m_currentInfo)
-        throw IgniteError("There is no current address");
+        throw ignite_error("There is no current address");
 
     return {m_range.host, uint16_t(m_nextPort - 1)};
 }
 
-std::shared_ptr<LinuxAsyncClient> ConnectingContext::toClient(int fd)
-{
+std::shared_ptr<LinuxAsyncClient> ConnectingContext::toClient(int fd) {
     return std::make_shared<LinuxAsyncClient>(fd, getAddress(), m_range);
 }
 

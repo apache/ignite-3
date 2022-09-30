@@ -21,16 +21,14 @@
 
 #include <msgpack.h>
 
-#include "common/Types.h"
+#include "common/types.h"
 
-namespace ignite::protocol
-{
+namespace ignite::protocol {
 
 /**
  * BufferAdapter.
  */
-class BufferAdapter
-{
+class BufferAdapter {
 public:
     /** Length header size in bytes. */
     static constexpr size_t LENGTH_HEADER_SIZE = 4;
@@ -40,28 +38,23 @@ public:
      *
      * @param data Data.
      */
-    explicit BufferAdapter(std::vector<std::byte>& data) :
-        m_buffer(data),
-        m_lengthPos(std::numeric_limits<std::size_t>::max()) { }
+    explicit BufferAdapter(std::vector<std::byte> &data)
+        : m_buffer(data)
+        , m_lengthPos(std::numeric_limits<std::size_t>::max()) { }
 
     /**
      * Write raw data.
      *
      * @param data Data to write.
      */
-    void writeRawData(BytesView data){
-        m_buffer.insert(m_buffer.end(), data.begin(), data.end());
-    }
+    void writeRawData(bytes_view data) { m_buffer.insert(m_buffer.end(), data.begin(), data.end()); }
 
     /**
      * Get underlying data buffer view.
      *
      * @return Underlying data buffer view.
      */
-    [[nodiscard]]
-    BytesView getData() const {
-        return m_buffer;
-    }
+    [[nodiscard]] bytes_view getData() const { return m_buffer; }
 
     /**
      * Reserving space for length header.
@@ -78,7 +71,7 @@ public:
 
 private:
     /** BufferAdapter. */
-    std::vector<std::byte>& m_buffer;
+    std::vector<std::byte> &m_buffer;
 
     /** Length position. */
     std::size_t m_lengthPos{std::numeric_limits<std::size_t>::max()};

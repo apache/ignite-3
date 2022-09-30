@@ -22,8 +22,7 @@
 
 #define SOCKET_ERROR (-1)
 
-namespace ignite::network::sockets
-{
+namespace ignite::network::sockets {
 
 /**
  * Get socket error message for the error code.

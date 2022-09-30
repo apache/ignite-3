@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "common/Types.h"
+#include "common/types.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -32,13 +32,13 @@ struct BinaryTupleHeader {
     static constexpr std::size_t SIZE = 1;
 
     /** Mask for tuple size bits. */
-    static constexpr std::byte VARLEN_ENTRY_SIZE_MASK { 0b11 };
+    static constexpr std::byte VARLEN_ENTRY_SIZE_MASK{0b11};
 
     /** Mask for null-map flag. */
-    static constexpr std::byte NULLMAP_FLAG { 0b100 };
+    static constexpr std::byte NULLMAP_FLAG{0b100};
 
     /** Tuple flags. */
-    std::byte flags {0};
+    std::byte flags{0};
 
     /** Encodes size as bit mask. */
     static constexpr unsigned int sizeToFlags(SizeT size) noexcept {
@@ -60,9 +60,7 @@ struct BinaryTupleHeader {
     }
 
     /** Gets the size of a single varlen-table entry, in bytes. */
-    SizeT getVarLenEntrySize() const noexcept {
-        return 1u << static_cast<unsigned>(flags & VARLEN_ENTRY_SIZE_MASK);
-    }
+    SizeT getVarLenEntrySize() const noexcept { return 1u << static_cast<unsigned>(flags & VARLEN_ENTRY_SIZE_MASK); }
 
     /** Sets the nullmap flag on. */
     void setNullMapFlag() noexcept { flags |= NULLMAP_FLAG; }

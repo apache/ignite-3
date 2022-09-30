@@ -18,7 +18,7 @@
 #pragma once
 
 #include "BinaryTupleSchema.h"
-#include "common/Types.h"
+#include "common/types.h"
 
 namespace ignite {
 
@@ -28,7 +28,7 @@ namespace ignite {
  * A tuple parser is used to parse a binary tuple with a given schema.
  */
 class BinaryTupleParser {
-    BytesView binaryTuple; /**< The binary tuple to parse. */
+    bytes_view binaryTuple; /**< The binary tuple to parse. */
 
     const IntT elementCount; /**< Total number of elements. */
 
@@ -56,14 +56,14 @@ public:
      * @param numElements Number of tuple elements.
      * @param data Binary tuple buffer.
      */
-    explicit BinaryTupleParser(IntT numElements, BytesView data);
+    explicit BinaryTupleParser(IntT numElements, bytes_view data);
 
     /**
      * @brief Gets the original binary tuple.
      *
      * @return BytesView Binary tuple.
      */
-    BytesView getTuple() const noexcept { return binaryTuple; }
+    bytes_view getTuple() const noexcept { return binaryTuple; }
 
     /**
      * @brief Gets the binary tuple size in bytes.
@@ -91,7 +91,7 @@ public:
      *
      * @return The next value.
      */
-    ElementView getNext();
+    element_view getNext();
 
     /**
      * @brief Gets a series of values.
@@ -99,7 +99,7 @@ public:
      * @param num Required number of values. The value of NO_NUM means all the available values.
      * @return A set of values.
      */
-    TupleView parse(IntT num = NO_NUM);
+    tuple_view parse(IntT num = NO_NUM);
 
     /**
      * @brief Gets a series of values presuming they belong to a key. So no NULL values are allowed.
@@ -107,7 +107,7 @@ public:
      * @param num Required number of values. The value of NO_NUM means all the available values.
      * @return A set of values.
      */
-    KeyView parseKey(IntT num = NO_NUM);
+    key_tuple_view parseKey(IntT num = NO_NUM);
 
     /**
      * @brief Reads value of specified element.
@@ -115,7 +115,7 @@ public:
      * @param bytes Binary view of the element.
      * @return Element value.
      */
-    static std::int8_t getInt8(BytesView bytes);
+    static std::int8_t getInt8(bytes_view bytes);
 
     /**
      * @brief Reads value of specified element.
@@ -123,7 +123,7 @@ public:
      * @param bytes Binary view of the element.
      * @return Element value.
      */
-    static std::int16_t getInt16(BytesView bytes);
+    static std::int16_t getInt16(bytes_view bytes);
 
     /**
      * @brief Reads value of specified element.
@@ -131,7 +131,7 @@ public:
      * @param bytes Binary view of the element.
      * @return Element value.
      */
-    static std::int32_t getInt32(BytesView bytes);
+    static std::int32_t getInt32(bytes_view bytes);
 
     /**
      * @brief Reads value of specified element.
@@ -139,7 +139,7 @@ public:
      * @param bytes Binary view of the element.
      * @return Element value.
      */
-    static std::int64_t getInt64(BytesView bytes);
+    static std::int64_t getInt64(bytes_view bytes);
 
     /**
      * @brief Reads value of specified element.
@@ -147,7 +147,7 @@ public:
      * @param bytes Binary view of the element.
      * @return Element value.
      */
-    static float getFloat(BytesView bytes);
+    static float getFloat(bytes_view bytes);
 
     /**
      * @brief Reads value of specified element.
@@ -155,7 +155,7 @@ public:
      * @param bytes Binary view of the element.
      * @return Element value.
      */
-    static double getDouble(BytesView bytes);
+    static double getDouble(bytes_view bytes);
 };
 
 } // namespace ignite

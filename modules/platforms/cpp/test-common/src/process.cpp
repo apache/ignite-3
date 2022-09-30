@@ -16,9 +16,9 @@
  */
 
 #ifdef WIN32
-#   include "win/win_process.h"
+# include "win/win_process.h"
 #else
-#   include "linux/linux_process.h"
+# include "linux/linux_process.h"
 #endif
 
 #include <filesystem>
@@ -27,12 +27,9 @@
 
 #include "cmd_process.h"
 
+namespace ignite {
 
-namespace ignite
-{
-
-std::unique_ptr<CmdProcess> CmdProcess::make(std::string command, std::vector<std::string> args, std::string workDir)
-{
+std::unique_ptr<CmdProcess> CmdProcess::make(std::string command, std::vector<std::string> args, std::string workDir) {
 #ifdef WIN32
     return std::unique_ptr<CmdProcess>(new win::WinProcess(std::move(command), std::move(args), std::move(workDir)));
 #else

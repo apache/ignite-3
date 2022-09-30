@@ -29,12 +29,12 @@ namespace ignite {
  *
  * Minimalistic implementation that mimics JDK java.util.UUID.
  */
-class Uuid {
+class uuid {
 public:
     /**
      * Default constructor.
      */
-    constexpr Uuid() noexcept = default;
+    constexpr uuid() noexcept = default;
 
     /**
      * Constructor.
@@ -42,7 +42,7 @@ public:
      * @param most Most significant bits.
      * @param least Least significant bits.
      */
-    constexpr Uuid(std::int64_t most, std::int64_t least) noexcept
+    constexpr uuid(std::int64_t most, std::int64_t least) noexcept
         : most(most)
         , least(least) { }
 
@@ -97,7 +97,7 @@ public:
      * @param other Instance to compare to.
      * @return Zero if equals, negative number if less, and positive if greater.
      */
-    constexpr int compare(const Uuid &other) const noexcept {
+    constexpr int compare(const uuid &other) const noexcept {
         if (most != other.most) {
             return most < other.most ? -1 : 1;
         }
@@ -122,7 +122,7 @@ public:
  * @param rhs Second value.
  * @return true If the first value is equal to the second.
  */
-constexpr bool operator==(const Uuid &lhs, const Uuid &rhs) noexcept {
+constexpr bool operator==(const uuid &lhs, const uuid &rhs) noexcept {
     return lhs.compare(rhs) == 0;
 }
 
@@ -133,7 +133,7 @@ constexpr bool operator==(const Uuid &lhs, const Uuid &rhs) noexcept {
  * @param rhs Second value.
  * @return true If the first value is not equal to the second.
  */
-constexpr bool operator!=(const Uuid &lhs, const Uuid &rhs) noexcept {
+constexpr bool operator!=(const uuid &lhs, const uuid &rhs) noexcept {
     return lhs.compare(rhs) != 0;
 }
 
@@ -144,7 +144,7 @@ constexpr bool operator!=(const Uuid &lhs, const Uuid &rhs) noexcept {
  * @param rhs Second value.
  * @return true If the first value is less than the second.
  */
-constexpr bool operator<(const Uuid &lhs, const Uuid &rhs) noexcept {
+constexpr bool operator<(const uuid &lhs, const uuid &rhs) noexcept {
     return lhs.compare(rhs) < 0;
 }
 
@@ -155,7 +155,7 @@ constexpr bool operator<(const Uuid &lhs, const Uuid &rhs) noexcept {
  * @param rhs Second value.
  * @return true If the first value is less than or equal to the second.
  */
-constexpr bool operator<=(const Uuid &lhs, const Uuid &rhs) noexcept {
+constexpr bool operator<=(const uuid &lhs, const uuid &rhs) noexcept {
     return lhs.compare(rhs) <= 0;
 }
 
@@ -166,7 +166,7 @@ constexpr bool operator<=(const Uuid &lhs, const Uuid &rhs) noexcept {
  * @param rhs Second value.
  * @return true If the first value is greater than the second.
  */
-constexpr bool operator>(const Uuid &lhs, const Uuid &rhs) noexcept {
+constexpr bool operator>(const uuid &lhs, const uuid &rhs) noexcept {
     return lhs.compare(rhs) > 0;
 }
 
@@ -177,7 +177,7 @@ constexpr bool operator>(const Uuid &lhs, const Uuid &rhs) noexcept {
  * @param rhs Second value.
  * @return true If the first value is greater than or equal to the second.
  */
-constexpr bool operator>=(const Uuid &lhs, const Uuid &rhs) noexcept {
+constexpr bool operator>=(const uuid &lhs, const uuid &rhs) noexcept {
     return lhs.compare(rhs) >= 0;
 }
 
@@ -189,7 +189,7 @@ constexpr bool operator>=(const Uuid &lhs, const Uuid &rhs) noexcept {
  * @return Reference to the first param.
  */
 template <typename C, typename T>
-::std::basic_ostream<C, T> &operator<<(std::basic_ostream<C, T> &os, const Uuid &uuid) {
+::std::basic_ostream<C, T> &operator<<(std::basic_ostream<C, T> &os, const uuid &uuid) {
     uint32_t part1 = static_cast<uint32_t>(uuid.getMostSignificantBits() >> 32);
     uint16_t part2 = static_cast<uint16_t>(uuid.getMostSignificantBits() >> 16);
     uint16_t part3 = static_cast<uint16_t>(uuid.getMostSignificantBits());
@@ -220,7 +220,7 @@ template <typename C, typename T>
  * @return Reference to the first param.
  */
 template <typename C, typename T>
-::std::basic_istream<C, T> &operator>>(std::basic_istream<C, T> &is, Uuid &uuid) {
+::std::basic_istream<C, T> &operator>>(std::basic_istream<C, T> &is, uuid &result) {
     uint64_t parts[5];
 
     std::ios_base::fmtflags savedFlags = is.flags();
@@ -240,7 +240,7 @@ template <typename C, typename T>
 
     is.flags(savedFlags);
 
-    uuid = Uuid((parts[0] << 32) | (parts[1] << 16) | parts[2], (parts[3] << 48) | parts[4]);
+    result = uuid((parts[0] << 32) | (parts[1] << 16) | parts[2], (parts[3] << 48) | parts[4]);
 
     return is;
 }

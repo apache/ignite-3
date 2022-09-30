@@ -19,6 +19,7 @@ package org.apache.ignite.internal.storage.impl;
 
 import java.util.Iterator;
 import java.util.Map.Entry;
+import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -30,6 +31,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
@@ -210,6 +212,15 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         return read(versionChain, timestamp, null, null);
     }
 
+    /**
+     * Reads the value from the version chain using either transaction id or timestamp.
+     *
+     * @param versionChain Version chain.
+     * @param timestamp Timestamp or {@code null} if transaction id is defined.
+     * @param txId Transaction id or {@code null} if timestamp is defined.
+     * @param filter Key filter.
+     * @return Read result.
+     */
     private static ReadResult read(
             VersionChain versionChain,
             @Nullable HybridTimestamp timestamp,
@@ -223,6 +234,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         }
 
         if (timestamp == null) {
+            // Search by transaction id.
             BinaryRow binaryRow = versionChain.row;
 
             if (filter != null && !filter.test(binaryRow)) {
@@ -251,8 +263,9 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         VersionChain cur = versionChain;
 
         if (cur.ts == null) {
+            // We have a write-intent.
             if (cur.next == null) {
-                // We only have a write-intent.
+                // We *only* have a write-intent, return it.
                 BinaryRow binaryRow = cur.row;
 
                 if (filter != null && !filter.test(binaryRow)) {
@@ -263,12 +276,22 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
                         cur.commitPartitionId);
             }
 
+            // Move to first commit.
             cur = cur.next;
         }
 
         return walkVersionChain(versionChain, timestamp, filter, cur);
     }
 
+    /**
+     * Walks version chain to find a row by timestamp. See {@link MvPartitionStorage#read(RowId, HybridTimestamp)} for details.
+     *
+     * @param chainHead Version chain head.
+     * @param timestamp Timestamp.
+     * @param filter Key filter.
+     * @param firstCommit First commit chain element.
+     * @return Read result.
+     */
     private static ReadResult walkVersionChain(VersionChain chainHead, HybridTimestamp timestamp, @Nullable Predicate<BinaryRow> filter,
             VersionChain firstCommit) {
         boolean hasWriteIntent = chainHead.ts == null;
@@ -327,14 +350,73 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     /** {@inheritDoc} */
     @Override
-    public Cursor<BinaryRow> scan(Predicate<BinaryRow> filter, HybridTimestamp timestamp) {
-        Iterator<BinaryRow> iterator = map.values().stream()
-                .map(versionChain -> read(versionChain, timestamp, null, filter))
-                .map(ReadResult::binaryRow)
-                .filter(Objects::nonNull)
-                .iterator();
+    public PartitionTimestampCursor scan(Predicate<BinaryRow> filter, HybridTimestamp timestamp) {
+        Iterator<VersionChain> iterator = map.values().iterator();
 
-        return Cursor.fromIterator(iterator);
+        return new PartitionTimestampCursor() {
+            @Nullable
+            private VersionChain currentChain;
+
+            @Nullable
+            private ReadResult currentReadResult;
+
+            @Override
+            public @Nullable BinaryRow committed(HybridTimestamp timestamp) {
+                if (currentChain == null) {
+                    throw new IllegalStateException();
+                }
+
+                // We don't check if row conforms the key filter here, because we've already checked it.
+                ReadResult read = read(currentChain, timestamp, null, null);
+
+                if (read.transactionId() == null) {
+                    return read.binaryRow();
+                }
+
+                return null;
+            }
+
+            @Override
+            public void close() {
+                // No-op.
+            }
+
+            @Override
+            public boolean hasNext() {
+                if (currentReadResult != null) {
+                    return true;
+                }
+
+                currentChain = null;
+
+                while (iterator.hasNext()) {
+                    VersionChain chain = iterator.next();
+                    ReadResult readResult = read(chain, timestamp, null, filter);
+
+                    if (!readResult.isEmpty()) {
+                        currentChain = chain;
+                        currentReadResult = readResult;
+
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+
+            @Override
+            public ReadResult next() {
+                if (!hasNext()) {
+                    throw new NoSuchElementException();
+                }
+
+                ReadResult res = currentReadResult;
+
+                currentReadResult = null;
+
+                return res;
+            }
+        };
     }
 
     /** {@inheritDoc} */

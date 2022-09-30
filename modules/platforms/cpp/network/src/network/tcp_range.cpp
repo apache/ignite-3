@@ -16,16 +16,14 @@
  */
 
 #include <algorithm>
-#include <limits>
 #include <charconv>
+#include <limits>
 
 #include "ignite/network/tcp_range.h"
 
-namespace
-{
+namespace {
 
-uint16_t parsePort(std::string_view value)
-{
+uint16_t parsePort(std::string_view value) {
     // Stripping whitespaces
     size_t begin = value.find_first_not_of(' ');
     size_t end = value.find_last_not_of(' ');
@@ -58,16 +56,13 @@ uint16_t parsePort(std::string_view value)
 
 }
 
-
-namespace ignite::network
-{
+namespace ignite::network {
 
 std::optional<TcpRange> TcpRange::parse(std::string_view str, uint16_t defPort) {
     TcpRange res;
     size_t colonNum = std::count(str.begin(), str.end(), ':');
 
-    if (colonNum == 0)
-    {
+    if (colonNum == 0) {
         res.host = str;
         res.port = defPort;
         res.range = 0;
@@ -88,8 +83,7 @@ std::optional<TcpRange> TcpRange::parse(std::string_view str, uint16_t defPort) 
     std::string_view portRange = str.substr(colonPos + 1);
 
     size_t sepPos = portRange.find('.');
-    if (sepPos == std::string::npos)
-    {
+    if (sepPos == std::string::npos) {
         res.range = 0;
         res.port = parsePort(portRange);
 

@@ -29,19 +29,16 @@
 #include <ignite/network/end_point.h>
 #include <ignite/network/tcp_range.h>
 
-namespace ignite::network
-{
+namespace ignite::network {
 
 /**
  * Linux-specific implementation of async network client.
  */
-class LinuxAsyncClient
-{
+class LinuxAsyncClient {
     /**
      * State.
      */
-    enum class State
-    {
+    enum class State {
         CONNECTED,
 
         SHUTDOWN,
@@ -78,7 +75,7 @@ public:
      * @param err Error message. Can be null.
      * @return @c true if shutdown performed successfully.
      */
-    bool shutdown(std::optional<IgniteError> err);
+    bool shutdown(std::optional<ignite_error> err);
 
     /**
      * Close client.
@@ -96,14 +93,14 @@ public:
      * @param data Data to send.
      * @return @c true on success.
      */
-    bool send(std::vector<std::byte>&& data);
+    bool send(std::vector<std::byte> &&data);
 
     /**
      * Initiate next receive of data.
      *
      * @return @c true on success.
      */
-    BytesView receive();
+    bytes_view receive();
 
     /**
      * Process sent data.
@@ -140,65 +137,42 @@ public:
      *
      * @return Client ID.
      */
-    [[nodiscard]]
-    uint64_t getId() const
-    {
-        return m_id;
-    }
+    [[nodiscard]] uint64_t getId() const { return m_id; }
 
     /**
      * Set ID.
      *
      * @param id ID to set.
      */
-    void setId(uint64_t id)
-    {
-        m_id = id;
-    }
+    void setId(uint64_t id) { m_id = id; }
 
     /**
      * Get address.
      *
      * @return Address.
      */
-    [[nodiscard]]
-    const EndPoint& getAddress() const
-    {
-        return m_addr;
-    }
+    [[nodiscard]] const EndPoint &getAddress() const { return m_addr; }
 
     /**
      * Get range.
      *
      * @return Range.
      */
-    [[nodiscard]]
-    const TcpRange& getRange() const
-    {
-        return m_range;
-    }
+    [[nodiscard]] const TcpRange &getRange() const { return m_range; }
 
     /**
      * Check whether client is closed.
      *
      * @return @c true if closed.
      */
-    [[nodiscard]]
-    bool isClosed() const
-    {
-        return m_state == State::CLOSED;
-    }
+    [[nodiscard]] bool isClosed() const { return m_state == State::CLOSED; }
 
     /**
      * Get closing error for the connection. Can be IGNITE_SUCCESS.
      *
      * @return Connection error.
      */
-    [[nodiscard]]
-    const IgniteError& getCloseError() const
-    {
-        return m_closeErr;
-    }
+    [[nodiscard]] const ignite_error &getCloseError() const { return m_closeErr; }
 
 private:
     /**
@@ -237,7 +211,7 @@ private:
     std::vector<std::byte> m_recvPacket;
 
     /** Closing error. */
-    IgniteError m_closeErr;
+    ignite_error m_closeErr;
 };
 
 } // namespace ignite::network

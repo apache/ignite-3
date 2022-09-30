@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "Config.h"
+#include "config.h"
 
 #include <type_traits>
 
@@ -46,9 +46,9 @@ namespace ignite {
  * Returns the number of consecutive 0 bits in the value of x, starting from the least significant bit ("right").
  */
 template <typename T>
-int countRZero(T value) noexcept {
-    static_assert(std::is_unsigned_v<T>, "countRZero() doesn't support this type");
-    static_assert(sizeof(T) <= sizeof(unsigned long long), "countRZero() doesn't support this type size");
+int countr_zero(T value) noexcept {
+    static_assert(std::is_unsigned_v<T>, "countr_zero() doesn't support this type");
+    static_assert(sizeof(T) <= sizeof(unsigned long long), "countr_zero() doesn't support this type size");
 
 #if IGNITE_STD_BITOPS
     return std::countr_zero(value);
@@ -72,7 +72,7 @@ int countRZero(T value) noexcept {
         return _BitScanForward64(&index, value) ? index : std::numeric_limits<T>::digits;
     }
 #else
-# error "TODO: implement countRZero() for other compilers"
+# error "TODO: implement countr_zero() for other compilers"
 #endif
 }
 
@@ -80,9 +80,9 @@ int countRZero(T value) noexcept {
  * Returns the number of consecutive 0 bits in the value of x, starting from the most significant bit ("left").
  */
 template <typename T>
-int countLZero(T value) noexcept {
-    static_assert(std::is_unsigned_v<T>, "countLZero() doesn't support this type");
-    static_assert(sizeof(T) <= sizeof(unsigned long long), "countLZero() doesn't support this type size");
+int countl_zero(T value) noexcept {
+    static_assert(std::is_unsigned_v<T>, "countl_zero() doesn't support this type");
+    static_assert(sizeof(T) <= sizeof(unsigned long long), "countl_zero() doesn't support this type size");
 
 #if IGNITE_STD_BITOPS
     return std::countl_zero(value);
@@ -111,7 +111,7 @@ int countLZero(T value) noexcept {
         return _BitScanReverse64(&index, value) ? index - extraBits : std::numeric_limits<T>::digits;
     }
 #else
-# error "TODO: implement countLZero() for other compilers"
+# error "TODO: implement countl_zero() for other compilers"
 #endif
 }
 
@@ -120,13 +120,13 @@ int countLZero(T value) noexcept {
  * If x is zero, returns zero.
  */
 template <typename T>
-int bitWidth(T value) noexcept {
-    static_assert(std::is_unsigned_v<T>, "bitWidth() doesn't support this type");
+int bit_width(T value) noexcept {
+    static_assert(std::is_unsigned_v<T>, "bit_width() doesn't support this type");
 
 #if IGNITE_STD_INT_POW2
     return std::bit_width(value);
 #else
-    return std::numeric_limits<T>::digits - countLZero(value);
+    return std::numeric_limits<T>::digits - countl_zero(value);
 #endif
 }
 
@@ -135,13 +135,13 @@ int bitWidth(T value) noexcept {
  * If value is zero, returns zero.
  */
 template <typename T>
-T bitFloor(T value) noexcept {
-    static_assert(std::is_unsigned_v<T>, "bitFloor() doesn't support this type");
+T bit_floor(T value) noexcept {
+    static_assert(std::is_unsigned_v<T>, "bit_floor() doesn't support this type");
 
 #if IGNITE_STD_INT_POW2
-    return bit_floor(value);
+    return std::bit_floor(value);
 #else
-    return value == 0 ? 0u : T(1u) << (bitWidth(value) - 1);
+    return value == 0 ? 0u : T(1u) << (bit_width(value) - 1);
 #endif
 }
 
@@ -149,20 +149,20 @@ T bitFloor(T value) noexcept {
  * Calculates the smallest integral power of two that is not smaller than a given value.
  */
 template <typename T>
-T bitCeil(T value) noexcept {
-    static_assert(std::is_unsigned_v<T>, "bitCeil() doesn't support this type");
+T bit_ceil(T value) noexcept {
+    static_assert(std::is_unsigned_v<T>, "bit_ceil() doesn't support this type");
 
 #if IGNITE_STD_INT_POW2
-    return bit_ceil(value);
+    return std::bit_ceil(value);
 #else
-    // TODO: If bitWidth(value - 1) is equal to the number of bits in T then this should
+    // TODO: If bit_width(value - 1) is equal to the number of bits in T then this should
     // be UB e.g. reported by the UB sanitizer. But because of the integer promotion in
     // the expression below this might be hidden. A solution is actually provided in the
     // "Possible implementation" section here:
     // https://en.cppreference.com/w/cpp/numeric/bit_ceil
     // But do we really need this complication in our code? We can use somewhat relaxed
     // rules as comapred to the standard library.
-    return value <= 1u ? 1u : T(1u) << bitWidth(T(value - 1u));
+    return value <= 1u ? 1u : T(1u) << bit_width(T(value - 1u));
 #endif
 }
 

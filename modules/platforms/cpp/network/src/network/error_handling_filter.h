@@ -21,14 +21,12 @@
 
 #include <ignite/network/data_filter_adapter.h>
 
-namespace ignite::network
-{
+namespace ignite::network {
 
 /**
  * Filter that handles exceptions thrown by upper level handlers.
  */
-class ErrorHandlingFilter : public DataFilterAdapter
-{
+class ErrorHandlingFilter : public DataFilterAdapter {
 public:
     // Default
     ~ErrorHandlingFilter() override = default;
@@ -39,7 +37,7 @@ public:
      * @param addr Address of the new connection.
      * @param id Connection ID.
      */
-    void onConnectionSuccess(const EndPoint& addr, uint64_t id) override;
+    void onConnectionSuccess(const EndPoint &addr, uint64_t id) override;
 
     /**
      * Callback that called on error during connection establishment.
@@ -47,7 +45,7 @@ public:
      * @param addr Connection address.
      * @param err Error.
      */
-    void onConnectionError(const EndPoint& addr, IgniteError err) override;
+    void onConnectionError(const EndPoint &addr, ignite_error err) override;
 
     /**
      * Callback that called on error during connection establishment.
@@ -55,7 +53,7 @@ public:
      * @param id Async client ID.
      * @param err Error. Can be null if connection closed without error.
      */
-    void onConnectionClosed(uint64_t id, std::optional<IgniteError> err) override;
+    void onConnectionClosed(uint64_t id, std::optional<ignite_error> err) override;
 
     /**
      * Callback that called when new message is received.
@@ -63,7 +61,7 @@ public:
      * @param id Async client ID.
      * @param msg Received message.
      */
-    void onMessageReceived(uint64_t id, BytesView msg) override;
+    void onMessageReceived(uint64_t id, bytes_view msg) override;
 
     /**
      * Callback that called when message is sent.
@@ -79,7 +77,7 @@ private:
      * @param id Async client ID.
      * @param func Function to handle;
      */
-    void closeConnectionOnException(uint64_t id, const std::function<void()>& func);
+    void closeConnectionOnException(uint64_t id, const std::function<void()> &func);
 };
 
 } // namespace ignite::network
