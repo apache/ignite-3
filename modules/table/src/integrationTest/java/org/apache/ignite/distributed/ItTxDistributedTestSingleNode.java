@@ -204,8 +204,6 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
             log.info("Replica manager has been started, node=[" + client.topologyService().localMember() + ']');
 
             clientReplicaSvc = new ReplicaService(
-                    /* Within the test we never start replicas on client replicaManager, so it's safe to use mock. */
-                    Mockito.mock(ReplicaManager.class),
                     client.messagingService(),
                     clientClock
             );
@@ -246,7 +244,6 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
             // TODO: sanpwc Consider messaging and topology service aggregation.
             ReplicaService replicaSvc = new ReplicaService(
-                    replicaMgr,
                     cluster.get(i).messagingService(),
                     clock
             );
