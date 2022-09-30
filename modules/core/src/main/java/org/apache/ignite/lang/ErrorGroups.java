@@ -281,7 +281,7 @@ public class ErrorGroups {
     /** Replicator error group. */
     public static class Replicator {
         /** Replicator error group. */
-        public static final ErrorGroup REPLICATOR_ERR_GROUP = ErrorGroup.newGroup("REP", 4);
+        public static final ErrorGroup REPLICATOR_ERR_GROUP = ErrorGroup.newGroup("REP", 8);
 
         /** Common error for the replication procedure. */
         public static final int REPLICA_COMMON_ERR = REPLICATOR_ERR_GROUP.registerErrorCode(1);
