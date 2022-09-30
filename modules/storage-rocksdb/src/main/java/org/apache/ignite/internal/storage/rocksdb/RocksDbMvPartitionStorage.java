@@ -673,7 +673,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         // Comparison starts from the position of the row id.
         keyByf.position(ROW_ID_OFFSET);
 
-        return rowId.mostSignificantBits() == keyByf.getLong() && rowId.leastSignificantBits() == keyByf.getLong();
+        return rowId.mostSignificantBits() == normalize(keyByf.getLong()) && rowId.leastSignificantBits() == normalize(keyByf.getLong());
     }
 
     @Override
@@ -861,8 +861,8 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             private ReadResult next;
 
             private void setKeyBuffer(ByteBuffer keyBuf, RowId rowId, HybridTimestamp timestamp) {
-                keyBuf.putLong(ROW_ID_OFFSET, rowId.mostSignificantBits());
-                keyBuf.putLong(ROW_ID_OFFSET + Long.BYTES, rowId.leastSignificantBits());
+                keyBuf.putLong(ROW_ID_OFFSET, normalize(rowId.mostSignificantBits()));
+                keyBuf.putLong(ROW_ID_OFFSET + Long.BYTES, normalize(rowId.leastSignificantBits()));
 
                 putTimestamp(keyBuf.position(ROW_PREFIX_SIZE), timestamp);
 
@@ -918,10 +918,8 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                     it.key(directBuffer.position(0));
 
                     directBuffer.position(ROW_ID_OFFSET);
-                    long msb = directBuffer.getLong();
-                    long lsb = directBuffer.getLong();
 
-                    var rowId = new RowId(partitionId, msb, lsb);
+                    RowId rowId = getRowId(directBuffer);
 
                     setKeyBuffer(seekKeyBuf, rowId, timestamp);
 
@@ -996,6 +994,10 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         buf.position(0);
     }
 
+    private RowId getRowId(ByteBuffer readKeyBuf) {
+        return new RowId(partitionId, normalize(readKeyBuf.getLong()), normalize(readKeyBuf.getLong()));
+    }
+
     @Override
     public long rowsCount() {
         try (
@@ -1035,7 +1037,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                 if (!isTombstone(valueBytes, valueHasTxId)) {
                     ByteBuffer keyBuf = ByteBuffer.wrap(keyBytes).order(KEY_BYTE_ORDER).position(ROW_ID_OFFSET);
 
-                    RowId rowId = new RowId(partitionId, keyBuf.getLong(), keyBuf.getLong());
+                    RowId rowId = getRowId(keyBuf);
 
                     BinaryRow binaryRow = wrapValueIntoBinaryRow(valueBytes, valueHasTxId);
 
@@ -1091,10 +1093,21 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         ByteBuffer keyBuf = HEAP_KEY_BUFFER.get().position(0);
 
         keyBuf.putShort((short) rowId.partitionId());
-        keyBuf.putLong(rowId.mostSignificantBits());
-        keyBuf.putLong(rowId.leastSignificantBits());
+        keyBuf.putLong(normalize(rowId.mostSignificantBits()));
+        keyBuf.putLong(normalize(rowId.leastSignificantBits()));
 
         return keyBuf;
+    }
+
+    /**
+     * Converts signed long into a new long value, that when written in Big Endian, will preserve the comparison order if compared
+     * lexicographically as an array of unsigned bytes. For example, values {@code -1} and {@code 0}, when written in BE, will become
+     * {@code 0xFF..F} and {@code 0x00..0}, and lose their ascending order.
+     *
+     * <p/>Flipping the sign bit will change the situation: {@code -1 -> 0x7F..F} and {@code 0 -> 0x80..0}.
+     */
+    private static long normalize(long value) {
+        return value ^ (1L << 63);
     }
 
     /**

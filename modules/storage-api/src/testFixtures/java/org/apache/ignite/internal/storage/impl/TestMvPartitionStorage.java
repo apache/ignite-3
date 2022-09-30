@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.chm;
+package org.apache.ignite.internal.storage.impl;
 
 import java.util.Iterator;
 import java.util.Map.Entry;
@@ -23,8 +23,8 @@ import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.function.BiConsumer;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
@@ -42,14 +42,14 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Test implementation of MV partition storage.
  */
-public class TestConcurrentHashMapMvPartitionStorage implements MvPartitionStorage {
-    private final ConcurrentMap<RowId, VersionChain> map = new ConcurrentHashMap<>();
+public class TestMvPartitionStorage implements MvPartitionStorage {
+    private final ConcurrentMap<RowId, VersionChain> map = new ConcurrentSkipListMap<>();
 
     private long lastAppliedIndex = 0;
 
     private final int partitionId;
 
-    public TestConcurrentHashMapMvPartitionStorage(int partitionId) {
+    public TestMvPartitionStorage(int partitionId) {
         this.partitionId = partitionId;
     }
 
