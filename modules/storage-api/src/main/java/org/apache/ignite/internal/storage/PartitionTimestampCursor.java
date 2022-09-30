@@ -24,7 +24,9 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Cursor of values at the given timestamp.
+ * <p/>
  * This cursor iterates over values from the storage as they were at the given timestamp.
+ * <p/>
  * If there is a row with specified row id and timestamp - return it.
  * If there are multiple versions of row with specified row id:
  * <ol>
@@ -34,6 +36,7 @@ import org.jetbrains.annotations.Nullable;
  *     <li>If there are two commits one older and one newer than timestamp - return older commit.</li>
  *     <li>There are commits but they're all newer than timestamp - return nothing.</li>
  * </ol>
+ * <p/>
  * In case if write-intent was returned, committed row may be obtained via {@link #committed(HybridTimestamp)} method
  * using {@link ReadResult#newestCommitTimestamp()}.
  */

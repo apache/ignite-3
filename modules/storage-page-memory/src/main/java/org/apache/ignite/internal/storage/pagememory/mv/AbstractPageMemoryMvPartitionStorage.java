@@ -825,7 +825,9 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     }
 
     /**
-     * Implementation of the transaction cursor over the page memory storage.
+     * Implementation of the cursor that iterates over the page memory storage with the respect to the transaction id.
+     * Scans the partition and returns a cursor of values. All filtered values must either be uncommitted in the current transaction
+     * or already committed in a different transaction.
      */
     private class TransactionIdCursor implements Cursor<BinaryRow> {
         private final IgniteCursor<VersionChain> treeCursor;
