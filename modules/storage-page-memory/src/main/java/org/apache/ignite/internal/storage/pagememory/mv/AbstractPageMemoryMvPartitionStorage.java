@@ -62,7 +62,7 @@ import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.PageMemorySortedIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.SortedIndexTree;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.internal.util.IgniteCursor;
+import org.apache.ignite.internal.util.CursorUtils;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 
@@ -142,12 +142,12 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      */
     public void start() {
         try {
-            IgniteCursor<IndexMeta> cursor = indexMetaTree.find(null, null);
+            Cursor<IndexMeta> cursor = indexMetaTree.find(null, null);
 
             NamedListView<TableIndexView> indexesCfgView = tablesConfiguration.indexes().value();
 
-            while (cursor.next()) {
-                IndexMeta indexMeta = cursor.get();
+            while (cursor.hasNext()) {
+                IndexMeta indexMeta = cursor.next();
 
                 TableIndexView indexCfgView = getByInternalId(indexesCfgView, indexMeta.id());
 
@@ -632,7 +632,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             VersionChain versionChain = versionChainTree.findOne(new VersionChainKey(rowId));
 
             if (versionChain == null) {
-                return Cursor.empty();
+                return CursorUtils.emptyCursor();
             }
 
             RowVersion head = readRowVersion(versionChain.headLink(), ALWAYS_LOAD_VALUE);
@@ -656,7 +656,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     public PartitionTimestampCursor scan(Predicate<BinaryRow> keyFilter, HybridTimestamp timestamp) throws StorageException {
         assert timestamp != null;
 
-        IgniteCursor<VersionChain> treeCursor;
+        Cursor<VersionChain> treeCursor;
 
         try {
             treeCursor = versionChainTree.find(null, null);
@@ -670,7 +670,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     private Cursor<BinaryRow> internalScan(Predicate<BinaryRow> keyFilter, UUID txId) {
         assert txId != null;
 
-        IgniteCursor<VersionChain> treeCursor;
+        Cursor<VersionChain> treeCursor;
 
         try {
             treeCursor = versionChainTree.find(null, null);
@@ -716,7 +716,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      * See {@link PartitionTimestampCursor} for the details on the API.
      */
     private class TimestampCursor implements PartitionTimestampCursor {
-        private final IgniteCursor<VersionChain> treeCursor;
+        private final Cursor<VersionChain> treeCursor;
 
         private final Predicate<BinaryRow> keyFilter;
 
@@ -730,7 +730,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
         private boolean iterationExhausted = false;
 
-        public TimestampCursor(IgniteCursor<VersionChain> treeCursor, Predicate<BinaryRow> keyFilter, HybridTimestamp timestamp) {
+        public TimestampCursor(Cursor<VersionChain> treeCursor, Predicate<BinaryRow> keyFilter, HybridTimestamp timestamp) {
             this.treeCursor = treeCursor;
             this.keyFilter = keyFilter;
             this.timestamp = timestamp;
@@ -749,15 +749,13 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             currentChain = null;
 
             while (true) {
-                boolean positionedToNext = tryAdvanceTreeCursor();
-
-                if (!positionedToNext) {
+                if (!treeCursor.hasNext()) {
                     iterationExhausted = true;
 
                     return false;
                 }
 
-                VersionChain chain = getCurrentChainFromTreeCursor();
+                VersionChain chain = treeCursor.next();
                 ReadResult res = findRowVersionByTimestamp(chain, timestamp);
 
                 if (res.isEmpty()) {
@@ -772,22 +770,6 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                 currentChain = chain;
 
                 return true;
-            }
-        }
-
-        private boolean tryAdvanceTreeCursor() {
-            try {
-                return treeCursor.next();
-            } catch (IgniteInternalCheckedException e) {
-                throw new StorageException("Error when trying to advance tree cursor", e);
-            }
-        }
-
-        private VersionChain getCurrentChainFromTreeCursor() {
-            try {
-                return treeCursor.get();
-            } catch (IgniteInternalCheckedException e) {
-                throw new StorageException("Failed to get element from tree cursor", e);
             }
         }
 
@@ -830,7 +812,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      * or already committed in a different transaction.
      */
     private class TransactionIdCursor implements Cursor<BinaryRow> {
-        private final IgniteCursor<VersionChain> treeCursor;
+        private final Cursor<VersionChain> treeCursor;
 
         private final Predicate<BinaryRow> keyFilter;
 
@@ -841,7 +823,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         private boolean iterationExhausted = false;
 
         public TransactionIdCursor(
-                IgniteCursor<VersionChain> treeCursor,
+                Cursor<VersionChain> treeCursor,
                 Predicate<BinaryRow> keyFilter,
                 @Nullable UUID transactionId
         ) {
@@ -861,36 +843,18 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             }
 
             while (true) {
-                boolean positionedToNext = tryAdvanceTreeCursor();
-
-                if (!positionedToNext) {
+                if (!treeCursor.hasNext()) {
                     iterationExhausted = true;
                     return false;
                 }
 
-                VersionChain chain = getCurrentChainFromTreeCursor();
+                VersionChain chain = treeCursor.next();
                 BinaryRow row = findLatestRowVersion(chain, transactionId, keyFilter);
 
                 if (row != null) {
                     nextRow = row;
                     return true;
                 }
-            }
-        }
-
-        private boolean tryAdvanceTreeCursor() {
-            try {
-                return treeCursor.next();
-            } catch (IgniteInternalCheckedException e) {
-                throw new StorageException("Error when trying to advance tree cursor", e);
-            }
-        }
-
-        private VersionChain getCurrentChainFromTreeCursor() {
-            try {
-                return treeCursor.get();
-            } catch (IgniteInternalCheckedException e) {
-                throw new StorageException("Failed to get element from tree cursor", e);
             }
         }
 

@@ -25,9 +25,8 @@ import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumnsFreeList;
-import org.apache.ignite.internal.storage.pagememory.util.TreeCursorAdapter;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.internal.util.IgniteCursor;
+import org.apache.ignite.internal.util.CursorUtils;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
@@ -83,7 +82,7 @@ public class PageMemoryHashIndexStorage implements HashIndexStorage {
         HashIndexRow lowerBound = new HashIndexRow(indexColumns, lowestRowId);
         HashIndexRow upperBound = new HashIndexRow(indexColumns, highestRowId);
 
-        IgniteCursor<HashIndexRow> cursor;
+        Cursor<HashIndexRow> cursor;
 
         try {
             cursor = hashIndexTree.find(lowerBound, upperBound);
@@ -91,7 +90,7 @@ public class PageMemoryHashIndexStorage implements HashIndexStorage {
             throw new StorageException("Failed to create scan cursor", e);
         }
 
-        return new TreeCursorAdapter<>(cursor, HashIndexRow::rowId);
+        return CursorUtils.map(cursor, HashIndexRow::rowId);
     }
 
     @Override

@@ -17,11 +17,11 @@
 
 package org.apache.ignite.internal.storage.rocksdb.index;
 
-import static org.apache.ignite.internal.storage.rocksdb.index.CursorUtils.concat;
-import static org.apache.ignite.internal.storage.rocksdb.index.CursorUtils.dropWhile;
-import static org.apache.ignite.internal.storage.rocksdb.index.CursorUtils.map;
-import static org.apache.ignite.internal.storage.rocksdb.index.CursorUtils.takeWhile;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
+import static org.apache.ignite.internal.util.CursorUtils.concat;
+import static org.apache.ignite.internal.util.CursorUtils.dropWhile;
+import static org.apache.ignite.internal.util.CursorUtils.map;
+import static org.apache.ignite.internal.util.CursorUtils.takeWhile;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
