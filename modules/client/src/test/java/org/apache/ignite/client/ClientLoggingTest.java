@@ -54,7 +54,7 @@ public class ClientLoggingTest {
         FakeIgnite ignite1 = new FakeIgnite();
         ignite1.tables().createTable("t", c -> {});
 
-        server = startServer(10900, ignite1);
+        server = startServer(10950, ignite1);
 
         var loggerFactory1 = new TestLoggerFactory("client1");
         var loggerFactory2 = new TestLoggerFactory("client2");
@@ -73,7 +73,7 @@ public class ClientLoggingTest {
         FakeIgnite ignite2 = new FakeIgnite();
         ignite2.tables().createTable("t2", c -> {});
 
-        server2 = startServer(10950, ignite2);
+        server2 = startServer(10951, ignite2);
 
         assertEquals("t2", client1.tables().tables().get(0).name());
         assertEquals("t2", client2.tables().tables().get(0).name());
@@ -96,8 +96,7 @@ public class ClientLoggingTest {
 
     private IgniteClient createClient(LoggerFactory loggerFactory) {
         return IgniteClient.builder()
-                .addresses("127.0.0.1:10900..10910", "127.0.0.1:10950..10960")
-                .retryPolicy(new RetryLimitPolicy().retryLimit(1))
+                .addresses("127.0.0.1:10950..10960")
                 .loggerFactory(loggerFactory)
                 .build();
     }
