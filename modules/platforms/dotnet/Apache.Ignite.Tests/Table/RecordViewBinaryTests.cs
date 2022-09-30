@@ -307,7 +307,7 @@ namespace Apache.Ignite.Tests.Table
         [Test]
         public async Task TestInsertAllDoesNotOverwriteExistingDataReturnsSkippedTuples()
         {
-            var existing = new[] { GetTuple(2, "x"), GetTuple(4, "y") }.ToDictionary(x => x[0]);
+            var existing = new[] { GetTuple(2, "x"), GetTuple(4, "y") }.ToDictionary(x => x[0]!);
             await TupleView.InsertAllAsync(null, existing.Values);
 
             var ids = Enumerable.Range(1, 10).ToList();
@@ -327,7 +327,7 @@ namespace Apache.Ignite.Tests.Table
             {
                 var res = await TupleView.GetAsync(null, GetTuple(id));
 
-                if (existing.TryGetValue(res![0], out var old))
+                if (existing.TryGetValue(res![0]!, out var old))
                 {
                     Assert.AreEqual(old[1], res[1]);
                 }

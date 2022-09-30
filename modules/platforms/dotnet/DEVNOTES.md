@@ -20,14 +20,6 @@ Specific test: `dotnet test --logger "console;verbosity=normal" --filter ClientS
 To debug or profile Java side of the tests, run `org.apache.ignite.internal.runner.app.PlatformTestNodeRunner` class in IDEA with a debugger or profiler,
 then run .NET tests with `dotnet test` or `dotnet test --filter TEST_NAME`. When a server node is present, .NET tests will use it instead of starting a new one.
 
-## .NET Core 3.1 and .NET Standard 2.1
-
-* Library project target `netstandard2.1`
-* Test projects target `netcoreapp3.1`
-* .NET 6 is required for source generators
-
-See [IEP-78 .NET Thin Client](https://cwiki.apache.org/confluence/display/IGNITE/IEP-78+.NET+Thin+Client) for design considerations.
-
 ## Static Code Analysis
 
 Static code analysis (Roslyn-based) runs as part of the build and includes code style check. Build fails on any warning.
