@@ -15,35 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration;
+package org.apache.ignite.internal.compute.configuration;
 
 import java.util.Collection;
-import java.util.List;
+import java.util.Collections;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorConfiguration;
 import org.apache.ignite.configuration.schemas.compute.ComputeConfiguration;
-import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
-import org.apache.ignite.configuration.schemas.rest.RestConfiguration;
+import org.apache.ignite.internal.configuration.ConfigurationModule;
 
 /**
- * {@link ConfigurationModule} for node-local configuration provided by ignite-api.
+ * {@link ConfigurationModule} for cluster-wide configuration provided by compute.
  */
-public class CoreLocalConfigurationModule implements ConfigurationModule {
-    /** {@inheritDoc} */
+public class ComputeConfigurationModule implements ConfigurationModule {
     @Override
     public ConfigurationType type() {
         return ConfigurationType.LOCAL;
     }
 
-    /** {@inheritDoc} */
     @Override
     public Collection<RootKey<?, ?>> rootKeys() {
-        return List.of(
-                NetworkConfiguration.KEY,
-                RestConfiguration.KEY,
-                ClientConnectorConfiguration.KEY,
-                ComputeConfiguration.KEY
-        );
+        return Collections.singleton(ComputeConfiguration.KEY);
     }
 }

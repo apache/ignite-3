@@ -38,6 +38,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.configuration.schemas.table.EntryCountBudgetChange;
 import org.apache.ignite.internal.AbstractClusterIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter;
 import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
@@ -215,6 +216,12 @@ class ItRaftStorageVolatilityTest extends AbstractClusterIntegrationTest {
 
     @Test
     void logSpillsOutToDisk() {
+        node(0).nodeConfiguration().getConfiguration(RaftConfiguration.KEY).change(cfg -> {
+            cfg.changeVolatileRaft(change -> {
+                change.changeLogStorage(budgetChange -> budgetChange.convert(EntryCountBudgetChange.class).changeEntriesCountLimit(1));
+            });
+        });
+
         createTableWithMaxOneInMemoryEntryAllowed("PERSON");
 
         executeSql("INSERT INTO PERSON(ID, NAME) VALUES (1, 'JOHN')");
@@ -232,11 +239,6 @@ class ItRaftStorageVolatilityTest extends AbstractClusterIntegrationTest {
                     .changePartitions(1)
                     .changeDataStorage(storageChange -> {
                         storageChange.convert(VolatilePageMemoryDataStorageChange.class);
-                    })
-                    .changeVolatileRaft(raftChange -> {
-                        raftChange.changeLogStorage(budgetChange -> {
-                            budgetChange.convert(EntryCountBudgetChange.class).changeEntriesCountLimit(1);
-                        });
                     });
         });
     }

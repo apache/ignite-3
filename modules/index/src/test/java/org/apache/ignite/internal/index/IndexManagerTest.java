@@ -44,7 +44,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.EntryCountBudgetConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexChange;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
@@ -57,7 +56,6 @@ import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableIndexConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
-import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.NamedListConfiguration;
@@ -114,9 +112,7 @@ public class IndexManagerTest {
                         UnknownDataStorageConfigurationSchema.class,
                         ConstantValueDefaultConfigurationSchema.class,
                         FunctionCallDefaultConfigurationSchema.class,
-                        NullValueDefaultConfigurationSchema.class,
-                        UnlimitedBudgetConfigurationSchema.class,
-                        EntryCountBudgetConfigurationSchema.class
+                        NullValueDefaultConfigurationSchema.class
                 )
         );
 

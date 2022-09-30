@@ -42,23 +42,24 @@ import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
 import org.apache.ignite.configuration.schemas.rest.RestConfiguration;
 import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.EntryCountBudgetConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
-import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.raft.ConcurrentMapClusterStateStorage;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.schema.ExtendedTableConfiguration;
 import org.apache.ignite.internal.configuration.schema.ExtendedTableConfigurationSchema;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
 import org.apache.ignite.internal.schema.SchemaManager;
@@ -103,6 +104,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Test suite for rebalance process, when replicas' number changed.
  */
 @ExtendWith(WorkDirectoryExtension.class)
+@ExtendWith(ConfigurationExtension.class)
 public class ItRebalanceDistributedTest {
 
     public static final int BASE_PORT = 20_000;
@@ -112,6 +114,9 @@ public class ItRebalanceDistributedTest {
     private static StaticNodeFinder finder;
 
     private static List<Node> nodes;
+
+    @InjectConfiguration
+    private static RaftConfiguration raftConfiguration;
 
     @BeforeEach
     private void before(@WorkDirectory Path workDir, TestInfo testInfo) throws Exception {
@@ -126,7 +131,7 @@ public class ItRebalanceDistributedTest {
         finder = new StaticNodeFinder(nodeAddresses);
 
         for (NetworkAddress addr : nodeAddresses) {
-            var node = new Node(testInfo, workDir, addr);
+            var node = new Node(testInfo, workDir, addr, raftConfiguration);
 
             nodes.add(node);
 
@@ -383,7 +388,7 @@ public class ItRebalanceDistributedTest {
         /**
          * Constructor that simply creates a subset of components of this node.
          */
-        Node(TestInfo testInfo, Path workDir, NetworkAddress addr) {
+        Node(TestInfo testInfo, Path workDir, NetworkAddress addr, RaftConfiguration raftConfiguration) {
 
             name = testNodeName(testInfo, addr.port());
 
@@ -409,7 +414,7 @@ public class ItRebalanceDistributedTest {
 
             lockManager = new HeapLockManager();
 
-            raftManager = new Loza(clusterService, dir);
+            raftManager = new Loza(clusterService, raftConfiguration, dir);
 
             txManager = new TableTxManagerImpl(clusterService, lockManager);
 
@@ -444,9 +449,7 @@ public class ItRebalanceDistributedTest {
                             HashIndexConfigurationSchema.class,
                             ConstantValueDefaultConfigurationSchema.class,
                             FunctionCallDefaultConfigurationSchema.class,
-                            NullValueDefaultConfigurationSchema.class,
-                            UnlimitedBudgetConfigurationSchema.class,
-                            EntryCountBudgetConfigurationSchema.class
+                            NullValueDefaultConfigurationSchema.class
                     )
             );
 

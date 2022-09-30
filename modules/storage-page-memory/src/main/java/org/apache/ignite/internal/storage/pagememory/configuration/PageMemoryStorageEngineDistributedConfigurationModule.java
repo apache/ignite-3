@@ -26,7 +26,6 @@ import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.configuration.ConfigurationModule;
-import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryDataStorageConfigurationSchema;
@@ -53,8 +52,7 @@ public class PageMemoryStorageEngineDistributedConfigurationModule implements Co
     public Collection<Class<?>> polymorphicSchemaExtensions() {
         return List.of(
                 VolatilePageMemoryDataStorageConfigurationSchema.class,
-                PersistentPageMemoryDataStorageConfigurationSchema.class,
-                UnsafeMemoryAllocatorConfigurationSchema.class
+                PersistentPageMemoryDataStorageConfigurationSchema.class
         );
     }
 

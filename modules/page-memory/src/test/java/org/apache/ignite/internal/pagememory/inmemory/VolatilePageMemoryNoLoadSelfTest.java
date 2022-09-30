@@ -22,7 +22,6 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.pagememory.AbstractPageMemoryNoLoadSelfTest;
-import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
 import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.junit.jupiter.api.BeforeEach;
@@ -33,7 +32,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(ConfigurationExtension.class)
 public class VolatilePageMemoryNoLoadSelfTest extends AbstractPageMemoryNoLoadSelfTest {
-    @InjectConfiguration(polymorphicExtensions = UnsafeMemoryAllocatorConfigurationSchema.class)
+    @InjectConfiguration
     private VolatilePageMemoryDataRegionConfiguration dataRegionCfg;
 
     @BeforeEach

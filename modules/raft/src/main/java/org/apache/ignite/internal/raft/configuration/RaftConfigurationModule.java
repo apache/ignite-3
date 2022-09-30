@@ -15,56 +15,36 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration;
+package org.apache.ignite.internal.raft.configuration;
 
-import java.lang.annotation.Annotation;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.configuration.schemas.store.KnownDataStorage;
-import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.EntryCountBudgetConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
-import org.apache.ignite.configuration.validation.Validator;
-import org.apache.ignite.internal.schema.configuration.KnownDataStorageValidator;
+import org.apache.ignite.internal.configuration.ConfigurationModule;
 
 /**
- * {@link ConfigurationModule} for cluster-wide configuration provided by ignite-api.
+ * {@link ConfigurationModule} for cluster-wide configuration provided by ignite-raft.
  */
-public class CoreDistributedConfigurationModule implements ConfigurationModule {
-    /** {@inheritDoc} */
+public class RaftConfigurationModule implements ConfigurationModule {
     @Override
     public ConfigurationType type() {
-        return ConfigurationType.DISTRIBUTED;
+        return ConfigurationType.LOCAL;
     }
 
-    /** {@inheritDoc} */
     @Override
     public Collection<RootKey<?, ?>> rootKeys() {
-        return List.of(TablesConfiguration.KEY);
+        return Collections.singleton(RaftConfiguration.KEY);
     }
 
-    /** {@inheritDoc} */
     @Override
     public Collection<Class<?>> polymorphicSchemaExtensions() {
         return List.of(
-                HashIndexConfigurationSchema.class,
-                SortedIndexConfigurationSchema.class,
-                UnknownDataStorageConfigurationSchema.class,
                 UnlimitedBudgetConfigurationSchema.class,
                 EntryCountBudgetConfigurationSchema.class
         );
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Map<Class<? extends Annotation>, Set<Validator<? extends Annotation, ?>>> validators() {
-        return Map.of(KnownDataStorage.class, Set.of(new KnownDataStorageValidator()));
     }
 }
