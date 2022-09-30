@@ -1127,8 +1127,9 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         /** {@inheritDoc} */
         @Override
         public NativeType physicalType() {
-            if (physicalType == null)
+            if (physicalType == null) {
                 throw new AssertionError();
+            }
 
             return physicalType;
         }

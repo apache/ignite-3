@@ -25,11 +25,13 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscription;
+import java.util.stream.IntStream;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory.Builder;
-import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.index.ColumnCollation;
+import org.apache.ignite.internal.index.Index;
+import org.apache.ignite.internal.index.IndexDescriptor;
 import org.apache.ignite.internal.index.SortedIndex;
 import org.apache.ignite.internal.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -40,6 +42,7 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
@@ -61,7 +64,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
         // Empty index.
         verifyIndexScan(
                 EMPTY,
-                ImmutableBitSet.of(1),
+                Type.SORTED,
                 EMPTY
         );
 
@@ -74,7 +77,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
                         {5L, 4, 1, "Ivan"},
                         {6L, 2, 1, "Andrey"}
                 },
-                ImmutableBitSet.of(2),
+                Type.SORTED,
                 // TODO: sort data, once IndexScanNode will support merging.
                 new Object[][]{
                         {1L, null, 1, "Roman"},
@@ -87,7 +90,37 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
         );
     }
 
-    private void verifyIndexScan(Object[][] tableData, ImmutableBitSet requiredColumns, Object[][] expRes) {
+    @Test
+    public void hashIndex() {
+        // Empty index.
+        verifyIndexScan(
+                EMPTY,
+                Type.HASH,
+                EMPTY
+        );
+
+        verifyIndexScan(
+                new Object[][]{
+                        {1L, null, 1, "Roman"},
+                        {2L, 4, 2, "Igor"},
+                        {3L, 3, 1, "Taras"},
+                        {4L, 2, null, "Alexey"},
+                        {5L, 4, 1, "Ivan"},
+                        {6L, 2, 1, "Andrey"}
+                },
+                Type.HASH,
+                new Object[][]{
+                        {1L, null, 1, "Roman"},
+                        {2L, 4, 2, "Igor"},
+                        {3L, 3, 1, "Taras"},
+                        {4L, 2, null, "Alexey"},
+                        {5L, 4, 1, "Ivan"},
+                        {6L, 2, 1, "Andrey"}
+                }
+        );
+    }
+
+    private void verifyIndexScan(Object[][] tableData, IgniteIndex.Type type, Object[][] expRes) {
         SchemaDescriptor schemaDescriptor = new SchemaDescriptor(
                 1,
                 new Column[]{new Column("key", NativeTypes.INT64, false)},
@@ -97,37 +130,39 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
                         new Column("val", NativeTypes.stringOf(Integer.MAX_VALUE), true)
                 }
         );
-        BinaryTuple[] tableRows = convertToRows(tableData, schemaDescriptor);
 
+        BinaryTuple[] tableRows = convertToRows(tableData, schemaDescriptor);
         BinaryTuple[] part0Rows = Arrays.stream(tableRows).limit(tableRows.length / 2).toArray(BinaryTuple[]::new);
         BinaryTuple[] part2Rows = Arrays.stream(tableRows).skip(tableRows.length / 2).toArray(BinaryTuple[]::new);
 
         ExecutionContext<Object[]> ectx = executionContext(true);
 
         IgniteIndex indexMock = Mockito.mock(IgniteIndex.class);
-        SortedIndex sortedIndexMock = Mockito.mock(SortedIndex.class);
+        Mockito.doReturn(type).when(indexMock).type();
 
-        Mockito.doReturn(sortedIndexMock).when(indexMock).index();
-        Mockito.doReturn(new SortedIndexDescriptor(
-                        "IDX1",
-                        List.of("idxCol2", "idxCol1"),
-                        List.of(ColumnCollation.ASC_NULLS_FIRST, ColumnCollation.ASC_NULLS_LAST)
-                ))
-                .when(sortedIndexMock).descriptor();
+        if (type == Type.SORTED) {
+            SortedIndex sortedIndexMock = Mockito.mock(SortedIndex.class);
+            Mockito.doReturn(sortedIndexMock).when(indexMock).index();
+            Mockito.doReturn(new SortedIndexDescriptor(
+                    "IDX1",
+                    List.of("idxCol2", "idxCol1"),
+                    List.of(ColumnCollation.ASC_NULLS_FIRST, ColumnCollation.ASC_NULLS_LAST)
+            )).when(sortedIndexMock).descriptor();
+            Mockito.doReturn(dummyPublisher(part0Rows)).when(sortedIndexMock)
+                    .scan(Mockito.eq(0), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.anyInt(), Mockito.any());
+            Mockito.doReturn(dummyPublisher(part2Rows)).when(sortedIndexMock)
+                    .scan(Mockito.eq(2), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.anyInt(), Mockito.any());
+        } else {
+            Index<IndexDescriptor> hashIndexMock = Mockito.mock(Index.class);
+            Mockito.doReturn(hashIndexMock).when(indexMock).index();
+            Mockito.doReturn(new IndexDescriptor("IDX1", List.of("idxCol2", "idxCol1"))).when(hashIndexMock).descriptor();
+            Mockito.doReturn(dummyPublisher(part0Rows)).when(hashIndexMock)
+                    .scan(Mockito.eq(0), Mockito.any(), Mockito.any(), Mockito.any());
+            Mockito.doReturn(dummyPublisher(part2Rows)).when(hashIndexMock)
+                    .scan(Mockito.eq(2), Mockito.any(), Mockito.any(), Mockito.any());
+        }
 
-        Mockito.doReturn(dummyPublisher(part0Rows)).when(sortedIndexMock)
-                .scan(Mockito.eq(0), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.anyInt(), Mockito.any());
-        Mockito.doReturn(dummyPublisher(part2Rows)).when(sortedIndexMock)
-                .scan(Mockito.eq(2), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.anyInt(), Mockito.any());
-
-        IgniteTypeFactory f = ectx.getTypeFactory();
-
-        RelDataType rowType = new Builder(f)
-                .add("key", TypeUtils.native2relationalType(f, NativeTypes.INT64, false))
-                .add("idxCol1", TypeUtils.native2relationalType(f, NativeTypes.INT32, true))
-                .add("idxCol2", TypeUtils.native2relationalType(f, NativeTypes.INT32, true))
-                .add("val", TypeUtils.native2relationalType(f, NativeTypes.STRING, true))
-                .build();
+        RelDataType rowType = createRowTypeFromSchema(ectx.getTypeFactory(), schemaDescriptor);
         InternalIgniteTable table = new AbstractPlannerTest.TestTable(rowType) {
             @Override
             public IgniteDistribution distribution() {
@@ -145,7 +180,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
                 null,
                 null,
                 null,
-                requiredColumns.toBitSet()
+                null
         );
 
         RootNode<Object[]> node = new RootNode<>(ectx, rowType);
@@ -158,6 +193,16 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
         }
 
         assertThat(res.toArray(EMPTY), equalTo(expRes));
+    }
+
+    private static RelDataType createRowTypeFromSchema(IgniteTypeFactory typeFactory, SchemaDescriptor schemaDescriptor) {
+        Builder rowTypeBuilder = new Builder(typeFactory);
+
+        IntStream.range(0, schemaDescriptor.length())
+                .mapToObj(i -> schemaDescriptor.column(i))
+                .forEach(col -> rowTypeBuilder.add(col.name(), TypeUtils.native2relationalType(typeFactory, col.type(), col.nullable())));
+
+        return rowTypeBuilder.build();
     }
 
     private BinaryTuple[] convertToRows(Object[][] tableData, SchemaDescriptor schemaDescriptor) {

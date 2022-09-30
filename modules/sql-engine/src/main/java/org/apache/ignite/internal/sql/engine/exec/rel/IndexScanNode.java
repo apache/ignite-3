@@ -49,6 +49,7 @@ import org.apache.ignite.internal.schema.SchemaMismatchException;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
@@ -63,10 +64,10 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
     /** Special value to highlights that all row were received and we are not waiting any more. */
     private static final int NOT_WAITING = -1;
 
-    /** Index that provides access to underlying data. */
-    private final SortedIndex physIndex;
+    /** Schema index. */
+    private final IgniteIndex schemaIndex;
 
-    /** Index row schema. */
+    /** Index row layout. */
     private final BinaryTupleSchema indexRowSchema;
 
     /** Descriptor for table that index associated with. */
@@ -115,7 +116,7 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
     public IndexScanNode(
             ExecutionContext<RowT> ctx,
             RelDataType rowType,
-            IgniteIndex index,
+            IgniteIndex schemaIndex,
             InternalIgniteTable schemaTable,
             int[] parts,
             @Nullable Supplier<RowT> lowerCond,
@@ -128,8 +129,8 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
         assert !nullOrEmpty(parts);
 
         //TODO: fix HashIndex
-        this.physIndex = (SortedIndex) index.index();
-        tableDescriptor = schemaTable.descriptor();
+        this.schemaIndex = schemaIndex;
+        this.tableDescriptor = schemaTable.descriptor();
         this.parts = parts;
         this.lowerCond = lowerCond;
         this.upperCond = upperCond;
@@ -140,7 +141,7 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
         factory = ctx.rowHandler().factory(ctx.getTypeFactory(), rowType);
 
         //TODO: Move to physIndex or IndexDesc ??
-        indexRowSchema = buildIndexTupleSchema(physIndex.descriptor());
+        indexRowSchema = buildIndexTupleSchema(schemaIndex.index().descriptor());
 
         // TODO: create ticket to add flags support
         flags = SortedIndex.INCLUDE_LEFT & SortedIndex.INCLUDE_RIGHT;
@@ -257,15 +258,27 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
         if (subscription != null) {
             subscription.request(waiting);
         } else if (curPartIdx < parts.length) {
-            //TODO: Introduce new publisher using merge-sort algo to merge partition index publishers.
-            physIndex.scan(
-                    parts[curPartIdx++],
-                    context().transaction(),
-                    extractIndexColumns(lowerCond),
-                    extractIndexColumns(upperCond),
-                    flags,
-                    requiredColumns
-            ).subscribe(new SubscriberImpl());
+            if (schemaIndex.type() == Type.SORTED) {
+                //TODO: Introduce new publisher using merge-sort algo to merge partition index publishers.
+                ((SortedIndex) schemaIndex.index()).scan(
+                        parts[curPartIdx++],
+                        context().transaction(),
+                        extractIndexColumns(lowerCond),
+                        extractIndexColumns(upperCond),
+                        flags,
+                        requiredColumns
+                ).subscribe(new SubscriberImpl());
+            } else {
+                assert schemaIndex.type() == Type.HASH;
+                assert lowerCond == upperCond; //TODO: fix me.
+
+                schemaIndex.index().scan(
+                        parts[curPartIdx++],
+                        context().transaction(),
+                        extractIndexColumns(lowerCond),
+                        requiredColumns
+                ).subscribe(new SubscriberImpl());
+            }
         } else {
             waiting = NOT_WAITING;
         }
@@ -346,7 +359,7 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
 
         BinaryTuplePrefixBuilder prefixBulder = new BinaryTuplePrefixBuilder(conditionColsCnt, indexedColumnCnt);
 
-        for (int i = 0; i < conditionColsCnt; i++){
+        for (int i = 0; i < conditionColsCnt; i++) {
             Object val = handler.get(i, conditionRow);
 
             Element element = indexRowSchema.element(i);
