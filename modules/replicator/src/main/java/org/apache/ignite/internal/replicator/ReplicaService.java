@@ -17,11 +17,11 @@
 
 package org.apache.ignite.internal.replicator;
 
-import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_COMMON_ERR;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeoutException;
 import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.internal.replicator.exception.ReplicaUnavailableException;
@@ -34,7 +34,6 @@ import org.apache.ignite.internal.replicator.message.TimestampAware;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.MessagingService;
-import org.apache.ignite.network.TopologyService;
 
 /**
  * The service is intended to execute requests on replicas.
@@ -49,9 +48,6 @@ public class ReplicaService {
     /** Message service. */
     private final MessagingService messagingService;
 
-    /** Topology service. */
-    private final TopologyService topologyService;
-
     /** A hybrid logical clock. */
     private final HybridClock clock;
 
@@ -60,18 +56,15 @@ public class ReplicaService {
      *
      * @param replicaManager   Replica manager.
      * @param messagingService Cluster message service.
-     * @param topologyService  Topology service.
      * @param clock A hybrid logical clock.
      */
     public ReplicaService(
             ReplicaManager replicaManager,
             MessagingService messagingService,
-            TopologyService topologyService,
             HybridClock clock
     ) {
         this.replicaManager = replicaManager;
         this.messagingService = messagingService;
-        this.topologyService = topologyService;
         this.clock = clock;
     }
 
@@ -85,26 +78,15 @@ public class ReplicaService {
      * @see ReplicaUnavailableException If replica with given replication group id doesn't exist or not started yet.
      */
     private <R> CompletableFuture<R> sendToReplica(ClusterNode node, ReplicaRequest req) {
-        if (topologyService.localMember().equals(node)) {
-            Replica replica;
-
-            try {
-                replica = replicaManager.replica(req.groupId());
-            } catch (NodeStoppingException e) {
-                return failedFuture(e);
-            }
-
-            if (replica == null) {
-                return failedFuture(new ReplicaUnavailableException(req.groupId(), node));
-            }
-
-            return (CompletableFuture<R>) replica.processRequest(req);
-        }
 
         CompletableFuture<R> res = new CompletableFuture<>();
 
         messagingService.invoke(node.address(), req, RPC_TIMEOUT).whenComplete((response, throwable) -> {
             if (throwable != null) {
+                if (throwable instanceof CompletionException) {
+                    throwable = throwable.getCause();
+                }
+
                 if (throwable instanceof TimeoutException) {
                     res.completeExceptionally(new ReplicationTimeoutException(req.groupId()));
                 }

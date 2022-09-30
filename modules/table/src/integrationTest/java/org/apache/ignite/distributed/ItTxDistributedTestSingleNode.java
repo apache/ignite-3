@@ -207,7 +207,6 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                     /* Within the test we never start replicas on client replicaManager, so it's safe to use mock. */
                     Mockito.mock(ReplicaManager.class),
                     client.messagingService(),
-                    client.topologyService(),
                     clientClock
             );
 
@@ -249,7 +248,6 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
             ReplicaService replicaSvc = new ReplicaService(
                     replicaMgr,
                     cluster.get(i).messagingService(),
-                    cluster.get(i).topologyService(),
                     clock
             );
 
