@@ -141,5 +141,5 @@ These groups are separated by an empty line. Inside each group files are sorted 
 order.
 
 In addition to consistency this include order has one techical advantage. It's good if each header
-`#include`s itself all the headers it depends on. And this order allows to detect sooner if there
+`#include`s all the headers it depends on itself. And this order allows to detect sooner if there
 is any missing dependency.
