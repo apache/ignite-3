@@ -305,7 +305,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
         ByteBufferRow row = rowVersionToBinaryRow(rowVersion);
 
-        if (!keyFilter.test(row)) {
+        if (keyFilter != null && !keyFilter.test(row)) {
             return ReadResult.EMPTY;
         }
 

@@ -247,35 +247,29 @@ public class ErrorGroups {
         /** Transactions error group. */
         public static final ErrorGroup TX_ERR_GROUP = ErrorGroup.newGroup("TX", 7);
 
-        /** Error on creation of tx state storage. */
-        public static final int TX_STATE_STORAGE_CREATE_ERR = TX_ERR_GROUP.registerErrorCode(1);
-
-        /** Error on destruction of tx state storage. */
-        public static final int TX_STATE_STORAGE_DESTROY_ERR = TX_ERR_GROUP.registerErrorCode(2);
-
         /** Error of tx state storage. */
-        public static final int TX_STATE_STORAGE_ERR = TX_ERR_GROUP.registerErrorCode(3);
+        public static final int TX_STATE_STORAGE_ERR = TX_ERR_GROUP.registerErrorCode(1);
 
         /** Tx state storage is stopped. */
-        public static final int TX_STATE_STORAGE_STOPPED_ERR = TX_ERR_GROUP.registerErrorCode(4);
+        public static final int TX_STATE_STORAGE_STOPPED_ERR = TX_ERR_GROUP.registerErrorCode(2);
 
         /** Error of unexpected tx state on state change. */
-        public static final int TX_UNEXPECTED_STATE = TX_ERR_GROUP.registerErrorCode(5);
+        public static final int TX_UNEXPECTED_STATE = TX_ERR_GROUP.registerErrorCode(3);
 
         /** Failed to release a lock on a key. */
-        public static final int RELEASE_LOCK_ERR = TX_ERR_GROUP.registerErrorCode(6);
+        public static final int RELEASE_LOCK_ERR = TX_ERR_GROUP.registerErrorCode(4);
 
         /** Failed to acquire a lock on a key due to a conflict. */
-        public static final int ACQUIRE_LOCK_ERR = TX_ERR_GROUP.registerErrorCode(7);
+        public static final int ACQUIRE_LOCK_ERR = TX_ERR_GROUP.registerErrorCode(5);
 
         /** Failed to downgrade a lock on a key due to a conflict. */
-        public static final int DOWNGRADE_LOCK_ERR = TX_ERR_GROUP.registerErrorCode(8);
+        public static final int DOWNGRADE_LOCK_ERR = TX_ERR_GROUP.registerErrorCode(6);
 
         /** Failed to commit a transaction. */
-        public static final int TX_COMMIT_ERR = TX_ERR_GROUP.registerErrorCode(9);
+        public static final int TX_COMMIT_ERR = TX_ERR_GROUP.registerErrorCode(7);
 
         /** Failed to rollback a transaction. */
-        public static final int TX_ROLLBACK_ERR = TX_ERR_GROUP.registerErrorCode(10);
+        public static final int TX_ROLLBACK_ERR = TX_ERR_GROUP.registerErrorCode(8);
     }
 
     /** Replicator error group. */
