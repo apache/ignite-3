@@ -212,6 +212,15 @@ public class TestConcurrentHashMapMvPartitionStorage implements MvPartitionStora
         return read(versionChain, timestamp, null, null);
     }
 
+    /**
+     * Reads the value from the version chain using either transaction id or timestamp.
+     *
+     * @param versionChain Version chain.
+     * @param timestamp Timestamp or {@code null} if transaction id is defined.
+     * @param txId Transaction id or {@code null} if timestamp is defined.
+     * @param filter Key filter.
+     * @return Read result.
+     */
     private static ReadResult read(
             VersionChain versionChain,
             @Nullable HybridTimestamp timestamp,
@@ -225,6 +234,7 @@ public class TestConcurrentHashMapMvPartitionStorage implements MvPartitionStora
         }
 
         if (timestamp == null) {
+            // Search by transaction id.
             BinaryRow binaryRow = versionChain.row;
 
             if (filter != null && !filter.test(binaryRow)) {
@@ -253,8 +263,9 @@ public class TestConcurrentHashMapMvPartitionStorage implements MvPartitionStora
         VersionChain cur = versionChain;
 
         if (cur.ts == null) {
+            // We have a write-intent.
             if (cur.next == null) {
-                // We only have a write-intent.
+                // We *only* have a write-intent, return it.
                 BinaryRow binaryRow = cur.row;
 
                 if (filter != null && !filter.test(binaryRow)) {
@@ -265,12 +276,22 @@ public class TestConcurrentHashMapMvPartitionStorage implements MvPartitionStora
                         cur.commitPartitionId);
             }
 
+            // Move to first commit.
             cur = cur.next;
         }
 
         return walkVersionChain(versionChain, timestamp, filter, cur);
     }
 
+    /**
+     * Walks version chain to find a row by timestamp. See {@link MvPartitionStorage#read(RowId, HybridTimestamp)} for details.
+     *
+     * @param chainHead Version chain head.
+     * @param timestamp Timestamp.
+     * @param filter Key filter.
+     * @param firstCommit First commit chain element.
+     * @return Read result.
+     */
     private static ReadResult walkVersionChain(VersionChain chainHead, HybridTimestamp timestamp, @Nullable Predicate<BinaryRow> filter,
             VersionChain firstCommit) {
         boolean hasWriteIntent = chainHead.ts == null;
@@ -333,9 +354,10 @@ public class TestConcurrentHashMapMvPartitionStorage implements MvPartitionStora
         Iterator<VersionChain> iterator = map.values().iterator();
 
         return new PartitionTimestampCursor() {
-
+            @Nullable
             private VersionChain currentChain;
 
+            @Nullable
             private ReadResult currentReadResult;
 
             @Override

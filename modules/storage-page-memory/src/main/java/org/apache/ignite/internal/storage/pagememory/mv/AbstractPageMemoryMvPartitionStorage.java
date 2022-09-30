@@ -351,13 +351,22 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         return new ByteBufferRow(rowVersion.value());
     }
 
+    /**
+     * Finds row version by timestamp. See {@link MvPartitionStorage#read(RowId, HybridTimestamp)} for details on the API.
+     *
+     * @param versionChain Version chain.
+     * @param timestamp Timestamp.
+     * @return Read result.
+     */
     private ReadResult findRowVersionByTimestamp(VersionChain versionChain, HybridTimestamp timestamp) {
         assert timestamp != null;
 
         long headLink = versionChain.headLink();
 
         if (versionChain.isUncommitted()) {
+            // We have a write-intent.
             if (!versionChain.hasCommittedVersions()) {
+                // We *only* have a write-intent, return it.
                 RowVersion rowVersion = readRowVersion(headLink, ALWAYS_LOAD_VALUE);
 
                 assert rowVersion.isUncommitted();
@@ -381,6 +390,13 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         return walkVersionChain(versionChain, timestamp);
     }
 
+    /**
+     * Walks version chain to find a row by timestamp. See {@link MvPartitionStorage#read(RowId, HybridTimestamp)} for details.
+     *
+     * @param chainHead Version chain head.
+     * @param timestamp Timestamp.
+     * @return Read result.
+     */
     private ReadResult walkVersionChain(VersionChain chainHead, HybridTimestamp timestamp) {
         assert chainHead.hasCommittedVersions();
 
@@ -695,6 +711,10 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         // TODO: IGNITE-17132 Implement it
     }
 
+    /**
+     * Implementation of the {@link PartitionTimestampCursor} over the page memory storage.
+     * See {@link PartitionTimestampCursor} for the details on the API.
+     */
     private class TimestampCursor implements PartitionTimestampCursor {
         private final IgniteCursor<VersionChain> treeCursor;
 
@@ -702,8 +722,10 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
         private final HybridTimestamp timestamp;
 
+        @Nullable
         private ReadResult nextRead = null;
 
+        @Nullable
         private VersionChain currentChain = null;
 
         private boolean iterationExhausted = false;
@@ -802,6 +824,9 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         }
     }
 
+    /**
+     * Implementation of the transaction cursor over the page memory storage.
+     */
     private class TransactionIdCursor implements Cursor<BinaryRow> {
         private final IgniteCursor<VersionChain> treeCursor;
 

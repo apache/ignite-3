@@ -19,8 +19,6 @@ package org.apache.ignite.internal.storage.rocksdb;
 
 import static java.lang.ThreadLocal.withInitial;
 import static java.nio.ByteBuffer.allocateDirect;
-import static java.nio.ByteOrder.BIG_ENDIAN;
-import static java.nio.ByteOrder.LITTLE_ENDIAN;
 import static java.util.Arrays.copyOf;
 import static java.util.Arrays.copyOfRange;
 import static org.apache.ignite.hlc.HybridTimestamp.HYBRID_TIMESTAMP_SIZE;
@@ -30,6 +28,7 @@ import static org.apache.ignite.internal.util.ByteUtils.putUuidToBytes;
 import static org.rocksdb.ReadTier.PERSISTED_TIER;
 
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.util.NoSuchElementException;
 import java.util.UUID;
@@ -127,15 +126,19 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     /** Maximum size of the key. */
     private static final int MAX_KEY_SIZE = ROW_PREFIX_SIZE + HYBRID_TIMESTAMP_SIZE;
 
+    private static final ByteOrder KEY_BYTE_ORDER = ByteOrder.BIG_ENDIAN;
+
+    private static final ByteOrder BINARY_ROW_BYTE_ORDER = ByteBufferRow.ORDER;
+
     /** Thread-local direct buffer instance to read keys from RocksDB. */
-    private static final ThreadLocal<ByteBuffer> MV_KEY_BUFFER = withInitial(() -> allocateDirect(MAX_KEY_SIZE).order(BIG_ENDIAN));
+    private static final ThreadLocal<ByteBuffer> MV_KEY_BUFFER = withInitial(() -> allocateDirect(MAX_KEY_SIZE).order(KEY_BYTE_ORDER));
 
     /** Thread-local write batch for {@link #runConsistently(WriteClosure)}. */
     private static final ThreadLocal<WriteBatchWithIndex> WRITE_BATCH = new ThreadLocal<>();
 
     /** Thread-local on-heap byte buffer instance to use for key manipulations. */
     private static final ThreadLocal<ByteBuffer> HEAP_KEY_BUFFER = withInitial(
-            () -> ByteBuffer.allocate(MAX_KEY_SIZE).order(BIG_ENDIAN)
+            () -> ByteBuffer.allocate(MAX_KEY_SIZE).order(KEY_BYTE_ORDER)
     );
 
     /** Table storage instance. */
@@ -532,6 +535,14 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         }
     }
 
+    /**
+     * Finds a row by timestamp. See {@link MvPartitionStorage#read(RowId, HybridTimestamp)} for details.
+     *
+     * @param seekIterator Newly created seek iterator.
+     * @param rowId Row id.
+     * @param timestamp Timestamp.
+     * @return Read result.
+     */
     private @Nullable ReadResult readByTimestamp(RocksIterator seekIterator, RowId rowId, HybridTimestamp timestamp) {
         ByteBuffer keyBuf = prepareHeapKeyBuf(rowId);
 
@@ -545,6 +556,16 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         return handleReadByTimestampIterator(seekIterator, rowId, timestamp, keyBuf);
     }
 
+    /**
+     * Walks "version chain" via the iterator to find a row by timestamp.
+     * See {@link MvPartitionStorage#read(RowId, HybridTimestamp)} for details.
+     *
+     * @param seekIterator Iterator, on which seek operation was already performed.
+     * @param rowId Row id.
+     * @param timestamp Timestamp.
+     * @param keyBuf Buffer with a key in it: partition id + row id + timestamp.
+     * @return Read result.
+     */
     private static ReadResult handleReadByTimestampIterator(RocksIterator seekIterator, RowId rowId, HybridTimestamp timestamp,
             ByteBuffer keyBuf) {
         // There's no guarantee that required key even exists. If it doesn't, then "seek" will point to a different key.
@@ -707,7 +728,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         //  - no one guarantees that there will only be a single cursor;
         //  - no one guarantees that returned cursor will not be used by other threads.
         // The thing is, we need this buffer to preserve its content between invocations of "hasNext" method.
-        ByteBuffer seekKeyBuf = ByteBuffer.allocate(ROW_PREFIX_SIZE).order(BIG_ENDIAN).putShort((short) partitionId);
+        ByteBuffer seekKeyBuf = ByteBuffer.allocate(ROW_PREFIX_SIZE).order(KEY_BYTE_ORDER).putShort((short) partitionId);
 
         return new Cursor<>() {
             /** Cached value for {@link #next()} method. Also optimizes the code of {@link #hasNext()}. */
@@ -761,11 +782,8 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                     directBuffer.limit(ROW_PREFIX_SIZE);
 
                     // Copy actual row id into a "seekKeyBuf" buffer.
-                    GridUnsafe.copyMemory(
-                            null, GridUnsafe.bufferAddress(directBuffer) + ROW_ID_OFFSET,
-                            seekKeyBuf.array(), GridUnsafe.BYTE_ARR_OFF + ROW_ID_OFFSET,
-                            ROW_ID_SIZE
-                    );
+                    seekKeyBuf.putLong(ROW_ID_OFFSET, directBuffer.getLong(ROW_ID_OFFSET));
+                    seekKeyBuf.putLong(ROW_ID_OFFSET + Long.BYTES, directBuffer.getLong(ROW_ID_OFFSET + Long.BYTES));
 
                     // This one might look tricky. We finished processing next row. There are three options:
                     //  - "found" flag is false - there's no fitting version of the row. We'll continue to next iteration;
@@ -776,8 +794,8 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                     // It's important to note that increment may overflow. In this case "carry flag" will go into incrementing partition id.
                     // This is fine for three reasons:
                     //  - iterator has an upper bound, following "seek" will result in invalid iterator state.
-                    //  - partition id iself cannot be overflown, because it's limited with a constant less than 0xFFFF. It's something like
-                    //    65500, I think.
+                    //  - partition id itself cannot be overflown, because it's limited with a constant less than 0xFFFF.
+                    // It's something like 65500, I think.
                     //  - "seekKeyBuf" buffer value will not be used after that, so it's ok if we corrupt its data (in every other instance,
                     //    buffer starts with a valid partition id, which is set during buffer's initialization).
                     incrementRowId(seekKeyBuf);
@@ -833,7 +851,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
         // You can see the motivation behind the usage of a separate (not thread-local) buffer in the transaction id
         // cursor code.
-        ByteBuffer seekKeyBuf = ByteBuffer.allocate(MAX_KEY_SIZE).order(BIG_ENDIAN).putShort((short) partitionId);
+        ByteBuffer seekKeyBuf = ByteBuffer.allocate(MAX_KEY_SIZE).order(KEY_BYTE_ORDER).putShort((short) partitionId);
 
         return new PartitionTimestampCursor() {
 
@@ -1015,7 +1033,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                 boolean valueHasTxId = keyBytes.length == ROW_PREFIX_SIZE;
 
                 if (!isTombstone(valueBytes, valueHasTxId)) {
-                    ByteBuffer keyBuf = ByteBuffer.wrap(keyBytes).order(BIG_ENDIAN).position(ROW_ID_OFFSET);
+                    ByteBuffer keyBuf = ByteBuffer.wrap(keyBytes).order(KEY_BYTE_ORDER).position(ROW_ID_OFFSET);
 
                     RowId rowId = new RowId(partitionId, keyBuf.getLong(), keyBuf.getLong());
 
@@ -1083,7 +1101,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
      * Writes a timestamp into a byte buffer, in descending lexicographical bytes order.
      */
     private static void putTimestamp(ByteBuffer buf, HybridTimestamp ts) {
-        assert buf.order() == BIG_ENDIAN;
+        assert buf.order() == KEY_BYTE_ORDER;
 
         // "bitwise negation" turns ascending order into a descending one.
         buf.putLong(~ts.getPhysical());
@@ -1091,7 +1109,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     }
 
     private static HybridTimestamp readTimestamp(ByteBuffer buf, int off) {
-        assert buf.order() == BIG_ENDIAN;
+        assert buf.order() == KEY_BYTE_ORDER;
 
         long physical = ~buf.getLong(off);
         int logical = ~buf.getInt(off + Long.BYTES);
@@ -1144,7 +1162,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         }
 
         return valueHasTxData
-                ? new ByteBufferRow(ByteBuffer.wrap(valueBytes).position(VALUE_OFFSET).slice().order(LITTLE_ENDIAN))
+                ? new ByteBufferRow(ByteBuffer.wrap(valueBytes).position(VALUE_OFFSET).slice().order(BINARY_ROW_BYTE_ORDER))
                 : new ByteBufferRow(valueBytes);
     }
 
@@ -1166,7 +1184,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         if (isTombstone(valueBytes, true)) {
             row = null;
         } else {
-            row = new ByteBufferRow(ByteBuffer.wrap(valueBytes).position(VALUE_OFFSET).slice().order(LITTLE_ENDIAN));
+            row = new ByteBufferRow(ByteBuffer.wrap(valueBytes).position(VALUE_OFFSET).slice().order(BINARY_ROW_BYTE_ORDER));
         }
 
         return ReadResult.createFromWriteIntent(row, txId, commitTableId, newestCommitTs, commitPartitionId);

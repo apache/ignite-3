@@ -24,6 +24,18 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Cursor of values at the given timestamp.
+ * This cursor iterates over values from the storage as they were at the given timestamp.
+ * If there is a row with specified row id and timestamp - return it.
+ * If there are multiple versions of row with specified row id:
+ * <ol>
+ *     <li>If there is only write-intent - return write-intent.</li>
+ *     <li>If there is write-intent and previous commit is older than timestamp - return write-intent.</li>
+ *     <li>If there is a commit older than timestamp, but no write-intent - return said commit.</li>
+ *     <li>If there are two commits one older and one newer than timestamp - return older commit.</li>
+ *     <li>There are commits but they're all newer than timestamp - return nothing.</li>
+ * </ol>
+ * In case if write-intent was returned, committed row may be obtained via {@link #committed(HybridTimestamp)} method
+ * using {@link ReadResult#newestCommitTimestamp()}.
  */
 public interface PartitionTimestampCursor extends Cursor<ReadResult> {
     /**
