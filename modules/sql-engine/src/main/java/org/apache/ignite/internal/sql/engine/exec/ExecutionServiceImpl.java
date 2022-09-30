@@ -34,7 +34,6 @@ import java.util.Queue;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -243,7 +242,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     }
 
     /** Cancels the query with given id. */
-    public CompletionStage<?> cancel(UUID qryId) {
+    public CompletableFuture<?> cancel(UUID qryId) {
         var mgr = queryManagerMap.get(qryId);
 
         if (mgr == null) {
@@ -594,7 +593,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
             return new AsyncCursor<>() {
                 @Override
-                public CompletionStage<BatchedResult<List<Object>>> requestNextAsync(int rows) {
+                public CompletableFuture<BatchedResult<List<Object>>> requestNextAsync(int rows) {
                     return root.thenCompose(cur -> {
                         var fut = cur.requestNextAsync(rows);
 
