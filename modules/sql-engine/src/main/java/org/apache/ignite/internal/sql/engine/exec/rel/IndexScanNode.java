@@ -19,16 +19,9 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
 
-import java.math.BigDecimal;
-import java.math.BigInteger;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.List;
 import java.util.Queue;
-import java.util.UUID;
 import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -36,23 +29,19 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import org.apache.calcite.rel.type.RelDataType;
-import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
-import org.apache.ignite.internal.binarytuple.BinaryTuplePrefixBuilder;
 import org.apache.ignite.internal.index.IndexDescriptor;
 import org.apache.ignite.internal.index.SortedIndex;
+import org.apache.ignite.internal.schema.BinaryConverter;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
-import org.apache.ignite.internal.schema.InvalidTypeException;
-import org.apache.ignite.internal.schema.NativeTypeSpec;
-import org.apache.ignite.internal.schema.SchemaMismatchException;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.exec.RowConverter;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
-import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.Nullable;
 
@@ -69,9 +58,6 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
 
     /** Index row layout. */
     private final BinaryTupleSchema indexRowSchema;
-
-    /** Descriptor for table that index associated with. */
-    private final TableDescriptor tableDescriptor;
 
     private final RowHandler.RowFactory<RowT> factory;
 
@@ -128,9 +114,7 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
         super(ctx, rowType);
         assert !nullOrEmpty(parts);
 
-        //TODO: fix HashIndex
         this.schemaIndex = schemaIndex;
-        this.tableDescriptor = schemaTable.descriptor();
         this.parts = parts;
         this.lowerCond = lowerCond;
         this.upperCond = upperCond;
@@ -140,8 +124,7 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
 
         factory = ctx.rowHandler().factory(ctx.getTypeFactory(), rowType);
 
-        //TODO: Move to physIndex or IndexDesc ??
-        indexRowSchema = buildIndexTupleSchema(schemaIndex.index().descriptor());
+        indexRowSchema = RowConverter.createIndexRowSchema(schemaTable.descriptor(), schemaIndex.index().descriptor());
 
         // TODO: create ticket to add flags support
         flags = SortedIndex.INCLUDE_LEFT & SortedIndex.INCLUDE_RIGHT;
@@ -263,8 +246,8 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
                 ((SortedIndex) schemaIndex.index()).scan(
                         parts[curPartIdx++],
                         context().transaction(),
-                        extractIndexColumns(lowerCond),
-                        extractIndexColumns(upperCond),
+                        toBinaryTuplePrefix(lowerCond),
+                        toBinaryTuplePrefix(upperCond),
                         flags,
                         requiredColumns
                 ).subscribe(new SubscriberImpl());
@@ -275,7 +258,7 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
                 schemaIndex.index().scan(
                         parts[curPartIdx++],
                         context().transaction(),
-                        extractIndexColumns(lowerCond),
+                        toBinaryTuple(lowerCond),
                         requiredColumns
                 ).subscribe(new SubscriberImpl());
             }
@@ -334,7 +317,7 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
         }
     }
 
-    private BinaryTupleSchema buildIndexTupleSchema(IndexDescriptor indexDesc) {
+    private BinaryTupleSchema buildIndexTupleSchema(IndexDescriptor indexDesc, TableDescriptor tableDescriptor) {
         Element[] elements = indexDesc.columns().stream()
                 .map(colName -> tableDescriptor.columnDescriptor(colName))
                 .map(colDesc -> new Element(colDesc.physicalType(), colDesc.nullable()))
@@ -343,97 +326,21 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
         return BinaryTupleSchema.create(elements);
     }
 
-    //TODO: Decouple from table and move code to converter.
-    //TODO: Change table row layout -> index row layout.
     @Contract("null -> null")
-    private @Nullable BinaryTuple extractIndexColumns(@Nullable Supplier<RowT> conditionSupplier) {
+    private @Nullable BinaryTuple toBinaryTuplePrefix(@Nullable Supplier<RowT> conditionSupplier) {
+        // TODO: build prefox binary tuple.
+        return toBinaryTuple(conditionSupplier);
+    }
+
+    private @Nullable BinaryTuple toBinaryTuple(@Nullable Supplier<RowT> conditionSupplier) {
         if (conditionSupplier == null) {
             return null;
         }
 
-        RowT conditionRow = conditionSupplier.get();
-        RowHandler<RowT> handler = factory.handler();
-
-        int indexedColumnCnt = indexRowSchema.elementCount();
-        int conditionColsCnt = handler.columnCount(conditionRow);
-
-        BinaryTuplePrefixBuilder prefixBulder = new BinaryTuplePrefixBuilder(conditionColsCnt, indexedColumnCnt);
-
-        for (int i = 0; i < conditionColsCnt; i++) {
-            Object val = handler.get(i, conditionRow);
-
-            Element element = indexRowSchema.element(i);
-
-            val = TypeUtils.fromInternal(context(), val, NativeTypeSpec.toClass(element.typeSpec(), element.nullable()));
-
-            appendValue(prefixBulder, val);
-        }
-
-        return new BinaryTuple(indexRowSchema, prefixBulder.build());
+        return RowConverter.toBinaryTuple(context(), indexRowSchema, factory, conditionSupplier.get());
     }
 
-    //TODO: Decouple from table and move code to converter.
-    private RowT convert(BinaryTuple binTuple) {
-        ExecutionContext<RowT> ectx = context();
-
-        RowHandler<RowT> handler = factory.handler();
-        RowT res = factory.create();
-
-        for (int i = 0; i < binTuple.count(); i++) {
-            handler.set(i, res, TypeUtils.toInternal(ectx, binTuple.value(i)));
-        }
-
-        return res;
-    }
-
-    //TODO: Fixme. Copy-pasted from BinaryTupleRowSerializer test class.
-    private BinaryTupleBuilder appendValue(BinaryTupleBuilder builder, Object value) {
-        Element element = indexRowSchema.element(builder.elementIndex());
-
-        if (value == null) {
-            if (!element.nullable()) {
-                throw new SchemaMismatchException("NULL value for non-nullable column in binary tuple builder.");
-            }
-            return builder.appendNull();
-        }
-
-        switch (element.typeSpec()) {
-            case INT8:
-                return builder.appendByte((byte) value);
-            case INT16:
-                return builder.appendShort((short) value);
-            case INT32:
-                return builder.appendInt((int) value);
-            case INT64:
-                return builder.appendLong((long) value);
-            case FLOAT:
-                return builder.appendFloat((float) value);
-            case DOUBLE:
-                return builder.appendDouble((double) value);
-            case NUMBER:
-                return builder.appendNumberNotNull((BigInteger) value);
-            case DECIMAL:
-                return builder.appendDecimalNotNull((BigDecimal) value, element.decimalScale());
-            case UUID:
-                return builder.appendUuidNotNull((UUID) value);
-            case BYTES:
-                return builder.appendBytesNotNull((byte[]) value);
-            case STRING:
-                return builder.appendStringNotNull((String) value);
-            case BITMASK:
-                return builder.appendBitmaskNotNull((BitSet) value);
-            case DATE:
-                return builder.appendDateNotNull((LocalDate) value);
-            case TIME:
-                return builder.appendTimeNotNull((LocalTime) value);
-            case DATETIME:
-                return builder.appendDateTimeNotNull((LocalDateTime) value);
-            case TIMESTAMP:
-                return builder.appendTimestampNotNull((Instant) value);
-            default:
-                break;
-        }
-
-        throw new InvalidTypeException("Unexpected type value: " + element.typeSpec());
+    private RowT convert(BinaryTuple binaryTuple) {
+        return RowConverter.toRow(context(), binaryTuple, factory);
     }
 }

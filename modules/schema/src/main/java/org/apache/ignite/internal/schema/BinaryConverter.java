@@ -18,10 +18,18 @@
 package org.apache.ignite.internal.schema;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.BitSet;
+import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleParser;
+import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.jetbrains.annotations.Nullable;
@@ -312,5 +320,62 @@ public class BinaryConverter {
         });
 
         return asm.build();
+    }
+
+    /**
+     * Hepler method that adds value to the binary tuple builder.
+     *
+     * @param builder Binary tuple builder.
+     * @param element Binary schema element.
+     * @param value Value to add.
+     * @return Binary tuple builder.
+     */
+    //TODO: Copy-pasted from BinaryTupleRowSerializer test class. Re-use it in serializer or make serializer to sources.
+    public static BinaryTupleBuilder appendValue(BinaryTupleBuilder builder, Element element, Object value) {
+        if (value == null) {
+            if (!element.nullable()) {
+                throw new SchemaMismatchException("NULL value for non-nullable column in binary tuple builder.");
+            }
+            return builder.appendNull();
+        }
+
+        switch (element.typeSpec()) {
+            case INT8:
+                return builder.appendByte((byte) value);
+            case INT16:
+                return builder.appendShort((short) value);
+            case INT32:
+                return builder.appendInt((int) value);
+            case INT64:
+                return builder.appendLong((long) value);
+            case FLOAT:
+                return builder.appendFloat((float) value);
+            case DOUBLE:
+                return builder.appendDouble((double) value);
+            case NUMBER:
+                return builder.appendNumberNotNull((BigInteger) value);
+            case DECIMAL:
+                return builder.appendDecimalNotNull((BigDecimal) value, element.decimalScale());
+            case UUID:
+                return builder.appendUuidNotNull((UUID) value);
+            case BYTES:
+                return builder.appendBytesNotNull((byte[]) value);
+            case STRING:
+                return builder.appendStringNotNull((String) value);
+            case BITMASK:
+                return builder.appendBitmaskNotNull((BitSet) value);
+            case DATE:
+                return builder.appendDateNotNull((LocalDate) value);
+            case TIME:
+                return builder.appendTimeNotNull((LocalTime) value);
+            case DATETIME:
+                return builder.appendDateTimeNotNull((LocalDateTime) value);
+            case TIMESTAMP:
+                return builder.appendTimestampNotNull((Instant) value);
+            default:
+                break;
+        }
+
+        throw new InvalidTypeException("Unexpected type value: " + element.typeSpec());
     }
 }

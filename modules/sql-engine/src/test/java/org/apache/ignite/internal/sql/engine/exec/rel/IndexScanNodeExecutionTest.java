@@ -52,9 +52,6 @@ import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
-//TODO: check merging of multiple sorted index tries is correct.
-//TODO: add test for hash index.
-
 /**
  * Test {@link IndexScanNode} contract.
  */
@@ -148,6 +145,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
                     List.of("idxCol2", "idxCol1"),
                     List.of(ColumnCollation.ASC_NULLS_FIRST, ColumnCollation.ASC_NULLS_LAST)
             )).when(sortedIndexMock).descriptor();
+
             Mockito.doReturn(dummyPublisher(part0Rows)).when(sortedIndexMock)
                     .scan(Mockito.eq(0), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.anyInt(), Mockito.any());
             Mockito.doReturn(dummyPublisher(part2Rows)).when(sortedIndexMock)
