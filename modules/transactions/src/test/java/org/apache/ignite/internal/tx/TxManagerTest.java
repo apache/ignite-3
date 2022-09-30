@@ -20,8 +20,6 @@ package org.apache.ignite.internal.tx;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 
@@ -75,45 +73,6 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         assertNotNull(tx.id());
         assertEquals(TxState.PENDING, txManager.begin().state());
-    }
-
-    @Test
-    public void testCommit() throws TransactionException {
-        InternalTransaction tx = txManager.begin();
-        tx.commit();
-
-        assertEquals(TxState.COMMITED, tx.state());
-        assertEquals(TxState.COMMITED, txManager.state(tx.id()));
-
-        assertThrows(TransactionException.class, () -> tx.rollback());
-
-        assertEquals(TxState.COMMITED, tx.state());
-        assertEquals(TxState.COMMITED, txManager.state(tx.id()));
-    }
-
-    @Test
-    public void testRollback() throws TransactionException {
-        InternalTransaction tx = txManager.begin();
-        tx.rollback();
-
-        assertEquals(TxState.ABORTED, tx.state());
-        assertEquals(TxState.ABORTED, txManager.state(tx.id()));
-
-        assertThrows(TransactionException.class, () -> tx.commit());
-
-        assertEquals(TxState.ABORTED, tx.state());
-        assertEquals(TxState.ABORTED, txManager.state(tx.id()));
-    }
-
-    @Test
-    public void testForget() throws TransactionException {
-        InternalTransaction tx = txManager.begin();
-
-        assertEquals(TxState.PENDING, tx.state());
-
-        txManager.forget(tx.id());
-
-        assertNull(tx.state());
     }
 
     @Test

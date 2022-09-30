@@ -46,7 +46,8 @@ public interface TxManager extends IgniteComponent {
      * @param txId Transaction id.
      * @return The state or null if the state is unknown.
      */
-    // TODO sanpwc: remove
+    // TODO: IGNITE-17638 TestOnly code, let's consider using Txn state map instead of states.
+    @Deprecated
     @Nullable TxState state(UUID txId);
 
     /**
@@ -57,34 +58,9 @@ public interface TxManager extends IgniteComponent {
      * @param after After state.
      * @return {@code True} if a state was changed.
      */
-    // TODO: sanpwc remove
+    // TODO: IGNITE-17638 TestOnly code, let's consider using Txn state map instead of states.
+    @Deprecated
     boolean changeState(UUID txId, @Nullable TxState before, TxState after);
-
-    /**
-     * Forgets the transaction state. Intended for cleanup.
-     *
-     * @param txId Transaction id.
-     */
-    // TODO: sanpwc remove
-    void forget(UUID txId);
-
-    /**
-     * Commits a transaction.
-     *
-     * @param txId Transaction id.
-     * @return The future.
-     */
-    // TODO: sanpwc remove
-    CompletableFuture<Void> commitAsync(UUID txId);
-
-    /**
-     * Aborts a transaction.
-     *
-     * @param txId Transaction id.
-     * @return The future.
-     */
-    // TODO: sanpwc remove
-    CompletableFuture<Void> rollbackAsync(UUID txId);
 
     /**
      * Acqures a write lock.
@@ -122,15 +98,6 @@ public interface TxManager extends IgniteComponent {
      */
     @Deprecated
     public LockManager lockManager();
-
-    /**
-     * Returns a transaction state or starts a new in the PENDING state.
-     *
-     * @param txId Transaction id.
-     * @return @{code null} if a transaction was created, or a current state.
-     */
-    @Nullable
-    TxState getOrCreateTransaction(UUID txId);
 
     /**
      * Finishes a dependant transactions.

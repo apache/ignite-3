@@ -18,9 +18,7 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static java.util.concurrent.CompletableFuture.allOf;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.nio.ByteBuffer;
 import java.util.List;
@@ -90,36 +88,6 @@ public class TxManagerImpl implements TxManager {
         return states.get(txId);
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public void forget(UUID txId) {
-        states.remove(txId);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<Void> commitAsync(UUID txId) {
-        if (changeState(txId, TxState.PENDING, TxState.COMMITED) || state(txId) == TxState.COMMITED) {
-            unlockAll(txId);
-
-            return completedFuture(null);
-        }
-
-        return failedFuture(new TransactionException(format("Failed to commit a transaction [txId={}, state={}]", txId, state(txId))));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<Void> rollbackAsync(UUID txId) {
-        if (changeState(txId, TxState.PENDING, TxState.ABORTED) || state(txId) == TxState.ABORTED) {
-            unlockAll(txId);
-
-            return completedFuture(null);
-        }
-
-        return failedFuture(new TransactionException(format("Failed to rollback a transaction [txId={}, state={}]", txId, state(txId))));
-    }
-
     /**
      * Unlocks all locks for the timestamp.
      *
@@ -131,7 +99,6 @@ public class TxManagerImpl implements TxManager {
 
     /** {@inheritDoc} */
     @Override
-    // TODO: IGNITE-17638 TestOnly code, let's consider using Txn state map instead of states.
     public boolean changeState(UUID txId, TxState before, TxState after) {
         return states.compute(txId, (k, v) -> {
             if (v == null || v == before) {
@@ -172,12 +139,6 @@ public class TxManagerImpl implements TxManager {
         LockKey lockKey = new LockKey(lockId, keyData);
 
         return lockManager.acquire(txId, lockKey, LockMode.S);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public TxState getOrCreateTransaction(UUID txId) {
-        return states.putIfAbsent(txId, TxState.PENDING);
     }
 
     /** {@inheritDoc} */
