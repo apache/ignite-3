@@ -861,8 +861,8 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             private ReadResult next;
 
             private void setKeyBuffer(ByteBuffer keyBuf, RowId rowId, HybridTimestamp timestamp) {
-                keyBuf.putLong(ROW_ID_OFFSET, rowId.mostSignificantBits());
-                keyBuf.putLong(ROW_ID_OFFSET + Long.BYTES, rowId.leastSignificantBits());
+                keyBuf.putLong(ROW_ID_OFFSET, normalize(rowId.mostSignificantBits()));
+                keyBuf.putLong(ROW_ID_OFFSET + Long.BYTES, normalize(rowId.leastSignificantBits()));
 
                 putTimestamp(keyBuf.position(ROW_PREFIX_SIZE), timestamp);
 
@@ -918,10 +918,8 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                     it.key(directBuffer.position(0));
 
                     directBuffer.position(ROW_ID_OFFSET);
-                    long msb = directBuffer.getLong();
-                    long lsb = directBuffer.getLong();
 
-                    var rowId = new RowId(partitionId, msb, lsb);
+                    RowId rowId = getRowId(directBuffer);
 
                     setKeyBuffer(seekKeyBuf, rowId, timestamp);
 
@@ -996,6 +994,10 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         buf.position(0);
     }
 
+    private RowId getRowId(ByteBuffer readKeyBuf) {
+        return new RowId(partitionId, normalize(readKeyBuf.getLong()), normalize(readKeyBuf.getLong()));
+    }
+
     @Override
     public long rowsCount() {
         try (
@@ -1035,7 +1037,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                 if (!isTombstone(valueBytes, valueHasTxId)) {
                     ByteBuffer keyBuf = ByteBuffer.wrap(keyBytes).order(KEY_BYTE_ORDER).position(ROW_ID_OFFSET);
 
-                    RowId rowId = new RowId(partitionId, normalize(keyBuf.getLong()), normalize(keyBuf.getLong()));
+                    RowId rowId = getRowId(keyBuf);
 
                     BinaryRow binaryRow = wrapValueIntoBinaryRow(valueBytes, valueHasTxId);
 
