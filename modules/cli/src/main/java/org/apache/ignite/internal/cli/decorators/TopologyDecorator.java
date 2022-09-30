@@ -27,6 +27,9 @@ import org.apache.ignite.rest.client.model.ClusterNode;
  * Implementation of {@link Decorator} for the list of {@link ClusterNode}.
  */
 public class TopologyDecorator implements Decorator<List<ClusterNode>, TerminalOutput> {
+    /** List of headers to decorate topology. */
+    protected static final String[] headers = {"name", "host", "port", "consistent id", "id"};
+
     /**
      * Transform list of {@link ClusterNode} to {@link TerminalOutput}.
      *
@@ -35,16 +38,18 @@ public class TopologyDecorator implements Decorator<List<ClusterNode>, TerminalO
      */
     @Override
     public TerminalOutput decorate(List<ClusterNode> topology) {
-        String[] headers = {"name", "host", "port", "consistent id", "id"};
-        String[][] content = topology.stream().map(
-                node -> new String[]{
-                        node.getName(),
-                        node.getAddress().getHost(),
-                        String.valueOf(node.getAddress().getPort()),
-                        node.getAddress().getConsistentId() == null ? "(empty)" : node.getAddress().getConsistentId(),
-                        node.getId()
-                }
+        return () -> FlipTable.of(headers, topologyToContent(topology));
+    }
+
+    protected String[][]  topologyToContent(List<ClusterNode> topology) {
+        return topology.stream().map(
+            node -> new String[]{
+                node.getName(),
+                node.getAddress().getHost(),
+                String.valueOf(node.getAddress().getPort()),
+                node.getAddress().getConsistentId() == null ? "(empty)" : node.getAddress().getConsistentId(),
+                node.getId()
+            }
         ).toArray(String[][]::new);
-        return () -> FlipTable.of(headers, content);
     }
 }

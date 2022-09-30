@@ -17,24 +17,26 @@
 
 package org.apache.ignite.internal.cli.decorators;
 
+import java.util.List;
 import org.apache.ignite.internal.cli.core.decorator.Decorator;
 import org.apache.ignite.internal.cli.core.decorator.TerminalOutput;
-import org.apache.ignite.internal.cli.sql.SqlQueryResult;
+import org.apache.ignite.internal.cli.util.PlainTableRenderer;
+import org.apache.ignite.rest.client.model.ClusterNode;
 
 /**
- * Composite decorator for {@link SqlQueryResult}.
+ * Implementation of {@link Decorator} for the list of {@link ClusterNode}.
  */
-public class SqlQueryResultDecorator implements Decorator<SqlQueryResult, TerminalOutput> {
-    private final TableDecorator tableDecorator;
-
-    private final DefaultDecorator<String> messageDecorator = new DefaultDecorator<>();
-
-    public SqlQueryResultDecorator(TableDecorator tableDecorator) {
-        this.tableDecorator = tableDecorator;
-    }
+public class PlainTopologyDecorator extends TopologyDecorator {
+    /**
+     * Transform list of {@link ClusterNode} to {@link TerminalOutput}.
+     *
+     * @param topology incoming list of {@link ClusterNode}.
+     * @return Plain interpretation of list of {@link ClusterNode} in {@link TerminalOutput}.
+     */
 
     @Override
-    public TerminalOutput decorate(SqlQueryResult data) {
-        return data.getResult(tableDecorator, messageDecorator);
+    public TerminalOutput decorate(List<ClusterNode> topology) {
+        String[][] content = topologyToContent(topology);
+        return () -> PlainTableRenderer.render(headers, content);
     }
 }
