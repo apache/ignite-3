@@ -21,6 +21,7 @@ import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.function.Function;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteCursor;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 
@@ -30,7 +31,7 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
  * @param <TREE_ROWT> Type of elements in a tree cursor.
  * @param <CURSOR_ROWT> Type of elements in a resulting iterator.
  */
-public class TreeCursorAdapter<TREE_ROWT, CURSOR_ROWT> implements Iterator<CURSOR_ROWT> {
+public class TreeCursorAdapter<TREE_ROWT, CURSOR_ROWT> implements Cursor<CURSOR_ROWT> {
     /** Cursor instance from the tree. */
     private final IgniteCursor<TREE_ROWT> cursor;
 
@@ -73,5 +74,10 @@ public class TreeCursorAdapter<TREE_ROWT, CURSOR_ROWT> implements Iterator<CURSO
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Failed to read next element from the tree", e);
         }
+    }
+
+    @Override
+    public void close() throws Exception {
+        // no-op
     }
 }

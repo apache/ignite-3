@@ -125,8 +125,10 @@ public abstract class BaseMvStoragesTest {
      * Test pojo key.
      */
     protected static class TestKey {
+        @IgniteToStringInclude
         public int intKey;
 
+        @IgniteToStringInclude
         public String strKey;
 
         public TestKey() {
@@ -152,6 +154,11 @@ public abstract class BaseMvStoragesTest {
         @Override
         public int hashCode() {
             return Objects.hash(intKey, strKey);
+        }
+
+        @Override
+        public String toString() {
+            return S.toString(TestKey.class, this);
         }
     }
 

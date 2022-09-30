@@ -26,6 +26,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.BiConsumer;
 import java.util.function.Predicate;
+import java.util.stream.Stream;
 import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -294,6 +295,11 @@ public class TestConcurrentHashMapMvPartitionStorage implements MvPartitionStora
         }
 
         return ReadResult.EMPTY;
+    }
+
+    @Override
+    public Cursor<BinaryRow> scanVersions(RowId rowId) throws StorageException {
+        return Cursor.fromIterator(Stream.iterate(map.get(rowId), Objects::nonNull, vc -> vc.next).map(vc -> vc.row).iterator());
     }
 
     /** {@inheritDoc} */

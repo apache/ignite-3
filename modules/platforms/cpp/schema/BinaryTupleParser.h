@@ -70,7 +70,7 @@ public:
      *
      * @return Tuple size.
      */
-    SizeT getSize() const noexcept { return binaryTuple.size(); }
+    SizeT getSize() const noexcept { return static_cast<SizeT>(binaryTuple.size()); }
 
     /**
      * @brief Gets the expected total number of tuple elements.

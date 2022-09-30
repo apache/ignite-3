@@ -36,6 +36,7 @@ import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelReferentialConstraint;
 import org.apache.calcite.rel.core.TableModify;
+import org.apache.calcite.rel.hint.RelHint;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rex.RexNode;
@@ -173,6 +174,7 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
     public IgniteLogicalTableScan toRel(
             RelOptCluster cluster,
             RelOptTable relOptTbl,
+            List<RelHint> hints,
             @Nullable List<RexNode> proj,
             @Nullable RexNode cond,
             @Nullable ImmutableBitSet requiredColumns
@@ -180,7 +182,7 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
         RelTraitSet traitSet = cluster.traitSetOf(distribution())
                 .replace(RewindabilityTrait.REWINDABLE);
 
-        return IgniteLogicalTableScan.create(cluster, traitSet, relOptTbl, proj, cond, requiredColumns);
+        return IgniteLogicalTableScan.create(cluster, traitSet, hints, relOptTbl, proj, cond, requiredColumns);
     }
 
     /** {@inheritDoc} */

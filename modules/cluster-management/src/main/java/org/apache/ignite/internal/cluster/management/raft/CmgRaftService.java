@@ -70,7 +70,6 @@ public class CmgRaftService {
      *
      * @return {@code true} if the current node is the CMG leader.
      */
-    // TODO: replace with onLeaderElected callback https://issues.apache.org/jira/browse/IGNITE-17493
     public CompletableFuture<Boolean> isCurrentNodeLeader() {
         ClusterNode thisNode = clusterService.topologyService().localMember();
 

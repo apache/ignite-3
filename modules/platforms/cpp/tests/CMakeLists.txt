@@ -15,6 +15,12 @@
 # limitations under the License.
 #
 
+if (WIN32)
+    set(Boost_USE_STATIC_LIBS ON)
+endif()
+
+find_package(Boost REQUIRED COMPONENTS unit_test_framework)
+
 include_directories(${Boost_INCLUDE_DIRS})
 
 # This function makes executable from given source file with Boost
@@ -26,7 +32,12 @@ function(add_boost_test SOURCE_FILE DEPENDENCIES)
 
     add_executable(${EXECUTABLE_NAME} ${SOURCE_FILE})
 
-    target_compile_definitions(${EXECUTABLE_NAME} PUBLIC -DBOOST_TEST_MODULE=${TEST_MODULE} -DBOOST_TEST_DYN_LINK)
+    target_compile_definitions(${EXECUTABLE_NAME} PUBLIC -DBOOST_TEST_MODULE=${TEST_MODULE})
+
+    if (NOT WIN32)
+        add_definitions(-DBOOST_TEST_DYN_LINK)
+        target_link_libraries(${EXECUTABLE_NAME} -rdynamic)
+    endif()
 
     target_link_libraries(${EXECUTABLE_NAME} Boost::unit_test_framework ${DEPENDENCIES})
 

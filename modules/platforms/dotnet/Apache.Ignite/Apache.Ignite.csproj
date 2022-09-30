@@ -30,6 +30,7 @@
 
   <ItemGroup>
     <PackageReference Include="MessagePack" Version="[2.1.80,)" />
+    <PackageReference Include="NodaTime" Version="[3.*,)" />
   </ItemGroup>
 
   <ItemGroup>
@@ -42,8 +43,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Apache.Ignite.Internal.Generators\Apache.Ignite.Internal.Generators.csproj"
-                      OutputItemType="Analyzer" ReferenceOutputAssembly="false" SetTargetFramework="TargetFramework=netstandard2.0" />
+    <ProjectReference Include="..\Apache.Ignite.Internal.Generators\Apache.Ignite.Internal.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" SetTargetFramework="TargetFramework=netstandard2.0" />
   </ItemGroup>
 
 </Project>

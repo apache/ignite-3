@@ -970,6 +970,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * @param testInfo Test info.
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17770")
     public void testCfgGap(TestInfo testInfo) {
         final int nodes = 4;
 

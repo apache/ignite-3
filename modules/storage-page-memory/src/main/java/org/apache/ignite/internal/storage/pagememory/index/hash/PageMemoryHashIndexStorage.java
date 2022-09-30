@@ -86,12 +86,12 @@ public class PageMemoryHashIndexStorage implements HashIndexStorage {
         IgniteCursor<HashIndexRow> cursor;
 
         try {
-            cursor = hashIndexTree.find(lowerBound, upperBound, null);
+            cursor = hashIndexTree.find(lowerBound, upperBound);
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Failed to create scan cursor", e);
         }
 
-        return Cursor.fromIterator(new TreeCursorAdapter<>(cursor, HashIndexRow::rowId));
+        return new TreeCursorAdapter<>(cursor, HashIndexRow::rowId);
     }
 
     @Override

@@ -37,6 +37,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.configuration.storage.StorageException;
 import org.apache.ignite.internal.rocksdb.BusyRocksIteratorAdapter;
 import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
+import org.apache.ignite.internal.rocksdb.flush.RocksDbFlusher;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
@@ -266,7 +267,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
                 throw e;
             }
 
-            RocksIteratorAdapter<IgniteBiTuple<UUID, TxMeta>> iteratorAdapter = new BusyRocksIteratorAdapter<>(busyLock, rocksIterator) {
+            return new BusyRocksIteratorAdapter<>(busyLock, rocksIterator) {
                 @Override protected IgniteBiTuple<UUID, TxMeta> decodeEntry(byte[] keyBytes, byte[] valueBytes) {
                     UUID key = keyToTxId(keyBytes);
                     TxMeta txMeta = fromBytes(valueBytes);
@@ -286,8 +287,6 @@ public class TxStateRocksDbStorage implements TxStateStorage {
                     super.close();
                 }
             };
-
-            return Cursor.fromIterator(iteratorAdapter);
         } finally {
             busyLock.leaveBusy();
         }

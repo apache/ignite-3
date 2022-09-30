@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.sql.engine.message;
 
 import static org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup.GROUP_TYPE;
+import static org.apache.ignite.lang.ErrorGroups.Sql.MESSAGE_SEND_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.NODE_LEFT_ERR;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -92,7 +94,8 @@ public class MessageServiceImpl implements MessageService {
                 ClusterNode node = topSrvc.allMembers().stream()
                         .filter(cn -> nodeId.equals(cn.id()))
                         .findFirst()
-                        .orElseThrow(() -> new IgniteInternalException("Failed to send message to node (has node left grid?): " + nodeId));
+                        .orElseThrow(() -> new IgniteInternalException(
+                                NODE_LEFT_ERR, "Failed to send message to node (has node left grid?): " + nodeId));
 
                 try {
                     messagingSrvc.send(node, msg).join();
@@ -101,7 +104,7 @@ public class MessageServiceImpl implements MessageService {
                         throw (IgniteInternalCheckedException) ex;
                     }
 
-                    throw new IgniteInternalCheckedException(ex);
+                    throw new IgniteInternalCheckedException(MESSAGE_SEND_ERR, ex);
                 }
             }
         } finally {

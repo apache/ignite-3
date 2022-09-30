@@ -21,6 +21,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import io.netty.util.ResourceLeakDetector;
 import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.function.Consumer;
 import org.apache.ignite.Ignite;
@@ -28,9 +30,11 @@ import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.client.fakes.FakeInternalTable;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -93,13 +97,44 @@ public class PartitionAwarenessTest extends AbstractClientTest {
     }
 
     @Test
-    public void testGetRoutesRequestToPrimaryNode() {
+    public void testGetTupleRoutesRequestToPrimaryNode() {
         RecordView<Tuple> recordView = defaultTable().recordView();
 
         assertOpOnNode("server-1", "get", x -> recordView.get(null, Tuple.create().set("ID", 0L)));
         assertOpOnNode("server-2", "get", x -> recordView.get(null, Tuple.create().set("ID", 1L)));
         assertOpOnNode("server-1", "get", x -> recordView.get(null, Tuple.create().set("ID", 2L)));
         assertOpOnNode("server-2", "get", x -> recordView.get(null, Tuple.create().set("ID", 3L)));
+    }
+
+    @Test
+    public void testGetRecordRoutesRequestToPrimaryNode() {
+        RecordView<AbstractClientTableTest.PersonPojo> pojoView = defaultTable().recordView(
+                Mapper.of(AbstractClientTableTest.PersonPojo.class));
+
+        assertOpOnNode("server-1", "get", x -> pojoView.get(null, new AbstractClientTableTest.PersonPojo(0L)));
+        assertOpOnNode("server-2", "get", x -> pojoView.get(null, new AbstractClientTableTest.PersonPojo(1L)));
+        assertOpOnNode("server-1", "get", x -> pojoView.get(null, new AbstractClientTableTest.PersonPojo(2L)));
+        assertOpOnNode("server-2", "get", x -> pojoView.get(null, new AbstractClientTableTest.PersonPojo(3L)));
+    }
+
+    @Test
+    public void testGetKeyValueRoutesRequestToPrimaryNode() {
+        KeyValueView<Long, String> kvView = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
+
+        assertOpOnNode("server-1", "get", x -> kvView.get(null, 0L));
+        assertOpOnNode("server-2", "get", x -> kvView.get(null, 1L));
+        assertOpOnNode("server-1", "get", x -> kvView.get(null, 2L));
+        assertOpOnNode("server-2", "get", x -> kvView.get(null, 3L));
+    }
+
+    @Test
+    public void testGetKeyValueBinaryRoutesRequestToPrimaryNode() {
+        KeyValueView<Tuple, Tuple> kvView = defaultTable().keyValueView();
+
+        assertOpOnNode("server-1", "get", x -> kvView.get(null, Tuple.create().set("ID", 0L)));
+        assertOpOnNode("server-2", "get", x -> kvView.get(null, Tuple.create().set("ID", 1L)));
+        assertOpOnNode("server-1", "get", x -> kvView.get(null, Tuple.create().set("ID", 2L)));
+        assertOpOnNode("server-2", "get", x -> kvView.get(null, Tuple.create().set("ID", 3L)));
     }
 
     @Test
@@ -170,22 +205,210 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
     @Test
     public void testAllRecordViewOperations() {
-        // TODO IGNITE-17739 Add Partition Awareness to all table APIs
+        RecordView<AbstractClientTableTest.PersonPojo> pojoView = defaultTable().recordView(
+                Mapper.of(AbstractClientTableTest.PersonPojo.class));
+
+        var t1 = new AbstractClientTableTest.PersonPojo(0L);
+        var t2 = new AbstractClientTableTest.PersonPojo(1L);
+
+        assertOpOnNode("server-1", "insert", x -> pojoView.insert(null, t1));
+        assertOpOnNode("server-2", "insert", x -> pojoView.insert(null, t2));
+
+        assertOpOnNode("server-1", "insertAll", x -> pojoView.insertAll(null, List.of(t1)));
+        assertOpOnNode("server-2", "insertAll", x -> pojoView.insertAll(null, List.of(t2)));
+
+        assertOpOnNode("server-1", "upsert", x -> pojoView.upsert(null, t1));
+        assertOpOnNode("server-2", "upsert", x -> pojoView.upsert(null, t2));
+
+        assertOpOnNode("server-1", "upsertAll", x -> pojoView.upsertAll(null, List.of(t1)));
+        assertOpOnNode("server-2", "upsertAll", x -> pojoView.upsertAll(null, List.of(t2)));
+
+        assertOpOnNode("server-1", "get", x -> pojoView.get(null, t1));
+        assertOpOnNode("server-2", "get", x -> pojoView.get(null, t2));
+
+        assertOpOnNode("server-1", "getAll", x -> pojoView.getAll(null, List.of(t1)));
+        assertOpOnNode("server-2", "getAll", x -> pojoView.getAll(null, List.of(t2)));
+
+        assertOpOnNode("server-1", "getAndUpsert", x -> pojoView.getAndUpsert(null, t1));
+        assertOpOnNode("server-2", "getAndUpsert", x -> pojoView.getAndUpsert(null, t2));
+
+        assertOpOnNode("server-1", "getAndReplace", x -> pojoView.getAndReplace(null, t1));
+        assertOpOnNode("server-2", "getAndReplace", x -> pojoView.getAndReplace(null, t2));
+
+        assertOpOnNode("server-1", "getAndDelete", x -> pojoView.getAndDelete(null, t1));
+        assertOpOnNode("server-2", "getAndDelete", x -> pojoView.getAndDelete(null, t2));
+
+        assertOpOnNode("server-1", "replace", x -> pojoView.replace(null, t1));
+        assertOpOnNode("server-2", "replace", x -> pojoView.replace(null, t2));
+
+        assertOpOnNode("server-1", "replace", x -> pojoView.replace(null, t1, t1));
+        assertOpOnNode("server-2", "replace", x -> pojoView.replace(null, t2, t2));
+
+        assertOpOnNode("server-1", "delete", x -> pojoView.delete(null, t1));
+        assertOpOnNode("server-2", "delete", x -> pojoView.delete(null, t2));
+
+        assertOpOnNode("server-1", "deleteExact", x -> pojoView.deleteExact(null, t1));
+        assertOpOnNode("server-2", "deleteExact", x -> pojoView.deleteExact(null, t2));
+
+        assertOpOnNode("server-1", "deleteAll", x -> pojoView.deleteAll(null, List.of(t1)));
+        assertOpOnNode("server-2", "deleteAll", x -> pojoView.deleteAll(null, List.of(t2)));
+
+        assertOpOnNode("server-1", "deleteAllExact", x -> pojoView.deleteAllExact(null, List.of(t1)));
+        assertOpOnNode("server-2", "deleteAllExact", x -> pojoView.deleteAllExact(null, List.of(t2)));
     }
 
     @Test
     public void testAllRecordBinaryViewOperations() {
-        // TODO IGNITE-17739 Add Partition Awareness to all table APIs
+        RecordView<Tuple> recordView = defaultTable().recordView();
+
+        Tuple t1 = Tuple.create().set("ID", 0L);
+        Tuple t2 = Tuple.create().set("ID", 1L);
+
+        assertOpOnNode("server-1", "insert", x -> recordView.insert(null, t1));
+        assertOpOnNode("server-2", "insert", x -> recordView.insert(null, t2));
+
+        assertOpOnNode("server-1", "insertAll", x -> recordView.insertAll(null, List.of(t1)));
+        assertOpOnNode("server-2", "insertAll", x -> recordView.insertAll(null, List.of(t2)));
+
+        assertOpOnNode("server-1", "upsert", x -> recordView.upsert(null, t1));
+        assertOpOnNode("server-2", "upsert", x -> recordView.upsert(null, t2));
+
+        assertOpOnNode("server-1", "upsertAll", x -> recordView.upsertAll(null, List.of(t1)));
+        assertOpOnNode("server-2", "upsertAll", x -> recordView.upsertAll(null, List.of(t2)));
+
+        assertOpOnNode("server-1", "get", x -> recordView.get(null, t1));
+        assertOpOnNode("server-2", "get", x -> recordView.get(null, t2));
+
+        assertOpOnNode("server-1", "getAll", x -> recordView.getAll(null, List.of(t1)));
+        assertOpOnNode("server-2", "getAll", x -> recordView.getAll(null, List.of(t2)));
+
+        assertOpOnNode("server-1", "getAndUpsert", x -> recordView.getAndUpsert(null, t1));
+        assertOpOnNode("server-2", "getAndUpsert", x -> recordView.getAndUpsert(null, t2));
+
+        assertOpOnNode("server-1", "getAndReplace", x -> recordView.getAndReplace(null, t1));
+        assertOpOnNode("server-2", "getAndReplace", x -> recordView.getAndReplace(null, t2));
+
+        assertOpOnNode("server-1", "getAndDelete", x -> recordView.getAndDelete(null, t1));
+        assertOpOnNode("server-2", "getAndDelete", x -> recordView.getAndDelete(null, t2));
+
+        assertOpOnNode("server-1", "replace", x -> recordView.replace(null, t1));
+        assertOpOnNode("server-2", "replace", x -> recordView.replace(null, t2));
+
+        assertOpOnNode("server-1", "replace", x -> recordView.replace(null, t1, t1));
+        assertOpOnNode("server-2", "replace", x -> recordView.replace(null, t2, t2));
+
+        assertOpOnNode("server-1", "delete", x -> recordView.delete(null, t1));
+        assertOpOnNode("server-2", "delete", x -> recordView.delete(null, t2));
+
+        assertOpOnNode("server-1", "deleteExact", x -> recordView.deleteExact(null, t1));
+        assertOpOnNode("server-2", "deleteExact", x -> recordView.deleteExact(null, t2));
+
+        assertOpOnNode("server-1", "deleteAll", x -> recordView.deleteAll(null, List.of(t1)));
+        assertOpOnNode("server-2", "deleteAll", x -> recordView.deleteAll(null, List.of(t2)));
+
+        assertOpOnNode("server-1", "deleteAllExact", x -> recordView.deleteAllExact(null, List.of(t1)));
+        assertOpOnNode("server-2", "deleteAllExact", x -> recordView.deleteAllExact(null, List.of(t2)));
     }
 
     @Test
     public void testAllKeyValueViewOperations() {
-        // TODO IGNITE-17739 Add Partition Awareness to all table APIs
+        KeyValueView<Long, String> kvView = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
+
+        var k1 = 0L;
+        var k2 = 1L;
+        var v = "v";
+
+        assertOpOnNode("server-1", "insert", x -> kvView.putIfAbsent(null, k1, v));
+        assertOpOnNode("server-2", "insert", x -> kvView.putIfAbsent(null, k2, v));
+
+        assertOpOnNode("server-1", "upsert", x -> kvView.put(null, k1, v));
+        assertOpOnNode("server-2", "upsert", x -> kvView.put(null, k2, v));
+
+        assertOpOnNode("server-1", "upsertAll", x -> kvView.putAll(null, Map.of(k1, v)));
+        assertOpOnNode("server-2", "upsertAll", x -> kvView.putAll(null, Map.of(k2, v)));
+
+        assertOpOnNode("server-1", "get", x -> kvView.get(null, k1));
+        assertOpOnNode("server-2", "get", x -> kvView.get(null, k2));
+
+        assertOpOnNode("server-1", "get", x -> kvView.contains(null, k1));
+        assertOpOnNode("server-2", "get", x -> kvView.contains(null, k2));
+
+        assertOpOnNode("server-1", "getAll", x -> kvView.getAll(null, List.of(k1)));
+        assertOpOnNode("server-2", "getAll", x -> kvView.getAll(null, List.of(k2)));
+
+        assertOpOnNode("server-1", "getAndUpsert", x -> kvView.getAndPut(null, k1, v));
+        assertOpOnNode("server-2", "getAndUpsert", x -> kvView.getAndPut(null, k2, v));
+
+        assertOpOnNode("server-1", "getAndReplace", x -> kvView.getAndReplace(null, k1, v));
+        assertOpOnNode("server-2", "getAndReplace", x -> kvView.getAndReplace(null, k2, v));
+
+        assertOpOnNode("server-1", "getAndDelete", x -> kvView.getAndRemove(null, k1));
+        assertOpOnNode("server-2", "getAndDelete", x -> kvView.getAndRemove(null, k2));
+
+        assertOpOnNode("server-1", "replace", x -> kvView.replace(null, k1, v));
+        assertOpOnNode("server-2", "replace", x -> kvView.replace(null, k2, v));
+
+        assertOpOnNode("server-1", "replace", x -> kvView.replace(null, k1, v, v));
+        assertOpOnNode("server-2", "replace", x -> kvView.replace(null, k2, v, v));
+
+        assertOpOnNode("server-1", "delete", x -> kvView.remove(null, k1));
+        assertOpOnNode("server-2", "delete", x -> kvView.remove(null, k2));
+
+        assertOpOnNode("server-1", "deleteExact", x -> kvView.remove(null, k1, v));
+        assertOpOnNode("server-2", "deleteExact", x -> kvView.remove(null, k2, v));
+
+        assertOpOnNode("server-1", "deleteAll", x -> kvView.removeAll(null, List.of(k1)));
+        assertOpOnNode("server-2", "deleteAll", x -> kvView.removeAll(null, List.of(k2)));
     }
 
     @Test
     public void testAllKeyValueBinaryViewOperations() {
-        // TODO IGNITE-17739 Add Partition Awareness to all table APIs
+        KeyValueView<Tuple, Tuple> kvView = defaultTable().keyValueView();
+
+        Tuple t1 = Tuple.create().set("ID", 0L);
+        Tuple t2 = Tuple.create().set("ID", 1L);
+
+        assertOpOnNode("server-1", "insert", x -> kvView.putIfAbsent(null, t1, t1));
+        assertOpOnNode("server-2", "insert", x -> kvView.putIfAbsent(null, t2, t2));
+
+        assertOpOnNode("server-1", "upsert", x -> kvView.put(null, t1, t1));
+        assertOpOnNode("server-2", "upsert", x -> kvView.put(null, t2, t2));
+
+        assertOpOnNode("server-1", "upsertAll", x -> kvView.putAll(null, Map.of(t1, t1)));
+        assertOpOnNode("server-2", "upsertAll", x -> kvView.putAll(null, Map.of(t2, t2)));
+
+        assertOpOnNode("server-1", "get", x -> kvView.get(null, t1));
+        assertOpOnNode("server-2", "get", x -> kvView.get(null, t2));
+
+        assertOpOnNode("server-1", "get", x -> kvView.contains(null, t1));
+        assertOpOnNode("server-2", "get", x -> kvView.contains(null, t2));
+
+        assertOpOnNode("server-1", "getAll", x -> kvView.getAll(null, List.of(t1)));
+        assertOpOnNode("server-2", "getAll", x -> kvView.getAll(null, List.of(t2)));
+
+        assertOpOnNode("server-1", "getAndUpsert", x -> kvView.getAndPut(null, t1, t1));
+        assertOpOnNode("server-2", "getAndUpsert", x -> kvView.getAndPut(null, t2, t2));
+
+        assertOpOnNode("server-1", "getAndReplace", x -> kvView.getAndReplace(null, t1, t1));
+        assertOpOnNode("server-2", "getAndReplace", x -> kvView.getAndReplace(null, t2, t2));
+
+        assertOpOnNode("server-1", "getAndDelete", x -> kvView.getAndRemove(null, t1));
+        assertOpOnNode("server-2", "getAndDelete", x -> kvView.getAndRemove(null, t2));
+
+        assertOpOnNode("server-1", "replace", x -> kvView.replace(null, t1, t1));
+        assertOpOnNode("server-2", "replace", x -> kvView.replace(null, t2, t2));
+
+        assertOpOnNode("server-1", "replace", x -> kvView.replace(null, t1, t1, t1));
+        assertOpOnNode("server-2", "replace", x -> kvView.replace(null, t2, t2, t2));
+
+        assertOpOnNode("server-1", "delete", x -> kvView.remove(null, t1));
+        assertOpOnNode("server-2", "delete", x -> kvView.remove(null, t2));
+
+        assertOpOnNode("server-1", "deleteExact", x -> kvView.remove(null, t1, t1));
+        assertOpOnNode("server-2", "deleteExact", x -> kvView.remove(null, t2, t2));
+
+        assertOpOnNode("server-1", "deleteAll", x -> kvView.removeAll(null, List.of(t1)));
+        assertOpOnNode("server-2", "deleteAll", x -> kvView.removeAll(null, List.of(t2)));
     }
 
     private void assertOpOnNode(String expectedNode, String expectedOp, Consumer<Void> op) {
@@ -194,8 +417,8 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
         op.accept(null);
 
-        assertEquals(expectedNode, lastOpServerName);
         assertEquals(expectedOp, lastOp);
+        assertEquals(expectedNode, lastOpServerName, "Operation " + expectedOp + " was not executed on expected node");
     }
 
     private Table defaultTable() {

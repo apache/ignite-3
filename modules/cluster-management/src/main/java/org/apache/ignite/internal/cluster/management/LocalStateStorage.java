@@ -64,7 +64,7 @@ class LocalStateStorage {
      */
     CompletableFuture<LocalState> getLocalState() {
         return vault.get(CMG_STATE_VAULT_KEY)
-                .thenApply(entry -> entry == null ? null : (LocalState) ByteUtils.fromBytes(entry.value()));
+                .thenApply(entry -> entry == null ? null : ByteUtils.fromBytes(entry.value()));
     }
 
     /**

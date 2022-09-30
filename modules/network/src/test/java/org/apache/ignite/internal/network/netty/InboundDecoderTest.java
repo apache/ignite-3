@@ -34,19 +34,19 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 import java.util.stream.LongStream;
-import org.apache.ignite.internal.network.AllTypesMessage;
 import org.apache.ignite.internal.network.AllTypesMessageGenerator;
-import org.apache.ignite.internal.network.NestedMessageMessage;
 import org.apache.ignite.internal.network.direct.DirectMessageWriter;
+import org.apache.ignite.internal.network.messages.AllTypesMessage;
+import org.apache.ignite.internal.network.messages.NestedMessageMessage;
+import org.apache.ignite.internal.network.messages.TestMessage;
+import org.apache.ignite.internal.network.messages.TestMessagesFactory;
 import org.apache.ignite.internal.network.serialization.PerSessionSerializationService;
 import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.internal.network.serialization.UserObjectSerializationContext;
 import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.TestMessage;
-import org.apache.ignite.network.TestMessageSerializationRegistryImpl;
-import org.apache.ignite.network.TestMessagesFactory;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.network.serialization.MessageSerializer;
+import org.apache.ignite.network.serialization.TestMessageSerializationRegistryImpl;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -158,8 +158,8 @@ public class InboundDecoderTest {
     }
 
     /**
-     * Tests that an {@link InboundDecoder} can handle a {@link ByteBuf} where reader index is not {@code 0} at the start of the {@link
-     * InboundDecoder#decode}.
+     * Tests that an {@link InboundDecoder} can handle a {@link ByteBuf} where reader index is not {@code 0} at the start of the
+     * {@link InboundDecoder#decode}.
      *
      * @throws Exception If failed.
      */

@@ -22,12 +22,14 @@ import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
 
 import java.nio.ByteBuffer;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
 import java.util.function.Predicate;
+import java.util.stream.Stream;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.schemas.table.HashIndexView;
 import org.apache.ignite.configuration.schemas.table.SortedIndexView;
@@ -622,6 +624,27 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             versionChainTree.putx(newVersionChain);
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Cannot update version chain");
+        }
+    }
+
+    @Override
+    public Cursor<BinaryRow> scanVersions(RowId rowId) throws StorageException {
+        try {
+            VersionChain versionChain = versionChainTree.findOne(new VersionChainKey(rowId));
+
+            if (versionChain == null) {
+                return Cursor.empty();
+            }
+
+            RowVersion head = readRowVersion(versionChain.headLink(), ALWAYS_LOAD_VALUE);
+
+            Stream<RowVersion> stream = Stream.iterate(head, Objects::nonNull, rowVersion ->
+                    rowVersion.nextLink() == 0 ? null : readRowVersion(rowVersion.nextLink(), ALWAYS_LOAD_VALUE)
+            );
+
+            return Cursor.fromIterator(stream.map(rowVersion -> new ByteBufferRow(rowVersion.value())).iterator());
+        } catch (IgniteInternalCheckedException e) {
+            throw new RuntimeException(e);
         }
     }
 

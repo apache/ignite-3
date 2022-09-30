@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
@@ -49,6 +50,7 @@ import org.apache.ignite.internal.schema.testutils.definition.index.IndexDefinit
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
+import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.util.Cursor;
 import org.junit.jupiter.api.Test;
 
@@ -139,6 +141,23 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     }
 
     /**
+     * Tests the {@link MvTableStorage#getOrCreateIndex} method.
+     */
+    @Test
+    public void testCreateIndex() {
+        assertThrows(StorageException.class, () -> tableStorage.getOrCreateIndex(PARTITION_ID, sortedIdx.id()));
+        assertThrows(StorageException.class, () -> tableStorage.getOrCreateIndex(PARTITION_ID, hashIdx.id()));
+
+        // Index should only be available after the associated partition has been created.
+        tableStorage.getOrCreateMvPartition(PARTITION_ID);
+
+        assertThat(tableStorage.getOrCreateIndex(PARTITION_ID, sortedIdx.id()), is(instanceOf(SortedIndexStorage.class)));
+        assertThat(tableStorage.getOrCreateIndex(PARTITION_ID, hashIdx.id()), is(instanceOf(HashIndexStorage.class)));
+
+        assertThrows(StorageException.class, () -> tableStorage.getOrCreateIndex(PARTITION_ID, UUID.randomUUID()));
+    }
+
+    /**
      * Test creating a Sorted Index.
      */
     @Test
@@ -226,8 +245,6 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         assertThat(getAll(storage1.get(tuple)), contains(rowId1));
         assertThat(getAll(storage2.get(tuple)), contains(rowId2));
-
-        assertThat(tableStorage.destroyIndex(sortedIdx.id()), willCompleteSuccessfully());
     }
 
     /**

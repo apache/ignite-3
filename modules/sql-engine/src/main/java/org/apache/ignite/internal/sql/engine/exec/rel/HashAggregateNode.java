@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 import static java.util.stream.Collectors.toCollection;
 import static org.apache.ignite.internal.sql.engine.util.Commons.negate;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
+import static org.apache.ignite.lang.ErrorGroups.Sql.TOO_MANY_GROUPING_EXPRESSIONS_ERR;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -80,7 +81,7 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         ImmutableBitSet.Builder b = ImmutableBitSet.builder();
 
         if (grpSets.size() > Byte.MAX_VALUE) {
-            throw new IgniteInternalException("Too many groups");
+            throw new IgniteInternalException(TOO_MANY_GROUPING_EXPRESSIONS_ERR, "Too many groups");
         }
 
         groupings = new ArrayList<>(grpSets.size());
