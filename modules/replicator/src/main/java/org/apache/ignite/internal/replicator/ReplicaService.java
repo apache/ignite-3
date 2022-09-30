@@ -42,9 +42,6 @@ public class ReplicaService {
     /** Network timeout. */
     private static final int RPC_TIMEOUT = 3000;
 
-    /** Replica manager. */
-    private final ReplicaManager replicaManager;
-
     /** Message service. */
     private final MessagingService messagingService;
 
@@ -54,16 +51,13 @@ public class ReplicaService {
     /**
      * The constructor of replica client.
      *
-     * @param replicaManager   Replica manager.
      * @param messagingService Cluster message service.
      * @param clock A hybrid logical clock.
      */
     public ReplicaService(
-            ReplicaManager replicaManager,
             MessagingService messagingService,
             HybridClock clock
     ) {
-        this.replicaManager = replicaManager;
         this.messagingService = messagingService;
         this.clock = clock;
     }
