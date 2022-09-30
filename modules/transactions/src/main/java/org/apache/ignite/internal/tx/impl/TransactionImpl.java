@@ -133,29 +133,29 @@ public class TransactionImpl implements InternalTransaction {
      * @return The future.
      */
     private CompletableFuture<Void> finish(boolean commit) {
-        Map<ClusterNode, List<IgniteBiTuple<String, Long>>> groups = new LinkedHashMap<>();
-
-        // TODO: sanpwc better conversion required.
-        enlisted.forEach((groupId, groupMeta) -> {
-            ClusterNode recipientNode = groupMeta.get1();
-
-            if (groups.containsKey(recipientNode)) {
-                groups.get(recipientNode).add(new IgniteBiTuple<>(groupId, groupMeta.get2()));
-            } else {
-                List<IgniteBiTuple<String, Long>> items = new ArrayList<>();
-
-                items.add(new IgniteBiTuple<>(groupId, groupMeta.get2()));
-
-                groups.put(recipientNode, items);
-            }
-        });
-
         // TODO: add proper exception handling.
         return CompletableFuture
                 .allOf(enlistedResults.toArray(new CompletableFuture[0]))
                 .thenCompose(
                         ignored -> {
                             if (!enlisted.isEmpty()) {
+                                Map<ClusterNode, List<IgniteBiTuple<String, Long>>> groups = new LinkedHashMap<>();
+
+                                // TODO: sanpwc better conversion required.
+                                enlisted.forEach((groupId, groupMeta) -> {
+                                    ClusterNode recipientNode = groupMeta.get1();
+
+                                    if (groups.containsKey(recipientNode)) {
+                                        groups.get(recipientNode).add(new IgniteBiTuple<>(groupId, groupMeta.get2()));
+                                    } else {
+                                        List<IgniteBiTuple<String, Long>> items = new ArrayList<>();
+
+                                        items.add(new IgniteBiTuple<>(groupId, groupMeta.get2()));
+
+                                        groups.put(recipientNode, items);
+                                    }
+                                });
+
                                 return txManager.finish(
                                         enlisted.entrySet().iterator().next().getValue().get1(),
                                         enlisted.entrySet().iterator().next().getValue().get2(),
