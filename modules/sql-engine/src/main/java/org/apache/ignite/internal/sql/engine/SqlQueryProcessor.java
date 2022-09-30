@@ -31,7 +31,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -416,7 +415,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                                         implicitTx,
                                         new AsyncCursor<List<Object>>() {
                                             @Override
-                                            public CompletionStage<BatchedResult<List<Object>>> requestNextAsync(int rows) {
+                                            public CompletableFuture<BatchedResult<List<Object>>> requestNextAsync(int rows) {
                                                 session.touch();
 
                                                 return dataCursor.requestNextAsync(rows);
