@@ -170,9 +170,9 @@ namespace Apache.Ignite.Tests
             Assert.AreEqual("TX", ErrorGroups.Transactions.GroupName);
             Assert.AreEqual("TX", ErrorGroups.GetGroupName(7));
 
-             Assert.AreEqual(8, ErrorGroups.Replicator.GroupCode);
-             Assert.AreEqual("REP", ErrorGroups.Replicator.GroupName);
-             Assert.AreEqual("REP", ErrorGroups.GetGroupName(8));
+            Assert.AreEqual(8, ErrorGroups.Replicator.GroupCode);
+            Assert.AreEqual("REP", ErrorGroups.Replicator.GroupName);
+            Assert.AreEqual("REP", ErrorGroups.GetGroupName(8));
         }
 
         [Test]
