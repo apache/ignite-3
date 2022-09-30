@@ -254,7 +254,7 @@ public class ErrorGroups {
         public static final int TX_STATE_STORAGE_STOPPED_ERR = TX_ERR_GROUP.registerErrorCode(2);
 
         /** Error of unexpected tx state on state change. */
-        public static final int TX_UNEXPECTED_STATE = TX_ERR_GROUP.registerErrorCode(3);
+        public static final int TX_UNEXPECTED_STATE_ERR = TX_ERR_GROUP.registerErrorCode(3);
 
         /** Failed to release a lock on a key. */
         public static final int RELEASE_LOCK_ERR = TX_ERR_GROUP.registerErrorCode(4);

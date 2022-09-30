@@ -20,7 +20,7 @@ package org.apache.ignite.internal.table.distributed.raft;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITED;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_UNEXPECTED_STATE;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_UNEXPECTED_STATE_ERR;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.nio.ByteBuffer;
@@ -279,7 +279,7 @@ public class PartitionListener implements RaftGroupListener {
             String errorMsg = format("Fail to finish the transaction txId = {} because of inconsistent state = {},"
                     + " expected state = null, state to set = {}", txId, txStateStorage.get(txId), stateToSet);
 
-            IgniteInternalException stateChangeException = new IgniteInternalException(traceId, TX_UNEXPECTED_STATE, errorMsg);
+            IgniteInternalException stateChangeException = new IgniteInternalException(traceId, TX_UNEXPECTED_STATE_ERR, errorMsg);
 
             // Exception is explicitly logged because otherwise it can be lost if it did not occur on the leader.
             LOG.error(errorMsg);
