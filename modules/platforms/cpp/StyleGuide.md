@@ -139,3 +139,7 @@ Header files are included in order from more specific to less specific:
 
 These groups are separated by an empty line. Inside each group files are sorted in alphabetical
 order.
+
+In addition to consistency this include order has one techical advantage. It's good if each header
+`#include`s itself all the headers it depends on. And this order allows to detect sooner if there
+is any missing dependency.
