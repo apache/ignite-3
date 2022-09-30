@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.util;
 
+import static org.apache.ignite.lang.ErrorGroups.Common.ILLEGAL_ARGUMENT_ERR;
+
 import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 
@@ -43,8 +45,8 @@ public final class IgniteNameUtils {
 
         String parsedName = tokenizer.nextToken();
 
-        if (tokenizer.nextToken() != null) {
-            throw new IgniteInternalException("Fully qualified name is not expected [name=" + name + "]");
+        if (tokenizer.hasNext()) {
+            throw new IgniteInternalException(ILLEGAL_ARGUMENT_ERR, "Fully qualified name is not expected [name=" + name + "]");
         }
 
         return parsedName;
@@ -64,16 +66,35 @@ public final class IgniteNameUtils {
         return "\"" + name + "\"";
     }
 
+    /**
+     * Identifier chain tokenizer.
+     *
+     * <p>Splits provided identifier chain (complex identifier like PUBLIC.MY_TABLE) into its component parts.
+     *
+     * <p>This tokenizer is not SQL compliant, but it is ok since it used to retrieve an object only. The sole purpose of this tokenizer
+     * is to split the chain into parts by a dot considering the quotation.
+     */
     private static class Tokenizer {
         private int currentPosition;
         private final String source;
 
+        /**
+         * Creates a tokenizer for given string source.
+         *
+         * @param source Source string to split.
+         */
         public Tokenizer(String source) {
             this.source = source;
         }
 
+        /** Returns {@code true} if at least one token is available. */
+        public boolean hasNext() {
+            return currentPosition < source.length();
+        }
+
+        /** Returns next token. */
         public @Nullable String nextToken() {
-            if (currentPosition >= source.length()) {
+            if (!hasNext()) {
                 return null;
             }
 
@@ -88,6 +109,10 @@ public final class IgniteNameUtils {
 
             for (; currentPosition < source.length(); currentPosition++) {
                 if (currentChar() == '"') {
+                    if (!quoted) {
+                        throwMalformedNameException();
+                    }
+
                     if (hasNextChar() && nextChar() == '"') {  // quote is escaped
                         sb.append(source, start, currentPosition + 1);
 
@@ -95,7 +120,7 @@ public final class IgniteNameUtils {
                         start = currentPosition;
 
                         continue;
-                    } else if (quoted && (!hasNextChar() || nextChar() == '.')) {
+                    } else if (!hasNextChar() || nextChar() == '.') {
                         // looks like we just found a closing quote
                         sb.append(source, start, currentPosition);
 
@@ -103,15 +128,20 @@ public final class IgniteNameUtils {
 
                         return sb.toString();
                     }
-                } else if (!quoted && currentChar() == '.') {
+
+                    throwMalformedNameException();
+                } else if (!quoted && (currentChar() == '.' || currentChar() == ' ')) {
                     sb.append(source, start, currentPosition);
 
                     currentPosition++;
 
                     return sb.toString().toUpperCase();
                 }
+            }
 
-                // throw new IgniteInternalException("Malformed name [name=" + source + ", pos=" + currentPosition + "]");
+            if (quoted) {
+                // seems like there is no closing quote
+                throwMalformedNameException();
             }
 
             return source.substring(start).toUpperCase();
@@ -127,6 +157,13 @@ public final class IgniteNameUtils {
 
         private char nextChar() {
             return source.charAt(currentPosition + 1);
+        }
+
+        private void throwMalformedNameException() {
+            throw new IgniteInternalException(
+                    ILLEGAL_ARGUMENT_ERR,
+                    "Malformed name [name=" + source + ", pos=" + currentPosition + "]"
+            );
         }
     }
 }
