@@ -38,7 +38,7 @@ namespace {
  * @return New 64-bit integer.
  */
 inline uint64_t makeU64(uint32_t higher, uint32_t lower) {
-    return (uint64_t {higher} << 32) | lower;
+    return (uint64_t{higher} << 32) | lower;
 }
 
 /**
@@ -159,7 +159,7 @@ uint32_t Add(uint32_t *res, int32_t len, uint32_t addend) {
 } // namespace
 
 void BigInteger::initializeBigEndian(const std::byte *data, std::size_t size) {
-    while (size > 0 && data[0] == std::byte {0}) {
+    while (size > 0 && data[0] == std::byte{0}) {
         size--;
         data++;
     }
@@ -195,15 +195,15 @@ void BigInteger::initializeBigEndian(const std::byte *data, std::size_t size) {
 
 void BigInteger::initializeNegativeBigEndian(const std::byte *data, std::size_t size) {
     assert(size > 0);
-    assert(data[0] != std::byte {0});
+    assert(data[0] != std::byte{0});
 
-    while (size > 0 && data[0] == std::byte {255}) {
+    while (size > 0 && data[0] == std::byte{255}) {
         size--;
         data++;
     }
 
     // Take one step back if only zeroes remain.
-    if (std::all_of(data, data + size, [](std::byte x) { return x == std::byte {0}; })) {
+    if (std::all_of(data, data + size, [](std::byte x) { return x == std::byte{0}; })) {
         size++;
         data--;
     }
@@ -251,7 +251,7 @@ BigInteger::BigInteger(const int8_t *val, int32_t len, int32_t sign, bool bigEnd
     if (bigEndian) {
         initializeBigEndian(data, size);
     } else {
-        while (size > 0 && data[size - 1] != std::byte {0}) {
+        while (size > 0 && data[size - 1] != std::byte{0}) {
             --size;
         }
 

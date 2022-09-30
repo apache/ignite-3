@@ -66,7 +66,7 @@ struct BinaryTupleHeader {
     void setNullMapFlag() noexcept { flags |= NULLMAP_FLAG; }
 
     /** Gets the nullmap flag value. */
-    bool getNullMapFlag() const noexcept { return (flags & NULLMAP_FLAG) != std::byte {0}; }
+    bool getNullMapFlag() const noexcept { return (flags & NULLMAP_FLAG) != std::byte{0}; }
 };
 
 } // namespace ignite
