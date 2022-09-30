@@ -22,7 +22,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Set;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.internal.util.IgniteNameUtils;
 
 /**
  * Table.

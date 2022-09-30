@@ -101,11 +101,11 @@ class IgniteComputeImplTest {
     void executesColocatedOnLeaderNodeOfPartitionCorrespondingToTupleKey() throws Exception {
         respondWhenExecutingSimpleJobRemotely();
 
-        when(igniteTables.tableImplAsync("PUBLIC.test")).thenReturn(CompletableFuture.completedFuture(table));
+        when(igniteTables.tableImplAsync("TEST")).thenReturn(CompletableFuture.completedFuture(table));
         doReturn(42).when(table).partition(any());
         doReturn(remoteNode).when(table).leaderAssignment(42);
 
-        String result = compute.executeColocated("PUBLIC.test", Tuple.create(Map.of("k", 1)), SimpleJob.class, "a", 42).get();
+        String result = compute.executeColocated("test", Tuple.create(Map.of("k", 1)), SimpleJob.class, "a", 42).get();
 
         assertThat(result, is("remoteResponse"));
     }
@@ -114,11 +114,11 @@ class IgniteComputeImplTest {
     void executesColocatedOnLeaderNodeOfPartitionCorrespondingToMappedKey() throws Exception {
         respondWhenExecutingSimpleJobRemotely();
 
-        when(igniteTables.tableImplAsync("PUBLIC.test")).thenReturn(CompletableFuture.completedFuture(table));
+        when(igniteTables.tableImplAsync("TEST")).thenReturn(CompletableFuture.completedFuture(table));
         doReturn(42).when(table).partition(any(), any());
         doReturn(remoteNode).when(table).leaderAssignment(42);
 
-        String result = compute.executeColocated("PUBLIC.test", 1, Mapper.of(Integer.class), SimpleJob.class, "a", 42).get();
+        String result = compute.executeColocated("test", 1, Mapper.of(Integer.class), SimpleJob.class, "a", 42).get();
 
         assertThat(result, is("remoteResponse"));
     }

@@ -51,8 +51,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @ExtendWith(WorkDirectoryExtension.class)
 public abstract class ItAbstractThinClientTest extends IgniteAbstractTest {
-    protected static final String SCHEMA_NAME = "PUB";
-
     protected static final String TABLE_NAME = "TBL1";
 
     protected static final String COLUMN_KEY = "key";
