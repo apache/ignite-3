@@ -239,7 +239,7 @@ class ItComputeTest extends AbstractClusterIntegrationTest {
                         "\"bad-table\"", Tuple.create(Map.of("k", 1)), GetNodeNameJob.class).join());
 
         assertInstanceOf(TableNotFoundException.class, ex.getCause());
-        assertThat(ex.getCause().getMessage(), containsString("The table does not exist [name=\"bad-table\"]"));
+        assertThat(ex.getCause().getMessage(), containsString("The table does not exist [name=\"PUBLIC\".\"bad-table\"]"));
     }
 
     private void createTestTableWithOneRow() {

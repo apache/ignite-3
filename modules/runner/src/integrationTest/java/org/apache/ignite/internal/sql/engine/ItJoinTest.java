@@ -32,8 +32,8 @@ import org.junit.jupiter.params.provider.EnumSource;
 public class ItJoinTest extends AbstractBasicIntegrationTest {
     @BeforeAll
     public static void beforeTestsStarted() {
-        sql("CREATE TABLE t1 (id INT PRIMARY KEY, c1 INT NOT NULL, c2 NT, c3 INT)");
-        sql("CREATE TABLE t2 (id INT PRIMARY KEY, c1 INT NOT NULL, c2 NT, c3 INT)");
+        sql("CREATE TABLE t1 (id INT PRIMARY KEY, c1 INT NOT NULL, c2 INT, c3 INT)");
+        sql("CREATE TABLE t2 (id INT PRIMARY KEY, c1 INT NOT NULL, c2 INT, c3 INT)");
 
         // TODO: support indexes. https://issues.apache.org/jira/browse/IGNITE-17304
         // sql("create index t1_idx on t1 (c3, c2, c1)");

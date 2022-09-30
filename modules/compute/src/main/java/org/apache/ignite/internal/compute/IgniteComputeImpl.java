@@ -29,6 +29,7 @@ import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.util.IgniteNameUtils;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.network.ClusterNode;
@@ -171,10 +172,12 @@ public class IgniteComputeImpl implements IgniteCompute {
     }
 
     private CompletableFuture<TableImpl> requiredTable(String tableName) {
-        return tables.tableImplAsync(tableName)
+        String parsedName = IgniteNameUtils.parseSimpleName(tableName);
+
+        return tables.tableImplAsync(parsedName)
                 .thenApply(table -> {
                     if (table == null) {
-                        throw new TableNotFoundException(DEFAULT_SCHEMA_NAME, tableName);
+                        throw new TableNotFoundException(DEFAULT_SCHEMA_NAME, parsedName);
                     }
                     return table;
                 });

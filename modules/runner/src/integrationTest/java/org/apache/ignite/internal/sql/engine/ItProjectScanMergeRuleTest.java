@@ -44,7 +44,7 @@ public class ItProjectScanMergeRuleTest extends AbstractBasicIntegrationTest {
         sql("CREATE TABLE products (id INT PRIMARY KEY, category VARCHAR, cat_id INT NOT NULL, subcategory VARCHAR,"
                 + " subcat_id INT NOT NULL, name VARCHAR)");
 
-        sql("CREATE INDEX " + IDX_CAT_ID + " ON products(cat_id)");
+        // sql("CREATE INDEX " + IDX_CAT_ID + " ON products(cat_id)");
 
         insertData("PUBLIC.PRODUCTS", List.of("ID", "CATEGORY", "CAT_ID", "SUBCATEGORY", "SUBCAT_ID", "NAME"), new Object[][]{
                 {1, "prod1", 1, "cat1", 11, "noname1"},
