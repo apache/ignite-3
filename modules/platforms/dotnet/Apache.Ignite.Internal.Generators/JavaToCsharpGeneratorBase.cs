@@ -17,6 +17,8 @@
 
 namespace Apache.Ignite.Internal.Generators;
 
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using Microsoft.CodeAnalysis;
 
@@ -27,6 +29,8 @@ public abstract class JavaToCsharpGeneratorBase : ISourceGenerator
 {
     private int _executed;
 
+    private volatile List<(string Name, string Code)> _generatedCode = new();
+
     /// <inheritdoc/>
     public void Initialize(GeneratorInitializationContext context)
     {
@@ -36,19 +40,20 @@ public abstract class JavaToCsharpGeneratorBase : ISourceGenerator
     /// <inheritdoc/>
     public void Execute(GeneratorExecutionContext context)
     {
-        if (Interlocked.CompareExchange(ref _executed, 1, 0) != 0)
+        if (Interlocked.CompareExchange(ref _executed, 1, 0) == 0)
         {
             // Execute the generator only once during full build.
             // Do not execute otherwise (while C# code is being changed).
-            return;
+            _generatedCode = ExecuteInternal(context).ToList();
         }
 
-        ExecuteInternal(context);
+        _generatedCode.ForEach(unit => context.AddSource(unit.Name, unit.Code));
     }
 
     /// <summary>
     /// Called to perform source generation.
     /// </summary>
     /// <param name="context">The <see cref="GeneratorExecutionContext"/> to add source to.</param>
-    protected abstract void ExecuteInternal(GeneratorExecutionContext context);
+    /// <returns>Generated code.</returns>
+    protected abstract IEnumerable<(string Name, string Code)> ExecuteInternal(GeneratorExecutionContext context);
 }

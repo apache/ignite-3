@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Internal.Generators
 {
     using System;
+    using System.Collections.Generic;
     using System.Globalization;
     using System.IO;
     using System.Linq;
@@ -33,10 +34,8 @@ namespace Apache.Ignite.Internal.Generators
     public sealed class ErrorGroupsGenerator : JavaToCsharpGeneratorBase
     {
         /// <inheritdoc/>
-        protected override void ExecuteInternal(GeneratorExecutionContext context)
+        protected override IEnumerable<(string Name, string Code)> ExecuteInternal(GeneratorExecutionContext context)
         {
-            File.AppendAllLines("/home/pavel/w/ErrorGroupsGenerator.log", new[] { DateTime.Now + " Execute " + GetHashCode() });
-
             var javaErrorGroupsFile = Path.GetFullPath(Path.Combine(
                 context.GetJavaModulesDirectory(),
                 "core",
@@ -140,7 +139,7 @@ namespace Apache.Ignite.Internal.Generators
             sb.AppendLine("    }");
             sb.AppendLine("}");
 
-            context.AddSource("ErrorGroups.g.cs", sb.ToString());
+            yield return ("ErrorGroups.g.cs", sb.ToString());
         }
 
         private static string SnakeToCamelCase(string str) =>
