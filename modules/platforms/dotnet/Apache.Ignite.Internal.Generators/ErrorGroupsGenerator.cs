@@ -30,17 +30,13 @@ namespace Apache.Ignite.Internal.Generators
     /// Generates error groups source from ErrorGroups.java.
     /// </summary>
     [Generator]
-    public sealed class ErrorGroupsGenerator : ISourceGenerator
+    public sealed class ErrorGroupsGenerator : JavaToCsharpGeneratorBase
     {
         /// <inheritdoc/>
-        public void Initialize(GeneratorInitializationContext context)
+        protected override void ExecuteInternal(GeneratorExecutionContext context)
         {
-            // No-op.
-        }
+            File.AppendAllLines("/home/pavel/w/ErrorGroupsGenerator.log", new[] { DateTime.Now + " Execute " + GetHashCode() });
 
-        /// <inheritdoc/>
-        public void Execute(GeneratorExecutionContext context)
-        {
             var javaErrorGroupsFile = Path.GetFullPath(Path.Combine(
                 context.GetJavaModulesDirectory(),
                 "core",

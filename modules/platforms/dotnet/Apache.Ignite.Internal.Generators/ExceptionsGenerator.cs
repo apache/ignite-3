@@ -31,16 +31,10 @@ namespace Apache.Ignite.Internal.Generators
     /// Generates exception classes from Java exceptions.
     /// </summary>
     [Generator]
-    public sealed class ExceptionsGenerator : ISourceGenerator
+    public sealed class ExceptionsGenerator : JavaToCsharpGeneratorBase
     {
         /// <inheritdoc/>
-        public void Initialize(GeneratorInitializationContext context)
-        {
-            // No-op.
-        }
-
-        /// <inheritdoc/>
-        public void Execute(GeneratorExecutionContext context)
+        protected override void ExecuteInternal(GeneratorExecutionContext context)
         {
             var javaModulesDirectory = context.GetJavaModulesDirectory();
 
