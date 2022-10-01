@@ -25,7 +25,7 @@ using Microsoft.CodeAnalysis;
 /// <summary>
 /// Base class for Java -> C# source generators.
 /// </summary>
-public abstract class JavaToCsharpGeneratorBase : ISourceGenerator
+public abstract class JavaToCsharpGeneratorBase : ISourceGenerator // TODO: Use incremental generator?
 {
     private int _executed;
 
