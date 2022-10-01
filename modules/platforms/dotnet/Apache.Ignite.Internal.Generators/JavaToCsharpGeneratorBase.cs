@@ -47,7 +47,10 @@ public abstract class JavaToCsharpGeneratorBase : ISourceGenerator // TODO: Use 
             _generatedCode = ExecuteInternal(context).ToList();
         }
 
-        _generatedCode.ForEach(unit => context.AddSource(unit.Name, unit.Code));
+        foreach (var (name, code) in _generatedCode)
+        {
+            context.AddSource(name, code);
+        }
     }
 
     /// <summary>
