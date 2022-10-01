@@ -24,8 +24,11 @@ using Microsoft.CodeAnalysis;
 
 /// <summary>
 /// Base class for Java -> C# source generators.
+/// <para />
+/// <see cref="IIncrementalGenerator"/> is not used because it makes directory detection too hard.
+/// <see cref="GeneratorInitializationContext.RegisterForPostInitialization"/> is not used for the same reason.
 /// </summary>
-public abstract class JavaToCsharpGeneratorBase : ISourceGenerator // TODO: Use incremental generator?
+public abstract class JavaToCsharpGeneratorBase : ISourceGenerator
 {
     private int _executed;
 
