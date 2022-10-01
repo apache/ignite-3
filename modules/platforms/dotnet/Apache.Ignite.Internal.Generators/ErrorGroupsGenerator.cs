@@ -31,26 +31,13 @@ namespace Apache.Ignite.Internal.Generators
     /// Generates error groups source from ErrorGroups.java.
     /// </summary>
     [Generator]
-    public sealed class ErrorGroupsGenerator : IIncrementalGenerator
+    public sealed class ErrorGroupsGenerator : JavaToCsharpGeneratorBase
     {
-        public void Initialize(IncrementalGeneratorInitializationContext context)
-        {
-            context.RegisterPostInitializationOutput(ctx =>
-            {
-                // TODO: Get from context somehow.
-                var javaModulesDirectory = "/home/pavel/w/ignite-3/modules";
-
-                foreach (var (name, code) in ExecuteInternal(javaModulesDirectory))
-                {
-                    ctx.AddSource(name, code);
-                }
-            });
-        }
-
-        private static IEnumerable<(string Name, string Code)> ExecuteInternal(string javaModulesDirectory)
+        /// <inheritdoc/>
+        protected override IEnumerable<(string Name, string Code)> ExecuteInternal(GeneratorExecutionContext context)
         {
             var javaErrorGroupsFile = Path.GetFullPath(Path.Combine(
-                javaModulesDirectory,
+                context.GetJavaModulesDirectory(),
                 "core",
                 "src",
                 "main",
