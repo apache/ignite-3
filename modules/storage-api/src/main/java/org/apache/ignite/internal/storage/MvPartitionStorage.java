@@ -23,7 +23,6 @@ import java.util.function.BiConsumer;
 import java.util.function.Predicate;
 import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
@@ -87,21 +86,6 @@ public interface MvPartitionStorage extends AutoCloseable {
     long persistedIndex();
 
     /**
-     * Converts {@link Timestamp} to {@link HybridTimestamp} preserving local node time order.
-     *
-     * @deprecated Temporary method to support API compatibility.
-     */
-    @Deprecated
-    private static HybridTimestamp convertTimestamp(Timestamp timestamp) {
-        long ts = timestamp.getTimestamp();
-
-        // "timestamp" part consists of two sections:
-        // - a 48-bits number of milliseconds since the beginning of the epoch
-        // - a 16-bits counter
-        return new HybridTimestamp(ts >>> 16, (int) ts & 0xFFFF);
-    }
-
-    /**
      * Reads either the committed value from the storage or the uncommitted value belonging to given transaction.
      *
      * @param rowId Row id.
@@ -112,17 +96,6 @@ public interface MvPartitionStorage extends AutoCloseable {
      */
     @Nullable
     BinaryRow read(RowId rowId, UUID txId) throws TxIdMismatchException, StorageException;
-
-    /**
-     * Reads the value from the storage as it was at the given timestamp.
-     *
-     * @deprecated Use {@link #read(RowId, HybridTimestamp)}
-     */
-    @Nullable
-    @Deprecated
-    default ReadResult read(RowId rowId, Timestamp timestamp) throws StorageException {
-        return read(rowId, convertTimestamp(timestamp));
-    }
 
     /**
      * Reads the value from the storage as it was at the given timestamp.
@@ -172,16 +145,6 @@ public interface MvPartitionStorage extends AutoCloseable {
     @Nullable BinaryRow abortWrite(RowId rowId) throws StorageException;
 
     /**
-     * Commits a pending update of the ongoing transaction.
-     *
-     * @deprecated Use {@link #commitWrite(RowId, HybridTimestamp)}
-     */
-    @Deprecated
-    default void commitWrite(RowId rowId, Timestamp timestamp) throws StorageException {
-        commitWrite(rowId, convertTimestamp(timestamp));
-    }
-
-    /**
      * Commits a pending update of the ongoing transaction. Invoked during commit. Committed value will be versioned by the given timestamp.
      *
      * @param rowId Row id.
@@ -207,16 +170,6 @@ public interface MvPartitionStorage extends AutoCloseable {
      * @throws StorageException If failed to read data from the storage.
      */
     Cursor<BinaryRow> scan(Predicate<BinaryRow> keyFilter, UUID txId) throws TxIdMismatchException, StorageException;
-
-    /**
-     * Scans the partition and returns a cursor of values at the given timestamp.
-     *
-     * @deprecated Use {@link #scan(Predicate, HybridTimestamp)}
-     */
-    @Deprecated
-    default Cursor<BinaryRow> scan(Predicate<BinaryRow> keyFilter, Timestamp timestamp) throws StorageException {
-        return scan(keyFilter, convertTimestamp(timestamp));
-    }
 
     /**
      * Scans the partition and returns a cursor of values at the given timestamp.
