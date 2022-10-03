@@ -422,6 +422,34 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         }
 
         /// <summary>
+        /// Appends a duration.
+        /// </summary>
+        /// <param name="value">Value.</param>
+        public void AppendDuration(Duration value)
+        {
+            if (value != default)
+            {
+                PutDuration(value);
+            }
+
+            OnWrite();
+        }
+
+        /// <summary>
+        /// Appends a period.
+        /// </summary>
+        /// <param name="value">Value.</param>
+        public void AppendPeriod(Period value)
+        {
+            if (value != Period.Zero)
+            {
+                PutPeriod(value);
+            }
+
+            OnWrite();
+        }
+
+        /// <summary>
         /// Appends an object.
         /// </summary>
         /// <param name="value">Value.</param>
@@ -633,6 +661,65 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             if (nanos != 0)
             {
                 PutInt(nanos);
+            }
+        }
+
+        private void PutDuration(Duration value)
+        {
+            // Logic taken from
+            // https://github.com/nodatime/nodatime.serialization/blob/main/src/NodaTime.Serialization.Protobuf/NodaExtensions.cs#L42
+            // (Apache License).
+            long days = value.Days;
+            long nanoOfDay = value.NanosecondOfDay;
+            long secondOfDay = nanoOfDay / NodaConstants.NanosecondsPerSecond;
+            long seconds = days * NodaConstants.SecondsPerDay + secondOfDay;
+            int nanos = value.SubsecondNanoseconds;
+
+            PutLong(seconds);
+
+            if (nanos != 0)
+            {
+                PutInt(nanos);
+            }
+        }
+
+        private void PutPeriod(Period value)
+        {
+            if (value.HasTimeComponent)
+            {
+                throw new NotSupportedException("Period with time component is not supported.");
+            }
+
+            if (value.Weeks != 0)
+            {
+                throw new NotSupportedException("Period with weeks component is not supported.");
+            }
+
+            int years = value.Years;
+            int months = value.Months;
+            int days = value.Days;
+
+            if (years is >= sbyte.MinValue and <= sbyte.MaxValue &&
+                months is >= sbyte.MinValue and <= sbyte.MaxValue &&
+                days is >= sbyte.MinValue and <= sbyte.MaxValue)
+            {
+                PutByte((sbyte) years);
+                PutByte((sbyte) months);
+                PutByte((sbyte) days);
+            }
+            else if (years is >= short.MinValue and <= short.MaxValue &&
+                     months is >= short.MinValue and <= short.MaxValue &&
+                     days is >= short.MinValue and <= short.MaxValue)
+            {
+                PutShort((short) years);
+                PutShort((short) months);
+                PutShort((short) days);
+            }
+            else
+            {
+                PutInt(years);
+                PutInt(months);
+                PutInt(days);
             }
         }
 
