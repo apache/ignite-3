@@ -48,6 +48,7 @@ class ClientSqlCommon {
                 packValue(builder, cols.get(i), row, i);
             }
 
+            // TODO IGNITE-17777: Very inefficient - every BinaryTuple uses a separate buffer, then we copy it to ByteBuf.
             out.packBinaryTuple(builder);
         }
 
