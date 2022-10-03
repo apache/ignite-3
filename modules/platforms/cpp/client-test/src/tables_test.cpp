@@ -22,6 +22,7 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <chrono>
 #include <string_view>
 #include <thread>
@@ -125,4 +126,25 @@ TEST_F(TablesTest, TablesGetTableCallbacks) {
     operation0->get_future().get();
     operation1->get_future().get();
     operation2->get_future().get();
+}
+
+TEST_F(TablesTest, TablesGetTablesPromises) {
+    IgniteClientConfiguration cfg{NODE_ADDRS};
+    cfg.setLogger(getLogger());
+
+    auto client = IgniteClient::start(cfg, std::chrono::seconds(5));
+
+    auto tablesApi = client.getTables();
+
+    auto tablesPromise = std::make_shared<std::promise<std::vector<Table>>>();
+    tablesApi.getTablesAsync(ignite_result<std::vector<Table>>::promise_setter(tablesPromise));
+
+    auto tables = tablesPromise->get_future().get();
+    ASSERT_GT(tables.size(), 0);
+
+    auto it = std::find_if(tables.begin(), tables.end(), [] (auto& table) {
+        return table.getName() == "PUB.TBL1";
+    });
+
+    ASSERT_NE(it, tables.end());
 }
