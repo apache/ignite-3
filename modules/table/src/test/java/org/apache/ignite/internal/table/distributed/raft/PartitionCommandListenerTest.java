@@ -83,6 +83,9 @@ public class PartitionCommandListenerTest {
             new Column[]{new Column("value", NativeTypes.INT32, false)}
     );
 
+    /** Hybrid clock. */
+    private static final HybridClock CLOCK = new HybridClock();
+
     /** Table command listener. */
     private PartitionListener commandListener;
 
@@ -94,8 +97,6 @@ public class PartitionCommandListenerTest {
 
     /** Partition storage. */
     private MvPartitionStorage mvPartitionStorage = new TestConcurrentHashMapMvPartitionStorage(PARTITION_ID);
-
-    private HybridClock clock = new HybridClock();
 
     /**
      * Initializes a table listener before tests.
@@ -276,7 +277,7 @@ public class PartitionCommandListenerTest {
             when(clo.command()).thenReturn(new UpdateAllCommand(rows, txId));
         }));
 
-        txs.forEach(tuple -> mvPartitionStorage.commitWrite(primaryIndex.get(tuple.getKey().keySlice()), clock.now()));
+        txs.forEach(tuple -> mvPartitionStorage.commitWrite(primaryIndex.get(tuple.getKey().keySlice()), CLOCK.now()));
     }
 
     /**
@@ -311,7 +312,7 @@ public class PartitionCommandListenerTest {
             when(clo.command()).thenReturn(new UpdateAllCommand(rows, txId));
         }));
 
-        txs.forEach(tuple -> mvPartitionStorage.commitWrite(primaryIndex.get(tuple.getKey().keySlice()), clock.now()));
+        txs.forEach(tuple -> mvPartitionStorage.commitWrite(primaryIndex.get(tuple.getKey().keySlice()), CLOCK.now()));
     }
 
     /**
@@ -345,7 +346,7 @@ public class PartitionCommandListenerTest {
         }));
 
         txs.forEach(
-                tuple -> mvPartitionStorage.commitWrite(primaryIndex.remove(tuple.getKey().keySlice()), clock.now()));
+                tuple -> mvPartitionStorage.commitWrite(primaryIndex.remove(tuple.getKey().keySlice()), CLOCK.now()));
     }
 
     /**
@@ -376,7 +377,7 @@ public class PartitionCommandListenerTest {
             }).when(clo).result(any());
         }));
 
-        txs.forEach(tuple -> mvPartitionStorage.commitWrite(primaryIndex.get(tuple.getKey().keySlice()), clock.now()));
+        txs.forEach(tuple -> mvPartitionStorage.commitWrite(primaryIndex.get(tuple.getKey().keySlice()), CLOCK.now()));
     }
 
     /**
@@ -406,7 +407,7 @@ public class PartitionCommandListenerTest {
         }));
 
         txs.forEach(
-                tuple -> mvPartitionStorage.commitWrite(primaryIndex.remove(tuple.getKey().keySlice()), clock.now()));
+                tuple -> mvPartitionStorage.commitWrite(primaryIndex.remove(tuple.getKey().keySlice()), CLOCK.now()));
     }
 
     /**
@@ -465,7 +466,7 @@ public class PartitionCommandListenerTest {
             }).when(clo).result(any());
         }));
 
-        txs.forEach(tuple -> mvPartitionStorage.commitWrite(primaryIndex.get(tuple.getKey().keySlice()), clock.now()));
+        txs.forEach(tuple -> mvPartitionStorage.commitWrite(primaryIndex.get(tuple.getKey().keySlice()), CLOCK.now()));
     }
 
     /**

@@ -248,7 +248,6 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
             log.info("Replica manager has been started, node=[" + node + ']');
 
-            // TODO: sanpwc Consider messaging and topology service aggregation.
             ReplicaService replicaSvc = new ReplicaService(
                     cluster.get(i).messagingService(),
                     clock
@@ -299,7 +298,6 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 NetworkAddress::toString,
                 addressToNode,
                 txMgr,
-                // TODO: sanpwc is MvTableStorage mock really ok? - remove after all tests will become green.
                 Mockito.mock(MvTableStorage.class),
                 Mockito.mock(TxStateTableStorage.class),
                 startClient() ? clientReplicaSvc : replicaServices.get(localNode),
@@ -314,7 +312,6 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 NetworkAddress::toString,
                 addressToNode,
                 txMgr,
-                // TODO: sanpwc is MvTableStorage mock really ok? - remove after all tests will become green.
                 Mockito.mock(MvTableStorage.class),
                 Mockito.mock(TxStateTableStorage.class),
                 startClient() ? clientReplicaSvc : replicaServices.get(localNode),
@@ -360,7 +357,6 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
                 int partId = p;
 
-                // TODO: sanpwc add todo for index integration ticket.
                 ConcurrentHashMap<ByteBuffer, RowId> primaryIndex = new ConcurrentHashMap<>();
 
                 CompletableFuture<Void> partitionReadyFuture = raftServers.get(node).prepareRaftGroup(

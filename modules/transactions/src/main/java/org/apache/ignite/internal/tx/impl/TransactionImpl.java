@@ -28,6 +28,8 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
@@ -43,6 +45,8 @@ import org.jetbrains.annotations.Nullable;
  * <p>Delegates state management to tx manager.
  */
 public class TransactionImpl implements InternalTransaction {
+    private static final IgniteLogger LOG = Loggers.forClass(InternalTransaction.class);
+
     /** The id. */
     private final UUID id;
 
@@ -133,7 +137,7 @@ public class TransactionImpl implements InternalTransaction {
      * @return The future.
      */
     private CompletableFuture<Void> finish(boolean commit) {
-        // TODO: add proper exception handling.
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-17688 Add proper exception handling.
         return CompletableFuture
                 .allOf(enlistedResults.toArray(new CompletableFuture[0]))
                 .thenCompose(
@@ -141,7 +145,6 @@ public class TransactionImpl implements InternalTransaction {
                             if (!enlisted.isEmpty()) {
                                 Map<ClusterNode, List<IgniteBiTuple<String, Long>>> groups = new LinkedHashMap<>();
 
-                                // TODO: sanpwc better conversion required.
                                 enlisted.forEach((groupId, groupMeta) -> {
                                     ClusterNode recipientNode = groupMeta.get1();
 
@@ -156,9 +159,15 @@ public class TransactionImpl implements InternalTransaction {
                                     }
                                 });
 
+                                ClusterNode recipientNode = enlisted.entrySet().iterator().next().getValue().get1();
+                                Long term = enlisted.entrySet().iterator().next().getValue().get2();
+
+                                LOG.debug("Finish [recipientNode={}, term={} commit={}, txId={}, groups={}",
+                                        recipientNode, term, commit, id, groups);
+
                                 return txManager.finish(
-                                        enlisted.entrySet().iterator().next().getValue().get1(),
-                                        enlisted.entrySet().iterator().next().getValue().get2(),
+                                        recipientNode,
+                                        term,
                                         commit,
                                         groups,
                                         id
@@ -168,7 +177,6 @@ public class TransactionImpl implements InternalTransaction {
                             }
                         }
                 );
-        // TODO: sanpwc add debug log.
     }
 
     /** {@inheritDoc} */
