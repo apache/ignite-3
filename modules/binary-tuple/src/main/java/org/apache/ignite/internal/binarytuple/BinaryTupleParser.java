@@ -21,6 +21,7 @@ import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -449,6 +450,28 @@ public class BinaryTupleParser {
             throw new BinaryTupleFormatException("Invalid length for a tuple element");
         }
         return LocalDateTime.of(getDate(begin), getTime(begin + 3, len - 3));
+    }
+
+    /**
+     * Reads value of specified element.
+     *
+     * @param begin Start offset of the element.
+     * @param end End offset of the element.
+     * @return Element value.
+     */
+    public final Duration durationValue(int begin, int end) {
+        int len = end - begin;
+        if (len != 8 && len != 12) {
+            if (len == 0) {
+                return BinaryTupleCommon.DEFAULT_DURATION;
+            }
+            throw new BinaryTupleFormatException("Invalid length for a tuple element");
+        }
+
+        long seconds = buffer.getLong(begin);
+        int nanos = len == 8 ? 0 : buffer.getInt(begin + 8);
+
+        return Duration.ofSeconds(seconds, nanos);
     }
 
     /**
