@@ -52,6 +52,14 @@ public final class IgniteNameUtils {
         return parsedName;
     }
 
+    /**
+     * Creates a fully qualified name in canonical form, that is,
+     * enclosing each part of the identifier chain in double quotes.
+     *
+     * @param schemaName Name of the schema.
+     * @param objectName Name of the object.
+     * @return Returns fully qualified name in canonical form.
+     */
     public static String canonicalName(String schemaName, String objectName) {
         return quote(schemaName) + '.' + quote(objectName);
     }
