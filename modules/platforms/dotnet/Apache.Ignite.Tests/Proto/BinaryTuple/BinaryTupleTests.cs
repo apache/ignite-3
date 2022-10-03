@@ -526,6 +526,28 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
             Assert.AreEqual(NodaConstants.JulianEpoch, reader.GetTimestamp(5));
         }
 
+        [Test]
+        public void TestDuration()
+        {
+            var val = Duration.FromSeconds(Instant.FromDateTimeUtc(DateTime.UtcNow).ToUnixTimeSeconds()) +
+                      Duration.FromNanoseconds(long.MaxValue);
+
+            var reader = BuildAndRead(
+                (ref BinaryTupleBuilder b) =>
+                {
+                    b.AppendDuration(default);
+                    b.AppendDuration(val);
+                    b.AppendDuration(Duration.MaxValue);
+                    b.AppendDuration(Duration.MinValue);
+                },
+                4);
+
+            Assert.AreEqual(Duration.Zero, reader.GetDuration(0));
+            Assert.AreEqual(val, reader.GetDuration(1));
+            Assert.AreEqual(Duration.MaxValue, reader.GetDuration(2));
+            Assert.AreEqual(Duration.MinValue, reader.GetDuration(3));
+        }
+
         private static BinaryTupleReader BuildAndRead(BinaryTupleBuilderAction build, int numElements = 1)
         {
             var bytes = Build(build, numElements);

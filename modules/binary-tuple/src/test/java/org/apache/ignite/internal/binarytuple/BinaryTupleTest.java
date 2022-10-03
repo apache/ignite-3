@@ -669,6 +669,7 @@ public class BinaryTupleTest {
     public void periodTest() {
         periodTest(Period.ZERO);
         periodTest(Period.of(1, 2, 3));
+        periodTest(Period.of(-1, 2, -3));
         periodTest(Period.of(Integer.MAX_VALUE, Integer.MAX_VALUE, Integer.MAX_VALUE));
         periodTest(Period.of(Integer.MIN_VALUE, Integer.MIN_VALUE, Integer.MIN_VALUE));
         periodTest(Period.of(Short.MAX_VALUE, Short.MAX_VALUE, Short.MAX_VALUE));
