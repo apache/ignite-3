@@ -47,7 +47,7 @@ public:
      * @param name Table name.
      * @param callback Callback.
      * @return TableImpl with corresponding name.
-     * @throw ignite_error In case of error.
+     * @throw ignite_error In case of error while trying to send a request.
      */
     void getTableAsync(const std::string &name, ignite_callback<std::optional<Table>> callback);
 

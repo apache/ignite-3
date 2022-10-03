@@ -42,4 +42,26 @@ public:
     virtual std::unique_ptr<T> build() = 0;
 };
 
+/**
+ * Basic factory class.
+ *
+ * @tparam TB Base type.
+ * @tparam TC Concreate type.
+ */
+template <typename TB, typename TC>
+class basic_factory : public factory<TB> {
+public:
+    /**
+     * Destructor.
+     */
+    virtual ~basic_factory() = default;
+
+    /**
+     * Build instance.
+     *
+     * @return New instance of type @c T.
+     */
+    [[nodiscard]] std::unique_ptr<TB> build() override { return std::make_unique<TC>(); }
+};
+
 } // namespace ignite
