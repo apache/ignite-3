@@ -37,7 +37,7 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapMvPartitionStorage;
+import org.apache.ignite.internal.storage.chm.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
@@ -80,7 +80,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      * @param replicaSvc Replica service.
      */
     public DummyInternalTableImpl(ReplicaService replicaSvc) {
-        this(replicaSvc, new TestConcurrentHashMapMvPartitionStorage(0));
+        this(replicaSvc, new TestMvPartitionStorage(0));
     }
 
     /**
@@ -92,7 +92,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      *                        by itself.
      */
     public DummyInternalTableImpl(ReplicaService replicaSvc, TxManager txManager, boolean crossTableUsage) {
-        this(replicaSvc, new TestConcurrentHashMapMvPartitionStorage(0), txManager, crossTableUsage);
+        this(replicaSvc, new TestMvPartitionStorage(0), txManager, crossTableUsage);
     }
 
     /**
