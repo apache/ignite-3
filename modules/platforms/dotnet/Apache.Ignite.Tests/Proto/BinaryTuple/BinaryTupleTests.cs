@@ -571,6 +571,21 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
             Assert.AreEqual(val3, reader.GetPeriod(3));
         }
 
+        [Test]
+        public void TestPeriodWithWeeksOrTimeComponentIsNotSupported()
+        {
+            AssertNotSupported(Period.FromWeeks(1));
+            AssertNotSupported(Period.FromHours(1));
+            AssertNotSupported(Period.FromMinutes(1));
+            AssertNotSupported(Period.FromSeconds(1));
+            AssertNotSupported(Period.FromMilliseconds(1));
+            AssertNotSupported(Period.FromTicks(1));
+            AssertNotSupported(Period.FromNanoseconds(1));
+
+            static void AssertNotSupported(Period p) =>
+                Assert.Throws<NotSupportedException>(() => BuildAndRead((ref BinaryTupleBuilder b) => b.AppendPeriod(p)));
+        }
+
         private static BinaryTupleReader BuildAndRead(BinaryTupleBuilderAction build, int numElements = 1)
         {
             var bytes = Build(build, numElements);
