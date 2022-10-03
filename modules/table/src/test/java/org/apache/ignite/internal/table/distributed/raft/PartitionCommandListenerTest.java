@@ -49,7 +49,7 @@ import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapMvPartitionStorage;
+import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
 import org.apache.ignite.internal.tx.Timestamp;
@@ -96,7 +96,7 @@ public class PartitionCommandListenerTest {
     private ConcurrentHashMap<ByteBuffer, RowId> primaryIndex = new ConcurrentHashMap<>();
 
     /** Partition storage. */
-    private MvPartitionStorage mvPartitionStorage = new TestConcurrentHashMapMvPartitionStorage(PARTITION_ID);
+    private MvPartitionStorage mvPartitionStorage = new TestMvPartitionStorage(PARTITION_ID);
 
     /**
      * Initializes a table listener before tests.

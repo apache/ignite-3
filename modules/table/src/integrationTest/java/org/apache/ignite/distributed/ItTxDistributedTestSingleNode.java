@@ -50,7 +50,6 @@ import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapMvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.table.TableImpl;
@@ -354,7 +353,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                     .collect(Collectors.toList());
 
             for (ClusterNode node : partNodes) {
-                var testMpPartStorage = new TestConcurrentHashMapMvPartitionStorage(0);
+                var testMpPartStorage = new TestMvPartitionStorage(0);
 
                 int partId = p;
 
