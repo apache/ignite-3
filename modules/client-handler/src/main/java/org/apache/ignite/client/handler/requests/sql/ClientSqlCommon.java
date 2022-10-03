@@ -129,7 +129,7 @@ class ClientSqlCommon {
                 break;
 
             case PERIOD:
-                // TODO: Not supported by BinaryTuple - why?
+                // TODO IGNITE-17801
                 Period period = row.value(idx);
                 out.packInt(period.getYears());
                 out.packInt(period.getMonths());
@@ -137,6 +137,7 @@ class ClientSqlCommon {
                 break;
 
             case DURATION:
+                // TODO IGNITE-17801
                 Duration duration = row.value(idx);
                 out.packLong(duration.getSeconds());
                 out.packInt(duration.getNano());
