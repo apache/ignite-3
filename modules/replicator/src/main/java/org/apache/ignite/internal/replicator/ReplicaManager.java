@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.replicator;
 
 import java.util.Collection;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -41,7 +42,6 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.NetworkMessageHandler;
-import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentHashSet;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -74,8 +74,8 @@ public class ReplicaManager implements IgniteComponent {
     /** A hybrid logical clock. */
     private final HybridClock clock;
 
-    // TODO: sanpwc tmp, remove
-    private final ConcurrentHashSet<Class<?>> registeredMessageGroups;
+    /** Set of message groups to handler as replica requests. */
+    Set<Class<?>> messageGroupsToHandle;
 
     /**
      * Constructor for replica service.
@@ -83,9 +83,14 @@ public class ReplicaManager implements IgniteComponent {
      * @param clusterNetSvc Cluster network service.
      * @param clock A hybrid logical clock.
      */
-    public ReplicaManager(ClusterService clusterNetSvc, HybridClock clock) {
+    public ReplicaManager(
+            ClusterService clusterNetSvc,
+            HybridClock clock,
+            Set<Class<?>> messageGroupsToHandle
+    ) {
         this.clusterNetSvc = clusterNetSvc;
         this.clock = clock;
+        this.messageGroupsToHandle = messageGroupsToHandle;
         this.handler = (message, senderAddr, correlationId) -> {
             if (!busyLock.enterBusy()) {
                 throw new IgniteException(new NodeStoppingException());
@@ -129,7 +134,6 @@ public class ReplicaManager implements IgniteComponent {
                 busyLock.leaveBusy();
             }
         };
-        this.registeredMessageGroups = new ConcurrentHashSet<>();
     }
 
     /**
@@ -168,13 +172,6 @@ public class ReplicaManager implements IgniteComponent {
         }
 
         try {
-            // TODO: sanpwc tmp, remove
-            listener.messageGroups().forEach(mg -> {
-                if (registeredMessageGroups.add(mg)) {
-                    clusterNetSvc.messagingService().addMessageHandler(mg, handler);
-                }
-            });
-
             return startReplicaInternal(replicaGrpId, listener);
         } finally {
             busyLock.leaveBusy();
@@ -232,8 +229,8 @@ public class ReplicaManager implements IgniteComponent {
     /** {@inheritDoc} */
     @Override
     public void start() {
-        // No-op.
         clusterNetSvc.messagingService().addMessageHandler(ReplicaMessageGroup.class, handler);
+        messageGroupsToHandle.forEach(mg -> clusterNetSvc.messagingService().addMessageHandler(mg, handler));
     }
 
     /** {@inheritDoc} */

@@ -54,6 +54,7 @@ import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapMvPartitionSt
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TxAbstractTest;
+import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
@@ -63,6 +64,7 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestConcurrentHashMapTxStateStorage;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -234,7 +236,11 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
             raftServers.put(node, raftSrv);
 
-            ReplicaManager replicaMgr = new ReplicaManager(cluster.get(i), clock);
+            ReplicaManager replicaMgr = new ReplicaManager(
+                    cluster.get(i),
+                    clock,
+                    Set.of(TableMessageGroup.class, TxMessageGroup.class)
+            );
 
             replicaMgr.start();
 

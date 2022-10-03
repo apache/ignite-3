@@ -80,12 +80,14 @@ import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDa
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
+import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.ReverseIterator;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -423,7 +425,11 @@ public class ItRebalanceDistributedTest {
 
             raftManager = new Loza(clusterService, dir, new HybridClock());
 
-            replicaManager = new ReplicaManager(clusterService, new HybridClock());
+            replicaManager = new ReplicaManager(
+                    clusterService,
+                    new HybridClock(),
+                    Set.of(TableMessageGroup.class, TxMessageGroup.class)
+            );
 
             ReplicaService replicaSvc = new ReplicaService(
                     clusterService.messagingService(),
@@ -520,8 +526,21 @@ public class ItRebalanceDistributedTest {
          * Starts the created components.
          */
         void start() throws Exception {
-            nodeComponents = List.of(vaultManager, nodeCfgMgr, clusterService, raftManager, cmgManager, metaStorageManager,
-                    clusterCfgMgr, replicaManager, txManager, baselineMgr, dataStorageMgr, schemaManager, tableManager);
+            nodeComponents = List.of(
+                    vaultManager,
+                    nodeCfgMgr,
+                    clusterService,
+                    raftManager,
+                    cmgManager,
+                    metaStorageManager,
+                    clusterCfgMgr,
+                    replicaManager,
+                    txManager,
+                    baselineMgr,
+                    dataStorageMgr,
+                    schemaManager,
+                    tableManager
+            );
 
             nodeComponents.forEach(IgniteComponent::start);
 

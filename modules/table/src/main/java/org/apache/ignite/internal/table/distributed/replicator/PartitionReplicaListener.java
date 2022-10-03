@@ -22,7 +22,6 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -46,7 +45,6 @@ import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
 import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
@@ -64,7 +62,6 @@ import org.apache.ignite.internal.tx.LockMode;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.message.TxCleanupReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
-import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.ErrorGroups.Replicator;
 import org.apache.ignite.lang.IgniteBiTuple;
@@ -1064,11 +1061,5 @@ public class PartitionReplicaListener implements ReplicaListener {
         } else {
             return CompletableFuture.completedFuture(null);
         }
-    }
-
-    // TODO: sanpwc, tmp remove.
-    @Override
-    public List<Class<?>> messageGroups() {
-        return Arrays.asList(TableMessageGroup.class, TxMessageGroup.class);
     }
 }

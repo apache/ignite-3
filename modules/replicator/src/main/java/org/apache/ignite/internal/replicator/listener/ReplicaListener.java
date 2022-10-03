@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.replicator.listener;
 
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 
@@ -32,7 +31,4 @@ public interface ReplicaListener {
      * @return Listener response.
      */
     public CompletableFuture<Object> invoke(ReplicaRequest request);
-
-    // TODO: sanpwc tmp, remove
-    public List<Class<?>> messageGroups();
 }
