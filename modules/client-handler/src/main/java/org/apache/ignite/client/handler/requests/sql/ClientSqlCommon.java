@@ -125,8 +125,7 @@ class ClientSqlCommon {
                 break;
 
             case BYTE_ARRAY:
-                byte[] bytes = row.value(idx);
-                out.appendBytes(bytes);
+                out.appendBytes(row.value(idx));
                 break;
 
             case PERIOD:
@@ -144,12 +143,11 @@ class ClientSqlCommon {
                 break;
 
             case NUMBER:
-                BigInteger number = row.value(idx);
-                out.packBigInteger(number);
+                out.appendNumber(row.value(idx));
                 break;
 
             default:
-                throw new UnsupportedOperationException("Unsupported column type: " + colType);
+                throw new UnsupportedOperationException("Unsupported column type: " + col.type());
         }
     }
 }
