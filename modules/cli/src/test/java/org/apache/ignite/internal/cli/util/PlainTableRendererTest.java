@@ -29,7 +29,7 @@ class PlainTableRendererTest {
         Object[] row2 = new Object[]{2, "Jessica", "any address"};
         Object[][] content = new Object[][]{row1, row2};
         String render = PlainTableRenderer.render(header, content);
-        String[] renderedRows = render.split("\n");
+        String[] renderedRows = render.split(System.lineSeparator());
         Assertions.assertEquals(3, renderedRows.length);
         for (String renderedRow : renderedRows) {
             Assertions.assertEquals(3, renderedRow.split("\t").length);

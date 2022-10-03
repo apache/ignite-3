@@ -26,9 +26,9 @@ import java.util.stream.Stream;
  */
 public class PlainTableRenderer {
     /** Column delimiter for plain rendering. */
-    private static final String columnDelimiter = "\t";
+    private static final String COLUMN_DELIMITER = "\t";
     /** Row delimiter for plain rendering. */
-    private static final String rowDelimiter = "\n";
+    private static final String LINE_SEPARATOR = System.lineSeparator();
 
     /**
      * Render {@code String[]} and {@code Object[][]} as a table using plain formatting.
@@ -38,7 +38,7 @@ public class PlainTableRenderer {
      * @return Plain interpretation.
      */
     public static String render(String[] hdr, Object[][] content) {
-        StringJoiner sj = new StringJoiner(rowDelimiter);
+        StringJoiner sj = new StringJoiner(LINE_SEPARATOR);
         sj.add(tableRowToString(hdr));
         for (Object[] row : content) {
             sj.add(tableRowToString(row));
@@ -53,10 +53,6 @@ public class PlainTableRenderer {
      * @return Plain interpretation of row.
      */
     private static String tableRowToString(Object[] row) {
-        return Stream.of(row).map(PlainTableRenderer::renderValue).collect(Collectors.joining(columnDelimiter));
-    }
-
-    private static String renderValue(Object val) {
-        return val != null ? val.toString() : "null";
+        return Stream.of(row).map(String::valueOf).collect(Collectors.joining(COLUMN_DELIMITER));
     }
 }

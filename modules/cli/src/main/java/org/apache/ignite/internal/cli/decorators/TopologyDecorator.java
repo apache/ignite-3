@@ -28,7 +28,7 @@ import org.apache.ignite.rest.client.model.ClusterNode;
  */
 public class TopologyDecorator implements Decorator<List<ClusterNode>, TerminalOutput> {
     /** List of headers to decorate topology. */
-    protected static final String[] headers = {"name", "host", "port", "consistent id", "id"};
+    protected static final String[] HEADERS = {"name", "host", "port", "consistent id", "id"};
 
     /**
      * Transform list of {@link ClusterNode} to {@link TerminalOutput}.
@@ -38,7 +38,7 @@ public class TopologyDecorator implements Decorator<List<ClusterNode>, TerminalO
      */
     @Override
     public TerminalOutput decorate(List<ClusterNode> topology) {
-        return () -> FlipTable.of(headers, topologyToContent(topology));
+        return () -> FlipTable.of(HEADERS, topologyToContent(topology));
     }
 
     protected String[][]  topologyToContent(List<ClusterNode> topology) {
