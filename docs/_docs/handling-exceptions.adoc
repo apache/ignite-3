@@ -68,7 +68,7 @@ When the exception happens, Apache Ignite 3 provides a UUID of the specific exce
 |`IGN-SQL-5`|Table is missing primary key.
 |`IGN-SQL-6`|Multiple primary keys found in a table.
 |`IGN-SQL-7`|Failed to find schema.
-|`IGN-SQL-8`|Specified storage engine is not supperted.
+|`IGN-SQL-8`|Specified storage engine is not supported.
 |`IGN-SQL-9`|Cursor is already closed when another operation starts.
 |`IGN-SQL-10`|Some keys could not be inserted because they are duplicates.
 |`IGN-SQL-11`|Cannot delete a column that belongs to the primary key.
