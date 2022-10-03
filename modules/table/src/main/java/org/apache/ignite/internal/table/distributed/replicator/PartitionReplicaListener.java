@@ -416,31 +416,24 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Listener response.
      */
     private CompletableFuture<Object> processMultiEntryAction(ReadWriteMultiRowReplicaRequest request) {
-        Collection<ByteBuffer> keyRows = request.binaryRows().stream()
-                .map(BinaryRow::keySlice)
-                .collect(Collectors.toList());
-
-        Map<ByteBuffer, BinaryRow> keyToRows = request.binaryRows().stream()
-                .collect(Collectors.toMap(BinaryRow::keySlice, br -> br));
-
         UUID indexId = indexIdOrDefault(indexPkId/*request.indexToUse()*/);
 
         UUID txId = request.transactionId();
 
         switch (request.requestType()) {
             case RW_GET_ALL: {
-                CompletableFuture<RowId>[] getLockFuts = new CompletableFuture[keyRows.size()];
+                CompletableFuture<RowId>[] getLockFuts = new CompletableFuture[request.binaryRows().size()];
 
                 int i = 0;
 
-                for (ByteBuffer searchKey : keyRows) {
-                    getLockFuts[i++] = takeLocksForGet(searchKey, indexId, txId);
+                for (BinaryRow row : request.binaryRows()) {
+                    getLockFuts[i++] = takeLocksForGet(row.keySlice(), indexId, txId);
                 }
 
                 return allOf(getLockFuts).thenApply(ignore -> {
-                    ArrayList<BinaryRow> result = new ArrayList<>(keyRows.size());
+                    ArrayList<BinaryRow> result = new ArrayList<>(request.binaryRows().size());
 
-                    for (int futNum = 0; futNum < keyRows.size(); futNum++) {
+                    for (int futNum = 0; futNum < request.binaryRows().size(); futNum++) {
                         RowId lockedRowId = getLockFuts[futNum].join();
 
                         result.add(lockedRowId != null ? mvDataStorage.read(lockedRowId, txId) : null);
@@ -450,12 +443,12 @@ public class PartitionReplicaListener implements ReplicaListener {
                 });
             }
             case RW_DELETE_ALL: {
-                CompletableFuture<RowId>[] deleteLockFuts = new CompletableFuture[keyRows.size()];
+                CompletableFuture<RowId>[] deleteLockFuts = new CompletableFuture[request.binaryRows().size()];
 
                 int i = 0;
 
-                for (ByteBuffer searchKey : keyRows) {
-                    deleteLockFuts[i++] = takeLocksForDelete(searchKey, indexId, txId);
+                for (BinaryRow row : request.binaryRows()) {
+                    deleteLockFuts[i++] = takeLocksForDelete(row.keySlice(), indexId, txId);
                 }
 
                 return allOf(deleteLockFuts).thenCompose(ignore -> {
@@ -464,13 +457,13 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     int futNum = 0;
 
-                    for (ByteBuffer searchKey : keyRows) {
+                    for (BinaryRow row : request.binaryRows()) {
                         RowId lockedRowId = deleteLockFuts[futNum++].join();
 
                         if (lockedRowId != null) {
                             rowIdsToDelete.add(lockedRowId);
                         } else {
-                            result.add(keyToRows.get(searchKey));
+                            result.add(row);
                         }
                     }
 
@@ -481,12 +474,12 @@ public class PartitionReplicaListener implements ReplicaListener {
                 });
             }
             case RW_DELETE_EXACT_ALL: {
-                CompletableFuture<RowId>[] deleteExactLockFuts = new CompletableFuture[keyRows.size()];
+                CompletableFuture<RowId>[] deleteExactLockFuts = new CompletableFuture[request.binaryRows().size()];
 
                 int i = 0;
 
-                for (ByteBuffer searchKey : keyRows) {
-                    deleteExactLockFuts[i++] = takeLocksForDeleteExact(searchKey, keyToRows.get(searchKey), indexId, txId);
+                for (BinaryRow row : request.binaryRows()) {
+                    deleteExactLockFuts[i++] = takeLocksForDeleteExact(row.keySlice(), row, indexId, txId);
                 }
 
                 return allOf(deleteExactLockFuts).thenCompose(ignore -> {
@@ -495,13 +488,13 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     int futNum = 0;
 
-                    for (ByteBuffer searchKey : keyRows) {
+                    for (BinaryRow row : request.binaryRows()) {
                         RowId lockedRowId = deleteExactLockFuts[futNum++].join();
 
                         if (lockedRowId != null) {
                             rowIdsToDelete.add(lockedRowId);
                         } else {
-                            result.add(keyToRows.get(searchKey));
+                            result.add(row);
                         }
                     }
 
@@ -512,12 +505,12 @@ public class PartitionReplicaListener implements ReplicaListener {
                 });
             }
             case RW_INSERT_ALL: {
-                CompletableFuture<RowId>[] insertLockFuts = new CompletableFuture[keyRows.size()];
+                CompletableFuture<RowId>[] insertLockFuts = new CompletableFuture[request.binaryRows().size()];
 
                 int i = 0;
 
-                for (ByteBuffer searchKey : keyRows) {
-                    insertLockFuts[i++] = takeLocksForInsert(searchKey, indexId, txId);
+                for (BinaryRow row : request.binaryRows()) {
+                    insertLockFuts[i++] = takeLocksForInsert(row.keySlice(), indexId, txId);
                 }
 
                 return allOf(insertLockFuts).thenCompose(ignore -> {
@@ -526,13 +519,17 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     int futNum = 0;
 
-                    for (ByteBuffer searchKey : keyRows) {
+                    for (BinaryRow row : request.binaryRows()) {
                         RowId lockedRow = insertLockFuts[futNum++].join();
 
                         if (lockedRow != null) {
-                            result.add(keyToRows.get(searchKey));
+                            result.add(row);
                         } else {
-                            rowsToInsert.put(new RowId(partId), keyToRows.get(searchKey));
+                            if (rowsToInsert.values().stream().noneMatch(row0 -> row0.keySlice().equals(row.keySlice()))) {
+                                rowsToInsert.put(new RowId(partId), row);
+                            } else {
+                                result.add(row);
+                            }
                         }
                     }
 
@@ -543,12 +540,12 @@ public class PartitionReplicaListener implements ReplicaListener {
                 });
             }
             case RW_UPSERT_ALL: {
-                CompletableFuture<RowId>[] upsertLockFuts = new CompletableFuture[keyRows.size()];
+                CompletableFuture<RowId>[] upsertLockFuts = new CompletableFuture[request.binaryRows().size()];
 
                 int i = 0;
 
-                for (ByteBuffer searchKey : keyRows) {
-                    upsertLockFuts[i++] = takeLocksForUpsert(searchKey, indexId, txId);
+                for (BinaryRow row : request.binaryRows()) {
+                    upsertLockFuts[i++] = takeLocksForUpsert(row.keySlice(), indexId, txId);
                 }
 
                 return allOf(upsertLockFuts).thenCompose(ignore -> {
@@ -556,13 +553,13 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     int futNum = 0;
 
-                    for (ByteBuffer searchKey : keyRows) {
+                    for (BinaryRow row : request.binaryRows()) {
                         RowId lockedRow = upsertLockFuts[futNum++].join();
 
                         if (lockedRow != null) {
-                            rowsToUpdate.put(lockedRow, keyToRows.get(searchKey));
+                            rowsToUpdate.put(lockedRow, row);
                         } else {
-                            rowsToUpdate.put(new RowId(partId), keyToRows.get(searchKey));
+                            rowsToUpdate.put(new RowId(partId), row);
                         }
                     }
 
