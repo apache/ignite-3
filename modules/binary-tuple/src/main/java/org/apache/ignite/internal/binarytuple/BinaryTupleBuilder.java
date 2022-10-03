@@ -569,15 +569,15 @@ public class BinaryTupleBuilder {
             int months = value.getMonths();
             int days = value.getDays();
 
-            if (Byte.MIN_VALUE <= years && years <= Byte.MAX_VALUE &&
-                    Byte.MIN_VALUE <= months && months <= Byte.MAX_VALUE &&
-                    Byte.MIN_VALUE <= days && days <= Byte.MAX_VALUE) {
+            if (Byte.MIN_VALUE <= years && years <= Byte.MAX_VALUE
+                    && Byte.MIN_VALUE <= months && months <= Byte.MAX_VALUE
+                    && Byte.MIN_VALUE <= days && days <= Byte.MAX_VALUE) {
                 putByte((byte) years);
                 putByte((byte) months);
                 putByte((byte) days);
-            } else if (Short.MIN_VALUE <= years && years <= Short.MAX_VALUE &&
-                    Short.MIN_VALUE <= months && months <= Short.MAX_VALUE &&
-                    Short.MIN_VALUE <= days && days <= Short.MAX_VALUE) {
+            } else if (Short.MIN_VALUE <= years && years <= Short.MAX_VALUE
+                    && Short.MIN_VALUE <= months && months <= Short.MAX_VALUE
+                    && Short.MIN_VALUE <= days && days <= Short.MAX_VALUE) {
                 putShort((short) years);
                 putShort((short) months);
                 putShort((short) days);
