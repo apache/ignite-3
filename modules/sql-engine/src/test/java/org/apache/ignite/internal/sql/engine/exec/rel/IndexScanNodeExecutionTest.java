@@ -64,6 +64,8 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
         // Empty index.
         validateSortedIndexScan(
                 EMPTY,
+                null,
+                null,
                 EMPTY
         );
 
@@ -82,6 +84,8 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
         // Validate sort order.
         validateSortedIndexScan(
                 tableData,
+                null,
+                null,
                 result
         );
 
@@ -172,10 +176,6 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
                 ), ClassCastException.class);
     }
 
-    private void validateSortedIndexScan(Object[][] tableData, Object[][] expRes) {
-        validateSortedIndexScan(tableData, null, null, expRes);
-    }
-
     private void validateHashIndexScan(Object[][] tableData, @Nullable Supplier<Object[]> key, Object[][] expRes) {
         SchemaDescriptor schemaDescriptor = new SchemaDescriptor(
                 1,
@@ -195,13 +195,12 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
 
             Mockito.doReturn(indexDescriptor).when(hashIndexMock).descriptor();
             Mockito.doAnswer(invocation -> {
-                                if (key != null) {
-                                    validateBound(indexDescriptor, schemaDescriptor, invocation.getArgument(2));
-                                }
+                        if (key != null) {
+                            validateBound(indexDescriptor, schemaDescriptor, invocation.getArgument(2));
+                        }
 
-                                return dummyPublisher(partitionData(tableData, schemaDescriptor, invocation.getArgument(0)));
-                            }
-                    )
+                        return dummyPublisher(partitionData(tableData, schemaDescriptor, invocation.getArgument(0)));
+                    })
                     .when(hashIndexMock)
                     .scan(Mockito.anyInt(), Mockito.any(), Mockito.any(), Mockito.any());
 
@@ -241,16 +240,15 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
 
             Mockito.doReturn(indexDescriptor).when(sortedIndexMock).descriptor();
             Mockito.doAnswer(invocation -> {
-                                if (lowerBound != null) {
-                                    validateBoundPrefix(indexDescriptor, schemaDescriptor, invocation.getArgument(2));
-                                }
-                                if (upperBound != null) {
-                                    validateBoundPrefix(indexDescriptor, schemaDescriptor, invocation.getArgument(3));
-                                }
+                        if (lowerBound != null) {
+                            validateBoundPrefix(indexDescriptor, schemaDescriptor, invocation.getArgument(2));
+                        }
+                        if (upperBound != null) {
+                            validateBoundPrefix(indexDescriptor, schemaDescriptor, invocation.getArgument(3));
+                        }
 
-                                return dummyPublisher(partitionData(tableData, schemaDescriptor, invocation.getArgument(0)));
-                            }
-                    )
+                        return dummyPublisher(partitionData(tableData, schemaDescriptor, invocation.getArgument(0)));
+                    })
                     .when(sortedIndexMock)
                     .scan(Mockito.anyInt(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.anyInt(), Mockito.any());
 
