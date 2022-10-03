@@ -29,11 +29,11 @@ using namespace ignite;
 /**
  * Test suite.
  */
-class ClientTest : public IgniteRunnerSuite {};
+class client_test : public ignite_runner_suite {};
 
-TEST_F(ClientTest, GetConfiguration) {
+TEST_F(client_test, get_configuration) {
     IgniteClientConfiguration cfg{NODE_ADDRS};
-    cfg.setLogger(getLogger());
+    cfg.setLogger(get_logger());
     cfg.setConnectionLimit(42);
 
     auto client = IgniteClient::start(cfg, std::chrono::seconds(5));

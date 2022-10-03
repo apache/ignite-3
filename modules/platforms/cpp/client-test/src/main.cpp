@@ -15,18 +15,18 @@
  * limitations under the License.
  */
 
-#include <chrono>
-#include <thread>
+#include "ignite_runner.h"
+#include "common/ignite_error.h"
 
 #include <gtest/gtest.h>
 
-#include "common/ignite_error.h"
-#include "ignite_runner.h"
+#include <chrono>
+#include <thread>
 
 /**
  * Run prior to any other tests.
  */
-void BeforeAll() {
+void before_all() {
     ignite::IgniteRunner runner;
 
     // Ignite dry run to make sure everything is built, all artifacts downloaded
@@ -40,7 +40,7 @@ void BeforeAll() {
 
 int main(int argc, char **argv) {
     int res = 0;
-    BeforeAll();
+    before_all();
     ignite::IgniteRunner runner;
     try {
         runner.start(false);

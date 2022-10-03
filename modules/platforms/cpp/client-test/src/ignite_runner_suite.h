@@ -28,19 +28,19 @@ namespace ignite {
 /**
  * Test suite.
  */
-class IgniteRunnerSuite : public ::testing::Test {
+class ignite_runner_suite : public ::testing::Test {
 protected:
     static constexpr std::initializer_list<std::string_view> NODE_ADDRS = {"127.0.0.1:10942", "127.0.0.1:10943"};
 
-    IgniteRunnerSuite() = default;
-    ~IgniteRunnerSuite() override = default;
+    ignite_runner_suite() = default;
+    ~ignite_runner_suite() override = default;
 
     /**
      * Get logger.
      *
      * @return Logger for tests.
      */
-    static std::shared_ptr<GtestLogger> getLogger() { return std::make_shared<GtestLogger>(true, true); }
+    static std::shared_ptr<gtest_logger> get_logger() { return std::make_shared<gtest_logger>(false, true); }
 };
 
 } // namespace ignite

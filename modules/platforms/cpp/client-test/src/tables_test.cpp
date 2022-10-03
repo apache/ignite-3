@@ -31,11 +31,11 @@ using namespace ignite;
 /**
  * Test suite.
  */
-class TablesTest : public IgniteRunnerSuite {};
+class tables_test : public ignite_runner_suite {};
 
-TEST_F(TablesTest, TablesGetTableAsyncPromises) {
+TEST_F(tables_test, tables_get_table_async_promises) {
     IgniteClientConfiguration cfg{NODE_ADDRS};
-    cfg.setLogger(getLogger());
+    cfg.setLogger(get_logger());
 
     auto clientPromise = std::make_shared<std::promise<IgniteClient>>();
     IgniteClient::startAsync(cfg, std::chrono::seconds(5), result_promise_setter(clientPromise));
@@ -59,7 +59,7 @@ TEST_F(TablesTest, TablesGetTableAsyncPromises) {
 }
 
 template <typename T>
-bool checkAndSetOperationError(std::promise<void> &operation, const ignite_result<T> &res) {
+bool check_and_set_operation_error(std::promise<void> &operation, const ignite_result<T> &res) {
     if (res.has_error()) {
         operation.set_exception(std::make_exception_ptr(res.error()));
         return false;
@@ -71,18 +71,18 @@ bool checkAndSetOperationError(std::promise<void> &operation, const ignite_resul
     return true;
 }
 
-TEST_F(TablesTest, TablesGetTableAsyncCallbacks) {
+TEST_F(tables_test, tables_get_table_async_callbacks) {
     auto operation0 = std::make_shared<std::promise<void>>();
     auto operation1 = std::make_shared<std::promise<void>>();
     auto operation2 = std::make_shared<std::promise<void>>();
 
     IgniteClientConfiguration cfg{NODE_ADDRS};
-    cfg.setLogger(getLogger());
+    cfg.setLogger(get_logger());
 
     IgniteClient client;
 
     IgniteClient::startAsync(cfg, std::chrono::seconds(5), [&](ignite_result<IgniteClient> clientRes) {
-        if (!checkAndSetOperationError(*operation0, clientRes))
+        if (!check_and_set_operation_error(*operation0, clientRes))
             return;
 
         client = std::move(clientRes).value();
@@ -90,7 +90,7 @@ TEST_F(TablesTest, TablesGetTableAsyncCallbacks) {
 
         operation0->set_value();
         tables.getTableAsync("PUB.some_unknown", [&](auto tableRes) {
-            if (!checkAndSetOperationError(*operation1, tableRes))
+            if (!check_and_set_operation_error(*operation1, tableRes))
                 return;
 
             auto tableUnknown = std::move(tableRes).value();
@@ -103,7 +103,7 @@ TEST_F(TablesTest, TablesGetTableAsyncCallbacks) {
         });
 
         tables.getTableAsync("PUB.tbl1", [&](auto tableRes) {
-            if (!checkAndSetOperationError(*operation2, tableRes))
+            if (!check_and_set_operation_error(*operation2, tableRes))
                 return;
 
             auto table = std::move(tableRes).value();
@@ -127,9 +127,9 @@ TEST_F(TablesTest, TablesGetTableAsyncCallbacks) {
     operation2->get_future().get();
 }
 
-TEST_F(TablesTest, TablesGetTablesAsyncPromises) {
+TEST_F(tables_test, tables_get_tables_async_promises) {
     IgniteClientConfiguration cfg{NODE_ADDRS};
-    cfg.setLogger(getLogger());
+    cfg.setLogger(get_logger());
 
     auto client = IgniteClient::start(cfg, std::chrono::seconds(5));
 
