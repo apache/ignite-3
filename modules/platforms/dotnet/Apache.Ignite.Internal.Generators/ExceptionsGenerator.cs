@@ -31,16 +31,10 @@ namespace Apache.Ignite.Internal.Generators
     /// Generates exception classes from Java exceptions.
     /// </summary>
     [Generator]
-    public sealed class ExceptionsGenerator : ISourceGenerator
+    public sealed class ExceptionsGenerator : JavaToCsharpGeneratorBase
     {
         /// <inheritdoc/>
-        public void Initialize(GeneratorInitializationContext context)
-        {
-            // No-op.
-        }
-
-        /// <inheritdoc/>
-        public void Execute(GeneratorExecutionContext context)
+        protected override IEnumerable<(string Name, string Code)> ExecuteInternal(GeneratorExecutionContext context)
         {
             var javaModulesDirectory = context.GetJavaModulesDirectory();
 
@@ -88,12 +82,12 @@ namespace Apache.Ignite.Internal.Generators
                     .Replace("XMLDOC", GetXmlDoc(className, javaException.Value.Source))
                     .Replace("NAMESPACE", dotNetNamespace);
 
-                context.AddSource(className + ".g.cs", src);
+                yield return (className + ".g.cs", src);
 
                 classMap.Add((javaPackage + "." + className, dotNetNamespace + "." + className));
             }
 
-            EmitClassMap(context, classMap);
+            yield return EmitClassMap(classMap);
 
             bool IsIgniteException(string? ex) =>
                 ex != null &&
@@ -101,7 +95,7 @@ namespace Apache.Ignite.Internal.Generators
                  IsIgniteException(javaExceptionsWithParents.TryGetValue(ex, out var parent) ? parent.Parent : null));
         }
 
-        private static void EmitClassMap(GeneratorExecutionContext context, List<(string JavaClass, string DotNetClass)> classMap)
+        private static (string Name, string Code) EmitClassMap(List<(string JavaClass, string DotNetClass)> classMap)
         {
             var sb = new StringBuilder();
 
@@ -127,7 +121,7 @@ namespace Apache.Ignite.Internal.Generators
             sb.AppendLine("    }");
             sb.AppendLine("}");
 
-            context.AddSource("ExceptionMapper.g.cs", sb.ToString());
+            return ("ExceptionMapper.g.cs", sb.ToString());
         }
 
         private static string GetXmlDoc(string javaClassName, string javaSource)
