@@ -82,10 +82,10 @@ import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModules;
-import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapDataStorageModule;
-import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapStorageEngine;
-import org.apache.ignite.internal.storage.chm.schema.TestConcurrentHashMapDataStorageConfigurationSchema;
-import org.apache.ignite.internal.storage.chm.schema.TestConcurrentHashMapDataStorageView;
+import org.apache.ignite.internal.storage.impl.TestDataStorageModule;
+import org.apache.ignite.internal.storage.impl.TestStorageEngine;
+import org.apache.ignite.internal.storage.impl.schema.TestDataStorageConfigurationSchema;
+import org.apache.ignite.internal.storage.impl.schema.TestDataStorageView;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbDataStorageModule;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageView;
@@ -175,7 +175,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                     SortedIndexConfigurationSchema.class,
                     UnknownDataStorageConfigurationSchema.class,
                     RocksDbDataStorageConfigurationSchema.class,
-                    TestConcurrentHashMapDataStorageConfigurationSchema.class,
+                    TestDataStorageConfigurationSchema.class,
                     ConstantValueDefaultConfigurationSchema.class,
                     FunctionCallDefaultConfigurationSchema.class,
                     NullValueDefaultConfigurationSchema.class,
@@ -254,7 +254,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         DataStorageModules dataStorageModules = new DataStorageModules(List.of(
                 new RocksDbDataStorageModule(),
-                new TestConcurrentHashMapDataStorageModule()
+                new TestDataStorageModule()
         ));
 
         dataStorageManager = new DataStorageManager(
@@ -284,7 +284,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 tm,
                 () -> dataStorageModules.collectSchemasFields(List.of(
                         RocksDbDataStorageConfigurationSchema.class,
-                        TestConcurrentHashMapDataStorageConfigurationSchema.class
+                        TestDataStorageConfigurationSchema.class
                 ))
         );
 
@@ -561,11 +561,11 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 String.format(
                         "CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) engine %s",
                         method + 1,
-                        TestConcurrentHashMapStorageEngine.ENGINE_NAME
+                        TestStorageEngine.ENGINE_NAME
                 )
         )));
 
-        assertThat(tableView(method + 1).dataStorage(), instanceOf(TestConcurrentHashMapDataStorageView.class));
+        assertThat(tableView(method + 1).dataStorage(), instanceOf(TestDataStorageView.class));
 
         // With existing engine in mixed case
         assertDoesNotThrow(() -> readFirst(queryProc.queryAsync(

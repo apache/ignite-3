@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.util;
 
-import java.util.Collections;
 import java.util.Iterator;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
@@ -28,23 +27,10 @@ import java.util.stream.StreamSupport;
  * @param <T> Type of elements.
  */
 public interface Cursor<T> extends Iterator<T>, Iterable<T>, AutoCloseable {
-    /** Empty cursor instance. */
-    Cursor<?> EMPTY = fromIterator(Collections.emptyIterator());
-
     /** {@inheritDoc} */
     @Override
     default Iterator<T> iterator() {
         return this;
-    }
-
-    /**
-     * Creates an empty cursor.
-     *
-     * @param <T> Type of elements in iterator.
-     * @return Cursor.
-     */
-    static <T> Cursor<T> empty() {
-        return (Cursor<T>) EMPTY;
     }
 
     /**

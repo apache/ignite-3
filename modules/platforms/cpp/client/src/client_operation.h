@@ -17,14 +17,12 @@
 
 #pragma once
 
-namespace ignite::detail
-{
+namespace ignite::detail {
 
 /**
  * Client operation code.
  */
-enum class ClientOperation
-{
+enum class ClientOperation {
     /** Get table. */
     TABLE_GET = 4,
 
@@ -38,8 +36,7 @@ enum class ClientOperation
 /**
  * Message type.
  */
-enum class MessageType
-{
+enum class MessageType {
     /** Response. */
     RESPONSE = 0,
 

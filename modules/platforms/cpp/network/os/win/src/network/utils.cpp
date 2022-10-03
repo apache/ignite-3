@@ -21,24 +21,20 @@
 
 // Using NULLs as specified by WinAPI
 #ifdef __JETBRAINS_IDE__
-#   pragma ide diagnostic ignored "modernize-use-nullptr"
+# pragma ide diagnostic ignored "modernize-use-nullptr"
 #endif
 
-namespace ignite::network
-{
+namespace ignite::network {
 
-std::string getLastSystemError()
-{
+std::string getLastSystemError() {
     DWORD errorCode = GetLastError();
 
     std::string errorDetails;
-    if (errorCode != ERROR_SUCCESS)
-    {
+    if (errorCode != ERROR_SUCCESS) {
         char errBuf[1024] = {};
 
-        FormatMessageA(
-                FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, errorCode,
-                MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US), errBuf, sizeof(errBuf), NULL);
+        FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, errorCode,
+            MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US), errBuf, sizeof(errBuf), NULL);
 
         errorDetails.assign(errBuf);
     }

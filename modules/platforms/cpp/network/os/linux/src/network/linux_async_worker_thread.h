@@ -17,35 +17,33 @@
 
 #pragma once
 
-#include <ctime>
 #include <cstdint>
+#include <ctime>
 
 #include <memory>
-#include <thread>
 #include <mutex>
+#include <thread>
 
 #include <ignite/network/async_handler.h>
 #include <ignite/network/end_point.h>
 #include <ignite/network/tcp_range.h>
 
-#include "network/linux_async_client.h"
 #include "network/connecting_context.h"
+#include "network/linux_async_client.h"
 
-namespace ignite::network
-{
+namespace ignite::network {
 
 class LinuxAsyncClientPool;
 
 /**
  * Async pool working thread.
  */
-class LinuxAsyncWorkerThread
-{
+class LinuxAsyncWorkerThread {
 public:
     /**
      * Default constructor.
      */
-    explicit LinuxAsyncWorkerThread(LinuxAsyncClientPool& clientPool);
+    explicit LinuxAsyncWorkerThread(LinuxAsyncClientPool &clientPool);
 
     /**
      * Destructor.
@@ -87,7 +85,7 @@ private:
      * @param addr End point.
      * @param msg Error message.
      */
-    void reportConnectionError(const EndPoint& addr, std::string msg);
+    void reportConnectionError(const EndPoint &addr, std::string msg);
 
     /**
      * Handle failed connection.
@@ -101,33 +99,31 @@ private:
      *
      * @param client Client instance.
      */
-    void handleConnectionClosed(LinuxAsyncClient* client);
+    void handleConnectionClosed(LinuxAsyncClient *client);
 
     /**
      * Handle successfully established connection.
      *
      * @param client Client instance.
      */
-    void handleConnectionSuccess(LinuxAsyncClient* client);
+    void handleConnectionSuccess(LinuxAsyncClient *client);
 
     /**
      * Calculate connection timeout.
      *
      * @return Connection timeout.
      */
-    [[nodiscard]]
-    int calculateConnectionTimeout() const;
+    [[nodiscard]] int calculateConnectionTimeout() const;
 
     /**
      * Check whether new connection should be initiated.
      *
      * @return @c true if new connection should be initiated.
      */
-    [[nodiscard]]
-    bool shouldInitiateNewConnection() const;
+    [[nodiscard]] bool shouldInitiateNewConnection() const;
 
     /** Client pool. */
-    LinuxAsyncClientPool& m_clientPool;
+    LinuxAsyncClientPool &m_clientPool;
 
     /** Flag indicating that thread is stopping. */
     volatile bool m_stopping;

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.chm;
+package org.apache.ignite.internal.storage.impl;
 
 import java.util.Map;
 import java.util.UUID;
@@ -37,7 +37,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Test table storage implementation.
  */
-public class TestConcurrentHashMapMvTableStorage implements MvTableStorage {
+public class TestMvTableStorage implements MvTableStorage {
     private final Map<Integer, MvPartitionStorage> partitions = new ConcurrentHashMap<>();
 
     private final Map<UUID, SortedIndices> sortedIndicesById = new ConcurrentHashMap<>();
@@ -83,14 +83,14 @@ public class TestConcurrentHashMapMvTableStorage implements MvTableStorage {
     }
 
     /** Costructor. */
-    public TestConcurrentHashMapMvTableStorage(TableConfiguration tableCfg, TablesConfiguration tablesCfg) {
+    public TestMvTableStorage(TableConfiguration tableCfg, TablesConfiguration tablesCfg) {
         this.tableCfg = tableCfg;
         this.tablesCfg = tablesCfg;
     }
 
     @Override
     public MvPartitionStorage getOrCreateMvPartition(int partitionId) throws StorageException {
-        return partitions.computeIfAbsent(partitionId, TestConcurrentHashMapMvPartitionStorage::new);
+        return partitions.computeIfAbsent(partitionId, TestMvPartitionStorage::new);
     }
 
     @Override

@@ -18,17 +18,15 @@
 #pragma once
 
 #include <cstdint>
-#include <string>
 #include <optional>
+#include <string>
 
-namespace ignite::network
-{
+namespace ignite::network {
 
 /**
  * TCP port range.
  */
-struct TcpRange
-{
+struct TcpRange {
     // Default
     TcpRange() = default;
 
@@ -49,10 +47,10 @@ struct TcpRange
      * @param range Number of ports after the @c port that
      *    should be tried if the previous are unavailable.
      */
-    TcpRange(std::string host, uint16_t port, uint16_t range = 0) :
-        host(std::move(host)),
-        port(port),
-        range(range) { }
+    TcpRange(std::string host, uint16_t port, uint16_t range = 0)
+        : host(std::move(host))
+        , port(port)
+        , range(range) { }
 
     /**
      * Compare to another instance.
@@ -61,26 +59,21 @@ struct TcpRange
      * @return Negative value if less, positive if larger and
      *    zero, if equals another instance.
      */
-    [[nodiscard]]
-    int compare(const TcpRange& other) const;
+    [[nodiscard]] int compare(const TcpRange &other) const;
 
     /**
      * Check whether empty.
      *
      * @return @c true if empty.
      */
-    [[nodiscard]]
-    bool isEmpty() const {
-        return host.empty();
-    }
+    [[nodiscard]] bool isEmpty() const { return host.empty(); }
 
     /**
      * Convert to string.
      *
      * @return String representation.
      */
-    [[nodiscard]]
-    std::string toString() const {
+    [[nodiscard]] std::string toString() const {
         return host + ':' + std::to_string(port) + ".." + std::to_string(port + range);
     }
 
@@ -101,10 +94,9 @@ struct TcpRange
  * @param val2 Second value.
  * @return True if equal.
  */
-inline bool operator==(const TcpRange& val1, const TcpRange& val2) {
+inline bool operator==(const TcpRange &val1, const TcpRange &val2) {
     return val1.port == val2.port && val1.range == val2.range && val1.host == val2.host;
 }
-
 
 /**
  * Comparison operator.
@@ -113,7 +105,7 @@ inline bool operator==(const TcpRange& val1, const TcpRange& val2) {
  * @param val2 Second value.
  * @return True if not equal.
  */
-inline bool operator!=(const TcpRange& val1, const TcpRange& val2) {
+inline bool operator!=(const TcpRange &val1, const TcpRange &val2) {
     return !(val1 == val2);
 }
 
@@ -124,7 +116,7 @@ inline bool operator!=(const TcpRange& val1, const TcpRange& val2) {
  * @param val2 Second value.
  * @return True if less.
  */
-inline bool operator<(const TcpRange& val1, const TcpRange& val2) {
+inline bool operator<(const TcpRange &val1, const TcpRange &val2) {
     return val1.compare(val2) < 0;
 }
 
@@ -135,7 +127,7 @@ inline bool operator<(const TcpRange& val1, const TcpRange& val2) {
  * @param val2 Second value.
  * @return True if less or equal.
  */
-inline bool operator<=(const TcpRange& val1, const TcpRange& val2) {
+inline bool operator<=(const TcpRange &val1, const TcpRange &val2) {
     return val1.compare(val2) <= 0;
 }
 
@@ -146,7 +138,7 @@ inline bool operator<=(const TcpRange& val1, const TcpRange& val2) {
  * @param val2 Second value.
  * @return True if greater.
  */
-inline bool operator>(const TcpRange& val1, const TcpRange& val2) {
+inline bool operator>(const TcpRange &val1, const TcpRange &val2) {
     return val1.compare(val2) > 0;
 }
 
@@ -157,9 +149,8 @@ inline bool operator>(const TcpRange& val1, const TcpRange& val2) {
  * @param val2 Second value.
  * @return True if greater or equal.
  */
-inline bool operator>=(const TcpRange& val1, const TcpRange& val2) {
+inline bool operator>=(const TcpRange &val1, const TcpRange &val2) {
     return val1.compare(val2) >= 0;
 }
-
 
 } // namespace ignite::network

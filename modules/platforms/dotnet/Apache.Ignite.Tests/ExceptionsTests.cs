@@ -22,9 +22,10 @@ namespace Apache.Ignite.Tests
     using System.Collections.Immutable;
     using System.IO;
     using System.Linq;
-    using System.Runtime.Serialization.Formatters.Binary;
+    using System.Runtime.Serialization;
     using System.Text.RegularExpressions;
     using NUnit.Framework;
+    using BindingFlags = System.Reflection.BindingFlags;
 
     /// <summary>
     /// Tests Ignite exceptions.
@@ -49,13 +50,17 @@ namespace Apache.Ignite.Tests
                 Assert.AreEqual("myMessage", ex.Message);
 
                 // Serialization.
-                var stream = new MemoryStream();
-                var formatter = new BinaryFormatter();
+                var serializationInfo = new SerializationInfo(ex.GetType(), new FormatterConverter());
+                ex.GetObjectData(serializationInfo, default);
 
-                formatter.Serialize(stream, ex);
-                stream.Seek(0, SeekOrigin.Begin);
+                var res = (IgniteException)FormatterServices.GetUninitializedObject(ex.GetType());
 
-                var res = (IgniteException) formatter.Deserialize(stream);
+                var ctor = res.GetType().GetConstructor(
+                    BindingFlags.Instance | BindingFlags.NonPublic,
+                    new[] { typeof(SerializationInfo), typeof(StreamingContext) });
+
+                ctor!.Invoke(res, new object[] { serializationInfo, default(StreamingContext) });
+
                 Assert.AreEqual("myMessage", res.Message);
                 Assert.AreEqual(traceId, res.TraceId);
                 Assert.AreEqual(123, res.Code);

@@ -24,31 +24,29 @@
 
 // Using NULLs as specified by WinAPI
 #ifdef __JETBRAINS_IDE__
-#   pragma ide diagnostic ignored "modernize-use-nullptr"
+# pragma ide diagnostic ignored "modernize-use-nullptr"
 #endif
 
-namespace ignite::network
-{
+namespace ignite::network {
 
-WinAsyncClientPool::WinAsyncClientPool() :
-    m_stopping(true),
-    m_asyncHandler(),
-    m_connectingThread(),
-    m_workerThread(),
-    m_idGen(0),
-    m_iocp(NULL),
-    m_clientsMutex(),
-    m_clientIdMap() { }
+WinAsyncClientPool::WinAsyncClientPool()
+    : m_stopping(true)
+    , m_asyncHandler()
+    , m_connectingThread()
+    , m_workerThread()
+    , m_idGen(0)
+    , m_iocp(NULL)
+    , m_clientsMutex()
+    , m_clientIdMap() {
+}
 
-WinAsyncClientPool::~WinAsyncClientPool()
-{
+WinAsyncClientPool::~WinAsyncClientPool() {
     internalStop();
 }
 
-void WinAsyncClientPool::start(std::vector<TcpRange> addrs, uint32_t connLimit)
-{
+void WinAsyncClientPool::start(std::vector<TcpRange> addrs, uint32_t connLimit) {
     if (!m_stopping)
-        throw IgniteError(StatusCode::GENERIC, "Client pool is already started");
+        throw ignite_error(status_code::GENERIC, "Client pool is already started");
 
     m_stopping = false;
 
@@ -58,26 +56,21 @@ void WinAsyncClientPool::start(std::vector<TcpRange> addrs, uint32_t connLimit)
     if (!m_iocp)
         throwLastSystemError("Failed to create IOCP instance");
 
-    try
-    {
+    try {
         m_connectingThread.start(*this, connLimit, std::move(addrs));
         m_workerThread.start(*this, m_iocp);
-    }
-    catch (...)
-    {
+    } catch (...) {
         stop();
 
         throw;
     }
 }
 
-void WinAsyncClientPool::stop()
-{
+void WinAsyncClientPool::stop() {
     internalStop();
 }
 
-void WinAsyncClientPool::internalStop()
-{
+void WinAsyncClientPool::internalStop() {
     if (m_stopping)
         return;
 
@@ -87,9 +80,8 @@ void WinAsyncClientPool::internalStop()
     {
         std::lock_guard<std::mutex> lock(m_clientsMutex);
 
-        for (auto it = m_clientIdMap.begin(); it != m_clientIdMap.end(); ++it)
-        {
-            WinAsyncClient& client = *it->second;
+        for (auto it = m_clientIdMap.begin(); it != m_clientIdMap.end(); ++it) {
+            WinAsyncClient &client = *it->second;
 
             client.shutdown(std::nullopt);
             client.close();
@@ -104,8 +96,7 @@ void WinAsyncClientPool::internalStop()
     m_clientIdMap.clear();
 }
 
-bool WinAsyncClientPool::addClient(const std::shared_ptr<WinAsyncClient>& client)
-{
+bool WinAsyncClientPool::addClient(const std::shared_ptr<WinAsyncClient> &client) {
     uint64_t id;
     {
         std::lock_guard<std::mutex> lock(m_clientsMutex);
@@ -130,43 +121,37 @@ bool WinAsyncClientPool::addClient(const std::shared_ptr<WinAsyncClient>& client
     return true;
 }
 
-void WinAsyncClientPool::handleConnectionError(const EndPoint &addr, const IgniteError &err)
-{
+void WinAsyncClientPool::handleConnectionError(const EndPoint &addr, const ignite_error &err) {
     auto asyncHandler0 = m_asyncHandler.lock();
     if (asyncHandler0)
         asyncHandler0->onConnectionError(addr, err);
 }
 
-void WinAsyncClientPool::handleConnectionSuccess(const EndPoint &addr, uint64_t id)
-{
+void WinAsyncClientPool::handleConnectionSuccess(const EndPoint &addr, uint64_t id) {
     auto asyncHandler0 = m_asyncHandler.lock();
     if (asyncHandler0)
         asyncHandler0->onConnectionSuccess(addr, id);
 }
 
-void WinAsyncClientPool::handleConnectionClosed(uint64_t id, std::optional<IgniteError> err)
-{
+void WinAsyncClientPool::handleConnectionClosed(uint64_t id, std::optional<ignite_error> err) {
     auto asyncHandler0 = m_asyncHandler.lock();
     if (asyncHandler0)
         asyncHandler0->onConnectionClosed(id, std::move(err));
 }
 
-void WinAsyncClientPool::handleMessageReceived(uint64_t id, BytesView msg)
-{
+void WinAsyncClientPool::handleMessageReceived(uint64_t id, bytes_view msg) {
     auto asyncHandler0 = m_asyncHandler.lock();
     if (asyncHandler0)
         asyncHandler0->onMessageReceived(id, msg);
 }
 
-void WinAsyncClientPool::handleMessageSent(uint64_t id)
-{
+void WinAsyncClientPool::handleMessageSent(uint64_t id) {
     auto asyncHandler0 = m_asyncHandler.lock();
     if (asyncHandler0)
         asyncHandler0->onMessageSent(id);
 }
 
-bool WinAsyncClientPool::send(uint64_t id, std::vector<std::byte>&& data)
-{
+bool WinAsyncClientPool::send(uint64_t id, std::vector<std::byte> &&data) {
     if (m_stopping)
         return false;
 
@@ -177,8 +162,7 @@ bool WinAsyncClientPool::send(uint64_t id, std::vector<std::byte>&& data)
     return client->send(std::move(data));
 }
 
-void WinAsyncClientPool::closeAndRelease(uint64_t id, std::optional<IgniteError> err)
-{
+void WinAsyncClientPool::closeAndRelease(uint64_t id, std::optional<ignite_error> err) {
     std::shared_ptr<WinAsyncClient> client;
     {
         std::lock_guard<std::mutex> lock(m_clientsMutex);
@@ -193,13 +177,12 @@ void WinAsyncClientPool::closeAndRelease(uint64_t id, std::optional<IgniteError>
     }
 
     bool closed = client->close();
-    if (closed)
-    {
+    if (closed) {
         m_connectingThread.notifyFreeAddress(client->getRange());
 
-        IgniteError err0(client->getCloseError());
-        if (err0.getStatusCode() == StatusCode::SUCCESS)
-            err0 = IgniteError(StatusCode::NETWORK, "Connection closed by server");
+        ignite_error err0(client->getCloseError());
+        if (err0.get_status_code() == status_code::SUCCESS)
+            err0 = ignite_error(status_code::NETWORK, "Connection closed by server");
 
         if (!err)
             err = std::move(err0);
@@ -208,22 +191,19 @@ void WinAsyncClientPool::closeAndRelease(uint64_t id, std::optional<IgniteError>
     }
 }
 
-void WinAsyncClientPool::close(uint64_t id, std::optional<IgniteError> err)
-{
+void WinAsyncClientPool::close(uint64_t id, std::optional<ignite_error> err) {
     auto client = findClient(id);
     if (client && !client->isClosed())
         client->shutdown(std::move(err));
 }
 
-std::shared_ptr<WinAsyncClient> WinAsyncClientPool::findClient(uint64_t id) const
-{
+std::shared_ptr<WinAsyncClient> WinAsyncClientPool::findClient(uint64_t id) const {
     std::lock_guard<std::mutex> lock(m_clientsMutex);
 
     return findClientLocked(id);
 }
 
-std::shared_ptr<WinAsyncClient> WinAsyncClientPool::findClientLocked(uint64_t id) const
-{
+std::shared_ptr<WinAsyncClient> WinAsyncClientPool::findClientLocked(uint64_t id) const {
     auto it = m_clientIdMap.find(id);
     if (it == m_clientIdMap.end())
         return {};
@@ -231,8 +211,7 @@ std::shared_ptr<WinAsyncClient> WinAsyncClientPool::findClientLocked(uint64_t id
     return it->second;
 }
 
-void WinAsyncClientPool::setHandler(std::weak_ptr<AsyncHandler> handler)
-{
+void WinAsyncClientPool::setHandler(std::weak_ptr<AsyncHandler> handler) {
     m_asyncHandler = handler;
 }
 

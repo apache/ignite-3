@@ -45,6 +45,7 @@ import java.util.stream.IntStream;
 import org.apache.ignite.client.ClientOperationType;
 import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.client.IgniteClientConnectionException;
+import org.apache.ignite.client.RetryLimitPolicy;
 import org.apache.ignite.client.RetryPolicy;
 import org.apache.ignite.client.RetryPolicyContext;
 import org.apache.ignite.internal.client.io.ClientConnectionMultiplexer;
@@ -543,7 +544,7 @@ public final class ReliableChannel implements AutoCloseable {
     private ClientChannel getDefaultChannel() {
         IgniteClientConnectionException failure = null;
 
-        for (int attempt = 0; attempt < channels.size(); attempt++) {
+        for (int attempt = 0; ; attempt++) {
             ClientChannelHolder hld = null;
             ClientChannel c = null;
 
@@ -573,6 +574,10 @@ public final class ReliableChannel implements AutoCloseable {
                 }
 
                 onChannelFailure(hld, c);
+
+                if (!shouldRetry(ClientOperationType.CHANNEL_CONNECT, attempt, e)) {
+                    break;
+                }
             }
         }
 
@@ -583,8 +588,14 @@ public final class ReliableChannel implements AutoCloseable {
     private boolean shouldRetry(int opCode, int iteration, IgniteClientConnectionException exception) {
         ClientOperationType opType = ClientUtils.opCodeToClientOperationType(opCode);
 
+        return shouldRetry(opType, iteration, exception);
+    }
+
+    /** Determines whether specified operation should be retried. */
+    private boolean shouldRetry(ClientOperationType opType, int iteration, IgniteClientConnectionException exception) {
         if (opType == null) {
-            return true; // System operation.
+            // System operation.
+            return iteration < RetryLimitPolicy.DFLT_RETRY_LIMIT;
         }
 
         RetryPolicy plc = clientCfg.retryPolicy();

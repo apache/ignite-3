@@ -23,14 +23,12 @@
 
 #include <ignite/ignite_logger.h>
 
-namespace ignite
-{
+namespace ignite {
 
 /**
  * Ignite client configuration.
  */
-class IgniteClientConfiguration
-{
+class IgniteClientConfiguration {
 public:
     /**
      * TCP port used by client by default if not specified explicitly.
@@ -45,8 +43,8 @@ public:
      *
      * @param endpoint Endpoints list.
      */
-    IgniteClientConfiguration(std::initializer_list<std::string_view> endpoints) :
-        m_endpoints(endpoints.begin(), endpoints.end()) { }
+    IgniteClientConfiguration(std::initializer_list<std::string_view> endpoints)
+        : m_endpoints(endpoints.begin(), endpoints.end()) { }
 
     /**
      * Get endpoints.
@@ -55,10 +53,7 @@ public:
      *
      * @return Endpoints.
      */
-    [[nodiscard]]
-    const std::vector<std::string>& getEndpoints() const {
-        return m_endpoints;
-    }
+    [[nodiscard]] const std::vector<std::string> &getEndpoints() const { return m_endpoints; }
 
     /**
      * Set endpoints.
@@ -85,10 +80,7 @@ public:
      *
      * @return Current logger.
      */
-    [[nodiscard]]
-    const std::shared_ptr<IgniteLogger>& getLogger() const {
-        return m_logger;
-    }
+    [[nodiscard]] const std::shared_ptr<IgniteLogger> &getLogger() const { return m_logger; }
 
     /**
      * Set logger to be used by client.
@@ -97,9 +89,7 @@ public:
      *
      * @param logger Logger to use.
      */
-    void setLogger(std::shared_ptr<IgniteLogger> logger) {
-        m_logger = std::move(logger);
-    }
+    void setLogger(std::shared_ptr<IgniteLogger> logger) { m_logger = std::move(logger); }
 
     /**
      * Get connection limit.
@@ -114,10 +104,7 @@ public:
      *
      * @return Active connection limit.
      */
-    [[nodiscard]]
-    uint32_t getConnectionLimit() const {
-        return m_connectionsLimit;
-    }
+    [[nodiscard]] uint32_t getConnectionLimit() const { return m_connectionsLimit; }
 
     /**
      * Set connection limit.
@@ -126,9 +113,7 @@ public:
      *
      * @param connectionsLimit Connections limit to set.
      */
-    void setConnectionLimit(uint32_t limit) {
-        m_connectionsLimit = limit;
-    }
+    void setConnectionLimit(uint32_t limit) { m_connectionsLimit = limit; }
 
 private:
     /** Endpoints. */

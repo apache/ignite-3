@@ -23,16 +23,14 @@
 #include <ignite/network/codec.h>
 #include <ignite/network/data_filter_adapter.h>
 
-namespace ignite::network
-{
+namespace ignite::network {
 
 /**
  * Data filter that uses codecs inside to encode/decode data.
  */
-class CodecDataFilter : public DataFilterAdapter
-{
+class CodecDataFilter : public DataFilterAdapter {
 public:
-    //Default
+    // Default
     ~CodecDataFilter() override = default;
 
     /**
@@ -40,7 +38,7 @@ public:
      *
      * @param factory Codec factory.
      */
-    explicit CodecDataFilter(std::shared_ptr<Factory<Codec>> factory);
+    explicit CodecDataFilter(std::shared_ptr<factory<Codec>> factory);
 
     /**
      * Send data to specific established connection.
@@ -51,15 +49,15 @@ public:
      *
      * @throw IgniteError on error.
      */
-    bool send(uint64_t id, std::vector<std::byte>&& data) override;
+    bool send(uint64_t id, std::vector<std::byte> &&data) override;
 
     /**
-      * Callback that called on successful connection establishment.
-      *
-      * @param addr Address of the new connection.
-      * @param id Connection ID.
-      */
-    void onConnectionSuccess(const EndPoint& addr, uint64_t id) override;
+     * Callback that called on successful connection establishment.
+     *
+     * @param addr Address of the new connection.
+     * @param id Connection ID.
+     */
+    void onConnectionSuccess(const EndPoint &addr, uint64_t id) override;
 
     /**
      * Callback that called on error during connection establishment.
@@ -67,7 +65,7 @@ public:
      * @param id Async client ID.
      * @param err Error. Can be null if connection closed without error.
      */
-    void onConnectionClosed(uint64_t id, std::optional<IgniteError> err) override;
+    void onConnectionClosed(uint64_t id, std::optional<ignite_error> err) override;
 
     /**
      * Callback that called when new message is received.
@@ -75,7 +73,7 @@ public:
      * @param id Async client ID.
      * @param msg Received message.
      */
-    void onMessageReceived(uint64_t id, BytesView msg) override;
+    void onMessageReceived(uint64_t id, bytes_view msg) override;
 
 private:
     /**
@@ -87,7 +85,7 @@ private:
     std::shared_ptr<Codec> FindCodec(uint64_t id);
 
     /** Codec factory. */
-    std::shared_ptr<Factory<Codec>> m_codecFactory;
+    std::shared_ptr<factory<Codec>> m_codecFactory;
 
     /** Codecs. */
     std::map<uint64_t, std::shared_ptr<Codec>> m_codecs;

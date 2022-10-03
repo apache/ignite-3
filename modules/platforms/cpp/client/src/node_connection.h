@@ -17,25 +17,24 @@
 
 #pragma once
 
+#include <atomic>
 #include <future>
 #include <memory>
-#include <atomic>
 #include <mutex>
 #include <unordered_map>
 
 #include "common/utils.h"
 
+#include "ignite/ignite_client_configuration.h"
+#include "ignite/network/async_client_pool.h"
 #include "ignite/protocol/reader.h"
 #include "ignite/protocol/writer.h"
-#include "ignite/network/async_client_pool.h"
-#include "ignite/ignite_client_configuration.h"
 
 #include "client_operation.h"
 #include "protocol_context.h"
 #include "response_handler.h"
 
-namespace ignite::detail
-{
+namespace ignite::detail {
 
 class ClusterConnection;
 
@@ -44,16 +43,16 @@ class ClusterConnection;
  *
  * Considered established while there is connection to at least one server.
  */
-class NodeConnection
-{
+class NodeConnection {
     friend class ClusterConnection;
+
 public:
     // Deleted
     NodeConnection() = delete;
-    NodeConnection(NodeConnection&&) = delete;
-    NodeConnection(const NodeConnection&) = delete;
-    NodeConnection& operator=(NodeConnection&&) = delete;
-    NodeConnection& operator=(const NodeConnection&) = delete;
+    NodeConnection(NodeConnection &&) = delete;
+    NodeConnection(const NodeConnection &) = delete;
+    NodeConnection &operator=(NodeConnection &&) = delete;
+    NodeConnection &operator=(const NodeConnection &) = delete;
 
     /**
      * Destructor.
@@ -74,20 +73,14 @@ public:
      *
      * @return ID.
      */
-    [[nodiscard]]
-    uint64_t getId() const {
-        return m_id;
-    }
+    [[nodiscard]] uint64_t getId() const { return m_id; }
 
     /**
      * Check whether handshake complete.
      *
      * @return @c true if the handshake complete.
      */
-    [[nodiscard]]
-    bool isHandshakeComplete() const {
-        return m_handshakeComplete;
-    }
+    [[nodiscard]] bool isHandshakeComplete() const { return m_handshakeComplete; }
 
     /**
      * Send request.
@@ -98,8 +91,8 @@ public:
      * @param rd Reader function.
      * @return @c true on success and @c false otherwise.
      */
-    template<typename T>
-    bool performRequest(ClientOperation op, const std::function<void(protocol::Writer&)>& wr,
+    template <typename T>
+    bool performRequest(ClientOperation op, const std::function<void(protocol::Writer &)> &wr,
         std::shared_ptr<ResponseHandlerImpl<T>> handler) {
         auto reqId = generateRequestId();
         std::vector<std::byte> message;
@@ -121,8 +114,7 @@ public:
         }
 
         bool sent = m_pool->send(m_id, std::move(message));
-        if (!sent)
-        {
+        if (!sent) {
             std::lock_guard<std::mutex> lock(m_requestHandlersMutex);
             getAndRemoveHandler(reqId);
 
@@ -143,14 +135,14 @@ public:
      *
      * @param msg Received message.
      */
-    void processMessage(BytesView msg);
+    void processMessage(bytes_view msg);
 
     /**
      * Process handshake response.
      *
      * @param msg Handshake response message.
      */
-    IgniteResult<void> processHandshakeRsp(BytesView msg);
+    ignite_result<void> processHandshakeRsp(bytes_view msg);
 
 private:
     /**
@@ -158,10 +150,7 @@ private:
      *
      * @return New request ID.
      */
-    [[nodiscard]]
-    int64_t generateRequestId() {
-        return m_reqIdGen.fetch_add(1, std::memory_order_relaxed);
-    }
+    [[nodiscard]] int64_t generateRequestId() { return m_reqIdGen.fetch_add(1, std::memory_order_relaxed); }
 
     /**
      * Get and remove request handler.

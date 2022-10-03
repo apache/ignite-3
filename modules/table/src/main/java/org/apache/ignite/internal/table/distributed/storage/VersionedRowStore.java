@@ -33,6 +33,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.TxManager;
@@ -542,7 +543,7 @@ public class VersionedRowStore {
      */
     public Cursor<BinaryRow> scan(Predicate<BinaryRow> pred) {
         // TODO <MUTED> https://issues.apache.org/jira/browse/IGNITE-17309 Transactional support for partition scans
-        Cursor<BinaryRow> delegate = storage.scan(pred, Timestamp.nextVersion());
+        Cursor<ReadResult> delegate = storage.scan(pred, Timestamp.nextVersion());
 
         // TODO asch add tx support IGNITE-15087.
         return new Cursor<BinaryRow>() {
@@ -560,7 +561,7 @@ public class VersionedRowStore {
                 }
 
                 if (delegate.hasNext()) {
-                    cur = delegate.next();
+                    cur = delegate.next().binaryRow();
 
                     return cur != null ? true : hasNext(); // Skip tombstones.
                 }

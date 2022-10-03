@@ -15,27 +15,17 @@
  * limitations under the License.
  */
 
-#pragma once
+package org.apache.ignite.internal.storage.impl.schema;
 
-namespace ignite::platform
-{
+import static org.apache.ignite.internal.storage.impl.TestStorageEngine.ENGINE_NAME;
+
+import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+import org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema;
+import org.apache.ignite.internal.storage.impl.TestStorageEngine;
 
 /**
- * Byte order utility class.
+ * Data storage configuration for {@link TestStorageEngine}.
  */
-class ByteOrder
-{
-private:
-    static constexpr uint32_t fourBytes = 0x01020304;
-    static constexpr uint8_t lesserByte = (const uint8_t&)fourBytes;
-
-public:
-    ByteOrder() = delete;
-
-    static constexpr bool littleEndian = lesserByte == 0x04;
-    static constexpr bool bigEndian = lesserByte == 0x01;
-
-    static_assert(littleEndian || bigEndian, "Unknown byte order");
-};
-
-} // ignite::platform
+@PolymorphicConfigInstance(ENGINE_NAME)
+public class TestDataStorageConfigurationSchema extends DataStorageConfigurationSchema {
+}

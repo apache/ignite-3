@@ -19,24 +19,22 @@
 
 #include <string_view>
 
-namespace ignite
-{
+namespace ignite {
 
 /**
  * Ignite logger interface.
  *
  * User can implement this class to use preferred logger with Ignite client.
  */
-class IgniteLogger
-{
+class IgniteLogger {
 public:
     // Default
     IgniteLogger() = default;
     virtual ~IgniteLogger() = default;
-    IgniteLogger(IgniteLogger&&) = default;
-    IgniteLogger(const IgniteLogger&) = default;
-    IgniteLogger& operator=(IgniteLogger&&) = default;
-    IgniteLogger& operator=(const IgniteLogger&) = default;
+    IgniteLogger(IgniteLogger &&) = default;
+    IgniteLogger(const IgniteLogger &) = default;
+    IgniteLogger &operator=(IgniteLogger &&) = default;
+    IgniteLogger &operator=(const IgniteLogger &) = default;
 
     /**
      * Used to log error messages.

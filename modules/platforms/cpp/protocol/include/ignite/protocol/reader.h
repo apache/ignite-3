@@ -23,89 +23,75 @@
 #include <msgpack.h>
 
 #include "common/guid.h"
-#include "common/Types.h"
+#include "common/types.h"
 
-namespace ignite::protocol
-{
+namespace ignite::protocol {
 
 /**
  * Reader.
  */
-class Reader
-{
+class Reader {
 public:
     // Deleted
     Reader() = delete;
-    Reader(Reader&&) = delete;
-    Reader(const Reader&) = delete;
-    Reader& operator=(Reader&&) = delete;
-    Reader& operator=(const Reader&) = delete;
+    Reader(Reader &&) = delete;
+    Reader(const Reader &) = delete;
+    Reader &operator=(Reader &&) = delete;
+    Reader &operator=(const Reader &) = delete;
 
     /**
      * Constructor.
      *
      * @param buffer Buffer.
      */
-    explicit Reader(BytesView buffer);
+    explicit Reader(bytes_view buffer);
 
     /**
      * Destructor.
      */
-    ~Reader() {
-        msgpack_unpacker_destroy(&m_unpacker);
-    }
+    ~Reader() { msgpack_unpacker_destroy(&m_unpacker); }
 
     /**
      * Read int16.
      *
      * @return Value.
      */
-    [[nodiscard]]
-    std::int16_t readInt16() {
-        return std::int16_t(readInt64());
-    }
+    [[nodiscard]] std::int16_t readInt16() { return std::int16_t(readInt64()); }
 
     /**
      * Read int32.
      *
      * @return Value.
      */
-    [[nodiscard]]
-    std::int32_t readInt32() {
-        return std::int32_t(readInt64());
-    }
+    [[nodiscard]] std::int32_t readInt32() { return std::int32_t(readInt64()); }
 
     /**
      * Read int64 number.
      *
      * @return Value.
      */
-    [[nodiscard]]
-    std::int64_t readInt64();
+    [[nodiscard]] std::int64_t readInt64();
 
     /**
      * Read string.
      *
      * @return String value.
      */
-    [[nodiscard]]
-    std::string readString();
+    [[nodiscard]] std::string readString();
 
     /**
      * Read string.
      *
      * @return String value or nullopt.
      */
-    [[nodiscard]]
-    std::optional<std::string> readStringNullable();
+    [[nodiscard]] std::optional<std::string> readStringNullable();
 
     /**
      * Read GUID.
      *
      * @return GUID value.
      */
-    [[nodiscard]]
-    Guid readGuid();
+    [[nodiscard]] Guid readGuid();
 
     /**
      * If the next value is Nil, read it and move reader to the next position.
@@ -117,9 +103,7 @@ public:
     /**
      * Skip next value.
      */
-    void skip() {
-        next();
-    }
+    void skip() { next(); }
 
 private:
     /**
@@ -128,12 +112,12 @@ private:
     void next();
 
     /**
-     * Check whether there is a data in stream and throw IgniteError if there is none.
+     * Check whether there is a data in stream and throw ignite_error if there is none.
      */
     void checkDataInStream();
 
     /** Buffer. */
-    BytesView m_buffer;
+    bytes_view m_buffer;
 
     /** Unpacker. */
     msgpack_unpacker m_unpacker;

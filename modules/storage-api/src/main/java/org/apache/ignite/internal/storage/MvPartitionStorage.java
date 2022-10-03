@@ -37,7 +37,8 @@ import org.jetbrains.annotations.Nullable;
  *
  * <p>All timestamps in the chain must go in decreasing order, giving us a N2O (newest to oldest) order of search.
  *
- * <p>Each MvPartitionStorage instance represents exactly one partition.
+ * <p>Each MvPartitionStorage instance represents exactly one partition. All RowIds within a partition are sorted consistently with the
+ * {@link RowId#compareTo} comparison order.
  */
 public interface MvPartitionStorage extends AutoCloseable {
     /**
@@ -212,8 +213,8 @@ public interface MvPartitionStorage extends AutoCloseable {
     Cursor<BinaryRow> scanVersions(RowId rowId) throws StorageException;
 
     /**
-     * Scans the partition and returns a cursor of values. All filtered values must either be uncommitted in current transaction
-     * or already committed in different transaction.
+     * Scans the partition and returns a cursor of values. All filtered values must either be uncommitted in the current transaction
+     * or already committed in a different transaction.
      *
      * @param keyFilter Key filter. Binary rows passed to the filter may or may not have a value, filter should only check keys.
      * @param txId Transaction id.
@@ -228,7 +229,7 @@ public interface MvPartitionStorage extends AutoCloseable {
      * @deprecated Use {@link #scan(Predicate, HybridTimestamp)}
      */
     @Deprecated
-    default Cursor<BinaryRow> scan(Predicate<BinaryRow> keyFilter, Timestamp timestamp) throws StorageException {
+    default PartitionTimestampCursor scan(Predicate<BinaryRow> keyFilter, Timestamp timestamp) throws StorageException {
         return scan(keyFilter, convertTimestamp(timestamp));
     }
 
@@ -241,7 +242,7 @@ public interface MvPartitionStorage extends AutoCloseable {
      * @throws TxIdMismatchException If there's another pending update associated with different transaction id.
      * @throws StorageException If failed to read data from the storage.
      */
-    Cursor<BinaryRow> scan(Predicate<BinaryRow> keyFilter, HybridTimestamp timestamp) throws StorageException;
+    PartitionTimestampCursor scan(Predicate<BinaryRow> keyFilter, HybridTimestamp timestamp) throws StorageException;
 
     /**
      * Returns rows count belongs to current storage.

@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "Config.h"
+#include "config.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -95,7 +95,7 @@ enum class Endian {
  * @return true If the host platform has big-endian byte order.
  * @return false If the host platform has other byte order.
  */
-constexpr bool isBigEndianPlatform() noexcept {
+constexpr bool is_big_endian_platform() noexcept {
     return Endian::NATIVE == Endian::BIG;
 }
 
@@ -105,7 +105,7 @@ constexpr bool isBigEndianPlatform() noexcept {
  * @return true If the host platform has little-endian byte order.
  * @return false If the host platform has other byte order.
  */
-constexpr bool isLittleEndianPlatform() noexcept {
+constexpr bool is_little_endian_platform() noexcept {
     return Endian::NATIVE == Endian::LITTLE;
 }
 
@@ -175,43 +175,43 @@ namespace detail {
 
 // A helper to implement byte swapping.
 template <std::size_t Size>
-struct Swapper;
+struct swapper;
 
 // Specialization for 1-byte types.
 template <>
-struct Swapper<1> {
-    using Type = std::uint8_t;
+struct swapper<1> {
+    using type = std::uint8_t;
 
-    static IGNITE_BYTESWAP_SPECIFIER Type swap(Type value) noexcept { return value; }
+    static IGNITE_BYTESWAP_SPECIFIER type swap(type value) noexcept { return value; }
 };
 
 // Specialization for 2-byte types.
 template <>
-struct Swapper<2> {
-    using Type = std::uint16_t;
+struct swapper<2> {
+    using type = std::uint16_t;
 
-    static IGNITE_BYTESWAP_SPECIFIER Type swap(Type value) noexcept { return IGNITE_BYTESWAP_16(value); }
+    static IGNITE_BYTESWAP_SPECIFIER type swap(type value) noexcept { return IGNITE_BYTESWAP_16(value); }
 };
 
 // Specialization for 4-byte types.
 template <>
-struct Swapper<4> {
-    using Type = std::uint32_t;
+struct swapper<4> {
+    using type = std::uint32_t;
 
-    static IGNITE_BYTESWAP_SPECIFIER Type swap(Type value) noexcept { return IGNITE_BYTESWAP_32(value); }
+    static IGNITE_BYTESWAP_SPECIFIER type swap(type value) noexcept { return IGNITE_BYTESWAP_32(value); }
 };
 
 // Specialization for 8-byte types.
 template <>
-struct Swapper<8> {
-    using Type = std::uint64_t;
+struct swapper<8> {
+    using type = std::uint64_t;
 
-    static IGNITE_BYTESWAP_SPECIFIER Type swap(Type value) noexcept { return IGNITE_BYTESWAP_64(value); }
+    static IGNITE_BYTESWAP_SPECIFIER type swap(type value) noexcept { return IGNITE_BYTESWAP_64(value); }
 };
 
 // A type suitable for swapping bytes.
 template <typename T>
-using SwapType = typename Swapper<sizeof(T)>::Type;
+using swap_type = typename swapper<sizeof(T)>::type;
 
 } // namespace detail
 
@@ -236,7 +236,7 @@ IGNITE_BYTESWAP_SPECIFIER T reverse(T value) noexcept {
 #if IGNITE_STD_BYTESWAP
     return std::byteswap(value);
 #else
-    return detail::Swapper<sizeof(T)>::swap(value);
+    return detail::swapper<sizeof(T)>::swap(value);
 #endif
 }
 
@@ -250,7 +250,7 @@ IGNITE_BYTESWAP_SPECIFIER T reverse(T value) noexcept {
  * @return Converted value.
  */
 template <typename T, Endian X, Endian Y>
-static T adjustOrder(T value) noexcept {
+static T adjust_order(T value) noexcept {
     if constexpr (X == Y) {
         return value;
     } else {
@@ -269,7 +269,7 @@ static T adjustOrder(T value) noexcept {
  */
 template <typename T>
 static T ltob(T value) noexcept {
-    return adjustOrder<T, Endian::LITTLE, Endian::BIG>(value);
+    return adjust_order<T, Endian::LITTLE, Endian::BIG>(value);
 }
 
 /**
@@ -281,7 +281,7 @@ static T ltob(T value) noexcept {
  */
 template <typename T>
 static T ltoh(T value) noexcept {
-    return adjustOrder<T, Endian::LITTLE, Endian::NATIVE>(value);
+    return adjust_order<T, Endian::LITTLE, Endian::NATIVE>(value);
 }
 
 /**
@@ -293,7 +293,7 @@ static T ltoh(T value) noexcept {
  */
 template <typename T>
 static T htol(T value) noexcept {
-    return adjustOrder<T, Endian::NATIVE, Endian::LITTLE>(value);
+    return adjust_order<T, Endian::NATIVE, Endian::LITTLE>(value);
 }
 
 /**
@@ -305,7 +305,7 @@ static T htol(T value) noexcept {
  */
 template <typename T>
 static T btol(T value) noexcept {
-    return adjustOrder<T, Endian::BIG, Endian::LITTLE>(value);
+    return adjust_order<T, Endian::BIG, Endian::LITTLE>(value);
 }
 
 /**
@@ -317,7 +317,7 @@ static T btol(T value) noexcept {
  */
 template <typename T>
 static T btoh(T value) noexcept {
-    return adjustOrder<T, Endian::BIG, Endian::NATIVE>(value);
+    return adjust_order<T, Endian::BIG, Endian::NATIVE>(value);
 }
 
 /**
@@ -329,7 +329,7 @@ static T btoh(T value) noexcept {
  */
 template <typename T>
 static T htob(T value) noexcept {
-    return adjustOrder<T, Endian::NATIVE, Endian::BIG>(value);
+    return adjust_order<T, Endian::NATIVE, Endian::BIG>(value);
 }
 
 /**
@@ -340,7 +340,7 @@ static T htob(T value) noexcept {
  * @return Loaded value.
  */
 template <typename T>
-T loadRaw(const std::byte *bytes) noexcept {
+T load_raw(const std::byte *bytes) noexcept {
     static_assert(std::is_trivially_copyable_v<T>, "Unsuitable type for byte copying");
 
     T value;
@@ -356,7 +356,7 @@ T loadRaw(const std::byte *bytes) noexcept {
  * @param value Value to store.
  */
 template <typename T>
-void storeRaw(std::byte *bytes, T value) noexcept {
+void store_raw(std::byte *bytes, T value) noexcept {
     static_assert(std::is_trivially_copyable_v<T>, "Unsuitable type for byte copying");
 
     std::memcpy(bytes, &value, sizeof(T));
@@ -373,12 +373,12 @@ void storeRaw(std::byte *bytes, T value) noexcept {
 template <Endian E, typename T>
 T load(const std::byte *bytes) noexcept {
     if constexpr (E == Endian::NATIVE) {
-        return loadRaw<T>(bytes);
+        return load_raw<T>(bytes);
     } else if constexpr (std::is_integral_v<T>) {
-        return adjustOrder<T, E, Endian::NATIVE>(loadRaw<T>(bytes));
+        return adjust_order<T, E, Endian::NATIVE>(load_raw<T>(bytes));
     } else {
-        using S = detail::SwapType<T>;
-        return cast<T>(adjustOrder<S, E, Endian::NATIVE>(loadRaw<S>(bytes)));
+        using S = detail::swap_type<T>;
+        return cast<T>(adjust_order<S, E, Endian::NATIVE>(load_raw<S>(bytes)));
     }
 }
 
@@ -393,12 +393,12 @@ T load(const std::byte *bytes) noexcept {
 template <Endian E, typename T>
 void store(std::byte *bytes, T value) noexcept {
     if constexpr (E == Endian::NATIVE) {
-        storeRaw(bytes, value);
+        store_raw(bytes, value);
     } else if constexpr (std::is_integral_v<T>) {
-        storeRaw(bytes, adjustOrder<T, Endian::NATIVE, E>(value));
+        store_raw(bytes, adjust_order<T, Endian::NATIVE, E>(value));
     } else {
-        using U = detail::SwapType<T>;
-        storeRaw(bytes, adjustOrder<U, Endian::NATIVE, E>(cast<U>(value)));
+        using U = detail::swap_type<T>;
+        store_raw(bytes, adjust_order<U, Endian::NATIVE, E>(cast<U>(value)));
     }
 }
 

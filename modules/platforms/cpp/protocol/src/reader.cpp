@@ -17,19 +17,17 @@
 
 #include "common/ignite_error.h"
 
-#include "ignite/protocol/utils.h"
 #include "ignite/protocol/extension_types.h"
 #include "ignite/protocol/reader.h"
+#include "ignite/protocol/utils.h"
 
-namespace ignite::protocol
-{
+namespace ignite::protocol {
 
-Reader::Reader(BytesView buffer) :
-    m_buffer(buffer),
-    m_unpacker(),
-    m_currentVal(),
-    m_moveRes(MSGPACK_UNPACK_SUCCESS)
-{
+Reader::Reader(bytes_view buffer)
+    : m_buffer(buffer)
+    , m_unpacker()
+    , m_currentVal()
+    , m_moveRes(MSGPACK_UNPACK_SUCCESS) {
     // TODO: Research if we can get rid of copying here.
     msgpack_unpacker_init(&m_unpacker, MSGPACK_UNPACKER_INIT_BUFFER_SIZE);
     msgpack_unpacker_reserve_buffer(&m_unpacker, m_buffer.size());
@@ -46,7 +44,7 @@ std::int64_t Reader::readInt64() {
 
     msgpack_object object = m_currentVal.data;
     if (object.type != MSGPACK_OBJECT_NEGATIVE_INTEGER && object.type != MSGPACK_OBJECT_POSITIVE_INTEGER)
-        throw IgniteError("The value in stream is not an integer number");
+        throw ignite_error("The value in stream is not an integer number");
 
     auto res = object.via.i64;
 
@@ -60,7 +58,7 @@ std::string Reader::readString() {
 
     msgpack_object object = m_currentVal.data;
     if (object.type != MSGPACK_OBJECT_STR)
-        throw IgniteError("The value in stream is not a string");
+        throw ignite_error("The value in stream is not a string");
 
     std::string res{object.via.str.ptr, object.via.str.size};
 
@@ -79,13 +77,14 @@ std::optional<std::string> Reader::readStringNullable() {
 Guid Reader::readGuid() {
     checkDataInStream();
 
-    if (m_currentVal.data.type != MSGPACK_OBJECT_EXT && m_currentVal.data.via.ext.type != std::int8_t(ExtensionTypes::GUID))
-        throw IgniteError("The value in stream is not a GUID");
+    if (m_currentVal.data.type != MSGPACK_OBJECT_EXT
+        && m_currentVal.data.via.ext.type != std::int8_t(ExtensionTypes::GUID))
+        throw ignite_error("The value in stream is not a GUID");
 
     if (m_currentVal.data.via.ext.size != 16)
-        throw IgniteError("Unexpected value size");
+        throw ignite_error("Unexpected value size");
 
-    auto data = reinterpret_cast<const std::byte*>(m_currentVal.data.via.ext.ptr);
+    auto data = reinterpret_cast<const std::byte *>(m_currentVal.data.via.ext.ptr);
 
     int64_t most = protocol::readInt64(data);
     int64_t least = protocol::readInt64(data, 8);
@@ -112,7 +111,7 @@ void Reader::next() {
 
 void Reader::checkDataInStream() {
     if (m_moveRes < 0)
-        throw IgniteError("No more data in stream");
+        throw ignite_error("No more data in stream");
 }
 
 } // namespace ignite::protocol

@@ -19,14 +19,12 @@
 
 #include <cstdint>
 
-namespace ignite::protocol
-{
+namespace ignite::protocol {
 
 /**
  * Extension types.
  */
-enum class ExtensionTypes : std::int8_t
-{
+enum class ExtensionTypes : std::int8_t {
     NUMBER = 1,
 
     DECIMAL = 2,
