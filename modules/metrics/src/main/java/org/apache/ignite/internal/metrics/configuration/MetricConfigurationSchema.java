@@ -15,18 +15,19 @@
  * limitations under the License.
  */
 
-apply from: "$rootDir/buildscripts/java-core.gradle"
-apply from: "$rootDir/buildscripts/java-junit5.gradle"
-apply from: "$rootDir/buildscripts/java-integration-test.gradle"
+package org.apache.ignite.internal.metrics.configuration;
 
-dependencies {
-    implementation project(':ignite-core')
-    implementation project(':ignite-configuration')
-    implementation project(':ignite-configuration-api')
-    implementation libs.jetbrains.annotations
+import org.apache.ignite.configuration.annotation.ConfigurationRoot;
+import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.configuration.annotation.NamedConfigValue;
+import org.apache.ignite.internal.metrics.exporters.configuration.ExporterConfigurationSchema;
 
-    testImplementation libs.hamcrest.core
-    testImplementation libs.mockito.core
+/**
+ * Metrics' configuration root.
+ */
+@ConfigurationRoot(rootName = "metrics", type = ConfigurationType.DISTRIBUTED)
+public class MetricConfigurationSchema {
+    /** Map of exporters' configurations. */
+    @NamedConfigValue
+    public ExporterConfigurationSchema exporters;
 }
-
-description = 'ignite-metrics'

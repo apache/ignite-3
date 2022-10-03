@@ -15,18 +15,17 @@
  * limitations under the License.
  */
 
-apply from: "$rootDir/buildscripts/java-core.gradle"
-apply from: "$rootDir/buildscripts/java-junit5.gradle"
-apply from: "$rootDir/buildscripts/java-integration-test.gradle"
+package org.apache.ignite.internal.metrics.exporters;
 
-dependencies {
-    implementation project(':ignite-core')
-    implementation project(':ignite-configuration')
-    implementation project(':ignite-configuration-api')
-    implementation libs.jetbrains.annotations
+import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.internal.metrics.exporters.configuration.ExporterConfigurationSchema;
 
-    testImplementation libs.hamcrest.core
-    testImplementation libs.mockito.core
+/**
+ * Configuration for test pull exporter.
+ */
+@PolymorphicConfigInstance(TestPullMetricExporter.EXPORTER_NAME)
+public class TestPullMetricsExporterConfigurationSchema extends ExporterConfigurationSchema {
+    @Value(hasDefault = true)
+    public int port = 11111;
 }
-
-description = 'ignite-metrics'

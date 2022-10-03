@@ -15,18 +15,15 @@
  * limitations under the License.
  */
 
-apply from: "$rootDir/buildscripts/java-core.gradle"
-apply from: "$rootDir/buildscripts/java-junit5.gradle"
-apply from: "$rootDir/buildscripts/java-integration-test.gradle"
+package org.apache.ignite.internal.metrics.exporters.configuration;
 
-dependencies {
-    implementation project(':ignite-core')
-    implementation project(':ignite-configuration')
-    implementation project(':ignite-configuration-api')
-    implementation libs.jetbrains.annotations
+import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 
-    testImplementation libs.hamcrest.core
-    testImplementation libs.mockito.core
+/**
+ * Jmx exporter configuration.
+ */
+// TODO: Should be clarified under IGNITE-17357.
+// TODO: Now it is needed to satisfy configuration framework, we can't have polymorphic config with 0 instances
+@PolymorphicConfigInstance("jmx")
+public class JmxExporterConfigurationSchema extends ExporterConfigurationSchema {
 }
-
-description = 'ignite-metrics'
