@@ -30,6 +30,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -52,7 +53,9 @@ import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.LockManager;
+import org.apache.ignite.internal.tx.LockMode;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.util.Pair;
@@ -312,9 +315,9 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testBatchReadPutConcurrently() {
-        Transaction tx = igniteTransactions.begin();
-        Transaction tx2 = igniteTransactions.begin();
+    public void testBatchReadPutConcurrently() throws InterruptedException {
+        InternalTransaction tx = (InternalTransaction) igniteTransactions.begin();
+        InternalTransaction tx2 = (InternalTransaction) igniteTransactions.begin();
 
         log.info("Tx " + tx);
         log.info("Tx2 " + tx2);
@@ -342,6 +345,23 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         }
 
         var futUpd2 = table2.upsertAllAsync(tx2, rows2);
+
+        assertTrue(IgniteTestUtils.waitForCondition(() -> {
+            boolean lockUpgraded = false;
+
+            for (Iterator<Lock> it = txManager(accounts).lockManager().locks(tx2.id()); it.hasNext(); ) {
+                Lock lock = it.next();
+
+                lockUpgraded = lock.lockMode() == LockMode.X;
+
+                if (lockUpgraded) {
+                    break;
+                }
+            }
+
+            return lockUpgraded;
+        },
+                3000));
 
         assertFalse(futUpd2.isDone());
 
