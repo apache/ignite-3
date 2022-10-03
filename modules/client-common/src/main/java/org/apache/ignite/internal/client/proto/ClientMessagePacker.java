@@ -915,6 +915,17 @@ public class ClientMessagePacker implements AutoCloseable {
     }
 
     /**
+     * Packs binary tuple.
+     *
+     * @param builder Builder.
+     */
+    public void packBinaryTuple(BinaryTupleBuilder builder) {
+        var buf = builder.build();
+        packBinaryHeader(buf.limit() - buf.position());
+        writePayload(buf);
+    }
+
+    /**
      * {@inheritDoc}
      */
     @Override

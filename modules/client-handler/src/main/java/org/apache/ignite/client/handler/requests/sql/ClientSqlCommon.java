@@ -21,10 +21,11 @@ import java.math.BigInteger;
 import java.time.Duration;
 import java.time.Period;
 import java.util.List;
+
+import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ResultSetMetadata;
-import org.apache.ignite.sql.SqlColumnType;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.async.AsyncResultSet;
 
@@ -41,9 +42,13 @@ class ClientSqlCommon {
         out.packArrayHeader(asyncResultSet.currentPageSize());
 
         for (SqlRow row : asyncResultSet.currentPage()) {
+            var builder = new BinaryTupleBuilder(row.columnCount(), true);
+
             for (int i = 0; i < cols.size(); i++) {
-                packValue(out, cols.get(i).type(), row, i);
+                packValue(builder, cols.get(i), row, i);
             }
+
+            out.packBinaryTuple(builder);
         }
 
         if (!asyncResultSet.hasMorePages()) {
@@ -51,80 +56,80 @@ class ClientSqlCommon {
         }
     }
 
-    private static void packValue(ClientMessagePacker out, SqlColumnType colType, SqlRow row, int idx) {
+    private static void packValue(BinaryTupleBuilder out, ColumnMetadata col, SqlRow row, int idx) {
         if (row.value(idx) == null) {
-            out.packNil();
+            out.appendNull();
             return;
         }
 
-        switch (colType) {
+        switch (col.type()) {
             case BOOLEAN:
-                out.packBoolean(row.value(idx));
+                out.appendByte((Boolean)row.value(idx) ? (byte)1 : (byte)0);
                 break;
 
             case INT8:
-                out.packByte(row.byteValue(idx));
+                out.appendByte(row.byteValue(idx));
                 break;
 
             case INT16:
-                out.packShort(row.shortValue(idx));
+                out.appendShort(row.shortValue(idx));
                 break;
 
             case INT32:
-                out.packInt(row.intValue(idx));
+                out.appendInt(row.intValue(idx));
                 break;
 
             case INT64:
-                out.packLong(row.longValue(idx));
+                out.appendLong(row.longValue(idx));
                 break;
 
             case FLOAT:
-                out.packFloat(row.floatValue(idx));
+                out.appendFloat(row.floatValue(idx));
                 break;
 
             case DOUBLE:
-                out.packDouble(row.doubleValue(idx));
+                out.appendDouble(row.doubleValue(idx));
                 break;
 
             case DECIMAL:
-                out.packDecimal(row.value(idx));
+                out.appendDecimal(row.value(idx), col.scale());
                 break;
 
             case DATE:
-                out.packDate(row.dateValue(idx));
+                out.appendDate(row.dateValue(idx));
                 break;
 
             case TIME:
-                out.packTime(row.timeValue(idx));
+                out.appendTime(row.timeValue(idx));
                 break;
 
             case DATETIME:
-                out.packDateTime(row.datetimeValue(idx));
+                out.appendDateTime(row.datetimeValue(idx));
                 break;
 
             case TIMESTAMP:
-                out.packTimestamp(row.timestampValue(idx));
+                out.appendTimestamp(row.timestampValue(idx));
                 break;
 
             case UUID:
-                out.packUuid(row.uuidValue(idx));
+                out.appendUuid(row.uuidValue(idx));
                 break;
 
             case BITMASK:
-                out.packBitSet(row.bitmaskValue(idx));
+                out.appendBitmask(row.bitmaskValue(idx));
                 break;
 
             case STRING:
-                out.packString(row.stringValue(idx));
+                out.appendString(row.stringValue(idx));
                 break;
 
             case BYTE_ARRAY:
                 byte[] bytes = row.value(idx);
-                out.packBinaryHeader(bytes.length);
-                out.writePayload(bytes);
+                out.appendBytes(bytes);
                 break;
 
             case PERIOD:
+                // TODO: Not supported by BinaryTuple - why?
                 Period period = row.value(idx);
                 out.packInt(period.getYears());
                 out.packInt(period.getMonths());
