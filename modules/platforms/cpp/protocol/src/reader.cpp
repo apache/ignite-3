@@ -74,7 +74,7 @@ std::optional<std::string> Reader::readStringNullable() {
     return readString();
 }
 
-Guid Reader::readGuid() {
+uuid Reader::readUuid() {
     checkDataInStream();
 
     if (m_currentVal.data.type != MSGPACK_OBJECT_EXT
@@ -89,7 +89,7 @@ Guid Reader::readGuid() {
     int64_t most = protocol::readInt64(data);
     int64_t least = protocol::readInt64(data, 8);
 
-    Guid res(most, least);
+    uuid res(most, least);
 
     next();
     return res;

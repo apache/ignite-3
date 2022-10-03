@@ -25,6 +25,7 @@
 
 #include "common/ignite_error.h"
 #include "common/types.h"
+#include "common/uuid.h"
 
 #include "ignite/protocol/reader.h"
 
@@ -192,7 +193,7 @@ inline void writeInt16(int16_t value, std::byte *buffer, size_t offset = 0) {
  *
  * @return Random GUID instance.
  */
-ignite::Guid makeRandomGuid();
+ignite::uuid makeRandomUuid();
 
 /**
  * Read error.

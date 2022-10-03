@@ -15,8 +15,6 @@
  * limitations under the License.
  */
 
-#include "common/utils.h"
-
 #include "ignite/protocol/reader.h"
 #include "ignite/protocol/writer.h"
 #include "table/tables_impl.h"
@@ -28,8 +26,8 @@ void TablesImpl::getTableAsync(const std::string &name, ignite_callback<std::opt
         if (reader.tryReadNil())
             return std::nullopt;
 
-        auto guid = reader.readGuid();
-        auto tableImpl = std::make_shared<TableImpl>(name, guid);
+        auto id = reader.readUuid();
+        auto tableImpl = std::make_shared<TableImpl>(name, id);
 
         return std::make_optional(Table(tableImpl));
     };

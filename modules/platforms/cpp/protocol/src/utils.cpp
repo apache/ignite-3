@@ -23,7 +23,7 @@
 
 namespace ignite::protocol {
 
-Guid makeRandomGuid() {
+uuid makeRandomUuid() {
     static std::mutex randomMutex;
     static std::random_device rd;
     static std::mt19937 gen(rd());
@@ -39,7 +39,7 @@ std::optional<ignite_error> readError(Reader &reader) {
     if (reader.tryReadNil())
         return std::nullopt;
 
-    Guid traceId = reader.tryReadNil() ? makeRandomGuid() : reader.readGuid();
+    uuid traceId = reader.tryReadNil() ? makeRandomUuid() : reader.readUuid();
     int32_t code = reader.tryReadNil() ? 65537 : reader.readInt32();
     std::string className = reader.readString();
     std::string message = reader.readString();

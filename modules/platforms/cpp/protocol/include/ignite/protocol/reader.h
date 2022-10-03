@@ -22,7 +22,7 @@
 
 #include <msgpack.h>
 
-#include "common/guid.h"
+#include "common/uuid.h"
 #include "common/types.h"
 
 namespace ignite::protocol {
@@ -91,7 +91,7 @@ public:
      *
      * @return GUID value.
      */
-    [[nodiscard]] Guid readGuid();
+    [[nodiscard]] uuid readUuid();
 
     /**
      * If the next value is Nil, read it and move reader to the next position.
