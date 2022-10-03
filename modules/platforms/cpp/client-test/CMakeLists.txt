@@ -28,6 +28,7 @@ enable_testing()
 set(SOURCES
     src/ignite_client_test.cpp
     src/main.cpp
+    src/tables_test.cpp
 )
 
 add_executable(${TARGET} ${SOURCES})

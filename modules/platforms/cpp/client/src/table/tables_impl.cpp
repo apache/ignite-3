@@ -49,7 +49,7 @@ void TablesImpl::getTablesAsync(ignite_callback<std::vector<Table>> callback) {
 
         reader.readMap<uuid, std::string>([&tables] (auto&& id, auto&& name) {
             auto tableImpl = std::make_shared<TableImpl>(std::forward<std::string>(name), std::forward<uuid>(id));
-            tables.push_back(Table(tableImpl));
+            tables.push_back(Table{tableImpl});
         });
 
         return std::move(tables);

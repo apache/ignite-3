@@ -17,11 +17,13 @@
 
 #pragma once
 
+#include "ignite/ignite_logger.h"
+
+#include <gtest/gtest.h>
+
 #include <memory>
 #include <sstream>
 #include <string>
-
-#include <gtest/gtest.h>
 
 namespace ignite {
 

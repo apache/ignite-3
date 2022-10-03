@@ -15,31 +15,32 @@
  * limitations under the License.
  */
 
-#include "ignite_runner_suite.h"
+#pragma once
 
-#include "ignite/ignite_client.h"
-#include "ignite/ignite_client_configuration.h"
+#include "gtest_logger.h"
 
 #include <gtest/gtest.h>
 
-#include <chrono>
+#include <memory>
 
-using namespace ignite;
+namespace ignite {
 
 /**
  * Test suite.
  */
-class ClientTest : public IgniteRunnerSuite {};
+class IgniteRunnerSuite : public ::testing::Test {
+protected:
+    static constexpr std::initializer_list<std::string_view> NODE_ADDRS = {"127.0.0.1:10942", "127.0.0.1:10943"};
 
-TEST_F(ClientTest, GetConfiguration) {
-    IgniteClientConfiguration cfg{NODE_ADDRS};
-    cfg.setLogger(getLogger());
-    cfg.setConnectionLimit(42);
+    IgniteRunnerSuite() = default;
+    ~IgniteRunnerSuite() override = default;
 
-    auto client = IgniteClient::start(cfg, std::chrono::seconds(5));
+    /**
+     * Get logger.
+     *
+     * @return Logger for tests.
+     */
+    static std::shared_ptr<GtestLogger> getLogger() { return std::make_shared<GtestLogger>(true, true); }
+};
 
-    const auto &cfg2 = client.getConfiguration();
-
-    EXPECT_EQ(cfg.getEndpoints(), cfg2.getEndpoints());
-    EXPECT_EQ(cfg.getConnectionLimit(), cfg2.getConnectionLimit());
-}
+} // namespace ignite
