@@ -34,7 +34,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -353,13 +352,6 @@ public class PartitionListener implements RaftGroupListener {
         } catch (Exception e) {
             throw new IgniteInternalException("Failed to close storage: " + e.getMessage(), e);
         }
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<Void> onBeforeApply(Command command) {
-
-        return null;
     }
 
     /**
