@@ -27,10 +27,12 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.Period;
 import java.util.BitSet;
 import java.util.Random;
 import java.util.UUID;
@@ -628,6 +630,35 @@ public class BinaryTupleTest {
 
             BinaryTupleReader reader = new BinaryTupleReader(1, bytes);
             assertEquals(value, reader.timestampValue(0));
+        }
+    }
+
+    /**
+     * Test Duration value encoding.
+     */
+    @Test
+    public void durationTest() {
+        Instant now = Instant.now();
+        Duration value = Duration.ofSeconds(now.getEpochSecond(), now.getNano());
+
+        {
+            BinaryTupleBuilder builder = new BinaryTupleBuilder(1, false);
+            ByteBuffer bytes = builder.appendDuration(value).build();
+
+            BinaryTupleReader reader = new BinaryTupleReader(1, bytes);
+            assertEquals(value, reader.durationValue(0));
+        }
+
+        value = Duration.ofSeconds(now.getEpochSecond());
+
+        {
+            BinaryTupleBuilder builder = new BinaryTupleBuilder(1, false);
+            ByteBuffer bytes = builder.appendDuration(value).build();
+            assertEquals(8, bytes.get(1));
+            assertEquals(10, bytes.limit());
+
+            BinaryTupleReader reader = new BinaryTupleReader(1, bytes);
+            assertEquals(value, reader.durationValue(0));
         }
     }
 
