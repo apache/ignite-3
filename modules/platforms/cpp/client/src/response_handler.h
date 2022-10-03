@@ -90,8 +90,8 @@ public:
         if (!callback)
             return {};
 
-        auto res = ignite_result<T>::of_operation([&]() { return m_readFunc(reader); });
-        return ignite_result<void>::of_operation([&]() { callback(std::move(res)); });
+        auto res = result_of_operation<T>([&]() { return m_readFunc(reader); });
+        return result_of_operation<void>([&]() { callback(std::move(res)); });
     }
 
     /**
@@ -104,7 +104,7 @@ public:
         if (!callback)
             return {};
 
-        return ignite_result<void>::of_operation([&]() { callback({std::move(err)}); });
+        return result_of_operation<void>([&]() { callback({std::move(err)}); });
     }
 
 private:

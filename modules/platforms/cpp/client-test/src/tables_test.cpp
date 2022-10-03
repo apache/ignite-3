@@ -24,7 +24,6 @@
 
 #include <algorithm>
 #include <chrono>
-#include <string_view>
 #include <thread>
 
 using namespace ignite;
@@ -34,25 +33,25 @@ using namespace ignite;
  */
 class TablesTest : public IgniteRunnerSuite {};
 
-TEST_F(TablesTest, TablesGetTablePromises) {
+TEST_F(TablesTest, TablesGetTableAsyncPromises) {
     IgniteClientConfiguration cfg{NODE_ADDRS};
     cfg.setLogger(getLogger());
 
     auto clientPromise = std::make_shared<std::promise<IgniteClient>>();
-    IgniteClient::startAsync(cfg, std::chrono::seconds(5), ignite_result<IgniteClient>::promise_setter(clientPromise));
+    IgniteClient::startAsync(cfg, std::chrono::seconds(5), result_promise_setter(clientPromise));
 
     auto client = clientPromise->get_future().get();
 
     auto tables = client.getTables();
 
     auto tablePromise = std::make_shared<std::promise<std::optional<Table>>>();
-    tables.getTableAsync("PUB.some_unknown", ignite_result<std::optional<Table>>::promise_setter(tablePromise));
+    tables.getTableAsync("PUB.some_unknown", result_promise_setter(tablePromise));
 
     auto tableUnknown = tablePromise->get_future().get();
     EXPECT_FALSE(tableUnknown.has_value());
 
     tablePromise = std::make_shared<std::promise<std::optional<Table>>>();
-    tables.getTableAsync("PUB.tbl1", ignite_result<std::optional<Table>>::promise_setter(tablePromise));
+    tables.getTableAsync("PUB.tbl1", result_promise_setter(tablePromise));
 
     auto table = tablePromise->get_future().get();
     ASSERT_TRUE(table.has_value());
@@ -72,7 +71,7 @@ bool checkAndSetOperationError(std::promise<void> &operation, const ignite_resul
     return true;
 }
 
-TEST_F(TablesTest, TablesGetTableCallbacks) {
+TEST_F(TablesTest, TablesGetTableAsyncCallbacks) {
     auto operation0 = std::make_shared<std::promise<void>>();
     auto operation1 = std::make_shared<std::promise<void>>();
     auto operation2 = std::make_shared<std::promise<void>>();
@@ -128,7 +127,7 @@ TEST_F(TablesTest, TablesGetTableCallbacks) {
     operation2->get_future().get();
 }
 
-TEST_F(TablesTest, TablesGetTablesPromises) {
+TEST_F(TablesTest, TablesGetTablesAsyncPromises) {
     IgniteClientConfiguration cfg{NODE_ADDRS};
     cfg.setLogger(getLogger());
 
@@ -137,7 +136,7 @@ TEST_F(TablesTest, TablesGetTablesPromises) {
     auto tablesApi = client.getTables();
 
     auto tablesPromise = std::make_shared<std::promise<std::vector<Table>>>();
-    tablesApi.getTablesAsync(ignite_result<std::vector<Table>>::promise_setter(tablesPromise));
+    tablesApi.getTablesAsync(result_promise_setter(tablesPromise));
 
     auto tables = tablesPromise->get_future().get();
     ASSERT_GT(tables.size(), 0);
