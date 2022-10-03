@@ -20,7 +20,6 @@ package org.apache.ignite.internal.runner.app;
 import static org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter.convert;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -61,6 +60,7 @@ import org.junit.jupiter.api.TestInfo;
 /**
  * These tests check in-memory node restart scenarios.
  */
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-17302")
 public class ItIgniteInMemoryNodeRestartTest extends IgniteAbstractTest {
     /** Default node port. */
     private static final int DEFAULT_NODE_PORT = 3344;
