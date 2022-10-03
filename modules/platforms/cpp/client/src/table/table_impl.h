@@ -23,24 +23,22 @@
 
 #include "common/guid.h"
 
-namespace ignite::detail
-{
+namespace ignite::detail {
 
 /**
  * Table view implementation.
  */
-class TableImpl
-{
+class TableImpl {
 public:
     // Deleted
-    TableImpl(const TableImpl&) = delete;
-    TableImpl& operator=(const TableImpl&) = delete;
+    TableImpl(const TableImpl &) = delete;
+    TableImpl &operator=(const TableImpl &) = delete;
 
     // Default
     TableImpl() = default;
     ~TableImpl() = default;
-    TableImpl(TableImpl&&) = default;
-    TableImpl& operator=(TableImpl&&) = default;
+    TableImpl(TableImpl &&) = default;
+    TableImpl &operator=(TableImpl &&) = default;
 
     /**
      * Constructor.
@@ -48,20 +46,16 @@ public:
      * @param name Name.
      * @param id ID.
      */
-    TableImpl(std::string name, Guid id) :
-        m_name(std::move(name)),
-        m_id(id) { }
+    TableImpl(std::string name, Guid id)
+        : m_name(std::move(name))
+        , m_id(id) { }
 
     /**
      * Get table name.
      *
      * @return Table name.
      */
-    [[nodiscard]]
-    const std::string& getName() const
-    {
-        return m_name;
-    }
+    [[nodiscard]] const std::string &getName() const { return m_name; }
 
 private:
     /** Table name. */

@@ -62,6 +62,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageFactoryCreator;
 import org.apache.ignite.internal.recovery.ConfigurationCatchUpListener;
@@ -319,6 +320,8 @@ public class IgniteImpl implements Ignite {
                 modules.distributed().polymorphicSchemaExtensions()
         );
 
+        metricManager.configure(clusterCfgMgr.configurationRegistry().getConfiguration(MetricConfiguration.KEY));
+
         RestFactory presentationsFactory = new PresentationsFactory(nodeCfgMgr, clusterCfgMgr);
         RestFactory clusterManagementRestFactory = new ClusterManagementRestFactory(clusterSvc, cmgMgr);
         RestFactory nodeManagementRestFactory = new NodeManagementRestFactory(lifecycleManager, () -> name);
@@ -472,7 +475,6 @@ public class IgniteImpl implements Ignite {
 
             // Start the components that are required to join the cluster.
             lifecycleManager.startComponents(
-                    metricManager,
                     nettyBootstrapFactory,
                     clusterSvc,
                     restComponent,
@@ -492,6 +494,7 @@ public class IgniteImpl implements Ignite {
                             lifecycleManager.startComponents(
                                     metaStorageMgr,
                                     clusterCfgMgr,
+                                    metricManager,
                                     computeComponent,
                                     replicaMgr,
                                     txManager,

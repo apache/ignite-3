@@ -26,34 +26,31 @@
 
 // Using NULLs as specified by WinAPI
 #ifdef __JETBRAINS_IDE__
-#   pragma ide diagnostic ignored "modernize-use-nullptr"
+# pragma ide diagnostic ignored "modernize-use-nullptr"
 #endif
 
-namespace
-{
-    ignite::network::FibonacciSequence<10> fibonacci10;
+namespace {
+ignite::network::FibonacciSequence<10> fibonacci10;
 }
 
-namespace ignite::network
-{
+namespace ignite::network {
 
-WinAsyncConnectingThread::WinAsyncConnectingThread() :
-    m_thread(),
-    m_clientPool(nullptr),
-    m_stopping(false),
-    m_failedAttempts(0),
-    m_minAddrs(0),
-    m_addrsMutex(),
-    m_connectNeeded(),
-    m_nonConnected(),
-    m_addrPositionSeed(std::random_device()()){ }
+WinAsyncConnectingThread::WinAsyncConnectingThread()
+    : m_thread()
+    , m_clientPool(nullptr)
+    , m_stopping(false)
+    , m_failedAttempts(0)
+    , m_minAddrs(0)
+    , m_addrsMutex()
+    , m_connectNeeded()
+    , m_nonConnected()
+    , m_addrPositionSeed(std::random_device()()) {
+}
 
-void WinAsyncConnectingThread::run()
-{
+void WinAsyncConnectingThread::run() {
     assert(m_clientPool != nullptr);
 
-    while (!m_stopping)
-    {
+    while (!m_stopping) {
         TcpRange range = getNextAddress();
 
         if (m_stopping || range.isEmpty())
@@ -61,8 +58,7 @@ void WinAsyncConnectingThread::run()
 
         std::shared_ptr<WinAsyncClient> client = tryConnect(range);
 
-        if (!client)
-        {
+        if (!client) {
             ++m_failedAttempts;
 
             auto msToWait = static_cast<DWORD>(1000 * fibonacci10.getValue(m_failedAttempts));
@@ -74,19 +70,16 @@ void WinAsyncConnectingThread::run()
 
         m_failedAttempts = 0;
 
-        if (m_stopping)
-        {
+        if (m_stopping) {
             client->close();
 
             return;
         }
 
-        try
-        {
+        try {
             bool added = m_clientPool->addClient(client);
 
-            if (!added)
-            {
+            if (!added) {
                 client->close();
 
                 continue;
@@ -99,9 +92,7 @@ void WinAsyncConnectingThread::run()
                 if (it != m_nonConnected.end())
                     m_nonConnected.erase(it);
             }
-        }
-        catch (const IgniteError& err)
-        {
+        } catch (const ignite_error &err) {
             client->close();
 
             m_clientPool->handleConnectionError(client->getAddress(), err);
@@ -111,16 +102,14 @@ void WinAsyncConnectingThread::run()
     }
 }
 
-void WinAsyncConnectingThread::notifyFreeAddress(const TcpRange &range)
-{
+void WinAsyncConnectingThread::notifyFreeAddress(const TcpRange &range) {
     std::lock_guard<std::mutex> lock(m_addrsMutex);
 
     m_nonConnected.push_back(range);
     m_connectNeeded.notify_one();
 }
 
-void WinAsyncConnectingThread::start(WinAsyncClientPool& clientPool, size_t limit, std::vector<TcpRange> addrs)
-{
+void WinAsyncConnectingThread::start(WinAsyncClientPool &clientPool, size_t limit, std::vector<TcpRange> addrs) {
     m_stopping = false;
     m_clientPool = &clientPool;
     m_failedAttempts = 0;
@@ -134,8 +123,7 @@ void WinAsyncConnectingThread::start(WinAsyncClientPool& clientPool, size_t limi
     m_thread = std::thread(&WinAsyncConnectingThread::run, this);
 }
 
-void WinAsyncConnectingThread::stop()
-{
+void WinAsyncConnectingThread::stop() {
     if (m_stopping)
         return;
 
@@ -150,19 +138,14 @@ void WinAsyncConnectingThread::stop()
     m_nonConnected.clear();
 }
 
-std::shared_ptr<WinAsyncClient> WinAsyncConnectingThread::tryConnect(const TcpRange& range)
-{
-    for (uint16_t port = range.port; port <= (range.port + range.range); ++port)
-    {
+std::shared_ptr<WinAsyncClient> WinAsyncConnectingThread::tryConnect(const TcpRange &range) {
+    for (uint16_t port = range.port; port <= (range.port + range.range); ++port) {
         EndPoint addr(range.host, port);
-        try
-        {
+        try {
             SOCKET socket = tryConnect(addr);
 
             return std::make_shared<WinAsyncClient>(socket, addr, range, int32_t(BUFFER_SIZE));
-        }
-        catch (const IgniteError& err)
-        {
+        } catch (const ignite_error &err) {
             m_clientPool->handleConnectionError(addr, err);
         }
     }
@@ -170,8 +153,7 @@ std::shared_ptr<WinAsyncClient> WinAsyncConnectingThread::tryConnect(const TcpRa
     return {};
 }
 
-SOCKET WinAsyncConnectingThread::tryConnect(const EndPoint& addr)
-{
+SOCKET WinAsyncConnectingThread::tryConnect(const EndPoint &addr) {
     addrinfo hints{};
     memset(&hints, 0, sizeof(hints));
 
@@ -188,35 +170,32 @@ SOCKET WinAsyncConnectingThread::tryConnect(const EndPoint& addr)
     int res = getaddrinfo(addr.host.c_str(), strPort.c_str(), &hints, &result);
 
     if (res != 0)
-        throw IgniteError(StatusCode::NETWORK, "Can not resolve host: " + addr.host + ":" + strPort);
+        throw ignite_error(status_code::NETWORK, "Can not resolve host: " + addr.host + ":" + strPort);
 
     std::string lastErrorMsg = "Failed to resolve host";
 
     SOCKET socket = INVALID_SOCKET; // NOLINT(modernize-use-auto)
 
     // Attempt to connect to an address until one succeeds
-    for (addrinfo *it = result; it != NULL; it = it->ai_next)
-    {
+    for (addrinfo *it = result; it != NULL; it = it->ai_next) {
         lastErrorMsg = "Failed to establish connection with the host";
 
         socket = WSASocket(it->ai_family, it->ai_socktype, it->ai_protocol, NULL, 0, WSA_FLAG_OVERLAPPED);
 
         if (socket == INVALID_SOCKET)
-            throw IgniteError(StatusCode::NETWORK, "Socket creation failed: " + getLastSocketErrorMessage());
+            throw ignite_error(status_code::NETWORK, "Socket creation failed: " + getLastSocketErrorMessage());
 
         trySetSocketOptions(socket, BUFFER_SIZE, TRUE, TRUE, TRUE);
 
         // Connect to server.
         res = WSAConnect(socket, it->ai_addr, static_cast<int>(it->ai_addrlen), NULL, NULL, NULL, NULL);
-        if (SOCKET_ERROR == res)
-        {
+        if (SOCKET_ERROR == res) {
             closesocket(socket);
             socket = INVALID_SOCKET;
 
             int lastError = WSAGetLastError();
 
-            if (lastError != WSAEWOULDBLOCK)
-            {
+            if (lastError != WSAEWOULDBLOCK) {
                 lastErrorMsg.append(": ").append(getSocketErrorMessage(lastError));
 
                 continue;
@@ -229,20 +208,18 @@ SOCKET WinAsyncConnectingThread::tryConnect(const EndPoint& addr)
     freeaddrinfo(result);
 
     if (socket == INVALID_SOCKET)
-        throw IgniteError(StatusCode::NETWORK, std::move(lastErrorMsg));
+        throw ignite_error(status_code::NETWORK, std::move(lastErrorMsg));
 
     return socket;
 }
 
-TcpRange WinAsyncConnectingThread::getNextAddress() const
-{
+TcpRange WinAsyncConnectingThread::getNextAddress() const {
     std::unique_lock<std::mutex> lock(m_addrsMutex);
 
     if (m_stopping)
         return {};
 
-    while (m_nonConnected.size() <= m_minAddrs)
-    {
+    while (m_nonConnected.size() <= m_minAddrs) {
         m_connectNeeded.wait(lock);
 
         if (m_stopping)

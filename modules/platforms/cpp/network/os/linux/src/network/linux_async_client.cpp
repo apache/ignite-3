@@ -15,56 +15,53 @@
  * limitations under the License.
  */
 
+#include <sys/epoll.h>
 #include <sys/socket.h>
 #include <sys/types.h>
-#include <sys/epoll.h>
 #include <unistd.h>
 
-#include <cstring>
 #include <algorithm>
+#include <cstring>
 
 #include "network/utils.h"
 
-#include "network/sockets.h"
 #include "network/linux_async_client.h"
+#include "network/sockets.h"
 
-namespace ignite::network
-{
+namespace ignite::network {
 
-LinuxAsyncClient::LinuxAsyncClient(int fd, EndPoint addr, TcpRange range) :
-    m_state(State::CONNECTED),
-    m_fd(fd),
-    m_epoll(-1),
-    m_id(0),
-    m_addr(std::move(addr)),
-    m_range(std::move(range)),
-    m_sendPackets(),
-    m_sendMutex(),
-    m_recvPacket(BUFFER_SIZE),
-    m_closeErr() { }
+LinuxAsyncClient::LinuxAsyncClient(int fd, EndPoint addr, TcpRange range)
+    : m_state(State::CONNECTED)
+    , m_fd(fd)
+    , m_epoll(-1)
+    , m_id(0)
+    , m_addr(std::move(addr))
+    , m_range(std::move(range))
+    , m_sendPackets()
+    , m_sendMutex()
+    , m_recvPacket(BUFFER_SIZE)
+    , m_closeErr() {
+}
 
-LinuxAsyncClient::~LinuxAsyncClient()
-{
+LinuxAsyncClient::~LinuxAsyncClient() {
     shutdown(std::nullopt);
 
     close();
 }
 
-bool LinuxAsyncClient::shutdown(std::optional<IgniteError> err)
-{
+bool LinuxAsyncClient::shutdown(std::optional<ignite_error> err) {
     std::lock_guard<std::mutex> lock(m_sendMutex);
     if (m_state != State::CONNECTED)
         return false;
 
-    m_closeErr = err ? std::move(*err) : IgniteError("Connection closed by application");
+    m_closeErr = err ? std::move(*err) : ignite_error("Connection closed by application");
     ::shutdown(m_fd, SHUT_RDWR);
     m_state = State::SHUTDOWN;
 
     return true;
 }
 
-bool LinuxAsyncClient::close()
-{
+bool LinuxAsyncClient::close() {
     if (State::CLOSED == m_state)
         return false;
 
@@ -76,8 +73,7 @@ bool LinuxAsyncClient::close()
     return true;
 }
 
-bool LinuxAsyncClient::send(std::vector<std::byte>&& data)
-{
+bool LinuxAsyncClient::send(std::vector<std::byte> &&data) {
     std::lock_guard<std::mutex> lock(m_sendMutex);
 
     m_sendPackets.emplace_back(std::move(data));
@@ -87,12 +83,11 @@ bool LinuxAsyncClient::send(std::vector<std::byte>&& data)
     return sendNextPacketLocked();
 }
 
-bool LinuxAsyncClient::sendNextPacketLocked()
-{
+bool LinuxAsyncClient::sendNextPacketLocked() {
     if (m_sendPackets.empty())
         return true;
 
-    auto& packet = m_sendPackets.front();
+    auto &packet = m_sendPackets.front();
     auto dataView = packet.getBytesView();
 
     ssize_t ret = ::send(m_fd, dataView.data(), dataView.size(), 0);
@@ -106,8 +101,7 @@ bool LinuxAsyncClient::sendNextPacketLocked()
     return true;
 }
 
-BytesView LinuxAsyncClient::receive()
-{
+bytes_view LinuxAsyncClient::receive() {
     ssize_t res = recv(m_fd, m_recvPacket.data(), m_recvPacket.size(), 0);
     if (res < 0)
         return {};
@@ -115,8 +109,7 @@ BytesView LinuxAsyncClient::receive()
     return {m_recvPacket.data(), size_t(res)};
 }
 
-bool LinuxAsyncClient::startMonitoring(int epoll0)
-{
+bool LinuxAsyncClient::startMonitoring(int epoll0) {
     if (epoll0 < 0)
         return false;
 
@@ -142,8 +135,7 @@ void LinuxAsyncClient::stopMonitoring() // NOLINT(readability-make-member-functi
     epoll_ctl(m_epoll, EPOLL_CTL_DEL, m_fd, &event);
 }
 
-void LinuxAsyncClient::enableSendNotifications()
-{
+void LinuxAsyncClient::enableSendNotifications() {
     epoll_event event{};
     memset(&event, 0, sizeof(event));
     event.data.ptr = this;
@@ -152,8 +144,7 @@ void LinuxAsyncClient::enableSendNotifications()
     epoll_ctl(m_epoll, EPOLL_CTL_MOD, m_fd, &event);
 }
 
-void LinuxAsyncClient::disableSendNotifications()
-{
+void LinuxAsyncClient::disableSendNotifications() {
     epoll_event event{};
     memset(&event, 0, sizeof(event));
     event.data.ptr = this;
@@ -162,12 +153,10 @@ void LinuxAsyncClient::disableSendNotifications()
     epoll_ctl(m_epoll, EPOLL_CTL_MOD, m_fd, &event);
 }
 
-bool LinuxAsyncClient::processSent()
-{
+bool LinuxAsyncClient::processSent() {
     std::lock_guard<std::mutex> lock(m_sendMutex);
 
-    if (m_sendPackets.empty())
-    {
+    if (m_sendPackets.empty()) {
         disableSendNotifications();
 
         return true;

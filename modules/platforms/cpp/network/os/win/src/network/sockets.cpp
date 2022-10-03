@@ -17,21 +17,19 @@
 
 #include "network/sockets.h"
 
-#include <sstream>
 #include <mutex>
+#include <sstream>
 
 #include "network/utils.h"
 
 // Using NULLs as specified by WinAPI
 #ifdef __JETBRAINS_IDE__
-#   pragma ide diagnostic ignored "modernize-use-nullptr"
+# pragma ide diagnostic ignored "modernize-use-nullptr"
 #endif
 
-namespace ignite::network
-{
+namespace ignite::network {
 
-std::string getSocketErrorMessage(HRESULT error)
-{
+std::string getSocketErrorMessage(HRESULT error) {
     std::stringstream res;
 
     res << "error_code=" << error;
@@ -44,14 +42,12 @@ std::string getSocketErrorMessage(HRESULT error)
     DWORD len = FormatMessageA(
         // use system message tables to retrieve error text
         FORMAT_MESSAGE_FROM_SYSTEM
-        // allocate buffer on local heap for error text
-        | FORMAT_MESSAGE_ALLOCATE_BUFFER
-        // We're not passing insertion parameters
-        | FORMAT_MESSAGE_IGNORE_INSERTS,
+            // allocate buffer on local heap for error text
+            | FORMAT_MESSAGE_ALLOCATE_BUFFER
+            // We're not passing insertion parameters
+            | FORMAT_MESSAGE_IGNORE_INSERTS,
         // unused with FORMAT_MESSAGE_FROM_SYSTEM
-        NULL,
-        error,
-        MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US),
+        NULL, error, MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US),
         // output
         reinterpret_cast<LPSTR>(&errorText),
         // minimum size for output buffer
@@ -59,9 +55,8 @@ std::string getSocketErrorMessage(HRESULT error)
         // arguments - see note
         NULL);
 
-    if (NULL != errorText && len > 0)
-    {
-        std::string msg(reinterpret_cast<const char*>(errorText), static_cast<size_t>(len));
+    if (NULL != errorText && len > 0) {
+        std::string msg(reinterpret_cast<const char *>(errorText), static_cast<size_t>(len));
 
         res << ", msg=" << msg;
 
@@ -71,30 +66,25 @@ std::string getSocketErrorMessage(HRESULT error)
     return res.str();
 }
 
-std::string getLastSocketErrorMessage()
-{
+std::string getLastSocketErrorMessage() {
     HRESULT lastError = WSAGetLastError();
 
     return getSocketErrorMessage(lastError);
 }
 
-void trySetSocketOptions(SOCKET socket, int bufSize, BOOL noDelay, BOOL outOfBand, BOOL keepAlive)
-{
-    setsockopt(socket, SOL_SOCKET, SO_SNDBUF, reinterpret_cast<char*>(&bufSize), sizeof(bufSize));
-    setsockopt(socket, SOL_SOCKET, SO_RCVBUF, reinterpret_cast<char*>(&bufSize), sizeof(bufSize));
+void trySetSocketOptions(SOCKET socket, int bufSize, BOOL noDelay, BOOL outOfBand, BOOL keepAlive) {
+    setsockopt(socket, SOL_SOCKET, SO_SNDBUF, reinterpret_cast<char *>(&bufSize), sizeof(bufSize));
+    setsockopt(socket, SOL_SOCKET, SO_RCVBUF, reinterpret_cast<char *>(&bufSize), sizeof(bufSize));
 
-    setsockopt(socket, IPPROTO_TCP, TCP_NODELAY, reinterpret_cast<char*>(&noDelay), sizeof(noDelay));
+    setsockopt(socket, IPPROTO_TCP, TCP_NODELAY, reinterpret_cast<char *>(&noDelay), sizeof(noDelay));
 
-    setsockopt(socket, SOL_SOCKET, SO_OOBINLINE, reinterpret_cast<char*>(&outOfBand), sizeof(outOfBand));
+    setsockopt(socket, SOL_SOCKET, SO_OOBINLINE, reinterpret_cast<char *>(&outOfBand), sizeof(outOfBand));
 
-    int res = setsockopt(socket, SOL_SOCKET, SO_KEEPALIVE,
-        reinterpret_cast<char*>(&keepAlive), sizeof(keepAlive));
+    int res = setsockopt(socket, SOL_SOCKET, SO_KEEPALIVE, reinterpret_cast<char *>(&keepAlive), sizeof(keepAlive));
 
     // TODO: IGNITE-17606 Disable keep-alive once heartbeats are implemented.
-    if (keepAlive)
-    {
-        if (SOCKET_ERROR == res)
-        {
+    if (keepAlive) {
+        if (SOCKET_ERROR == res) {
             // There is no sense in configuring keep alive params if we failed to set up keep alive mode.
             return;
         }
@@ -110,14 +100,13 @@ void trySetSocketOptions(SOCKET socket, int bufSize, BOOL noDelay, BOOL outOfBan
         DWORD idleOpt = KEEP_ALIVE_IDLE_TIME;
         DWORD idleRetryOpt = KEEP_ALIVE_PROBES_PERIOD;
 
-        setsockopt(socket, IPPROTO_TCP, TCP_KEEPIDLE, reinterpret_cast<char*>(&idleOpt), sizeof(idleOpt));
+        setsockopt(socket, IPPROTO_TCP, TCP_KEEPIDLE, reinterpret_cast<char *>(&idleOpt), sizeof(idleOpt));
 
-        setsockopt(socket, IPPROTO_TCP, TCP_KEEPINTVL,
-                   reinterpret_cast<char*>(&idleRetryOpt), sizeof(idleRetryOpt));
+        setsockopt(socket, IPPROTO_TCP, TCP_KEEPINTVL, reinterpret_cast<char *>(&idleRetryOpt), sizeof(idleRetryOpt));
 
 #else // use old hardcore WSAIoctl
-        // WinSock structure for KeepAlive timing settings
-        struct tcp_keepalive settings = { 0 };
+      // WinSock structure for KeepAlive timing settings
+        struct tcp_keepalive settings = {0};
         settings.onoff = 1;
         settings.keepalivetime = KEEP_ALIVE_IDLE_TIME * 1000;
         settings.keepaliveinterval = KEEP_ALIVE_PROBES_PERIOD * 1000;
@@ -128,37 +117,26 @@ void trySetSocketOptions(SOCKET socket, int bufSize, BOOL noDelay, BOOL outOfBan
         overlapped.hEvent = NULL;
 
         // Set KeepAlive settings
-        WSAIoctl(
-            socket,
-            SIO_KEEPALIVE_VALS,
-            &settings,
-            sizeof(struct tcp_keepalive),
-            NULL,
-            0,
-            &bytesReturned,
-            &overlapped,
-            NULL
-        );
+        WSAIoctl(socket, SIO_KEEPALIVE_VALS, &settings, sizeof(struct tcp_keepalive), NULL, 0, &bytesReturned,
+            &overlapped, NULL);
 #endif
     }
 }
 
-void InitWsa()
-{
+void InitWsa() {
     static std::mutex initMutex;
     static bool networkInited = false;
 
-    if (!networkInited)
-    {
+    if (!networkInited) {
         std::lock_guard<std::mutex> lock(initMutex);
-        if (!networkInited)
-        {
+        if (!networkInited) {
             WSADATA wsaData;
 
             networkInited = WSAStartup(MAKEWORD(2, 2), &wsaData) == 0;
 
             if (!networkInited)
-                throw IgniteError(StatusCode::NETWORK, "Networking initialisation failed: " + getLastSocketErrorMessage());
+                throw ignite_error(
+                    status_code::NETWORK, "Networking initialisation failed: " + getLastSocketErrorMessage());
         }
     }
 }

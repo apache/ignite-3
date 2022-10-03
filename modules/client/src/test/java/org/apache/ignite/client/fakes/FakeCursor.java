@@ -22,7 +22,6 @@ import java.util.List;
 import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.SqlCursor;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
@@ -44,7 +43,7 @@ public class FakeCursor implements AsyncSqlCursor<List<Object>> {
     }
 
     @Override
-    public CompletionStage<BatchedResult<List<Object>>> requestNextAsync(int rows) {
+    public CompletableFuture<BatchedResult<List<Object>>> requestNextAsync(int rows) {
         var batch = new ArrayList<List<Object>>();
 
         for (int i = 0; i < rows; i++) {

@@ -15,30 +15,28 @@
  * limitations under the License.
  */
 
-#include <iostream>
 #include <filesystem>
 #include <functional>
+#include <iostream>
 #include <vector>
 
 #include "test_utils.h"
 
-namespace ignite
-{
+namespace ignite {
 
 /**
  * Checks if the path looks like binary release home directory.
  * Internally checks for presence of core library.
  * @return @c true if the path looks like binary release home directory.
  */
-bool looksLikeBinaryReleaseHome(const std::filesystem::path& path)
-{
+bool looksLikeBinaryReleaseHome(const std::filesystem::path &path) {
     std::filesystem::path coreLibPath = path / "libs";
     if (!is_directory(coreLibPath))
         return false;
 
     auto iter = std::filesystem::directory_iterator{coreLibPath};
     return std::any_of(iter, std::filesystem::end(iter), [](auto entry) {
-        const std::filesystem::path& entryPath = entry.path();
+        const std::filesystem::path &entryPath = entry.path();
         if (entryPath.extension() != "jar")
             return false;
 
@@ -52,16 +50,14 @@ bool looksLikeBinaryReleaseHome(const std::filesystem::path& path)
  * Internally checks for presence of core source directory.
  * @return @c true if the path looks like binary release home directory.
  */
-bool looksLikeSourceReleaseHome(const std::filesystem::path& path)
-{
+bool looksLikeSourceReleaseHome(const std::filesystem::path &path) {
     std::filesystem::path coreSourcePath =
-            path / "modules" / "core" / "src" / "main" / "java" / "org" / "apache" / "ignite";
+        path / "modules" / "core" / "src" / "main" / "java" / "org" / "apache" / "ignite";
 
     return std::filesystem::is_directory(coreSourcePath);
 }
 
-std::string resolveIgniteHome(const std::string& path)
-{
+std::string resolveIgniteHome(const std::string &path) {
     std::error_code error;
 
     std::filesystem::path home = std::filesystem::canonical(path, error);
@@ -69,16 +65,14 @@ std::string resolveIgniteHome(const std::string& path)
         return home.string();
 
     const char *env = std::getenv("IGNITE_HOME");
-    if (env)
-    {
+    if (env) {
         home = std::filesystem::canonical(env, error);
         if (!error && std::filesystem::is_directory(home))
             return home.string();
     }
 
     home = std::filesystem::current_path();
-    while (!home.empty() && home.has_relative_path())
-    {
+    while (!home.empty() && home.has_relative_path()) {
         if (looksLikeBinaryReleaseHome(home) || looksLikeSourceReleaseHome(home))
             return home.string();
 
@@ -87,8 +81,7 @@ std::string resolveIgniteHome(const std::string& path)
     return home.string();
 }
 
-std::string getMavenPath()
-{
+std::string getMavenPath() {
     // Currently, we only support systems with "mvn" command in PATH
     return "mvn";
 }

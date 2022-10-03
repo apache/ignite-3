@@ -26,7 +26,7 @@ import org.apache.ignite.internal.tx.Timestamp;
  *
  * @see MvPartitionStorage
  */
-public final class RowId implements Serializable {
+public final class RowId implements Serializable, Comparable<RowId> {
     /** Partition id. Short type reduces payload when transferring an object over network. */
     private final short partitionId;
 
@@ -105,6 +105,17 @@ public final class RowId implements Serializable {
         int result = partitionId;
         result = 31 * result + uuid.hashCode();
         return result;
+    }
+
+    @Override
+    public int compareTo(RowId rowId) {
+        int cmp = Short.compareUnsigned(partitionId, rowId.partitionId);
+
+        if (cmp != 0) {
+            return cmp;
+        }
+
+        return uuid.compareTo(rowId.uuid);
     }
 
     @Override

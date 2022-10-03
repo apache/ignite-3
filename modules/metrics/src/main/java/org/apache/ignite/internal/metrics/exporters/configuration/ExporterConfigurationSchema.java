@@ -15,27 +15,22 @@
  * limitations under the License.
  */
 
-#pragma once
+package org.apache.ignite.internal.metrics.exporters.configuration;
 
-namespace ignite::platform
-{
+import org.apache.ignite.configuration.annotation.PolymorphicConfig;
+import org.apache.ignite.configuration.annotation.PolymorphicId;
+import org.apache.ignite.internal.metrics.exporters.MetricExporter;
 
 /**
- * Byte order utility class.
+ * Parent for any exporter configuration.
  */
-class ByteOrder
-{
-private:
-    static constexpr uint32_t fourBytes = 0x01020304;
-    static constexpr uint8_t lesserByte = (const uint8_t&)fourBytes;
-
-public:
-    ByteOrder() = delete;
-
-    static constexpr bool littleEndian = lesserByte == 0x04;
-    static constexpr bool bigEndian = lesserByte == 0x01;
-
-    static_assert(littleEndian || bigEndian, "Unknown byte order");
-};
-
-} // ignite::platform
+// TODO: IGNITE-17721 at the moment we need to set exporter name twice: here and as the key on named list in MetricConfigurationSchema,
+// because we can't use AbstractConfiguration instead of PolymorphicConfig inside of NamedConfigValue
+@PolymorphicConfig
+public class ExporterConfigurationSchema {
+    /**
+     * The unique name of appropriate {@link MetricExporter}. It must be the same as {@link MetricExporter#name()}.
+     */
+    @PolymorphicId
+    public String exporterName;
+}

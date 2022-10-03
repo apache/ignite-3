@@ -16,22 +16,20 @@
  */
 
 #ifdef _WIN32
-#   include "network/win_async_client_pool.h"
+# include "network/win_async_client_pool.h"
 #else // Other. Assume Linux
-#   include "network/linux_async_client_pool.h"
+# include "network/linux_async_client_pool.h"
 #endif
 
-#include "common/Config.h"
+#include "common/config.h"
 
 #include "ignite/network/network.h"
 #include "network/async_client_pool_adapter.h"
 
-namespace ignite::network
-{
-    std::shared_ptr<AsyncClientPool> makeAsyncClientPool(DataFilters filters)
-    {
-        auto platformPool = std::make_shared<SWITCH_WIN_OTHER(WinAsyncClientPool, LinuxAsyncClientPool)>();
+namespace ignite::network {
+std::shared_ptr<AsyncClientPool> makeAsyncClientPool(DataFilters filters) {
+    auto platformPool = std::make_shared<IGNITE_SWITCH_WIN_OTHER(WinAsyncClientPool, LinuxAsyncClientPool)>();
 
-        return std::make_shared<AsyncClientPoolAdapter>(std::move(filters), std::move(platformPool));
-    }
+    return std::make_shared<AsyncClientPoolAdapter>(std::move(filters), std::move(platformPool));
+}
 }

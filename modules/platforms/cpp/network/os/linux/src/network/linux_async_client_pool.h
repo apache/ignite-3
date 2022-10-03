@@ -28,17 +28,15 @@
 #include <ignite/network/async_handler.h>
 #include <ignite/network/tcp_range.h>
 
-#include "network/linux_async_worker_thread.h"
 #include "network/linux_async_client.h"
+#include "network/linux_async_worker_thread.h"
 
-namespace ignite::network
-{
+namespace ignite::network {
 
 /**
  * Linux-specific implementation of asynchronous client pool.
  */
-class LinuxAsyncClientPool : public AsyncClientPool
-{
+class LinuxAsyncClientPool : public AsyncClientPool {
 public:
     /**
      * Constructor
@@ -74,10 +72,7 @@ public:
      *
      * @param handler Handler to set.
      */
-    void setHandler(std::weak_ptr<AsyncHandler> handler) override
-    {
-        m_asyncHandler = std::move(handler);
-    }
+    void setHandler(std::weak_ptr<AsyncHandler> handler) override { m_asyncHandler = std::move(handler); }
 
     /**
      * Send data to specific established connection.
@@ -88,7 +83,7 @@ public:
      *
      * @throw IgniteError on error.
      */
-    bool send(uint64_t id, std::vector<std::byte>&& data) override;
+    bool send(uint64_t id, std::vector<std::byte> &&data) override;
 
     /**
      * Closes specified connection if it's established. Connection to the specified address is planned for
@@ -96,7 +91,7 @@ public:
      *
      * @param id Client ID.
      */
-    void close(uint64_t id, std::optional<IgniteError> err) override;
+    void close(uint64_t id, std::optional<ignite_error> err) override;
 
     /**
      * Closes and releases memory allocated for client with specified ID.
@@ -106,7 +101,7 @@ public:
      * @param err Error to report. May be null.
      * @return @c true if connection with specified ID was found.
      */
-    void closeAndRelease(uint64_t id, std::optional<IgniteError> err);
+    void closeAndRelease(uint64_t id, std::optional<ignite_error> err);
 
     /**
      * Add client to connection map. Notify user.
@@ -122,7 +117,7 @@ public:
      * @param addr Connection address.
      * @param err Error.
      */
-    void handleConnectionError(const EndPoint& addr, IgniteError err);
+    void handleConnectionError(const EndPoint &addr, ignite_error err);
 
     /**
      * Handle successful connection establishment.
@@ -130,7 +125,7 @@ public:
      * @param addr Address of the new connection.
      * @param id Connection ID.
      */
-    void handleConnectionSuccess(const EndPoint& addr, uint64_t id);
+    void handleConnectionSuccess(const EndPoint &addr, uint64_t id);
 
     /**
      * Handle error during connection establishment.
@@ -138,7 +133,7 @@ public:
      * @param id Async client ID.
      * @param err Error. Can be null if connection closed without error.
      */
-    void handleConnectionClosed(uint64_t id, std::optional<IgniteError> err);
+    void handleConnectionClosed(uint64_t id, std::optional<ignite_error> err);
 
     /**
      * Handle new message.
@@ -146,7 +141,7 @@ public:
      * @param id Async client ID.
      * @param msg Received message.
      */
-    void handleMessageReceived(uint64_t id, BytesView msg);
+    void handleMessageReceived(uint64_t id, bytes_view msg);
 
     /**
      * Handle sent message event.
@@ -156,7 +151,7 @@ public:
     void handleMessageSent(uint64_t id);
 
 private:
-     /**
+    /**
      * Close all established connections and stops handling threads.
      */
     void internalStop();

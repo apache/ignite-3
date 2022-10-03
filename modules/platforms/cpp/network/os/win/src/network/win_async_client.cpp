@@ -24,18 +24,16 @@
 #include "network/sockets.h"
 #include "network/win_async_client.h"
 
-namespace ignite::network
-{
+namespace ignite::network {
 
-WinAsyncClient::WinAsyncClient(SOCKET socket, EndPoint addr, TcpRange range, int32_t m_bufLen) :
-    m_bufLen(m_bufLen),
-    m_state(State::CONNECTED),
-    m_socket(socket),
-    m_id(0),
-    m_addr(std::move(addr)),
-    m_range(std::move(range)),
-    m_closeErr()
-{
+WinAsyncClient::WinAsyncClient(SOCKET socket, EndPoint addr, TcpRange range, int32_t m_bufLen)
+    : m_bufLen(m_bufLen)
+    , m_state(State::CONNECTED)
+    , m_socket(socket)
+    , m_id(0)
+    , m_addr(std::move(addr))
+    , m_range(std::move(range))
+    , m_closeErr() {
     memset(&m_currentSend, 0, sizeof(m_currentSend));
     m_currentSend.kind = IoOperationKind::SEND;
 
@@ -43,22 +41,20 @@ WinAsyncClient::WinAsyncClient(SOCKET socket, EndPoint addr, TcpRange range, int
     m_currentRecv.kind = IoOperationKind::RECEIVE;
 }
 
-WinAsyncClient::~WinAsyncClient()
-{
+WinAsyncClient::~WinAsyncClient() {
     if (State::IN_POOL == m_state)
         shutdown(std::nullopt);
 
     close();
 }
 
-bool WinAsyncClient::shutdown(std::optional<IgniteError> err)
-{
+bool WinAsyncClient::shutdown(std::optional<ignite_error> err) {
     std::lock_guard<std::mutex> lock(m_sendMutex);
 
     if (State::CONNECTED != m_state && State::IN_POOL != m_state)
         return false;
 
-    m_closeErr = err ? std::move(*err) : IgniteError("Connection closed by application");
+    m_closeErr = err ? std::move(*err) : ignite_error("Connection closed by application");
 
     ::shutdown(m_socket, SD_BOTH);
 
@@ -67,8 +63,7 @@ bool WinAsyncClient::shutdown(std::optional<IgniteError> err)
     return true;
 }
 
-bool WinAsyncClient::close()
-{
+bool WinAsyncClient::close() {
     if (State::CLOSED == m_state)
         return false;
 
@@ -82,8 +77,7 @@ bool WinAsyncClient::close()
     return true;
 }
 
-HANDLE WinAsyncClient::addToIocp(HANDLE iocp)
-{
+HANDLE WinAsyncClient::addToIocp(HANDLE iocp) {
     assert(State::CONNECTED == m_state);
 
     HANDLE res = CreateIoCompletionPort((HANDLE)m_socket, iocp, reinterpret_cast<DWORD_PTR>(this), 0);
@@ -96,8 +90,7 @@ HANDLE WinAsyncClient::addToIocp(HANDLE iocp)
     return res;
 }
 
-bool WinAsyncClient::send(std::vector<std::byte>&& data)
-{
+bool WinAsyncClient::send(std::vector<std::byte> &&data) {
     std::lock_guard<std::mutex> lock(m_sendMutex);
 
     if (State::CONNECTED != m_state && State::IN_POOL != m_state)
@@ -111,8 +104,7 @@ bool WinAsyncClient::send(std::vector<std::byte>&& data)
     return sendNextPacketLocked();
 }
 
-bool WinAsyncClient::sendNextPacketLocked()
-{
+bool WinAsyncClient::sendNextPacketLocked() {
     if (m_sendPackets.empty())
         return true;
 
@@ -120,16 +112,16 @@ bool WinAsyncClient::sendNextPacketLocked()
     DWORD flags = 0;
 
     WSABUF buffer;
-    buffer.buf = (CHAR*)dataView.data();
+    buffer.buf = (CHAR *)dataView.data();
     buffer.len = (ULONG)dataView.size();
 
-    int ret = ::WSASend(m_socket, &buffer, 1, NULL, flags, &m_currentSend.overlapped, NULL); // NOLINT(modernize-use-nullptr)
+    int ret =
+        ::WSASend(m_socket, &buffer, 1, NULL, flags, &m_currentSend.overlapped, NULL); // NOLINT(modernize-use-nullptr)
 
     return ret != SOCKET_ERROR || WSAGetLastError() == ERROR_IO_PENDING;
 }
 
-bool WinAsyncClient::receive()
-{
+bool WinAsyncClient::receive() {
     // We do not need locking on receive as we're always reading in a single thread at most.
     // If this ever changes we'd need to add mutex locking here.
     if (State::CONNECTED != m_state && State::IN_POOL != m_state)
@@ -140,30 +132,28 @@ bool WinAsyncClient::receive()
 
     DWORD flags = 0;
     WSABUF buffer;
-    buffer.buf = (CHAR*)m_recvPacket.data();
+    buffer.buf = (CHAR *)m_recvPacket.data();
     buffer.len = (ULONG)m_recvPacket.size();
 
-    int ret = ::WSARecv(m_socket, &buffer, 1, NULL, &flags, &m_currentRecv.overlapped, NULL); // NOLINT(modernize-use-nullptr)
+    int ret =
+        ::WSARecv(m_socket, &buffer, 1, NULL, &flags, &m_currentRecv.overlapped, NULL); // NOLINT(modernize-use-nullptr)
 
     return ret != SOCKET_ERROR || WSAGetLastError() == ERROR_IO_PENDING;
 }
 
-void WinAsyncClient::clearReceiveBuffer()
-{
+void WinAsyncClient::clearReceiveBuffer() {
     if (m_recvPacket.empty())
         m_recvPacket.resize(m_bufLen);
 }
 
-BytesView WinAsyncClient::processReceived(size_t bytes)
-{
+bytes_view WinAsyncClient::processReceived(size_t bytes) {
     return {m_recvPacket.data(), bytes};
 }
 
-bool WinAsyncClient::processSent(size_t bytes)
-{
+bool WinAsyncClient::processSent(size_t bytes) {
     std::lock_guard<std::mutex> lock(m_sendMutex);
 
-    auto& front = m_sendPackets.front();
+    auto &front = m_sendPackets.front();
 
     front.skip(static_cast<int32_t>(bytes));
 

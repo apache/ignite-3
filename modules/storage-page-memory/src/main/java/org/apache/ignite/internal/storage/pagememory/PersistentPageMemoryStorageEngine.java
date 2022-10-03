@@ -107,7 +107,6 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
         return engineConfig;
     }
 
-    /** {@inheritDoc} */
     @Override
     public void start() throws StorageException {
         int pageSize = engineConfig.pageSize().value();
@@ -164,7 +163,6 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
         });
     }
 
-    /** {@inheritDoc} */
     @Override
     public void stop() throws StorageException {
         try {
@@ -178,13 +176,12 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
                     filePageStoreManager == null ? null : (AutoCloseable) filePageStoreManager::stop
             );
 
-            closeAll(Stream.concat(closeRegions, closeManagers));
+            closeAll(Stream.concat(closeManagers, closeRegions));
         } catch (Exception e) {
             throw new StorageException("Error when stopping components", e);
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     public PersistentPageMemoryTableStorage createMvTable(TableConfiguration tableCfg, TablesConfiguration tablesCfg)
             throws StorageException {

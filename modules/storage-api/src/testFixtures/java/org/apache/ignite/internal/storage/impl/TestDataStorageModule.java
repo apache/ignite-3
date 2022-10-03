@@ -15,9 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.chm;
+package org.apache.ignite.internal.storage.impl;
 
-import static org.apache.ignite.internal.storage.chm.TestConcurrentHashMapStorageEngine.ENGINE_NAME;
+import static org.apache.ignite.internal.storage.impl.TestStorageEngine.ENGINE_NAME;
 
 import java.nio.file.Path;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
@@ -28,9 +28,9 @@ import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Implementation for creating {@link TestConcurrentHashMapStorageEngine}s.
+ * Implementation for creating {@link TestStorageEngine}s.
  */
-public class TestConcurrentHashMapDataStorageModule implements DataStorageModule {
+public class TestDataStorageModule implements DataStorageModule {
     /** {@inheritDoc} */
     @Override
     public String name() {
@@ -45,6 +45,6 @@ public class TestConcurrentHashMapDataStorageModule implements DataStorageModule
             Path storagePath,
             @Nullable LongJvmPauseDetector longJvmPauseDetector
     ) throws StorageException {
-        return new TestConcurrentHashMapStorageEngine();
+        return new TestStorageEngine();
     }
 }

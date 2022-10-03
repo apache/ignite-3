@@ -18,10 +18,12 @@
 package org.apache.ignite.internal.binarytuple;
 
 import java.nio.ByteBuffer;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.Period;
 import java.util.UUID;
 import org.apache.ignite.lang.IgniteInternalException;
 
@@ -59,6 +61,12 @@ public class BinaryTupleCommon {
 
     /** Default value for Timestamp elements. */
     public static final Instant DEFAULT_TIMESTAMP = Instant.EPOCH;
+
+    /** Default value for Duration elements. */
+    public static final Duration DEFAULT_DURATION = Duration.ZERO;
+
+    /** Default value for Period elements. */
+    public static final Period DEFAULT_PERIOD = Period.ZERO;
 
     /**
      * Calculates flags for a given size of variable-length area.

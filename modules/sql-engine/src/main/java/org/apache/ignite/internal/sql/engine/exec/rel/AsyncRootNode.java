@@ -21,7 +21,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -151,7 +150,7 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
 
     /** {@inheritDoc} */
     @Override
-    public CompletionStage<BatchedResult<OutRowT>> requestNextAsync(int rows) {
+    public CompletableFuture<BatchedResult<OutRowT>> requestNextAsync(int rows) {
         CompletableFuture<BatchedResult<OutRowT>> next = new CompletableFuture<>();
 
         Throwable t = ex.get();

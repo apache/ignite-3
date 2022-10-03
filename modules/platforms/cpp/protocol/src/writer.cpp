@@ -17,8 +17,7 @@
 
 #include "ignite/protocol/writer.h"
 
-namespace ignite::protocol
-{
+namespace ignite::protocol {
 
 void Writer::writeMessageToBuffer(BufferAdapter &buffer, const std::function<void(Writer &)> &script) {
     buffer.reserveLengthHeader();
@@ -33,14 +32,14 @@ int Writer::writeCallback(void *data, const char *buf, size_t len) {
     if (!data)
         return 0;
 
-    auto buffer = static_cast<BufferAdapter*>(data);
+    auto buffer = static_cast<BufferAdapter *>(data);
 
     // We do not support messages larger than MAX_INT32
     if (buffer->getData().size() + len > std::numeric_limits<int32_t>::max())
         return -1;
 
-    auto bytes = reinterpret_cast<const std::byte*>(buf);
-    buffer->writeRawData(BytesView{bytes, len});
+    auto bytes = reinterpret_cast<const std::byte *>(buf);
+    buffer->writeRawData(bytes_view{bytes, len});
 
     return 0;
 }

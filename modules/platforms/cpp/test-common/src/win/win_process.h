@@ -19,23 +19,24 @@
 
 // It's OK that this code is entirely in header as it only supposed to be included from a single file.
 
+// clang-format off
 #include <windows.h>
 #include <tlhelp32.h>
+// clang-format on
 
-#include <vector>
 #include <chrono>
-#include <string>
 #include <sstream>
+#include <string>
+#include <vector>
 
 #include "cmd_process.h"
 
 // Using NULLs as specified by WinAPI
 #ifdef __JETBRAINS_IDE__
-#   pragma ide diagnostic ignored "modernize-use-nullptr"
+# pragma ide diagnostic ignored "modernize-use-nullptr"
 #endif
 
-namespace ignite::win
-{
+namespace ignite::win {
 
 /**
  * Get process tree.
@@ -52,12 +53,10 @@ std::vector<DWORD> getProcessTree(DWORD processId) // NOLINT(misc-no-recursion)
 
     HANDLE hSnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
 
-    if (Process32First(hSnap, &pe))
-    {
+    if (Process32First(hSnap, &pe)) {
         BOOL bContinue = TRUE;
 
-        while (bContinue)
-        {
+        while (bContinue) {
             if (pe.th32ParentProcessID == processId)
                 children.push_back(pe.th32ProcessID);
 
@@ -66,8 +65,7 @@ std::vector<DWORD> getProcessTree(DWORD processId) // NOLINT(misc-no-recursion)
     }
 
     std::vector<DWORD> tree(children);
-    for (auto procId : children)
-    {
+    for (auto procId : children) {
         std::vector<DWORD> childTree = getProcessTree(procId);
         tree.insert(tree.end(), childTree.begin(), childTree.end());
     }
@@ -78,8 +76,7 @@ std::vector<DWORD> getProcessTree(DWORD processId) // NOLINT(misc-no-recursion)
 /**
  * Implementation of CmdProcess for Windows.
  */
-class WinProcess : public ignite::CmdProcess
-{
+class WinProcess : public ignite::CmdProcess {
 public:
     /**
      * Constructor.
@@ -88,19 +85,17 @@ public:
      * @param args Arguments.
      * @param workDir Working directory.
      */
-    WinProcess(std::string command, std::vector<std::string> args, std::string workDir) :
-        m_running(false),
-        m_command(std::move(command)),
-        m_args(std::move(args)),
-        m_workDir(std::move(workDir)),
-        m_info{} { }
+    WinProcess(std::string command, std::vector<std::string> args, std::string workDir)
+        : m_running(false)
+        , m_command(std::move(command))
+        , m_args(std::move(args))
+        , m_workDir(std::move(workDir))
+        , m_info{} { }
 
     /**
      * Destructor.
      */
-    ~WinProcess() override {
-        kill();
-    }
+    ~WinProcess() override { kill(); }
 
     /**
      * Start process.
@@ -117,8 +112,7 @@ public:
 
         std::stringstream fullCmd;
         fullCmd << m_command;
-        for (auto& arg : m_args)
-        {
+        for (auto &arg : m_args) {
             fullCmd << " " << arg;
         }
 
@@ -142,11 +136,9 @@ public:
             return;
 
         std::vector<DWORD> processTree = getProcessTree(m_info.dwProcessId);
-        for (auto procId : processTree)
-        {
+        for (auto procId : processTree) {
             HANDLE hChildProc = ::OpenProcess(PROCESS_ALL_ACCESS, FALSE, procId);
-            if (hChildProc)
-            {
+            if (hChildProc) {
                 TerminateProcess(hChildProc, 1);
                 CloseHandle(hChildProc);
             }
@@ -189,4 +181,3 @@ private:
 };
 
 } // namespace ignite::win
-

@@ -19,38 +19,34 @@
 
 #include <ignite/network/length_prefix_codec.h>
 
-namespace ignite::network
-{
+namespace ignite::network {
 
-LengthPrefixCodec::LengthPrefixCodec() :
-    m_packetSize(-1),
-    m_packet(),
-    m_magicReceived(false) { }
+LengthPrefixCodec::LengthPrefixCodec()
+    : m_packetSize(-1)
+    , m_packet()
+    , m_magicReceived(false) {
+}
 
-DataBufferOwning LengthPrefixCodec::encode(DataBufferOwning& data)
-{
+DataBufferOwning LengthPrefixCodec::encode(DataBufferOwning &data) {
     // Just pass data as is, because we encode message size in
     // the application to avoid unnecessary re-allocations and copying.
     return std::move(data.consumeEntirely());
 }
 
-void LengthPrefixCodec::resetBuffer()
-{
+void LengthPrefixCodec::resetBuffer() {
     m_packetSize = -1;
     m_packet.clear();
 }
 
-DataBufferRef LengthPrefixCodec::decode(DataBufferRef& data)
-{
-    if (!m_magicReceived)
-    {
+DataBufferRef LengthPrefixCodec::decode(DataBufferRef &data) {
+    if (!m_magicReceived) {
         consume(data, int32_t(protocol::MAGIC_BYTES.size()));
 
         if (m_packet.size() < protocol::MAGIC_BYTES.size())
             return {};
 
         if (!std::equal(protocol::MAGIC_BYTES.begin(), protocol::MAGIC_BYTES.end(), m_packet.begin(), m_packet.end()))
-            throw IgniteError("Unknown protocol response");
+            throw ignite_error("Unknown protocol response");
 
         resetBuffer();
         m_magicReceived = true;
@@ -59,8 +55,7 @@ DataBufferRef LengthPrefixCodec::decode(DataBufferRef& data)
     if (m_packet.empty() || m_packet.size() == (PACKET_HEADER_SIZE + m_packetSize))
         resetBuffer();
 
-    if (m_packetSize < 0)
-    {
+    if (m_packetSize < 0) {
         consume(data, PACKET_HEADER_SIZE);
 
         if (m_packet.size() < PACKET_HEADER_SIZE)
@@ -77,8 +72,7 @@ DataBufferRef LengthPrefixCodec::decode(DataBufferRef& data)
     return {};
 }
 
-void LengthPrefixCodec::consume(DataBufferRef &data, size_t desired)
-{
+void LengthPrefixCodec::consume(DataBufferRef &data, size_t desired) {
     auto toCopy = desired - m_packet.size();
     if (toCopy <= 0)
         return;

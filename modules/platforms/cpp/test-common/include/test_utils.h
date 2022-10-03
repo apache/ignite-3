@@ -21,8 +21,7 @@
 
 #include <string>
 
-namespace ignite
-{
+namespace ignite {
 
 /**
  * Resolve IGNITE_HOME directory. Resolution is performed in several steps:
@@ -35,7 +34,7 @@ namespace ignite
  * @param path Optional path to check.
  * @return Resolved Ignite home.
  */
-std::string resolveIgniteHome(const std::string& path = "");
+std::string resolveIgniteHome(const std::string &path = "");
 
 /**
  * Get path to maven executable.

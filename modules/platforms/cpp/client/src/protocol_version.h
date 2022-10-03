@@ -19,15 +19,13 @@
 
 #include <cstdint>
 
-#include <string>
 #include <sstream>
+#include <string>
 
-namespace ignite::detail
-{
+namespace ignite::detail {
 
 /** Protocol version. */
-class ProtocolVersion
-{
+class ProtocolVersion {
 public:
     /**
      * Constructor.
@@ -36,43 +34,31 @@ public:
      * @param vminor Minor version part.
      * @param vpatch Patch version part.
      */
-    constexpr ProtocolVersion(int16_t vmajor, int16_t vminor, int16_t vpatch) :
-        m_major(vmajor),
-        m_minor(vminor),
-        m_patch(vpatch) { }
+    constexpr ProtocolVersion(int16_t vmajor, int16_t vminor, int16_t vpatch)
+        : m_major(vmajor)
+        , m_minor(vminor)
+        , m_patch(vpatch) { }
 
     /**
      * Get major part.
      *
      * @return Major part.
      */
-    [[nodiscard]]
-    int16_t getMajor() const
-    {
-        return m_major;
-    }
+    [[nodiscard]] int16_t getMajor() const { return m_major; }
 
     /**
      * Get minor part.
      *
      * @return Minor part.
      */
-    [[nodiscard]]
-    int16_t getMinor() const
-    {
-        return m_minor;
-    }
+    [[nodiscard]] int16_t getMinor() const { return m_minor; }
 
     /**
      * Get patch version part.
      *
      * @return Patch version part.
      */
-    [[nodiscard]]
-    int16_t getPatch() const
-    {
-        return m_patch;
-    }
+    [[nodiscard]] int16_t getPatch() const { return m_patch; }
 
     /**
      * Compare to another value.
@@ -80,9 +66,7 @@ public:
      * @param other Instance to compare to.
      * @return Zero if equals, negative number if less and positive if more.
      */
-    [[nodiscard]]
-    int32_t compare(const ProtocolVersion &other) const
-    {
+    [[nodiscard]] int32_t compare(const ProtocolVersion &other) const {
         int32_t res = m_major - other.m_major;
         if (res != 0)
             return res;
@@ -99,9 +83,7 @@ public:
      *
      * @return Protocol version.
      */
-    [[nodiscard]]
-    std::string toString() const
-    {
+    [[nodiscard]] std::string toString() const {
         std::stringstream buf;
         buf << m_major << '.' << m_minor << '.' << m_patch;
 

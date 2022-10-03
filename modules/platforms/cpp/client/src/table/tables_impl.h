@@ -22,25 +22,23 @@
 
 #include "ignite/table/table.h"
 
-#include "table/table_impl.h"
 #include "cluster_connection.h"
+#include "table/table_impl.h"
 
-namespace ignite::detail
-{
+namespace ignite::detail {
 
 /**
  * Table management.
  */
-class TablesImpl
-{
+class TablesImpl {
 public:
     /**
      * Constructor.
      *
      * @param connection Connection.
      */
-    explicit TablesImpl(std::shared_ptr<ClusterConnection> connection) :
-        m_connection(std::move(connection)) { }
+    explicit TablesImpl(std::shared_ptr<ClusterConnection> connection)
+        : m_connection(std::move(connection)) { }
 
     /**
      * Gets a table by name.
@@ -49,9 +47,9 @@ public:
      * @param name Table name.
      * @param callback Callback.
      * @return TableImpl with corresponding name.
-     * @throw IgniteError In case of error.
+     * @throw ignite_error In case of error.
      */
-    void getTableAsync(const std::string& name, IgniteCallback<std::optional<Table>> callback);
+    void getTableAsync(const std::string &name, ignite_callback<std::optional<Table>> callback);
 
 private:
     /** Cluster connection. */

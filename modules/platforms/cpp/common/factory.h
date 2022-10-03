@@ -19,22 +19,20 @@
 
 #include <memory>
 
-namespace ignite
-{
+namespace ignite {
 
 /**
  * Factory class.
  *
  * @tparam T Instances of this type factory builds.
  */
-template<typename T>
-class Factory
-{
+template <typename T>
+class factory {
 public:
     /**
      * Destructor.
      */
-    virtual ~Factory() = default;
+    virtual ~factory() = default;
 
     /**
      * Build instance.

@@ -526,6 +526,66 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
             Assert.AreEqual(NodaConstants.JulianEpoch, reader.GetTimestamp(5));
         }
 
+        [Test]
+        public void TestDuration()
+        {
+            var val = Duration.FromSeconds(Instant.FromDateTimeUtc(DateTime.UtcNow).ToUnixTimeSeconds()) +
+                      Duration.FromNanoseconds(long.MaxValue);
+
+            var reader = BuildAndRead(
+                (ref BinaryTupleBuilder b) =>
+                {
+                    b.AppendDuration(default);
+                    b.AppendDuration(val);
+                    b.AppendDuration(Duration.MaxValue);
+                    b.AppendDuration(Duration.MinValue);
+                },
+                4);
+
+            Assert.AreEqual(Duration.Zero, reader.GetDuration(0));
+            Assert.AreEqual(val, reader.GetDuration(1));
+            Assert.AreEqual(Duration.MaxValue, reader.GetDuration(2));
+            Assert.AreEqual(Duration.MinValue, reader.GetDuration(3));
+        }
+
+        [Test]
+        public void TestPeriod()
+        {
+            var val1 = Period.FromYears(1) + Period.FromMonths(2) + Period.FromDays(3);
+            var val2 = Period.FromYears(-100) + Period.FromMonths(-200) + Period.FromDays(-300);
+            var val3 = Period.FromYears(int.MinValue) + Period.FromMonths(int.MaxValue) + Period.FromDays(short.MinValue);
+
+            var reader = BuildAndRead(
+                (ref BinaryTupleBuilder b) =>
+                {
+                    b.AppendPeriod(Period.Zero);
+                    b.AppendPeriod(val1);
+                    b.AppendPeriod(val2);
+                    b.AppendPeriod(val3);
+                },
+                4);
+
+            Assert.AreEqual(Period.Zero, reader.GetPeriod(0));
+            Assert.AreEqual(val1, reader.GetPeriod(1));
+            Assert.AreEqual(val2, reader.GetPeriod(2));
+            Assert.AreEqual(val3, reader.GetPeriod(3));
+        }
+
+        [Test]
+        public void TestPeriodWithWeeksOrTimeComponentIsNotSupported()
+        {
+            AssertNotSupported(Period.FromWeeks(1));
+            AssertNotSupported(Period.FromHours(1));
+            AssertNotSupported(Period.FromMinutes(1));
+            AssertNotSupported(Period.FromSeconds(1));
+            AssertNotSupported(Period.FromMilliseconds(1));
+            AssertNotSupported(Period.FromTicks(1));
+            AssertNotSupported(Period.FromNanoseconds(1));
+
+            static void AssertNotSupported(Period p) =>
+                Assert.Throws<NotSupportedException>(() => BuildAndRead((ref BinaryTupleBuilder b) => b.AppendPeriod(p)));
+        }
+
         private static BinaryTupleReader BuildAndRead(BinaryTupleBuilderAction build, int numElements = 1)
         {
             var bytes = Build(build, numElements);

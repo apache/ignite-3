@@ -35,30 +35,30 @@ using SizeT = uint32_t;
 static constexpr IntT NO_NUM = -1;
 
 /** A slice of raw bytes. */
-struct BytesView : std::basic_string_view<std::byte> {
+struct bytes_view : std::basic_string_view<std::byte> {
     using Base = std::basic_string_view<std::byte>;
 
-    constexpr BytesView() noexcept = default;
+    constexpr bytes_view() noexcept = default;
 
-    constexpr BytesView(const std::byte *data, std::size_t size) noexcept
+    constexpr bytes_view(const std::byte *data, std::size_t size) noexcept
         : Base(data, size) { }
 
-    constexpr BytesView(const Base &v) noexcept // NOLINT(google-explicit-constructor)
+    constexpr bytes_view(const Base &v) noexcept // NOLINT(google-explicit-constructor)
         : Base(v.data(), v.size()) { }
 
-    BytesView(const std::vector<std::byte> &v) noexcept // NOLINT(google-explicit-constructor)
+    bytes_view(const std::vector<std::byte> &v) noexcept // NOLINT(google-explicit-constructor)
         : Base(v.data(), v.size()) { }
 
     explicit operator std::vector<std::byte>() const { return {begin(), end()}; }
 };
 
 /** Binary value for a potentially nullable column. */
-using ElementView = std::optional<BytesView>;
+using element_view = std::optional<bytes_view>;
 
 /** A set of binary values for a whole or partial row. */
-using TupleView = std::vector<ElementView>;
+using tuple_view = std::vector<element_view>;
 
 /** A set of binary values for the key part of a row. */
-using KeyView = std::vector<BytesView>;
+using key_tuple_view = std::vector<bytes_view>;
 
 } // namespace ignite

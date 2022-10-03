@@ -15,19 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.rocksdb.index;
+package org.apache.ignite.internal.util;
 
-import static org.apache.ignite.internal.storage.rocksdb.index.CursorUtils.concat;
-import static org.apache.ignite.internal.storage.rocksdb.index.CursorUtils.dropWhile;
-import static org.apache.ignite.internal.storage.rocksdb.index.CursorUtils.map;
-import static org.apache.ignite.internal.storage.rocksdb.index.CursorUtils.takeWhile;
+import static org.apache.ignite.internal.util.CursorUtils.concat;
+import static org.apache.ignite.internal.util.CursorUtils.dropWhile;
+import static org.apache.ignite.internal.util.CursorUtils.map;
+import static org.apache.ignite.internal.util.CursorUtils.takeWhile;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.emptyIterable;
 import static org.hamcrest.Matchers.is;
 
 import java.util.Arrays;
-import org.apache.ignite.internal.util.Cursor;
 import org.junit.jupiter.api.Test;
 
 /**

@@ -19,19 +19,16 @@
 
 #include "network/utils.h"
 
-namespace ignite::network
-{
+namespace ignite::network {
 
-std::string getLastSystemError()
-{
+std::string getLastSystemError() {
     int errorCode = errno;
 
     std::string errorDetails;
-    if (errorCode != 0)
-    {
-        char errBuf[1024] = { 0 };
+    if (errorCode != 0) {
+        char errBuf[1024] = {0};
 
-        const char* res = strerror_r(errorCode, errBuf, sizeof(errBuf));
+        const char *res = strerror_r(errorCode, errBuf, sizeof(errBuf));
         if (res)
             errorDetails.assign(res);
     }

@@ -15,27 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.chm;
+package org.apache.ignite.internal.metrics.configuration;
 
-import java.util.Collection;
-import java.util.List;
+import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.internal.configuration.ConfigurationModule;
-import org.apache.ignite.internal.storage.chm.schema.TestConcurrentHashMapDataStorageConfigurationSchema;
+import org.apache.ignite.configuration.annotation.NamedConfigValue;
+import org.apache.ignite.internal.metrics.exporters.configuration.ExporterConfigurationSchema;
 
 /**
- * Implementation for {@link TestConcurrentHashMapStorageEngine}.
+ * Metrics' configuration root.
  */
-public class TestConcurrentHashMapStorageEngineDistributedConfigurationModule implements ConfigurationModule {
-    /** {@inheritDoc} */
-    @Override
-    public ConfigurationType type() {
-        return ConfigurationType.DISTRIBUTED;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Collection<Class<?>> polymorphicSchemaExtensions() {
-        return List.of(TestConcurrentHashMapDataStorageConfigurationSchema.class);
-    }
+@ConfigurationRoot(rootName = "metrics", type = ConfigurationType.DISTRIBUTED)
+public class MetricConfigurationSchema {
+    /** Map of exporters' configurations. */
+    @NamedConfigValue
+    public ExporterConfigurationSchema exporters;
 }

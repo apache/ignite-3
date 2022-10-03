@@ -125,4 +125,12 @@ public class ReadResult {
     public int commitPartitionId() {
         return commitPartitionId;
     }
+
+    public boolean isWriteIntent() {
+        return transactionId != null;
+    }
+
+    public boolean isEmpty() {
+        return this == EMPTY;
+    }
 }

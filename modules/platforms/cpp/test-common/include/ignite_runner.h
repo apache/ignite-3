@@ -21,8 +21,7 @@
 
 #include "cmd_process.h"
 
-namespace ignite
-{
+namespace ignite {
 
 /**
  * Represents IgniteRunner process.
@@ -30,8 +29,7 @@ namespace ignite
  * IgniteRunner is started from command line. It is recommended to re-use
  * the same IgniteRunner as much as possible to make tests as quick as possible.
  */
-class IgniteRunner
-{
+class IgniteRunner {
 public:
     /**
      * Start node.

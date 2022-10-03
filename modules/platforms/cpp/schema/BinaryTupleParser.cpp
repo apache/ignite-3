@@ -16,7 +16,7 @@
  */
 
 #include "BinaryTupleParser.h"
-#include "common/Platform.h"
+#include "common/platform.h"
 
 #include <cassert>
 #include <cstring>
@@ -25,7 +25,7 @@
 namespace {
 
 template <typename T>
-T as(ignite::BytesView bytes) noexcept {
+T as(ignite::bytes_view bytes) noexcept {
     T value;
     std::memcpy(&value, bytes.data(), sizeof(T));
     return value;
@@ -35,7 +35,7 @@ T as(ignite::BytesView bytes) noexcept {
 
 namespace ignite {
 
-BinaryTupleParser::BinaryTupleParser(IntT numElements, BytesView data)
+BinaryTupleParser::BinaryTupleParser(IntT numElements, bytes_view data)
     : binaryTuple(data)
     , elementCount(numElements)
     , elementIndex(0)
@@ -69,7 +69,7 @@ BinaryTupleParser::BinaryTupleParser(IntT numElements, BytesView data)
     }
 }
 
-ElementView BinaryTupleParser::getNext() {
+element_view BinaryTupleParser::getNext() {
     assert(numParsedElements() < numElements());
 
     ++elementIndex;
@@ -87,17 +87,17 @@ ElementView BinaryTupleParser::getNext() {
         return {};
     }
 
-    return BytesView(value, length);
+    return bytes_view(value, length);
 }
 
-TupleView BinaryTupleParser::parse(IntT num) {
+tuple_view BinaryTupleParser::parse(IntT num) {
     assert(elementIndex == 0);
 
     if (num == NO_NUM) {
         num = numElements();
     }
 
-    TupleView tuple;
+    tuple_view tuple;
     tuple.reserve(num);
     while (elementIndex < num) {
         tuple.emplace_back(getNext());
@@ -106,14 +106,14 @@ TupleView BinaryTupleParser::parse(IntT num) {
     return tuple;
 }
 
-KeyView BinaryTupleParser::parseKey(IntT num) {
+key_tuple_view BinaryTupleParser::parseKey(IntT num) {
     assert(elementIndex == 0);
 
     if (num == NO_NUM) {
         num = numElements();
     }
 
-    KeyView key;
+    key_tuple_view key;
     key.reserve(num);
     while (elementIndex < num) {
         key.emplace_back(getNext().value());
@@ -122,7 +122,7 @@ KeyView BinaryTupleParser::parseKey(IntT num) {
     return key;
 }
 
-std::int8_t BinaryTupleParser::getInt8(BytesView bytes) {
+std::int8_t BinaryTupleParser::getInt8(bytes_view bytes) {
     switch (bytes.size()) {
         case 0:
             return 0;
@@ -133,7 +133,7 @@ std::int8_t BinaryTupleParser::getInt8(BytesView bytes) {
     }
 }
 
-std::int16_t BinaryTupleParser::getInt16(BytesView bytes) {
+std::int16_t BinaryTupleParser::getInt16(bytes_view bytes) {
     switch (bytes.size()) {
         case 0:
             return 0;
@@ -146,7 +146,7 @@ std::int16_t BinaryTupleParser::getInt16(BytesView bytes) {
     }
 }
 
-std::int32_t BinaryTupleParser::getInt32(BytesView bytes) {
+std::int32_t BinaryTupleParser::getInt32(bytes_view bytes) {
     switch (bytes.size()) {
         case 0:
             return 0;
@@ -161,7 +161,7 @@ std::int32_t BinaryTupleParser::getInt32(BytesView bytes) {
     }
 }
 
-std::int64_t BinaryTupleParser::getInt64(BytesView bytes) {
+std::int64_t BinaryTupleParser::getInt64(bytes_view bytes) {
     switch (bytes.size()) {
         case 0:
             return 0;
@@ -178,7 +178,7 @@ std::int64_t BinaryTupleParser::getInt64(BytesView bytes) {
     }
 }
 
-float BinaryTupleParser::getFloat(BytesView bytes) {
+float BinaryTupleParser::getFloat(bytes_view bytes) {
     switch (bytes.size()) {
         case 0:
             return 0.0f;
@@ -189,7 +189,7 @@ float BinaryTupleParser::getFloat(BytesView bytes) {
     }
 }
 
-double BinaryTupleParser::getDouble(BytesView bytes) {
+double BinaryTupleParser::getDouble(bytes_view bytes) {
     switch (bytes.size()) {
         case 0:
             return 0.0f;

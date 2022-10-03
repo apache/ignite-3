@@ -18,38 +18,31 @@
 #include "network/async_client_pool_adapter.h"
 #include "network/error_handling_filter.h"
 
-namespace ignite::network
-{
+namespace ignite::network {
 
-AsyncClientPoolAdapter::AsyncClientPoolAdapter(DataFilters filters, std::shared_ptr<AsyncClientPool> pool) :
-    m_filters(std::move(filters)),
-    m_pool(std::move(pool)),
-    m_sink(m_pool.get())
-{
+AsyncClientPoolAdapter::AsyncClientPoolAdapter(DataFilters filters, std::shared_ptr<AsyncClientPool> pool)
+    : m_filters(std::move(filters))
+    , m_pool(std::move(pool))
+    , m_sink(m_pool.get()) {
     m_filters.insert(m_filters.begin(), std::make_shared<ErrorHandlingFilter>());
 
-    for (const auto& filter : m_filters)
-    {
+    for (const auto &filter : m_filters) {
         filter->setSink(m_sink);
         m_sink = filter.get();
     }
 }
 
-void AsyncClientPoolAdapter::start(std::vector<TcpRange> addrs, uint32_t connLimit)
-{
+void AsyncClientPoolAdapter::start(std::vector<TcpRange> addrs, uint32_t connLimit) {
     m_pool->start(std::move(addrs), connLimit);
 }
 
-void AsyncClientPoolAdapter::stop()
-{
+void AsyncClientPoolAdapter::stop() {
     m_pool->stop();
 }
 
-void AsyncClientPoolAdapter::setHandler(std::weak_ptr<AsyncHandler> handler)
-{
+void AsyncClientPoolAdapter::setHandler(std::weak_ptr<AsyncHandler> handler) {
     auto handler0 = std::move(handler);
-    for (auto it = m_filters.rbegin(); it != m_filters.rend(); ++it)
-    {
+    for (auto it = m_filters.rbegin(); it != m_filters.rend(); ++it) {
         (*it)->setHandler(std::move(handler0));
         handler0 = *it;
     }
@@ -57,13 +50,11 @@ void AsyncClientPoolAdapter::setHandler(std::weak_ptr<AsyncHandler> handler)
     m_pool->setHandler(std::move(handler0));
 }
 
-bool AsyncClientPoolAdapter::send(uint64_t id, std::vector<std::byte>&& data)
-{
+bool AsyncClientPoolAdapter::send(uint64_t id, std::vector<std::byte> &&data) {
     return m_sink->send(id, std::move(data));
 }
 
-void AsyncClientPoolAdapter::close(uint64_t id, std::optional<IgniteError> err)
-{
+void AsyncClientPoolAdapter::close(uint64_t id, std::optional<ignite_error> err) {
     m_sink->close(id, std::move(err));
 }
 

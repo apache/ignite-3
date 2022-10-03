@@ -15,21 +15,17 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Internal.Common
-{
-    using System;
-    using System.Threading;
+package org.apache.ignite.internal.metrics.exporters;
 
-    /// <summary>
-    /// Thread-local random.
-    /// </summary>
-    internal static class ThreadLocalRandom
-    {
-        private static readonly ThreadLocal<Random> TlRandom = new(() => new Random());
+import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.internal.metrics.exporters.configuration.ExporterConfigurationSchema;
 
-        /// <summary>
-        /// Gets the <see cref="Random"/> instance for the current thread.
-        /// </summary>
-        public static Random Instance => TlRandom.Value;
-    }
+/**
+ * Configuration for test push exporter.
+ */
+@PolymorphicConfigInstance(TestPushMetricExporter.EXPORTER_NAME)
+public class TestPushMetricsExporterConfigurationSchema extends ExporterConfigurationSchema {
+    @Value(hasDefault = true)
+    public int period = 300;
 }

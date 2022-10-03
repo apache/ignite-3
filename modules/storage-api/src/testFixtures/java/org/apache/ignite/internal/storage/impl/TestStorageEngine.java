@@ -15,9 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.chm;
+package org.apache.ignite.internal.storage.impl;
 
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentSkipListMap;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.storage.StorageException;
@@ -25,11 +25,11 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 
 /**
- * Test implementation of the {@link StorageEngine} based on class {@link ConcurrentHashMap}.
+ * Test implementation of the {@link StorageEngine} based on class {@link ConcurrentSkipListMap}.
  */
-public class TestConcurrentHashMapStorageEngine implements StorageEngine {
+public class TestStorageEngine implements StorageEngine {
     /** Engine name. */
-    public static final String ENGINE_NAME = "test_chm";
+    public static final String ENGINE_NAME = "test";
 
     /** {@inheritDoc} */
     @Override
@@ -50,6 +50,6 @@ public class TestConcurrentHashMapStorageEngine implements StorageEngine {
 
         assert dataStorageName.equals(ENGINE_NAME) : dataStorageName;
 
-        return new TestConcurrentHashMapMvTableStorage(tableCfg, tablesCfg);
+        return new TestMvTableStorage(tableCfg, tablesCfg);
     }
 }
