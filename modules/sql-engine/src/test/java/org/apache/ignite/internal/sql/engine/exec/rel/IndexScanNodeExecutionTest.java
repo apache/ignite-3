@@ -188,25 +188,25 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
         );
 
         IgniteIndex indexMock = Mockito.mock(IgniteIndex.class);
-        { // Build mocks
-            IndexDescriptor indexDescriptor = new IndexDescriptor("IDX1", List.of("idxCol2", "idxCol1"));
 
-            Index<IndexDescriptor> hashIndexMock = Mockito.mock(Index.class);
+        IndexDescriptor indexDescriptor = new IndexDescriptor("IDX1", List.of("idxCol2", "idxCol1"));
 
-            Mockito.doReturn(indexDescriptor).when(hashIndexMock).descriptor();
-            Mockito.doAnswer(invocation -> {
-                        if (key != null) {
-                            validateBound(indexDescriptor, schemaDescriptor, invocation.getArgument(2));
-                        }
+        Index<IndexDescriptor> hashIndexMock = Mockito.mock(Index.class);
 
-                        return dummyPublisher(partitionData(tableData, schemaDescriptor, invocation.getArgument(0)));
-                    })
-                    .when(hashIndexMock)
-                    .scan(Mockito.anyInt(), Mockito.any(), Mockito.any(), Mockito.any());
+        Mockito.doReturn(indexDescriptor).when(hashIndexMock).descriptor();
+        Mockito.doAnswer(invocation ->
+                {
+                    if (key != null) {
+                        validateBound(indexDescriptor, schemaDescriptor, invocation.getArgument(2));
+                    }
 
-            Mockito.doReturn(IgniteIndex.Type.HASH).when(indexMock).type();
-            Mockito.doReturn(hashIndexMock).when(indexMock).index();
-        }
+                    return dummyPublisher(partitionData(tableData, schemaDescriptor, invocation.getArgument(0)));
+                })
+                .when(hashIndexMock)
+                .scan(Mockito.anyInt(), Mockito.any(), Mockito.any(), Mockito.any());
+
+        Mockito.doReturn(IgniteIndex.Type.HASH).when(indexMock).type();
+        Mockito.doReturn(hashIndexMock).when(indexMock).index();
 
         validateIndexScan(tableData, schemaDescriptor, indexMock, key, key, expRes);
     }
@@ -228,33 +228,32 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
         );
 
         IgniteIndex indexMock = Mockito.mock(IgniteIndex.class);
-        { // Build mocks.
-            SortedIndexDescriptor indexDescriptor = new SortedIndexDescriptor(
-                    "IDX1",
-                    List.of("idxCol2", "idxCol1"),
-                    List.of(ColumnCollation.ASC_NULLS_FIRST, ColumnCollation.ASC_NULLS_LAST)
 
-            );
+        SortedIndexDescriptor indexDescriptor = new SortedIndexDescriptor(
+                "IDX1",
+                List.of("idxCol2", "idxCol1"),
+                List.of(ColumnCollation.ASC_NULLS_FIRST, ColumnCollation.ASC_NULLS_LAST)
 
-            SortedIndex sortedIndexMock = Mockito.mock(SortedIndex.class);
+        );
 
-            Mockito.doReturn(indexDescriptor).when(sortedIndexMock).descriptor();
-            Mockito.doAnswer(invocation -> {
-                        if (lowerBound != null) {
-                            validateBoundPrefix(indexDescriptor, schemaDescriptor, invocation.getArgument(2));
-                        }
-                        if (upperBound != null) {
-                            validateBoundPrefix(indexDescriptor, schemaDescriptor, invocation.getArgument(3));
-                        }
+        SortedIndex sortedIndexMock = Mockito.mock(SortedIndex.class);
 
-                        return dummyPublisher(partitionData(tableData, schemaDescriptor, invocation.getArgument(0)));
-                    })
-                    .when(sortedIndexMock)
-                    .scan(Mockito.anyInt(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.anyInt(), Mockito.any());
+        Mockito.doReturn(indexDescriptor).when(sortedIndexMock).descriptor();
+        Mockito.doAnswer(invocation -> {
+                    if (lowerBound != null) {
+                        validateBoundPrefix(indexDescriptor, schemaDescriptor, invocation.getArgument(2));
+                    }
+                    if (upperBound != null) {
+                        validateBoundPrefix(indexDescriptor, schemaDescriptor, invocation.getArgument(3));
+                    }
 
-            Mockito.doReturn(Type.SORTED).when(indexMock).type();
-            Mockito.doReturn(sortedIndexMock).when(indexMock).index();
-        }
+                    return dummyPublisher(partitionData(tableData, schemaDescriptor, invocation.getArgument(0)));
+                })
+                .when(sortedIndexMock)
+                .scan(Mockito.anyInt(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.anyInt(), Mockito.any());
+
+        Mockito.doReturn(Type.SORTED).when(indexMock).type();
+        Mockito.doReturn(sortedIndexMock).when(indexMock).index();
 
         validateIndexScan(tableData, schemaDescriptor, indexMock, lowerBound, upperBound, expectedData);
     }
@@ -321,8 +320,9 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
                         .map(r -> convertToTuple(binaryTupleSchema, r))
                         .toArray(BinaryTuple[]::new);
             }
-            default:
+            default: {
                 throw new AssertionError("Undefined partition");
+            }
         }
     }
 
