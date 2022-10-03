@@ -19,20 +19,17 @@ namespace Apache.Ignite.Internal.Generators;
 
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading;
 using Microsoft.CodeAnalysis;
 
 /// <summary>
 /// Base class for Java -> C# source generators.
 /// <para />
-/// <see cref="IIncrementalGenerator"/> is not used because it makes directory detection too hard.
+/// <c>IIncrementalGenerator</c> is not used because it makes directory detection too hard.
 /// <see cref="GeneratorInitializationContext.RegisterForPostInitialization"/> is not used for the same reason.
 /// </summary>
 public abstract class JavaToCsharpGeneratorBase : ISourceGenerator
 {
-    private int _executed;
-
-    private volatile List<(string Name, string Code)> _generatedCode = new();
+    private List<(string Name, string Code)>? _generatedCode;
 
     /// <inheritdoc/>
     public void Initialize(GeneratorInitializationContext context)
@@ -43,12 +40,9 @@ public abstract class JavaToCsharpGeneratorBase : ISourceGenerator
     /// <inheritdoc/>
     public void Execute(GeneratorExecutionContext context)
     {
-        if (Interlocked.CompareExchange(ref _executed, 1, 0) == 0)
-        {
-            // Execute the generator only once during full build.
-            // Do not execute otherwise (while C# code is being changed).
-            _generatedCode = ExecuteInternal(context).ToList();
-        }
+        // Execute the generator only once during full build.
+        // Do not execute otherwise (while C# code is being changed).
+        _generatedCode ??= ExecuteInternal(context).ToList();
 
         foreach (var (name, code) in _generatedCode)
         {
