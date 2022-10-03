@@ -19,6 +19,7 @@ package org.apache.ignite.internal.storage.pagememory.index.sorted;
 
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
+import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
@@ -26,9 +27,8 @@ import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumnsFreeList;
-import org.apache.ignite.internal.storage.pagememory.util.TreeCursorAdapter;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.internal.util.IgniteCursor;
+import org.apache.ignite.internal.util.CursorUtils;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 
@@ -69,6 +69,23 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
     }
 
     @Override
+    public Cursor<RowId> get(BinaryTuple key) throws StorageException {
+        BinaryTuplePrefix prefix = BinaryTuplePrefix.fromBinaryTuple(key);
+
+        SortedIndexRowKey prefixKey = toSortedIndexRowKey(prefix);
+
+        Cursor<SortedIndexRow> cursor;
+
+        try {
+            cursor = sortedIndexTree.find(prefixKey, prefixKey);
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException("Failed to create scan cursor", e);
+        }
+
+        return CursorUtils.map(cursor, SortedIndexRow::rowId);
+    }
+
+    @Override
     public void put(IndexRow row) {
         IndexColumns indexColumns = new IndexColumns(partitionId, row.indexColumns().byteBuffer());
 
@@ -103,7 +120,7 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
 
     @Override
     public Cursor<IndexRow> scan(@Nullable BinaryTuplePrefix lowerBound, @Nullable BinaryTuplePrefix upperBound, int flags) {
-        IgniteCursor<SortedIndexRow> cursor;
+        Cursor<SortedIndexRow> cursor;
 
         try {
             cursor = sortedIndexTree.find(
@@ -118,7 +135,7 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
             throw new StorageException("Failed to create scan cursor", e);
         }
 
-        return Cursor.fromIterator(new TreeCursorAdapter<>(cursor, this::toIndexRowImpl));
+        return CursorUtils.map(cursor, this::toIndexRowImpl);
     }
 
     private @Nullable SortedIndexRowKey toSortedIndexRowKey(@Nullable BinaryTuplePrefix binaryTuple) {

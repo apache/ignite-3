@@ -132,6 +132,11 @@ namespace Apache.Ignite.Internal.Table.Serialization
                     il.Emit(OpCodes.Ldarg_2); // record
                     il.Emit(OpCodes.Ldfld, fieldInfo);
 
+                    if (col.Type == ClientDataType.Decimal)
+                    {
+                        EmitLdcI4(il, col.Scale);
+                    }
+
                     var writeMethod = BinaryTupleMethods.GetWriteMethod(fieldInfo.FieldType);
                     il.Emit(OpCodes.Call, writeMethod);
                 }
@@ -243,13 +248,18 @@ namespace Apache.Ignite.Internal.Table.Serialization
             il.Emit(OpCodes.Ldarg_0); // reader
             EmitLdcI4(il, elemIdx); // index
 
+            if (col.Type == ClientDataType.Decimal)
+            {
+                EmitLdcI4(il, col.Scale);
+            }
+
             il.Emit(OpCodes.Call, readMethod);
             il.Emit(OpCodes.Stfld, fieldInfo); // res.field = value
         }
 
-        private static void EmitLdcI4(ILGenerator il, int elemIdx)
+        private static void EmitLdcI4(ILGenerator il, int val)
         {
-            switch (elemIdx)
+            switch (val)
             {
                 case 0:
                     il.Emit(OpCodes.Ldc_I4_0);
@@ -288,20 +298,20 @@ namespace Apache.Ignite.Internal.Table.Serialization
                     break;
 
                 default:
-                    il.Emit(OpCodes.Ldc_I4, elemIdx);
+                    il.Emit(OpCodes.Ldc_I4, val);
                     break;
             }
         }
 
         private static void ValidateFieldType(FieldInfo fieldInfo, Column column)
         {
-            var (columnTypePrimary, columnTypeAlternative) = column.Type.ToType();
+            var columnType = column.Type.ToType();
             var fieldType = fieldInfo.FieldType;
 
-            if (fieldType != columnTypePrimary && fieldType != columnTypeAlternative)
+            if (fieldType != columnType)
             {
                 var message = $"Can't map field '{fieldInfo.DeclaringType?.Name}.{fieldInfo.Name}' of type '{fieldType}' " +
-                              $"to column '{column.Name}' of type '{columnTypePrimary}' - types do not match.";
+                              $"to column '{column.Name}' of type '{columnType}' - types do not match.";
 
                 throw new IgniteClientException(ErrorGroups.Client.Configuration, message);
             }

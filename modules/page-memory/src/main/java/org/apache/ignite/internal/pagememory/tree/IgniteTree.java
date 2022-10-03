@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.pagememory.tree;
 
-import org.apache.ignite.internal.util.IgniteCursor;
+import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 
@@ -63,7 +63,7 @@ public interface IgniteTree<L, T> {
      * @param upper Upper bound or {@code null} if unbounded.
      * @throws IgniteInternalCheckedException If failed.
      */
-    IgniteCursor<T> find(@Nullable L lower, @Nullable L upper) throws IgniteInternalCheckedException;
+    Cursor<T> find(@Nullable L lower, @Nullable L upper) throws IgniteInternalCheckedException;
 
     /**
      * Returns a cursor from lower to upper bounds inclusive.
@@ -73,7 +73,7 @@ public interface IgniteTree<L, T> {
      * @param x Implementation specific argument, {@code null} always means that we need to return full detached data row.
      * @throws IgniteInternalCheckedException If failed.
      */
-    IgniteCursor<T> find(@Nullable L lower, @Nullable L upper, @Nullable Object x) throws IgniteInternalCheckedException;
+    Cursor<T> find(@Nullable L lower, @Nullable L upper, @Nullable Object x) throws IgniteInternalCheckedException;
 
     /**
      * Returns a value mapped to the lowest key, or {@code null} if tree is empty.

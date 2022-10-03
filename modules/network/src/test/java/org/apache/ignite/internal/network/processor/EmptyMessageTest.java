@@ -20,7 +20,9 @@ package org.apache.ignite.internal.network.processor;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
-import org.apache.ignite.network.TestMessagesFactory;
+import org.apache.ignite.internal.network.messages.EmptyMessage;
+import org.apache.ignite.internal.network.messages.EmptyMessageImpl;
+import org.apache.ignite.internal.network.messages.TestMessagesFactory;
 import org.junit.jupiter.api.Test;
 
 /**

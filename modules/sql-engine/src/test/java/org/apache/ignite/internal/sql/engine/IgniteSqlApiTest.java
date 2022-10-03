@@ -554,8 +554,9 @@ public class IgniteSqlApiTest {
             AsyncResultSet page1 = Mockito.mock(AsyncResultSet.class);
             Mockito.when(page1.currentPage()).thenReturn(rows.subList(0, 2));
             Mockito.when(page1.hasMorePages()).thenReturn(true);
-            Mockito.when(page1.fetchNextPage())
-                    .thenReturn((CompletionStage) CompletableFuture.completedFuture(page2));
+
+            //noinspection unchecked,rawtypes
+            Mockito.when(page1.fetchNextPage()).thenReturn((CompletableFuture) CompletableFuture.completedFuture(page2));
 
             return CompletableFuture.completedFuture(page1);
         });

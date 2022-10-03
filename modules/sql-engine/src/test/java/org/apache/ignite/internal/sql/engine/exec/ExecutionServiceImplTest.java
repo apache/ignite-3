@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.sql.engine.util.BaseQueryContext.CLUSTE
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.lang.ErrorGroups.Sql.OPERATION_INTERRUPTED_ERR;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasSize;
@@ -217,7 +218,7 @@ public class ExecutionServiceImplTest {
                             .build()
                     );
                 } catch (IgniteInternalCheckedException e) {
-                    throw new IgniteInternalException(e);
+                    throw new IgniteInternalException(OPERATION_INTERRUPTED_ERR, e);
                 }
             } else {
                 original.onMessage(nodeId, msg);
@@ -529,7 +530,7 @@ public class ExecutionServiceImplTest {
                                         try {
                                             task.run();
                                         } catch (Throwable ex) {
-                                            throw new IgniteInternalException(ex);
+                                            throw new IgniteInternalException(OPERATION_INTERRUPTED_ERR, ex);
                                         }
                                     }
                                 }

@@ -179,6 +179,11 @@ public class RocksDbTableStorage implements MvTableStorage {
         return tableCfg;
     }
 
+    @Override
+    public TablesConfiguration tablesConfiguration() {
+        return tablesCfg;
+    }
+
     /** {@inheritDoc} */
     @Override
     public void start() throws StorageException {

@@ -457,7 +457,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                                         + "Re-creating the CMG Raft service [reason={}]", e, e.getMessage());
                             } else {
                                 LOG.debug("CMG service started, but the cluster state is different. "
-                                        + "Re-creating the CMG Raft service [localState={}, clusterState={}]",
+                                                + "Re-creating the CMG Raft service [localState={}, clusterState={}]",
                                         service.nodeNames(), state.cmgNodes());
 
                                 destroyCmg();
@@ -526,17 +526,10 @@ public class ClusterManagementGroupManager implements IgniteComponent {
         return new TopologyEventHandler() {
             @Override
             public void onAppeared(ClusterNode member) {
-                raftService.readClusterState()
-                        .thenAccept(state -> {
-                            if (state != null) {
-                                sendClusterState(state, member)
-                                        .whenComplete((v, e) -> {
-                                            if (e != null) {
-                                                LOG.info("Unable to send cluster state", e);
-                                            }
-                                        });
-                            } else {
-                                LOG.info("Unable to send cluster state to a newly added node. Cluster state is empty [node={}]", member);
+                raftService.isCurrentNodeLeader()
+                        .thenAccept(isLeader -> {
+                            if (isLeader) {
+                                sendClusterState(raftService, member);
                             }
                         });
             }
@@ -557,6 +550,17 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                 raftService.removeFromCluster(Set.of(node));
             }
         }, 0, TimeUnit.MILLISECONDS);
+    }
+
+    private void sendClusterState(CmgRaftService raftService, ClusterNode node) {
+        raftService.readClusterState()
+                .thenAccept(state -> {
+                    if (state != null) {
+                        sendClusterState(state, node);
+                    } else {
+                        LOG.warn("Unable to send cluster state to a newly added node. Cluster state is empty [node={}]", node);
+                    }
+                });
     }
 
     private CompletableFuture<Void> sendClusterState(ClusterState clusterState, ClusterNode node) {
@@ -586,7 +590,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
         return result.whenComplete((v, e) -> {
             if (e != null) {
-                LOG.info("Unable to send message [msg={}, target={}]", e, msg.getClass(), node);
+                LOG.warn("Unable to send message [msg={}, target={}]", e, msg.getClass(), node);
             }
         });
     }

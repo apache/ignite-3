@@ -17,10 +17,12 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_VALIDATION_ERR;
+
 import org.apache.ignite.lang.IgniteInternalException;
 
 /**
- * StatementMismatchException is used during query validation.
+ * QueryValidationException is used during query validation.
  *
  * <p>The exception is used when the expected query type does not match the actual query type obtained after parsing a sql string.
  */
@@ -31,6 +33,6 @@ public class QueryValidationException extends IgniteInternalException {
      * @param msg Error message.
      */
     public QueryValidationException(String msg) {
-        super(msg);
+        super(QUERY_VALIDATION_ERR, msg);
     }
 }

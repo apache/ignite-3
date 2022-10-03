@@ -20,6 +20,8 @@ package org.apache.ignite.internal.sql.engine.exec.ddl;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
+import static org.apache.ignite.lang.ErrorGroups.Sql.DEL_PK_COMUMN_CONSTRAINT_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.UNSUPPORTED_DDL_OPERATION_ERR;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -75,11 +77,11 @@ import org.apache.ignite.internal.util.IgniteObjectName;
 import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.lang.ColumnAlreadyExistsException;
 import org.apache.ignite.lang.ColumnNotFoundException;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
+import org.apache.ignite.sql.SqlException;
 
 /** DDL commands handler. */
 public class DdlCommandHandler {
@@ -119,7 +121,7 @@ public class DdlCommandHandler {
         } else if (cmd instanceof DropIndexCommand) {
             return handleDropIndex((DropIndexCommand) cmd);
         } else {
-            return failedFuture(new IgniteInternalCheckedException("Unsupported DDL operation ["
+            return failedFuture(new IgniteInternalCheckedException(UNSUPPORTED_DDL_OPERATION_ERR, "Unsupported DDL operation ["
                     + "cmdName=" + (cmd == null ? null : cmd.getClass().getSimpleName()) + "; "
                     + "cmd=\"" + cmd + "\"]"));
         }
@@ -306,6 +308,8 @@ public class DdlCommandHandler {
         return tableManager.alterTableAsync(
                 fullName,
                 chng -> chng.changeColumns(cols -> {
+                    ret.set(true); // Reset state if closure have been restarted.
+
                     Map<String, String> colNamesToOrders = columnOrdersToNames(chng.columns());
 
                     List<ColumnDefinition> colsDef0;
@@ -386,6 +390,8 @@ public class DdlCommandHandler {
         return tableManager.alterTableAsync(
                         fullName,
                         chng -> chng.changeColumns(cols -> {
+                            ret.set(true); // Reset state if closure have been restarted.
+
                             PrimaryKeyView priKey = chng.primaryKey();
 
                             Map<String, String> colNamesToOrders = columnOrdersToNames(chng.columns());
@@ -406,7 +412,7 @@ public class DdlCommandHandler {
                                 }
 
                                 if (primaryCols.contains(colName)) {
-                                    throw new IgniteException(IgniteStringFormatter
+                                    throw new SqlException(DEL_PK_COMUMN_CONSTRAINT_ERR, IgniteStringFormatter
                                             .format("Can`t delete column, belongs to primary key: [name={}]", colName));
                                 }
                             }

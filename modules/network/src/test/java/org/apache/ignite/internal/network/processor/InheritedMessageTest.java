@@ -24,7 +24,9 @@ import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import org.apache.ignite.network.TestMessagesFactory;
+import org.apache.ignite.internal.network.messages.InheritedMessage;
+import org.apache.ignite.internal.network.messages.InheritedMessageSerializationFactory;
+import org.apache.ignite.internal.network.messages.TestMessagesFactory;
 import org.apache.ignite.network.serialization.MessageDeserializer;
 import org.apache.ignite.network.serialization.MessageReader;
 import org.apache.ignite.network.serialization.MessageSerializer;

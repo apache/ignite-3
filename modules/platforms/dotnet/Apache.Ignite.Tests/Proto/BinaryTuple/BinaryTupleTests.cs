@@ -18,7 +18,11 @@
 namespace Apache.Ignite.Tests.Proto.BinaryTuple
 {
     using System;
+    using System.Collections;
+    using System.Linq;
+    using System.Numerics;
     using Internal.Proto.BinaryTuple;
+    using NodaTime;
     using NUnit.Framework;
 
     /// <summary>
@@ -342,6 +346,184 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
 
             Assert.AreEqual(Guid.Empty, reader.GetGuid(0));
             Assert.AreEqual(guid, reader.GetGuid(1));
+        }
+
+        [Test]
+        public void TestBytes([Values(0, 1, 123)] int count)
+        {
+            var bytes = Enumerable.Range(1, count).Select(x => (byte)x).ToArray();
+            var reader = BuildAndRead((ref BinaryTupleBuilder b) => b.AppendBytes(bytes));
+            var res = reader.GetBytes(0);
+
+            CollectionAssert.AreEqual(bytes, res);
+        }
+
+        [Test]
+        public void TestBitMask([Values(0, 1, 123)] int count)
+        {
+            var bitMask = new BitArray(count);
+
+            for (var i = 0; i < count; i++)
+            {
+                bitMask.Set(i, i % 2 == 0);
+            }
+
+            var reader = BuildAndRead((ref BinaryTupleBuilder b) => b.AppendBitmask(bitMask));
+            var res = reader.GetBitmask(0);
+
+            Assert.GreaterOrEqual(res.Length, bitMask.Length); // Resulting bitmask may be padded with false bits to the byte boundary.
+
+            for (var i = 0; i < count; i++)
+            {
+                Assert.AreEqual(i % 2 == 0, res.Get(i));
+            }
+        }
+
+        [Test]
+        public void TestBigInteger([Values(0, 15, 123)] long val, [Values(1, 33, 456, 9876)] int exp)
+        {
+            var bigInt = BigInteger.Pow(val, exp);
+
+            var reader = BuildAndRead((ref BinaryTupleBuilder b) => b.AppendNumber(bigInt));
+            var res = reader.GetNumber(0);
+
+            Assert.AreEqual(bigInt, res);
+        }
+
+        [Test]
+        public void TestDecimal()
+        {
+            Test(0, 3);
+            Test(0, 0);
+
+            Test(12345.6789m, 4);
+            Test(12345.678m, 4);
+            Test(12345.67m, 4);
+
+            Test(12345.6789m, 2, 12345.67m);
+            Test(12345.6789m, 0, 12345m);
+
+            static void Test(decimal val, int scale, decimal? expected = null)
+            {
+                var reader = BuildAndRead((ref BinaryTupleBuilder b) => b.AppendDecimal(val, scale));
+                var res = reader.GetDecimal(0, scale);
+
+                Assert.AreEqual(expected ?? val, res);
+            }
+        }
+
+        [Test]
+        public void TestDecimalScaleOverflow()
+        {
+            const int scale = 100;
+
+            var ex = Assert.Throws<OverflowException>(
+                () => BuildAndRead((ref BinaryTupleBuilder b) => b.AppendDecimal(12.34m, scale)).GetDecimal(0, scale));
+
+            Assert.AreEqual("Value was either too large or too small for a Decimal.", ex!.Message);
+        }
+
+        [Test]
+        public void TestDecimalMagnitudeOverflow()
+        {
+            var magnitude = Enumerable.Range(1, 100).Select(_ => (byte)250).ToArray();
+
+            var ex = Assert.Throws<OverflowException>(
+                () => BuildAndRead((ref BinaryTupleBuilder b) => b.AppendBytes(magnitude)).GetDecimal(0, 0));
+
+            Assert.AreEqual("Value was either too large or too small for a Decimal.", ex!.Message);
+        }
+
+        [Test]
+        public void TestDate()
+        {
+            var val = LocalDate.FromDateTime(DateTime.UtcNow);
+
+            var reader = BuildAndRead(
+                (ref BinaryTupleBuilder b) =>
+                {
+                    b.AppendDate(default);
+                    b.AppendDate(val);
+                    b.AppendDate(LocalDate.MaxIsoValue);
+                    b.AppendDate(LocalDate.MinIsoValue);
+                },
+                4);
+
+            Assert.AreEqual(default(LocalDate), reader.GetDate(0));
+            Assert.AreEqual(val, reader.GetDate(1));
+            Assert.AreEqual(LocalDate.MaxIsoValue, reader.GetDate(2));
+            Assert.AreEqual(LocalDate.MinIsoValue, reader.GetDate(3));
+        }
+
+        [Test]
+        public void TestTime()
+        {
+            var val = LocalDateTime.FromDateTime(DateTime.UtcNow).TimeOfDay;
+
+            var reader = BuildAndRead(
+                (ref BinaryTupleBuilder b) =>
+                {
+                    b.AppendTime(default);
+                    b.AppendTime(val);
+                    b.AppendTime(LocalTime.MinValue);
+                    b.AppendTime(LocalTime.MaxValue);
+                    b.AppendTime(LocalTime.Midnight);
+                    b.AppendTime(LocalTime.Noon);
+                },
+                6);
+
+            Assert.AreEqual(default(LocalTime), reader.GetTime(0));
+            Assert.AreEqual(val, reader.GetTime(1));
+            Assert.AreEqual(LocalTime.MinValue, reader.GetTime(2));
+            Assert.AreEqual(LocalTime.MaxValue, reader.GetTime(3));
+            Assert.AreEqual(LocalTime.Midnight, reader.GetTime(4));
+            Assert.AreEqual(LocalTime.Noon, reader.GetTime(5));
+        }
+
+        [Test]
+        public void TestDateTime()
+        {
+            var val = LocalDateTime.FromDateTime(DateTime.UtcNow);
+
+            var reader = BuildAndRead(
+                (ref BinaryTupleBuilder b) =>
+                {
+                    b.AppendDateTime(default);
+                    b.AppendDateTime(val);
+                    b.AppendDateTime(LocalDateTime.MaxIsoValue);
+                    b.AppendDateTime(LocalDateTime.MinIsoValue);
+                },
+                4);
+
+            Assert.AreEqual(default(LocalDateTime), reader.GetDateTime(0));
+            Assert.AreEqual(val, reader.GetDateTime(1));
+            Assert.AreEqual(LocalDateTime.MaxIsoValue, reader.GetDateTime(2));
+            Assert.AreEqual(LocalDateTime.MinIsoValue, reader.GetDateTime(3));
+        }
+
+        [Test]
+        public void TestTimestamp()
+        {
+            var val = Instant.FromDateTimeUtc(DateTime.UtcNow);
+
+            var reader = BuildAndRead(
+                (ref BinaryTupleBuilder b) =>
+                {
+                    b.AppendTimestamp(default);
+                    b.AppendTimestamp(val);
+                    b.AppendTimestamp(Instant.MaxValue);
+                    b.AppendTimestamp(Instant.MinValue);
+                    b.AppendTimestamp(NodaConstants.BclEpoch);
+                    b.AppendTimestamp(NodaConstants.JulianEpoch);
+                },
+                6);
+
+            Assert.AreEqual(NodaConstants.UnixEpoch, reader.GetTimestamp(0));
+            Assert.AreEqual(val, reader.GetTimestamp(1));
+            Assert.AreEqual(Instant.MaxValue, reader.GetTimestamp(2));
+            Assert.AreEqual(Instant.MinValue, reader.GetTimestamp(3));
+            Assert.AreEqual(NodaConstants.BclEpoch, reader.GetTimestamp(4));
+            Assert.AreEqual(NodaConstants.JulianEpoch, reader.GetTimestamp(5));
         }
 
         private static BinaryTupleReader BuildAndRead(BinaryTupleBuilderAction build, int numElements = 1)

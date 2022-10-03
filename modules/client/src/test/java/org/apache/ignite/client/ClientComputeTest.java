@@ -22,6 +22,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Arrays;
 import java.util.Set;
@@ -61,7 +62,7 @@ public class ClientComputeTest {
 
         // Provide same node multiple times to check this case as well.
         try (var client = getClient(server1, server2, server3, server1, server2)) {
-            IgniteTestUtils.waitForCondition(() -> client.connections().size() == 3, 3000);
+            assertTrue(IgniteTestUtils.waitForCondition(() -> client.connections().size() == 3, 3000));
 
             String res1 = client.compute().<String>execute(getClusterNodes("s1"), "job").join();
             String res2 = client.compute().<String>execute(getClusterNodes("s2"), "job").join();

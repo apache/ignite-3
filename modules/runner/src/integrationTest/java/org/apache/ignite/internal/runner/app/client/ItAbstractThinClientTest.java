@@ -21,6 +21,7 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -121,7 +122,8 @@ public abstract class ItAbstractThinClientTest extends IgniteAbstractTest {
         );
 
         client = IgniteClient.builder().addresses(getClientAddresses().toArray(new String[0])).build();
-        IgniteTestUtils.waitForCondition(() -> client.connections().size() == 2, 3000);
+
+        assertTrue(IgniteTestUtils.waitForCondition(() -> client.connections().size() == 2, 3000));
     }
 
     /**

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static org.apache.calcite.util.Util.unexpected;
+import static org.apache.ignite.lang.ErrorGroups.Sql.NODE_LEFT_ERR;
 
 import java.util.Collection;
 import java.util.Comparator;
@@ -358,13 +359,13 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
         checkState();
 
         if (getOrCreateBuffer(nodeId).check() != State.END) {
-            throw new IgniteInternalCheckedException("Failed to execute query, node left [nodeId=" + nodeId + ']');
+            throw new IgniteInternalCheckedException(NODE_LEFT_ERR, "Failed to execute query, node left [nodeId=" + nodeId + ']');
         }
     }
 
     private void checkNode(String nodeId) throws IgniteInternalCheckedException {
         if (!exchange.alive(nodeId)) {
-            throw new IgniteInternalCheckedException("Failed to execute query, node left [nodeId=" + nodeId + ']');
+            throw new IgniteInternalCheckedException(NODE_LEFT_ERR, "Failed to execute query, node left [nodeId=" + nodeId + ']');
         }
     }
 

@@ -73,4 +73,13 @@ public class BinaryTuple extends BinaryTupleReader implements InternalTuple {
     public Object value(int index) {
         return schema.element(index).typeSpec.objectValue(this, index);
     }
+
+    /**
+     * Returns the schema of this tuple.
+     *
+     * @return This tuple's schema.
+     */
+    public BinaryTupleSchema schema() {
+        return schema;
+    }
 }

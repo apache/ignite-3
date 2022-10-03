@@ -20,7 +20,6 @@ import org.openapitools.generator.gradle.plugin.tasks.GenerateTask
 plugins {
     alias(libs.plugins.openapiGenerator)
     id 'idea'
-    id 'application'
 }
 
 apply from: "$rootDir/buildscripts/java-core.gradle"
@@ -122,24 +121,6 @@ task generateApiClient(type: GenerateTask) {
 
 generateApiClient.dependsOn copyOpenapiDefinition
 
-task generateAutocompletionScript(type: JavaExec) {
-    classpath = sourceSets.main.runtimeClasspath
-    mainClass.set("picocli.AutoComplete")
-    systemProperty("picocli.autocomplete.systemExitOnError", "")
-    args = ["--force",
-            "--completionScript",
-            "${buildDir}/ignite_completion.sh",
-            "-n",
-            "ignite",
-            "org.apache.ignite.cli.commands.TopLevelCliCommand"]
-}
-
-build.dependsOn generateAutocompletionScript
-
-application {
-    mainClass = 'org.apache.ignite.cli.Main'
-}
-
 idea.module {
     sourceDirs += generatedClientDir.get().dir('src/main/java').asFile
     resourceDirs += generatedClientDir.get().dir('src/main/resources').asFile
@@ -150,4 +131,32 @@ idea.module {
 compileJava {
     dependsOn generateApiClient
     source generatedClientDir.get().dir('src/main/java')
+}
+
+task generateAutocompletionScript(type: JavaExec) {
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass.set("picocli.AutoComplete")
+    systemProperty("picocli.autocomplete.systemExitOnError", "")
+    args = ["--force",
+            "--completionScript",
+            "${buildDir}/ignite_completion.sh",
+            "-n",
+            "ignite",
+            "org.apache.ignite.internal.cli.commands.TopLevelCliCommand"]
+    outputs.file "${buildDir}/ignite_completion.sh"
+}
+
+build.dependsOn generateAutocompletionScript
+
+configurations {
+    cliScripts {
+        canBeConsumed = true
+        canBeResolved = false
+    }
+}
+
+artifacts {
+    cliScripts(new File("${buildDir}/ignite_completion.sh")) {
+        builtBy(generateAutocompletionScript)
+    }
 }
