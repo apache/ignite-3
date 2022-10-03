@@ -26,6 +26,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.Period;
 import java.util.BitSet;
 import java.util.UUID;
 
@@ -329,6 +330,17 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
     public Duration durationValue(int index) {
         seek(index);
         return begin == 0 ? null : durationValue(begin, end);
+    }
+
+    /**
+     * Reads value of specified element.
+     *
+     * @param index Element index.
+     * @return Element value.
+     */
+    public Period periodValue(int index) {
+        seek(index);
+        return begin == 0 ? null : periodValue(begin, end);
     }
 
     /**

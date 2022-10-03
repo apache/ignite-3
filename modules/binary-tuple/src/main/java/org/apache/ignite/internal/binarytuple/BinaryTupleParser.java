@@ -26,6 +26,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.Period;
 import java.util.BitSet;
 import java.util.UUID;
 
@@ -459,6 +460,26 @@ public class BinaryTupleParser {
      * @param end End offset of the element.
      * @return Element value.
      */
+    public final Instant timestampValue(int begin, int end) {
+        int len = end - begin;
+        if (len != 8 && len != 12) {
+            if (len == 0) {
+                return BinaryTupleCommon.DEFAULT_TIMESTAMP;
+            }
+            throw new BinaryTupleFormatException("Invalid length for a tuple element");
+        }
+        long seconds = buffer.getLong(begin);
+        int nanos = len == 8 ? 0 : buffer.getInt(begin + 8);
+        return Instant.ofEpochSecond(seconds, nanos);
+    }
+
+    /**
+     * Reads value of specified element.
+     *
+     * @param begin Start offset of the element.
+     * @param end End offset of the element.
+     * @return Element value.
+     */
     public final Duration durationValue(int begin, int end) {
         int len = end - begin;
         if (len != 8 && len != 12) {
@@ -481,17 +502,19 @@ public class BinaryTupleParser {
      * @param end End offset of the element.
      * @return Element value.
      */
-    public final Instant timestampValue(int begin, int end) {
-        int len = end - begin;
-        if (len != 8 && len != 12) {
-            if (len == 0) {
-                return BinaryTupleCommon.DEFAULT_TIMESTAMP;
-            }
-            throw new BinaryTupleFormatException("Invalid length for a tuple element");
+    public final Period periodValue(int begin, int end) {
+        switch (end - begin) {
+            case 0:
+                return BinaryTupleCommon.DEFAULT_PERIOD;
+            case 3:
+                return Period.of(buffer.get(begin), buffer.get(begin + 1), buffer.get(begin + 2));
+            case 6:
+                return Period.of(buffer.getShort(begin), buffer.getShort(begin + 2), buffer.getShort(begin + 4));
+            case 12:
+                return Period.of(buffer.getInt(begin), buffer.getInt(begin + 4), buffer.getInt(begin + 8));
+            default:
+                throw new BinaryTupleFormatException("Invalid length for a tuple element");
         }
-        long seconds = buffer.getLong(begin);
-        int nanos = len == 8 ? 0 : buffer.getInt(begin + 8);
-        return Instant.ofEpochSecond(seconds, nanos);
     }
 
     /**
