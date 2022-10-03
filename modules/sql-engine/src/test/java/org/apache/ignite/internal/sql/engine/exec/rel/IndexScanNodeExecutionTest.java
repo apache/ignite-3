@@ -25,6 +25,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscription;
+import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory.Builder;
@@ -43,12 +44,13 @@ import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
-import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
-import org.jetbrains.annotations.NotNull;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.hamcrest.Matchers;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
@@ -56,68 +58,125 @@ import org.mockito.Mockito;
  * Test {@link IndexScanNode} contract.
  */
 public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
+
     @Test
     public void sortedIndex() {
         // Empty index.
-        verifyIndexScan(
+        validateSortedIndexScan(
                 EMPTY,
-                Type.SORTED,
                 EMPTY
         );
 
-        verifyIndexScan(
-                new Object[][]{
-                        {1L, null, 1, "Roman"},
-                        {2L, 4, 2, "Igor"},
-                        {3L, 3, 1, "Taras"},
-                        {4L, 2, null, "Alexey"},
-                        {5L, 4, 1, "Ivan"},
-                        {6L, 2, 1, "Andrey"}
-                },
-                Type.SORTED,
-                // TODO: sort data, once IndexScanNode will support merging.
-                new Object[][]{
-                        {1L, null, 1, "Roman"},
-                        {2L, 4, 2, "Igor"},
-                        {3L, 3, 1, "Taras"},
-                        {4L, 2, null, "Alexey"},
-                        {5L, 4, 1, "Ivan"},
-                        {6L, 2, 1, "Andrey"}
-                }
+        Object[][] tableData = {
+                {1L, null, 1, "Roman"},
+                {2L, 4, 2, "Igor"},
+                {3L, 3, 1, "Taras"},
+                {4L, 2, null, "Alexey"},
+                {5L, 4, 1, "Ivan"},
+                {6L, 2, 1, "Andrey"}
+        };
+
+        // TODO: sort data, once IndexScanNode will support merging.
+        Object[][] result = tableData;
+
+        // Validate sort order.
+        validateSortedIndexScan(
+                tableData,
+                result
         );
+
+        // Validate bounds.
+        validateSortedIndexScan(
+                tableData,
+                () -> new Object[]{2, 1},
+                () -> new Object[]{3, 0},
+                result
+        );
+
+        validateSortedIndexScan(
+                tableData,
+                () -> new Object[]{2, 1},
+                () -> new Object[]{4},
+                result
+
+        );
+
+        validateSortedIndexScan(
+                tableData,
+                () -> new Object[]{null},
+                null,
+                result
+        );
+
+        // Validate failure due to incorrect bounds.
+        IgniteTestUtils.assertThrowsWithCause(() ->
+                validateSortedIndexScan(
+                        tableData,
+                        () -> new Object[]{2, "Brutus"},
+                        () -> new Object[]{3.9, 0},
+                        // TODO: sort data, once IndexScanNode will support merging.
+                        EMPTY
+                ), ClassCastException.class);
+
     }
 
     @Test
     public void hashIndex() {
         // Empty index.
-        verifyIndexScan(
+        validateHashIndexScan(
                 EMPTY,
-                Type.HASH,
+                null,
                 EMPTY
         );
 
-        verifyIndexScan(
-                new Object[][]{
-                        {1L, null, 1, "Roman"},
-                        {2L, 4, 2, "Igor"},
-                        {3L, 3, 1, "Taras"},
-                        {4L, 2, null, "Alexey"},
-                        {5L, 4, 1, "Ivan"},
-                        {6L, 2, 1, "Andrey"}
-                },
-                Type.HASH,
-                new Object[][]{
-                        {1L, null, 1, "Roman"},
-                        {2L, 4, 2, "Igor"},
-                        {3L, 3, 1, "Taras"},
-                        {4L, 2, null, "Alexey"},
-                        {5L, 4, 1, "Ivan"},
-                        {6L, 2, 1, "Andrey"}
-                }
+        Object[][] tableData = {
+                {1L, null, 1, "Roman"},
+                {2L, 4, 2, "Igor"},
+                {3L, 3, 1, "Taras"},
+                {4L, 2, null, "Alexey"},
+                {5L, 4, 2, "Ivan"},
+                {6L, 2, 1, "Andrey"}
+        };
+
+        // Validate data.
+        validateHashIndexScan(
+                tableData,
+                null,
+                tableData
         );
+
+        // Validate bounds.
+        validateHashIndexScan(
+                tableData,
+                () -> new Object[]{4, 2},
+                tableData);
+
+        validateHashIndexScan(
+                tableData,
+                () -> new Object[]{null, null},
+                tableData);
+
+        // Validate failure due to incorrect bounds.
+        IgniteTestUtils.assertThrowsWithCause(() ->
+                validateHashIndexScan(
+                        tableData,
+                        () -> new Object[]{2},
+                        EMPTY
+                ), AssertionError.class, "Invalid lookup condition");
+
+        IgniteTestUtils.assertThrowsWithCause(() ->
+                validateHashIndexScan(
+                        tableData,
+                        () -> new Object[]{2, "Brutus"},
+                        EMPTY
+                ), ClassCastException.class);
     }
 
-    private void verifyIndexScan(Object[][] tableData, IgniteIndex.Type type, Object[][] expRes) {
+    private void validateSortedIndexScan(Object[][] tableData, Object[][] expRes) {
+        validateSortedIndexScan(tableData, null, null, expRes);
+    }
+
+    private void validateHashIndexScan(Object[][] tableData, @Nullable Supplier<Object[]> key, Object[][] expRes) {
         SchemaDescriptor schemaDescriptor = new SchemaDescriptor(
                 1,
                 new Column[]{new Column("key", NativeTypes.INT64, false)},
@@ -128,62 +187,106 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
                 }
         );
 
-        BinaryTuple[] tableRows = convertToRows(tableData, schemaDescriptor);
-        BinaryTuple[] part0Rows = Arrays.stream(tableRows).limit(tableRows.length / 2).toArray(BinaryTuple[]::new);
-        BinaryTuple[] part2Rows = Arrays.stream(tableRows).skip(tableRows.length / 2).toArray(BinaryTuple[]::new);
+        IgniteIndex indexMock = Mockito.mock(IgniteIndex.class);
+        { // Build mocks
+            IndexDescriptor indexDescriptor = new IndexDescriptor("IDX1", List.of("idxCol2", "idxCol1"));
 
-        ExecutionContext<Object[]> ectx = executionContext(true);
+            Index<IndexDescriptor> hashIndexMock = Mockito.mock(Index.class);
+
+            Mockito.doReturn(indexDescriptor).when(hashIndexMock).descriptor();
+            Mockito.doAnswer(invocation -> {
+                                if (key != null) {
+                                    validateBound(indexDescriptor, schemaDescriptor, invocation.getArgument(2));
+                                }
+
+                                return dummyPublisher(partitionData(tableData, schemaDescriptor, invocation.getArgument(0)));
+                            }
+                    )
+                    .when(hashIndexMock)
+                    .scan(Mockito.anyInt(), Mockito.any(), Mockito.any(), Mockito.any());
+
+            Mockito.doReturn(IgniteIndex.Type.HASH).when(indexMock).type();
+            Mockito.doReturn(hashIndexMock).when(indexMock).index();
+        }
+
+        validateIndexScan(tableData, schemaDescriptor, indexMock, key, key, expRes);
+    }
+
+    private void validateSortedIndexScan(
+            Object[][] tableData,
+            Supplier<Object[]> lowerBound,
+            Supplier<Object[]> upperBound,
+            Object[][] expectedData
+    ) {
+        SchemaDescriptor schemaDescriptor = new SchemaDescriptor(
+                1,
+                new Column[]{new Column("key", NativeTypes.INT64, false)},
+                new Column[]{
+                        new Column("idxCol1", NativeTypes.INT32, true),
+                        new Column("idxCol2", NativeTypes.INT32, true),
+                        new Column("val", NativeTypes.stringOf(Integer.MAX_VALUE), true)
+                }
+        );
 
         IgniteIndex indexMock = Mockito.mock(IgniteIndex.class);
-        Mockito.doReturn(type).when(indexMock).type();
-
-        if (type == Type.SORTED) {
-            SortedIndex sortedIndexMock = Mockito.mock(SortedIndex.class);
-
-            Mockito.doReturn(sortedIndexMock).when(indexMock).index();
-            Mockito.doReturn(new SortedIndexDescriptor(
+        { // Build mocks.
+            SortedIndexDescriptor indexDescriptor = new SortedIndexDescriptor(
                     "IDX1",
                     List.of("idxCol2", "idxCol1"),
                     List.of(ColumnCollation.ASC_NULLS_FIRST, ColumnCollation.ASC_NULLS_LAST)
-            )).when(sortedIndexMock).descriptor();
 
-            Mockito.doReturn(dummyPublisher(part0Rows)).when(sortedIndexMock)
-                    .scan(Mockito.eq(0), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.anyInt(), Mockito.any());
-            Mockito.doReturn(dummyPublisher(part2Rows)).when(sortedIndexMock)
-                    .scan(Mockito.eq(2), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.anyInt(), Mockito.any());
-        } else {
-            Index<IndexDescriptor> hashIndexMock = Mockito.mock(Index.class);
+            );
 
-            Mockito.doReturn(hashIndexMock).when(indexMock).index();
-            Mockito.doReturn(new IndexDescriptor("IDX1", List.of("idxCol2", "idxCol1"))).when(hashIndexMock).descriptor();
-            Mockito.doReturn(dummyPublisher(part0Rows)).when(hashIndexMock)
-                    .scan(Mockito.eq(0), Mockito.any(), Mockito.any(), Mockito.any());
-            Mockito.doReturn(dummyPublisher(part2Rows)).when(hashIndexMock)
-                    .scan(Mockito.eq(2), Mockito.any(), Mockito.any(), Mockito.any());
+            SortedIndex sortedIndexMock = Mockito.mock(SortedIndex.class);
+
+            Mockito.doReturn(indexDescriptor).when(sortedIndexMock).descriptor();
+            Mockito.doAnswer(invocation -> {
+                                if (lowerBound != null) {
+                                    validateBoundPrefix(indexDescriptor, schemaDescriptor, invocation.getArgument(2));
+                                }
+                                if (upperBound != null) {
+                                    validateBoundPrefix(indexDescriptor, schemaDescriptor, invocation.getArgument(3));
+                                }
+
+                                return dummyPublisher(partitionData(tableData, schemaDescriptor, invocation.getArgument(0)));
+                            }
+                    )
+                    .when(sortedIndexMock)
+                    .scan(Mockito.anyInt(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.anyInt(), Mockito.any());
+
+            Mockito.doReturn(Type.SORTED).when(indexMock).type();
+            Mockito.doReturn(sortedIndexMock).when(indexMock).index();
         }
 
+        validateIndexScan(tableData, schemaDescriptor, indexMock, lowerBound, upperBound, expectedData);
+    }
+
+    private void validateIndexScan(
+            Object[][] tableData,
+            SchemaDescriptor schemaDescriptor,
+            IgniteIndex index,
+            Supplier<Object[]> lowerBound,
+            Supplier<Object[]> upperBound,
+            Object[][] expectedData
+    ) {
+        ExecutionContext<Object[]> ectx = executionContext(true);
+
         RelDataType rowType = createRowTypeFromSchema(ectx.getTypeFactory(), schemaDescriptor);
-        InternalIgniteTable table = new AbstractPlannerTest.TestTable(rowType) {
-            @Override
-            public IgniteDistribution distribution() {
-                return IgniteDistributions.broadcast();
-            }
-        };
 
         IndexScanNode<Object[]> scanNode = new IndexScanNode<>(
                 ectx,
                 rowType,
-                indexMock,
-                table,
+                index,
+                new TestTable(rowType),
                 new int[]{0, 2},
-                null,
-                null,
+                lowerBound,
+                upperBound,
                 null,
                 null,
                 null
         );
 
-        RootNode<Object[]> node = new RootNode<>(ectx, rowType);
+        RootNode<Object[]> node = new RootNode<>(ectx, scanNode.rowType());
         node.register(scanNode);
 
         ArrayList<Object[]> res = new ArrayList<>();
@@ -192,7 +295,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
             res.add(node.next());
         }
 
-        assertThat(res.toArray(EMPTY), equalTo(expRes));
+        assertThat(res.toArray(EMPTY), equalTo(expectedData));
     }
 
     private static RelDataType createRowTypeFromSchema(IgniteTypeFactory typeFactory, SchemaDescriptor schemaDescriptor) {
@@ -205,21 +308,35 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
         return rowTypeBuilder.build();
     }
 
-    private BinaryTuple[] convertToRows(Object[][] tableData, SchemaDescriptor schemaDescriptor) {
+
+    private BinaryTuple[] partitionData(Object[][] tableData, SchemaDescriptor schemaDescriptor, int partition) {
         BinaryTupleSchema binaryTupleSchema = BinaryTupleSchema.createRowSchema(schemaDescriptor);
 
-        return Arrays.stream(tableData)
-                .map(row -> new BinaryTuple(binaryTupleSchema, new BinaryTupleBuilder(4, true)
-                        .appendLong((long) row[0])
-                        .appendInt((Integer) row[1])
-                        .appendInt((Integer) row[2])
-                        .appendString((String) row[3])
-                        .build())
-                )
-                .toArray(BinaryTuple[]::new);
+        switch (partition) {
+            case 0: {
+                return Arrays.stream(tableData).limit(tableData.length / 2)
+                        .map(r -> convertToTuple(binaryTupleSchema, r))
+                        .toArray(BinaryTuple[]::new);
+            }
+            case 2: {
+                return Arrays.stream(tableData).skip(tableData.length / 2)
+                        .map(r -> convertToTuple(binaryTupleSchema, r))
+                        .toArray(BinaryTuple[]::new);
+            }
+            default:
+                throw new AssertionError("Undefined partition");
+        }
     }
 
-    @NotNull
+    private BinaryTuple convertToTuple(BinaryTupleSchema binaryTupleSchema, Object[] row) {
+        return new BinaryTuple(binaryTupleSchema, new BinaryTupleBuilder(4, true)
+                .appendLong((long) row[0])
+                .appendInt((Integer) row[1])
+                .appendInt((Integer) row[2])
+                .appendString((String) row[3])
+                .build());
+    }
+
     private static Publisher<BinaryTuple> dummyPublisher(BinaryTuple[] rows) {
         return s -> {
             s.onSubscribe(new Subscription() {
@@ -240,5 +357,50 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
 
             s.onComplete();
         };
+    }
+
+    private void validateBoundPrefix(IndexDescriptor indexDescriptor, SchemaDescriptor schemaDescriptor, BinaryTuple boundPrefix) {
+        List<String> idxCols = indexDescriptor.columns();
+
+        assertThat(boundPrefix.count(), Matchers.lessThanOrEqualTo(idxCols.size()));
+
+        for (int i = 0; i < boundPrefix.count(); i++) {
+            Column col = schemaDescriptor.column(idxCols.get(i));
+            Object val = boundPrefix.value(i);
+
+            if (col.nullable() && val == null) {
+                continue;
+            }
+
+            assertThat("Column type doesn't match: columnName=" + idxCols.get(i), NativeTypes.fromObject(val), equalTo(col.type()));
+        }
+    }
+
+    private void validateBound(IndexDescriptor indexDescriptor, SchemaDescriptor schemaDescriptor, BinaryTuple bound) {
+        List<String> idxCols = indexDescriptor.columns();
+
+        assertThat(bound.count(), Matchers.equalTo(idxCols.size()));
+
+        for (int i = 0; i < bound.count(); i++) {
+            Column col = schemaDescriptor.column(idxCols.get(i));
+            Object val = bound.value(i);
+
+            if (col.nullable() && val == null) {
+                continue;
+            }
+
+            assertThat("Column type doesn't match: columnName=" + idxCols.get(i), NativeTypes.fromObject(val), equalTo(col.type()));
+        }
+    }
+
+    private static class TestTable extends AbstractPlannerTest.TestTable {
+        public TestTable(RelDataType rowType) {
+            super(rowType);
+        }
+
+        @Override
+        public IgniteDistribution distribution() {
+            return IgniteDistributions.broadcast();
+        }
     }
 }

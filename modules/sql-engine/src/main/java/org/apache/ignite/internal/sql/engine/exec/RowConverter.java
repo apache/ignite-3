@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
+import org.apache.ignite.internal.binarytuple.BinaryTuplePrefixBuilder;
 import org.apache.ignite.internal.index.IndexDescriptor;
 import org.apache.ignite.internal.schema.BinaryConverter;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -44,7 +45,7 @@ public final class RowConverter {
     }
 
     /**
-     * Converts a search row, which represents prefix condition, to a binary tuple.
+     * Converts a search row, which represents exact value condition, to a binary tuple.
      *
      * @param ectx Execution context.
      * @param binarySchema Binary tuple schema.
@@ -62,10 +63,48 @@ public final class RowConverter {
         RowHandler<RowT> handler = factory.handler();
 
         int prefixColumnsCount = handler.columnCount(searchRow);
+        int totalColumnsCount = binarySchema.elementCount();
+
+        assert prefixColumnsCount == totalColumnsCount : "Invalid lookup condition";
+
         BinaryTupleBuilder tupleBuilder = new BinaryTupleBuilder(prefixColumnsCount, binarySchema.hasNullableElements());
-        // TODO: Fix to BinaryTuplePrefix.
-        // int totalColumnsCount = binarySchema.elementCount();
-        // BinaryTupleBuilder tupleBuilder = new BinaryTuplePrefixBuilder(prefixColumnsCount, totalColumnsCount);
+
+        return toBinaryTuple(ectx, binarySchema, handler, tupleBuilder, searchRow);
+    }
+
+    /**
+     * Converts a search row, which represents prefix condition, to a binary tuple.
+     *
+     * @param ectx Execution context.
+     * @param binarySchema Binary tuple schema.
+     * @param factory Row handler factory.
+     * @param searchRow Search row.
+     * @param <RowT> Row type.
+     * @return Binary tuple.
+     */
+    public static <RowT> BinaryTuple toBinaryTuplePrefix(
+            ExecutionContext<RowT> ectx,
+            BinaryTupleSchema binarySchema,
+            RowHandler.RowFactory<RowT> factory,
+            RowT searchRow
+    ) {
+        RowHandler<RowT> handler = factory.handler();
+
+        int prefixColumnsCount = handler.columnCount(searchRow);
+        int totalColumnsCount = binarySchema.elementCount();
+        BinaryTupleBuilder tupleBuilder = new BinaryTuplePrefixBuilder(prefixColumnsCount, totalColumnsCount);
+
+        return toBinaryTuple(ectx, binarySchema, handler, tupleBuilder, searchRow);
+    }
+
+    private static <RowT> BinaryTuple toBinaryTuple(
+            ExecutionContext<RowT> ectx,
+            BinaryTupleSchema binarySchema,
+            RowHandler<RowT> handler,
+            BinaryTupleBuilder tupleBuilder,
+            RowT searchRow
+    ) {
+        int prefixColumnsCount = handler.columnCount(searchRow);
 
         for (int i = 0; i < prefixColumnsCount; i++) {
             Object val = handler.get(i, searchRow);

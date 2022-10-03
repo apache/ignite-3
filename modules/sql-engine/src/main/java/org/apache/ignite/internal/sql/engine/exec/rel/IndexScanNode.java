@@ -327,10 +327,14 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
 
     @Contract("null -> null")
     private @Nullable BinaryTuple toBinaryTuplePrefix(@Nullable Supplier<RowT> conditionSupplier) {
-        // TODO: build prefox binary tuple.
-        return toBinaryTuple(conditionSupplier);
+        if (conditionSupplier == null) {
+            return null;
+        }
+
+        return RowConverter.toBinaryTuplePrefix(context(), indexRowSchema, factory, conditionSupplier.get());
     }
 
+    @Contract("null -> null")
     private @Nullable BinaryTuple toBinaryTuple(@Nullable Supplier<RowT> conditionSupplier) {
         if (conditionSupplier == null) {
             return null;
