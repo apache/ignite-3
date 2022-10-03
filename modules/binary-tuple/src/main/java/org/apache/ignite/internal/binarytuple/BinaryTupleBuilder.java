@@ -27,6 +27,7 @@ import java.nio.charset.CharacterCodingException;
 import java.nio.charset.CharsetEncoder;
 import java.nio.charset.CoderResult;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -525,6 +526,34 @@ public class BinaryTupleBuilder {
      */
     public BinaryTupleBuilder appendTimestamp(Instant value) {
         return value == null ? appendNull() : appendTimestampNotNull(value);
+    }
+
+    /**
+     * Append a value for the current element.
+     *
+     * @param value Element value.
+     * @return {@code this} for chaining.
+     */
+    public BinaryTupleBuilder appendDurationNotNull(Duration value) {
+        if (value != BinaryTupleCommon.DEFAULT_DURATION) {
+            long seconds = value.getSeconds();
+            int nanos = value.getNano();
+            putLong(seconds);
+            if (nanos != 0) {
+                putInt(nanos);
+            }
+        }
+        return proceed();
+    }
+
+    /**
+     * Append a value for the current element.
+     *
+     * @param value Element value.
+     * @return {@code this} for chaining.
+     */
+    public BinaryTupleBuilder appendDuration(Duration value) {
+        return value == null ? appendNull() : appendDurationNotNull(value);
     }
 
     /**
