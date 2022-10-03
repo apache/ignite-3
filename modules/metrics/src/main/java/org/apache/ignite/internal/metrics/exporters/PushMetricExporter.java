@@ -23,6 +23,7 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.metrics.exporters.configuration.ExporterView;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 
@@ -31,15 +32,9 @@ import org.apache.ignite.internal.util.IgniteUtils;
  * Every {@code period} of time {@link PushMetricExporter#report()} will be called
  * to push metrics to the external system.
  */
-public abstract class PushMetricExporter extends BasicMetricExporter {
+public abstract class PushMetricExporter<CfgT extends ExporterView> extends BasicMetricExporter<CfgT> {
     /** Logger. */
     protected final IgniteLogger log = Loggers.forClass(getClass());
-
-    /** Default export period in milliseconds. */
-    public static final long DFLT_EXPORT_PERIOD = 60_000;
-
-    /** Export period. */
-    private long period = DFLT_EXPORT_PERIOD;
 
     /** Export task future. */
     private ScheduledFuture<?> fut;
@@ -49,9 +44,9 @@ public abstract class PushMetricExporter extends BasicMetricExporter {
 
     /** {@inheritDoc} */
     @Override
-    public void start() {
+    public synchronized void start() {
         scheduler =
-                Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("metrics-exporter", log));
+                Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("metrics-exporter-" + name(), log));
 
         fut = scheduler.scheduleWithFixedDelay(() -> {
             try {
@@ -62,27 +57,20 @@ public abstract class PushMetricExporter extends BasicMetricExporter {
 
                 throw th;
             }
-        }, period, period, TimeUnit.MILLISECONDS);
+        }, period(), period(), TimeUnit.MILLISECONDS);
 
     }
 
     /** {@inheritDoc} */
     @Override
-    public void stop() {
-        fut.cancel(false);
+    public synchronized void stop() {
+        if (fut != null) {
+            fut.cancel(false);
+        }
 
-        IgniteUtils.shutdownAndAwaitTermination(scheduler, 10, TimeUnit.SECONDS);
-    }
-
-    // TODO: after IGNITE-17358 this period maybe shouldn't be a part of protected API
-    // TODO: and should be configured throw configuration API
-    /**
-     * Sets period in milliseconds after {@link #report()} method should be called.
-     *
-     * @param period Period in milliseconds.
-     */
-    protected void setPeriod(long period) {
-        this.period = period;
+        if (scheduler != null) {
+            IgniteUtils.shutdownAndAwaitTermination(scheduler, 10, TimeUnit.SECONDS);
+        }
     }
 
     /**
@@ -90,9 +78,7 @@ public abstract class PushMetricExporter extends BasicMetricExporter {
      *
      * @return Period in milliseconds after {@link #report()} method should be called.
      */
-    public long getPeriod() {
-        return period;
-    }
+    protected abstract long period();
 
     /**
      * A heart of the push exporter.

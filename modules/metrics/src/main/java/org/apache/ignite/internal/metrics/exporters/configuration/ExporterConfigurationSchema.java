@@ -15,18 +15,22 @@
  * limitations under the License.
  */
 
-apply from: "$rootDir/buildscripts/java-core.gradle"
-apply from: "$rootDir/buildscripts/java-junit5.gradle"
-apply from: "$rootDir/buildscripts/java-integration-test.gradle"
+package org.apache.ignite.internal.metrics.exporters.configuration;
 
-dependencies {
-    implementation project(':ignite-core')
-    implementation project(':ignite-configuration')
-    implementation project(':ignite-configuration-api')
-    implementation libs.jetbrains.annotations
+import org.apache.ignite.configuration.annotation.PolymorphicConfig;
+import org.apache.ignite.configuration.annotation.PolymorphicId;
+import org.apache.ignite.internal.metrics.exporters.MetricExporter;
 
-    testImplementation libs.hamcrest.core
-    testImplementation libs.mockito.core
+/**
+ * Parent for any exporter configuration.
+ */
+// TODO: IGNITE-17721 at the moment we need to set exporter name twice: here and as the key on named list in MetricConfigurationSchema,
+// because we can't use AbstractConfiguration instead of PolymorphicConfig inside of NamedConfigValue
+@PolymorphicConfig
+public class ExporterConfigurationSchema {
+    /**
+     * The unique name of appropriate {@link MetricExporter}. It must be the same as {@link MetricExporter#name()}.
+     */
+    @PolymorphicId
+    public String exporterName;
 }
-
-description = 'ignite-metrics'
