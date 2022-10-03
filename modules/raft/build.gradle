@@ -24,6 +24,7 @@ description = 'ignite-raft'
 
 dependencies {
     implementation project(':ignite-core')
+    implementation project(':ignite-configuration')
     implementation project(':ignite-raft-client')
     implementation project(':ignite-network')
     implementation libs.jetbrains.annotations
@@ -32,10 +33,12 @@ dependencies {
     implementation libs.rocksdb.jni
     implementation libs.dropwizard.metrics
     implementation libs.jctools.core
+    annotationProcessor project(":ignite-configuration-annotation-processor")
     annotationProcessor project(":ignite-network-annotation-processor")
     annotationProcessor libs.jmh.annotation.processor
 
     testAnnotationProcessor project(":ignite-network-annotation-processor")
+    testAnnotationProcessor project(":ignite-configuration-annotation-processor")
     testImplementation(testFixtures(project(':ignite-core')))
     testImplementation(testFixtures(project(':ignite-network')))
     testImplementation project(':ignite-configuration')

@@ -43,6 +43,7 @@ dependencies {
     testImplementation project(':ignite-storage-api')
     testImplementation project(':ignite-storage-page-memory')
     testImplementation project(':ignite-storage-rocksdb')
+    testImplementation project(':ignite-index')
     testImplementation project(':ignite-network')
     testImplementation project(':ignite-core')
     testImplementation project(':ignite-raft')
