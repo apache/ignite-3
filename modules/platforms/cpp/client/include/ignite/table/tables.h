@@ -63,6 +63,15 @@ public:
      */
     IGNITE_API void getTableAsync(const std::string &name, ignite_callback<std::optional<Table>> callback);
 
+    /**
+     * Gets all tables.
+     *
+     * @param callback Callback to be called once operation is complete. On success callback called with a vector of
+     *    all tables.
+     * @throw ignite_error In case of error while trying to send a request.
+     */
+    IGNITE_API void getTablesAsync(ignite_callback<std::vector<Table>> callback);
+
 private:
     /**
      * Constructor

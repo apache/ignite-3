@@ -24,12 +24,18 @@
 #include <optional>
 
 #include "common/ignite_error.h"
+#include "common/bytes.h"
 #include "common/types.h"
 #include "common/uuid.h"
 
-#include "ignite/protocol/reader.h"
+#include "ignite/protocol/extension_types.h"
+
+struct msgpack_object;
 
 namespace ignite::protocol {
+
+class Reader;
+
 /** Magic bytes. */
 static constexpr std::array<std::byte, 4> MAGIC_BYTES = {
     std::byte('I'), std::byte('G'), std::byte('N'), std::byte('I')};
@@ -188,10 +194,43 @@ inline void writeInt16(int16_t value, std::byte *buffer, size_t offset = 0) {
     return writeUint16(std::uint16_t(value), buffer, offset);
 }
 
+template<typename T>
+T unpack_object(const msgpack_object&);
+
 /**
- * Make random GUID.
+ * Unpack number.
  *
- * @return Random GUID instance.
+ * @param object MsgPack object.
+ * @return Number.
+ * @throw ignite_error if the object is not a number.
+ */
+template<>
+int64_t unpack_object(const msgpack_object& object);
+
+/**
+ * Unpack string.
+ *
+ * @param object MsgPack object.
+ * @return String.
+ * @throw ignite_error if the object is not a string.
+ */
+template<>
+std::string unpack_object(const msgpack_object& object);
+
+/**
+ * Unpack UUID.
+ *
+ * @param object MsgPack object.
+ * @return UUID.
+ * @throw ignite_error if the object is not a UUID.
+ */
+template<>
+uuid unpack_object(const msgpack_object& object);
+
+/**
+ * Make random UUID.
+ *
+ * @return Random UUID instance.
  */
 ignite::uuid makeRandomUuid();
 

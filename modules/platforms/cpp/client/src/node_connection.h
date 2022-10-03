@@ -88,7 +88,7 @@ public:
      * @tparam T Result type.
      * @param op Operation code.
      * @param wr Writer function.
-     * @param rd Reader function.
+     * @param handler Response handler.
      * @return @c true on success and @c false otherwise.
      */
     template <typename T>

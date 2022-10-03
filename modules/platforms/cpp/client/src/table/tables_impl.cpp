@@ -39,4 +39,26 @@ void TablesImpl::getTableAsync(const std::string &name, ignite_callback<std::opt
         ClientOperation::TABLE_GET, [&name](protocol::Writer &writer) { writer.write(name); }, std::move(handler));
 }
 
+void TablesImpl::getTablesAsync(ignite_callback<std::vector<Table>> callback) {
+    auto readerFunc = [](protocol::Reader &reader) -> std::vector<Table> {
+        if (reader.tryReadNil())
+            return {};
+
+        std::vector<Table> tables;
+        tables.reserve(reader.readMapSize());
+
+        reader.readMap<uuid, std::string>([&tables] (auto&& id, auto&& name) {
+            auto tableImpl = std::make_shared<TableImpl>(std::forward<std::string>(name), std::forward<uuid>(id));
+            tables.push_back(Table(tableImpl));
+        });
+
+        return std::move(tables);
+    };
+
+    auto handler =
+        std::make_shared<ResponseHandlerImpl<std::vector<Table>>>(std::move(readerFunc), std::move(callback));
+
+    m_connection->performRequest(ClientOperation::TABLES_GET, std::move(handler));
+}
+
 } // namespace ignite::detail

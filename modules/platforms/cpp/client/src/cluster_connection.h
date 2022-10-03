@@ -97,7 +97,7 @@ public:
      * @tparam T Result type.
      * @param op Operation code.
      * @param wr Writer function.
-     * @param rd Reader function.
+     * @param handler Response handler.
      * @return Future result.
      */
     template <typename T>
@@ -112,6 +112,19 @@ public:
             if (res)
                 return;
         }
+    }
+
+    /**
+     * Perform request.
+     *
+     * @tparam T Result type.
+     * @param op Operation code.
+     * @param handler Response handler.
+     * @return Future result.
+     */
+    template <typename T>
+    void performRequest(ClientOperation op, std::shared_ptr<ResponseHandlerImpl<T>> handler) {
+        performRequest(op, [](protocol::Writer&) {}, std::move(handler));
     }
 
 private:
