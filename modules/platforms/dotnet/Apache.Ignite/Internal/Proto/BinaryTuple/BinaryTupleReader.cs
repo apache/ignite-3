@@ -268,7 +268,41 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         public Instant GetTimestamp(int index) => Seek(index) switch
         {
             { IsEmpty: true } => default,
-            var s => ReadTimestamp(s)
+            var s => Instant
+                .FromUnixTimeSeconds(BinaryPrimitives.ReadInt64LittleEndian(s))
+                .PlusNanoseconds(s.Length == 8 ? 0 : BinaryPrimitives.ReadInt32LittleEndian(s[8..]))
+        };
+
+        /// <summary>
+        /// Gets a duration value.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <returns>Value.</returns>
+        public Duration GetDuration(int index) => Seek(index) switch
+        {
+            { IsEmpty: true } => default,
+            var s => Duration
+                .FromSeconds(BinaryPrimitives.ReadInt64LittleEndian(s))
+                .Plus(Duration.FromNanoseconds(s.Length == 8 ? 0 : BinaryPrimitives.ReadInt32LittleEndian(s[8..])))
+        };
+
+        /// <summary>
+        /// Gets a period value.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <returns>Value.</returns>
+        public Period GetPeriod(int index) => Seek(index) switch
+        {
+            { IsEmpty: true } => Period.Zero,
+            { Length: 3 } s => Period.FromYears(unchecked((sbyte)s[0])) +
+                               Period.FromMonths(unchecked((sbyte)s[1])) +
+                               Period.FromDays(unchecked((sbyte)s[2])),
+            { Length: 6 } s => Period.FromYears(BinaryPrimitives.ReadInt16LittleEndian(s)) +
+                               Period.FromMonths(BinaryPrimitives.ReadInt16LittleEndian(s[2..])) +
+                               Period.FromDays(BinaryPrimitives.ReadInt16LittleEndian(s[4..])),
+            var s => Period.FromYears(BinaryPrimitives.ReadInt32LittleEndian(s)) +
+                     Period.FromMonths(BinaryPrimitives.ReadInt32LittleEndian(s[4..])) +
+                     Period.FromDays(BinaryPrimitives.ReadInt32LittleEndian(s[8..]))
         };
 
         /// <summary>
@@ -316,20 +350,6 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                 ClientDataType.Number => GetNumber(index),
                 _ => throw new IgniteClientException(ErrorGroups.Client.Protocol, "Unsupported type: " + columnType)
             };
-        }
-
-        private static Instant ReadTimestamp(ReadOnlySpan<byte> span)
-        {
-            var len = span.Length;
-            if (len == 0)
-            {
-                return default;
-            }
-
-            long seconds = BinaryPrimitives.ReadInt64LittleEndian(span);
-            int nanos = len == 8 ? 0 : BinaryPrimitives.ReadInt32LittleEndian(span[8..]);
-
-            return Instant.FromUnixTimeSeconds(seconds).PlusNanoseconds(nanos);
         }
 
         private static LocalDate ReadDate(ReadOnlySpan<byte> span)
