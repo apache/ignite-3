@@ -638,28 +638,20 @@ public class BinaryTupleTest {
      */
     @Test
     public void durationTest() {
-        Instant now = Instant.now();
-        Duration value = Duration.ofSeconds(now.getEpochSecond(), now.getNano());
+        durationTest(Duration.ZERO);
+        durationTest(Duration.ofSeconds(Long.MAX_VALUE));
+        durationTest(Duration.ofSeconds(Long.MIN_VALUE));
+        durationTest(Duration.ofSeconds(Long.MAX_VALUE - 10, Integer.MAX_VALUE));
+        durationTest(Duration.ofSeconds(Long.MIN_VALUE + 10, Integer.MIN_VALUE));
+    }
 
-        {
-            BinaryTupleBuilder builder = new BinaryTupleBuilder(1, false);
-            ByteBuffer bytes = builder.appendDuration(value).build();
+    /** Test duration value roundtrip. */
+    private static void durationTest(Duration value) {
+        BinaryTupleBuilder builder = new BinaryTupleBuilder(1, false);
+        ByteBuffer bytes = builder.appendDuration(value).build();
 
-            BinaryTupleReader reader = new BinaryTupleReader(1, bytes);
-            assertEquals(value, reader.durationValue(0));
-        }
-
-        value = Duration.ofSeconds(now.getEpochSecond());
-
-        {
-            BinaryTupleBuilder builder = new BinaryTupleBuilder(1, false);
-            ByteBuffer bytes = builder.appendDuration(value).build();
-            assertEquals(8, bytes.get(1));
-            assertEquals(10, bytes.limit());
-
-            BinaryTupleReader reader = new BinaryTupleReader(1, bytes);
-            assertEquals(value, reader.durationValue(0));
-        }
+        BinaryTupleReader reader = new BinaryTupleReader(1, bytes);
+        assertEquals(value, reader.durationValue(0));
     }
 
     /**
