@@ -23,68 +23,68 @@
 
 namespace ignite::protocol {
 
-Reader::Reader(bytes_view buffer)
+reader::reader(bytes_view buffer)
     : m_buffer(buffer)
     , m_unpacker()
-    , m_currentVal()
-    , m_moveRes(MSGPACK_UNPACK_SUCCESS) {
+    , m_current_val()
+    , m_move_res(MSGPACK_UNPACK_SUCCESS) {
     // TODO: Research if we can get rid of copying here.
     msgpack_unpacker_init(&m_unpacker, MSGPACK_UNPACKER_INIT_BUFFER_SIZE);
     msgpack_unpacker_reserve_buffer(&m_unpacker, m_buffer.size());
     memcpy(msgpack_unpacker_buffer(&m_unpacker), m_buffer.data(), m_buffer.size());
     msgpack_unpacker_buffer_consumed(&m_unpacker, m_buffer.size());
 
-    msgpack_unpacked_init(&m_currentVal);
+    msgpack_unpacked_init(&m_current_val);
 
     next();
 }
 
-std::int64_t Reader::readInt64() {
-    checkDataInStream();
+std::int64_t reader::read_int64() {
+    check_data_in_stream();
 
-    auto res = unpack_object<int64_t>(m_currentVal.data);
-    next();
-
-    return res;
-}
-
-std::string Reader::readString() {
-    checkDataInStream();
-
-    std::string res = unpack_object<std::string>(m_currentVal.data);
+    auto res = unpack_object<int64_t>(m_current_val.data);
     next();
 
     return res;
 }
 
-std::optional<std::string> Reader::readStringNullable() {
-    if (tryReadNil())
+std::string reader::read_string() {
+    check_data_in_stream();
+
+    std::string res = unpack_object<std::string>(m_current_val.data);
+    next();
+
+    return res;
+}
+
+std::optional<std::string> reader::read_string_nullable() {
+    if (try_read_nil())
         return std::nullopt;
 
-    return readString();
+    return read_string();
 }
 
-uuid Reader::readUuid() {
-    checkDataInStream();
+uuid reader::read_uuid() {
+    check_data_in_stream();
 
-    uuid res = unpack_object<uuid>(m_currentVal.data);
+    uuid res = unpack_object<uuid>(m_current_val.data);
     next();
 
     return res;
 }
 
-bool Reader::tryReadNil() {
-    if (m_currentVal.data.type != MSGPACK_OBJECT_NIL)
+bool reader::try_read_nil() {
+    if (m_current_val.data.type != MSGPACK_OBJECT_NIL)
         return false;
 
     next();
     return true;
 }
 
-void Reader::next() {
-    checkDataInStream();
+void reader::next() {
+    check_data_in_stream();
 
-    m_moveRes = msgpack_unpacker_next(&m_unpacker, &m_currentVal);
+    m_move_res = msgpack_unpacker_next(&m_unpacker, &m_current_val);
 }
 
 } // namespace ignite::protocol

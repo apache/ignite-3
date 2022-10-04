@@ -39,7 +39,7 @@
 
 namespace ignite::protocol {
 
-class Reader;
+class reader;
 
 }
 

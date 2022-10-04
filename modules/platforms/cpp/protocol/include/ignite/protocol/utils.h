@@ -34,7 +34,7 @@ struct msgpack_object;
 
 namespace ignite::protocol {
 
-class Reader;
+class reader;
 
 /** Magic bytes. */
 static constexpr std::array<std::byte, 4> MAGIC_BYTES = {
@@ -62,7 +62,7 @@ inline uint64_t readUint64(const std::byte *data, size_t offset = 0) {
  * @param offset Offset.
  * @return Value
  */
-inline int64_t readInt64(const std::byte *data, size_t offset = 0) {
+inline int64_t read_int64(const std::byte *data, size_t offset = 0) {
     return std::int64_t(readUint64(data, offset));
 }
 
@@ -85,7 +85,7 @@ inline uint32_t readUint32(const std::byte *data, size_t offset = 0) {
  * @param offset Offset.
  * @return Value
  */
-inline int32_t readInt32(const std::byte *data, size_t offset = 0) {
+inline int32_t read_int32(const std::byte *data, size_t offset = 0) {
     return std::int32_t(readUint32(data, offset));
 }
 
@@ -107,7 +107,7 @@ inline uint16_t readUint16(const std::byte *data, size_t offset = 0) {
  * @param offset Offset.
  * @return Value
  */
-inline int16_t readInt16(const std::byte *data, size_t offset = 0) {
+inline int16_t read_int16(const std::byte *data, size_t offset = 0) {
     return std::int16_t(readUint16(data, offset));
 }
 
@@ -237,9 +237,9 @@ ignite::uuid makeRandomUuid();
 /**
  * Read error.
  *
- * @param reader Reader.
+ * @param reader reader.
  * @return Error.
  */
-std::optional<ignite_error> readError(protocol::Reader &reader);
+std::optional<ignite_error> readError(protocol::reader &reader);
 
 } // namespace ignite::protocol

@@ -61,7 +61,7 @@ DataBufferRef LengthPrefixCodec::decode(DataBufferRef &data) {
         if (m_packet.size() < PACKET_HEADER_SIZE)
             return {};
 
-        m_packetSize = protocol::readInt32(m_packet.data());
+        m_packetSize = protocol::read_int32(m_packet.data());
     }
 
     consume(data, m_packetSize + PACKET_HEADER_SIZE);

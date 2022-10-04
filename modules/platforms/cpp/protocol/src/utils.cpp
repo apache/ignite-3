@@ -70,14 +70,14 @@ uuid makeRandomUuid() {
     return {distrib(gen), distrib(gen)};
 }
 
-std::optional<ignite_error> readError(Reader &reader) {
-    if (reader.tryReadNil())
+std::optional<ignite_error> readError(reader &reader) {
+    if (reader.try_read_nil())
         return std::nullopt;
 
-    uuid traceId = reader.tryReadNil() ? makeRandomUuid() : reader.readUuid();
-    int32_t code = reader.tryReadNil() ? 65537 : reader.readInt32();
-    std::string className = reader.readString();
-    std::string message = reader.readString();
+    uuid traceId = reader.try_read_nil() ? makeRandomUuid() : reader.read_uuid();
+    int32_t code = reader.try_read_nil() ? 65537 : reader.read_int32();
+    std::string className = reader.read_string();
+    std::string message = reader.read_string();
 
     std::stringstream errMsgBuilder;
 
