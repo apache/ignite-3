@@ -23,6 +23,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.getByInternalId;
 import static org.apache.ignite.internal.schema.SchemaManager.INITIAL_SCHEMA_VERSION;
+import static org.apache.ignite.internal.schema.SchemaUtils.latestSchemaVersion;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.apache.ignite.internal.utils.RebalanceUtil.ASSIGNMENTS_SWITCH_REDUCE_PREFIX;
@@ -63,6 +64,7 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -1125,6 +1127,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private CompletableFuture<Table> createTableAsyncInternal(String name, Consumer<TableChange> tableInitChange) {
         CompletableFuture<Table> tblFut = new CompletableFuture<>();
 
+        AtomicReference<byte[]> schemaSer = new AtomicReference<>();
+
         tableAsyncInternal(name).thenAccept(tbl -> {
             if (tbl != null) {
                 tblFut.completeExceptionally(new TableAlreadyExistsException(DEFAULT_SCHEMA_NAME, name));
@@ -1148,6 +1152,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                         extConfCh.changeTableId(intTableId);
 
+                        extConfCh.changeSchemaId(INITIAL_SCHEMA_VERSION);
+
                         tableCreateFuts.put(extConfCh.id(), tblFut);
 
                         // Affinity assignments calculation.
@@ -1155,19 +1161,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 baselineMgr.nodes(),
                                 tableChange.partitions(),
                                 tableChange.replicas(),
-                                HashSet::new)))
-                                // Table schema preparation.
-                                .changeSchema(schemaCh -> {
-                                    SchemaDescriptor schemaDesc;
+                                HashSet::new)));
 
-                                    try {
-                                        schemaDesc = SchemaUtils.prepareSchemaDescriptor(INITIAL_SCHEMA_VERSION, tableChange);
-                                    } catch (IllegalArgumentException ex) {
-                                        throw new ConfigurationValidationException(ex.getMessage());
-                                    }
+                        // Table schema preparation.
+                        final SchemaDescriptor schemaDesc = SchemaUtils.prepareSchemaDescriptor(INITIAL_SCHEMA_VERSION, tableChange);
 
-                                    schemaCh.changeSchema(SchemaSerializerImpl.INSTANCE.serialize(schemaDesc));
-                                });
+                        final byte[] serializedSchema = SchemaSerializerImpl.INSTANCE.serialize(schemaDesc);
+
+                        schemaSer.set(serializedSchema);
                     });
                 })).exceptionally(t -> {
                     Throwable ex = getRootCause(t);
@@ -1217,6 +1218,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private CompletableFuture<Void> alterTableAsyncInternal(String name, Consumer<TableChange> tableChange) {
         CompletableFuture<Void> tblFut = new CompletableFuture<>();
 
+        AtomicReference<SchemaDescriptor> newSchemaDesc = new AtomicReference<>();
+
         tableAsync(name).thenAccept(tbl -> {
             if (tbl == null) {
                 tblFut.completeExceptionally(new TableNotFoundException(DEFAULT_SCHEMA_NAME, name));
@@ -1231,39 +1234,40 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     ch.update(name, tblCh -> {
                         tableChange.accept(tblCh);
 
-                        ((ExtendedTableChange) tblCh).changeSchema(schemaCh -> {
-                            ExtendedTableView currTableView = (ExtendedTableView) tablesCfg.tables().get(name).value();
+                        ExtendedTableChange exTblChange = (ExtendedTableChange) tblCh;
 
-                            SchemaDescriptor prevSchema = SchemaSerializerImpl.INSTANCE.deserialize(schemaCh.schema());
+                        int lastSchemaVer = latestSchemaVersion(metaStorageMgr, exTblChange.id());
 
-                            int lastSchemaVer = prevSchema.version();
+                        assert lastSchemaVer == exTblChange.schemaId() : "Different schema versions, expected=" + lastSchemaVer
+                                + " found=" + exTblChange.schemaId();
 
-                            SchemaDescriptor schemaDesc;
+                        exTblChange.changeSchemaId(lastSchemaVer + 1);
 
-                            //TODO IGNITE-15747 Remove try-catch and force configuration validation
-                            // here to ensure a valid configuration passed to prepareSchemaDescriptor() method.
-                            try {
-                                schemaDesc = SchemaUtils.prepareSchemaDescriptor(lastSchemaVer + 1, tblCh);
+                        ExtendedTableView currTableView = (ExtendedTableView) tablesCfg.tables().get(name).value();
 
-                                schemaDesc.columnMapping(SchemaUtils.columnMapper(
-                                        tblImpl.schemaView().schema(lastSchemaVer),
-                                        currTableView.columns(),
-                                        schemaDesc,
-                                        tblCh.columns()));
-                            } catch (IllegalArgumentException ex) {
-                                // Convert unexpected exceptions here,
-                                // because validation actually happens later,
-                                // when bulk configuration update is applied.
-                                ConfigurationValidationException e =
-                                        new ConfigurationValidationException(ex.getMessage());
+                        //TODO IGNITE-15747 Remove try-catch and force configuration validation
+                        // here to ensure a valid configuration passed to prepareSchemaDescriptor() method.
+                        SchemaDescriptor schemaDesc = SchemaUtils.prepareSchemaDescriptor(lastSchemaVer + 1, tblCh);
 
-                                e.addSuppressed(ex);
+                        try {
+                            schemaDesc.columnMapping(SchemaUtils.columnMapper(
+                                    tblImpl.schemaView().schema(lastSchemaVer),
+                                    currTableView.columns(),
+                                    schemaDesc,
+                                    tblCh.columns()));
+                        } catch (IllegalArgumentException ex) {
+                            // Convert unexpected exceptions here,
+                            // because validation actually happens later,
+                            // when bulk configuration update is applied.
+                            ConfigurationValidationException e =
+                                    new ConfigurationValidationException(ex.getMessage());
 
-                                throw e;
-                            }
+                            e.addSuppressed(ex);
 
-                            schemaCh.changeSchema(SchemaSerializerImpl.INSTANCE.serialize(schemaDesc));
-                        });
+                            throw e;
+                        }
+
+                        newSchemaDesc.set(schemaDesc);
                     });
                 }).whenComplete((res, t) -> {
                     if (t != null) {

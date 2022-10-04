@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.schema.configuration;
 
 import java.util.UUID;
-import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.InternalConfiguration;
 import org.apache.ignite.configuration.annotation.InternalId;
 import org.apache.ignite.configuration.annotation.Value;
@@ -34,13 +33,13 @@ public class ExtendedTableConfigurationSchema extends TableConfigurationSchema {
     public UUID id;
 
     /**
-     * Serialized version of an affinity assignments. Currently configuration doesn't support neither collections nor array of arrays, so
+     * Serialized version of an affinity assignments. Currently, configuration doesn't support neither collections nor array of arrays, so
      * that serialization was chosen.
      */
     @Value
     public byte[] assignments;
 
-    /** Schemas history as named list where name is schema version and value is serialized version of schema itself. */
-    @ConfigValue
-    public SchemaConfigurationSchema schema;
+    /** Current schema id. Monotonically increasing number. */
+    @Value
+    public int schemaId;
 }

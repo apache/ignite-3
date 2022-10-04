@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.runner.app;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -33,9 +34,6 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
-import org.apache.ignite.internal.schema.testutils.definition.ColumnDefinition;
-import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -138,7 +136,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
         IgniteImpl ignite1 = (IgniteImpl) clusterNodes.get(1);
         IgniteImpl ignite2 = (IgniteImpl) clusterNodes.get(2);
 
-        createTable(ignite0, SCHEMA, SHORT_TABLE_NAME);
+        createTable(ignite0, TABLE_NAME);
 
         TableImpl table = (TableImpl) ignite0.tables().table(TABLE_NAME);
 
@@ -148,15 +146,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
 
         listenerInhibitor.startInhibit();
 
-        ColumnDefinition columnDefinition = SchemaBuilders.column("valStr2", ColumnType.string())
-                .withDefaultValue("default")
-                .build();
-
-        ignite0.tables().alterTable(TABLE_NAME,
-                tblChanger -> tblChanger.changeColumns(cols ->
-                        cols.create(columnDefinition.name(), colChg -> convert(columnDefinition, colChg))
-                )
-        );
+        alterTable(ignite0, TABLE_NAME);
 
         table = (TableImpl) ignite2.tables().table(TABLE_NAME);
 
@@ -215,7 +205,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
 
         listenerInhibitor.startInhibit();
 
-        sql(ignite0, "ALTER TABLE " + TABLE_NAME + " ADD COLUMN valstr2 VARCHAR NOT NULL DEFAULT 'default'");
+        alterTable(ignite0, TABLE_NAME);
 
         for (Ignite node : clusterNodes) {
             if (node == ignite1) {
@@ -224,7 +214,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
 
             TableImpl tableOnNode = (TableImpl) node.tables().table(TABLE_NAME);
 
-            IgniteTestUtils.waitForCondition(() -> tableOnNode.schemaView().lastSchemaVersion() == 2, 10_000);
+            waitForCondition(() -> tableOnNode.schemaView().lastSchemaVersion() == 2, 10_000);
         }
 
         TableImpl table1 = (TableImpl) ignite1.tables().table(TABLE_NAME);
@@ -295,6 +285,10 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
      */
     protected void createTable(Ignite node, String tableName) {
         sql(node, "CREATE TABLE " + tableName + "(key BIGINT PRIMARY KEY, valint INT, valstr VARCHAR)");
+    }
+
+    protected void alterTable(Ignite node, String tableName) {
+        sql(node, "ALTER TABLE " + tableName + " ADD COLUMN valstr2 VARCHAR NOT NULL DEFAULT 'default'");
     }
 
     protected void sql(Ignite node, String query, Object... args) {
