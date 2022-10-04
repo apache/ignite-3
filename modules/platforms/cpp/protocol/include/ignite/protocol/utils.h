@@ -17,18 +17,17 @@
 
 #pragma once
 
-#include <cstddef>
-#include <cstdint>
-
-#include <array>
-#include <optional>
-
 #include "common/ignite_error.h"
 #include "common/bytes.h"
 #include "common/types.h"
 #include "common/uuid.h"
-
 #include "ignite/protocol/extension_types.h"
+
+#include <array>
+#include <optional>
+
+#include <cstddef>
+#include <cstdint>
 
 struct msgpack_object;
 
@@ -41,7 +40,7 @@ static constexpr std::array<std::byte, 4> MAGIC_BYTES = {
     std::byte('I'), std::byte('G'), std::byte('N'), std::byte('I')};
 
 template<typename T>
-T unpack_object(const msgpack_object&);
+[[nodiscard]] T unpack_object(const msgpack_object&);
 
 /**
  * Unpack number.
@@ -51,7 +50,27 @@ T unpack_object(const msgpack_object&);
  * @throw ignite_error if the object is not a number.
  */
 template<>
-int64_t unpack_object(const msgpack_object& object);
+[[nodiscard]] std::int64_t unpack_object(const msgpack_object& object);
+
+/**
+ * Unpack number.
+ *
+ * @param object MsgPack object.
+ * @return Number.
+ * @throw ignite_error if the object is not a number.
+ */
+template<>
+[[nodiscard]] std::int32_t unpack_object(const msgpack_object& object);
+
+/**
+ * Unpack number.
+ *
+ * @param object MsgPack object.
+ * @return Number.
+ * @throw ignite_error if the object is not a number.
+ */
+template<>
+[[nodiscard]] std::int16_t unpack_object(const msgpack_object& object);
 
 /**
  * Unpack string.
@@ -61,7 +80,7 @@ int64_t unpack_object(const msgpack_object& object);
  * @throw ignite_error if the object is not a string.
  */
 template<>
-std::string unpack_object(const msgpack_object& object);
+[[nodiscard]] std::string unpack_object(const msgpack_object& object);
 
 /**
  * Unpack UUID.
@@ -71,21 +90,21 @@ std::string unpack_object(const msgpack_object& object);
  * @throw ignite_error if the object is not a UUID.
  */
 template<>
-uuid unpack_object(const msgpack_object& object);
+[[nodiscard]] uuid unpack_object(const msgpack_object& object);
 
 /**
  * Make random UUID.
  *
  * @return Random UUID instance.
  */
-ignite::uuid makeRandomUuid();
+[[nodiscard]] ignite::uuid make_random_uuid();
 
 /**
  * Read error.
  *
  * @param reader reader.
- * @return Error.
+ * @return Error if there is any.
  */
-std::optional<ignite_error> readError(protocol::reader &reader);
+[[nodiscard]] std::optional<ignite_error> read_error(protocol::reader &reader);
 
 } // namespace ignite::protocol

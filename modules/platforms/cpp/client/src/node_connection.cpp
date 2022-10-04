@@ -85,7 +85,7 @@ void NodeConnection::processMessage(bytes_view msg) {
         return;
     }
 
-    auto err = protocol::readError(reader);
+    auto err = protocol::read_error(reader);
     if (err) {
         m_logger->logError("Error: " + err->what_str());
         auto res = handler->setError(std::move(err.value()));
@@ -116,7 +116,7 @@ ignite_result<void> NodeConnection::processHandshakeRsp(bytes_view msg) {
     if (ver != ProtocolContext::CURRENT_VERSION)
         return {ignite_error("Unsupported server version: " + ver.toString())};
 
-    auto err = protocol::readError(reader);
+    auto err = protocol::read_error(reader);
     if (err)
         return {ignite_error(err.value())};
 

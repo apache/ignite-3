@@ -86,27 +86,41 @@ public:
     }
 
     /**
+     * Read object of type T from msgpack stream or returns default value if the value in stream is nil.
+     *
+     * @tparam T Type of the object to read.
+     * @param on_nil Object to be returned on nil.
+     * @return Object of type T or @c on_nil if there is nil in stream.
+     * @throw ignite_error if there is no object of specified type in the stream.
+     */
+    template<typename T>
+    [[nodiscard]] T read_object_or_default(T&& on_nil) {
+        if (try_read_nil())
+            return std::forward<T>(on_nil);
+
+        return read_object<T>();
+    }
+
+    /**
      * Read int16.
      *
      * @return Value.
      */
-    [[nodiscard]] std::int16_t read_int16() { return std::int16_t(read_int64()); }
+    [[nodiscard]] std::int16_t read_int16() { return read_object<std::int16_t>(); }
 
     /**
      * Read int32.
      *
      * @return Value.
      */
-    [[nodiscard]] std::int32_t read_int32() { return std::int32_t(read_int64()); }
+    [[nodiscard]] std::int32_t read_int32() { return read_object<std::int32_t>(); }
 
     /**
      * Read int64 number.
      *
      * @return Value.
      */
-    [[nodiscard]] std::int64_t read_int64() {
-        return read_object<int64_t>();
-    }
+    [[nodiscard]] std::int64_t read_int64() { return read_object<int64_t>(); }
 
     /**
      * Read string.
