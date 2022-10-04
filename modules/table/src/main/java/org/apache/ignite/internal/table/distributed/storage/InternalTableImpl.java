@@ -53,11 +53,11 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
-import org.apache.ignite.lang.Function3;
-import org.apache.ignite.lang.Function4;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
+import org.apache.ignite.lang.IgniteTetraFunction;
+import org.apache.ignite.lang.IgniteTriFunction;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.Peer;
@@ -191,7 +191,7 @@ public class InternalTableImpl implements InternalTable {
     private <R> CompletableFuture<R> enlistInTx(
             BinaryRowEx row,
             InternalTransaction tx,
-            Function3<InternalTransaction, String, Long, ReplicaRequest> op
+            IgniteTriFunction<InternalTransaction, String, Long, ReplicaRequest> op
     ) {
         final boolean implicit = tx == null;
 
@@ -239,7 +239,7 @@ public class InternalTableImpl implements InternalTable {
     private <T> CompletableFuture<T> enlistInTx(
             Collection<BinaryRowEx> keyRows,
             InternalTransaction tx,
-            Function4<Collection<BinaryRow>, InternalTransaction, String, Long, ReplicaRequest> op,
+            IgniteTetraFunction<Collection<BinaryRow>, InternalTransaction, String, Long, ReplicaRequest> op,
             Function<CompletableFuture<Object>[], CompletableFuture<T>> reducer
     ) {
         final boolean implicit = tx == null;
@@ -292,7 +292,7 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /**
-     * Retrieves a batch rows from replication storage.
+     * Retrieves a batch of rows from replication storage.
      *
      * @param tx Internal transaction.
      * @param partId Partition number.

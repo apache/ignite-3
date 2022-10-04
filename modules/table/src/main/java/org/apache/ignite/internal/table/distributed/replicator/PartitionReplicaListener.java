@@ -229,7 +229,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     /**
-     * Precesses scan close request.
+     * Processes scan close request.
      *
      * @param request Scan close request operation.
      * @return Listener response.
@@ -278,7 +278,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     /**
-     * Process transaction finish request:
+     * Processes transaction finish request:
      * <ol>
      *     <li>Evaluate commit timestamp.</li>
      *     <li>Run specific raft {@code FinishTxCommand} command, that will apply txn state to corresponding txStateStorage.</li>
@@ -331,7 +331,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
 
     /**
-     * Process transaction cleanup request:
+     * Processes transaction cleanup request:
      * <ol>
      *     <li>Run specific raft {@code TxCleanupCommand} command, that will convert all pending entries(writeIntents)
      *     to either regular values(TxState.COMMITED) or removing them (TxState.ABORTED).</li>

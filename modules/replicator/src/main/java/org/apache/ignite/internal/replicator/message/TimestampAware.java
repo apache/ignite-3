@@ -23,7 +23,7 @@ import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Message with timestamp to adjust a hybrid logical clock.
+ * Message with a timestamp to adjust a hybrid logical clock.
  */
 @Transferable(ReplicaMessageGroup.TIMESTAMP_AWARE)
 public interface TimestampAware extends NetworkMessage {

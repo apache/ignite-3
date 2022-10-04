@@ -65,7 +65,7 @@ public interface TxFinishReplicaRequest extends ReplicaRequest, TimestampAware {
      * Gets a raft term.
      * TODO: A temp solution until lease-based engine will be implemented (IGNITE-17256, IGNITE-15083)
      *
-     * @return Gets a raft term.
+     * @return Raft term.
      */
     @Deprecated
     @Marshallable

@@ -23,7 +23,7 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 
 /**
- * The exception is thrown when the replication process has been timed out.
+ * The exception is thrown when a replication process has been timed out.
  */
 public class ReplicationTimeoutException extends IgniteInternalException {
     /**
@@ -36,7 +36,7 @@ public class ReplicationTimeoutException extends IgniteInternalException {
     }
 
     /**
-     * The constructor is used for create an exception instance that has thrown in remote server.
+     * The constructor is used for creating an exception instance that is thrown from a remote server.
      *
      * @param traceId Trace id.
      * @param code    Error code.

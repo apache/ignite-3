@@ -23,7 +23,7 @@ import org.apache.ignite.internal.replicator.message.TimestampAware;
 import org.apache.ignite.network.annotations.Marshallable;
 
 /**
- * Read Write replica request.
+ * Read-write replica request.
  */
 public interface ReadWriteReplicaRequest extends ReplicaRequest, TimestampAware {
     @Marshallable
@@ -33,7 +33,7 @@ public interface ReadWriteReplicaRequest extends ReplicaRequest, TimestampAware 
      * Gets a raft term.
      * TODO: A temp solution until lease-based engine will be implemented (IGNITE-17256, IGNITE-15083)
      *
-     * @return Gets a raft term.
+     * @return Raft term.
      */
     @Deprecated
     @Marshallable

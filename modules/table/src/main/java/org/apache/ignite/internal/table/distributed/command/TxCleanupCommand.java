@@ -21,11 +21,11 @@ import java.util.UUID;
 import org.apache.ignite.hlc.HybridTimestamp;
 
 /**
- * State machine command to cleanup on transaction commit.
+ * State machine command to cleanup on a transaction commit.
  */
 public class TxCleanupCommand extends PartitionCommand {
     /**
-     * Commit or rollback state.
+     * A commit or a rollback state.
      */
     private final boolean commit;
 
@@ -39,7 +39,7 @@ public class TxCleanupCommand extends PartitionCommand {
      *
      * @param txId The txId.
      * @param commit Commit or rollback state {@code True} to commit.
-     * @param commitTimestamp  Transaction commit timestamp.
+     * @param commitTimestamp Transaction commit timestamp.
      */
     public TxCleanupCommand(UUID txId, boolean commit, HybridTimestamp commitTimestamp) {
         super(txId);
@@ -48,18 +48,18 @@ public class TxCleanupCommand extends PartitionCommand {
     }
 
     /**
-     * Returns commit or rollback state.
+     * Returns a commit or a rollback state.
      *
-     * @return Commit or rollback state.
+     * @return A commit or a rollback state.
      */
     public boolean commit() {
         return commit;
     }
 
     /**
-     * Returns transaction commit timestamp.
+     * Returns a transaction commit timestamp.
      *
-     * @return Transaction commit timestamp.
+     * @return A transaction commit timestamp.
      */
     public HybridTimestamp commitTimestamp() {
         return commitTimestamp;

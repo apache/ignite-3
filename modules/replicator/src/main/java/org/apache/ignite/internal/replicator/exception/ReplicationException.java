@@ -23,7 +23,7 @@ import java.util.UUID;
 import org.apache.ignite.lang.IgniteInternalException;
 
 /**
- * The exception is thrown when some issue happened during replication.
+ * The exception is thrown when some issue happened during a replication.
  */
 public class ReplicationException extends IgniteInternalException {
     /**
@@ -57,7 +57,7 @@ public class ReplicationException extends IgniteInternalException {
     }
 
     /**
-     * The constructor is used for create an exception instance that has thrown in remote server.
+     * The constructor is used for creating an exception instance that is thrown from a remote server.
      *
      * @param traceId Trace id.
      * @param code    Error code.

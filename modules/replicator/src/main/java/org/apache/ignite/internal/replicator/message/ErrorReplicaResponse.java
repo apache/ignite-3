@@ -21,15 +21,15 @@ import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * The message can be sent as response to any {@link ReplicaRequest} if during the request executing on replica an unhandled exception
- * happened.
+ * The message can be sent as a response to any {@link ReplicaRequest} if an unhandled exception has been thrown during a request
+ * executing on a replica.
  */
 @Transferable(ReplicaMessageGroup.ERROR_REPLICA_RESPONSE)
 public interface ErrorReplicaResponse extends ReplicaResponse {
     /**
-     * Returns a {@link Throwable} that was thrown during handling a replica request on replica node.
+     * Returns a {@link Throwable} that was thrown during handling a replica request on a replica node.
      *
-     * @return {@link Throwable} that was thrown during handling a replica request on replica node.
+     * @return {@link Throwable} that was thrown during handling a replica request on a replica node.
      */
     @Marshallable
     Throwable throwable();

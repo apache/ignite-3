@@ -149,7 +149,7 @@ public class CommandUtils {
     /**
      * Writes a row map to byte array.
      *
-     * @param map Map a row id to the binary row.
+     * @param map Map a row id to a binary row.
      * @return Array of bytes.
      */
     public static byte[] rowMapToBytes(Map<RowId, BinaryRow> map) {

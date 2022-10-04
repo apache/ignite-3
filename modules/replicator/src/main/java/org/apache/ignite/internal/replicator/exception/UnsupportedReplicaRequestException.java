@@ -23,7 +23,7 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 
 /**
- * The exception throws when a replication request is unsupported by {@link org.apache.ignite.internal.replicator.listener.ReplicaListener}.
+ * The exception is thrown when a replication request is not supported by {@link org.apache.ignite.internal.replicator.listener.ReplicaListener}.
  */
 public class UnsupportedReplicaRequestException extends IgniteInternalException {
     /**
@@ -38,7 +38,7 @@ public class UnsupportedReplicaRequestException extends IgniteInternalException 
     }
 
     /**
-     * The constructor is used for create an exception instance that has thrown in remote server.
+     * The constructor is used for creating an exception instance that is thrown from a remote server.
      *
      * @param traceId Trace id.
      * @param code    Error code.

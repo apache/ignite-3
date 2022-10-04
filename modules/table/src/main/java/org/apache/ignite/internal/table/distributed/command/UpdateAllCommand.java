@@ -27,13 +27,13 @@ import org.apache.ignite.internal.util.CollectionUtils;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * The command for update batch of entries.
+ * State machine command for updating a batch of entries.
  */
 public class UpdateAllCommand extends PartitionCommand {
     /** Rows to update. */
     private transient HashMap<RowId, BinaryRow> rowsToUpdate;
 
-    /** Bytes representation of row to update map. */
+    /** Bytes representation of a row to update map. */
     private byte[] rowsToUpdateBytes;
 
     /**
@@ -47,7 +47,7 @@ public class UpdateAllCommand extends PartitionCommand {
     }
 
     /**
-     * Constructor for batch update.
+     * Constructor for a batch update.
      *
      * @param rowsToUpdate Rows to update or insert.
      * @param txId Transaction id.
@@ -87,7 +87,7 @@ public class UpdateAllCommand extends PartitionCommand {
     /**
      * Gets rows to update.
      *
-     * @return Row to update map.
+     * @return Rows to update map.
      */
     public HashMap<RowId, BinaryRow> getRowsToUpdate() {
         if (rowsToUpdate == null) {

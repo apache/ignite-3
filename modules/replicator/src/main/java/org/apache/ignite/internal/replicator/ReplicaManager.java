@@ -27,7 +27,7 @@ import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.replicator.exception.ReplicaAlreadyIsStartedException;
+import org.apache.ignite.internal.replicator.exception.ReplicaIsAlreadyStartedException;
 import org.apache.ignite.internal.replicator.exception.ReplicaUnavailableException;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaMessageGroup;
@@ -45,7 +45,8 @@ import org.apache.ignite.network.NetworkMessageHandler;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Manager to rule replicas.
+ * Replica manager maintains {@link Replica} instances on an Ignite node.
+ * Manager allows starting, stopping, getting a {@link Replica} by its unique id.
  * Only a single instance of the class exists in Ignite node.
  * This class allow to start/stop/get a replica.
  */
@@ -59,7 +60,7 @@ public class ReplicaManager implements IgniteComponent {
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
-    /** Prevents double stopping the component. */
+    /** Prevents double stopping of the component. */
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
     /** Cluster network service. */
@@ -78,7 +79,7 @@ public class ReplicaManager implements IgniteComponent {
     Set<Class<?>> messageGroupsToHandle;
 
     /**
-     * Constructor for replica service.
+     * Constructor for a    replica service.
      *
      * @param clusterNetSvc Cluster network service.
      * @param clock A hybrid logical clock.
@@ -141,7 +142,7 @@ public class ReplicaManager implements IgniteComponent {
      *
      * @param replicaGrpId Replication group id.
      * @return Instance of the replica or {@code null} if the replica is not started.
-     * @throws NodeStoppingException Is thrown when the node is stopping.
+     * @throws NodeStoppingException If the node is stopping.
      */
     public Replica replica(String replicaGrpId) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
@@ -156,13 +157,13 @@ public class ReplicaManager implements IgniteComponent {
     }
 
     /**
-     * Starts a replica. If a replica with the same partition id is already exist the method throws an exception.
+     * Starts a replica. If a replica with the same partition id already exists, the method throws an exception.
      *
      * @param replicaGrpId Replication group id.
      * @param listener Replica listener.
-     * @return Replica.
-     * @throws NodeStoppingException Is thrown when the node is stopping.
-     * @throws ReplicaAlreadyIsStartedException Is thrown when a replica with the same replication group id already started.
+     * @return New replica.
+     * @throws NodeStoppingException If node is stopping.
+     * @throws ReplicaIsAlreadyStartedException Is thrown when a replica with the same replication group id has already been started.
      */
     public Replica startReplica(
             String replicaGrpId,
@@ -179,11 +180,11 @@ public class ReplicaManager implements IgniteComponent {
     }
 
     /**
-     * Internal method for start a replica.
+     * Internal method for starting a replica.
      *
      * @param replicaGrpId   Replication group id.
      * @param listener Replica listener.
-     * @return Replica.
+     * @return New replica.
      */
     private Replica startReplicaInternal(String replicaGrpId, ReplicaListener listener) {
         var replica = new Replica(replicaGrpId, listener);
@@ -191,7 +192,7 @@ public class ReplicaManager implements IgniteComponent {
         Replica previous = replicas.putIfAbsent(replicaGrpId, replica);
 
         if (previous != null) {
-            throw new ReplicaAlreadyIsStartedException(replicaGrpId);
+            throw new ReplicaIsAlreadyStartedException(replicaGrpId);
         }
 
         return replica;
@@ -202,7 +203,7 @@ public class ReplicaManager implements IgniteComponent {
      *
      * @param replicaGrpId Replication group id.
      * @return True if the replica is found and closed, false otherwise.
-     * @throws NodeStoppingException Is thrown when the node is stopping.
+     * @throws NodeStoppingException If the node is stopping.
      */
     public boolean stopReplica(String replicaGrpId) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
@@ -217,7 +218,7 @@ public class ReplicaManager implements IgniteComponent {
     }
 
     /**
-     * An internal method for stopping a replica.
+     * Internal method for stopping a replica.
      *
      * @param replicaGrpId Replication group id.
      * @return True if the replica is found and closed, false otherwise.

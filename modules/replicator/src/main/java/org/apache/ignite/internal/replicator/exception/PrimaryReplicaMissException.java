@@ -23,7 +23,7 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 
 /**
- * The exception is thrown when the replica is not the current primary replica.
+ * Unchecked exception that is thrown when a replica is not the current primary replica.
  */
 public class PrimaryReplicaMissException extends IgniteInternalException {
     /**
@@ -54,7 +54,7 @@ public class PrimaryReplicaMissException extends IgniteInternalException {
     }
 
     /**
-     * The constructor is used for create an exception instance that has thrown in remote server.
+     * The constructor is used for creating an exception instance that is thrown from a remote server.
      *
      * @param traceId Trace id.
      * @param code Error code.

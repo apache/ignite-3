@@ -34,7 +34,7 @@ public class Replica {
     private final ReplicaListener listener;
 
     /**
-     * The constructor of replica server.
+     * The constructor of a replica server.
      *
      * @param replicaGrpId Replication group id.
      * @param listener Replica listener.
@@ -48,12 +48,12 @@ public class Replica {
     }
 
     /**
-     * Process a replication request on the replica.
+     * Processes a replication request on the replica.
      *
      * @param request Request to replication.
      * @return Response.
      */
-    public CompletableFuture<Object> processRequest(ReplicaRequest request) { // define proper set of exceptions that might be thrown.
+    public CompletableFuture<Object> processRequest(ReplicaRequest request) {
         assert replicaGrpId.equals(request.groupId()) : IgniteStringFormatter.format(
                 "Partition mismatch: request does not match the replica [reqReplicaGrpId={}, replicaGrpId={}]",
                 request.groupId(),

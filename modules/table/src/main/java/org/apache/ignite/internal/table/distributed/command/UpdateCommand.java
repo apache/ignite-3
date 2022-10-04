@@ -25,11 +25,10 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * The command updates a row specified by the row id specified.
- *
+ * State machine command to update a row specified by a row id.
  */
 public class UpdateCommand extends PartitionCommand {
-    /** Id of row that will be updated. */
+    /** Id of a row that will be updated. */
     private final RowId rowId;
 
     /** Binary row. */
@@ -66,7 +65,7 @@ public class UpdateCommand extends PartitionCommand {
     }
 
     /**
-     * Gets a row id that will update.
+     * Gets a row id that will be update.
      *
      * @return Row id.
      */

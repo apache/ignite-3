@@ -50,7 +50,7 @@ public interface TxCleanupReplicaRequest extends ReplicaRequest, TimestampAware 
     boolean commit();
 
     /**
-     * Returns transaction commit timestamp.
+     * Returns a transaction commit timestamp.
      *
      * @return Commit timestamp.
      */
@@ -61,7 +61,7 @@ public interface TxCleanupReplicaRequest extends ReplicaRequest, TimestampAware 
      * Gets a raft term.
      * TODO: A temp solution until lease-based engine will be implemented (IGNITE-17256, IGNITE-15083)
      *
-     * @return Gets a raft term.
+     * @return Raft term.
      */
     @Deprecated
     @Marshallable

@@ -22,7 +22,7 @@ import org.apache.ignite.raft.client.WriteCommand;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * RAFT partition transactional command.
+ * Partition transactional command.
  */
 public abstract class PartitionCommand implements WriteCommand {
     /** Transaction id. */

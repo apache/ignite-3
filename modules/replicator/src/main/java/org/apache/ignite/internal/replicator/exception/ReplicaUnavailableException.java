@@ -24,7 +24,7 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
 
 /**
- * The exception is thrown when the replica is not ready to handle a request.
+ * The exception is thrown when a replica is not ready to handle a request.
  */
 public class ReplicaUnavailableException extends IgniteInternalException {
     /**
@@ -38,7 +38,7 @@ public class ReplicaUnavailableException extends IgniteInternalException {
     }
 
     /**
-     * The constructor is used for create an exception instance that has thrown in remote server.
+     * The constructor is used for creating an exception instance that is thrown from a remote server.
      *
      * @param traceId Trace id.
      * @param code Error code.

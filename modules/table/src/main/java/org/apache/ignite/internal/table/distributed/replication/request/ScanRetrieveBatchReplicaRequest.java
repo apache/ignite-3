@@ -33,7 +33,7 @@ public interface ScanRetrieveBatchReplicaRequest extends ReplicaRequest {
     long scanId();
 
     /**
-     * Gets a scan row filter. The filter has a sense only for first request, for the second one and followings the field is ignored.
+     * Gets a scan row filter. The filter has a sense only for the first request, for the second one and the followings the field is ignored.
      *
      * @return Row filter predicate.
      */

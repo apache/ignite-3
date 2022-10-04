@@ -22,11 +22,12 @@ import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.table.distributed.command.CommandUtils;
+import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
 
 /**
  * This class represents a response object that contains a collection {@link BinaryRow} from a batch operation.
  *
- * @see org.apache.ignite.internal.table.distributed.command.UpdateAllCommand
+ * @see UpdateAllCommand
  */
 public class MultiRowsResponse implements Serializable {
     /** Binary rows. */

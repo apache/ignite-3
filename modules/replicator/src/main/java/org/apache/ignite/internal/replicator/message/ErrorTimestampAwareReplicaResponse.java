@@ -20,7 +20,7 @@ package org.apache.ignite.internal.replicator.message;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Replica response interface with timestamp to adjust a hybrid logical clock.
+ * Replica response interface with a timestamp to adjust a hybrid logical clock.
  */
 @Transferable(ReplicaMessageGroup.ERROR_TIMESTAMP_AWARE_REPLICA_RESPONSE)
 public interface ErrorTimestampAwareReplicaResponse extends ErrorReplicaResponse, TimestampAware {

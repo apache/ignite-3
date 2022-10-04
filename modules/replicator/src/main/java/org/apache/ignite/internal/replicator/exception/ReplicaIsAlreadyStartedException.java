@@ -23,29 +23,29 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 
 /**
- * The exception is thrown when creating a replica with the same replication group id that already started.
+ * Unchecked exception that is thrown when creating a replica with the same replication group id that is already started.
  */
-public class ReplicaAlreadyIsStartedException extends IgniteInternalException {
+public class ReplicaIsAlreadyStartedException extends IgniteInternalException {
 
     /**
      * The constructor.
      *
      * @param replicaGrpId Replication group id.
      */
-    public ReplicaAlreadyIsStartedException(String replicaGrpId) {
-        super(Replicator.REPLICA_ALREADY_IS_STARTED_ERR,
+    public ReplicaIsAlreadyStartedException(String replicaGrpId) {
+        super(Replicator.REPLICA_IS_ALREADY_STARTED_ERR,
                 IgniteStringFormatter.format("Replica is started already [replicaGrpId={}]", replicaGrpId));
     }
 
     /**
-     * The constructor is used for create an exception instance that has thrown in remote server.
+     * The constructor is used for creating an exception instance that is thrown from a remote server.
      *
      * @param traceId Trace id.
      * @param code Error code.
      * @param message Error message.
      * @param cause Cause exception.
      */
-    public ReplicaAlreadyIsStartedException(UUID traceId, int code, String message, Throwable cause) {
+    public ReplicaIsAlreadyStartedException(UUID traceId, int code, String message, Throwable cause) {
         super(traceId, code, message, cause);
     }
 }

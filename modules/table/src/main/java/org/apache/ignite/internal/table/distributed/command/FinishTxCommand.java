@@ -22,11 +22,11 @@ import java.util.UUID;
 import org.apache.ignite.hlc.HybridTimestamp;
 
 /**
- * State machine command to finish the transaction on commit or rollback.
+ * State machine command to finish a transaction on a commit or a rollback.
  */
 public class FinishTxCommand extends PartitionCommand {
     /**
-     * Commit or rollback state.
+     * A commit or a rollback state.
      */
     private final boolean commit;
 
@@ -56,27 +56,27 @@ public class FinishTxCommand extends PartitionCommand {
     }
 
     /**
-     * Returns commit or rollback state.
+     * Returns a commit or a rollback state.
      *
-     * @return Commit or rollback state.
+     * @return A commit or a rollback state.
      */
     public boolean commit() {
         return commit;
     }
 
     /**
-     * Returns transaction commit timestamp.
+     * Returns a transaction commit timestamp.
      *
-     * @return Transaction commit timestamp.
+     * @return A transaction commit timestamp.
      */
     public HybridTimestamp commitTimestamp() {
         return commitTimestamp;
     }
 
     /**
-     * Returns ordered replication groups ids.
+     * Returns an ordered replication groups ids.
      *
-     * @return Ordered replication groups ids.
+     * @return An ordered replication groups ids.
      */
     public List<String> replicationGroupIds() {
         return replicationGroupIds;

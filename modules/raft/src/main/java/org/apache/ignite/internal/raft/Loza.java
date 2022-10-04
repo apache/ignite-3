@@ -92,7 +92,7 @@ public class Loza implements IgniteComponent {
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
-    /** Prevents double stopping the component. */
+    /** Prevents double stopping of the component. */
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
     /**

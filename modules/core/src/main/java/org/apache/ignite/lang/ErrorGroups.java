@@ -281,15 +281,15 @@ public class ErrorGroups {
         public static final int REPLICA_COMMON_ERR = REPLICATOR_ERR_GROUP.registerErrorCode(1);
 
         /** Replica with the same identifier is already existed. */
-        public static final int REPLICA_ALREADY_IS_STARTED_ERR = REPLICATOR_ERR_GROUP.registerErrorCode(2);
+        public static final int REPLICA_IS_ALREADY_STARTED_ERR = REPLICATOR_ERR_GROUP.registerErrorCode(2);
 
         /** Timeout has happened during the replication procedure. */
         public static final int REPLICA_TIMEOUT_ERR = REPLICATOR_ERR_GROUP.registerErrorCode(3);
 
-        /** The error happens when the replication level try to handle an unsupported request.  */
+        /** The error happens when the replication level try to handle an unsupported request. */
         public static final int REPLICA_UNSUPPORTED_REQUEST_ERR = REPLICATOR_ERR_GROUP.registerErrorCode(4);
 
-        /** The error happens when the replica is not ready to handle a request.  */
+        /** The error happens when the replica is not ready to handle a request. */
         public static final int REPLICA_UNAVAILABLE_ERR = REPLICATOR_ERR_GROUP.registerErrorCode(5);
 
         /** The error happens when the replica is not the current primary replica. */

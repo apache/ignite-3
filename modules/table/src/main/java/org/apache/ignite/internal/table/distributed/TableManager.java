@@ -175,7 +175,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(TableManager.class);
 
-    /** Name of transaction state directory. */
+    /** Name of a transaction state directory. */
     private static final String TX_STATE_DIR = "tx-state-";
 
     /** Transaction storage flush delay. */
@@ -984,7 +984,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     /**
-     * Create transaction state storage for table.
+     * Creates transaction state storage for the provided table.
      *
      * @param tableCfg Table configuration.
      * @return Transaction state storage.

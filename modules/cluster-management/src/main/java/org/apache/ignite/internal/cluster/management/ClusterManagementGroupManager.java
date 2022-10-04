@@ -87,7 +87,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
-    /** Prevents double stopping the component. */
+    /** Prevents double stopping of the component. */
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
     /** Future that resolves into a CMG Raft service. Can be {@code null} if the Raft service has not been started. */

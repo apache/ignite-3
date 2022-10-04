@@ -83,10 +83,10 @@ public class PartitionListener implements RaftGroupListener {
     /** Dummy primary index. */
     private final ConcurrentHashMap<ByteBuffer, RowId> primaryIndex;
 
-    /** Keys that were inserted by the transaction. */
+    /** Keys that were inserted by a transaction. */
     private HashMap<UUID, Set<ByteBuffer>> txsInsertedKeys = new HashMap<>();
 
-    /** Keys that were removed by the transaction. */
+    /** Keys that were removed by a transaction. */
     private HashMap<UUID, Set<ByteBuffer>> txsRemovedKeys = new HashMap<>();
 
     /** Rows that were inserted, updated or removed. */
@@ -254,7 +254,7 @@ public class PartitionListener implements RaftGroupListener {
      *
      * @param cmd          Command.
      * @param commandIndex Index of the RAFT command.
-     * @throws IgniteInternalException if exception occurred during txn state change.
+     * @throws IgniteInternalException if an exception occurred during a transaction state change.
      */
     private void handleFinishTxCommand(FinishTxCommand cmd, long commandIndex) throws IgniteInternalException {
         UUID txId = cmd.txId();

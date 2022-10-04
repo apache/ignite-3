@@ -23,7 +23,7 @@ import org.apache.ignite.internal.table.distributed.replicator.action.RequestTyp
 import org.apache.ignite.network.annotations.Marshallable;
 
 /**
- * Single row replica request.
+ * Single-row replica request.
  */
 public interface SingleRowReplicaRequest extends ReplicaRequest {
     @Marshallable
