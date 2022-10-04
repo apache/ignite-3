@@ -17,19 +17,21 @@
 
 package org.apache.ignite.internal.client.proto;
 
-import static org.apache.ignite.internal.client.proto.ClientDataType.BIGINTEGER;
 import static org.apache.ignite.internal.client.proto.ClientDataType.BITMASK;
+import static org.apache.ignite.internal.client.proto.ClientDataType.BOOLEAN;
 import static org.apache.ignite.internal.client.proto.ClientDataType.BYTES;
 import static org.apache.ignite.internal.client.proto.ClientDataType.DATE;
 import static org.apache.ignite.internal.client.proto.ClientDataType.DATETIME;
 import static org.apache.ignite.internal.client.proto.ClientDataType.DECIMAL;
 import static org.apache.ignite.internal.client.proto.ClientDataType.DOUBLE;
+import static org.apache.ignite.internal.client.proto.ClientDataType.DURATION;
 import static org.apache.ignite.internal.client.proto.ClientDataType.FLOAT;
 import static org.apache.ignite.internal.client.proto.ClientDataType.INT16;
 import static org.apache.ignite.internal.client.proto.ClientDataType.INT32;
 import static org.apache.ignite.internal.client.proto.ClientDataType.INT64;
 import static org.apache.ignite.internal.client.proto.ClientDataType.INT8;
 import static org.apache.ignite.internal.client.proto.ClientDataType.NUMBER;
+import static org.apache.ignite.internal.client.proto.ClientDataType.PERIOD;
 import static org.apache.ignite.internal.client.proto.ClientDataType.STRING;
 import static org.apache.ignite.internal.client.proto.ClientDataType.TIME;
 import static org.apache.ignite.internal.client.proto.ClientDataType.TIMESTAMP;
@@ -47,6 +49,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.UUID;
+import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.msgpack.core.ExtensionTypeHeader;
@@ -1058,9 +1061,6 @@ public class ClientMessageUnpacker implements AutoCloseable {
             case DECIMAL:
                 return unpackDecimal();
 
-            case BIGINTEGER:
-                return unpackBigInteger();
-
             case BITMASK:
                 return unpackBitSet();
 
@@ -1085,7 +1085,7 @@ public class ClientMessageUnpacker implements AutoCloseable {
     }
 
     /**
-     * Packs an object.
+     * Unpacks object array.
      *
      * @return Object array.
      * @throws IllegalStateException in case of unexpected value type.
@@ -1112,6 +1112,121 @@ public class ClientMessageUnpacker implements AutoCloseable {
 
             args[i] = unpackObject(unpackInt());
         }
+        return args;
+    }
+
+    /**
+     * Unpacks object array.
+     *
+     * @return Object array.
+     * @throws IllegalStateException in case of unexpected value type.
+     */
+    public Object[] unpackObjectArrayFromBinaryTuple() {
+        assert refCnt > 0 : "Unpacker is closed";
+
+        if (tryUnpackNil()) {
+            return null;
+        }
+
+        int size = unpackInt();
+
+        if (size == 0) {
+            return ArrayUtils.OBJECT_EMPTY_ARRAY;
+        }
+
+        Object[] args = new Object[size];
+
+        var reader = new BinaryTupleReader(size * 3, readBinaryUnsafe());
+
+        for (int i = 0; i < size; i++) {
+            int typeIdx = i * 3;
+
+            if (reader.hasNullValue(typeIdx)) {
+                continue;
+            }
+
+            int type = reader.intValue(typeIdx);
+            int valIdx = typeIdx + 2;
+
+            switch (type) {
+                case INT8:
+                    args[i] = reader.byteValue(valIdx);
+                    break;
+
+                case INT16:
+                    args[i] = reader.shortValue(valIdx);
+                    break;
+
+                case INT32:
+                    args[i] = reader.intValue(valIdx);
+                    break;
+
+                case INT64:
+                    args[i] = reader.longValue(valIdx);
+                    break;
+
+                case FLOAT:
+                    args[i] = reader.floatValue(valIdx);
+                    break;
+
+                case DOUBLE:
+                    args[i] = reader.doubleValue(valIdx);
+                    break;
+
+                case DECIMAL:
+                    args[i] = reader.decimalValue(valIdx, reader.intValue(typeIdx + 1));
+                    break;
+
+                case ClientDataType.UUID:
+                    args[i] = reader.uuidValue(valIdx);
+                    break;
+
+                case STRING:
+                    args[i] = reader.stringValue(valIdx);
+                    break;
+
+                case BYTES:
+                    args[i] = reader.bytesValue(valIdx);
+                    break;
+
+                case BITMASK:
+                    args[i] = reader.bitmaskValue(valIdx);
+                    break;
+
+                case DATE:
+                    args[i] = reader.dateValue(valIdx);
+                    break;
+
+                case TIME:
+                    args[i] = reader.timeValue(valIdx);
+                    break;
+
+                case DATETIME:
+                    args[i] = reader.dateTimeValue(valIdx);
+                    break;
+
+                case TIMESTAMP:
+                    args[i] = reader.timestampValue(valIdx);
+                    break;
+
+                case NUMBER:
+                    args[i] = reader.numberValue(valIdx);
+                    break;
+
+                case BOOLEAN:
+                    args[i] = reader.byteValue(valIdx) != 0;
+                    break;
+
+                case DURATION:
+                    args[i] = reader.durationValue(valIdx);
+                    break;
+
+                case PERIOD:
+                    args[i] = reader.periodValue(valIdx);
+                    break;
+            }
+        }
+
         return args;
     }
 

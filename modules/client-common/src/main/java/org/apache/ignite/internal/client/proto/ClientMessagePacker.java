@@ -238,25 +238,6 @@ public class ClientMessagePacker implements AutoCloseable {
     }
 
     /**
-     * Writes a big integer value.
-     *
-     * @param bi the value to be written.
-     */
-    public void packBigInteger(BigInteger bi) {
-        assert !closed : "Packer is closed";
-
-        if (bi.bitLength() <= 63) {
-            packLong(bi.longValue());
-        } else if (bi.bitLength() == 64 && bi.signum() == 1) {
-            buf.writeByte(Code.UINT64);
-            buf.writeLong(bi.longValue());
-        } else {
-            throw new IllegalArgumentException(
-                    "MessagePack cannot serialize BigInteger larger than 2^64-1");
-        }
-    }
-
-    /**
      * Writes a float value.
      *
      * @param v the value to be written.
@@ -870,8 +851,8 @@ public class ClientMessagePacker implements AutoCloseable {
             packInt(ClientDataType.DECIMAL);
             packDecimal(((BigDecimal) obj));
         } else if (cls == BigInteger.class) {
-            packInt(ClientDataType.BIGINTEGER);
-            packBigInteger(((BigInteger) obj));
+            packInt(ClientDataType.NUMBER);
+            packNumber(((BigInteger) obj));
         } else if (cls == BitSet.class) {
             packInt(ClientDataType.BITMASK);
             packBitSet((BitSet) obj);
