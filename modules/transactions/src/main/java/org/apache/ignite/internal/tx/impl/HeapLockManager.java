@@ -117,7 +117,7 @@ public class HeapLockManager implements LockManager {
 
     @Override
     public Iterator<Lock> locks(UUID txId) {
-        // TODO: tmp, use index instead.
+        // TODO: IGNITE-17811 Use index or similar instead of full locks set iteration.
         List<Lock> result = new ArrayList<>();
 
         for (Map.Entry<LockKey, LockState> entry : locks.entrySet()) {

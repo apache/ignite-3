@@ -52,7 +52,8 @@ public interface TxStateStorage extends AutoCloseable {
     void put(UUID txId, TxMeta txMeta);
 
     /**
-     * Atomically change the tx meta in the storage.
+     * Atomically change the tx meta in the storage. If transaction meta that is already in the storage, is equal to {@code txMeta},
+     * the operation also succeeds.
      *
      * @param txId Tx id.
      * @param txStateExpected Tx state that is expected to be in the storage.

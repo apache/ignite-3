@@ -293,7 +293,7 @@ public class IgniteImpl implements Ignite {
 
         ReplicaService replicaSvc = new ReplicaService(clusterSvc.messagingService(), clock);
 
-        txManager = new TxManagerImpl(replicaSvc, lockMgr);
+        txManager = new TxManagerImpl(replicaSvc, lockMgr, clock);
 
         cmgMgr = new ClusterManagementGroupManager(
                 vaultMgr,

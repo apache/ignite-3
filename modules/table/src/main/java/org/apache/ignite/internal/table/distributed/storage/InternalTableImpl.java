@@ -721,8 +721,8 @@ public class InternalTableImpl implements InternalTable {
         return keyRowsByPartition;
     }
 
-    // placement driver
     /** {@inheritDoc} */
+    // TODO: IGNITE-17256 Use a placement driver for getting a primary replica.
     @Override
     public List<String> assignments() {
         awaitLeaderInitialization();
@@ -851,7 +851,7 @@ public class InternalTableImpl implements InternalTable {
     protected CompletableFuture<IgniteBiTuple<ClusterNode, Long>> enlist(int partId, InternalTransaction tx) {
         RaftGroupService svc = partitionMap.get(partId);
 
-        // TODO: ticket for placement driver
+        // TODO: IGNITE-17256 Use a placement driver for getting a primary replica.
         CompletableFuture<IgniteBiTuple<Peer, Long>> fut0 = svc.refreshAndGetLeaderWithTerm();
 
         // TODO asch IGNITE-15091 fixme need to map to the same leaseholder.

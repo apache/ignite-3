@@ -20,6 +20,7 @@ package org.apache.ignite.internal.tx.message;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
 import org.apache.ignite.lang.IgniteBiTuple;
@@ -52,6 +53,12 @@ public interface TxFinishReplicaRequest extends ReplicaRequest, TimestampAware {
      * @return {@code True} to commit.
      */
     boolean commit();
+
+    /**
+     * Transaction commit timestamp.
+     */
+    @Marshallable
+    HybridTimestamp commitTimestamp();
 
     /**
      * Returns enlisted partition groups aggregated by expected primary replica nodes.

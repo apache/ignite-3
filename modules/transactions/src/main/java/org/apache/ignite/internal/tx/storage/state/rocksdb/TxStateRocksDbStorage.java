@@ -123,7 +123,8 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     }
 
     /** {@inheritDoc} */
-    @Override public TxMeta get(UUID txId) {
+    @Override
+    public TxMeta get(UUID txId) {
         if (!busyLock.enterBusy()) {
             throwStorageStoppedException();
         }
@@ -145,7 +146,8 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     }
 
     /** {@inheritDoc} */
-    @Override public void put(UUID txId, TxMeta txMeta) {
+    @Override
+    public void put(UUID txId, TxMeta txMeta) {
         if (!busyLock.enterBusy()) {
             throwStorageStoppedException();
         }
@@ -165,7 +167,8 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     }
 
     /** {@inheritDoc} */
-    @Override public boolean compareAndSet(UUID txId, TxState txStateExpected, TxMeta txMeta, long commandIndex) {
+    @Override
+    public boolean compareAndSet(UUID txId, TxState txStateExpected, TxMeta txMeta, long commandIndex) {
         requireNonNull(txMeta);
 
         if (!busyLock.enterBusy()) {
@@ -219,7 +222,8 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     }
 
     /** {@inheritDoc} */
-    @Override public void remove(UUID txId) {
+    @Override
+    public void remove(UUID txId) {
         if (!busyLock.enterBusy()) {
             throwStorageStoppedException();
         }
@@ -239,7 +243,8 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     }
 
     /** {@inheritDoc} */
-    @Override public Cursor<IgniteBiTuple<UUID, TxMeta>> scan() {
+    @Override
+    public Cursor<IgniteBiTuple<UUID, TxMeta>> scan() {
         if (!busyLock.enterBusy()) {
             throwStorageStoppedException();
         }
@@ -299,12 +304,14 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     }
 
     /** {@inheritDoc} */
-    @Override public long lastAppliedIndex() {
+    @Override
+    public long lastAppliedIndex() {
         return lastAppliedIndex;
     }
 
     /** {@inheritDoc} */
-    @Override public long persistedIndex() {
+    @Override
+    public long persistedIndex() {
         return persistedIndex;
     }
 
@@ -390,7 +397,8 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     }
 
     /** {@inheritDoc} */
-    @Override public void close() throws Exception {
+    @Override
+    public void close() throws Exception {
         if (!closeGuard.compareAndSet(false, true)) {
             return;
         }

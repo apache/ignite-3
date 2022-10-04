@@ -266,6 +266,7 @@ public class PartitionListener implements RaftGroupListener {
                 cmd.replicationGroupIds(),
                 cmd.commitTimestamp()
         );
+
         boolean txStateChangeRes = txStateStorage.compareAndSet(
                 txId,
                 null,
@@ -273,8 +274,7 @@ public class PartitionListener implements RaftGroupListener {
                 commandIndex
         );
 
-        // TODO: use debug instead.
-        LOG.info("Finish the transaction txId = {}, state = {}", txId, txMetaToSet);
+        LOG.debug("Finish the transaction txId = {}, state = {}, txStateChangeRes = {}", txId, txMetaToSet, txStateChangeRes);
 
         if (!txStateChangeRes) {
             UUID traceId = UUID.randomUUID();
@@ -283,7 +283,8 @@ public class PartitionListener implements RaftGroupListener {
                             + " expected state = null, state to set = {}",
                     txId,
                     txStateStorage.get(txId),
-                    txMetaToSet);
+                    txMetaToSet
+            );
 
             IgniteInternalException stateChangeException = new IgniteInternalException(traceId, TX_UNEXPECTED_STATE_ERR, errorMsg);
 

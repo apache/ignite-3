@@ -112,7 +112,7 @@ public class PartitionCommandListenerTest {
         commandListener = new PartitionListener(
                 mvPartitionStorage,
                 new TestConcurrentHashMapTxStateStorage(),
-                new TxManagerImpl(replicaService, new HeapLockManager()),
+                new TxManagerImpl(replicaService, new HeapLockManager(), new HybridClock()),
                 primaryIndex
         );
     }

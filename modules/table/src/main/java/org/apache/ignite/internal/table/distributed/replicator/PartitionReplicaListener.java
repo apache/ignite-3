@@ -35,7 +35,6 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import org.apache.ignite.hlc.HybridClock;
-import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
@@ -280,19 +279,16 @@ public class PartitionReplicaListener implements ReplicaListener {
     /**
      * Processes transaction finish request:
      * <ol>
-     *     <li>Evaluate commit timestamp.</li>
+     *     <li>Get commit timestamp from finish replica request.</li>
      *     <li>Run specific raft {@code FinishTxCommand} command, that will apply txn state to corresponding txStateStorage.</li>
      *     <li>Send cleanup requests to all enlisted primary replicas.</li>
      * </ol>
-     * This operation is NOT idempotent, because of commit timestamp evaluation.
      *
      * @param request Transaction finish request.
      * @return future result of the operation.
      */
     // TODO: need to properly handle primary replica changes https://issues.apache.org/jira/browse/IGNITE-17615
     private CompletableFuture<Object> processTxFinishAction(TxFinishReplicaRequest request) {
-        HybridTimestamp commitTimestamp = hybridClock.now();
-
         List<String> aggregatedGroupIds = request.groups().values().stream()
                 .flatMap(List::stream).map(IgniteBiTuple::get1).collect(Collectors.toList());
 
@@ -304,12 +300,12 @@ public class PartitionReplicaListener implements ReplicaListener {
                 new FinishTxCommand(
                         txId,
                         commit,
-                        commitTimestamp,
+                        request.commitTimestamp(),
                         aggregatedGroupIds
                 )
         );
 
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-17578
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-17578 Cleanup process should be asynchronous.
         CompletableFuture[] cleanupFutures = new CompletableFuture[request.groups().size()];
         AtomicInteger cleanupFuturesCnt = new AtomicInteger(0);
 
@@ -321,7 +317,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                         replicationGroupIds,
                                         txId,
                                         commit,
-                                        commitTimestamp
+                                        request.commitTimestamp()
                                 )
                         )
         );
