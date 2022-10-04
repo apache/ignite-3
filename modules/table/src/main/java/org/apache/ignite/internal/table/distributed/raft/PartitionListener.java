@@ -267,6 +267,8 @@ public class PartitionListener implements RaftGroupListener {
                 cmd.commitTimestamp()
         );
 
+        TxMeta txMetaBeforeCas = txStateStorage.get(txId);
+
         boolean txStateChangeRes = txStateStorage.compareAndSet(
                 txId,
                 null,
@@ -282,7 +284,7 @@ public class PartitionListener implements RaftGroupListener {
             String errorMsg = format("Fail to finish the transaction txId = {} because of inconsistent state = {},"
                             + " expected state = null, state to set = {}",
                     txId,
-                    txStateStorage.get(txId),
+                    txMetaBeforeCas,
                     txMetaToSet
             );
 
