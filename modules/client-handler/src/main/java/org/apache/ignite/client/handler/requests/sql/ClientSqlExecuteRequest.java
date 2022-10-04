@@ -64,7 +64,7 @@ public class ClientSqlExecuteRequest {
         var tx = readTx(in, resources);
         Session session = readSession(in, sql);
         Statement statement = readStatement(in, sql);
-        Object[] arguments = readArguments(in);
+        Object[] arguments = in.unpackObjectArrayFromBinaryTuple();
 
         return session
                 .executeAsync(tx, statement, arguments)
@@ -150,27 +150,6 @@ public class ClientSqlExecuteRequest {
         }
 
         return sessionBuilder.build();
-    }
-
-    private static Object[] readArguments(ClientMessageUnpacker in) {
-        if (in.tryUnpackNil()) {
-            return null;
-        }
-
-        // TODO: IGNITE-17777 use BinaryTuple
-        int size = in.unpackArrayHeader();
-
-        if (size == 0) {
-            return ArrayUtils.OBJECT_EMPTY_ARRAY;
-        }
-
-        var res = new Object[size];
-
-        for (int i = 0; i < size; i++) {
-            res[i] = in.unpackObjectWithType();
-        }
-
-        return res;
     }
 
     private static void packMeta(ClientMessagePacker out, ResultSetMetadata meta) {

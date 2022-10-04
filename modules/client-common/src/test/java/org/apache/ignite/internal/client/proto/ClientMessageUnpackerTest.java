@@ -107,7 +107,7 @@ public class ClientMessageUnpackerTest {
             Integer.MAX_VALUE, Long.MIN_VALUE, Long.MAX_VALUE})
     public void testUnpackBigInteger(long l) {
         var bi = BigInteger.valueOf(l);
-        testUnpacker(p -> p.packBigInteger(bi), ClientMessageUnpacker::unpackBigInteger, bi);
+        testUnpacker(p -> p.packNumber(bi), ClientMessageUnpacker::unpackNumber, bi);
     }
 
     @ParameterizedTest

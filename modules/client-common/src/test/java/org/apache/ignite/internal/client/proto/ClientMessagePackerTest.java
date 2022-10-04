@@ -107,21 +107,6 @@ public class ClientMessagePackerTest {
     }
 
     @ParameterizedTest
-    @ValueSource(longs = {0, 1, -1, Byte.MAX_VALUE, Byte.MIN_VALUE, Short.MIN_VALUE, Short.MAX_VALUE, Integer.MIN_VALUE,
-            Integer.MAX_VALUE, Long.MIN_VALUE, Long.MAX_VALUE})
-    public void testPackBigInteger(long l) {
-        var bi = BigInteger.valueOf(l);
-        testPacker(p -> p.packBigInteger(bi), p -> p.packBigInteger(bi));
-    }
-
-    @Test
-    public void testPackBigIntegerThrowsOnTooLargeValues() {
-        var bi = BigInteger.valueOf(Long.MAX_VALUE).multiply(BigInteger.TEN);
-
-        assertThrows(IllegalArgumentException.class, () -> packIgnite(p -> p.packBigInteger(bi)));
-    }
-
-    @ParameterizedTest
     @ValueSource(floats = {0, 1, -1, Byte.MAX_VALUE, Byte.MIN_VALUE, Short.MIN_VALUE, Short.MAX_VALUE, Integer.MIN_VALUE,
             Integer.MAX_VALUE, Long.MIN_VALUE, Long.MAX_VALUE, Float.MIN_VALUE, Float.MAX_VALUE})
     public void testPackFloat(float f) {

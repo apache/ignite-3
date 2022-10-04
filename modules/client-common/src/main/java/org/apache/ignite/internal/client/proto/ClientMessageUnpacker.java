@@ -342,55 +342,6 @@ public class ClientMessageUnpacker implements AutoCloseable {
     }
 
     /**
-     * Reads a BigInteger value.
-     *
-     * @return BigInteger.
-     */
-    public BigInteger unpackBigInteger() {
-        assert refCnt > 0 : "Unpacker is closed";
-
-        byte code = buf.readByte();
-
-        if (Code.isFixInt(code)) {
-            return BigInteger.valueOf(code);
-        }
-
-        switch (code) {
-            case Code.UINT8:
-                return BigInteger.valueOf(buf.readUnsignedByte());
-
-            case Code.UINT16:
-                return BigInteger.valueOf(buf.readUnsignedShort());
-
-            case Code.UINT32:
-                return BigInteger.valueOf(buf.readUnsignedInt());
-
-            case Code.UINT64:
-                long u64 = buf.readLong();
-                if (u64 < 0L) {
-                    return BigInteger.valueOf(u64 + Long.MAX_VALUE + 1L).setBit(63);
-                } else {
-                    return BigInteger.valueOf(u64);
-                }
-
-            case Code.INT8:
-                return BigInteger.valueOf(buf.readByte());
-
-            case Code.INT16:
-                return BigInteger.valueOf(buf.readShort());
-
-            case Code.INT32:
-                return BigInteger.valueOf(buf.readInt());
-
-            case Code.INT64:
-                return BigInteger.valueOf(buf.readLong());
-
-            default:
-                throw unexpected("BigInteger", code);
-        }
-    }
-
-    /**
      * Reads a float value.
      *
      * @return Float.
