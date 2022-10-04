@@ -69,7 +69,7 @@ ignite_time loadBytesAsTime(bytes_view bytes) {
     std::uint32_t minute = ((int)time >> 6) & 63;
     std::uint32_t hour = ((int)time >> 12) & 31;
 
-    return {hour, minute, second, nano};
+    return {int(hour), int(minute), int(second), int(nano)};
 }
 
 } // namespace

@@ -48,12 +48,12 @@ public:
     /**
      * Gets the number of seconds since 00:00 hours, Jan 1, 1970 UTC.
      */
-    constexpr int get_epoch_second() const noexcept { return seconds; }
+    constexpr std::int64_t get_epoch_second() const noexcept { return seconds; }
 
     /**
      * Gets the number of nanoseconds from the start of the second.
      */
-    constexpr int get_nano() const noexcept { return nanos; }
+    constexpr std::int32_t get_nano() const noexcept { return nanos; }
 
     /**
      * Compare to another value.

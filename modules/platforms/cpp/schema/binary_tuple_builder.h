@@ -477,6 +477,60 @@ private:
     void put_double(bytes_view bytes);
 
     /**
+     * @brief Writes binary value of specified element.
+     *
+     * The written value may differ from the original because of value compression.
+     *
+     * @param bytes Binary element value.
+     */
+    void put_number(bytes_view bytes);
+
+    /**
+     * @brief Writes binary value of specified element.
+     *
+     * The written value may differ from the original because of value compression.
+     *
+     * @param bytes Binary element value.
+     */
+    void put_uuid(bytes_view bytes);
+
+    /**
+     * @brief Writes binary value of specified element.
+     *
+     * The written value may differ from the original because of value compression.
+     *
+     * @param bytes Binary element value.
+     */
+    void put_date(bytes_view bytes);
+
+    /**
+     * @brief Writes binary value of specified element.
+     *
+     * The written value may differ from the original because of value compression.
+     *
+     * @param bytes Binary element value.
+     */
+    void put_time(bytes_view bytes);
+
+    /**
+     * @brief Writes binary value of specified element.
+     *
+     * The written value may differ from the original because of value compression.
+     *
+     * @param bytes Binary element value.
+     */
+    void put_date_time(bytes_view bytes);
+
+    /**
+     * @brief Writes binary value of specified element.
+     *
+     * The written value may differ from the original because of value compression.
+     *
+     * @param bytes Binary element value.
+     */
+    void put_timestamp(bytes_view bytes);
+
+    /**
      * @brief Adds an entry to the offset table.
      */
     void append_entry() {
