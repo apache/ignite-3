@@ -46,8 +46,8 @@ bool NodeConnection::handshake() {
 
     std::vector<std::byte> message;
     {
-        protocol::BufferAdapter buffer(message);
-        buffer.writeRawData(bytes_view(protocol::MAGIC_BYTES.data(), protocol::MAGIC_BYTES.size()));
+        protocol::buffer_adapter buffer(message);
+        buffer.write_raw(bytes_view(protocol::MAGIC_BYTES.data(), protocol::MAGIC_BYTES.size()));
 
         protocol::Writer::writeMessageToBuffer(buffer, [&context = m_protocolContext](protocol::Writer &writer) {
             auto ver = context.getVersion();

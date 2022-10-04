@@ -15,20 +15,20 @@
  * limitations under the License.
  */
 
-#include "common/ignite_error.h"
-
 #include "ignite/protocol/buffer_adapter.h"
+
+#include "common/ignite_error.h"
 #include "ignite/protocol/utils.h"
 
 namespace ignite::protocol {
 
-void BufferAdapter::writeLengthHeader() {
-    if (m_lengthPos == std::numeric_limits<std::size_t>::max() || m_lengthPos + LENGTH_HEADER_SIZE > m_buffer.size())
+void buffer_adapter::write_length_header() {
+    if (m_length_pos == std::numeric_limits<std::size_t>::max() || m_length_pos + LENGTH_HEADER_SIZE > m_buffer.size())
         throw ignite_error("Length header was not reserved properly in buffer");
 
-    auto length = std::int32_t(m_buffer.size() - (m_lengthPos + LENGTH_HEADER_SIZE));
+    auto length = std::int32_t(m_buffer.size() - (m_length_pos + LENGTH_HEADER_SIZE));
 
-    writeInt32(length, m_buffer.data(), m_lengthPos);
+    writeInt32(length, m_buffer.data(), m_length_pos);
 }
 
 } // namespace ignite::protocol

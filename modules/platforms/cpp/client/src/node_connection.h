@@ -97,15 +97,15 @@ public:
         auto reqId = generateRequestId();
         std::vector<std::byte> message;
         {
-            protocol::BufferAdapter buffer(message);
-            buffer.reserveLengthHeader();
+            protocol::buffer_adapter buffer(message);
+            buffer.reserve_length_header();
 
             protocol::Writer writer(buffer);
             writer.write(int32_t(op));
             writer.write(reqId);
             wr(writer);
 
-            buffer.writeLengthHeader();
+            buffer.write_length_header();
 
             {
                 std::lock_guard<std::mutex> lock(m_requestHandlersMutex);
