@@ -75,7 +75,7 @@ public class ReplicaService {
 
         CompletableFuture<R> res = new CompletableFuture<>();
 
-        messagingService.invoke(node.address(), req, RPC_TIMEOUT).whenComplete((response, throwable) -> {
+        messagingService.invoke(node.address(), req, RPC_TIMEOUT).whenCompleteAsync((response, throwable) -> {
             if (throwable != null) {
                 if (throwable instanceof CompletionException) {
                     throwable = throwable.getCause();
