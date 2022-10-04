@@ -15,10 +15,9 @@
  * limitations under the License.
  */
 
-#include "common/ignite_error.h"
-#include "common/bytes.h"
-
 #include "ignite/protocol/reader.h"
+
+#include "common/bytes.h"
 #include "ignite/protocol/utils.h"
 
 namespace ignite::protocol {
@@ -37,40 +36,6 @@ reader::reader(bytes_view buffer)
     msgpack_unpacked_init(&m_current_val);
 
     next();
-}
-
-std::int64_t reader::read_int64() {
-    check_data_in_stream();
-
-    auto res = unpack_object<int64_t>(m_current_val.data);
-    next();
-
-    return res;
-}
-
-std::string reader::read_string() {
-    check_data_in_stream();
-
-    std::string res = unpack_object<std::string>(m_current_val.data);
-    next();
-
-    return res;
-}
-
-std::optional<std::string> reader::read_string_nullable() {
-    if (try_read_nil())
-        return std::nullopt;
-
-    return read_string();
-}
-
-uuid reader::read_uuid() {
-    check_data_in_stream();
-
-    uuid res = unpack_object<uuid>(m_current_val.data);
-    next();
-
-    return res;
 }
 
 bool reader::try_read_nil() {

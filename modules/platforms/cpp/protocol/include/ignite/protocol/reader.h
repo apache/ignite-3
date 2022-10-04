@@ -18,7 +18,7 @@
 #pragma once
 
 #include "ignite/protocol/utils.h"
-
+#include "common/ignite_error.h"
 #include "common/types.h"
 #include "common/uuid.h"
 
@@ -54,6 +54,38 @@ public:
     ~reader() { msgpack_unpacker_destroy(&m_unpacker); }
 
     /**
+     * Read object of type T from msgpack stream.
+     *
+     * @tparam T Type of the object to read.
+     * @return Object of type T.
+     * @throw ignite_error if there is no object of specified type in the stream.
+     */
+    template<typename T>
+    [[nodiscard]] T read_object() {
+        check_data_in_stream();
+
+        auto res = unpack_object<T>(m_current_val.data);
+        next();
+
+        return res;
+    }
+
+    /**
+     * Read object of type T from msgpack stream or nil.
+     *
+     * @tparam T Type of the object to read.
+     * @return Object of type T or std::nullopt if there is nil in the stream.
+     * @throw ignite_error if there is no object of specified type in the stream.
+     */
+    template<typename T>
+    [[nodiscard]] std::optional<T> read_object_nullable() {
+        if (try_read_nil())
+            return std::nullopt;
+
+        return read_object<T>();
+    }
+
+    /**
      * Read int16.
      *
      * @return Value.
@@ -72,28 +104,36 @@ public:
      *
      * @return Value.
      */
-    [[nodiscard]] std::int64_t read_int64();
+    [[nodiscard]] std::int64_t read_int64() {
+        return read_object<int64_t>();
+    }
 
     /**
      * Read string.
      *
      * @return String value.
      */
-    [[nodiscard]] std::string read_string();
+    [[nodiscard]] std::string read_string() {
+        return read_object<std::string>();
+    }
 
     /**
      * Read string.
      *
      * @return String value or nullopt.
      */
-    [[nodiscard]] std::optional<std::string> read_string_nullable();
+    [[nodiscard]] std::optional<std::string> read_string_nullable() {
+        return read_object_nullable<std::string>();
+    }
 
     /**
      * Read UUID.
      *
      * @return UUID value.
      */
-    [[nodiscard]] uuid read_uuid();
+    [[nodiscard]] uuid read_uuid() {
+        return read_object<uuid>();
+    }
 
     /**
      * Read Map size.
