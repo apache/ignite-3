@@ -64,7 +64,7 @@ import org.junit.jupiter.api.Disabled;
 /**
  * Persistent partitions raft group snapshots tests.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-16644 MvPartitionStorage hasn't supported snapshots yet")
+@Disabled("IGNITE-16644, IGNITE-17817 MvPartitionStorage hasn't supported snapshots yet")
 public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<PartitionListener> {
     private static final SchemaDescriptor SCHEMA = new SchemaDescriptor(
             1,
@@ -104,7 +104,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
     /** {@inheritDoc} */
     @Override
     public void beforeFollowerStop(RaftGroupService service) throws Exception {
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-17523
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-17817 Use Replica layer with new transaction protocol.
         TxManagerImpl txManager = new TxManagerImpl(null, new HeapLockManager());
 
         managers.add(txManager);
@@ -131,7 +131,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
     /** {@inheritDoc} */
     @Override
     public void afterFollowerStop(RaftGroupService service) throws Exception {
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-17523
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-17817 Use Replica layer with new transaction protocol.
         TxManagerImpl txManager = new TxManagerImpl(null, new HeapLockManager());
 
         managers.add(txManager);
@@ -164,7 +164,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
     /** {@inheritDoc} */
     @Override
     public void afterSnapshot(RaftGroupService service) throws Exception {
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-17523
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-17817 Use Replica layer with new transaction protocol.
         TxManager txManager = new TxManagerImpl(null, new HeapLockManager());
 
         managers.add(txManager);
@@ -220,7 +220,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
     /** {@inheritDoc} */
     @Override
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-17523
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-17817 Use Replica layer with new transaction protocol.
     public RaftGroupListener createListener(ClusterService service, Path workDir) {
         return paths.entrySet().stream()
                 .filter(entry -> entry.getValue().equals(workDir))

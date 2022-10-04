@@ -21,7 +21,6 @@ import org.apache.ignite.network.annotations.Transferable;
 
 /**
  * Replica response interface with timestamp to adjust a hybrid logical clock.
- * TODO:IGNITE-17258 Add a specific response type for a replica listener. (@Transferable(ReplicaMessageGroup.TYPE_RESPONSE))
  */
 @Transferable(ReplicaMessageGroup.TIMESTAMP_AWARE_REPLICA_RESPONSE)
 public interface TimestampAwareReplicaResponse extends ReplicaResponse, TimestampAware {

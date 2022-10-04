@@ -21,7 +21,6 @@ import org.apache.ignite.network.NetworkMessage;
 
 /**
  * Replica request.
- * TODO:IGNITE-17258 Add a specific request type for a replica listener. (@Transferable(ReplicaMessageGroup.TYPE_REQUEST))
  */
 public interface ReplicaRequest extends NetworkMessage {
     /**
