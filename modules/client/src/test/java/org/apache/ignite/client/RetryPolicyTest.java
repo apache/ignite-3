@@ -229,7 +229,13 @@ public class RetryPolicyTest {
         plc.shouldThrow = true;
 
         try (var client = getClient(plc)) {
-            assertThrows(IgniteException.class, () -> client.tables().tables());
+            IgniteException ex = assertThrows(IgniteException.class, () -> client.tables().tables());
+
+            var cause = (IgniteClientConnectionException) ex.getCause();
+            Throwable[] suppressed = cause.getSuppressed();
+
+            assertEquals("TestRetryPolicy exception.", suppressed[0].getMessage());
+            assertEquals(1, suppressed.length);
         }
     }
 
