@@ -46,7 +46,7 @@ public:
  * Basic factory class.
  *
  * @tparam TB Base type.
- * @tparam TC Concreate type.
+ * @tparam TC Concrete type.
  */
 template <typename TB, typename TC>
 class basic_factory : public factory<TB> {

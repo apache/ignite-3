@@ -118,12 +118,8 @@ public:
      */
      template<typename K, typename V>
      void readMap(const std::function<void(K&&, V&&)>& handler) {
-        checkDataInStream();
-
-        if (m_currentVal.data.type != MSGPACK_OBJECT_MAP)
-            throw ignite_error("The value in stream is not a Map");
-
-        for (std::uint32_t i = 0; i < m_currentVal.data.via.map.size; ++i) {
+        auto size = readMapSize();
+        for (std::uint32_t i = 0; i < size; ++i) {
             auto key = unpack_object<K>(m_currentVal.data.via.map.ptr[i].key);
             auto val = unpack_object<V>(m_currentVal.data.via.map.ptr[i].val);
             handler(std::move(key), std::move(val));

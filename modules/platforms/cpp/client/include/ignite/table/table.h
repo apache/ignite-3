@@ -38,8 +38,8 @@ class Table {
 
 public:
     // Deleted
-    Table(const Table &) = default;
-    Table &operator=(const Table &) = default;
+    Table(const Table &) = delete;
+    Table &operator=(const Table &) = delete;
 
     // Default
     Table() = default;

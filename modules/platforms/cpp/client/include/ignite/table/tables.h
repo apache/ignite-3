@@ -57,8 +57,8 @@ public:
      *   "public.tbl0" - the table "PUBLIC.TBL0" will be looked up,
      *   "PUBLIC.\"Tbl0\"" - "PUBLIC.Tbl0",
      *   "\"MySchema\".\"Tbl0\"" - "MySchema.Tbl0", etc.
-     * @param callback Callback to be called once operation is complete. On success callback called with an instance of
-     *    the table with corresponding name or @c std::nullopt if the table does not exist.
+     * @param callback Callback to be called once operation is complete. On success, the callback is invoked with
+     *    an instance of the table with corresponding name or @c std::nullopt if the table does not exist.
      * @throw ignite_error In case of error while trying to send a request.
      */
     IGNITE_API void getTableAsync(const std::string &name, ignite_callback<std::optional<Table>> callback);
@@ -66,8 +66,8 @@ public:
     /**
      * Gets all tables.
      *
-     * @param callback Callback to be called once operation is complete. On success callback called with a vector of
-     *    all tables.
+     * @param callback Callback to be called once operation is complete. On success, the callback is invoked with
+     *    a vector of all tables.
      * @throw ignite_error In case of error while trying to send a request.
      */
     IGNITE_API void getTablesAsync(ignite_callback<std::vector<Table>> callback);
