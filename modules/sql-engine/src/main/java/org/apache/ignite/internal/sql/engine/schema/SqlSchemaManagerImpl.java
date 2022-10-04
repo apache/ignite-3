@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.schema;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.sql.engine.SqlQueryProcessor.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.OBJECT_NOT_FOUND_ERR;
@@ -60,8 +61,6 @@ import org.jetbrains.annotations.Nullable;
  * Holds actual schema and mutates it on schema change, requested by Ignite.
  */
 public class SqlSchemaManagerImpl implements SqlSchemaManager {
-    private static final String DEFAULT_SCHEMA_NAME = "PUBLIC";
-
     private final VersionedValue<Map<String, IgniteSchema>> schemasVv;
 
     private final VersionedValue<Map<UUID, InternalIgniteTable>> tablesVv;
@@ -322,7 +321,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     private SchemaPlus rebuild(Map<String, IgniteSchema> schemas) {
         SchemaPlus newCalciteSchema = Frameworks.createRootSchema(false);
 
-        newCalciteSchema.add("PUBLIC", new IgniteSchema("PUBLIC"));
+        newCalciteSchema.add(DEFAULT_SCHEMA_NAME, new IgniteSchema(DEFAULT_SCHEMA_NAME));
 
         schemas.forEach(newCalciteSchema::add);
 

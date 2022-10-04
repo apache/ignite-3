@@ -173,7 +173,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         checkDdl(false, ses, "ALTER TABLE IF EXISTS NOT_EXISTS_TABLE DROP COLUMN VAL1");
         checkError(
                 ColumnNotFoundException.class,
-                "Column does not exist [name=\"VAL1\"]",
+                "Column does not exist [tableName=\"PUBLIC\".\"TEST\", columnName=\"VAL1\"]",
                 ses,
                 "ALTER TABLE TEST DROP COLUMN VAL1"
         );

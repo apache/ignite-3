@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.exec.ddl;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.sql.engine.SqlQueryProcessor.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.lang.ErrorGroups.Sql.DEL_PK_COMUMN_CONSTRAINT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.UNSUPPORTED_DDL_OPERATION_ERR;
@@ -383,7 +384,7 @@ public class DdlCommandHandler {
                             ret.set(false);
 
                             if (!ignoreColumnExistence) {
-                                throw new ColumnNotFoundException(colName);
+                                throw new ColumnNotFoundException(DEFAULT_SCHEMA_NAME, tableName, colName);
                             }
                         } else {
                             colNames0.add(colName);
