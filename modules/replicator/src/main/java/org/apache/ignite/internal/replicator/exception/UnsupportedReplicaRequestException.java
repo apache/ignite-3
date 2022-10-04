@@ -18,12 +18,13 @@
 package org.apache.ignite.internal.replicator.exception;
 
 import java.util.UUID;
+import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.lang.ErrorGroups.Replicator;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 
 /**
- * The exception is thrown when a replication request is not supported by {@link org.apache.ignite.internal.replicator.listener.ReplicaListener}.
+ * The exception is thrown when a replication request is not supported by {@link ReplicaListener}.
  */
 public class UnsupportedReplicaRequestException extends IgniteInternalException {
     /**
