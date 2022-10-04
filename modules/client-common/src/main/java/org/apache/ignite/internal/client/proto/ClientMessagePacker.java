@@ -884,110 +884,135 @@ public class ClientMessagePacker implements AutoCloseable {
     }
 
     /**
-     * Packs an array of different objects.
+     * Packs an array of objects in BinaryTuple format.
      *
-     * @param args Object array.
-     * @throws UnsupportedOperationException in case of unknown type.
+     * @param vals Object array.
      */
-    public void packObjectArrayAsBinaryTuple(Object[] args) {
+    public void packObjectArrayAsBinaryTuple(Object[] vals) {
         assert !closed : "Packer is closed";
 
-        if (args == null) {
+        if (vals == null) {
             packNil();
 
             return;
         }
 
-        packInt(args.length);
+        packInt(vals.length);
 
         // Builder with inline schema.
-        // Every element in args is represented by 3 tuple elements: type, scale, value.
-        var builder = new BinaryTupleBuilder(args.length * 3, true);
+        // Every element in vals is represented by 3 tuple elements: type, scale, value.
+        var builder = new BinaryTupleBuilder(vals.length * 3, true);
 
-        for (Object arg : args) {
-            if (arg == null) {
-                builder.appendNull();
-                builder.appendNull();
-                builder.appendNull();
-            } else if (arg instanceof Byte) {
-                builder.appendInt(ClientDataType.INT8);
-                builder.appendNull();
-                builder.appendByte((Byte) arg);
-            } else if (arg instanceof Short) {
-                builder.appendInt(ClientDataType.INT16);
-                builder.appendNull();
-                builder.appendShort((Short) arg);
-            } else if (arg instanceof Integer) {
-                builder.appendInt(ClientDataType.INT32);
-                builder.appendNull();
-                builder.appendInt((Integer) arg);
-            } else if (arg instanceof Long) {
-                builder.appendInt(ClientDataType.INT64);
-                builder.appendNull();
-                builder.appendLong((Long) arg);
-            } else if (arg instanceof Float) {
-                builder.appendInt(ClientDataType.FLOAT);
-                builder.appendNull();
-                builder.appendFloat((Float) arg);
-            } else if (arg instanceof Double) {
-                builder.appendInt(ClientDataType.DOUBLE);
-                builder.appendNull();
-                builder.appendDouble((Double) arg);
-            } else if (arg instanceof BigDecimal) {
-                BigDecimal bigDecimal = (BigDecimal) arg;
+        for (Object arg : vals) {
+            appendObjectToBinaryTuple(builder, arg);
+        }
 
-                builder.appendInt(ClientDataType.DECIMAL);
-                builder.appendInt(bigDecimal.scale());
-                builder.appendDecimal(bigDecimal, bigDecimal.scale());
-            } else if (arg instanceof UUID) {
-                builder.appendInt(ClientDataType.UUID);
-                builder.appendNull();
-                builder.appendUuid((UUID) arg);
-            } else if (arg instanceof String) {
-                builder.appendInt(ClientDataType.STRING);
-                builder.appendNull();
-                builder.appendString((String) arg);
-            } else if (arg instanceof byte[]) {
-                builder.appendInt(ClientDataType.BYTES);
-                builder.appendNull();
-                builder.appendBytes((byte[]) arg);
-            } else if (arg instanceof BitSet) {
-                builder.appendInt(ClientDataType.BITMASK);
-                builder.appendNull();
-                builder.appendBitmask((BitSet) arg);
-            } else if (arg instanceof LocalDate) {
-                builder.appendInt(ClientDataType.DATE);
-                builder.appendNull();
-                builder.appendDate((LocalDate) arg);
-            } else if (arg instanceof LocalTime) {
-                builder.appendInt(ClientDataType.TIME);
-                builder.appendNull();
-                builder.appendTime((LocalTime) arg);
-            } else if (arg instanceof LocalDateTime) {
-                builder.appendInt(ClientDataType.DATETIME);
-                builder.appendNull();
-                builder.appendDateTime((LocalDateTime) arg);
-            } else if (arg instanceof Instant) {
-                builder.appendInt(ClientDataType.TIMESTAMP);
-                builder.appendNull();
-                builder.appendTimestamp((Instant) arg);
-            } else if (arg instanceof BigInteger) {
-                builder.appendInt(ClientDataType.NUMBER);
-                builder.appendNull();
-                builder.appendNumber((BigInteger) arg);
-            } else if (arg instanceof Boolean) {
-                builder.appendInt(ClientDataType.BOOLEAN);
-                builder.appendNull();
-                builder.appendByte((byte) ((Boolean) arg ? 1 : 0));
-            } else if (arg instanceof Duration) {
-                builder.appendInt(ClientDataType.DURATION);
-                builder.appendNull();
-                builder.appendDuration((Duration) arg);
-            } else if (arg instanceof Period) {
-                builder.appendInt(ClientDataType.PERIOD);
-                builder.appendNull();
-                builder.appendPeriod((Period) arg);
-            }
+        packBinaryTuple(builder);
+    }
+
+    /**
+     * Packs an objects in BinaryTuple format.
+     *
+     * @param val Object array.
+     */
+    public void packObjectAsBinaryTuple(Object val) {
+        assert !closed : "Packer is closed";
+
+        if (val == null) {
+            packNil();
+
+            return;
+        }
+
+        // Builder with inline schema.
+        // Value is represented by 3 tuple elements: type, scale, value.
+        var builder = new BinaryTupleBuilder(3, false, 1);
+        appendObjectToBinaryTuple(builder, val);
+    }
+
+    private static void appendObjectToBinaryTuple(BinaryTupleBuilder builder, Object arg) {
+        if (arg == null) {
+            builder.appendNull();
+            builder.appendNull();
+            builder.appendNull();
+        } else if (arg instanceof Byte) {
+            builder.appendInt(ClientDataType.INT8);
+            builder.appendNull();
+            builder.appendByte((Byte) arg);
+        } else if (arg instanceof Short) {
+            builder.appendInt(ClientDataType.INT16);
+            builder.appendNull();
+            builder.appendShort((Short) arg);
+        } else if (arg instanceof Integer) {
+            builder.appendInt(ClientDataType.INT32);
+            builder.appendNull();
+            builder.appendInt((Integer) arg);
+        } else if (arg instanceof Long) {
+            builder.appendInt(ClientDataType.INT64);
+            builder.appendNull();
+            builder.appendLong((Long) arg);
+        } else if (arg instanceof Float) {
+            builder.appendInt(ClientDataType.FLOAT);
+            builder.appendNull();
+            builder.appendFloat((Float) arg);
+        } else if (arg instanceof Double) {
+            builder.appendInt(ClientDataType.DOUBLE);
+            builder.appendNull();
+            builder.appendDouble((Double) arg);
+        } else if (arg instanceof BigDecimal) {
+            BigDecimal bigDecimal = (BigDecimal) arg;
+
+            builder.appendInt(ClientDataType.DECIMAL);
+            builder.appendInt(bigDecimal.scale());
+            builder.appendDecimal(bigDecimal, bigDecimal.scale());
+        } else if (arg instanceof UUID) {
+            builder.appendInt(ClientDataType.UUID);
+            builder.appendNull();
+            builder.appendUuid((UUID) arg);
+        } else if (arg instanceof String) {
+            builder.appendInt(ClientDataType.STRING);
+            builder.appendNull();
+            builder.appendString((String) arg);
+        } else if (arg instanceof byte[]) {
+            builder.appendInt(ClientDataType.BYTES);
+            builder.appendNull();
+            builder.appendBytes((byte[]) arg);
+        } else if (arg instanceof BitSet) {
+            builder.appendInt(ClientDataType.BITMASK);
+            builder.appendNull();
+            builder.appendBitmask((BitSet) arg);
+        } else if (arg instanceof LocalDate) {
+            builder.appendInt(ClientDataType.DATE);
+            builder.appendNull();
+            builder.appendDate((LocalDate) arg);
+        } else if (arg instanceof LocalTime) {
+            builder.appendInt(ClientDataType.TIME);
+            builder.appendNull();
+            builder.appendTime((LocalTime) arg);
+        } else if (arg instanceof LocalDateTime) {
+            builder.appendInt(ClientDataType.DATETIME);
+            builder.appendNull();
+            builder.appendDateTime((LocalDateTime) arg);
+        } else if (arg instanceof Instant) {
+            builder.appendInt(ClientDataType.TIMESTAMP);
+            builder.appendNull();
+            builder.appendTimestamp((Instant) arg);
+        } else if (arg instanceof BigInteger) {
+            builder.appendInt(ClientDataType.NUMBER);
+            builder.appendNull();
+            builder.appendNumber((BigInteger) arg);
+        } else if (arg instanceof Boolean) {
+            builder.appendInt(ClientDataType.BOOLEAN);
+            builder.appendNull();
+            builder.appendByte((byte) ((Boolean) arg ? 1 : 0));
+        } else if (arg instanceof Duration) {
+            builder.appendInt(ClientDataType.DURATION);
+            builder.appendNull();
+            builder.appendDuration((Duration) arg);
+        } else if (arg instanceof Period) {
+            builder.appendInt(ClientDataType.PERIOD);
+            builder.appendNull();
+            builder.appendPeriod((Period) arg);
         }
     }
 
