@@ -638,6 +638,7 @@ public class ClientMessageUnpacker implements AutoCloseable {
         var length = unpackBinaryHeader();
         var idx = buf.readerIndex();
 
+        // TODO IGNITE-17821 Thin 3.0 Perf: Implement BinaryTupleReader and Builder over ByteBuf.
         // Note: this may or may not avoid the actual copy.
         ByteBuffer byteBuffer = buf.internalNioBuffer(idx, length).slice();
         byteBuffer.order(ByteOrder.LITTLE_ENDIAN);

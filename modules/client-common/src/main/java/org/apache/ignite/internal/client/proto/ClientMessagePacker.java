@@ -909,6 +909,7 @@ public class ClientMessagePacker implements AutoCloseable {
     public void packBinaryTuple(BinaryTupleBuilder builder, BitSet noValueSet) {
         packBitSet(noValueSet);
 
+        // TODO IGNITE-17821 Thin 3.0 Perf: Implement BinaryTupleReader and Builder over ByteBuf.
         var buf = builder.build();
         packBinaryHeader(buf.limit() - buf.position());
         writePayload(buf);
