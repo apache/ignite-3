@@ -29,6 +29,7 @@ import org.apache.ignite.configuration.schemas.table.VolatileRaftConfigurationSc
 @ConfigurationRoot(rootName = "raft", type = ConfigurationType.LOCAL)
 public class RaftConfigurationSchema {
     /** Configuration for Raft groups corresponding to table partitions. */
+    // TODO: IGNITE-16647 - Volatile RAFT configuration should be moved elsewhere
     @ConfigValue
     public VolatileRaftConfigurationSchema volatileRaft;
 }
