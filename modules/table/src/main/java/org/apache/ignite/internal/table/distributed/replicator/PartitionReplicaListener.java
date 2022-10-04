@@ -105,9 +105,6 @@ public class PartitionReplicaListener implements ReplicaListener {
     /** Dummy primary index. */
     private final ConcurrentHashMap<ByteBuffer, RowId> primaryIndex;
 
-    /** Hybrid clock. */
-    private final HybridClock hybridClock;
-
     /**
      * Cursors map. The key of the map is internal Ignite uuid which consists of a transaction id ({@link UUID}) and a cursor id ({@link
      * Long}).
@@ -144,7 +141,6 @@ public class PartitionReplicaListener implements ReplicaListener {
         this.replicationGroupId = replicationGroupId;
         this.tableId = tableId;
         this.primaryIndex = primaryIndex;
-        this.hybridClock = hybridClock;
 
         //TODO: IGNITE-17479 Integrate indexes into replicaListener command handlers
         this.indexScanId = new UUID(tableId.getMostSignificantBits(), tableId.getLeastSignificantBits() + 1);
