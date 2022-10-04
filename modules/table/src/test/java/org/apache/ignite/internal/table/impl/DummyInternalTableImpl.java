@@ -127,7 +127,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 1,
                 NetworkAddress::toString,
                 addr -> Mockito.mock(ClusterNode.class),
-                txManager == null ? new TxManagerImpl(replicaSvc, new HeapLockManager(), mock(HybridClock.class)) : txManager,
+                txManager == null ? new TxManagerImpl(replicaSvc, new HeapLockManager(), new HybridClock()) : txManager,
                 mock(MvTableStorage.class),
                 mock(TxStateTableStorage.class),
                 replicaSvc,
@@ -218,15 +218,6 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 this.txManager,
                 primaryIndex
         );
-    }
-
-    /**
-     * Partition listener.
-     *
-     * @return Partition listener.
-     */
-    public PartitionListener getPartitionListener() {
-        return partitionListener;
     }
 
     /**
