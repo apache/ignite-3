@@ -40,7 +40,9 @@ static constexpr std::array<std::byte, 4> MAGIC_BYTES = {
     std::byte('I'), std::byte('G'), std::byte('N'), std::byte('I')};
 
 template<typename T>
-[[nodiscard]] T unpack_object(const msgpack_object&);
+[[nodiscard]] T unpack_object(const msgpack_object&) {
+    static_assert(false, "Unpacking is not implemented for the type");
+}
 
 /**
  * Unpack number.

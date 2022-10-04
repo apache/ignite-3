@@ -19,16 +19,7 @@
 
 namespace ignite::protocol {
 
-void Writer::writeMessageToBuffer(buffer_adapter &buffer, const std::function<void(Writer &)> &script) {
-    buffer.reserve_length_header();
-
-    protocol::Writer writer(buffer);
-    script(writer);
-
-    buffer.write_length_header();
-}
-
-int Writer::writeCallback(void *data, const char *buf, size_t len) {
+int writer::write_callback(void *data, const char *buf, size_t len) {
     if (!data)
         return 0;
 

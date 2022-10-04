@@ -49,7 +49,7 @@ bool NodeConnection::handshake() {
         protocol::buffer_adapter buffer(message);
         buffer.write_raw(bytes_view(protocol::MAGIC_BYTES.data(), protocol::MAGIC_BYTES.size()));
 
-        protocol::Writer::writeMessageToBuffer(buffer, [&context = m_protocolContext](protocol::Writer &writer) {
+        protocol::write_message_to_buffer(buffer, [&context = m_protocolContext](protocol::writer &writer) {
             auto ver = context.getVersion();
 
             writer.write(ver.getMajor());
@@ -59,10 +59,10 @@ bool NodeConnection::handshake() {
             writer.write(CLIENT_TYPE);
 
             // Features.
-            writer.writeBinaryEmpty();
+            writer.write_binary_empty();
 
             // Extensions.
-            writer.writeMapEmpty();
+            writer.write_map_empty();
         });
     }
 

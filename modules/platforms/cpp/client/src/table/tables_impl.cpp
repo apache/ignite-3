@@ -36,7 +36,7 @@ void TablesImpl::getTableAsync(const std::string &name, ignite_callback<std::opt
         std::make_shared<ResponseHandlerImpl<std::optional<Table>>>(std::move(readerFunc), std::move(callback));
 
     m_connection->performRequest(
-        ClientOperation::TABLE_GET, [&name](protocol::Writer &writer) { writer.write(name); }, std::move(handler));
+        ClientOperation::TABLE_GET, [&name](protocol::writer &writer) { writer.write(name); }, std::move(handler));
 }
 
 void TablesImpl::getTablesAsync(ignite_callback<std::vector<Table>> callback) {

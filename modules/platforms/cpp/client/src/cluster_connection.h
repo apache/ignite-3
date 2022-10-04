@@ -98,7 +98,7 @@ public:
      * @param handler Response handler.
      */
     template <typename T>
-    void performRequest(ClientOperation op, const std::function<void(protocol::Writer &)> &wr,
+    void performRequest(ClientOperation op, const std::function<void(protocol::writer &)> &wr,
         std::shared_ptr<ResponseHandlerImpl<T>> handler) {
         while (true) {
             auto channel = getRandomChannel();
@@ -120,7 +120,7 @@ public:
      */
     template <typename T>
     void performRequest(ClientOperation op, std::shared_ptr<ResponseHandlerImpl<T>> handler) {
-        performRequest(op, [](protocol::Writer&) {}, std::move(handler));
+        performRequest(op, [](protocol::writer&) {}, std::move(handler));
     }
 
 private:
