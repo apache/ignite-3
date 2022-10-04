@@ -38,13 +38,13 @@ class ClientSqlCommon {
         out.packArrayHeader(asyncResultSet.currentPageSize());
 
         for (SqlRow row : asyncResultSet.currentPage()) {
+            // TODO IGNITE-17636 Avoid conversion, copy BinaryTuple from SQL to client.
             var builder = new BinaryTupleBuilder(row.columnCount(), true);
 
             for (int i = 0; i < cols.size(); i++) {
                 packValue(builder, cols.get(i), row, i);
             }
 
-            // TODO IGNITE-17777: Very inefficient - every BinaryTuple uses a separate buffer, then we copy it to ByteBuf.
             out.packBinaryTuple(builder);
         }
 
