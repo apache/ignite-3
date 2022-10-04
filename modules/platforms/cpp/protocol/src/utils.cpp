@@ -36,7 +36,7 @@ int64_t unpack_object(const msgpack_object &object) {
 
 template<>
 uuid unpack_object(const msgpack_object &object) {
-    if (object.type != MSGPACK_OBJECT_EXT && object.via.ext.type != std::int8_t(ExtensionTypes::UUID))
+    if (object.type != MSGPACK_OBJECT_EXT && object.via.ext.type != std::int8_t(extension_type::UUID))
         throw ignite_error("The value in stream is not a UUID");
 
     if (object.via.ext.size != 16)

@@ -24,7 +24,7 @@ namespace ignite::protocol {
 /**
  * Extension types.
  */
-enum class ExtensionTypes : std::int8_t {
+enum class extension_type : std::int8_t {
     NUMBER = 1,
 
     DECIMAL = 2,
