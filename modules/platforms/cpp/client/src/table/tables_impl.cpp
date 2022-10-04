@@ -15,8 +15,6 @@
  * limitations under the License.
  */
 
-#include "common/utils.h"
-
 #include "ignite/protocol/reader.h"
 #include "ignite/protocol/writer.h"
 #include "table/tables_impl.h"
@@ -28,8 +26,8 @@ void TablesImpl::getTableAsync(const std::string &name, ignite_callback<std::opt
         if (reader.tryReadNil())
             return std::nullopt;
 
-        auto guid = reader.readGuid();
-        auto tableImpl = std::make_shared<TableImpl>(name, guid);
+        auto id = reader.readUuid();
+        auto tableImpl = std::make_shared<TableImpl>(name, id);
 
         return std::make_optional(Table(tableImpl));
     };
@@ -39,6 +37,28 @@ void TablesImpl::getTableAsync(const std::string &name, ignite_callback<std::opt
 
     m_connection->performRequest(
         ClientOperation::TABLE_GET, [&name](protocol::Writer &writer) { writer.write(name); }, std::move(handler));
+}
+
+void TablesImpl::getTablesAsync(ignite_callback<std::vector<Table>> callback) {
+    auto readerFunc = [](protocol::Reader &reader) -> std::vector<Table> {
+        if (reader.tryReadNil())
+            return {};
+
+        std::vector<Table> tables;
+        tables.reserve(reader.readMapSize());
+
+        reader.readMap<uuid, std::string>([&tables] (auto&& id, auto&& name) {
+            auto tableImpl = std::make_shared<TableImpl>(std::forward<std::string>(name), std::forward<uuid>(id));
+            tables.push_back(Table{tableImpl});
+        });
+
+        return std::move(tables);
+    };
+
+    auto handler =
+        std::make_shared<ResponseHandlerImpl<std::vector<Table>>>(std::move(readerFunc), std::move(callback));
+
+    m_connection->performRequest(ClientOperation::TABLES_GET, std::move(handler));
 }
 
 } // namespace ignite::detail

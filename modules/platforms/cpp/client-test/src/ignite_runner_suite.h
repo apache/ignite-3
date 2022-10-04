@@ -17,51 +17,30 @@
 
 #pragma once
 
+#include "gtest_logger.h"
+
+#include <gtest/gtest.h>
+
 #include <memory>
 
 namespace ignite {
 
 /**
- * Factory class.
- *
- * @tparam T Instances of this type factory builds.
+ * Test suite.
  */
-template <typename T>
-class factory {
-public:
-    /**
-     * Destructor.
-     */
-    virtual ~factory() = default;
+class ignite_runner_suite : public ::testing::Test {
+protected:
+    static constexpr std::initializer_list<std::string_view> NODE_ADDRS = {"127.0.0.1:10942", "127.0.0.1:10943"};
+
+    ignite_runner_suite() = default;
+    ~ignite_runner_suite() override = default;
 
     /**
-     * Build instance.
+     * Get logger.
      *
-     * @return New instance of type @c T.
+     * @return Logger for tests.
      */
-    virtual std::unique_ptr<T> build() = 0;
-};
-
-/**
- * Basic factory class.
- *
- * @tparam TB Base type.
- * @tparam TC Concrete type.
- */
-template <typename TB, typename TC>
-class basic_factory : public factory<TB> {
-public:
-    /**
-     * Destructor.
-     */
-    virtual ~basic_factory() = default;
-
-    /**
-     * Build instance.
-     *
-     * @return New instance of type @c T.
-     */
-    [[nodiscard]] std::unique_ptr<TB> build() override { return std::make_unique<TC>(); }
+    static std::shared_ptr<gtest_logger> get_logger() { return std::make_shared<gtest_logger>(false, true); }
 };
 
 } // namespace ignite

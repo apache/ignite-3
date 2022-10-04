@@ -17,18 +17,20 @@
 
 #pragma once
 
+#include "ignite/ignite_logger.h"
+
+#include <gtest/gtest.h>
+
 #include <memory>
 #include <sstream>
 #include <string>
-
-#include <gtest/gtest.h>
 
 namespace ignite {
 
 /**
  * Test logger.
  */
-class GtestLogger : public IgniteLogger {
+class gtest_logger : public IgniteLogger {
 public:
     /**
      * Construct.
@@ -36,25 +38,25 @@ public:
      * @param includeTs Include timestamps.
      * @param debug Enable debug.
      */
-    GtestLogger(bool includeTs, bool debug)
+    gtest_logger(bool includeTs, bool debug)
         : m_includeTs(includeTs)
         , m_debug(debug) { }
 
     void logError(std::string_view message) override {
-        std::cout << "[          ] [ ERROR ]   " + std::string(message) + '\n' << std::flush;
+        std::cout << "[          ] [ ERROR ]   " + get_timestamp() + std::string(message) + '\n' << std::flush;
     }
 
     void logWarning(std::string_view message) override {
-        std::cout << "[          ] [ WARNING ] " + std::string(message) + '\n' << std::flush;
+        std::cout << "[          ] [ WARNING ] " + get_timestamp() + std::string(message) + '\n' << std::flush;
     }
 
     void logInfo(std::string_view message) override {
-        std::cout << "[          ] [ INFO ]    " + std::string(message) + '\n' << std::flush;
+        std::cout << "[          ] [ INFO ]    " + get_timestamp() + std::string(message) + '\n' << std::flush;
     }
 
     void logDebug(std::string_view message) override {
         if (m_debug)
-            std::cout << "[          ] [ DEBUG ]   " + std::string(message) + '\n' << std::flush;
+            std::cout << "[          ] [ DEBUG ]   " + get_timestamp() + std::string(message) + '\n' << std::flush;
     }
 
 private:
@@ -63,7 +65,7 @@ private:
      *
      * @return Timestamp string.
      */
-    [[nodiscard]] std::string getTimestamp() const {
+    [[nodiscard]] std::string get_timestamp() const {
         if (!m_includeTs)
             return {};
 

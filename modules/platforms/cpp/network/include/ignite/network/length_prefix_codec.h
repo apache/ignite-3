@@ -86,20 +86,7 @@ private:
     bool m_magicReceived;
 };
 
-/**
- * Factory for LengthPrefixCodec.
- */
-class LengthPrefixCodecFactory : public factory<Codec> {
-public:
-    // Default
-    LengthPrefixCodecFactory() = default;
-
-    /**
-     * Build instance.
-     *
-     * @return New instance of type @c T.
-     */
-    std::unique_ptr<Codec> build() override { return std::make_unique<LengthPrefixCodec>(); }
-};
+/** Factory for LengthPrefixCodec. */
+typedef basic_factory<Codec, LengthPrefixCodec> LengthPrefixCodecFactory;
 
 } // namespace ignite::network
