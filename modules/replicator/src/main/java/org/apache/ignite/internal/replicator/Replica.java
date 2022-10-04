@@ -24,7 +24,6 @@ import org.apache.ignite.lang.IgniteStringFormatter;
 
 /**
  * Replica server.
- * TODO:IGNITE-17257 Implement Replica server-side logic.
  */
 public class Replica {
     /** Replica group identity, this id is the same as the considered partition's id. */

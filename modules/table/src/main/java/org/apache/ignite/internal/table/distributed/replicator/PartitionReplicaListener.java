@@ -309,7 +309,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 )
         );
 
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-17578
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-17578 Cleanup process should be asynchronous.
         CompletableFuture[] cleanupFutures = new CompletableFuture[request.groups().size()];
         AtomicInteger cleanupFuturesCnt = new AtomicInteger(0);
 
