@@ -15,9 +15,10 @@
  * limitations under the License.
  */
 
-#include "ignite/protocol/utils.h"
+#include "ignite/network/length_prefix_codec.h"
 
-#include <ignite/network/length_prefix_codec.h>
+#include "common/bytes.h"
+#include "ignite/protocol/utils.h"
 
 namespace ignite::network {
 
@@ -61,7 +62,7 @@ DataBufferRef LengthPrefixCodec::decode(DataBufferRef &data) {
         if (m_packet.size() < PACKET_HEADER_SIZE)
             return {};
 
-        m_packetSize = protocol::read_int32(m_packet.data());
+        m_packetSize = bytes::load<Endian::LITTLE, int32_t>(m_packet.data());
     }
 
     consume(data, m_packetSize + PACKET_HEADER_SIZE);

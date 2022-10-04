@@ -18,6 +18,7 @@
 #include "ignite/protocol/buffer_adapter.h"
 
 #include "common/ignite_error.h"
+#include "common/bytes.h"
 #include "ignite/protocol/utils.h"
 
 namespace ignite::protocol {
@@ -28,7 +29,7 @@ void buffer_adapter::write_length_header() {
 
     auto length = std::int32_t(m_buffer.size() - (m_length_pos + LENGTH_HEADER_SIZE));
 
-    writeInt32(length, m_buffer.data(), m_length_pos);
+    bytes::store<Endian::LITTLE, int32_t>(m_buffer.data() + m_length_pos, length);
 }
 
 } // namespace ignite::protocol
