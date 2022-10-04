@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.configuration.testframework;
 
+import static java.lang.reflect.Modifier.isStatic;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
 import static org.apache.ignite.internal.configuration.notifications.ConfigurationNotifier.notifyListeners;
@@ -30,7 +31,6 @@ import static org.mockito.Mockito.when;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigObject;
 import java.lang.reflect.Field;
-import java.lang.reflect.Modifier;
 import java.lang.reflect.Parameter;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -43,7 +43,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.InternalConfiguration;
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
@@ -92,7 +91,7 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
     private static final Object POOL_KEY = new Object();
 
     /** Key to store {@link StorageRevisionListenerHolderImpl} in {@link ExtensionContext.Store} for all tests. */
-    private static final Object REVISION_LISTENER_HOLDER_KEY = new Object();
+    private static final Object REVISION_LISTENER_ALL_TEST_HOLDER_KEY = new Object();
 
     /** Key to store {@link StorageRevisionListenerHolderImpl} in {@link ExtensionContext.Store} for each test. */
     private static final Object REVISION_LISTENER_PER_TEST_HOLDER_KEY = new Object();
@@ -104,7 +103,7 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
     private static final List<Class<?>> POLYMORPHIC_EXTENSIONS;
 
     static {
-        // Automatically find all @InternalConfiguration and PolymorphicConfigInstance classes
+        // Automatically find all @InternalConfiguration and @PolymorphicConfigInstance classes
         // to avoid configuring extensions manually in every test.
         ServiceLoader<ConfigurationModule> modules = ServiceLoader.load(ConfigurationModule.class);
 
@@ -136,7 +135,7 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
 
         context.getStore(NAMESPACE).remove(POOL_KEY, ExecutorService.class).shutdownNow();
 
-        context.getStore(NAMESPACE).remove(REVISION_LISTENER_HOLDER_KEY);
+        context.getStore(NAMESPACE).remove(REVISION_LISTENER_ALL_TEST_HOLDER_KEY);
     }
 
     /** {@inheritDoc} */
@@ -159,7 +158,7 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
         StorageRevisionListenerHolderImpl revisionListenerHolder = new StorageRevisionListenerHolderImpl();
 
         if (forStatic) {
-            store.put(REVISION_LISTENER_HOLDER_KEY, revisionListenerHolder);
+            store.put(REVISION_LISTENER_ALL_TEST_HOLDER_KEY, revisionListenerHolder);
         } else {
             store.put(REVISION_LISTENER_PER_TEST_HOLDER_KEY, revisionListenerHolder);
         }
@@ -254,14 +253,16 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
         // classes, extension is designed to mock actual configurations from public API to configure Ignite components.
         Class<?> schemaClass = Class.forName(type.getCanonicalName() + "Schema");
 
-        List<Class<?>> internalExtensions = new ArrayList<>(INTERNAL_EXTENSIONS);
-        List<Class<?>> polymorphicExtensions = new ArrayList<>(POLYMORPHIC_EXTENSIONS);
+        List<Class<?>> internalExtensions = INTERNAL_EXTENSIONS;
+        List<Class<?>> polymorphicExtensions = POLYMORPHIC_EXTENSIONS;
 
         if (annotation.internalExtensions().length > 0) {
+            internalExtensions = new ArrayList<>(internalExtensions);
             internalExtensions.addAll(List.of(annotation.internalExtensions()));
         }
 
         if (annotation.polymorphicExtensions().length > 0) {
+            polymorphicExtensions = new ArrayList<>(polymorphicExtensions);
             polymorphicExtensions.addAll(List.of(annotation.polymorphicExtensions()));
         }
 
@@ -364,18 +365,18 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
         return AnnotationSupport.findAnnotatedFields(
                 testClass,
                 InjectConfiguration.class,
-                field -> supportsAsConfigurationType(field.getType()),
+                field -> supportsAsConfigurationType(field.getType()) && (isStatic(field.getModifiers()) == forStatic),
                 HierarchyTraversalMode.TOP_DOWN
-        ).stream().filter(field -> Modifier.isStatic(field.getModifiers()) == forStatic).collect(Collectors.toList());
+        );
     }
 
     private static List<Field> getInjectRevisionListenerHolderFields(Class<?> testClass, boolean forStatic) {
         return AnnotationSupport.findAnnotatedFields(
                 testClass,
                 InjectRevisionListenerHolder.class,
-                field -> isRevisionListenerHolder(field.getType()),
+                field -> isRevisionListenerHolder(field.getType()) && (isStatic(field.getModifiers()) == forStatic),
                 HierarchyTraversalMode.TOP_DOWN
-        ).stream().filter(field -> Modifier.isStatic(field.getModifiers()) == forStatic).collect(Collectors.toList());
+        );
     }
 
     private static boolean supportsAsConfigurationType(Class<?> type) {

@@ -25,7 +25,7 @@ import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorCo
 import org.apache.ignite.internal.configuration.ConfigurationModule;
 
 /**
- * {@link ConfigurationModule} for cluster-wide configuration provided by client-handler.
+ * {@link ConfigurationModule} for node-local configuration provided by client-handler.
  */
 public class ClientHandlerConfigurationModule implements ConfigurationModule {
     @Override

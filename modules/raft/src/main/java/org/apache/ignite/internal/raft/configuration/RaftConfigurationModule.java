@@ -27,7 +27,7 @@ import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfiguratio
 import org.apache.ignite.internal.configuration.ConfigurationModule;
 
 /**
- * {@link ConfigurationModule} for cluster-wide configuration provided by ignite-raft.
+ * {@link ConfigurationModule} for node-local configuration provided by ignite-raft.
  */
 public class RaftConfigurationModule implements ConfigurationModule {
     @Override

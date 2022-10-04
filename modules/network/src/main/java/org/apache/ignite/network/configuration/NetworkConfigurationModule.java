@@ -25,7 +25,7 @@ import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationModule;
 
 /**
- * {@link ConfigurationModule} for cluster-wide configuration provided by ignite-network.
+ * {@link ConfigurationModule} for node-local configuration provided by ignite-network.
  */
 public class NetworkConfigurationModule implements ConfigurationModule {
     @Override

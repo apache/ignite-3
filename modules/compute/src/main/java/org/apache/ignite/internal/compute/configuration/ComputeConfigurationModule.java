@@ -25,7 +25,7 @@ import org.apache.ignite.configuration.schemas.compute.ComputeConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationModule;
 
 /**
- * {@link ConfigurationModule} for cluster-wide configuration provided by compute.
+ * {@link ConfigurationModule} for node-local configuration provided by compute.
  */
 public class ComputeConfigurationModule implements ConfigurationModule {
     @Override

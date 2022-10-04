@@ -25,7 +25,7 @@ import org.apache.ignite.configuration.schemas.rest.RestConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationModule;
 
 /**
- * {@link ConfigurationModule} for cluster-wide configuration provided by ignite-rest.
+ * {@link ConfigurationModule} for node-local configuration provided by ignite-rest.
  */
 public class RestConfigurationModule implements ConfigurationModule {
     @Override
