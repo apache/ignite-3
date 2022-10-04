@@ -127,7 +127,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 1,
                 NetworkAddress::toString,
                 addr -> Mockito.mock(ClusterNode.class),
-                txManager == null ? new TxManagerImpl(replicaSvc, new HeapLockManager()) : txManager,
+                txManager == null ? new TxManagerImpl(replicaSvc, new HeapLockManager(), mock(HybridClock.class)) : txManager,
                 mock(MvTableStorage.class),
                 mock(TxStateTableStorage.class),
                 replicaSvc,

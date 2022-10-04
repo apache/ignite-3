@@ -431,12 +431,14 @@ public class ItRebalanceDistributedTest {
                     Set.of(TableMessageGroup.class, TxMessageGroup.class)
             );
 
+            HybridClock hybridClock = new HybridClock();
+
             ReplicaService replicaSvc = new ReplicaService(
                     clusterService.messagingService(),
-                    new HybridClock()
+                    hybridClock
             );
 
-            txManager = new TxManagerImpl(replicaSvc, lockManager);
+            txManager = new TxManagerImpl(replicaSvc, lockManager, hybridClock);
 
             cmgManager = new ClusterManagementGroupManager(
                     vaultManager,

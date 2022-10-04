@@ -280,19 +280,16 @@ public class PartitionReplicaListener implements ReplicaListener {
     /**
      * Process transaction finish request:
      * <ol>
-     *     <li>Evaluate commit timestamp.</li>
+     *     <li>Get commit timestamp from finish replica request.</li>
      *     <li>Run specific raft {@code FinishTxCommand} command, that will apply txn state to corresponding txStateStorage.</li>
      *     <li>Send cleanup requests to all enlisted primary replicas.</li>
      * </ol>
-     * This operation is NOT idempotent, because of commit timestamp evaluation.
      *
      * @param request Transaction finish request.
      * @return future result of the operation.
      */
     // TODO: need to properly handle primary replica changes https://issues.apache.org/jira/browse/IGNITE-17615
     private CompletableFuture<Object> processTxFinishAction(TxFinishReplicaRequest request) {
-        HybridTimestamp commitTimestamp = hybridClock.now();
-
         List<String> aggregatedGroupIds = request.groups().values().stream()
                 .flatMap(List::stream).map(IgniteBiTuple::get1).collect(Collectors.toList());
 
@@ -304,7 +301,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 new FinishTxCommand(
                         txId,
                         commit,
-                        commitTimestamp,
+                        request.commitTimestamp(),
                         aggregatedGroupIds
                 )
         );
@@ -321,7 +318,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                         replicationGroupIds,
                                         txId,
                                         commit,
-                                        commitTimestamp
+                                        request.commitTimestamp()
                                 )
                         )
         );

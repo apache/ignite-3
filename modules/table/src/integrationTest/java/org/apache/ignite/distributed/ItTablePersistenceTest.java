@@ -105,7 +105,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
     @Override
     public void beforeFollowerStop(RaftGroupService service) throws Exception {
         // TODO: https://issues.apache.org/jira/browse/IGNITE-17817 Use Replica layer with new transaction protocol.
-        TxManagerImpl txManager = new TxManagerImpl(null, new HeapLockManager());
+        TxManagerImpl txManager = new TxManagerImpl(null, new HeapLockManager(), new HybridClock());
 
         managers.add(txManager);
 
@@ -132,7 +132,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
     @Override
     public void afterFollowerStop(RaftGroupService service) throws Exception {
         // TODO: https://issues.apache.org/jira/browse/IGNITE-17817 Use Replica layer with new transaction protocol.
-        TxManagerImpl txManager = new TxManagerImpl(null, new HeapLockManager());
+        TxManagerImpl txManager = new TxManagerImpl(null, new HeapLockManager(), new HybridClock());
 
         managers.add(txManager);
 
@@ -165,7 +165,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
     @Override
     public void afterSnapshot(RaftGroupService service) throws Exception {
         // TODO: https://issues.apache.org/jira/browse/IGNITE-17817 Use Replica layer with new transaction protocol.
-        TxManager txManager = new TxManagerImpl(null, new HeapLockManager());
+        TxManager txManager = new TxManagerImpl(null, new HeapLockManager(), new HybridClock());
 
         managers.add(txManager);
 
@@ -227,7 +227,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 .map(Map.Entry::getKey)
                 .findAny()
                 .orElseGet(() -> {
-                    TxManagerImpl txManager = new TxManagerImpl(null, new HeapLockManager());
+                    TxManagerImpl txManager = new TxManagerImpl(null, new HeapLockManager(), new HybridClock());
 
                     txManager.start(); // Init listener.
 

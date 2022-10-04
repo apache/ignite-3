@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -57,6 +58,9 @@ public class TxManagerImpl implements TxManager {
     /** Lock manager. */
     private final LockManager lockManager;
 
+    /** A hybrid logical clock. */
+    private final HybridClock clock;
+
     // TODO: IGNITE-17638 Consider using Txn state map instead of states.
     /** The storage for tx states. */
     @TestOnly
@@ -65,11 +69,14 @@ public class TxManagerImpl implements TxManager {
     /**
      * The constructor.
      *
+     * @param replicaService Replica service.
      * @param lockManager Lock manager.
+     * @param clock A hybrid logical clock.
      */
-    public TxManagerImpl(ReplicaService replicaService,  LockManager lockManager) {
+    public TxManagerImpl(ReplicaService replicaService, LockManager lockManager, HybridClock clock) {
         this.replicaService = replicaService;
         this.lockManager = lockManager;
+        this.clock = clock;
     }
 
     /** {@inheritDoc} */
@@ -152,11 +159,14 @@ public class TxManagerImpl implements TxManager {
     ) {
         assert groups != null && !groups.isEmpty();
 
+        HybridTimestamp commitTimestamp = commit ? clock.now() : null;
+
         TxFinishReplicaRequest req = FACTORY.txFinishReplicaRequest()
                 .txId(txId)
                 .groupId(groups.values().iterator().next().get(0).get1())
                 .groups(groups)
                 .commit(commit)
+                .commitTimestamp(commitTimestamp)
                 .term(term)
                 .build();
 

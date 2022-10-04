@@ -226,9 +226,11 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 nettyBootstrapFactory
         );
 
-        var raftMgr = new Loza(clusterSvc, dir, new HybridClock());
+        HybridClock hybridClock = new HybridClock();
 
-        var txManager = new TxManagerImpl(null, new HeapLockManager());
+        var raftMgr = new Loza(clusterSvc, dir, hybridClock);
+
+        var txManager = new TxManagerImpl(null, new HeapLockManager(), hybridClock);
 
         var cmgManager = new ClusterManagementGroupManager(
                 vault,

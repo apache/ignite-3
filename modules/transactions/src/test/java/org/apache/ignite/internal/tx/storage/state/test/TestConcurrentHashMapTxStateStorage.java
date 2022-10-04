@@ -38,18 +38,18 @@ public class TestConcurrentHashMapTxStateStorage implements TxStateStorage {
     private final ConcurrentHashMap<UUID, TxMeta> storage = new ConcurrentHashMap<>();
 
     /** {@inheritDoc} */
-    @Override public TxMeta get(UUID txId) {
+    @Override
+    public TxMeta get(UUID txId) {
         return storage.get(txId);
     }
 
     /** {@inheritDoc} */
-    @Override public void put(UUID txId, TxMeta txMeta) {
+    @Override
+    public void put(UUID txId, TxMeta txMeta) {
         storage.put(txId, txMeta);
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public boolean compareAndSet(UUID txId, TxState txStateExpected, @NotNull TxMeta txMeta, long commandIndex) {
         while (true) {
@@ -73,17 +73,20 @@ public class TestConcurrentHashMapTxStateStorage implements TxStateStorage {
     }
 
     /** {@inheritDoc} */
-    @Override public void remove(UUID txId) {
+    @Override
+    public void remove(UUID txId) {
         storage.remove(txId);
     }
 
     /** {@inheritDoc} */
-    @Override public Cursor<IgniteBiTuple<UUID, TxMeta>> scan() {
+    @Override
+    public Cursor<IgniteBiTuple<UUID, TxMeta>> scan() {
         return Cursor.fromIterator(storage.entrySet().stream().map(e -> new IgniteBiTuple<>(e.getKey(), e.getValue())).iterator());
     }
 
     /** {@inheritDoc} */
-    @Override public void destroy() {
+    @Override
+    public void destroy() {
         try {
             close();
 
@@ -94,22 +97,26 @@ public class TestConcurrentHashMapTxStateStorage implements TxStateStorage {
     }
 
     /** {@inheritDoc} */
-    @Override public CompletableFuture<Void> flush() {
+    @Override
+    public CompletableFuture<Void> flush() {
         return completedFuture(null);
     }
 
     /** {@inheritDoc} */
-    @Override public long lastAppliedIndex() {
+    @Override
+    public long lastAppliedIndex() {
         return 0;
     }
 
     /** {@inheritDoc} */
-    @Override public long persistedIndex() {
+    @Override
+    public long persistedIndex() {
         return 0;
     }
 
     /** {@inheritDoc} */
-    @Override public void close() throws Exception {
+    @Override
+    public void close() throws Exception {
         // No-op.
     }
 }
