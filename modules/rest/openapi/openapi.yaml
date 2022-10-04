@@ -450,7 +450,7 @@ components:
           items:
             type: string
         igniteVersion:
-          $ref: '#/components/schemas/IgniteProductVersion'
+          type: string
         clusterTag:
           $ref: '#/components/schemas/ClusterTag'
     ClusterTag:
@@ -463,24 +463,6 @@ components:
           type: string
           format: uuid
         clusterName:
-          type: string
-    IgniteProductVersion:
-      required:
-      - maintenance
-      - major
-      - minor
-      type: object
-      properties:
-        major:
-          type: integer
-          format: int32
-        minor:
-          type: integer
-          format: int32
-        maintenance:
-          type: integer
-          format: int32
-        alphaVersion:
           type: string
     InitCommand:
       required:

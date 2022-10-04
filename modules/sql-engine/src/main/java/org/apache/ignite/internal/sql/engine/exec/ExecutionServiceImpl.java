@@ -20,6 +20,9 @@ package org.apache.ignite.internal.sql.engine.exec;
 import static org.apache.ignite.internal.sql.engine.externalize.RelJsonReader.fromJson;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
+import static org.apache.ignite.lang.ErrorGroups.Sql.DDL_EXEC_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.MESSAGE_SEND_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.NODE_LEFT_ERR;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -31,7 +34,6 @@ import java.util.Queue;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -71,12 +73,12 @@ import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.TopologyEventHandler;
 import org.apache.ignite.network.TopologyService;
+import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -240,7 +242,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     }
 
     /** Cancels the query with given id. */
-    public CompletionStage<?> cancel(UUID qryId) {
+    public CompletableFuture<?> cancel(UUID qryId) {
         var mgr = queryManagerMap.get(qryId);
 
         if (mgr == null) {
@@ -272,11 +274,11 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         }
 
         if (e instanceof IgniteInternalCheckedException) {
-            return new IgniteInternalException("Failed to execute DDL statement [stmt=" /*+ qry.sql()*/
+            return new IgniteInternalException(DDL_EXEC_ERR, "Failed to execute DDL statement [stmt=" /*+ qry.sql()*/
                     + ", err=" + e.getMessage() + ']', e);
         }
 
-        return (e instanceof RuntimeException) ? (RuntimeException) e : new IgniteException(e);
+        return (e instanceof RuntimeException) ? (RuntimeException) e : new SqlException(DDL_EXEC_ERR, e);
     }
 
     private AsyncCursor<List<Object>> executeExplain(ExplainPlan plan) {
@@ -464,7 +466,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         private void onNodeLeft(String nodeId) {
             remoteFragmentInitCompletion.entrySet().stream().filter(e -> nodeId.equals(e.getKey().nodeId()))
                     .forEach(e -> e.getValue()
-                            .completeExceptionally(new IgniteInternalException("Node left the cluster [nodeId=" + nodeId + "]")));
+                            .completeExceptionally(new IgniteInternalException(
+                                    NODE_LEFT_ERR, "Node left the cluster [nodeId=" + nodeId + "]")));
         }
 
         private void executeFragment(FragmentPlan plan, ExecutionContext<RowT> ectx) {
@@ -504,7 +507,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                                 .build()
                 );
             } catch (IgniteInternalCheckedException e) {
-                throw new IgniteInternalException("Failed to send reply. [nodeId=" + origNodeId + ']', e);
+                throw new IgniteInternalException(MESSAGE_SEND_ERR, "Failed to send reply. [nodeId=" + origNodeId + ']', e);
             }
 
             if (node instanceof Outbox) {
@@ -590,7 +593,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
             return new AsyncCursor<>() {
                 @Override
-                public CompletionStage<BatchedResult<List<Object>>> requestNextAsync(int rows) {
+                public CompletableFuture<BatchedResult<List<Object>>> requestNextAsync(int rows) {
                     return root.thenCompose(cur -> {
                         var fut = cur.requestNextAsync(rows);
 
@@ -650,7 +653,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                                                 try {
                                                     exchangeSrvc.closeQuery(nodeId, ctx.queryId());
                                                 } catch (IgniteInternalCheckedException e) {
-                                                    throw new IgniteInternalException(
+                                                    throw new IgniteInternalException(MESSAGE_SEND_ERR,
                                                             "Failed to send cancel message. [nodeId=" + nodeId + ']', e);
                                                 }
 

@@ -17,10 +17,8 @@
 
 package org.apache.ignite.internal.storage.pagememory.index.hash;
 
-
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
 
-import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolder;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.InvokeClosure;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.OperationType;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
@@ -29,8 +27,8 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Insert closure that inserts corresponding {@link IndexColumns} into a {@link IndexColumnsFreeList} before writing to the
- * {@link HashIndexTree}.
+ * Insert closure that inserts corresponding {@link IndexColumns} into a {@link IndexColumnsFreeList} before writing to the {@link
+ * HashIndexTree}.
  */
 class InsertHashIndexRowInvokeClosure implements InvokeClosure<HashIndexRow> {
     /** Hash index row instance for insertion. */
@@ -38,9 +36,6 @@ class InsertHashIndexRowInvokeClosure implements InvokeClosure<HashIndexRow> {
 
     /** Free list to insert data into in case of necessity. */
     private final IndexColumnsFreeList freeList;
-
-    /** Statistics holder to track IO operations. */
-    private final IoStatisticsHolder statHolder;
 
     /** Operation type, either {@link OperationType#PUT} or {@link OperationType#NOOP} depending on the tree state. */
     private OperationType operationType = OperationType.PUT;
@@ -50,14 +45,12 @@ class InsertHashIndexRowInvokeClosure implements InvokeClosure<HashIndexRow> {
      *
      * @param hashIndexRow Hash index row instance for insertion.
      * @param freeList Free list to insert data into in case of necessity.
-     * @param statHolder Statistics holder to track IO operations.
      */
-    public InsertHashIndexRowInvokeClosure(HashIndexRow hashIndexRow, IndexColumnsFreeList freeList, IoStatisticsHolder statHolder) {
+    public InsertHashIndexRowInvokeClosure(HashIndexRow hashIndexRow, IndexColumnsFreeList freeList) {
         assert hashIndexRow.indexColumns().link() == NULL_LINK;
 
         this.hashIndexRow = hashIndexRow;
         this.freeList = freeList;
-        this.statHolder = statHolder;
     }
 
     @Override
@@ -68,7 +61,7 @@ class InsertHashIndexRowInvokeClosure implements InvokeClosure<HashIndexRow> {
             return;
         }
 
-        freeList.insertDataRow(hashIndexRow.indexColumns(), statHolder);
+        freeList.insertDataRow(hashIndexRow.indexColumns());
     }
 
     @Override

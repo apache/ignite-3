@@ -21,20 +21,33 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import org.apache.ignite.internal.metrics.Metric;
+import org.apache.ignite.internal.metrics.MetricProvider;
 import org.apache.ignite.internal.metrics.MetricSet;
 
 /**
  * Test push metrics exporter.
  */
-public class TestPushMetricExporter extends PushMetricExporter {
+public class TestPushMetricExporter extends PushMetricExporter<TestPushMetricsExporterView> {
+    public static final String EXPORTER_NAME = "testPush";
+
     private static OutputStream outputStream;
 
-    public TestPushMetricExporter() {
-        setPeriod(100);
+    private long period;
+
+    @Override
+    public void init(MetricProvider metricsProvider, TestPushMetricsExporterView configuration) {
+        super.init(metricsProvider, configuration);
+
+        period = configuration.period();
     }
 
     public static void setOutputStream(OutputStream outputStream) {
         TestPushMetricExporter.outputStream = outputStream;
+    }
+
+    @Override
+    protected long period() {
+        return period;
     }
 
     @Override
@@ -65,5 +78,10 @@ public class TestPushMetricExporter extends PushMetricExporter {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    @Override
+    public String name() {
+        return EXPORTER_NAME;
     }
 }

@@ -35,45 +35,47 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.apache.ignite.internal.schema.DecimalNativeType;
+import org.apache.ignite.internal.schema.NativeType;
+import org.apache.ignite.internal.schema.NativeTypeSpec;
+import org.apache.ignite.internal.schema.NativeTypes;
+import org.apache.ignite.internal.schema.testutils.definition.ColumnType.DecimalColumnType;
 import org.apache.ignite.internal.util.ArrayUtils;
-import org.apache.ignite.schema.definition.ColumnType;
-import org.apache.ignite.schema.definition.ColumnType.ColumnTypeSpec;
-import org.apache.ignite.schema.definition.ColumnType.DecimalColumnType;
 
 /**
  * Abstract class for schema converter tests.
  */
 public class AbstractSchemaConverterTest {
-    protected static final Map<ColumnTypeSpec, List<Object>> DEFAULT_VALUES_TO_TEST;
+    protected static final Map<NativeTypeSpec, List<Object>> DEFAULT_VALUES_TO_TEST;
 
     static {
-        var tmp = new HashMap<ColumnTypeSpec, List<Object>>();
+        var tmp = new HashMap<NativeTypeSpec, List<Object>>();
 
-        tmp.put(ColumnTypeSpec.INT8, Arrays.asList(null, Byte.MIN_VALUE, Byte.MAX_VALUE, (byte) 14));
-        tmp.put(ColumnTypeSpec.INT16, Arrays.asList(null, Short.MIN_VALUE, Short.MAX_VALUE, (short) 14));
-        tmp.put(ColumnTypeSpec.INT32, Arrays.asList(null, Integer.MIN_VALUE, Integer.MAX_VALUE, 14));
-        tmp.put(ColumnTypeSpec.INT64, Arrays.asList(null, Long.MIN_VALUE, Long.MAX_VALUE, 14L));
-        tmp.put(ColumnTypeSpec.FLOAT, Arrays.asList(null, Float.MIN_VALUE, Float.MAX_VALUE, Float.NaN,
+        tmp.put(NativeTypeSpec.INT8, Arrays.asList(null, Byte.MIN_VALUE, Byte.MAX_VALUE, (byte) 14));
+        tmp.put(NativeTypeSpec.INT16, Arrays.asList(null, Short.MIN_VALUE, Short.MAX_VALUE, (short) 14));
+        tmp.put(NativeTypeSpec.INT32, Arrays.asList(null, Integer.MIN_VALUE, Integer.MAX_VALUE, 14));
+        tmp.put(NativeTypeSpec.INT64, Arrays.asList(null, Long.MIN_VALUE, Long.MAX_VALUE, 14L));
+        tmp.put(NativeTypeSpec.FLOAT, Arrays.asList(null, Float.MIN_VALUE, Float.MAX_VALUE, Float.NaN,
                 Float.NEGATIVE_INFINITY, Float.POSITIVE_INFINITY, 14.14f));
-        tmp.put(ColumnTypeSpec.DOUBLE, Arrays.asList(null, Double.MIN_VALUE, Double.MAX_VALUE, Double.NaN,
+        tmp.put(NativeTypeSpec.DOUBLE, Arrays.asList(null, Double.MIN_VALUE, Double.MAX_VALUE, Double.NaN,
                 Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY, 14.14));
-        tmp.put(ColumnTypeSpec.DECIMAL, Arrays.asList(null, BigDecimal.ONE, BigDecimal.ZERO, BigDecimal.valueOf(Long.MIN_VALUE),
+        tmp.put(NativeTypeSpec.DECIMAL, Arrays.asList(null, BigDecimal.ONE, BigDecimal.ZERO, BigDecimal.valueOf(Long.MIN_VALUE),
                 BigDecimal.valueOf(Long.MAX_VALUE), new BigDecimal("10000000000000000000000000000000000000")));
-        tmp.put(ColumnTypeSpec.DATE, Arrays.asList(null, LocalDate.MIN, LocalDate.MAX, LocalDate.EPOCH, LocalDate.now()));
-        tmp.put(ColumnTypeSpec.TIME, Arrays.asList(null, LocalTime.MIN, LocalTime.MAX, LocalTime.MIDNIGHT,
+        tmp.put(NativeTypeSpec.DATE, Arrays.asList(null, LocalDate.MIN, LocalDate.MAX, LocalDate.EPOCH, LocalDate.now()));
+        tmp.put(NativeTypeSpec.TIME, Arrays.asList(null, LocalTime.MIN, LocalTime.MAX, LocalTime.MIDNIGHT,
                 LocalTime.NOON, LocalTime.now()));
-        tmp.put(ColumnTypeSpec.DATETIME, Arrays.asList(null, LocalDateTime.MIN, LocalDateTime.MAX, LocalDateTime.now()));
-        tmp.put(ColumnTypeSpec.TIMESTAMP, Arrays.asList(null, Instant.MIN, Instant.MAX, Instant.EPOCH, Instant.now()));
-        tmp.put(ColumnTypeSpec.UUID, Arrays.asList(null, UUID.randomUUID()));
-        tmp.put(ColumnTypeSpec.BITMASK, Arrays.asList(null, fromBinString(""), fromBinString("1"),
+        tmp.put(NativeTypeSpec.DATETIME, Arrays.asList(null, LocalDateTime.MIN, LocalDateTime.MAX, LocalDateTime.now()));
+        tmp.put(NativeTypeSpec.TIMESTAMP, Arrays.asList(null, Instant.MIN, Instant.MAX, Instant.EPOCH, Instant.now()));
+        tmp.put(NativeTypeSpec.UUID, Arrays.asList(null, UUID.randomUUID()));
+        tmp.put(NativeTypeSpec.BITMASK, Arrays.asList(null, fromBinString(""), fromBinString("1"),
                 fromBinString("10101010101010101010101")));
-        tmp.put(ColumnTypeSpec.STRING, Arrays.asList(null, "", UUID.randomUUID().toString()));
-        tmp.put(ColumnTypeSpec.BLOB, Arrays.asList(null, ArrayUtils.BYTE_EMPTY_ARRAY,
+        tmp.put(NativeTypeSpec.STRING, Arrays.asList(null, "", UUID.randomUUID().toString()));
+        tmp.put(NativeTypeSpec.BYTES, Arrays.asList(null, ArrayUtils.BYTE_EMPTY_ARRAY,
                 UUID.randomUUID().toString().getBytes(StandardCharsets.UTF_8)));
-        tmp.put(ColumnTypeSpec.NUMBER, Arrays.asList(null, BigInteger.ONE, BigInteger.ZERO,
+        tmp.put(NativeTypeSpec.NUMBER, Arrays.asList(null, BigInteger.ONE, BigInteger.ZERO,
                 new BigInteger("10000000000000000000000000000000000000")));
 
-        var missedTypes = new HashSet<>(Arrays.asList(ColumnTypeSpec.values()));
+        var missedTypes = new HashSet<>(Arrays.asList(NativeTypeSpec.values()));
 
         missedTypes.removeAll(tmp.keySet());
 
@@ -117,41 +119,41 @@ public class AbstractSchemaConverterTest {
         return val;
     }
 
-    /** Creates a column type from given type spec. */
-    protected static ColumnType specToType(ColumnTypeSpec spec) {
+    /** Creates a native type from given type spec. */
+    protected static NativeType specToType(NativeTypeSpec spec) {
         switch (spec) {
             case INT8:
-                return ColumnType.INT8;
+                return NativeTypes.INT8;
             case INT16:
-                return ColumnType.INT16;
+                return NativeTypes.INT16;
             case INT32:
-                return ColumnType.INT32;
+                return NativeTypes.INT32;
             case INT64:
-                return ColumnType.INT64;
+                return NativeTypes.INT64;
             case FLOAT:
-                return ColumnType.FLOAT;
+                return NativeTypes.FLOAT;
             case DOUBLE:
-                return ColumnType.DOUBLE;
+                return NativeTypes.DOUBLE;
             case DECIMAL:
-                return ColumnType.decimal();
+                return NativeTypes.decimalOf(10, 3);
             case DATE:
-                return ColumnType.DATE;
+                return NativeTypes.DATE;
             case TIME:
-                return ColumnType.time();
+                return NativeTypes.time();
             case DATETIME:
-                return ColumnType.datetime();
+                return NativeTypes.datetime();
             case TIMESTAMP:
-                return ColumnType.timestamp();
+                return NativeTypes.timestamp();
             case NUMBER:
-                return ColumnType.number();
+                return NativeTypes.numberOf(DecimalNativeType.DEFAULT_PRECISION);
             case STRING:
-                return ColumnType.string();
+                return NativeTypes.stringOf(8);
             case UUID:
-                return ColumnType.UUID;
-            case BLOB:
-                return ColumnType.blob();
+                return NativeTypes.UUID;
+            case BYTES:
+                return NativeTypes.blobOf(8);
             case BITMASK:
-                return ColumnType.bitmaskOf(10);
+                return NativeTypes.bitmaskOf(10);
             default:
                 throw new IllegalStateException("Unknown type spec [spec=" + spec + ']');
         }
@@ -179,7 +181,7 @@ public class AbstractSchemaConverterTest {
      * Class represents a default value of particular type.
      */
     protected static class DefaultValueArg {
-        final ColumnType type;
+        final NativeType type;
         final Object defaultValue;
 
         /**
@@ -188,14 +190,14 @@ public class AbstractSchemaConverterTest {
          * @param type Type of the value
          * @param defaultValue value itself.
          */
-        public DefaultValueArg(ColumnType type, Object defaultValue) {
+        public DefaultValueArg(NativeType type, Object defaultValue) {
             this.type = type;
             this.defaultValue = defaultValue;
         }
 
         @Override
         public String toString() {
-            return type.typeSpec() + ": " + AbstractSchemaConverterTest.toString(defaultValue);
+            return type.spec() + ": " + AbstractSchemaConverterTest.toString(defaultValue);
         }
     }
 }

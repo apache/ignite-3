@@ -21,7 +21,6 @@ import io.micronaut.http.annotation.Body;
 import io.micronaut.http.annotation.Controller;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.cluster.management.ClusterInitializer;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.ClusterState;
@@ -31,7 +30,6 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.rest.api.cluster.ClusterManagementApi;
 import org.apache.ignite.internal.rest.api.cluster.ClusterStateDto;
 import org.apache.ignite.internal.rest.api.cluster.ClusterTagDto;
-import org.apache.ignite.internal.rest.api.cluster.IgniteProductVersionDto;
 import org.apache.ignite.internal.rest.api.cluster.InitCommand;
 import org.apache.ignite.internal.rest.exception.ClusterNotInitializedException;
 import org.apache.ignite.lang.IgniteException;
@@ -62,18 +60,7 @@ public class ClusterManagementController implements ClusterManagementApi {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<ClusterStateDto> clusterState() {
-        try {
-            return clusterManagementGroupManager.clusterState()
-                    .thenApply(this::mapClusterState)
-                    .thenApply(res -> {
-                        if (res == null) {
-                            throw new ClusterNotInitializedException();
-                        }
-                        return res;
-                    });
-        } catch (ExecutionException | InterruptedException e) {
-            throw new IgniteException(e);
-        }
+        return clusterManagementGroupManager.clusterState().thenApply(this::mapClusterState);
     }
 
     /** {@inheritDoc} */
@@ -92,16 +79,15 @@ public class ClusterManagementController implements ClusterManagementApi {
 
     private ClusterStateDto mapClusterState(ClusterState clusterState) {
         if (clusterState == null) {
-            return null;
+            throw new ClusterNotInitializedException();
         }
 
         return new ClusterStateDto(
                 clusterState.cmgNodes(),
                 clusterState.metaStorageNodes(),
-                new IgniteProductVersionDto(clusterState.igniteVersion().major(), clusterState.igniteVersion().minor(),
-                        clusterState.igniteVersion().maintenance(), clusterState.igniteVersion().snapshot(),
-                        clusterState.igniteVersion().alphaVersion()),
-                new ClusterTagDto(clusterState.clusterTag().clusterName(), clusterState.clusterTag().clusterId()));
+                clusterState.igniteVersion().toString(),
+                new ClusterTagDto(clusterState.clusterTag().clusterName(), clusterState.clusterTag().clusterId())
+        );
     }
 
     private RuntimeException mapException(Throwable ex) {

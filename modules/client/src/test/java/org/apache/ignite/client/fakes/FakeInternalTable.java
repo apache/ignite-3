@@ -25,6 +25,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Flow.Publisher;
+import java.util.function.BiConsumer;
 import javax.naming.OperationNotSupportedException;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
@@ -48,6 +49,9 @@ public class FakeInternalTable implements InternalTable {
 
     /** Table data. */
     private final ConcurrentHashMap<ByteBuffer, BinaryRow> data = new ConcurrentHashMap<>();
+
+    /** Data access listener. */
+    private BiConsumer<String, Object> dataAccessListener;
 
     /**
      * The constructor.
@@ -87,6 +91,8 @@ public class FakeInternalTable implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<BinaryRow> get(BinaryRowEx keyRow, @Nullable InternalTransaction tx) {
+        onDataAccess("get", keyRow);
+
         return CompletableFuture.completedFuture(data.get(keyRow.keySlice()));
     }
 
@@ -104,12 +110,15 @@ public class FakeInternalTable implements InternalTable {
             }
         }
 
+        onDataAccess("getAll", keyRows);
         return CompletableFuture.completedFuture(res);
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> upsert(BinaryRowEx row, @Nullable InternalTransaction tx) {
+        onDataAccess("upsert", row);
+
         data.put(row.keySlice(), row);
 
         return CompletableFuture.completedFuture(null);
@@ -122,6 +131,7 @@ public class FakeInternalTable implements InternalTable {
             upsert(row, tx);
         }
 
+        onDataAccess("upsertAll", rows);
         return CompletableFuture.completedFuture(null);
     }
 
@@ -133,6 +143,7 @@ public class FakeInternalTable implements InternalTable {
 
         upsert(row, tx);
 
+        onDataAccess("getAndUpsert", row);
         return CompletableFuture.completedFuture(res.getNow(null));
     }
 
@@ -140,14 +151,16 @@ public class FakeInternalTable implements InternalTable {
     @Override
     public CompletableFuture<Boolean> insert(BinaryRowEx row, @Nullable InternalTransaction tx) {
         var old = get(row, tx).getNow(null);
+        boolean res = false;
 
         if (old == null) {
             upsert(row, tx);
 
-            return CompletableFuture.completedFuture(true);
+            res = true;
         }
 
-        return CompletableFuture.completedFuture(false);
+        onDataAccess("insert", row);
+        return CompletableFuture.completedFuture(res);
     }
 
     /** {@inheritDoc} */
@@ -161,6 +174,7 @@ public class FakeInternalTable implements InternalTable {
             }
         }
 
+        onDataAccess("insertAll", rows);
         return CompletableFuture.completedFuture(skipped);
     }
 
@@ -170,10 +184,14 @@ public class FakeInternalTable implements InternalTable {
         var old = get(row, tx).getNow(null);
 
         if (old == null) {
+            onDataAccess("replace", row);
             return CompletableFuture.completedFuture(false);
         }
 
-        return upsert(row, tx).thenApply(f -> true);
+        CompletableFuture<Void> upsert = upsert(row, tx);
+
+        onDataAccess("replace", row);
+        return upsert.thenApply(f -> true);
     }
 
     /** {@inheritDoc} */
@@ -182,10 +200,14 @@ public class FakeInternalTable implements InternalTable {
         var old = get(oldRow, tx).getNow(null);
 
         if (old == null || !old.valueSlice().equals(oldRow.valueSlice())) {
+            onDataAccess("replace", oldRow);
             return CompletableFuture.completedFuture(false);
         }
 
-        return upsert(newRow, tx).thenApply(f -> true);
+        CompletableFuture<Void> upsert = upsert(newRow, tx);
+
+        onDataAccess("replace", oldRow);
+        return upsert.thenApply(f -> true);
     }
 
     /** {@inheritDoc} */
@@ -194,7 +216,10 @@ public class FakeInternalTable implements InternalTable {
             @Nullable InternalTransaction tx) {
         var old = get(row, tx);
 
-        return replace(row, tx).thenCompose(f -> old);
+        CompletableFuture<Boolean> replace = replace(row, tx);
+
+        onDataAccess("getAndReplace", row);
+        return replace.thenCompose(f -> old);
     }
 
     /** {@inheritDoc} */
@@ -206,20 +231,24 @@ public class FakeInternalTable implements InternalTable {
             data.remove(keyRow.keySlice());
         }
 
+        onDataAccess("delete", keyRow);
         return CompletableFuture.completedFuture(old != null);
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Boolean> deleteExact(BinaryRowEx oldRow, @Nullable InternalTransaction tx) {
+        var res = false;
+
         var old = get(oldRow, tx).getNow(null);
 
         if (old != null && old.valueSlice().equals(oldRow.valueSlice())) {
             data.remove(oldRow.keySlice());
-            return CompletableFuture.completedFuture(true);
+            res = true;
         }
 
-        return CompletableFuture.completedFuture(false);
+        onDataAccess("deleteExact", oldRow);
+        return CompletableFuture.completedFuture(res);
     }
 
     /** {@inheritDoc} */
@@ -232,6 +261,7 @@ public class FakeInternalTable implements InternalTable {
             data.remove(row.keySlice());
         }
 
+        onDataAccess("getAndDelete", row);
         return CompletableFuture.completedFuture(old);
     }
 
@@ -246,6 +276,7 @@ public class FakeInternalTable implements InternalTable {
             }
         }
 
+        onDataAccess("deleteAll", rows);
         return CompletableFuture.completedFuture(skipped);
     }
 
@@ -260,6 +291,7 @@ public class FakeInternalTable implements InternalTable {
             }
         }
 
+        onDataAccess("deleteAllExact", rows);
         return CompletableFuture.completedFuture(skipped);
     }
 
@@ -297,5 +329,20 @@ public class FakeInternalTable implements InternalTable {
     @Override
     public void close() throws Exception {
         // No-op.
+    }
+
+    /**
+     * Sets the data access operation listener.
+     *
+     * @param dataAccessListener Data access operation listener.
+     */
+    public void setDataAccessListener(BiConsumer<String, Object> dataAccessListener) {
+        this.dataAccessListener = dataAccessListener;
+    }
+
+    private void onDataAccess(String operation, Object arg) {
+        if (dataAccessListener != null) {
+            dataAccessListener.accept(operation, arg);
+        }
     }
 }

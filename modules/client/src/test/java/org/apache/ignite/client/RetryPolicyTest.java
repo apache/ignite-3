@@ -179,7 +179,7 @@ public class RetryPolicyTest {
 
     @Test
     public void testRetryReadPolicyDoesNotRetryWriteOperations() throws Exception {
-        initServer(reqId -> reqId % 5 == 0);
+        initServer(reqId -> reqId % 6 == 0);
 
         try (var client = getClient(new RetryReadPolicy())) {
             RecordView<Tuple> recView = client.tables().table("t").recordView();
@@ -201,7 +201,7 @@ public class RetryPolicyTest {
             }
         }
 
-        long expectedNullCount = 17;
+        long expectedNullCount = 18;
 
         String msg = nullOpFields.size()
                 + " operation codes do not have public equivalent. When adding new codes, update ClientOperationType too. Missing ops: "

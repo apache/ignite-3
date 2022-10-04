@@ -19,9 +19,9 @@ package org.apache.ignite.internal.sql.engine.exec.ddl;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter.convert;
-import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter.convertDefaultToConfiguration;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
+import static org.apache.ignite.lang.ErrorGroups.Sql.DEL_PK_COMUMN_CONSTRAINT_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.UNSUPPORTED_DDL_OPERATION_ERR;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -37,6 +37,7 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.schemas.table.ColumnChange;
+import org.apache.ignite.configuration.schemas.table.ColumnTypeChange;
 import org.apache.ignite.configuration.schemas.table.ColumnView;
 import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultChange;
 import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultChange;
@@ -47,7 +48,15 @@ import org.apache.ignite.configuration.schemas.table.SortedIndexChange;
 import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.configuration.schemas.table.TableIndexChange;
 import org.apache.ignite.internal.index.IndexManager;
+import org.apache.ignite.internal.schema.BitmaskNativeType;
+import org.apache.ignite.internal.schema.DecimalNativeType;
+import org.apache.ignite.internal.schema.NativeType;
+import org.apache.ignite.internal.schema.NativeTypeSpec;
+import org.apache.ignite.internal.schema.NumberNativeType;
 import org.apache.ignite.internal.schema.SchemaUtils;
+import org.apache.ignite.internal.schema.TemporalNativeType;
+import org.apache.ignite.internal.schema.VarlenNativeType;
+import org.apache.ignite.internal.schema.configuration.ValueSerializationHelper;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AbstractTableDdlCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterTableAddCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterTableDropCommand;
@@ -68,11 +77,11 @@ import org.apache.ignite.internal.util.IgniteObjectName;
 import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.lang.ColumnAlreadyExistsException;
 import org.apache.ignite.lang.ColumnNotFoundException;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
+import org.apache.ignite.sql.SqlException;
 
 /** DDL commands handler. */
 public class DdlCommandHandler {
@@ -112,7 +121,7 @@ public class DdlCommandHandler {
         } else if (cmd instanceof DropIndexCommand) {
             return handleDropIndex((DropIndexCommand) cmd);
         } else {
-            return failedFuture(new IgniteInternalCheckedException("Unsupported DDL operation ["
+            return failedFuture(new IgniteInternalCheckedException(UNSUPPORTED_DDL_OPERATION_ERR, "Unsupported DDL operation ["
                     + "cmdName=" + (cmd == null ? null : cmd.getClass().getSimpleName()) + "; "
                     + "cmd=\"" + cmd + "\"]"));
         }
@@ -299,6 +308,8 @@ public class DdlCommandHandler {
         return tableManager.alterTableAsync(
                 fullName,
                 chng -> chng.changeColumns(cols -> {
+                    ret.set(true); // Reset state if closure have been restarted.
+
                     Map<String, String> colNamesToOrders = columnOrdersToNames(chng.columns());
 
                     List<ColumnDefinition> colsDef0;
@@ -332,7 +343,7 @@ public class DdlCommandHandler {
     }
 
     private void convertColumnDefinition(ColumnDefinition definition, ColumnChange columnChange) {
-        var columnType = IgniteTypeFactory.relDataTypeToColumnType(definition.type());
+        NativeType columnType = IgniteTypeFactory.relDataTypeToNative(definition.type());
 
         columnChange.changeType(columnTypeChange -> convert(columnType, columnTypeChange));
         columnChange.changeNullable(definition.nullable());
@@ -345,7 +356,7 @@ public class DdlCommandHandler {
 
                     if (val != null) {
                         defaultChange.convert(ConstantValueDefaultChange.class)
-                                .changeDefaultValue(convertDefaultToConfiguration(val, columnType));
+                                .changeDefaultValue(ValueSerializationHelper.toString(val, columnType));
                     } else {
                         defaultChange.convert(NullValueDefaultChange.class);
                     }
@@ -379,6 +390,8 @@ public class DdlCommandHandler {
         return tableManager.alterTableAsync(
                         fullName,
                         chng -> chng.changeColumns(cols -> {
+                            ret.set(true); // Reset state if closure have been restarted.
+
                             PrimaryKeyView priKey = chng.primaryKey();
 
                             Map<String, String> colNamesToOrders = columnOrdersToNames(chng.columns());
@@ -399,7 +412,7 @@ public class DdlCommandHandler {
                                 }
 
                                 if (primaryCols.contains(colName)) {
-                                    throw new IgniteException(IgniteStringFormatter
+                                    throw new SqlException(DEL_PK_COMUMN_CONSTRAINT_ERR, IgniteStringFormatter
                                             .format("Can`t delete column, belongs to primary key: [name={}]", colName));
                                 }
                             }
@@ -407,6 +420,68 @@ public class DdlCommandHandler {
                             colNames0.forEach(k -> cols.delete(colNamesToOrders.get(k)));
                         }))
                 .thenApply(v -> ret.get());
+    }
+
+    private static void convert(NativeType colType, ColumnTypeChange colTypeChg) {
+        NativeTypeSpec spec = colType.spec();
+        String typeName = spec.name().toUpperCase();
+
+        colTypeChg.changeType(typeName);
+
+        switch (spec) {
+            case INT8:
+            case INT16:
+            case INT32:
+            case INT64:
+            case FLOAT:
+            case DOUBLE:
+            case DATE:
+            case UUID:
+                // do nothing
+                break;
+
+            case BITMASK:
+                BitmaskNativeType bitmaskColType = (BitmaskNativeType) colType;
+
+                colTypeChg.changeLength(bitmaskColType.bits());
+
+                break;
+
+            case BYTES:
+            case STRING:
+                VarlenNativeType varLenColType = (VarlenNativeType) colType;
+
+                colTypeChg.changeLength(varLenColType.length());
+
+                break;
+
+            case DECIMAL:
+                DecimalNativeType numColType = (DecimalNativeType) colType;
+
+                colTypeChg.changePrecision(numColType.precision());
+                colTypeChg.changeScale(numColType.scale());
+
+                break;
+
+            case NUMBER:
+                NumberNativeType numType = (NumberNativeType) colType;
+
+                colTypeChg.changePrecision(numType.precision());
+
+                break;
+
+            case TIME:
+            case DATETIME:
+            case TIMESTAMP:
+                TemporalNativeType temporalColType = (TemporalNativeType) colType;
+
+                colTypeChg.changePrecision(temporalColType.precision());
+
+                break;
+
+            default:
+                throw new IllegalArgumentException("Unknown type " + colType.spec().name());
+        }
     }
 
     /** Map column name to order. */

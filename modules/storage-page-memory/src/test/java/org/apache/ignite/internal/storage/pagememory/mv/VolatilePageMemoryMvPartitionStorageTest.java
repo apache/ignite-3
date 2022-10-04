@@ -17,74 +17,52 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-
-import java.nio.file.Path;
-import java.util.concurrent.TimeUnit;
 import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.EntryCountBudgetConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.TableConfiguration;
+import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEngine;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryTableStorage;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryDataStorageChange;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryDataStorageConfigurationSchema;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryDataStorageView;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfigurationSchema;
-import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.extension.ExtendWith;
 
+@ExtendWith(ConfigurationExtension.class)
 class VolatilePageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPartitionStorageTest {
     @InjectConfiguration(polymorphicExtensions = UnsafeMemoryAllocatorConfigurationSchema.class)
     private VolatilePageMemoryStorageEngineConfiguration engineConfig;
-
-    @InjectConfiguration(
-            name = "table",
-            polymorphicExtensions = {
-                    HashIndexConfigurationSchema.class,
-                    UnknownDataStorageConfigurationSchema.class,
-                    VolatilePageMemoryDataStorageConfigurationSchema.class,
-                    ConstantValueDefaultConfigurationSchema.class,
-                    FunctionCallDefaultConfigurationSchema.class,
-                    NullValueDefaultConfigurationSchema.class,
-                    UnlimitedBudgetConfigurationSchema.class,
-                    EntryCountBudgetConfigurationSchema.class
-            }
-    )
-    private TableConfiguration tableCfg;
 
     private VolatilePageMemoryStorageEngine engine;
 
     private VolatilePageMemoryTableStorage table;
 
-    @WorkDirectory
-    private Path workDir;
-
     @BeforeEach
-    void setUp() throws Exception {
+    void setUp(
+            @InjectConfiguration(
+                    polymorphicExtensions = {
+                            VolatilePageMemoryDataStorageConfigurationSchema.class,
+                            UnknownDataStorageConfigurationSchema.class,
+                            HashIndexConfigurationSchema.class,
+                            NullValueDefaultConfigurationSchema.class,
+                            UnlimitedBudgetConfigurationSchema.class
+                    },
+                    value = "mock.tables.foo.dataStorage.name = " + VolatilePageMemoryStorageEngine.ENGINE_NAME
+            )
+            TablesConfiguration tablesConfig
+    ) {
         engine = new VolatilePageMemoryStorageEngine(engineConfig, ioRegistry);
 
         engine.start();
 
-        tableCfg
-                .change(c -> c.changeDataStorage(dsc -> dsc.convert(VolatilePageMemoryDataStorageChange.class)))
-                .get(1, TimeUnit.SECONDS);
+        table = engine.createMvTable(tablesConfig.tables().get("foo"), tablesConfig);
 
-        assertEquals(
-                VolatilePageMemoryStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME,
-                ((VolatilePageMemoryDataStorageView) tableCfg.dataStorage().value()).dataRegion()
-        );
-
-        table = engine.createMvTable(tableCfg, null);
         table.start();
 
         storage = table.createMvPartitionStorage(PARTITION_ID);

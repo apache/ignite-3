@@ -49,8 +49,8 @@ import org.junit.jupiter.api.Test;
  */
 public class ClientTupleTest {
     private static final ClientSchema SCHEMA = new ClientSchema(1, new ClientColumn[]{
-            new ClientColumn("ID", ClientDataType.INT64, false, true, 0),
-            new ClientColumn("NAME", ClientDataType.STRING, false, false, 1)
+            new ClientColumn("ID", ClientDataType.INT64, false, true, true, 0),
+            new ClientColumn("NAME", ClientDataType.STRING, false, false, false, 1)
     });
 
     @Test
@@ -139,19 +139,19 @@ public class ClientTupleTest {
     @Test
     public void testTypedGetters() {
         var schema = new ClientSchema(100, new ClientColumn[]{
-                new ClientColumn("I8", ClientDataType.INT8, false, false, 0),
-                new ClientColumn("I16", ClientDataType.INT16, false, false, 1),
-                new ClientColumn("I32", ClientDataType.INT32, false, false, 2),
-                new ClientColumn("I64", ClientDataType.INT64, false, false, 3),
-                new ClientColumn("FLOAT", ClientDataType.FLOAT, false, false, 4),
-                new ClientColumn("DOUBLE", ClientDataType.DOUBLE, false, false, 5),
-                new ClientColumn("UUID", ClientDataType.UUID, false, false, 6),
-                new ClientColumn("STR", ClientDataType.STRING, false, false, 7),
-                new ClientColumn("BITS", ClientDataType.BITMASK, false, false, 8),
-                new ClientColumn("TIME", ClientDataType.TIME, false, false, 9),
-                new ClientColumn("DATE", ClientDataType.DATE, false, false, 10),
-                new ClientColumn("DATETIME", ClientDataType.DATETIME, false, false, 11),
-                new ClientColumn("TIMESTAMP", ClientDataType.TIMESTAMP, false, false, 12)
+                new ClientColumn("I8", ClientDataType.INT8, false, false, false, 0),
+                new ClientColumn("I16", ClientDataType.INT16, false, false, false, 1),
+                new ClientColumn("I32", ClientDataType.INT32, false, false, false, 2),
+                new ClientColumn("I64", ClientDataType.INT64, false, false, false, 3),
+                new ClientColumn("FLOAT", ClientDataType.FLOAT, false, false, false, 4),
+                new ClientColumn("DOUBLE", ClientDataType.DOUBLE, false, false, false, 5),
+                new ClientColumn("UUID", ClientDataType.UUID, false, false, false, 6),
+                new ClientColumn("STR", ClientDataType.STRING, false, false, false, 7),
+                new ClientColumn("BITS", ClientDataType.BITMASK, false, false, false, 8),
+                new ClientColumn("TIME", ClientDataType.TIME, false, false, false, 9),
+                new ClientColumn("DATE", ClientDataType.DATE, false, false, false, 10),
+                new ClientColumn("DATETIME", ClientDataType.DATETIME, false, false, false, 11),
+                new ClientColumn("TIMESTAMP", ClientDataType.TIMESTAMP, false, false, false, 12)
         });
 
         var uuid = UUID.randomUUID();
@@ -219,7 +219,7 @@ public class ClientTupleTest {
         assertEquals(tuple.hashCode(), tuple2.hashCode());
 
         assertNotEquals(new ClientTuple(SCHEMA), new ClientTuple(new ClientSchema(1, new ClientColumn[]{
-                new ClientColumn("id", ClientDataType.INT64, false, true, 0)})));
+                new ClientColumn("id", ClientDataType.INT64, false, true, true, 0)})));
 
         assertEquals(new ClientTuple(SCHEMA).set("name", null), new ClientTuple(SCHEMA).set("name", null));
         assertEquals(new ClientTuple(SCHEMA).set("name", null).hashCode(), new ClientTuple(SCHEMA).set("name", null).hashCode());
@@ -253,19 +253,19 @@ public class ClientTupleTest {
     @Test
     public void testTupleEquality() {
         var schema = new ClientSchema(100, new ClientColumn[]{
-                new ClientColumn("I8", ClientDataType.INT8, false, false, 0),
-                new ClientColumn("I16", ClientDataType.INT16, false, false, 1),
-                new ClientColumn("I32", ClientDataType.INT32, false, false, 2),
-                new ClientColumn("I64", ClientDataType.INT64, false, false, 3),
-                new ClientColumn("FLOAT", ClientDataType.FLOAT, false, false, 4),
-                new ClientColumn("DOUBLE", ClientDataType.DOUBLE, false, false, 5),
-                new ClientColumn("UUID", ClientDataType.UUID, false, false, 6),
-                new ClientColumn("STR", ClientDataType.STRING, false, false, 7),
-                new ClientColumn("BITS", ClientDataType.BITMASK, false, false, 8),
-                new ClientColumn("TIME", ClientDataType.TIME, false, false, 9),
-                new ClientColumn("DATE", ClientDataType.DATE, false, false, 10),
-                new ClientColumn("DATETIME", ClientDataType.DATETIME, false, false, 11),
-                new ClientColumn("TIMESTAMP", ClientDataType.TIMESTAMP, false, false, 12)
+                new ClientColumn("I8", ClientDataType.INT8, false, false, false, 0),
+                new ClientColumn("I16", ClientDataType.INT16, false, false, false, 1),
+                new ClientColumn("I32", ClientDataType.INT32, false, false, false, 2),
+                new ClientColumn("I64", ClientDataType.INT64, false, false, false, 3),
+                new ClientColumn("FLOAT", ClientDataType.FLOAT, false, false, false, 4),
+                new ClientColumn("DOUBLE", ClientDataType.DOUBLE, false, false, false, 5),
+                new ClientColumn("UUID", ClientDataType.UUID, false, false, false, 6),
+                new ClientColumn("STR", ClientDataType.STRING, false, false, false, 7),
+                new ClientColumn("BITS", ClientDataType.BITMASK, false, false, false, 8),
+                new ClientColumn("TIME", ClientDataType.TIME, false, false, false, 9),
+                new ClientColumn("DATE", ClientDataType.DATE, false, false, false, 10),
+                new ClientColumn("DATETIME", ClientDataType.DATETIME, false, false, false, 11),
+                new ClientColumn("TIMESTAMP", ClientDataType.TIMESTAMP, false, false, false, 12)
         });
 
         var uuid = UUID.randomUUID();
@@ -306,19 +306,19 @@ public class ClientTupleTest {
     @Test
     public void testTupleEqualityCompatibility() {
         var schema = new ClientSchema(100, new ClientColumn[]{
-                new ClientColumn("I8", ClientDataType.INT8, false, false, 0),
-                new ClientColumn("I16", ClientDataType.INT16, false, false, 1),
-                new ClientColumn("I32", ClientDataType.INT32, false, false, 2),
-                new ClientColumn("I64", ClientDataType.INT64, false, false, 3),
-                new ClientColumn("FLOAT", ClientDataType.FLOAT, false, false, 4),
-                new ClientColumn("DOUBLE", ClientDataType.DOUBLE, false, false, 5),
-                new ClientColumn("UUID", ClientDataType.UUID, false, false, 6),
-                new ClientColumn("STR", ClientDataType.STRING, false, false, 7),
-                new ClientColumn("BITS", ClientDataType.BITMASK, false, false, 8),
-                new ClientColumn("TIME", ClientDataType.TIME, false, false, 9),
-                new ClientColumn("DATE", ClientDataType.DATE, false, false, 10),
-                new ClientColumn("DATETIME", ClientDataType.DATETIME, false, false, 11),
-                new ClientColumn("TIMESTAMP", ClientDataType.TIMESTAMP, false, false, 12)
+                new ClientColumn("I8", ClientDataType.INT8, false, false, false, 0),
+                new ClientColumn("I16", ClientDataType.INT16, false, false, false, 1),
+                new ClientColumn("I32", ClientDataType.INT32, false, false, false, 2),
+                new ClientColumn("I64", ClientDataType.INT64, false, false, false, 3),
+                new ClientColumn("FLOAT", ClientDataType.FLOAT, false, false, false, 4),
+                new ClientColumn("DOUBLE", ClientDataType.DOUBLE, false, false, false, 5),
+                new ClientColumn("UUID", ClientDataType.UUID, false, false, false, 6),
+                new ClientColumn("STR", ClientDataType.STRING, false, false, false, 7),
+                new ClientColumn("BITS", ClientDataType.BITMASK, false, false, false, 8),
+                new ClientColumn("TIME", ClientDataType.TIME, false, false, false, 9),
+                new ClientColumn("DATE", ClientDataType.DATE, false, false, false, 10),
+                new ClientColumn("DATETIME", ClientDataType.DATETIME, false, false, false, 11),
+                new ClientColumn("TIMESTAMP", ClientDataType.TIMESTAMP, false, false, false, 12)
         });
 
         var uuid = UUID.randomUUID();

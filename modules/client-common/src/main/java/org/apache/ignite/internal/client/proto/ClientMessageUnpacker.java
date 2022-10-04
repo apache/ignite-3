@@ -19,7 +19,6 @@ package org.apache.ignite.internal.client.proto;
 
 import static org.apache.ignite.internal.client.proto.ClientDataType.BIGINTEGER;
 import static org.apache.ignite.internal.client.proto.ClientDataType.BITMASK;
-import static org.apache.ignite.internal.client.proto.ClientDataType.BOOLEAN;
 import static org.apache.ignite.internal.client.proto.ClientDataType.BYTES;
 import static org.apache.ignite.internal.client.proto.ClientDataType.DATE;
 import static org.apache.ignite.internal.client.proto.ClientDataType.DATETIME;
@@ -1025,9 +1024,6 @@ public class ClientMessageUnpacker implements AutoCloseable {
         }
 
         switch (dataType) {
-            case BOOLEAN:
-                return unpackBoolean();
-
             case INT8:
                 return unpackByte();
 

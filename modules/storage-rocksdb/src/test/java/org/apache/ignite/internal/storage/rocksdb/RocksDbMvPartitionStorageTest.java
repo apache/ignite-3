@@ -17,24 +17,20 @@
 
 package org.apache.ignite.internal.storage.rocksdb;
 
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.nio.file.Path;
 import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.EntryCountBudgetConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
+import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.storage.AbstractMvPartitionStorageTest;
-import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageChange;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageView;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
@@ -58,35 +54,28 @@ public class RocksDbMvPartitionStorageTest extends AbstractMvPartitionStorageTes
     @BeforeEach
     public void setUp(
             @WorkDirectory Path workDir,
-            @InjectConfiguration RocksDbStorageEngineConfiguration engineConfig,
+            @InjectConfiguration("mock {flushDelayMillis = 0, defaultRegion {size = 16536, writeBufferSize = 16536}}")
+            RocksDbStorageEngineConfiguration engineConfig,
             @InjectConfiguration(
-                    name = "table",
                     polymorphicExtensions = {
-                            HashIndexConfigurationSchema.class,
-                            UnknownDataStorageConfigurationSchema.class,
                             RocksDbDataStorageConfigurationSchema.class,
-                            ConstantValueDefaultConfigurationSchema.class,
-                            FunctionCallDefaultConfigurationSchema.class,
+                            UnknownDataStorageConfigurationSchema.class,
+                            HashIndexConfigurationSchema.class,
                             NullValueDefaultConfigurationSchema.class,
-                            UnlimitedBudgetConfigurationSchema.class,
-                            EntryCountBudgetConfigurationSchema.class
-                    }
-            ) TableConfiguration tableCfg
+                            UnlimitedBudgetConfigurationSchema.class
+                    },
+                    value = "mock.tables.foo.dataStorage.name = " + RocksDbStorageEngine.ENGINE_NAME
+            ) TablesConfiguration tablesCfg
     ) throws Exception {
-        tableCfg.dataStorage().change(c -> c.convert(RocksDbDataStorageChange.class)).get(1, SECONDS);
+        TableConfiguration tableCfg = tablesCfg.tables().get("foo");
 
         assertThat(((RocksDbDataStorageView) tableCfg.dataStorage().value()).dataRegion(), equalTo(DEFAULT_DATA_REGION_NAME));
-
-        engineConfig.change(cfg -> cfg
-                .changeFlushDelayMillis(0)
-                .changeDefaultRegion(c -> c.changeSize(16 * 1024).changeWriteBufferSize(16 * 1024))
-        ).get(1, SECONDS);
 
         engine = new RocksDbStorageEngine(engineConfig, workDir);
 
         engine.start();
 
-        table = engine.createMvTable(tableCfg, null);
+        table = engine.createMvTable(tableCfg, tablesCfg);
 
         table.start();
 

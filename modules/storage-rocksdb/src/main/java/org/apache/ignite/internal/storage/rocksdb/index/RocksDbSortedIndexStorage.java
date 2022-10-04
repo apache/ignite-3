@@ -17,11 +17,11 @@
 
 package org.apache.ignite.internal.storage.rocksdb.index;
 
-import static org.apache.ignite.internal.storage.rocksdb.index.CursorUtils.concat;
-import static org.apache.ignite.internal.storage.rocksdb.index.CursorUtils.dropWhile;
-import static org.apache.ignite.internal.storage.rocksdb.index.CursorUtils.map;
-import static org.apache.ignite.internal.storage.rocksdb.index.CursorUtils.takeWhile;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
+import static org.apache.ignite.internal.util.CursorUtils.concat;
+import static org.apache.ignite.internal.util.CursorUtils.dropWhile;
+import static org.apache.ignite.internal.util.CursorUtils.map;
+import static org.apache.ignite.internal.util.CursorUtils.takeWhile;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -30,7 +30,6 @@ import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
-import org.apache.ignite.internal.schema.row.InternalTuple;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.BinaryTupleComparator;
@@ -61,6 +60,10 @@ import org.rocksdb.WriteBatchWithIndex;
  * <p>We use an empty array as values, because all required information can be extracted from the key.
  */
 public class RocksDbSortedIndexStorage implements SortedIndexStorage {
+    private static final int ROW_ID_SIZE = Long.BYTES * 2;
+
+    private static final ByteOrder ORDER = ByteOrder.BIG_ENDIAN;
+
     private final SortedIndexDescriptor descriptor;
 
     private final ColumnFamily indexCf;
@@ -90,6 +93,13 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
     }
 
     @Override
+    public Cursor<RowId> get(BinaryTuple key) throws StorageException {
+        BinaryTuplePrefix keyPrefix = BinaryTuplePrefix.fromBinaryTuple(key);
+
+        return map(scan(keyPrefix, keyPrefix, true, true), this::decodeRowId);
+    }
+
+    @Override
     public void put(IndexRow row) {
         WriteBatchWithIndex writeBatch = partitionStorage.currentWriteBatch();
 
@@ -116,17 +126,26 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
         boolean includeLower = (flags & GREATER_OR_EQUAL) != 0;
         boolean includeUpper = (flags & LESS_OR_EQUAL) != 0;
 
-        return scan(lowerBound, upperBound, includeLower, includeUpper);
+        return map(scan(lowerBound, upperBound, includeLower, includeUpper), this::decodeRow);
     }
 
-    private Cursor<IndexRow> scan(
+    private Cursor<ByteBuffer> scan(
             @Nullable BinaryTuplePrefix lowerBound,
             @Nullable BinaryTuplePrefix upperBound,
             boolean includeLower,
             boolean includeUpper
     ) {
         byte[] lowerBoundBytes = lowerBound == null ? null : rocksPrefix(lowerBound);
-        byte[] upperBoundBytes = upperBound == null ? null : rocksPrefix(upperBound);
+
+        byte[] upperBoundBytes;
+
+        if (upperBound == null) {
+            upperBoundBytes = null;
+        } else if (lowerBound == upperBound) {
+            upperBoundBytes = lowerBoundBytes;
+        } else {
+            upperBoundBytes = rocksPrefix(upperBound);
+        }
 
         Cursor<ByteBuffer> cursor = createScanCursor(lowerBoundBytes, upperBoundBytes);
 
@@ -137,12 +156,15 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
 
         // Include the upper bound, if needed (RocksDB excludes the upper bound by default).
         if (includeUpper && upperBound != null) {
-            Cursor<ByteBuffer> upperBoundCursor = takeWhile(createScanCursor(upperBoundBytes, null), startsWith(upperBound));
+            Cursor<ByteBuffer> upperBoundCursor = takeWhile(
+                    createScanCursor(upperBoundBytes, null),
+                    startsWith(upperBound)
+            );
 
             cursor = concat(cursor, upperBoundCursor);
         }
 
-        return map(cursor, this::decodeRow);
+        return cursor;
     }
 
     private Cursor<ByteBuffer> createScanCursor(byte @Nullable [] lowerBound, byte @Nullable [] upperBound) {
@@ -161,7 +183,7 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
         return new RocksIteratorAdapter<>(it) {
             @Override
             protected ByteBuffer decodeEntry(byte[] key, byte[] value) {
-                return ByteBuffer.wrap(key).order(ByteOrder.BIG_ENDIAN);
+                return ByteBuffer.wrap(key).order(ORDER);
             }
 
             @Override
@@ -178,40 +200,43 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
 
         var tuple = new BinaryTuple(descriptor.binaryTupleSchema(), binaryTupleSlice(bytes));
 
+        return new IndexRowImpl(tuple, decodeRowId(bytes));
+    }
+
+    private RowId decodeRowId(ByteBuffer bytes) {
         // RowId UUID is located at the last 16 bytes of the key
         long mostSignificantBits = bytes.getLong(bytes.limit() - Long.BYTES * 2);
         long leastSignificantBits = bytes.getLong(bytes.limit() - Long.BYTES);
 
-        var rowId = new RowId(partitionStorage.partitionId(), mostSignificantBits, leastSignificantBits);
-
-        return new IndexRowImpl(tuple, rowId);
+        return new RowId(partitionStorage.partitionId(), mostSignificantBits, leastSignificantBits);
     }
 
     private byte[] rocksPrefix(BinaryTuplePrefix prefix) {
-        return rocksPrefix(prefix, 0).array();
-    }
+        ByteBuffer bytes = prefix.byteBuffer();
 
-    private ByteBuffer rocksPrefix(InternalTuple prefix, int extraLength) {
-        ByteBuffer keyBytes = prefix.byteBuffer();
-
-        return ByteBuffer.allocate(Short.BYTES + keyBytes.remaining() + extraLength)
-                .order(ByteOrder.BIG_ENDIAN)
+        return ByteBuffer.allocate(Short.BYTES + bytes.remaining())
+                .order(ORDER)
                 .putShort((short) partitionStorage.partitionId())
-                .put(keyBytes);
+                .put(bytes)
+                .array();
     }
 
     private byte[] rocksKey(IndexRow row) {
-        RowId rowId = row.rowId();
+        ByteBuffer bytes = row.indexColumns().byteBuffer();
 
-        // We don't store the Partition ID as it is already a part of the key.
-        return rocksPrefix(row.indexColumns(), 2 * Long.BYTES)
-                .putLong(rowId.mostSignificantBits())
-                .putLong(rowId.leastSignificantBits())
+        return ByteBuffer.allocate(Short.BYTES + bytes.remaining() + ROW_ID_SIZE)
+                .order(ORDER)
+                .putShort((short) partitionStorage.partitionId())
+                .put(bytes)
+                .putLong(row.rowId().mostSignificantBits())
+                .putLong(row.rowId().leastSignificantBits())
                 .array();
     }
 
     private Predicate<ByteBuffer> startsWith(BinaryTuplePrefix prefix) {
         var comparator = new BinaryTupleComparator(descriptor);
+
+        ByteBuffer prefixBuffer = prefix.byteBuffer();
 
         return key -> {
             // First, compare the partitionIDs.
@@ -222,9 +247,7 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
             }
 
             // Finally, compare the remaining parts of the tuples.
-            // TODO: This part may be optimized by comparing binary tuple representations directly. However, currently BinaryTuple prefixes
-            //  are not binary compatible with regular tuples. See https://issues.apache.org/jira/browse/IGNITE-17711.
-            return comparator.compare(prefix.byteBuffer(), binaryTupleSlice(key)) == 0;
+            return comparator.compare(prefixBuffer, binaryTupleSlice(key)) == 0;
         };
     }
 
@@ -233,7 +256,7 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
                 // Discard partition ID.
                 .position(Short.BYTES)
                 // Discard row ID.
-                .limit(key.limit() - Long.BYTES * 2)
+                .limit(key.limit() - ROW_ID_SIZE)
                 .slice()
                 .order(ByteOrder.LITTLE_ENDIAN);
     }

@@ -19,7 +19,7 @@ package org.apache.ignite.internal.schema.testutils.builder;
 
 import java.util.List;
 import java.util.Map;
-import org.apache.ignite.schema.definition.index.HashIndexDefinition;
+import org.apache.ignite.internal.schema.testutils.definition.index.HashIndexDefinition;
 
 /**
  * Hash index descriptor builder.

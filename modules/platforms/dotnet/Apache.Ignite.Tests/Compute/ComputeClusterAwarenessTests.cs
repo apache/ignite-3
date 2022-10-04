@@ -93,7 +93,7 @@ namespace Apache.Ignite.Tests.Compute
             using var client = await IgniteClient.StartAsync(clientCfg);
 
             // ReSharper disable once AccessToDisposedClosure
-            TestUtils.WaitForCondition(() => client.GetConnections().Count == 2);
+            TestUtils.WaitForCondition(() => client.GetConnections().Count == 2, 5000);
 
             for (int i = 0; i < 100; i++)
             {

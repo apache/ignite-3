@@ -19,7 +19,6 @@ package org.apache.ignite.internal.schema;
 
 import static org.apache.ignite.internal.schema.NativeTypes.BYTES;
 import static org.apache.ignite.internal.schema.NativeTypes.DATE;
-import static org.apache.ignite.internal.schema.NativeTypes.DOUBLE;
 import static org.apache.ignite.internal.schema.NativeTypes.FLOAT;
 import static org.apache.ignite.internal.schema.NativeTypes.INT16;
 import static org.apache.ignite.internal.schema.NativeTypes.INT32;
@@ -27,20 +26,13 @@ import static org.apache.ignite.internal.schema.NativeTypes.INT64;
 import static org.apache.ignite.internal.schema.NativeTypes.INT8;
 import static org.apache.ignite.internal.schema.NativeTypes.STRING;
 import static org.apache.ignite.internal.schema.NativeTypes.UUID;
-import static org.apache.ignite.internal.schema.NativeTypes.bitmaskOf;
-import static org.apache.ignite.internal.schema.NativeTypes.blobOf;
 import static org.apache.ignite.internal.schema.NativeTypes.datetime;
-import static org.apache.ignite.internal.schema.NativeTypes.decimalOf;
-import static org.apache.ignite.internal.schema.NativeTypes.numberOf;
-import static org.apache.ignite.internal.schema.NativeTypes.stringOf;
 import static org.apache.ignite.internal.schema.NativeTypes.time;
 import static org.apache.ignite.internal.schema.NativeTypes.timestamp;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import org.apache.ignite.internal.schema.configuration.SchemaDescriptorConverter;
-import org.apache.ignite.schema.definition.ColumnType;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -155,44 +147,5 @@ public class NativeTypeTest {
     @Test
     public void compareVarlenTypesByDesc() {
         assertTrue(BYTES.compareTo(STRING) < 0);
-    }
-
-    /**
-     * CreateNativeTypeFromColumnType.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    @Test
-    public void createNativeTypeFromColumnType() {
-        assertEquals(INT8, from(ColumnType.INT8));
-        assertEquals(INT16, from(ColumnType.INT16));
-        assertEquals(INT32, from(ColumnType.INT32));
-        assertEquals(INT64, from(ColumnType.INT64));
-        assertEquals(FLOAT, from(ColumnType.FLOAT));
-        assertEquals(DOUBLE, from(ColumnType.DOUBLE));
-        assertEquals(DATE, from(ColumnType.DATE));
-        assertEquals(BYTES, from(ColumnType.blob()));
-        assertEquals(STRING, from(ColumnType.string()));
-
-        assertEquals(time(), from(ColumnType.time(ColumnType.TemporalColumnType.DEFAULT_TIME_PRECISION)));
-        assertEquals(datetime(), from(ColumnType.datetime(ColumnType.TemporalColumnType.DEFAULT_TIMESTAMP_PRECISION)));
-        assertEquals(timestamp(), from(ColumnType.timestamp(ColumnType.TemporalColumnType.DEFAULT_TIMESTAMP_PRECISION)));
-
-        for (int i = 1; i < 800; i += 100) {
-            assertEquals(blobOf(i), from(ColumnType.blobOf(i)));
-            assertEquals(stringOf(i), from(ColumnType.stringOf(i)));
-            assertEquals(bitmaskOf(i), from(ColumnType.bitmaskOf(i)));
-            assertEquals(numberOf(i), from(ColumnType.numberOf(i)));
-            assertEquals(decimalOf(i, i), from(ColumnType.decimalOf(i, i)));
-        }
-
-        for (int i = 0; i <= 9; i++) {
-            assertEquals(time(i), from(ColumnType.time(i)));
-            assertEquals(datetime(i), from(ColumnType.datetime(i)));
-            assertEquals(timestamp(i), from(ColumnType.timestamp(i)));
-        }
-    }
-
-    private NativeType from(ColumnType colType) {
-        return SchemaDescriptorConverter.convert(colType);
     }
 }

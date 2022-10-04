@@ -19,7 +19,7 @@
 
 #include "BinaryTupleHeader.h"
 #include "ColumnInfo.h"
-#include "common/Types.h"
+#include "common/types.h"
 
 #include <iterator>
 #include <vector>
@@ -44,10 +44,10 @@ public:
      * @brief Constructs a new Binary Tuple Schema object.
      *
      * @tparam T ColumnInfo iterator.
-     * @param begin 
-     * @param end 
+     * @param begin
+     * @param end
      */
-    template<typename T>
+    template <typename T>
     BinaryTupleSchema(T begin, T end) {
         elements.reserve(std::distance(begin, end));
         for (; begin < end; begin++) {
@@ -72,7 +72,7 @@ public:
      *
      * @return Number of elements.
      */
-    IntT numElements() const noexcept { return elements.size(); }
+    IntT numElements() const noexcept { return static_cast<IntT>(elements.size()); }
 
     /**
      * @brief Gets element info.
@@ -116,7 +116,7 @@ public:
      * @return true If the required null-bit is set.
      * @return false If the required null-bit is clear.
      */
-    static bool hasNull(const BytesView &tuple, IntT index) noexcept {
+    static bool hasNull(const bytes_view &tuple, IntT index) noexcept {
         return (tuple[getNullOffset(index)] & getNullMask(index)) != std::byte{0};
     }
 };

@@ -27,7 +27,7 @@ import org.apache.ignite.binary.BinaryObjects;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapMvPartitionStorage;
+import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
@@ -56,7 +56,7 @@ public class Example {
         TxManagerImpl txManager = new TxManagerImpl(null, new HeapLockManager());
 
         return Collections.singletonList(new TableImpl(new DummyInternalTableImpl(new VersionedRowStore(
-                new TestConcurrentHashMapMvPartitionStorage(0), txManager), txManager, new AtomicLong()), null));
+                new TestMvPartitionStorage(0), txManager), txManager, new AtomicLong()), null));
     }
 
     /**

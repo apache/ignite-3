@@ -40,7 +40,6 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Abstract table storage implementation based on {@link PageMemory}.
  */
-// TODO: IGNITE-16642 Support indexes.
 public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
     protected final TableConfiguration tableCfg;
 
@@ -48,7 +47,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
 
     protected volatile boolean started;
 
-    protected volatile AtomicReferenceArray<AbstractPageMemoryMvPartitionStorage> mvPartitions;
+    private volatile AtomicReferenceArray<AbstractPageMemoryMvPartitionStorage> mvPartitions;
 
     /**
      * Constructor.
@@ -60,10 +59,14 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
         tablesConfiguration = tablesCfg;
     }
 
-    /** {@inheritDoc} */
     @Override
     public TableConfiguration configuration() {
         return tableCfg;
+    }
+
+    @Override
+    public TablesConfiguration tablesConfiguration() {
+        return tablesConfiguration;
     }
 
     /**
@@ -71,7 +74,6 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
      */
     public abstract DataRegion<?> dataRegion();
 
-    /** {@inheritDoc} */
     @Override
     public void start() throws StorageException {
         TableView tableView = tableCfg.value();
@@ -81,7 +83,6 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
         started = true;
     }
 
-    /** {@inheritDoc} */
     @Override
     public void stop() throws StorageException {
         close(false);
@@ -95,7 +96,6 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
      */
     public abstract AbstractPageMemoryMvPartitionStorage createMvPartitionStorage(int partitionId) throws StorageException;
 
-    /** {@inheritDoc} */
     @Override
     public AbstractPageMemoryMvPartitionStorage getOrCreateMvPartition(int partitionId) throws StorageException {
         AbstractPageMemoryMvPartitionStorage partition = getMvPartition(partitionId);
@@ -113,7 +113,6 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
         return partition;
     }
 
-    /** {@inheritDoc} */
     @Override
     public @Nullable AbstractPageMemoryMvPartitionStorage getMvPartition(int partitionId) {
         assert started : "Storage has not started yet";
@@ -130,7 +129,6 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
         return mvPartitions.get(partitionId);
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> destroyPartition(int partitionId) throws StorageException {
         assert started : "Storage has not started yet";
@@ -148,18 +146,28 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
         return CompletableFuture.completedFuture(null);
     }
 
-    /** {@inheritDoc} */
     @Override
     public SortedIndexStorage getOrCreateSortedIndex(int partitionId, UUID indexId) {
-        throw new UnsupportedOperationException("Not implemented yet");
+        AbstractPageMemoryMvPartitionStorage partitionStorage = getMvPartition(partitionId);
+
+        if (partitionStorage == null) {
+            throw new StorageException(String.format("Partition ID %d does not exist", partitionId));
+        }
+
+        return partitionStorage.getOrCreateSortedIndex(indexId);
     }
 
     @Override
     public HashIndexStorage getOrCreateHashIndex(int partitionId, UUID indexId) {
-        return getOrCreateMvPartition(partitionId).getOrCreateHashIndex(indexId);
+        AbstractPageMemoryMvPartitionStorage partitionStorage = getMvPartition(partitionId);
+
+        if (partitionStorage == null) {
+            throw new StorageException(String.format("Partition ID %d does not exist", partitionId));
+        }
+
+        return partitionStorage.getOrCreateHashIndex(indexId);
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> destroyIndex(UUID indexId) {
         throw new UnsupportedOperationException("Not implemented yet");

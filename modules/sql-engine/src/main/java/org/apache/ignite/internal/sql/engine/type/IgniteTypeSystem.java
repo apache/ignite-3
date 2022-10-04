@@ -25,7 +25,7 @@ import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.rel.type.RelDataTypeSystemImpl;
 import org.apache.calcite.sql.type.BasicSqlType;
 import org.apache.calcite.sql.type.SqlTypeName;
-import org.apache.ignite.schema.definition.ColumnType.TemporalColumnType;
+import org.apache.ignite.internal.schema.TemporalNativeType;
 
 /**
  * Ignite type system.
@@ -53,7 +53,7 @@ public class IgniteTypeSystem extends RelDataTypeSystemImpl implements Serializa
             case TIME_WITH_LOCAL_TIME_ZONE:
             case TIMESTAMP:
             case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
-                return TemporalColumnType.MAX_TIME_PRECISION;
+                return TemporalNativeType.MAX_TIME_PRECISION;
             default:
                 return super.getMaxPrecision(typeName);
         }
@@ -65,7 +65,7 @@ public class IgniteTypeSystem extends RelDataTypeSystemImpl implements Serializa
         switch (typeName) {
             case TIMESTAMP: // DATETIME
             case TIMESTAMP_WITH_LOCAL_TIME_ZONE: // TIMESTAMP
-                return TemporalColumnType.DEFAULT_TIMESTAMP_PRECISION;
+                return TemporalNativeType.DEFAULT_TIMESTAMP_PRECISION;
             default:
                 return super.getDefaultPrecision(typeName);
         }

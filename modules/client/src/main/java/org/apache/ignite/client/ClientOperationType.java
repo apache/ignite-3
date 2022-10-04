@@ -29,6 +29,11 @@ import org.apache.ignite.tx.Transaction;
  */
 public enum ClientOperationType {
     /**
+     * Connect channel.
+     */
+    CHANNEL_CONNECT,
+
+    /**
      * Get tables ({@link IgniteTables#tables()}).
      */
     TABLES_GET,

@@ -49,7 +49,7 @@ public abstract class AbstractClientTest {
     public static void beforeAll() {
         ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.PARANOID);
 
-        server = new FakeIgnite();
+        server = new FakeIgnite("server-1");
 
         testServer = startServer(10800, 10, 0, server);
 
@@ -71,9 +71,13 @@ public abstract class AbstractClientTest {
      * After each.
      */
     @BeforeEach
-    public void beforeEach() {
-        for (var t : server.tables().tables()) {
-            server.tables().dropTable(t.name());
+    public void beforeEach() throws InterruptedException {
+        dropTables(server);
+    }
+
+    protected void dropTables(Ignite ignite) {
+        for (var t : ignite.tables().tables()) {
+            ignite.tables().dropTable(t.name());
         }
     }
 
@@ -108,7 +112,27 @@ public abstract class AbstractClientTest {
             long idleTimeout,
             Ignite ignite
     ) {
-        return new TestServer(port, portRange, idleTimeout, ignite);
+        return startServer(port, portRange, idleTimeout, ignite, null);
+    }
+
+    /**
+     * Returns server.
+     *
+     * @param port Port.
+     * @param portRange Port range.
+     * @param idleTimeout Idle timeout.
+     * @param ignite Ignite.
+     * @param nodeName Node name.
+     * @return Server.
+     */
+    public static TestServer startServer(
+            int port,
+            int portRange,
+            long idleTimeout,
+            Ignite ignite,
+            String nodeName
+    ) {
+        return new TestServer(port, portRange, idleTimeout, ignite, null, nodeName);
     }
 
     /**

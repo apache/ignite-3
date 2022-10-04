@@ -134,8 +134,8 @@ public class RocksDbTableStorage implements MvTableStorage {
     RocksDbTableStorage(
             RocksDbStorageEngine engine,
             Path tablePath,
-            TableConfiguration tableCfg,
             RocksDbDataRegion dataRegion,
+            TableConfiguration tableCfg,
             TablesConfiguration tablesCfg
     ) {
         this.engine = engine;
@@ -177,6 +177,11 @@ public class RocksDbTableStorage implements MvTableStorage {
     @Override
     public TableConfiguration configuration() {
         return tableCfg;
+    }
+
+    @Override
+    public TablesConfiguration tablesConfiguration() {
+        return tablesCfg;
     }
 
     /** {@inheritDoc} */
@@ -234,7 +239,7 @@ public class RocksDbTableStorage implements MvTableStorage {
                     case SORTED_INDEX:
                         UUID indexId = sortedIndexId(cf.name());
 
-                        var indexDescriptor = new SortedIndexDescriptor(indexId, tableCfg.value(), tablesCfg.value());
+                        var indexDescriptor = new SortedIndexDescriptor(indexId, tablesCfg.value());
 
                         sortedIndices.put(indexId, new SortedIndex(cf, indexDescriptor));
 
@@ -414,7 +419,7 @@ public class RocksDbTableStorage implements MvTableStorage {
     }
 
     private SortedIndex createSortedIndex(UUID indexId) {
-        var indexDescriptor = new SortedIndexDescriptor(indexId, tableCfg.value(), tablesCfg.value());
+        var indexDescriptor = new SortedIndexDescriptor(indexId, tablesCfg.value());
 
         ColumnFamilyDescriptor cfDescriptor = sortedIndexCfDescriptor(sortedIndexCfName(indexId), indexDescriptor);
 
@@ -433,7 +438,7 @@ public class RocksDbTableStorage implements MvTableStorage {
     @Override
     public HashIndexStorage getOrCreateHashIndex(int partitionId, UUID indexId) {
         HashIndex storages = hashIndices.computeIfAbsent(indexId, id -> {
-            var indexDescriptor = new HashIndexDescriptor(indexId, tableCfg.value(), tablesCfg.value());
+            var indexDescriptor = new HashIndexDescriptor(indexId, tablesCfg.value());
 
             return new HashIndex(hashIndexCf, indexDescriptor);
         });
@@ -456,13 +461,18 @@ public class RocksDbTableStorage implements MvTableStorage {
             hashIdx.destroy();
         }
 
+        // Sorted Indexes have a separate Column Family per index, so we simply destroy it immediately after a flush completes
+        // in order to avoid concurrent access to the CF.
         SortedIndex sortedIdx = sortedIndices.remove(indexId);
 
         if (sortedIdx != null) {
+            // Remove the to-be destroyed CF from the flusher
+            flusher.removeColumnFamily(sortedIdx.indexCf().handle());
+
             sortedIdx.destroy();
         }
 
-        if (hashIdx == null && sortedIdx == null) {
+        if (hashIdx == null) {
             return CompletableFuture.completedFuture(null);
         } else {
             return awaitFlush(false);
@@ -546,7 +556,7 @@ public class RocksDbTableStorage implements MvTableStorage {
                 );
 
             case SORTED_INDEX:
-                var indexDescriptor = new SortedIndexDescriptor(sortedIndexId(cfName), tableCfg.value(), tablesCfg.value());
+                var indexDescriptor = new SortedIndexDescriptor(sortedIndexId(cfName), tablesCfg.value());
 
                 return sortedIndexCfDescriptor(cfName, indexDescriptor);
 

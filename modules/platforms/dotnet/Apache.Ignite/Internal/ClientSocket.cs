@@ -509,7 +509,7 @@ namespace Apache.Ignite.Internal
 
                     // Invoke response handler in another thread to continue the receive loop.
                     // Response buffer should be disposed by the task handler.
-                    ThreadPool.QueueUserWorkItem(r => HandleResponse((PooledBuffer)r), response);
+                    ThreadPool.QueueUserWorkItem(r => HandleResponse((PooledBuffer)r!), response);
                 }
             }
             catch (Exception e)
@@ -543,6 +543,9 @@ namespace Apache.Ignite.Internal
 
                 return;
             }
+
+            // Skip flags.
+            reader.ReadInt32();
 
             var exception = ReadError(ref reader);
 
@@ -600,7 +603,7 @@ namespace Apache.Ignite.Internal
             {
                 foreach (var reqId in _requests.Keys.ToArray())
                 {
-                    if (_requests.TryRemove(reqId, out var req) && req != null)
+                    if (_requests.TryRemove(reqId, out var req))
                     {
                         req.TrySetException(ex);
                     }

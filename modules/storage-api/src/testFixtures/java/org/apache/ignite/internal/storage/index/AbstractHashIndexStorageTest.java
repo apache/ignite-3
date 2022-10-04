@@ -18,7 +18,8 @@
 package org.apache.ignite.internal.storage.index;
 
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter.convert;
+import static org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter.addIndex;
+import static org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter.convert;
 import static org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders.column;
 import static org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders.tableBuilder;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -30,20 +31,22 @@ import static org.hamcrest.Matchers.empty;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 import java.util.Collection;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
-import org.apache.ignite.configuration.schemas.table.TableIndexConfiguration;
+import org.apache.ignite.configuration.schemas.table.TableIndexView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
+import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
+import org.apache.ignite.internal.schema.testutils.definition.ColumnDefinition;
+import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
+import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
+import org.apache.ignite.internal.schema.testutils.definition.index.HashIndexDefinition;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.impl.BinaryTupleRowSerializer;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.schema.definition.ColumnDefinition;
-import org.apache.ignite.schema.definition.ColumnType;
-import org.apache.ignite.schema.definition.TableDefinition;
-import org.apache.ignite.schema.definition.index.HashIndexDefinition;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -109,15 +112,18 @@ public abstract class AbstractHashIndexStorageTest {
                 .withColumns(INT_COLUMN_NAME, STR_COLUMN_NAME)
                 .build();
 
-        CompletableFuture<Void> createIndexFuture =
-                tablesConf.indexes().change(chg -> chg.create(indexDefinition.name(),
-                        idx -> convert(indexDefinition, idx)));
+        CompletableFuture<Void> createIndexFuture = tablesConf.indexes()
+                .change(chg -> chg.create(indexDefinition.name(), idx -> {
+                    UUID tableId = ConfigurationUtil.internalId(tablesConf.tables().value(), "foo");
+
+                    addIndex(indexDefinition, tableId, idx);
+                }));
 
         assertThat(createIndexFuture, willCompleteSuccessfully());
 
-        TableIndexConfiguration indexConfig = tablesConf.indexes().get(indexDefinition.name());
+        TableIndexView indexConfig = tablesConf.indexes().get(indexDefinition.name()).value();
 
-        return tableStorage.getOrCreateHashIndex(TEST_PARTITION, indexConfig.id().value());
+        return tableStorage.getOrCreateHashIndex(TEST_PARTITION, indexConfig.id());
     }
 
     /**

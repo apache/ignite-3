@@ -18,7 +18,8 @@
 #pragma once
 
 #include "BinaryTupleSchema.h"
-#include "common/Types.h"
+#include "common/platform.h"
+#include "common/types.h"
 
 #include <cassert>
 #include <cstring>
@@ -103,9 +104,7 @@ public:
      * @param type Element type.
      * @param bytes Binary element value.
      */
-    void claim(DATA_TYPE type, const BytesView &bytes) noexcept {
-        claim(sizeOf(type, bytes));
-    }
+    void claim(DATA_TYPE type, const bytes_view &bytes) noexcept { claim(sizeOf(type, bytes)); }
 
     /**
      * @brief Assigns a value or null for the next element.
@@ -158,7 +157,7 @@ public:
      * @param type Element type.
      * @param value Value of an internal tuple field.
      */
-    void append(DATA_TYPE type, const BytesView &bytes);
+    void append(DATA_TYPE type, const bytes_view &bytes);
 
     /**
      * @brief Appends a value or null for the next element.
@@ -209,7 +208,8 @@ public:
      * @return Byte buffer with binary tuple.
      */
     template <typename BytesT>
-    const std::vector<std::byte> &build(const BinaryTupleSchema &schema, const std::vector<std::optional<BytesT>> &tuple) {
+    const std::vector<std::byte> &build(
+        const BinaryTupleSchema &schema, const std::vector<std::optional<BytesT>> &tuple) {
         start();
         claim(schema, tuple);
         layout();
@@ -227,7 +227,7 @@ private:
      * @return true If the source value can be compressed.
      * @return false If the source value cannot be compressed.
      */
-    template<typename T, typename U>
+    template <typename T, typename U>
     static bool fits(T value) noexcept {
         static_assert(std::is_signed_v<T>);
         static_assert(std::is_signed_v<U>);
@@ -241,9 +241,7 @@ private:
      * @param value Actual element value.
      * @return Required size.
      */
-    static SizeT sizeOfInt8(std::int8_t value) noexcept {
-        return value == 0 ? 0 : sizeof(std::int8_t);
-    }
+    static SizeT sizeOfInt8(std::int8_t value) noexcept { return value == 0 ? 0 : sizeof(std::int8_t); }
 
     /**
      * @brief Computes required binary size for a given value.
@@ -296,9 +294,7 @@ private:
      * @param value Actual element value.
      * @return Required size.
      */
-    static SizeT sizeOfFloat(float value) noexcept {
-        return value == 0.0f ? 0 : sizeof(float);
-    }
+    static SizeT sizeOfFloat(float value) noexcept { return value == 0.0f ? 0 : sizeof(float); }
 
     /**
      * @brief Computes required binary size for a given value.
@@ -307,7 +303,7 @@ private:
      * @return Required size.
      */
     static SizeT sizeOfDouble(double value) noexcept {
-        float floatValue = value;
+        float floatValue = static_cast<float>(value);
         return floatValue == value ? sizeOfFloat(floatValue) : sizeof(double);
     }
 
@@ -318,23 +314,14 @@ private:
      * @param bytes Binary element value.
      * @return Required size.
      */
-    static SizeT sizeOf(DATA_TYPE type, BytesView bytes);
+    static SizeT sizeOf(DATA_TYPE type, bytes_view bytes);
 
     /**
      * @brief Writes binary value of specified element.
      *
      * @param bytes Binary element value.
      */
-    void putBytes(BytesView bytes);
-
-    /**
-     * @brief Writes binary value of specified element.
-     *
-     * The written value may differ from the original because of value compression.
-     *
-     * @param bytes Binary element value.
-     */
-    void putInt8(BytesView bytes);
+    void putBytes(bytes_view bytes);
 
     /**
      * @brief Writes binary value of specified element.
@@ -343,7 +330,7 @@ private:
      *
      * @param bytes Binary element value.
      */
-    void putInt16(BytesView bytes);
+    void putInt8(bytes_view bytes);
 
     /**
      * @brief Writes binary value of specified element.
@@ -352,7 +339,7 @@ private:
      *
      * @param bytes Binary element value.
      */
-    void putInt32(BytesView bytes);
+    void putInt16(bytes_view bytes);
 
     /**
      * @brief Writes binary value of specified element.
@@ -361,7 +348,7 @@ private:
      *
      * @param bytes Binary element value.
      */
-    void putInt64(BytesView bytes);
+    void putInt32(bytes_view bytes);
 
     /**
      * @brief Writes binary value of specified element.
@@ -370,7 +357,7 @@ private:
      *
      * @param bytes Binary element value.
      */
-    void putFloat(BytesView bytes);
+    void putInt64(bytes_view bytes);
 
     /**
      * @brief Writes binary value of specified element.
@@ -379,14 +366,23 @@ private:
      *
      * @param bytes Binary element value.
      */
-    void putDouble(BytesView bytes);
+    void putFloat(bytes_view bytes);
+
+    /**
+     * @brief Writes binary value of specified element.
+     *
+     * The written value may differ from the original because of value compression.
+     *
+     * @param bytes Binary element value.
+     */
+    void putDouble(bytes_view bytes);
 
     /**
      * @brief Adds an entry to the offset table.
      */
     void appendEntry() {
         uint64_t offset = nextValue - valueBase;
-        static_assert(BYTE_ORDER == LITTLE_ENDIAN);
+        static_assert(platform::ByteOrder::littleEndian);
         assert(nextEntry + entrySize <= valueBase);
         std::memcpy(nextEntry, &offset, entrySize);
         nextEntry += entrySize;

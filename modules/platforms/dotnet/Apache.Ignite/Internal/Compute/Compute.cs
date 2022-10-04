@@ -110,7 +110,7 @@ namespace Apache.Ignite.Internal.Compute
 
             IgniteArgumentCheck.Ensure(nodesCol.Count > 0, nameof(nodes), "Nodes can't be empty.");
 
-            var idx = ThreadLocalRandom.Instance.Next(0, nodesCol.Count);
+            var idx = Random.Shared.Next(0, nodesCol.Count);
 
             return nodesCol.ElementAt(idx);
         }

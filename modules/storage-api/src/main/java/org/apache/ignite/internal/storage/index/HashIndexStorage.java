@@ -18,54 +18,21 @@
 package org.apache.ignite.internal.storage.index;
 
 import java.util.UUID;
-import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
-import org.apache.ignite.internal.util.Cursor;
 
 /**
  * Storage for a Hash Index.
  *
  * <p>This storage serves as an unordered mapping from a subset of a table's columns (a.k.a. index columns) to a set of {@link RowId}s
  * from a single {@link org.apache.ignite.internal.storage.MvPartitionStorage} from the same table.
- *
- * @see org.apache.ignite.schema.definition.index.HashIndexDefinition
  */
-public interface HashIndexStorage {
+public interface HashIndexStorage extends IndexStorage {
     /**
      * Returns the Index Descriptor of this storage.
      */
     HashIndexDescriptor indexDescriptor();
-
-    /**
-     * Returns a cursor over {@code RowId}s associated with the given index key.
-     *
-     * @throws StorageException If failed to read data.
-     */
-    Cursor<RowId> get(BinaryTuple key) throws StorageException;
-
-    /**
-     * Adds the given index row to the index.
-     *
-     * <p>Usage note: this method <b>must</b> always be called inside the corresponding partition's
-     * {@link org.apache.ignite.internal.storage.MvPartitionStorage#runConsistently} closure.
-     *
-     * @throws StorageException If failed to put data.
-     */
-    void put(IndexRow row) throws StorageException;
-
-    /**
-     * Removes the given row from the index.
-     *
-     * <p>Removing a non-existent row is a no-op.
-     *
-     * <p>Usage note: this method <b>must</b> always be called inside the corresponding partition's
-     * {@link org.apache.ignite.internal.storage.MvPartitionStorage#runConsistently} closure.
-     *
-     * @throws StorageException If failed to remove data.
-     */
-    void remove(IndexRow row) throws StorageException;
 
     /**
      * Removes all data from this index.

@@ -26,12 +26,12 @@ import static org.apache.ignite.internal.util.ArrayUtils.FLOAT_ARRAY;
 import static org.apache.ignite.internal.util.ArrayUtils.INT_ARRAY;
 import static org.apache.ignite.internal.util.ArrayUtils.LONG_ARRAY;
 import static org.apache.ignite.internal.util.ArrayUtils.SHORT_ARRAY;
-import static org.apache.ignite.internal.util.GridUnsafe.BIG_ENDIAN;
 import static org.apache.ignite.internal.util.GridUnsafe.BYTE_ARR_OFF;
 import static org.apache.ignite.internal.util.GridUnsafe.CHAR_ARR_OFF;
 import static org.apache.ignite.internal.util.GridUnsafe.DOUBLE_ARR_OFF;
 import static org.apache.ignite.internal.util.GridUnsafe.FLOAT_ARR_OFF;
 import static org.apache.ignite.internal.util.GridUnsafe.INT_ARR_OFF;
+import static org.apache.ignite.internal.util.GridUnsafe.IS_BIG_ENDIAN;
 import static org.apache.ignite.internal.util.GridUnsafe.LONG_ARR_OFF;
 import static org.apache.ignite.internal.util.GridUnsafe.SHORT_ARR_OFF;
 
@@ -204,7 +204,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
             long off = baseOff + pos;
 
-            if (BIG_ENDIAN) {
+            if (IS_BIG_ENDIAN) {
                 GridUnsafe.putShortLittleEndian(heapArr, off, val);
             } else {
                 GridUnsafe.putShort(heapArr, off, val);
@@ -280,7 +280,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
             long off = baseOff + pos;
 
-            if (BIG_ENDIAN) {
+            if (IS_BIG_ENDIAN) {
                 GridUnsafe.putFloatLittleEndian(heapArr, off, val);
             } else {
                 GridUnsafe.putFloat(heapArr, off, val);
@@ -300,7 +300,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
             long off = baseOff + pos;
 
-            if (BIG_ENDIAN) {
+            if (IS_BIG_ENDIAN) {
                 GridUnsafe.putDoubleLittleEndian(heapArr, off, val);
             } else {
                 GridUnsafe.putDouble(heapArr, off, val);
@@ -320,7 +320,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
             long off = baseOff + pos;
 
-            if (BIG_ENDIAN) {
+            if (IS_BIG_ENDIAN) {
                 GridUnsafe.putCharLittleEndian(heapArr, off, val);
             } else {
                 GridUnsafe.putChar(heapArr, off, val);
@@ -368,7 +368,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     @Override
     public void writeShortArray(short[] val) {
         if (val != null) {
-            if (BIG_ENDIAN) {
+            if (IS_BIG_ENDIAN) {
                 lastFinished = writeArrayLittleEndian(val, SHORT_ARR_OFF, val.length, 2, 1);
             } else {
                 lastFinished = writeArray(val, SHORT_ARR_OFF, val.length, val.length << 1);
@@ -382,7 +382,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     @Override
     public void writeIntArray(int[] val) {
         if (val != null) {
-            if (BIG_ENDIAN) {
+            if (IS_BIG_ENDIAN) {
                 lastFinished = writeArrayLittleEndian(val, INT_ARR_OFF, val.length, 4, 2);
             } else {
                 lastFinished = writeArray(val, INT_ARR_OFF, val.length, val.length << 2);
@@ -396,7 +396,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     @Override
     public void writeLongArray(long[] val) {
         if (val != null) {
-            if (BIG_ENDIAN) {
+            if (IS_BIG_ENDIAN) {
                 lastFinished = writeArrayLittleEndian(val, LONG_ARR_OFF, val.length, 8, 3);
             } else {
                 lastFinished = writeArray(val, LONG_ARR_OFF, val.length, val.length << 3);
@@ -410,7 +410,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     @Override
     public void writeLongArray(long[] val, int len) {
         if (val != null) {
-            if (BIG_ENDIAN) {
+            if (IS_BIG_ENDIAN) {
                 lastFinished = writeArrayLittleEndian(val, LONG_ARR_OFF, len, 8, 3);
             } else {
                 lastFinished = writeArray(val, LONG_ARR_OFF, len, len << 3);
@@ -424,7 +424,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     @Override
     public void writeFloatArray(float[] val) {
         if (val != null) {
-            if (BIG_ENDIAN) {
+            if (IS_BIG_ENDIAN) {
                 lastFinished = writeArrayLittleEndian(val, FLOAT_ARR_OFF, val.length, 4, 2);
             } else {
                 lastFinished = writeArray(val, FLOAT_ARR_OFF, val.length, val.length << 2);
@@ -438,7 +438,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     @Override
     public void writeDoubleArray(double[] val) {
         if (val != null) {
-            if (BIG_ENDIAN) {
+            if (IS_BIG_ENDIAN) {
                 lastFinished = writeArrayLittleEndian(val, DOUBLE_ARR_OFF, val.length, 8, 3);
             } else {
                 lastFinished = writeArray(val, DOUBLE_ARR_OFF, val.length, val.length << 3);
@@ -452,7 +452,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     @Override
     public void writeCharArray(char[] val) {
         if (val != null) {
-            if (BIG_ENDIAN) {
+            if (IS_BIG_ENDIAN) {
                 lastFinished = writeArrayLittleEndian(val, CHAR_ARR_OFF, val.length, 2, 1);
             } else {
                 lastFinished = writeArray(val, CHAR_ARR_OFF, val.length, val.length << 1);
@@ -807,7 +807,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
             long off = baseOff + pos;
 
-            return BIG_ENDIAN ? GridUnsafe.getShortLittleEndian(heapArr, off) : GridUnsafe.getShort(heapArr, off);
+            return IS_BIG_ENDIAN ? GridUnsafe.getShortLittleEndian(heapArr, off) : GridUnsafe.getShort(heapArr, off);
         } else {
             return 0;
         }
@@ -903,7 +903,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
             long off = baseOff + pos;
 
-            return BIG_ENDIAN ? GridUnsafe.getFloatLittleEndian(heapArr, off) : GridUnsafe.getFloat(heapArr, off);
+            return IS_BIG_ENDIAN ? GridUnsafe.getFloatLittleEndian(heapArr, off) : GridUnsafe.getFloat(heapArr, off);
         } else {
             return 0;
         }
@@ -921,7 +921,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
             long off = baseOff + pos;
 
-            return BIG_ENDIAN ? GridUnsafe.getDoubleLittleEndian(heapArr, off) : GridUnsafe.getDouble(heapArr, off);
+            return IS_BIG_ENDIAN ? GridUnsafe.getDoubleLittleEndian(heapArr, off) : GridUnsafe.getDouble(heapArr, off);
         } else {
             return 0;
         }
@@ -939,7 +939,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
             long off = baseOff + pos;
 
-            return BIG_ENDIAN ? GridUnsafe.getCharLittleEndian(heapArr, off) : GridUnsafe.getChar(heapArr, off);
+            return IS_BIG_ENDIAN ? GridUnsafe.getCharLittleEndian(heapArr, off) : GridUnsafe.getChar(heapArr, off);
         } else {
             return 0;
         }
@@ -970,7 +970,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     /** {@inheritDoc} */
     @Override
     public short[] readShortArray() {
-        if (BIG_ENDIAN) {
+        if (IS_BIG_ENDIAN) {
             return readArrayLittleEndian(SHORT_ARRAY, 2, 1, SHORT_ARR_OFF);
         } else {
             return readArray(SHORT_ARRAY, 1, SHORT_ARR_OFF);
@@ -980,7 +980,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     /** {@inheritDoc} */
     @Override
     public int[] readIntArray() {
-        if (BIG_ENDIAN) {
+        if (IS_BIG_ENDIAN) {
             return readArrayLittleEndian(INT_ARRAY, 4, 2, INT_ARR_OFF);
         } else {
             return readArray(INT_ARRAY, 2, INT_ARR_OFF);
@@ -990,7 +990,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     /** {@inheritDoc} */
     @Override
     public long[] readLongArray() {
-        if (BIG_ENDIAN) {
+        if (IS_BIG_ENDIAN) {
             return readArrayLittleEndian(LONG_ARRAY, 8, 3, LONG_ARR_OFF);
         } else {
             return readArray(LONG_ARRAY, 3, LONG_ARR_OFF);
@@ -1000,7 +1000,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     /** {@inheritDoc} */
     @Override
     public float[] readFloatArray() {
-        if (BIG_ENDIAN) {
+        if (IS_BIG_ENDIAN) {
             return readArrayLittleEndian(FLOAT_ARRAY, 4, 2, FLOAT_ARR_OFF);
         } else {
             return readArray(FLOAT_ARRAY, 2, FLOAT_ARR_OFF);
@@ -1010,7 +1010,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     /** {@inheritDoc} */
     @Override
     public double[] readDoubleArray() {
-        if (BIG_ENDIAN) {
+        if (IS_BIG_ENDIAN) {
             return readArrayLittleEndian(DOUBLE_ARRAY, 8, 3, DOUBLE_ARR_OFF);
         } else {
             return readArray(DOUBLE_ARRAY, 3, DOUBLE_ARR_OFF);
@@ -1020,7 +1020,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     /** {@inheritDoc} */
     @Override
     public char[] readCharArray() {
-        if (BIG_ENDIAN) {
+        if (IS_BIG_ENDIAN) {
             return readArrayLittleEndian(CHAR_ARRAY, 2, 1, CHAR_ARR_OFF);
         } else {
             return readArray(CHAR_ARRAY, 1, CHAR_ARR_OFF);

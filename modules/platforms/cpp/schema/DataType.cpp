@@ -18,6 +18,7 @@
 #include "DataType.h"
 
 #include <stdexcept>
+#include <string>
 
 namespace ignite {
 

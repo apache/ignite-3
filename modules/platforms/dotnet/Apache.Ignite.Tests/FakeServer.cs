@@ -61,7 +61,7 @@ namespace Apache.Ignite.Tests
             _listener.Bind(new IPEndPoint(IPAddress.Loopback, 0));
             _listener.Listen(backlog: 1);
 
-            Node = new ClusterNode("id-" + nodeName, nodeName, (IPEndPoint)_listener.LocalEndPoint);
+            Node = new ClusterNode("id-" + nodeName, nodeName, (IPEndPoint)_listener.LocalEndPoint!);
 
             if (!disableOpsTracking)
             {
@@ -77,7 +77,7 @@ namespace Apache.Ignite.Tests
 
         public async Task<IIgniteClient> ConnectClientAsync(IgniteClientConfiguration? cfg = null)
         {
-            var port = ((IPEndPoint)_listener.LocalEndPoint).Port;
+            var port = ((IPEndPoint)_listener.LocalEndPoint!).Port;
 
             cfg ??= new IgniteClientConfiguration();
 
@@ -131,6 +131,7 @@ namespace Apache.Ignite.Tests
 
             writer.Write(0); // Message type.
             writer.Write(requestId);
+            writer.Write(0); // Flags.
 
             if (!isError)
             {

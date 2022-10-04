@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.schema;
 
+import static org.apache.ignite.internal.binarytuple.BinaryTupleCommon.PREFIX_FLAG;
+
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.binarytuple.BinaryTuplePrefixBuilder;
@@ -39,7 +41,7 @@ public class BinaryTuplePrefix extends BinaryTupleReader implements InternalTupl
      * @param bytes Serialized representation of a Binary Tuple Prefix.
      */
     public BinaryTuplePrefix(BinaryTupleSchema schema, byte[] bytes) {
-        super(schema.elementCount() + 1, bytes);
+        super(schema.elementCount(), bytes);
         this.schema = schema;
     }
 
@@ -50,8 +52,30 @@ public class BinaryTuplePrefix extends BinaryTupleReader implements InternalTupl
      * @param buffer Serialized representation of a Binary Tuple Prefix.
      */
     public BinaryTuplePrefix(BinaryTupleSchema schema, ByteBuffer buffer) {
-        super(schema.elementCount() + 1, buffer);
+        super(schema.elementCount(), buffer);
         this.schema = schema;
+    }
+
+    /**
+     * Creates a prefix that contains all columns from the provided {@link BinaryTuple}.
+     *
+     * @param tuple Tuple to create a prefix from.
+     * @return Prefix, equivalent to the tuple.
+     */
+    public static BinaryTuplePrefix fromBinaryTuple(BinaryTuple tuple) {
+        ByteBuffer tupleBuffer = tuple.byteBuffer();
+
+        ByteBuffer prefixBuffer = ByteBuffer.allocate(tupleBuffer.remaining() + Integer.BYTES)
+                .order(ORDER)
+                .put(tupleBuffer)
+                .putInt(tuple.count())
+                .flip();
+
+        byte flags = prefixBuffer.get(0);
+
+        prefixBuffer.put(0, (byte) (flags | PREFIX_FLAG));
+
+        return new BinaryTuplePrefix(tuple.schema(), prefixBuffer);
     }
 
     @Override
@@ -66,6 +90,8 @@ public class BinaryTuplePrefix extends BinaryTupleReader implements InternalTupl
 
     @Override
     public int elementCount() {
-        return intValue(super.elementCount() - 1);
+        ByteBuffer buffer = byteBuffer();
+
+        return buffer.getInt(buffer.limit() - Integer.BYTES);
     }
 }

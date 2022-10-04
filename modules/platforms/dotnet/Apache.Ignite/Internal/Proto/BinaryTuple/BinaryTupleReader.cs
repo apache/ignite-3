@@ -19,12 +19,15 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 {
     using System;
     using System.Buffers.Binary;
+    using System.Collections;
     using System.Diagnostics;
+    using System.Numerics;
+    using NodaTime;
 
     /// <summary>
     /// Binary tuple reader.
     /// </summary>
-    internal readonly ref struct BinaryTupleReader // TODO: Support all types (IGNITE-15431).
+    internal readonly ref struct BinaryTupleReader
     {
         /** Buffer. */
         private readonly ReadOnlyMemory<byte> _buffer;
@@ -191,12 +194,136 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         };
 
         /// <summary>
+        /// Gets a bit mask value.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <returns>Value.</returns>
+        public BitArray GetBitmask(int index) => Seek(index) switch
+        {
+            { IsEmpty: true } => new BitArray(0),
+            var s => new BitArray(s.ToArray())
+        };
+
+        /// <summary>
+        /// Gets a decimal value.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <param name="scale">Decimal scale.</param>
+        /// <returns>Value.</returns>
+        public decimal GetDecimal(int index, int scale) => Seek(index) switch
+        {
+            { IsEmpty: true } => default,
+            var s => ReadDecimal(s, scale)
+        };
+
+        /// <summary>
+        /// Gets a number (big integer) value.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <returns>Value.</returns>
+        public BigInteger GetNumber(int index) => Seek(index) switch
+        {
+            { IsEmpty: true } => default,
+            var s => new BigInteger(s)
+        };
+
+        /// <summary>
+        /// Gets a local date value.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <returns>Value.</returns>
+        public LocalDate GetDate(int index) => Seek(index) switch
+        {
+            { IsEmpty: true } => default,
+            var s => ReadDate(s)
+        };
+
+        /// <summary>
+        /// Gets a local time value.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <returns>Value.</returns>
+        public LocalTime GetTime(int index) => Seek(index) switch
+        {
+            { IsEmpty: true } => default,
+            var s => ReadTime(s)
+        };
+
+        /// <summary>
+        /// Gets a local date and time value.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <returns>Value.</returns>
+        public LocalDateTime GetDateTime(int index) => Seek(index) switch
+        {
+            { IsEmpty: true } => default,
+            var s => ReadDate(s) + ReadTime(s[3..])
+        };
+
+        /// <summary>
+        /// Gets a timestamp (instant) value.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <returns>Value.</returns>
+        public Instant GetTimestamp(int index) => Seek(index) switch
+        {
+            { IsEmpty: true } => default,
+            var s => Instant
+                .FromUnixTimeSeconds(BinaryPrimitives.ReadInt64LittleEndian(s))
+                .PlusNanoseconds(s.Length == 8 ? 0 : BinaryPrimitives.ReadInt32LittleEndian(s[8..]))
+        };
+
+        /// <summary>
+        /// Gets a duration value.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <returns>Value.</returns>
+        public Duration GetDuration(int index) => Seek(index) switch
+        {
+            { IsEmpty: true } => default,
+            var s => Duration
+                .FromSeconds(BinaryPrimitives.ReadInt64LittleEndian(s))
+                .Plus(Duration.FromNanoseconds(s.Length == 8 ? 0 : BinaryPrimitives.ReadInt32LittleEndian(s[8..])))
+        };
+
+        /// <summary>
+        /// Gets a period value.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <returns>Value.</returns>
+        public Period GetPeriod(int index) => Seek(index) switch
+        {
+            { IsEmpty: true } => Period.Zero,
+            { Length: 3 } s => Period.FromYears(unchecked((sbyte)s[0])) +
+                               Period.FromMonths(unchecked((sbyte)s[1])) +
+                               Period.FromDays(unchecked((sbyte)s[2])),
+            { Length: 6 } s => Period.FromYears(BinaryPrimitives.ReadInt16LittleEndian(s)) +
+                               Period.FromMonths(BinaryPrimitives.ReadInt16LittleEndian(s[2..])) +
+                               Period.FromDays(BinaryPrimitives.ReadInt16LittleEndian(s[4..])),
+            var s => Period.FromYears(BinaryPrimitives.ReadInt32LittleEndian(s)) +
+                     Period.FromMonths(BinaryPrimitives.ReadInt32LittleEndian(s[4..])) +
+                     Period.FromDays(BinaryPrimitives.ReadInt32LittleEndian(s[8..]))
+        };
+
+        /// <summary>
+        /// Gets bytes.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <returns>Value.</returns>
+        public byte[] GetBytes(int index) => Seek(index) switch
+        {
+            { IsEmpty: true } => Array.Empty<byte>(),
+            var s => s.ToArray()
+        };
+
+        /// <summary>
         /// Gets an object value according to the specified type.
         /// </summary>
         /// <param name="index">Index.</param>
         /// <param name="columnType">Column type.</param>
+        /// <param name="scale">Column decimal scale.</param>
         /// <returns>Value.</returns>
-        public object? GetObject(int index, ClientDataType columnType)
+        public object? GetObject(int index, ClientDataType columnType, int scale)
         {
             if (IsNull(index))
             {
@@ -213,10 +340,75 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                 ClientDataType.Double => GetDouble(index),
                 ClientDataType.Uuid => GetGuid(index),
                 ClientDataType.String => GetString(index),
-
-                // TODO: Support all types (IGNITE-15431).
+                ClientDataType.Decimal => GetDecimal(index, scale),
+                ClientDataType.Bytes => GetBytes(index),
+                ClientDataType.BitMask => GetBitmask(index),
+                ClientDataType.Date => GetDate(index),
+                ClientDataType.Time => GetTime(index),
+                ClientDataType.DateTime => GetDateTime(index),
+                ClientDataType.Timestamp => GetTimestamp(index),
+                ClientDataType.Number => GetNumber(index),
                 _ => throw new IgniteClientException(ErrorGroups.Client.Protocol, "Unsupported type: " + columnType)
             };
+        }
+
+        private static LocalDate ReadDate(ReadOnlySpan<byte> span)
+        {
+            // Read int32 from 3 bytes, preserving sign.
+            Span<byte> buf = stackalloc byte[4];
+            span[..3].CopyTo(buf[1..]);
+
+            int date = BinaryPrimitives.ReadInt32LittleEndian(buf) >> 8;
+
+            int day = date & 31;
+            int month = (date >> 5) & 15;
+            int year = (date >> 9); // Sign matters.
+
+            return new LocalDate(year, month, day);
+        }
+
+        private static LocalTime ReadTime(ReadOnlySpan<byte> span)
+        {
+            long time = BinaryPrimitives.ReadUInt32LittleEndian(span);
+            var length = span.Length;
+
+            int nanos;
+            if (length == 4)
+            {
+                nanos = ((int) time & ((1 << 10) - 1)) * 1000 * 1000;
+                time >>= 10;
+            }
+            else if (length == 5)
+            {
+                time |= (long)span[4] << 32;
+                nanos = ((int) time & ((1 << 20) - 1)) * 1000;
+                time >>= 20;
+            }
+            else
+            {
+                time |= (long)BinaryPrimitives.ReadUInt16LittleEndian(span[4..]) << 32;
+                nanos = ((int)time & ((1 << 30) - 1));
+                time >>= 30;
+            }
+
+            int second = ((int) time) & 63;
+            int minute = ((int) time >> 6) & 63;
+            int hour = ((int) time >> 12) & 31;
+
+            return LocalTime.FromHourMinuteSecondNanosecond(hour, minute, second, nanos);
+        }
+
+        private static decimal ReadDecimal(ReadOnlySpan<byte> span, int scale)
+        {
+            var unscaled = new BigInteger(span);
+            var res = (decimal)unscaled;
+
+            if (scale > 0)
+            {
+                res /= (decimal)BigInteger.Pow(10, scale);
+            }
+
+            return res;
         }
 
         private int GetOffset(int position)

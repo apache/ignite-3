@@ -30,11 +30,11 @@ import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
+import org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter;
 import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
+import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
+import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.schema.definition.ColumnType;
-import org.apache.ignite.schema.definition.TableDefinition;
 import org.apache.ignite.table.Table;
 
 /**
@@ -50,6 +50,8 @@ public class PlatformTestNodeRunner {
     private static final String SCHEMA_NAME = "PUB";
 
     private static final String TABLE_NAME = "tbl1";
+
+    private static final String TABLE_NAME_ALL_COLUMNS = "tbl_all_columns";
 
     /** Time to keep the node alive. */
     private static final int RUN_TIME_MINUTES = 30;
@@ -119,19 +121,7 @@ public class PlatformTestNodeRunner {
 
         System.out.println("Ignite nodes started");
 
-        var keyCol = "key";
-        var valCol = "val";
-
-        TableDefinition schTbl = SchemaBuilders.tableBuilder(SCHEMA_NAME, TABLE_NAME).columns(
-                SchemaBuilders.column(keyCol, ColumnType.INT64).build(),
-                SchemaBuilders.column(valCol, ColumnType.string()).asNullable(true).build()
-        ).withPrimaryKey(keyCol).build();
-
-        startedNodes.get(0).tables().createTable(schTbl.canonicalName(), tblCh ->
-                SchemaConfigurationConverter.convert(schTbl, tblCh)
-                        .changeReplicas(1)
-                        .changePartitions(10)
-        );
+        createTables(startedNodes.get(0));
 
         String ports = startedNodes.stream()
                 .map(n -> String.valueOf(getPort((IgniteImpl) n)))
@@ -142,6 +132,49 @@ public class PlatformTestNodeRunner {
         Thread.sleep(RUN_TIME_MINUTES * 60_000);
 
         System.out.println("Exiting after " + RUN_TIME_MINUTES + " minutes.");
+    }
+
+    private static void createTables(Ignite node) {
+        var keyCol = "key";
+
+        TableDefinition schTbl = SchemaBuilders.tableBuilder(SCHEMA_NAME, TABLE_NAME).columns(
+                SchemaBuilders.column(keyCol, ColumnType.INT64).build(),
+                SchemaBuilders.column("val", ColumnType.string()).asNullable(true).build()
+        ).withPrimaryKey(keyCol).build();
+
+        node.tables().createTable(schTbl.canonicalName(), tblCh ->
+                SchemaConfigurationConverter.convert(schTbl, tblCh)
+                        .changeReplicas(1)
+                        .changePartitions(10)
+        );
+
+        TableDefinition schTbl2 = SchemaBuilders.tableBuilder(SCHEMA_NAME, TABLE_NAME_ALL_COLUMNS).columns(
+                SchemaBuilders.column(keyCol, ColumnType.INT64).build(),
+                SchemaBuilders.column("str", ColumnType.string()).asNullable(true).build(),
+                SchemaBuilders.column("int8", ColumnType.INT8).asNullable(true).build(),
+                SchemaBuilders.column("int16", ColumnType.INT16).asNullable(true).build(),
+                SchemaBuilders.column("int32", ColumnType.INT32).asNullable(true).build(),
+                SchemaBuilders.column("int64", ColumnType.INT64).asNullable(true).build(),
+                SchemaBuilders.column("float", ColumnType.FLOAT).asNullable(true).build(),
+                SchemaBuilders.column("double", ColumnType.DOUBLE).asNullable(true).build(),
+                SchemaBuilders.column("uuid", ColumnType.UUID).asNullable(true).build(),
+                SchemaBuilders.column("date", ColumnType.DATE).asNullable(true).build(),
+                SchemaBuilders.column("bitmask", ColumnType.bitmaskOf(64)).asNullable(true).build(),
+                SchemaBuilders.column("time", ColumnType.time(ColumnType.TemporalColumnType.MAX_TIME_PRECISION))
+                        .asNullable(true).build(),
+                SchemaBuilders.column("datetime", ColumnType.datetime(ColumnType.TemporalColumnType.MAX_TIME_PRECISION))
+                        .asNullable(true).build(),
+                SchemaBuilders.column("timestamp", ColumnType.timestamp(ColumnType.TemporalColumnType.MAX_TIME_PRECISION))
+                        .asNullable(true).build(),
+                SchemaBuilders.column("blob", ColumnType.blob()).asNullable(true).build(),
+                SchemaBuilders.column("decimal", ColumnType.decimal()).asNullable(true).build()
+        ).withPrimaryKey(keyCol).build();
+
+        node.tables().createTable(schTbl2.canonicalName(), tblCh ->
+                SchemaConfigurationConverter.convert(schTbl2, tblCh)
+                        .changeReplicas(1)
+                        .changePartitions(10)
+        );
     }
 
     /**

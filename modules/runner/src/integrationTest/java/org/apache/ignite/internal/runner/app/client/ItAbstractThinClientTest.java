@@ -21,6 +21,7 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -32,15 +33,15 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
+import org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter;
 import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
+import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
+import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.schema.definition.ColumnType;
-import org.apache.ignite.schema.definition.TableDefinition;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestInfo;
@@ -82,7 +83,7 @@ public abstract class ItAbstractThinClientTest extends IgniteAbstractTest {
                 node0Name,
                 "{\n"
                         + "  network.port: 3344,\n"
-                        + "  network.nodeFinder.netClusterNodes: [ \"localhost:3344\", \"localhost:3345\" ]\n"
+                        + "  network.nodeFinder.netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
                         + "}"
         );
 
@@ -90,7 +91,7 @@ public abstract class ItAbstractThinClientTest extends IgniteAbstractTest {
                 node1Name,
                 "{\n"
                         + "  network.port: 3345,\n"
-                        + "  network.nodeFinder.netClusterNodes: [ \"localhost:3344\", \"localhost:3345\" ]\n"
+                        + "  network.nodeFinder.netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
                         + "  clientConnector.sendServerExceptionStackTraceToClient: true\n"
                         + "}"
         );
@@ -121,7 +122,8 @@ public abstract class ItAbstractThinClientTest extends IgniteAbstractTest {
         );
 
         client = IgniteClient.builder().addresses(getClientAddresses().toArray(new String[0])).build();
-        IgniteTestUtils.waitForCondition(() -> client.connections().size() == 2, 3000);
+
+        assertTrue(IgniteTestUtils.waitForCondition(() -> client.connections().size() == 2, 3000));
     }
 
     /**
@@ -168,6 +170,10 @@ public abstract class ItAbstractThinClientTest extends IgniteAbstractTest {
 
     protected IgniteClient client() {
         return client;
+    }
+
+    protected Ignite server() {
+        return startedNodes.get(0);
     }
 
     /**

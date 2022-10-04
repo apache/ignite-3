@@ -33,6 +33,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.TxManager;
@@ -111,9 +112,7 @@ public class VersionedRowStore {
             return null;
         }
 
-        BinaryRow result = storage.read(rowId, txId);
-
-        return result;
+        return storage.read(rowId, txId);
     }
 
     /**
@@ -155,7 +154,7 @@ public class VersionedRowStore {
 
             txsInsertedKeys.computeIfAbsent(txId, entry -> new CopyOnWriteArrayList<ByteBuffer>()).add(key);
         } else {
-            storage.addWrite(rowId, row,  txId);
+            storage.addWrite(rowId, row,  txId, UUID.randomUUID(), 0);
         }
     }
 
@@ -193,13 +192,13 @@ public class VersionedRowStore {
             return false;
         }
 
-        BinaryRow prevRow = storage.read(primaryIndex.get(row.keySlice()), txId);
+        BinaryRow prevRow = storage.read(rowId, txId);
 
         if (prevRow == null) {
             return false;
         }
 
-        storage.addWrite(primaryIndex.get(row.keySlice()), null, txId);
+        storage.addWrite(primaryIndex.get(row.keySlice()), null, txId, UUID.randomUUID(), 0);
 
         txsRemovedKeys.computeIfAbsent(txId, entry -> new CopyOnWriteArrayList<>()).add(row.keySlice());
 
@@ -544,7 +543,7 @@ public class VersionedRowStore {
      */
     public Cursor<BinaryRow> scan(Predicate<BinaryRow> pred) {
         // TODO <MUTED> https://issues.apache.org/jira/browse/IGNITE-17309 Transactional support for partition scans
-        Cursor<BinaryRow> delegate = storage.scan(pred, Timestamp.nextVersion());
+        Cursor<ReadResult> delegate = storage.scan(pred, Timestamp.nextVersion());
 
         // TODO asch add tx support IGNITE-15087.
         return new Cursor<BinaryRow>() {
@@ -562,7 +561,7 @@ public class VersionedRowStore {
                 }
 
                 if (delegate.hasNext()) {
-                    cur = delegate.next();
+                    cur = delegate.next().binaryRow();
 
                     return cur != null ? true : hasNext(); // Skip tombstones.
                 }

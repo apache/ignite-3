@@ -89,7 +89,7 @@ import org.apache.ignite.internal.pagememory.tree.io.BplusMetaIo;
 import org.apache.ignite.internal.pagememory.util.PageLockListener;
 import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.util.IgniteCursor;
+import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteRandom;
 import org.apache.ignite.internal.util.IgniteStripedLock;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
@@ -331,11 +331,11 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
         }
     }
 
-    private void checkCursor(IgniteCursor<Long> cursor, Iterator<Long> iterator) throws IgniteInternalCheckedException {
-        while (cursor.next()) {
+    private void checkCursor(Cursor<Long> cursor, Iterator<Long> iterator) {
+        while (cursor.hasNext()) {
             assertTrue(iterator.hasNext());
 
-            assertEquals(iterator.next(), cursor.get());
+            assertEquals(iterator.next(), cursor.next());
         }
 
         assertFalse(iterator.hasNext());
@@ -644,7 +644,7 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
             assertNoLocks();
         }
 
-        assertFalse(tree.find(null, null).next());
+        assertFalse(tree.find(null, null).hasNext());
         assertEquals(0, tree.size());
         assertEquals(0, tree.rootLevel());
 
@@ -985,12 +985,12 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
 
         tree.validateTree();
 
-        IgniteCursor<Long> c = tree.find(null, null);
+        Cursor<Long> c = tree.find(null, null);
 
         long x = 0;
 
-        while (c.next()) {
-            assertEquals(Long.valueOf(x++), c.get());
+        while (c.hasNext()) {
+            assertEquals(Long.valueOf(x++), c.next());
         }
 
         assertEquals(keys, x);
@@ -1037,10 +1037,10 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
     }
 
     private void assertEqualContents(IgniteTree<Long, Long> tree, Map<Long, Long> map) throws Exception {
-        IgniteCursor<Long> cursor = tree.find(null, null);
+        Cursor<Long> cursor = tree.find(null, null);
 
-        while (cursor.next()) {
-            Long x = cursor.get();
+        while (cursor.hasNext()) {
+            Long x = cursor.next();
 
             assert x != null;
 
@@ -1060,8 +1060,8 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
 
         TestTree tree = createTestTree(true);
 
-        assertFalse(tree.find(null, null).next());
-        assertFalse(tree.find(0L, 1L).next());
+        assertFalse(tree.find(null, null).hasNext());
+        assertFalse(tree.find(0L, 1L).hasNext());
 
         tree.put(1L);
         tree.put(2L);
@@ -1069,18 +1069,10 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
 
         assertEquals(3, size(tree.find(null, null)));
 
-        assertFalse(tree.find(4L, null).next());
-        assertFalse(tree.find(null, 0L).next());
+        assertFalse(tree.find(4L, null).hasNext());
+        assertFalse(tree.find(null, 0L).hasNext());
 
         assertNoLocks();
-    }
-
-    private void doTestCursor(boolean canGetRow) throws Exception {
-        TestTree tree = createTestTree(canGetRow);
-
-        for (long i = 15; i >= 0; i--) {
-            tree.put(i);
-        }
     }
 
     @Test
@@ -1108,19 +1100,19 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
 
         Long upperBound = 30_000L + rnd.nextInt(2 * MAX_PER_PAGE);
 
-        IgniteCursor<Long> c = tree.find(null, upperBound);
+        Cursor<Long> c = tree.find(null, upperBound);
         Iterator<Long> i = map.headMap(upperBound, true).keySet().iterator();
 
         Long last = null;
 
         for (int j = 0; j < off; j++) {
-            assertTrue(c.next());
+            assertTrue(c.hasNext());
 
             // println(" <-> " + c.get());
 
-            assertEquals(i.next(), c.get());
+            last = c.next();
 
-            last = c.get();
+            assertEquals(i.next(), last);
 
             assertNoLocks();
         }
@@ -1130,18 +1122,20 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
 
             c = tree.find(last, upperBound);
 
-            assertTrue(c.next());
-            assertEquals(last, c.get());
+            assertTrue(c.hasNext());
+            assertEquals(last, c.next());
 
             assertNoLocks();
         }
 
-        while (c.next()) {
+        while (c.hasNext()) {
             // println(" --> " + c.get());
 
-            assertNotNull(c.get());
-            assertEquals(i.next(), c.get());
-            assertEquals(c.get(), tree.remove(c.get()));
+            Long t = c.next();
+
+            assertNotNull(t);
+            assertEquals(i.next(), t);
+            assertEquals(t, tree.remove(t));
 
             i.remove();
 
@@ -2455,20 +2449,22 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
                 int low = DataStructure.randomInt(CNT);
                 int high = low + DataStructure.randomInt(CNT - low);
 
-                IgniteCursor<Long> c = tree.find((long) low, (long) high);
+                Cursor<Long> c = tree.find((long) low, (long) high);
 
                 Long last = null;
 
-                while (c.next()) {
+                while (c.hasNext()) {
+                    Long t = c.next();
+
                     // Correct bounds.
-                    assertTrue(c.get() >= low, low + " <= " + c.get() + " <= " + high);
-                    assertTrue(c.get() <= high, low + " <= " + c.get() + " <= " + high);
+                    assertTrue(t >= low, low + " <= " + t + " <= " + high);
+                    assertTrue(t <= high, low + " <= " + t + " <= " + high);
 
                     if (last != null) {  // No duplicates.
-                        assertTrue(c.get() > last, low + " <= " + last + " < " + c.get() + " <= " + high);
+                        assertTrue(t > last, low + " <= " + last + " < " + t + " <= " + high);
                     }
 
-                    last = c.get();
+                    last = t;
                 }
 
                 TestTreeFindFirstClosure cl = new TestTreeFindFirstClosure();
@@ -2496,10 +2492,10 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
             asyncRunFut.get(getTestTimeout(), MILLISECONDS);
         }
 
-        IgniteCursor<Long> cursor = tree.find(null, null);
+        Cursor<Long> cursor = tree.find(null, null);
 
-        while (cursor.next()) {
-            Long x = cursor.get();
+        while (cursor.hasNext()) {
+            Long x = cursor.next();
 
             assert x != null;
 
@@ -2515,10 +2511,12 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
         assertNoLocks();
     }
 
-    private static int size(IgniteCursor<?> c) throws Exception {
+    private static int size(Cursor<?> c) {
         int cnt = 0;
 
-        while (c.next()) {
+        while (c.hasNext()) {
+            c.next();
+
             cnt++;
         }
 

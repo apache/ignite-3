@@ -29,6 +29,7 @@ import io.netty.channel.ChannelInboundHandlerAdapter;
 import java.util.BitSet;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.client.handler.requests.cluster.ClientClusterGetNodesRequest;
 import org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteColocatedRequest;
 import org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteRequest;
@@ -48,6 +49,7 @@ import org.apache.ignite.client.handler.requests.sql.ClientSqlCursorNextPageRequ
 import org.apache.ignite.client.handler.requests.sql.ClientSqlExecuteRequest;
 import org.apache.ignite.client.handler.requests.table.ClientSchemasGetRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTableGetRequest;
+import org.apache.ignite.client.handler.requests.table.ClientTablePartitionAssignmentGetRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTablesGetRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTupleContainsKeyRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTupleDeleteAllExactRequest;
@@ -75,19 +77,20 @@ import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
+import org.apache.ignite.internal.client.proto.ResponseFlags;
 import org.apache.ignite.internal.client.proto.ServerMessageType;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryCursorHandler;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
+import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.sql.IgniteSql;
-import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
 
 /**
@@ -99,7 +102,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
     private static final IgniteLogger LOG = Loggers.forClass(ClientInboundMessageHandler.class);
 
     /** Ignite tables API. */
-    private final IgniteTables igniteTables;
+    private final IgniteTablesInternal igniteTables;
 
     /** Ignite tables API. */
     private final IgniteTransactions igniteTransactions;
@@ -128,6 +131,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
     /** Context. */
     private ClientContext clientContext;
 
+    /** Whether the partition assignment has changed since the last server response. */
+    private final AtomicBoolean partitionAssignmentChanged = new AtomicBoolean();
+
     /**
      * Constructor.
      *
@@ -139,7 +145,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
      * @param clusterService     Cluster.
      */
     public ClientInboundMessageHandler(
-            IgniteTables igniteTables,
+            IgniteTablesInternal igniteTables,
             IgniteTransactions igniteTransactions,
             QueryProcessor processor,
             ClientConnectorView configuration,
@@ -163,6 +169,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
 
         jdbcQueryEventHandler = new JdbcQueryEventHandlerImpl(processor, new JdbcMetadataCatalog(igniteTables), resources);
         jdbcQueryCursorHandler = new JdbcQueryCursorHandlerImpl(resources);
+
+        igniteTables.addAssignmentsChangeListener(this::onPartitionAssignmentChanged);
     }
 
     /** {@inheritDoc} */
@@ -185,6 +193,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
     @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
         resources.close();
+        igniteTables.removeAssignmentsChangeListener(this::onPartitionAssignmentChanged);
 
         super.channelInactive(ctx);
     }
@@ -263,6 +272,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
 
             packer.packInt(ServerMessageType.RESPONSE);
             packer.packLong(requestId);
+            writeFlags(packer);
 
             writeErrorCore(err, packer);
 
@@ -320,6 +330,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
 
             out.packInt(ServerMessageType.RESPONSE);
             out.packLong(requestId);
+            writeFlags(out);
             out.packNil(); // No error.
 
             var fut = processOperation(in, out, opCode);
@@ -469,9 +480,21 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
             case ClientOp.SQL_CURSOR_CLOSE:
                 return ClientSqlCursorCloseRequest.process(in, resources);
 
+            case ClientOp.PARTITION_ASSIGNMENT_GET:
+                return ClientTablePartitionAssignmentGetRequest.process(in, out, igniteTables);
+
             default:
                 throw new IgniteException(PROTOCOL_ERR, "Unexpected operation code: " + opCode);
         }
+    }
+
+    private void writeFlags(ClientMessagePacker out) {
+        var flags = ResponseFlags.getFlags(partitionAssignmentChanged.compareAndSet(true, false));
+        out.packInt(flags);
+    }
+
+    private void onPartitionAssignmentChanged(IgniteTablesInternal tables) {
+        partitionAssignmentChanged.set(true);
     }
 
     /** {@inheritDoc} */

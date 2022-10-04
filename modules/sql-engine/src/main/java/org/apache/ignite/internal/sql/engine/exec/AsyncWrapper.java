@@ -22,7 +22,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
 import org.apache.ignite.internal.sql.engine.AsyncCursor;
@@ -76,7 +75,7 @@ public class AsyncWrapper<T> implements AsyncCursor<T> {
 
     /** {@inheritDoc} */
     @Override
-    public CompletionStage<BatchedResult<T>> requestNextAsync(int rows) {
+    public CompletableFuture<BatchedResult<T>> requestNextAsync(int rows) {
         CompletableFuture<BatchedResult<T>> next = new CompletableFuture<>();
         CompletableFuture<BatchedResult<T>> prev;
 

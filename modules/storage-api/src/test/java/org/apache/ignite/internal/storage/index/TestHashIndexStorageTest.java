@@ -18,9 +18,6 @@
 package org.apache.ignite.internal.storage.index;
 
 import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.EntryCountBudgetConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
@@ -28,9 +25,9 @@ import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapMvTableStorage;
-import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapStorageEngine;
-import org.apache.ignite.internal.storage.chm.schema.TestConcurrentHashMapDataStorageConfigurationSchema;
+import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
+import org.apache.ignite.internal.storage.impl.TestStorageEngine;
+import org.apache.ignite.internal.storage.impl.schema.TestDataStorageConfigurationSchema;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -43,26 +40,20 @@ public class TestHashIndexStorageTest extends AbstractHashIndexStorageTest {
     void setUp(
             @InjectConfiguration(
                     polymorphicExtensions = {
-                            TestConcurrentHashMapDataStorageConfigurationSchema.class,
+                            TestDataStorageConfigurationSchema.class,
+                            UnknownDataStorageConfigurationSchema.class,
                             HashIndexConfigurationSchema.class,
                             NullValueDefaultConfigurationSchema.class,
                             UnlimitedBudgetConfigurationSchema.class
                     },
-                    value = "mock.dataStorage.name = " + TestConcurrentHashMapStorageEngine.ENGINE_NAME
+                    value = "mock.tables.foo.dataStorage.name = " + TestStorageEngine.ENGINE_NAME
             )
-            TableConfiguration tableCfg,
-
-            @InjectConfiguration(polymorphicExtensions = {
-                    HashIndexConfigurationSchema.class,
-                    UnknownDataStorageConfigurationSchema.class,
-                    ConstantValueDefaultConfigurationSchema.class,
-                    FunctionCallDefaultConfigurationSchema.class,
-                    NullValueDefaultConfigurationSchema.class,
-                    UnlimitedBudgetConfigurationSchema.class,
-                    EntryCountBudgetConfigurationSchema.class
-            })
             TablesConfiguration tablesConfig
     ) {
-        initialize(new TestConcurrentHashMapMvTableStorage(tableCfg, tablesConfig), tablesConfig);
+        TableConfiguration tableConfig = tablesConfig.tables().get("foo");
+
+        var storage = new TestMvTableStorage(tableConfig, tablesConfig);
+
+        initialize(storage, tablesConfig);
     }
 }
