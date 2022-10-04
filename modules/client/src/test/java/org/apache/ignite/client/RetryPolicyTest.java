@@ -29,6 +29,8 @@ import java.util.function.Function;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.internal.client.ClientUtils;
+import org.apache.ignite.internal.client.IgniteClientConfigurationImpl;
+import org.apache.ignite.internal.client.RetryPolicyContextImpl;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
@@ -211,6 +213,17 @@ public class RetryPolicyTest {
     }
 
     @Test
+    public void testRetryReadPolicyAllOperationsSupported() throws IllegalAccessException {
+        var plc = new RetryReadPolicy();
+        var cfg = new IgniteClientConfigurationImpl(null, null, 0, 0, 0, null, 0, null, null);
+
+        for (var op : ClientOperationType.values()) {
+            var ctx = new RetryPolicyContextImpl(cfg, op, 0, null);
+            plc.shouldRetry(ctx);
+        }
+    }
+
+    @Test
     public void testDefaultRetryPolicyIsRetryReadPolicyWithLimit() throws Exception {
         initServer(reqId -> false);
 
@@ -219,6 +232,23 @@ public class RetryPolicyTest {
 
             var readPlc = assertInstanceOf(RetryReadPolicy.class, plc);
             assertEquals(RetryReadPolicy.DFLT_RETRY_LIMIT, readPlc.retryLimit());
+        }
+    }
+
+    @Test
+    public void testExceptionInRetryPolicyPropagatesToCaller() throws Exception {
+        initServer(reqId -> reqId % 2 == 0);
+        var plc = new TestRetryPolicy();
+        plc.shouldThrow = true;
+
+        try (var client = getClient(plc)) {
+            IgniteException ex = assertThrows(IgniteException.class, () -> client.tables().tables());
+
+            var cause = (IgniteClientConnectionException) ex.getCause();
+            Throwable[] suppressed = cause.getSuppressed();
+
+            assertEquals("TestRetryPolicy exception.", suppressed[0].getMessage());
+            assertEquals(1, suppressed.length);
         }
     }
 

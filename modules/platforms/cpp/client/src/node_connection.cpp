@@ -30,7 +30,7 @@ NodeConnection::NodeConnection(
 
 NodeConnection::~NodeConnection() {
     for (auto &handler : m_requestHandlers) {
-        auto handlingRes = ignite_result<void>::of_operation([&]() {
+        auto handlingRes = result_of_operation<void>([&]() {
             auto res = handler.second->setError(ignite_error("Connection closed before response was received"));
             if (res.has_error())
                 m_logger->logError(

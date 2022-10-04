@@ -22,8 +22,10 @@
 
 #include <msgpack.h>
 
-#include "common/guid.h"
+#include "common/uuid.h"
 #include "common/types.h"
+
+#include "ignite/protocol/utils.h"
 
 namespace ignite::protocol {
 
@@ -87,11 +89,42 @@ public:
     [[nodiscard]] std::optional<std::string> readStringNullable();
 
     /**
-     * Read GUID.
+     * Read UUID.
      *
-     * @return GUID value.
+     * @return UUID value.
      */
-    [[nodiscard]] Guid readGuid();
+    [[nodiscard]] uuid readUuid();
+
+    /**
+     * Read Map size.
+     *
+     * @return Map size.
+     */
+    [[nodiscard]] uint32_t readMapSize() const {
+        checkDataInStream();
+
+        if (m_currentVal.data.type != MSGPACK_OBJECT_MAP)
+            throw ignite_error("The value in stream is not a Map");
+
+        return m_currentVal.data.via.map.size;
+    }
+
+    /**
+     * Read Map.
+     *
+     * @tparam K Key type.
+     * @tparam V Value type.
+     * @param handler Pair handler.
+     */
+     template<typename K, typename V>
+     void readMap(const std::function<void(K&&, V&&)>& handler) {
+        auto size = readMapSize();
+        for (std::uint32_t i = 0; i < size; ++i) {
+            auto key = unpack_object<K>(m_currentVal.data.via.map.ptr[i].key);
+            auto val = unpack_object<V>(m_currentVal.data.via.map.ptr[i].val);
+            handler(std::move(key), std::move(val));
+        }
+    }
 
     /**
      * If the next value is Nil, read it and move reader to the next position.
@@ -114,7 +147,10 @@ private:
     /**
      * Check whether there is a data in stream and throw ignite_error if there is none.
      */
-    void checkDataInStream();
+    void checkDataInStream() const {
+        if (m_moveRes < 0)
+            throw ignite_error("No more data in stream");
+    }
 
     /** Buffer. */
     bytes_view m_buffer;
