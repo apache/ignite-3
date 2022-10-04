@@ -173,7 +173,7 @@ ospackage {
     packageName 'ignite3db'
     packageGroup "System Environment/Daemons"
     url "https://ignite.apache.org"
-    user "ignite3"
+    user tokens.USERNAME
     packageDescription "This package will install Apache Ignite"
     os LINUX
 
