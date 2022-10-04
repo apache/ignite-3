@@ -97,7 +97,7 @@ public class Loza implements IgniteComponent {
      * The constructor.
      *
      * @param clusterNetSvc Cluster network service.
-     * @param dataPath      Data path.
+     * @param dataPath Data path.
      */
     public Loza(ClusterService clusterNetSvc, Path dataPath) {
         this.clusterNetSvc = clusterNetSvc;
@@ -162,8 +162,8 @@ public class Loza implements IgniteComponent {
      * Creates a raft group service providing operations on a raft group. If {@code nodes} contains the current node, then raft group starts
      * on the current node.
      *
-     * @param groupId      Raft group id.
-     * @param nodes        Raft group nodes.
+     * @param groupId Raft group id.
+     * @param nodes Raft group nodes.
      * @param lsnrSupplier Raft group listener supplier.
      * @param groupOptions Options to apply to the group.
      * @return Future representing pending completion of the operation.
@@ -175,12 +175,34 @@ public class Loza implements IgniteComponent {
             Supplier<RaftGroupListener> lsnrSupplier,
             RaftGroupOptions groupOptions
     ) throws NodeStoppingException {
+        return prepareRaftGroup(groupId, nodes, lsnrSupplier, () -> RaftGroupEventsListener.noopLsnr, groupOptions);
+    }
+
+    /**
+     * Creates a raft group service providing operations on a raft group. If {@code nodes} contains the current node, then raft group starts
+     * on the current node.
+     *
+     * @param groupId Raft group id.
+     * @param nodes Raft group nodes.
+     * @param lsnrSupplier Raft group listener supplier.
+     * @param raftGrpEvtsLsnrSupplier Raft group events listener supplier.
+     * @param groupOptions Options to apply to the group.
+     * @return Future representing pending completion of the operation.
+     * @throws NodeStoppingException If node stopping intention was detected.
+     */
+    public CompletableFuture<RaftGroupService> prepareRaftGroup(
+            String groupId,
+            List<ClusterNode> nodes,
+            Supplier<RaftGroupListener> lsnrSupplier,
+            Supplier<RaftGroupEventsListener> raftGrpEvtsLsnrSupplier,
+            RaftGroupOptions groupOptions
+    ) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
         }
 
         try {
-            return prepareRaftGroupInternal(groupId, nodes, lsnrSupplier, () -> RaftGroupEventsListener.noopLsnr, groupOptions);
+            return prepareRaftGroupInternal(groupId, nodes, lsnrSupplier, raftGrpEvtsLsnrSupplier, groupOptions);
         } finally {
             busyLock.leaveBusy();
         }
@@ -189,9 +211,9 @@ public class Loza implements IgniteComponent {
     /**
      * Internal method to a raft group creation.
      *
-     * @param groupId                 Raft group id.
-     * @param nodes                   Raft group nodes.
-     * @param lsnrSupplier            Raft group listener supplier.
+     * @param groupId Raft group id.
+     * @param nodes Raft group nodes.
+     * @param lsnrSupplier Raft group listener supplier.
      * @param raftGrpEvtsLsnrSupplier Raft group events listener supplier.
      * @param groupOptions Options to apply to the group.
      * @return Future representing pending completion of the operation.
