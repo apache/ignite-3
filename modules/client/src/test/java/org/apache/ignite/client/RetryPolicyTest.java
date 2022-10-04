@@ -29,6 +29,8 @@ import java.util.function.Function;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.internal.client.ClientUtils;
+import org.apache.ignite.internal.client.IgniteClientConfigurationImpl;
+import org.apache.ignite.internal.client.RetryPolicyContextImpl;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
@@ -208,6 +210,17 @@ public class RetryPolicyTest {
                 + String.join(", ", nullOpFields);
 
         assertEquals(expectedNullCount, nullOpFields.size(), msg);
+    }
+
+    @Test
+    public void testRetryReadPolicyAllOperationsSupported() throws IllegalAccessException {
+        var plc = new RetryReadPolicy();
+        var cfg = new IgniteClientConfigurationImpl(null, null, 0, 0, 0, null, 0, null, null);
+
+        for (var op : ClientOperationType.values()) {
+            var ctx = new RetryPolicyContextImpl(cfg, op, 0, null);
+            plc.shouldRetry(ctx);
+        }
     }
 
     @Test
