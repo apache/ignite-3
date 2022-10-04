@@ -277,7 +277,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     /**
-     * Processes transaction finish request:
+     * Processes transaction finish request.
      * <ol>
      *     <li>Get commit timestamp from finish replica request.</li>
      *     <li>Run specific raft {@code FinishTxCommand} command, that will apply txn state to corresponding txStateStorage.</li>
