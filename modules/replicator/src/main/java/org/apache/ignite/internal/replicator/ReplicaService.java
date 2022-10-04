@@ -75,6 +75,7 @@ public class ReplicaService {
 
         CompletableFuture<R> res = new CompletableFuture<>();
 
+        // TODO: IGNITE-17824 Use named executor instead of default one in order to process replica Response.
         messagingService.invoke(node.address(), req, RPC_TIMEOUT).whenCompleteAsync((response, throwable) -> {
             if (throwable != null) {
                 if (throwable instanceof CompletionException) {
