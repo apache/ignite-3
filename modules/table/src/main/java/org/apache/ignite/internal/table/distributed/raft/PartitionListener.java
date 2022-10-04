@@ -261,22 +261,29 @@ public class PartitionListener implements RaftGroupListener {
 
         TxState stateToSet = cmd.commit() ? TxState.COMMITED : TxState.ABORTED;
 
+        TxMeta txMetaToSet = new TxMeta(
+                stateToSet,
+                cmd.replicationGroupIds(),
+                cmd.commitTimestamp()
+        );
         boolean txStateChangeRes = txStateStorage.compareAndSet(
                 txId,
                 null,
-                new TxMeta(
-                        stateToSet,
-                        cmd.replicationGroupIds(),
-                        cmd.commitTimestamp()
-                ),
+                txMetaToSet,
                 commandIndex
         );
+
+        // TODO: use debug instead.
+        LOG.info("Finish the transaction txId = {}, state = {}", txId, txMetaToSet);
 
         if (!txStateChangeRes) {
             UUID traceId = UUID.randomUUID();
 
             String errorMsg = format("Fail to finish the transaction txId = {} because of inconsistent state = {},"
-                    + " expected state = null, state to set = {}", txId, txStateStorage.get(txId), stateToSet);
+                            + " expected state = null, state to set = {}",
+                    txId,
+                    txStateStorage.get(txId),
+                    txMetaToSet);
 
             IgniteInternalException stateChangeException = new IgniteInternalException(traceId, TX_UNEXPECTED_STATE_ERR, errorMsg);
 

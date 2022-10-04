@@ -47,20 +47,27 @@ public class TestConcurrentHashMapTxStateStorage implements TxStateStorage {
         storage.put(txId, txMeta);
     }
 
-    /** {@inheritDoc} */
-    @Override public boolean compareAndSet(UUID txId, TxState txStateExpected, @NotNull TxMeta txMeta, long commandIndex) {
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean compareAndSet(UUID txId, TxState txStateExpected, @NotNull TxMeta txMeta, long commandIndex) {
         while (true) {
             TxMeta old = storage.get(txId);
 
             if (old == null && txStateExpected == null && storage.putIfAbsent(txId, txMeta) == null) {
                 return true;
             }
-            if (old != null && old.txState() == txStateExpected) {
-                if (storage.replace(txId, old, txMeta)) {
+            if (old != null) {
+                if (old.txState() == txStateExpected) {
+                    if (storage.replace(txId, old, txMeta)) {
+                        return true;
+                    }
+                } else if (old.equals(txMeta)) {
                     return true;
+                } else {
+                    return false;
                 }
-            } else {
-                return false;
             }
         }
     }

@@ -191,6 +191,8 @@ public class TxStateRocksDbStorage implements TxStateStorage {
                         writeBatch.put(txIdBytes, toBytes(txMeta));
 
                         result = true;
+                    } else if (txMetaExisting.equals(txMeta)) {
+                        result = true;
                     } else {
                         result = false;
                     }
