@@ -915,35 +915,47 @@ public class ClientMessagePacker implements AutoCloseable {
             return;
         }
 
-        packArrayHeader(args.length);
+        packInt(args.length);
 
-        var builder = new BinaryTupleBuilder(args.length, true);
+        // Builder with inline schema.
+        // Every element in args is represented by 3 tuple elements: type, scale, value.
+        var builder = new BinaryTupleBuilder(args.length * 3, true);
 
         for (Object arg : args) {
             if (arg == null) {
-                packInt(0);
+                builder.appendNull();
+                builder.appendNull();
                 builder.appendNull();
             } else if (arg instanceof Byte) {
-                packInt(ClientDataType.INT8);
+                builder.appendInt(ClientDataType.INT8);
+                builder.appendNull();
                 builder.appendByte((Byte) arg);
             } else if (arg instanceof Short) {
-                packInt(ClientDataType.INT16);
+                builder.appendInt(ClientDataType.INT16);
+                builder.appendNull();
                 builder.appendShort((Short) arg);
             } else if (arg instanceof Integer) {
-                packInt(ClientDataType.INT32);
+                builder.appendInt(ClientDataType.INT32);
+                builder.appendNull();
                 builder.appendInt((Integer) arg);
             } else if (arg instanceof Long) {
-                packInt(ClientDataType.INT64);
+                builder.appendInt(ClientDataType.INT64);
+                builder.appendNull();
                 builder.appendLong((Long) arg);
             } else if (arg instanceof Float) {
-                packInt(ClientDataType.FLOAT);
+                builder.appendInt(ClientDataType.FLOAT);
+                builder.appendNull();
                 builder.appendFloat((Float) arg);
             } else if (arg instanceof Double) {
-                packInt(ClientDataType.DOUBLE);
+                builder.appendInt(ClientDataType.DOUBLE);
+                builder.appendNull();
                 builder.appendDouble((Double) arg);
             } else if (arg instanceof BigDecimal) {
-                packInt(ClientDataType.DECIMAL);
-                builder.appendDecimal((BigDecimal) arg, TODO);
+                BigDecimal bigDecimal = (BigDecimal) arg;
+
+                builder.appendInt(ClientDataType.DECIMAL);
+                builder.appendInt(bigDecimal.scale());
+                builder.appendDecimal(bigDecimal, bigDecimal.scale());
             }
         }
     }
