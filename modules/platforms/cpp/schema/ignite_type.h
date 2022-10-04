@@ -28,7 +28,7 @@ namespace ignite {
  *
  * @note type of enum value is int, size is same as sizeof(int).
  */
-enum class DATA_TYPE {
+enum class ignite_type {
     INT8, /**< 1-byte signed integer. */
     INT16, /**< 2-byte signed integer. */
     INT32, /**< 4-byte signed integer. */
@@ -58,7 +58,7 @@ enum class DATA_TYPE {
  * @return true if type has fixed size.
  * @return false if type has variable size.
  */
-bool isFixedSizeType(DATA_TYPE t);
+bool is_fixed_size_type(ignite_type t);
 
 /**
  * @brief Returns size of type if it has fixed size.
@@ -66,13 +66,13 @@ bool isFixedSizeType(DATA_TYPE t);
  * @param t Type to investigate.
  * @return Size in bytes.
  */
-SizeT getTypeSize(DATA_TYPE t);
+SizeT get_type_size(ignite_type t);
 
 /**
- * @brief Writes a DATA_TYPE value to an output stream.
+ * @brief Writes a ignite_type value to an output stream.
  */
-inline std::ostream &operator<<(std::ostream &os, const DATA_TYPE t) {
-    os << static_cast<std::underlying_type<DATA_TYPE>::type>(t);
+inline std::ostream &operator<<(std::ostream &os, const ignite_type t) {
+    os << static_cast<std::underlying_type<ignite_type>::type>(t);
     return os;
 }
 

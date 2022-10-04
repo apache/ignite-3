@@ -26,12 +26,12 @@ namespace ignite {
  *
  * This is modeled after java.time.Instant.
  */
-class Timestamp {
+class ignite_timestamp {
 public:
     /**
      * Default constructor.
      */
-    constexpr Timestamp() noexcept = default;
+    constexpr ignite_timestamp() noexcept = default;
 
     /**
      * Constructor.
@@ -39,7 +39,7 @@ public:
      * @param seconds Number of seconds since 00:00 hours, Jan 1, 1970 UTC.
      * @param nanos Fractional second component in nanoseconds, from 0 to 999,999,999.
      */
-    constexpr Timestamp(std::int64_t seconds, std::int32_t nansos)
+    constexpr ignite_timestamp(std::int64_t seconds, std::int32_t nanos)
         : seconds(seconds)
         , nanos(nanos) {
         // TODO: check that arguments are in valid ranges.
@@ -48,12 +48,12 @@ public:
     /**
      * Gets the number of seconds since 00:00 hours, Jan 1, 1970 UTC.
      */
-    constexpr int getEpochSecond() const noexcept { return seconds; }
+    constexpr int get_epoch_second() const noexcept { return seconds; }
 
     /**
-     * Gets the number of nanosecondsfrom the start of the second.
+     * Gets the number of nanoseconds from the start of the second.
      */
-    constexpr int getNamo() const noexcept { return nanos; }
+    constexpr int get_nano() const noexcept { return nanos; }
 
     /**
      * Compare to another value.
@@ -61,7 +61,7 @@ public:
      * @param other Instance to compare to.
      * @return Zero if equals, negative number if less, and positive if greater.
      */
-    constexpr int compare(const Timestamp &other) const noexcept {
+    constexpr int compare(const ignite_timestamp &other) const noexcept {
         if (seconds != other.seconds) {
             return seconds < other.seconds ? -1 : 1;
         }
@@ -83,7 +83,7 @@ private:
  * @param rhs Second value.
  * @return true If the first value is equal to the second.
  */
-constexpr bool operator==(const Timestamp &lhs, const Timestamp &rhs) noexcept {
+constexpr bool operator==(const ignite_timestamp &lhs, const ignite_timestamp &rhs) noexcept {
     return lhs.compare(rhs) == 0;
 }
 
@@ -94,7 +94,7 @@ constexpr bool operator==(const Timestamp &lhs, const Timestamp &rhs) noexcept {
  * @param rhs Second value.
  * @return true If the first value is not equal to the second.
  */
-constexpr bool operator!=(const Timestamp &lhs, const Timestamp &rhs) noexcept {
+constexpr bool operator!=(const ignite_timestamp &lhs, const ignite_timestamp &rhs) noexcept {
     return lhs.compare(rhs) != 0;
 }
 
@@ -105,7 +105,7 @@ constexpr bool operator!=(const Timestamp &lhs, const Timestamp &rhs) noexcept {
  * @param rhs Second value.
  * @return true If the first value is less than the second.
  */
-constexpr bool operator<(const Timestamp &lhs, const Timestamp &rhs) noexcept {
+constexpr bool operator<(const ignite_timestamp &lhs, const ignite_timestamp &rhs) noexcept {
     return lhs.compare(rhs) < 0;
 }
 
@@ -116,7 +116,7 @@ constexpr bool operator<(const Timestamp &lhs, const Timestamp &rhs) noexcept {
  * @param rhs Second value.
  * @return true If the first value is less than or equal to the second.
  */
-constexpr bool operator<=(const Timestamp &lhs, const Timestamp &rhs) noexcept {
+constexpr bool operator<=(const ignite_timestamp &lhs, const ignite_timestamp &rhs) noexcept {
     return lhs.compare(rhs) <= 0;
 }
 
@@ -127,7 +127,7 @@ constexpr bool operator<=(const Timestamp &lhs, const Timestamp &rhs) noexcept {
  * @param rhs Second value.
  * @return true If the first value is greater than the second.
  */
-constexpr bool operator>(const Timestamp &lhs, const Timestamp &rhs) noexcept {
+constexpr bool operator>(const ignite_timestamp &lhs, const ignite_timestamp &rhs) noexcept {
     return lhs.compare(rhs) > 0;
 }
 
@@ -138,7 +138,7 @@ constexpr bool operator>(const Timestamp &lhs, const Timestamp &rhs) noexcept {
  * @param rhs Second value.
  * @return true If the first value is greater than or equal to the second.
  */
-constexpr bool operator>=(const Timestamp &lhs, const Timestamp &rhs) noexcept {
+constexpr bool operator>=(const ignite_timestamp &lhs, const ignite_timestamp &rhs) noexcept {
     return lhs.compare(rhs) >= 0;
 }
 

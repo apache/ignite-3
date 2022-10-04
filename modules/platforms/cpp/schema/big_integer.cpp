@@ -15,11 +15,11 @@
  * limitations under the License.
  */
 
-#include "BigInteger.h"
+#include "big_integer.h"
 
-#include "common/bits.h"
-#include "common/bytes.h"
-#include "common/ignite_error.h"
+#include "../common/bits.h"
+#include "../common/bytes.h"
+#include "../common/ignite_error.h"
 
 #include <algorithm>
 #include <array>
@@ -50,7 +50,7 @@ inline uint64_t makeU64(uint32_t higher, uint32_t lower) {
  *     magnitude.
  * @param n Number of bits to shift to.
  */
-void ShiftLeft(const uint32_t *in, int32_t len, uint32_t *out, unsigned n) {
+void shift_left(const uint32_t *in, int32_t len, uint32_t *out, unsigned n) {
     assert(n < 32);
 
     if (n == 0) {
@@ -74,7 +74,7 @@ void ShiftLeft(const uint32_t *in, int32_t len, uint32_t *out, unsigned n) {
  *     magnitude.
  * @param n Number of bits to shift to.
  */
-void ShiftRight(const uint32_t *in, int32_t len, uint32_t *out, unsigned n) {
+void shift_right(const uint32_t *in, int32_t len, uint32_t *out, unsigned n) {
     assert(n < 32);
 
     if (n == 0) {
@@ -98,7 +98,7 @@ void ShiftRight(const uint32_t *in, int32_t len, uint32_t *out, unsigned n) {
  * @param x Multipliplicand of the subtrahend.
  * @return Carry.
  */
-uint32_t MultiplyAndSubstruct(uint32_t *q, const uint32_t *a, int32_t alen, uint32_t x) {
+uint32_t multiply_and_subtruct(uint32_t *q, const uint32_t *a, int32_t alen, uint32_t x) {
     uint64_t carry = 0;
 
     for (int32_t i = 0; i < alen; ++i) {
@@ -123,7 +123,7 @@ uint32_t MultiplyAndSubstruct(uint32_t *q, const uint32_t *a, int32_t alen, uint
  * @param len Length of the second addend.
  * @return Carry.
  */
-uint32_t Add(uint32_t *res, const uint32_t *addend, int32_t len) {
+uint32_t add(uint32_t *res, const uint32_t *addend, int32_t len) {
     uint64_t carry = 0;
 
     for (int32_t i = 0; i < len; ++i) {
@@ -144,7 +144,7 @@ uint32_t Add(uint32_t *res, const uint32_t *addend, int32_t len) {
  * @param addend Second addend.
  * @return Carry.
  */
-uint32_t Add(uint32_t *res, int32_t len, uint32_t addend) {
+uint32_t add(uint32_t *res, int32_t len, uint32_t addend) {
     uint64_t carry = addend;
 
     for (int32_t i = 0; (i < len) && carry; ++i) {
@@ -158,14 +158,14 @@ uint32_t Add(uint32_t *res, int32_t len, uint32_t addend) {
 
 } // namespace
 
-void BigInteger::initializeBigEndian(const std::byte *data, std::size_t size) {
+void big_integer::from_big_endian(const std::byte *data, std::size_t size) {
     while (size > 0 && data[0] == std::byte{0}) {
         size--;
         data++;
     }
 
     if (size == 0) {
-        AssignUint64(0);
+        assign_uint64(0);
         return;
     }
 
@@ -193,11 +193,11 @@ void BigInteger::initializeBigEndian(const std::byte *data, std::size_t size) {
     }
 }
 
-void BigInteger::initializeNegativeBigEndian(const std::byte *data, std::size_t size) {
+void big_integer::from_negative_big_endian(const std::byte *data, std::size_t size) {
     assert(size > 0);
     assert(data[0] != std::byte{0});
 
-    while (size > 0 && data[0] == std::byte{255}) {
+    while (size > 0 && data[0] == std::byte{0xff}) {
         size--;
         data++;
     }
@@ -216,16 +216,16 @@ void BigInteger::initializeNegativeBigEndian(const std::byte *data, std::size_t 
     }
 
     if (size > 0) {
-        std::uint32_t last = 0xffffff;
+        std::uint32_t last = 0;
         switch (size) {
             case 3:
-                last ^= std::to_integer<std::uint32_t>(data[size - 3]) << 16;
+                last |= std::to_integer<std::uint32_t>(~data[size - 3]) << 16;
                 [[fallthrough]];
             case 2:
-                last ^= std::to_integer<std::uint32_t>(data[size - 2]) << 8;
+                last |= std::to_integer<std::uint32_t>(~data[size - 2]) << 8;
                 [[fallthrough]];
             case 1:
-                last ^= std::to_integer<std::uint32_t>(data[size - 1]);
+                last |= std::to_integer<std::uint32_t>(~data[size - 1]);
                 break;
         }
         mag.back() = last;
@@ -239,7 +239,7 @@ void BigInteger::initializeNegativeBigEndian(const std::byte *data, std::size_t 
     }
 }
 
-BigInteger::BigInteger(const int8_t *val, int32_t len, int32_t sign, bool bigEndian)
+big_integer::big_integer(const int8_t *val, int32_t len, int32_t sign, bool bigEndian)
     : sign(sign) {
     assert(val != 0);
     assert(len >= 0);
@@ -249,14 +249,14 @@ BigInteger::BigInteger(const int8_t *val, int32_t len, int32_t sign, bool bigEnd
     const std::byte *data = (const std::byte *)(val);
 
     if (bigEndian) {
-        initializeBigEndian(data, size);
+        from_big_endian(data, size);
     } else {
         while (size > 0 && data[size - 1] != std::byte{0}) {
             --size;
         }
 
         if (size == 0) {
-            AssignInt64(0);
+            assign_int64(0);
             return;
         }
 
@@ -286,28 +286,28 @@ BigInteger::BigInteger(const int8_t *val, int32_t len, int32_t sign, bool bigEnd
     }
 }
 
-BigInteger::BigInteger(const std::byte *data, std::size_t size) {
+big_integer::big_integer(const std::byte *data, std::size_t size) {
     if (size == 0) {
         return;
     }
 
     if (std::to_integer<std::int8_t>(data[0]) >= 0) {
-        initializeBigEndian(data, size);
+        from_big_endian(data, size);
     } else {
-        initializeNegativeBigEndian(data, size);
+        from_negative_big_endian(data, size);
     }
 }
 
-void BigInteger::AssignInt64(int64_t val) {
+void big_integer::assign_int64(int64_t val) {
     if (val < 0) {
-        AssignUint64(val > INT64_MIN ? static_cast<uint64_t>(-val) : static_cast<uint64_t>(val));
+        assign_uint64(val > INT64_MIN ? static_cast<uint64_t>(-val) : static_cast<uint64_t>(val));
         sign = -1;
     } else {
-        AssignUint64(static_cast<uint64_t>(val));
+        assign_uint64(static_cast<uint64_t>(val));
     }
 }
 
-void BigInteger::AssignUint64(uint64_t val) {
+void big_integer::assign_uint64(uint64_t val) {
     sign = 1;
 
     if (val == 0) {
@@ -327,7 +327,7 @@ void BigInteger::AssignUint64(uint64_t val) {
     mag[0] = static_cast<uint32_t>(val);
 }
 
-void BigInteger::AssignString(const char *val, int32_t len) {
+void big_integer::assign_string(const char *val, std::size_t len) {
     std::stringstream converter;
 
     converter.write(val, len);
@@ -335,52 +335,116 @@ void BigInteger::AssignString(const char *val, int32_t len) {
     converter >> *this;
 }
 
-void BigInteger::Swap(BigInteger &other) {
+void big_integer::swap(big_integer &other) {
     using std::swap;
 
     swap(sign, other.sign);
     mag.swap(other.mag);
 }
 
-uint32_t BigInteger::GetBitLength() const {
+std::uint32_t big_integer::magnitude_bit_length() const noexcept {
     if (mag.empty())
         return 0;
 
-    uint32_t res = bit_width(mag.back());
+    std::uint32_t res = bit_width(mag.back());
     if (mag.size() > 1)
         res += (mag.size() - 1) * 32;
 
     return res;
 }
 
-#if 0
-std::size_t BigInteger::GetByteSize() const {
-    return (GetBitLength() + 7u) / 8u;
+std::uint32_t big_integer::bit_length() const noexcept {
+    auto res = magnitude_bit_length();
+    if (res != 0 && is_negative()) {
+        // Check if the magnitude is a power of 2.
+        auto last = mag.back();
+        if ((last & (last - 1)) == 0 && std::all_of(mag.rbegin() + 1, mag.rend(), [](auto x) { return x == 0; })) {
+            res--;
+        }
+    }
+    return res;
 }
-#endif
 
-int32_t BigInteger::GetPrecision() const {
+std::size_t big_integer::byte_size() const noexcept {
+    return bit_length() / 8u + 1u;
+}
+
+void big_integer::store_bytes(std::byte *data) const {
+    std::size_t size = byte_size();
+
+    if (!is_negative()) {
+        for (std::size_t i = 0; size >= 4; i++) {
+            size -= 4;
+            bytes::store<Endian::BIG, std::uint32_t>(data + size, mag[i]);
+        }
+
+        if (size > 0) {
+            std::uint32_t last = mag.back();
+            switch (size) {
+                case 3:
+                    data[size - 3] = std::byte(last >> 16);
+                    [[fallthrough]];
+                case 2:
+                    data[size - 2] = std::byte(last >> 8);
+                    [[fallthrough]];
+                case 1:
+                    data[size - 1] = std::byte(last);
+                    break;
+            }
+        }
+    } else {
+        std::uint32_t carry = 1;
+
+        for (std::size_t i = 0; size >= 4; i++) {
+            std::uint32_t value = ~mag[i] + carry;
+            if (value != 0) {
+                carry = 0;
+            }
+
+            size -= 4;
+            bytes::store<Endian::BIG, std::uint32_t>(data + size, value);
+        }
+
+        if (size > 0) {
+            std::uint32_t last = ~mag.back() + carry;
+
+            switch (size) {
+                case 3:
+                    data[size - 3] = std::byte(last >> 16);
+                    [[fallthrough]];
+                case 2:
+                    data[size - 2] = std::byte(last >> 8);
+                    [[fallthrough]];
+                case 1:
+                    data[size - 1] = std::byte(last);
+                    break;
+            }
+        }
+    }
+}
+
+int32_t big_integer::get_precision() const noexcept {
     // See http://graphics.stanford.edu/~seander/bithacks.html
     // for the details on the algorithm.
 
     if (mag.size() == 0)
         return 1;
 
-    int32_t r = static_cast<uint32_t>(((static_cast<uint64_t>(GetBitLength()) + 1) * 646456993) >> 31);
+    int32_t r = static_cast<uint32_t>(((static_cast<uint64_t>(magnitude_bit_length()) + 1) * 646456993) >> 31);
 
-    BigInteger prec;
-    BigInteger::GetPowerOfTen(r, prec);
+    big_integer prec;
+    big_integer::get_power_of_ten(r, prec);
 
     return compare(prec, true) < 0 ? r : r + 1;
 }
 
-void BigInteger::Pow(int32_t exp) {
+void big_integer::pow(int32_t exp) {
     if (exp < 0) {
-        AssignInt64(0);
+        assign_int64(0);
         return;
     }
 
-    uint32_t bitsLen = GetBitLength();
+    uint32_t bitsLen = magnitude_bit_length();
 
     if (!bitsLen)
         return;
@@ -391,32 +455,32 @@ void BigInteger::Pow(int32_t exp) {
         return;
     }
 
-    BigInteger multiplicant(*this);
-    AssignInt64(1);
+    big_integer multiplicant(*this);
+    assign_int64(1);
 
     int32_t mutExp = exp;
     while (mutExp) {
         if (mutExp & 1) {
-            Multiply(multiplicant, *this);
+            multiply(multiplicant, *this);
         }
 
         mutExp >>= 1;
 
         if (mutExp) {
-            multiplicant.Multiply(multiplicant, multiplicant);
+            multiplicant.multiply(multiplicant, multiplicant);
         }
     }
 }
 
-void BigInteger::Multiply(const BigInteger &other, BigInteger &res) const {
+void big_integer::multiply(const big_integer &other, big_integer &res) const {
     MagArray resMag(mag.size() + other.mag.size());
 
     resMag.resize(mag.size() + other.mag.size());
 
-    for (int32_t i = 0; i < other.mag.size(); ++i) {
+    for (std::size_t i = 0; i < other.mag.size(); ++i) {
         uint32_t carry = 0;
 
-        for (int32_t j = 0; j < mag.size(); ++j) {
+        for (std::size_t j = 0; j < mag.size(); ++j) {
             uint64_t product = static_cast<uint64_t>(mag[j]) * other.mag[i] + +resMag[i + j] + carry;
 
             resMag[i + j] = static_cast<uint32_t>(product);
@@ -429,39 +493,39 @@ void BigInteger::Multiply(const BigInteger &other, BigInteger &res) const {
     res.mag.swap(resMag);
     res.sign = sign * other.sign;
 
-    res.Normalize();
+    res.normalize();
 }
 
-void BigInteger::Divide(const BigInteger &divisor, BigInteger &res) const {
-    Divide(divisor, res, 0);
+void big_integer::divide(const big_integer &divisor, big_integer &res) const {
+    divide(divisor, res, 0);
 }
 
-void BigInteger::Divide(const BigInteger &divisor, BigInteger &res, BigInteger &rem) const {
-    Divide(divisor, res, &rem);
+void big_integer::divide(const big_integer &divisor, big_integer &res, big_integer &rem) const {
+    divide(divisor, res, &rem);
 }
 
-void BigInteger::Add(const uint32_t *addend, int32_t len) {
-    if (mag.size() < len) {
+void big_integer::add(const uint32_t *addend, int32_t len) {
+    if (mag.size() < size_t(len)) {
         mag.reserve(len + 1);
         mag.resize(len);
     } else {
         mag.reserve(mag.size() + 1);
     }
 
-    if (uint32_t carry = ignite::Add(mag.data(), addend, len)) {
-        carry = ignite::Add(mag.data() + len, mag.size() - len, carry);
+    if (uint32_t carry = ignite::add(mag.data(), addend, len)) {
+        carry = ignite::add(mag.data() + len, mag.size() - len, carry);
         if (carry) {
             mag.push_back(carry);
         }
     }
 }
 
-void BigInteger::Add(uint64_t x) {
+void big_integer::add(uint64_t x) {
     if (x == 0)
         return;
 
-    if (IsZero()) {
-        AssignUint64(x);
+    if (is_zero()) {
+        assign_uint64(x);
         return;
     }
 
@@ -470,10 +534,10 @@ void BigInteger::Add(uint64_t x) {
     val[0] = static_cast<uint32_t>(x);
     val[1] = static_cast<uint32_t>(x >> 32);
 
-    Add(val, val[1] ? 2 : 1);
+    add(val, val[1] ? 2 : 1);
 }
 
-int BigInteger::compare(const BigInteger &other, bool ignoreSign) const {
+int big_integer::compare(const big_integer &other, bool ignoreSign) const {
     // What we should return if magnitude is greater.
     int32_t mgt = 1;
 
@@ -495,11 +559,11 @@ int BigInteger::compare(const BigInteger &other, bool ignoreSign) const {
     return 0;
 }
 
-int64_t BigInteger::ToInt64() const {
-    return (static_cast<uint64_t>(GetMagInt(1)) << 32) | GetMagInt(0);
+int64_t big_integer::to_int64() const {
+    return (static_cast<uint64_t>(get_mag_int(1)) << 32) | get_mag_int(0);
 }
 
-void BigInteger::GetPowerOfTen(int32_t pow, BigInteger &res) {
+void big_integer::get_power_of_ten(int32_t pow, big_integer &res) {
     assert(pow >= 0);
 
     constexpr auto n64 = std::numeric_limits<uint64_t>::digits10 + 1;
@@ -513,23 +577,23 @@ void BigInteger::GetPowerOfTen(int32_t pow, BigInteger &res) {
             }
             return a;
         }();
-        res.AssignUint64(power10[pow]);
+        res.assign_uint64(power10[pow]);
     } else {
-        res.AssignInt64(10);
-        res.Pow(pow);
+        res.assign_int64(10);
+        res.pow(pow);
     }
 }
 
-uint32_t BigInteger::GetMagInt(int32_t n) const {
+uint32_t big_integer::get_mag_int(int32_t n) const {
     assert(n >= 0);
 
-    if (n >= mag.size())
+    if (size_t(n) >= mag.size())
         return sign > 0 ? 0 : -1;
 
     return sign * mag[n];
 }
 
-void BigInteger::Divide(const BigInteger &divisor, BigInteger &res, BigInteger *rem) const {
+void big_integer::divide(const big_integer &divisor, big_integer &res, big_integer *rem) const {
     // Can't divide by zero.
     if (divisor.mag.empty())
         throw ignite_error(status_code::GENERIC, "Division by zero.");
@@ -539,10 +603,10 @@ void BigInteger::Divide(const BigInteger &divisor, BigInteger &res, BigInteger *
 
     // The same magnitude. Result is [-]1 and remainder is zero.
     if (compRes == 0) {
-        res.AssignInt64(resSign);
+        res.assign_int64(resSign);
 
         if (rem) {
-            rem->AssignInt64(0);
+            rem->assign_int64(0);
         }
 
         return;
@@ -556,19 +620,19 @@ void BigInteger::Divide(const BigInteger &divisor, BigInteger &res, BigInteger *
             *rem = *this;
         }
 
-        res.AssignInt64(0);
+        res.assign_int64(0);
 
         return;
     }
 
     // If divisor is [-]1 result is [-]this and remainder is zero.
-    if (divisor.GetBitLength() == 1) {
+    if (divisor.magnitude_bit_length() == 1) {
         // Once again: order is important.
         res = *this;
         res.sign = sign * divisor.sign;
 
         if (rem) {
-            rem->AssignInt64(0);
+            rem->assign_int64(0);
         }
 
         return;
@@ -593,12 +657,12 @@ void BigInteger::Divide(const BigInteger &divisor, BigInteger &res, BigInteger *
         assert(v < u);
 
         // (u / v) is always fits into int64_t because abs(v) >= 2.
-        res.AssignInt64(resSign * static_cast<int64_t>(u / v));
+        res.assign_int64(resSign * static_cast<int64_t>(u / v));
 
         // (u % v) is always fits into int64_t because (u > v) ->
         // (u % v) < (u / 2).
         if (rem) {
-            rem->AssignInt64(resSign * static_cast<int64_t>(u % v));
+            rem->assign_int64(resSign * static_cast<int64_t>(u % v));
         }
 
         return;
@@ -617,8 +681,8 @@ void BigInteger::Divide(const BigInteger &divisor, BigInteger &res, BigInteger *
     MagArray nv;
     nv.resize(v.size());
 
-    uint32_t shift = countl_zero(v.back());
-    ShiftLeft(v.data(), vlen, nv.data(), shift);
+    int32_t shift = countl_zero(v.back());
+    shift_left(v.data(), vlen, nv.data(), shift);
 
     // Divisor is normilized. Now we need to normilize divident.
     MagArray nu;
@@ -628,14 +692,14 @@ void BigInteger::Divide(const BigInteger &divisor, BigInteger &res, BigInteger *
         // Everything is the same as with divisor. Just add leading zero.
         nu.resize(ulen + 1);
 
-        ShiftLeft(u.data(), ulen, nu.data(), shift);
+        shift_left(u.data(), ulen, nu.data(), shift);
 
         assert((static_cast<uint64_t>(u.back()) >> (32 - shift)) == 0);
     } else {
         // We need one more byte here. Also adding leading zero.
         nu.resize(ulen + 2);
 
-        ShiftLeft(u.data(), ulen, nu.data(), shift);
+        shift_left(u.data(), ulen, nu.data(), shift);
 
         nu[ulen] = u[ulen - 1] >> (32 - shift);
 
@@ -667,7 +731,7 @@ void BigInteger::Divide(const BigInteger &divisor, BigInteger &res, BigInteger *
         uint32_t qhat32 = static_cast<uint32_t>(qhat);
 
         // Multiply and subtract.
-        uint32_t carry = MultiplyAndSubstruct(nu.data() + i, nv.data(), vlen, qhat32);
+        uint32_t carry = multiply_and_subtruct(nu.data() + i, nv.data(), vlen, qhat32);
 
         int64_t difference = nu[i + vlen] - carry;
 
@@ -675,7 +739,7 @@ void BigInteger::Divide(const BigInteger &divisor, BigInteger &res, BigInteger *
 
         if (difference < 0) {
             --qhat32;
-            carry = ignite::Add(nu.data() + i, nv.data(), vlen);
+            carry = ignite::add(nu.data() + i, nv.data(), vlen);
 
             assert(carry == 0);
         }
@@ -684,20 +748,20 @@ void BigInteger::Divide(const BigInteger &divisor, BigInteger &res, BigInteger *
     }
 
     res.sign = resSign;
-    res.Normalize();
+    res.normalize();
 
     // If remainder is needed unnormolize it.
     if (rem) {
         rem->sign = resSign;
         rem->mag.resize(vlen);
 
-        ShiftRight(nu.data(), rem->mag.size(), rem->mag.data(), shift);
+        shift_right(nu.data(), rem->mag.size(), rem->mag.data(), shift);
 
-        rem->Normalize();
+        rem->normalize();
     }
 }
 
-void BigInteger::Normalize() {
+void big_integer::normalize() {
     int32_t lastNonZero = mag.size() - 1;
     while (lastNonZero >= 0 && mag[lastNonZero] == 0)
         --lastNonZero;

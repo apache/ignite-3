@@ -17,34 +17,57 @@
 
 #pragma once
 
-#include "Date.h"
-#include "Time.h"
-
 #include <cstdint>
 
 namespace ignite {
 
 /**
- * @brief A date together with time of day with nanosecond precision.
+ * @brief A time of day with nanosecond precision.
  *
- * This is modeled after java.time.LocalDateTime.
+ * This is modeled after java.time.LocalTime.
  */
-class DateTime : public Date, public Time {
+class ignite_time {
 public:
     /**
      * Default constructor.
      */
-    constexpr DateTime() noexcept = default;
+    constexpr ignite_time() noexcept = default;
 
     /**
      * Constructor.
      *
-     * @param date
-     * @param time
+     * @param hour Hour-of-day, from 0 to 23.
+     * @param minute Minute-of-hour, from 0 to 59.
+     * @param second Second-of-minute, from 0 to 59.
+     * @param nano Nano-of-second, from 0 to 999,999,999.
      */
-    constexpr DateTime(const Date &date, const Time &time)
-        : Date(date)
-        , Time(time) { }
+    constexpr ignite_time(int hour, int minute, int second = 0, int nano = 0)
+        : hour(hour)
+        , minute(minute)
+        , second(second)
+        , nano(nano) {
+        // TODO: check that arguments are in valid ranges.
+    }
+
+    /**
+     * Gets the hour-of-day field.
+     */
+    constexpr int get_hour() const noexcept { return hour; }
+
+    /**
+     * Gets the minute-of-hour field.
+     */
+    constexpr int get_minute() const noexcept { return minute; }
+
+    /**
+     * Gets the second-of-minute field.
+     */
+    constexpr int get_second() const noexcept { return second; }
+
+    /**
+     * Gets the nano-of-second field.
+     */
+    constexpr int get_nano() const noexcept { return nano; }
 
     /**
      * Compare to another value.
@@ -52,17 +75,24 @@ public:
      * @param other Instance to compare to.
      * @return Zero if equals, negative number if less, and positive if greater.
      */
-    constexpr int compare(const DateTime &other) const noexcept {
-        const Date &date = *this;
-        const Date &otherDate = other;
-        if (int cmp = date.compare(otherDate)) {
-            return cmp;
+    constexpr int compare(const ignite_time &other) const noexcept {
+        if (hour != other.hour) {
+            return hour - other.hour;
         }
-
-        const Time &time = *this;
-        const Time &otherTime = other;
-        return time.compare(otherTime);
+        if (minute != other.minute) {
+            return minute - other.minute;
+        }
+        if (second != other.second) {
+            return second - other.second;
+        }
+        return nano - other.nano;
     }
+
+private:
+    std::int8_t hour = 0;
+    std::int8_t minute = 0;
+    std::int8_t second = 0;
+    std::int32_t nano = 0;
 };
 
 /**
@@ -72,7 +102,7 @@ public:
  * @param rhs Second value.
  * @return true If the first value is equal to the second.
  */
-constexpr bool operator==(const DateTime &lhs, const DateTime &rhs) noexcept {
+constexpr bool operator==(const ignite_time &lhs, const ignite_time &rhs) noexcept {
     return lhs.compare(rhs) == 0;
 }
 
@@ -83,7 +113,7 @@ constexpr bool operator==(const DateTime &lhs, const DateTime &rhs) noexcept {
  * @param rhs Second value.
  * @return true If the first value is not equal to the second.
  */
-constexpr bool operator!=(const DateTime &lhs, const DateTime &rhs) noexcept {
+constexpr bool operator!=(const ignite_time &lhs, const ignite_time &rhs) noexcept {
     return lhs.compare(rhs) != 0;
 }
 
@@ -94,7 +124,7 @@ constexpr bool operator!=(const DateTime &lhs, const DateTime &rhs) noexcept {
  * @param rhs Second value.
  * @return true If the first value is less than the second.
  */
-constexpr bool operator<(const DateTime &lhs, const DateTime &rhs) noexcept {
+constexpr bool operator<(const ignite_time &lhs, const ignite_time &rhs) noexcept {
     return lhs.compare(rhs) < 0;
 }
 
@@ -105,7 +135,7 @@ constexpr bool operator<(const DateTime &lhs, const DateTime &rhs) noexcept {
  * @param rhs Second value.
  * @return true If the first value is less than or equal to the second.
  */
-constexpr bool operator<=(const DateTime &lhs, const DateTime &rhs) noexcept {
+constexpr bool operator<=(const ignite_time &lhs, const ignite_time &rhs) noexcept {
     return lhs.compare(rhs) <= 0;
 }
 
@@ -116,7 +146,7 @@ constexpr bool operator<=(const DateTime &lhs, const DateTime &rhs) noexcept {
  * @param rhs Second value.
  * @return true If the first value is greater than the second.
  */
-constexpr bool operator>(const DateTime &lhs, const DateTime &rhs) noexcept {
+constexpr bool operator>(const ignite_time &lhs, const ignite_time &rhs) noexcept {
     return lhs.compare(rhs) > 0;
 }
 
@@ -127,7 +157,7 @@ constexpr bool operator>(const DateTime &lhs, const DateTime &rhs) noexcept {
  * @param rhs Second value.
  * @return true If the first value is greater than or equal to the second.
  */
-constexpr bool operator>=(const DateTime &lhs, const DateTime &rhs) noexcept {
+constexpr bool operator>=(const ignite_time &lhs, const ignite_time &rhs) noexcept {
     return lhs.compare(rhs) >= 0;
 }
 

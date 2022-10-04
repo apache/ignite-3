@@ -15,10 +15,10 @@
  * limitations under the License.
  */
 
-#include "BinaryTupleParser.h"
-#include "common/platform.h"
+#include "binary_tuple_parser.h"
 
-#include "common/bytes.h"
+#include "../common/bytes.h"
+#include "../common/platform.h"
 
 #include <cassert>
 #include <cstring>
@@ -33,7 +33,7 @@ T loadBytesAs(bytes_view bytes, std::size_t offset = 0) noexcept {
     return bytes::load<Endian::LITTLE, T>(bytes.data() + offset);
 }
 
-Date loadBytesAsDate(bytes_view bytes) {
+ignite_date loadBytesAsDate(bytes_view bytes) {
     std::int32_t date = loadBytesAs<std::uint16_t>(bytes);
     date |= std::int32_t(loadBytesAs<std::int8_t>(bytes, 2)) << 16;
 
@@ -41,13 +41,13 @@ Date loadBytesAsDate(bytes_view bytes) {
     std::int32_t month = (date >> 5) & 15;
     std::int32_t year = (date >> 9); // Sign matters.
 
-    return Date(year, month, day);
+    return {year, month, day};
 }
 
-Time loadBytesAsTime(bytes_view bytes) {
-    uint64_t time = loadBytesAs<std::uint32_t>(bytes);
+ignite_time loadBytesAsTime(bytes_view bytes) {
+    std::uint64_t time = loadBytesAs<std::uint32_t>(bytes);
 
-    int nano;
+    std::uint32_t nano;
     switch (bytes.size()) {
         case 4:
             nano = ((int)time & ((1 << 10) - 1)) * 1000 * 1000;
@@ -65,103 +65,103 @@ Time loadBytesAsTime(bytes_view bytes) {
             break;
     }
 
-    int second = ((int)time) & 63;
-    int minute = ((int)time >> 6) & 63;
-    int hour = ((int)time >> 12) & 31;
+    std::uint32_t second = ((int)time) & 63;
+    std::uint32_t minute = ((int)time >> 6) & 63;
+    std::uint32_t hour = ((int)time >> 12) & 31;
 
-    return Time(hour, minute, second, nano);
+    return {hour, minute, second, nano};
 }
 
 } // namespace
 
-BinaryTupleParser::BinaryTupleParser(IntT numElements, bytes_view data)
-    : binaryTuple(data)
-    , elementCount(numElements)
-    , elementIndex(0)
-    , hasNullmap(false) {
+binary_tuple_parser::binary_tuple_parser(IntT num_elements, bytes_view data)
+    : binary_tuple(data)
+    , element_count(num_elements)
+    , element_index(0)
+    , has_nullmap(false) {
 
-    BinaryTupleHeader header;
-    header.flags = binaryTuple[0];
+    binary_tuple_header header;
+    header.flags = binary_tuple[0];
 
-    entrySize = header.getVarLenEntrySize();
-    hasNullmap = header.getNullMapFlag();
+    entry_size = header.get_entry_size();
+    has_nullmap = header.get_nullmap_flag();
 
     size_t nullmapSize = 0;
-    if (hasNullmap) {
-        nullmapSize = BinaryTupleSchema::getNullMapSize(elementCount);
+    if (has_nullmap) {
+        nullmapSize = binary_tuple_schema::get_nullmap_size(element_count);
     }
 
-    size_t tableSize = entrySize * elementCount;
-    nextEntry = binaryTuple.data() + BinaryTupleHeader::SIZE + nullmapSize;
-    valueBase = nextEntry + tableSize;
+    size_t tableSize = entry_size * element_count;
+    next_entry = binary_tuple.data() + binary_tuple_header::SIZE + nullmapSize;
+    value_base = next_entry + tableSize;
 
-    nextValue = valueBase;
+    next_value = value_base;
 
     // Fix tuple size if needed.
     uint64_t offset = 0;
     static_assert(platform::ByteOrder::littleEndian);
-    memcpy(&offset, nextEntry + tableSize - entrySize, entrySize);
-    const std::byte *tupleEnd = valueBase + offset;
-    const std::byte *currentEnd = &(*binaryTuple.end());
+    memcpy(&offset, next_entry + tableSize - entry_size, entry_size);
+    const std::byte *tupleEnd = value_base + offset;
+    const std::byte *currentEnd = &(*binary_tuple.end());
     if (currentEnd > tupleEnd) {
-        binaryTuple.remove_suffix(currentEnd - tupleEnd);
+        binary_tuple.remove_suffix(currentEnd - tupleEnd);
     }
 }
 
-element_view BinaryTupleParser::getNext() {
-    assert(numParsedElements() < numElements());
+element_view binary_tuple_parser::get_next() {
+    assert(num_parsed_elements() < num_elements());
 
-    ++elementIndex;
+    ++element_index;
 
     uint64_t offset = 0;
     static_assert(platform::ByteOrder::littleEndian);
-    memcpy(&offset, nextEntry, entrySize);
-    nextEntry += entrySize;
+    memcpy(&offset, next_entry, entry_size);
+    next_entry += entry_size;
 
-    const std::byte *value = nextValue;
-    nextValue = valueBase + offset;
+    const std::byte *value = next_value;
+    next_value = value_base + offset;
 
-    const size_t length = nextValue - value;
-    if (length == 0 && hasNullmap && BinaryTupleSchema::hasNull(binaryTuple, elementIndex - 1)) {
+    const size_t length = next_value - value;
+    if (length == 0 && has_nullmap && binary_tuple_schema::has_null(binary_tuple, element_index - 1)) {
         return {};
     }
 
     return bytes_view(value, length);
 }
 
-tuple_view BinaryTupleParser::parse(IntT num) {
-    assert(elementIndex == 0);
+tuple_view binary_tuple_parser::parse(IntT num) {
+    assert(element_index == 0);
 
     if (num == NO_NUM) {
-        num = numElements();
+        num = num_elements();
     }
 
     tuple_view tuple;
     tuple.reserve(num);
-    while (elementIndex < num) {
-        tuple.emplace_back(getNext());
+    while (element_index < num) {
+        tuple.emplace_back(get_next());
     }
 
     return tuple;
 }
 
-key_tuple_view BinaryTupleParser::parseKey(IntT num) {
-    assert(elementIndex == 0);
+key_tuple_view binary_tuple_parser::parse_key(IntT num) {
+    assert(element_index == 0);
 
     if (num == NO_NUM) {
-        num = numElements();
+        num = num_elements();
     }
 
     key_tuple_view key;
     key.reserve(num);
-    while (elementIndex < num) {
-        key.emplace_back(getNext().value());
+    while (element_index < num) {
+        key.emplace_back(get_next().value());
     }
 
     return key;
 }
 
-std::int8_t BinaryTupleParser::getInt8(bytes_view bytes) {
+std::int8_t binary_tuple_parser::get_int8(bytes_view bytes) {
     switch (bytes.size()) {
         case 0:
             return 0;
@@ -172,7 +172,7 @@ std::int8_t BinaryTupleParser::getInt8(bytes_view bytes) {
     }
 }
 
-std::int16_t BinaryTupleParser::getInt16(bytes_view bytes) {
+std::int16_t binary_tuple_parser::get_int16(bytes_view bytes) {
     switch (bytes.size()) {
         case 0:
             return 0;
@@ -185,7 +185,7 @@ std::int16_t BinaryTupleParser::getInt16(bytes_view bytes) {
     }
 }
 
-std::int32_t BinaryTupleParser::getInt32(bytes_view bytes) {
+std::int32_t binary_tuple_parser::get_int32(bytes_view bytes) {
     switch (bytes.size()) {
         case 0:
             return 0;
@@ -200,7 +200,7 @@ std::int32_t BinaryTupleParser::getInt32(bytes_view bytes) {
     }
 }
 
-std::int64_t BinaryTupleParser::getInt64(bytes_view bytes) {
+std::int64_t binary_tuple_parser::get_int64(bytes_view bytes) {
     switch (bytes.size()) {
         case 0:
             return 0;
@@ -217,7 +217,7 @@ std::int64_t BinaryTupleParser::getInt64(bytes_view bytes) {
     }
 }
 
-float BinaryTupleParser::getFloat(bytes_view bytes) {
+float binary_tuple_parser::get_float(bytes_view bytes) {
     switch (bytes.size()) {
         case 0:
             return 0.0f;
@@ -228,7 +228,7 @@ float BinaryTupleParser::getFloat(bytes_view bytes) {
     }
 }
 
-double BinaryTupleParser::getDouble(bytes_view bytes) {
+double binary_tuple_parser::get_double(bytes_view bytes) {
     switch (bytes.size()) {
         case 0:
             return 0.0f;
@@ -241,11 +241,11 @@ double BinaryTupleParser::getDouble(bytes_view bytes) {
     }
 }
 
-BigInteger BinaryTupleParser::getNumber(bytes_view bytes) {
-    return BigInteger(bytes.data(), bytes.size());
+big_integer binary_tuple_parser::get_number(bytes_view bytes) {
+    return big_integer(bytes.data(), bytes.size());
 }
 
-uuid BinaryTupleParser::getUuid(bytes_view bytes) {
+uuid binary_tuple_parser::get_uuid(bytes_view bytes) {
     switch (bytes.size()) {
         case 0:
             return uuid();
@@ -256,10 +256,10 @@ uuid BinaryTupleParser::getUuid(bytes_view bytes) {
     }
 }
 
-Date BinaryTupleParser::getDate(bytes_view bytes) {
+ignite_date binary_tuple_parser::get_date(bytes_view bytes) {
     switch (bytes.size()) {
         case 0:
-            return Date();
+            return ignite_date();
         case 3:
             return loadBytesAsDate(bytes);
         default:
@@ -267,10 +267,10 @@ Date BinaryTupleParser::getDate(bytes_view bytes) {
     }
 }
 
-Time BinaryTupleParser::getTime(bytes_view bytes) {
+ignite_time binary_tuple_parser::get_time(bytes_view bytes) {
     switch (bytes.size()) {
         case 0:
-            return Time();
+            return ignite_time();
         case 4:
         case 5:
         case 6:
@@ -280,31 +280,31 @@ Time BinaryTupleParser::getTime(bytes_view bytes) {
     }
 }
 
-DateTime BinaryTupleParser::getDateTime(bytes_view bytes) {
+ignite_date_time binary_tuple_parser::get_date_time(bytes_view bytes) {
     switch (bytes.size()) {
         case 0:
-            return DateTime();
+            return ignite_date_time();
         case 7:
         case 8:
         case 9:
-            return DateTime(loadBytesAsDate(bytes), loadBytesAsTime(bytes.substr(3)));
+            return ignite_date_time(loadBytesAsDate(bytes), loadBytesAsTime(bytes.substr(3)));
         default:
             throw std::out_of_range("Bad element size");
     }
 }
 
-Timestamp BinaryTupleParser::getTimestamp(bytes_view bytes) {
+ignite_timestamp binary_tuple_parser::get_timestamp(bytes_view bytes) {
     switch (bytes.size()) {
         case 0:
-            return Timestamp();
+            return ignite_timestamp();
         case 8: {
             std::int64_t seconds = loadBytesAs<std::int64_t>(bytes);
-            return Timestamp(seconds, 0);
+            return ignite_timestamp(seconds, 0);
         }
         case 12: {
             std::int64_t seconds = loadBytesAs<std::int64_t>(bytes);
             std::int32_t nanos = loadBytesAs<std::int32_t>(bytes);
-            return Timestamp(seconds, nanos);
+            return ignite_timestamp(seconds, nanos);
         }
         default:
             throw std::out_of_range("Bad element size");

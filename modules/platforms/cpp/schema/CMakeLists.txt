@@ -20,14 +20,17 @@ project(ignite-schema)
 set(TARGET ${PROJECT_NAME})
 
 add_library(${TARGET} STATIC
-    BigDecimal.cpp BigDecimal.h
-    BigInteger.cpp BigInteger.h
-    BinaryTupleBuilder.cpp BinaryTupleBuilder.h
-    BinaryTupleHeader.h
-    BinaryTupleParser.cpp BinaryTupleParser.h
-    BinaryTupleSchema.h
-    DataType.cpp DataType.h
-    Date.h DateTime.h
-    Time.h Timestamp.h)
+    big_decimal.cpp big_decimal.h
+    big_integer.cpp big_integer.h
+    binary_tuple_builder.cpp binary_tuple_builder.h
+    binary_tuple_header.h
+    binary_tuple_parser.cpp binary_tuple_parser.h
+    binary_tuple_schema.h
+    column_info.h
+    ignite_date.h
+    ignite_date_time.h
+    ignite_time.h
+    ignite_timestamp.h
+    ignite_type.cpp ignite_type.h)
 
 target_link_libraries(${TARGET} ignite-common)

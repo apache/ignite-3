@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "BigInteger.h"
+#include "big_integer.h"
 
 #include <cassert>
 #include <cctype>
@@ -32,12 +32,12 @@ namespace ignite {
  *
  * TODO: Modernize this code to C++17 and update coding style
  */
-class IGNITE_API BigDecimal {
+class IGNITE_API big_decimal {
 public:
     /**
      * Default constructor.
      */
-    BigDecimal();
+    big_decimal() = default;
 
     /**
      * Constructor.
@@ -51,21 +51,21 @@ public:
      * @param bigEndian If true then magnitude is in big-endian. Otherwise
      *     the byte order of the magnitude considered to be little-endian.
      */
-    BigDecimal(const int8_t *mag, int32_t len, int32_t scale, int32_t sign, bool bigEndian = true);
+    big_decimal(const int8_t *mag, int32_t len, int32_t scale, int32_t sign, bool bigEndian = true);
 
     /**
      * Copy constructor.
      *
      * @param other Other instance.
      */
-    BigDecimal(const BigDecimal &other);
+    big_decimal(const big_decimal &other);
 
     /**
      * Integer constructor.
      *
      * @param val Integer value.
      */
-    explicit BigDecimal(int64_t val);
+    explicit big_decimal(int64_t val);
 
     /**
      * Integer constructor with scale.
@@ -73,15 +73,15 @@ public:
      * @param val Integer value.
      * @param scale Scale.
      */
-    BigDecimal(int64_t val, int32_t scale);
+    big_decimal(int64_t val, int32_t scale);
 
     /**
-     * BigInteger constructor with scale.
+     * big_integer constructor with scale.
      *
-     * @param val BigInteger value.
+     * @param val big_integer value.
      * @param scale Scale.
      */
-    BigDecimal(const BigInteger &val, int32_t scale);
+    big_decimal(const big_integer &val, int32_t scale);
 
     /**
      * String constructor.
@@ -89,23 +89,18 @@ public:
      * @param val String to assign.
      * @param len String length.
      */
-    BigDecimal(const char *val, int32_t len);
+    big_decimal(const char *val, int32_t len);
 
     /**
      * String constructor.
      *
      * @param val String to assign.
      */
-    explicit BigDecimal(const std::string &val)
+    explicit big_decimal(const std::string &val)
         : scale(0)
         , magnitude(0) {
-        AssignString(val);
+        assign_string(val);
     }
-
-    /**
-     * Destructor.
-     */
-    ~BigDecimal();
 
     /**
      * Copy operator.
@@ -113,7 +108,7 @@ public:
      * @param other Other instance.
      * @return This.
      */
-    BigDecimal &operator=(const BigDecimal &other);
+    big_decimal &operator=(const big_decimal &other);
 
     /**
      * Convert to double.
@@ -137,14 +132,14 @@ public:
      *
      * @return int64_t value.
      */
-    int64_t ToInt64() const;
+    int64_t to_int64() const;
 
     /**
      * Get scale.
      *
      * @return Scale.
      */
-    int32_t GetScale() const;
+    [[nodiscard]] std::int32_t get_scale() const noexcept { return scale; }
 
     /**
      * Set scale.
@@ -152,7 +147,7 @@ public:
      * @param scale Scale to set.
      * @param res Result is placed here. Can be *this.
      */
-    void SetScale(int32_t scale, BigDecimal &res) const;
+    void set_scale(int32_t scale, big_decimal &res) const;
 
     /**
      * Get precision of the Decimal.
@@ -160,35 +155,35 @@ public:
      * @return Number of the decimal digits in the decimal representation
      *     of the value.
      */
-    int32_t GetPrecision() const;
+    [[nodiscard]] std::int32_t get_precision() const noexcept { return magnitude.get_precision(); }
 
     /**
      * Get unscaled value.
      *
      * @return Unscaled value.
      */
-    const BigInteger &GetUnscaledValue() const;
+    [[nodiscard]] const big_integer &get_unscaled_value() const noexcept { return magnitude; }
 
     /**
      * Swap function for the Decimal type.
      *
      * @param other Other instance.
      */
-    void Swap(BigDecimal &second);
+    void swap(big_decimal &second);
 
     /**
      * Get length of the magnitude.
      *
      * @return Length of the magnitude.
      */
-    int32_t GetMagnitudeLength() const;
+    int32_t get_magnitude_length() const;
 
     /**
      * Assign specified value to this Decimal.
      *
      * @param val String to assign.
      */
-    void AssignString(const std::string &val) { AssignString(val.data(), static_cast<int32_t>(val.size())); }
+    void assign_string(const std::string &val) { assign_string(val.data(), static_cast<int32_t>(val.size())); }
 
     /**
      * Assign specified value to this Decimal.
@@ -196,28 +191,28 @@ public:
      * @param val String to assign.
      * @param len String length.
      */
-    void AssignString(const char *val, int32_t len);
+    void assign_string(const char *val, int32_t len);
 
     /**
      * Assign specified value to this Decimal.
      *
      * @param val Value to assign.
      */
-    void AssignInt64(int64_t val);
+    void assign_int64(int64_t val);
 
     /**
      * Assign specified value to this Decimal.
      *
      * @param val Value to assign.
      */
-    void AssignDouble(double val);
+    void assign_double(double val);
 
     /**
      * Assign specified value to this Decimal.
      *
      * @param val Value to assign.
      */
-    void AssignUint64(uint64_t val);
+    void assign_uint64(uint64_t val);
 
     /**
      * Compare this instance to another.
@@ -226,28 +221,28 @@ public:
      * @return Comparasion result - 0 if equal, 1 if this is greater, -1 if
      *     this is less.
      */
-    int compare(const BigDecimal &other) const;
+    int compare(const big_decimal &other) const;
 
     /**
      * Check whether this value is negative.
      *
      * @return True if this value is negative and false otherwise.
      */
-    bool IsNegative() const;
+    [[nodiscard]] bool is_negative() const noexcept { return magnitude.is_negative(); }
 
     /**
      * Check whether this value is zero.
      *
      * @return True if this value is negative and false otherwise.
      */
-    bool IsZero() const;
+    [[nodiscard]] bool is_zero() const noexcept { return magnitude.is_zero(); }
 
     /**
      * Check whether this value is positive.
      *
      * @return True if this value is positive and false otherwise.
      */
-    bool IsPositive() const;
+    [[nodiscard]] bool is_positive() const noexcept { return magnitude.is_positive(); }
 
     /**
      * Output operator.
@@ -256,11 +251,11 @@ public:
      * @param val Value to output.
      * @return Reference to the first param.
      */
-    friend std::ostream &operator<<(std::ostream &os, const BigDecimal &val) {
-        const BigInteger &unscaled = val.GetUnscaledValue();
+    friend std::ostream &operator<<(std::ostream &os, const big_decimal &val) {
+        const big_integer &unscaled = val.get_unscaled_value();
 
         // Zero magnitude case. Scale does not matter.
-        if (unscaled.GetMagnitude().empty())
+        if (unscaled.get_magnitude().empty())
             return os << '0';
 
         // Scale is zero or negative. No decimal point here.
@@ -340,11 +335,11 @@ public:
      * @param val Value to input.
      * @return Reference to the first param.
      */
-    friend std::istream &operator>>(std::istream &is, BigDecimal &val) {
+    friend std::istream &operator>>(std::istream &is, big_decimal &val) {
         std::istream::sentry sentry(is);
 
         // Return zero if input failed.
-        val.AssignInt64(0);
+        val.assign_int64(0);
 
         if (!is)
             return is;
@@ -358,9 +353,9 @@ public:
         int32_t scale = -1;
         int32_t sign = 1;
 
-        BigInteger &mag = val.magnitude;
-        BigInteger pow;
-        BigInteger bigPart;
+        big_integer &mag = val.magnitude;
+        big_integer pow;
+        big_integer bigPart;
 
         if (!is)
             return is;
@@ -389,10 +384,10 @@ public:
             c = is.peek();
 
             if (part >= 1000000000000000000U) {
-                BigInteger::GetPowerOfTen(partDigits, pow);
-                mag.Multiply(pow, mag);
+                big_integer::get_power_of_ten(partDigits, pow);
+                mag.multiply(pow, mag);
 
-                mag.Add(part);
+                mag.add(part);
 
                 part = 0;
                 partDigits = 0;
@@ -405,11 +400,11 @@ public:
 
         // Adding last part of the number.
         if (partDigits) {
-            BigInteger::GetPowerOfTen(partDigits, pow);
+            big_integer::get_power_of_ten(partDigits, pow);
 
-            mag.Multiply(pow, mag);
+            mag.multiply(pow, mag);
 
-            mag.Add(part);
+            mag.add(part);
         }
 
         // Adjusting scale.
@@ -431,17 +426,17 @@ public:
         val.scale = scale;
 
         if (sign < 0)
-            mag.Negate();
+            mag.negate();
 
         return is;
     }
 
 private:
     /** Scale. */
-    int32_t scale;
+    int32_t scale = 0;
 
     /** Magnitude. */
-    BigInteger magnitude;
+    big_integer magnitude;
 };
 
 /**
@@ -451,7 +446,7 @@ private:
  * @param rhs Second value.
  * @return true If the first value is equal to the second.
  */
-inline bool operator==(const BigDecimal &lhs, const BigDecimal &rhs) noexcept {
+inline bool operator==(const big_decimal &lhs, const big_decimal &rhs) noexcept {
     return lhs.compare(rhs) == 0;
 }
 
@@ -462,7 +457,7 @@ inline bool operator==(const BigDecimal &lhs, const BigDecimal &rhs) noexcept {
  * @param rhs Second value.
  * @return true If the first value is not equal to the second.
  */
-inline bool operator!=(const BigDecimal &lhs, const BigDecimal &rhs) noexcept {
+inline bool operator!=(const big_decimal &lhs, const big_decimal &rhs) noexcept {
     return lhs.compare(rhs) != 0;
 }
 
@@ -473,7 +468,7 @@ inline bool operator!=(const BigDecimal &lhs, const BigDecimal &rhs) noexcept {
  * @param rhs Second value.
  * @return true If the first value is less than the second.
  */
-inline bool operator<(const BigDecimal &lhs, const BigDecimal &rhs) noexcept {
+inline bool operator<(const big_decimal &lhs, const big_decimal &rhs) noexcept {
     return lhs.compare(rhs) < 0;
 }
 
@@ -484,7 +479,7 @@ inline bool operator<(const BigDecimal &lhs, const BigDecimal &rhs) noexcept {
  * @param rhs Second value.
  * @return true If the first value is less than or equal to the second.
  */
-inline bool operator<=(const BigDecimal &lhs, const BigDecimal &rhs) noexcept {
+inline bool operator<=(const big_decimal &lhs, const big_decimal &rhs) noexcept {
     return lhs.compare(rhs) <= 0;
 }
 
@@ -495,7 +490,7 @@ inline bool operator<=(const BigDecimal &lhs, const BigDecimal &rhs) noexcept {
  * @param rhs Second value.
  * @return true If the first value is greater than the second.
  */
-inline bool operator>(const BigDecimal &lhs, const BigDecimal &rhs) noexcept {
+inline bool operator>(const big_decimal &lhs, const big_decimal &rhs) noexcept {
     return lhs.compare(rhs) > 0;
 }
 
@@ -506,7 +501,7 @@ inline bool operator>(const BigDecimal &lhs, const BigDecimal &rhs) noexcept {
  * @param rhs Second value.
  * @return true If the first value is greater than or equal to the second.
  */
-inline bool operator>=(const BigDecimal &lhs, const BigDecimal &rhs) noexcept {
+inline bool operator>=(const big_decimal &lhs, const big_decimal &rhs) noexcept {
     return lhs.compare(rhs) >= 0;
 }
 

@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "common/config.h"
+#include "../common/config.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -31,8 +31,8 @@ namespace ignite {
  *
  * TODO: Modernize this code to C++17 and update coding style
  */
-class IGNITE_API BigInteger {
-    friend class BigDecimal;
+class IGNITE_API big_integer {
+    friend class big_decimal;
 
 public:
     // Magnitude array type.
@@ -41,21 +41,21 @@ public:
     /**
      * Default constructor. Constructs zero-value big integer.
      */
-    BigInteger() = default;
+    big_integer() = default;
 
     /**
      * Copy constructor.
      *
      * @param other Other value.
      */
-    BigInteger(const BigInteger &other) = default;
+    big_integer(const big_integer &other) = default;
 
     /**
      * Move constructor.
      *
      * @param other Other value.
      */
-    BigInteger(BigInteger &&other) = default;
+    big_integer(big_integer &&other) = default;
 
     /**
      * Constructs big integer with the specified magnitude.
@@ -64,7 +64,7 @@ public:
      * @param mag Magnitude. Moved.
      * @param sign Sign. Can be 1 or -1.
      */
-    BigInteger(MagArray &&mag, int8_t sign)
+    big_integer(MagArray &&mag, std::int8_t sign)
         : sign(sign)
         , mag(std::move(mag)) { }
 
@@ -73,14 +73,14 @@ public:
      *
      * @param val Value.
      */
-    explicit BigInteger(std::int64_t val) { AssignInt64(val); }
+    explicit big_integer(std::int64_t val) { assign_int64(val); }
 
     /**
      * String constructor.
      *
      * @param val String to assign.
      */
-    explicit BigInteger(const std::string &val) { AssignString(val); }
+    explicit big_integer(const std::string &val) { assign_string(val); }
 
     /**
      * String constructor.
@@ -88,7 +88,7 @@ public:
      * @param val String to assign.
      * @param len String length.
      */
-    BigInteger(const char *val, int32_t len) { AssignString(val, len); }
+    big_integer(const char *val, std::int32_t len) { assign_string(val, len); }
 
     /**
      * Constructs big integer from the byte array.
@@ -99,7 +99,7 @@ public:
      * @param bigEndian If true then magnitude is in big-endian. Otherwise
      *     the byte order of the magnitude considered to be little-endian.
      */
-    BigInteger(const int8_t *val, int32_t len, int32_t sign, bool bigEndian = true);
+    big_integer(const std::int8_t *val, std::int32_t len, std::int32_t sign, bool bigEndian = true);
 
     /**
      * Constructs a big integer from the byte array.
@@ -107,7 +107,7 @@ public:
      * @param data Bytes of the integer. Byte order is big-endian. The representation is two's-complement.
      * @param size The number of bytes.
      */
-    BigInteger(const std::byte *data, std::size_t size);
+    big_integer(const std::byte *data, std::size_t size);
 
     /**
      * Copy-assigment operator.
@@ -115,7 +115,7 @@ public:
      * @param other Other value.
      * @return *this.
      */
-    BigInteger &operator=(const BigInteger &other) = default;
+    big_integer &operator=(const big_integer &other) = default;
 
     /**
      * Move-assigment operator.
@@ -123,28 +123,28 @@ public:
      * @param other Other value.
      * @return *this.
      */
-    BigInteger &operator=(BigInteger &&other) = default;
+    big_integer &operator=(big_integer &&other) = default;
 
     /**
-     * Assign specified value to this BigInteger.
+     * Assign specified value to this big_integer.
      *
      * @param val Value to assign.
      */
-    void AssignInt64(int64_t val);
+    void assign_int64(std::int64_t val);
 
     /**
-     * Assign specified value to this BigInteger.
+     * Assign specified value to this big_integer.
      *
      * @param val Value to assign.
      */
-    void AssignUint64(uint64_t val);
+    void assign_uint64(std::uint64_t val);
 
     /**
      * Assign specified value to this Decimal.
      *
      * @param val String to assign.
      */
-    void AssignString(const std::string &val) { AssignString(val.data(), static_cast<int32_t>(val.size())); }
+    void assign_string(const std::string &val) { assign_string(val.data(), val.size()); }
 
     /**
      * Assign specified value to this Decimal.
@@ -152,35 +152,57 @@ public:
      * @param val String to assign.
      * @param len String length.
      */
-    void AssignString(const char *val, int32_t len);
+    void assign_string(const char *val, std::size_t len);
 
     /**
      * Get number sign. Returns -1 if negative and 1 otherwise.
      *
      * @return Sign of the number.
      */
-    std::int8_t GetSign() const noexcept { return sign; }
+    [[nodiscard]] std::int8_t get_sign() const noexcept { return sign; }
 
     /**
      * Get magnitude array.
      *
      * @return magnitude array.
      */
-    const MagArray &GetMagnitude() const noexcept { return mag; }
+    [[nodiscard]] const MagArray &get_magnitude() const noexcept { return mag; }
 
     /**
-     * Swap function for the BigInteger type.
+     * Swap function for the big_integer type.
      *
      * @param other Other instance.
      */
-    void Swap(BigInteger &other);
+    void swap(big_integer &other);
 
     /**
-     * Get this number length in bits as if it was positive.
+     * Get this number's length in bits as if it was positive.
      *
-     * @return Number length in bits.
+     * @return Number's length in bits.
      */
-    uint32_t GetBitLength() const;
+    [[nodiscard]] std::uint32_t magnitude_bit_length() const noexcept;
+
+    /**
+     * Get length in bits of the two's-complement representation of this number, excluding a sign bit.
+     *
+     * @return Length in bits of the two's-complement representation of this number, excluding a sign bit.
+     */
+    [[nodiscard]] std::uint32_t bit_length() const noexcept;
+
+    /**
+     * Get number of bytes required to store this number as byte array.
+     *
+     * @return Number of bytes required to store this number as byte array.
+     */
+    [[nodiscard]] std::size_t byte_size() const noexcept;
+
+    /**
+     * Store this number as a byte array.
+     *
+     * @param data Destination byte array. Its size must be at least as large as the value returned by @ref
+     * bytes_size();
+     */
+    void store_bytes(std::byte *data) const;
 
     /**
      * Get precision of the BigInteger.
@@ -188,14 +210,14 @@ public:
      * @return Number of the decimal digits in the decimal representation
      *     of the value.
      */
-    int32_t GetPrecision() const;
+    [[nodiscard]] std::int32_t get_precision() const noexcept;
 
     /**
      * Mutates this BigInteger so its value becomes exp power of this.
      *
      * @param exp Exponent.
      */
-    void Pow(int32_t exp);
+    void pow(std::int32_t exp);
 
     /**
      * Muitiply this to another big integer.
@@ -203,7 +225,7 @@ public:
      * @param other Another instance. Can be *this.
      * @param res Result placed there. Can be *this.
      */
-    void Multiply(const BigInteger &other, BigInteger &res) const;
+    void multiply(const big_integer &other, big_integer &res) const;
 
     /**
      * Divide this to another big integer.
@@ -211,7 +233,7 @@ public:
      * @param divisor Divisor. Can be *this.
      * @param res Result placed there. Can be *this.
      */
-    void Divide(const BigInteger &divisor, BigInteger &res) const;
+    void divide(const big_integer &divisor, big_integer &res) const;
 
     /**
      * Divide this to another big integer.
@@ -220,14 +242,14 @@ public:
      * @param res Result placed there. Can be *this.
      * @param rem Remainder placed there. Can be *this.
      */
-    void Divide(const BigInteger &divisor, BigInteger &res, BigInteger &rem) const;
+    void divide(const big_integer &divisor, big_integer &res, big_integer &rem) const;
 
     /**
-     * Add unsigned integer number to this BigInteger.
+     * Add unsigned integer number to this big_integer.
      *
      * @param x Number to add.
      */
-    void Add(uint64_t x);
+    void add(std::uint64_t x);
 
     /**
      * Compare this instance to another.
@@ -237,41 +259,41 @@ public:
      * @return Comparasion result - 0 if equal, 1 if this is greater, -1 if
      *     this is less.
      */
-    int compare(const BigInteger &other, bool ignoreSign = false) const;
+    int compare(const big_integer &other, bool ignoreSign = false) const;
 
     /**
      * Convert to int64_t.
      *
      * @return int64_t value.
      */
-    int64_t ToInt64() const;
+    std::int64_t to_int64() const;
 
     /**
      * Check whether this value is negative.
      *
      * @return True if this value is negative and false otherwise.
      */
-    bool IsNegative() const { return sign < 0; }
+    [[nodiscard]] bool is_negative() const noexcept { return sign < 0; }
 
     /**
      * Check whether this value is zero.
      *
      * @return True if this value is negative and false otherwise.
      */
-    bool IsZero() const { return mag.empty(); }
+    [[nodiscard]] bool is_zero() const noexcept { return mag.empty(); }
 
     /**
      * Check whether this value is positive.
      *
      * @return True if this value is positive and false otherwise.
      */
-    bool IsPositive() const { return sign > 0 && !IsZero(); }
+    [[nodiscard]] bool is_positive() const noexcept { return sign > 0 && !is_zero(); }
 
     /**
      * Rverses sign of this value.
      */
-    void Negate() {
-        if (!IsZero()) {
+    void negate() {
+        if (!is_zero()) {
             sign = -sign;
         }
     }
@@ -283,23 +305,23 @@ public:
      * @param val Value to output.
      * @return Reference to the first param.
      */
-    friend std::ostream &operator<<(std::ostream &os, const BigInteger &val) {
-        if (val.IsZero())
+    friend std::ostream &operator<<(std::ostream &os, const big_integer &val) {
+        if (val.is_zero())
             return os << '0';
 
         if (val.sign < 0)
             os << '-';
 
         const int32_t maxResultDigits = 19;
-        BigInteger maxUintTenPower;
-        BigInteger res;
-        BigInteger left;
+        big_integer maxUintTenPower;
+        big_integer res;
+        big_integer left;
 
-        maxUintTenPower.AssignUint64(10000000000000000000U);
+        maxUintTenPower.assign_uint64(10000000000000000000U);
 
         std::vector<uint64_t> vals;
 
-        val.Divide(maxUintTenPower, left, res);
+        val.divide(maxUintTenPower, left, res);
 
         if (res.sign < 0)
             res.sign = -res.sign;
@@ -307,12 +329,12 @@ public:
         if (left.sign < 0)
             left.sign = -left.sign;
 
-        vals.push_back(static_cast<uint64_t>(res.ToInt64()));
+        vals.push_back(static_cast<uint64_t>(res.to_int64()));
 
-        while (!left.IsZero()) {
-            left.Divide(maxUintTenPower, left, res);
+        while (!left.is_zero()) {
+            left.divide(maxUintTenPower, left, res);
 
-            vals.push_back(static_cast<uint64_t>(res.ToInt64()));
+            vals.push_back(static_cast<uint64_t>(res.to_int64()));
         }
 
         os << vals.back();
@@ -334,11 +356,11 @@ public:
      * @param val Value to input.
      * @return Reference to the first param.
      */
-    friend std::istream &operator>>(std::istream &is, BigInteger &val) {
+    friend std::istream &operator>>(std::istream &is, big_integer &val) {
         std::istream::sentry sentry(is);
 
         // Return zero if input failed.
-        val.AssignInt64(0);
+        val.assign_int64(0);
 
         if (!is)
             return is;
@@ -348,8 +370,8 @@ public:
         int32_t partDigits = 0;
         int32_t sign = 1;
 
-        BigInteger pow;
-        BigInteger bigPart;
+        big_integer pow;
+        big_integer bigPart;
 
         // Current char.
         int c = is.peek();
@@ -372,10 +394,10 @@ public:
             ++partDigits;
 
             if (part >= 1000000000000000000U) {
-                BigInteger::GetPowerOfTen(partDigits, pow);
-                val.Multiply(pow, val);
+                big_integer::get_power_of_ten(partDigits, pow);
+                val.multiply(pow, val);
 
-                val.Add(part);
+                val.add(part);
 
                 part = 0;
                 partDigits = 0;
@@ -387,26 +409,26 @@ public:
 
         // Adding last part of the number.
         if (partDigits) {
-            BigInteger::GetPowerOfTen(partDigits, pow);
+            big_integer::get_power_of_ten(partDigits, pow);
 
-            val.Multiply(pow, val);
+            val.multiply(pow, val);
 
-            val.Add(part);
+            val.add(part);
         }
 
         if (sign < 0)
-            val.Negate();
+            val.negate();
 
         return is;
     }
 
     /**
-     * Get BigInteger which value is the ten of the specified power.
+     * Get big_integer which value is the ten of the specified power.
      *
      * @param pow Tenth power.
      * @param res Result is placed here.
      */
-    static void GetPowerOfTen(int32_t pow, BigInteger &res);
+    static void get_power_of_ten(std::int32_t pow, big_integer &res);
 
 private:
     /**
@@ -415,7 +437,7 @@ private:
      * @param data Byte array.
      * @param size Byte array size.
      */
-    void initializeBigEndian(const std::byte *data, std::size_t size);
+    void from_big_endian(const std::byte *data, std::size_t size);
 
     /**
      * Initializes a big integer from a byte array with big-endian byte order and a negative value
@@ -424,7 +446,7 @@ private:
      * @param data Byte array.
      * @param size Byte array size.
      */
-    void initializeNegativeBigEndian(const std::byte *data, std::size_t size);
+    void from_negative_big_endian(const std::byte *data, std::size_t size);
 
     /**
      * Add magnitude array to current.
@@ -432,7 +454,7 @@ private:
      * @param addend Addend.
      * @param len Length of the addend.
      */
-    void Add(const uint32_t *addend, int32_t len);
+    void add(const uint32_t *addend, int32_t len);
 
     /**
      * Get n-th integer of the magnitude.
@@ -440,7 +462,7 @@ private:
      * @param n Index.
      * @return Value of the n-th int of the magnitude.
      */
-    uint32_t GetMagInt(int32_t n) const;
+    std::uint32_t get_mag_int(std::int32_t n) const;
 
     /**
      * Divide this to another big integer.
@@ -450,17 +472,17 @@ private:
      * @param rem Remainder placed there if requested. Can be *this.
      *     Can be null if the remainder is not needed.
      */
-    void Divide(const BigInteger &divisor, BigInteger &res, BigInteger *rem) const;
+    void divide(const big_integer &divisor, big_integer &res, big_integer *rem) const;
 
     /**
      * Normalizes current value removing trailing zeroes from the magnitude.
      */
-    void Normalize();
+    void normalize();
 
-    /** The sign of this BigInteger: -1 for negative and 1 for non-negative. */
+    /** The sign of this big_integer: -1 for negative and 1 for non-negative. */
     std::int8_t sign = 1;
 
-    /** The magnitude of this BigInteger. Byte order is little-endian. */
+    /** The magnitude of this big_integer. Byte order is little-endian. */
     MagArray mag;
 };
 
@@ -471,7 +493,7 @@ private:
  * @param rhs Second value.
  * @return true If the first value is equal to the second.
  */
-inline bool operator==(const BigInteger &lhs, const BigInteger &rhs) noexcept {
+inline bool operator==(const big_integer &lhs, const big_integer &rhs) noexcept {
     return lhs.compare(rhs) == 0;
 }
 
@@ -482,7 +504,7 @@ inline bool operator==(const BigInteger &lhs, const BigInteger &rhs) noexcept {
  * @param rhs Second value.
  * @return true If the first value is not equal to the second.
  */
-inline bool operator!=(const BigInteger &lhs, const BigInteger &rhs) noexcept {
+inline bool operator!=(const big_integer &lhs, const big_integer &rhs) noexcept {
     return lhs.compare(rhs) != 0;
 }
 
@@ -493,7 +515,7 @@ inline bool operator!=(const BigInteger &lhs, const BigInteger &rhs) noexcept {
  * @param rhs Second value.
  * @return true If the first value is less than the second.
  */
-inline bool operator<(const BigInteger &lhs, const BigInteger &rhs) noexcept {
+inline bool operator<(const big_integer &lhs, const big_integer &rhs) noexcept {
     return lhs.compare(rhs) < 0;
 }
 
@@ -504,7 +526,7 @@ inline bool operator<(const BigInteger &lhs, const BigInteger &rhs) noexcept {
  * @param rhs Second value.
  * @return true If the first value is less than or equal to the second.
  */
-inline bool operator<=(const BigInteger &lhs, const BigInteger &rhs) noexcept {
+inline bool operator<=(const big_integer &lhs, const big_integer &rhs) noexcept {
     return lhs.compare(rhs) <= 0;
 }
 
@@ -515,7 +537,7 @@ inline bool operator<=(const BigInteger &lhs, const BigInteger &rhs) noexcept {
  * @param rhs Second value.
  * @return true If the first value is greater than the second.
  */
-inline bool operator>(const BigInteger &lhs, const BigInteger &rhs) noexcept {
+inline bool operator>(const big_integer &lhs, const big_integer &rhs) noexcept {
     return lhs.compare(rhs) > 0;
 }
 
@@ -526,7 +548,7 @@ inline bool operator>(const BigInteger &lhs, const BigInteger &rhs) noexcept {
  * @param rhs Second value.
  * @return true If the first value is greater than or equal to the second.
  */
-inline bool operator>=(const BigInteger &lhs, const BigInteger &rhs) noexcept {
+inline bool operator>=(const big_integer &lhs, const big_integer &rhs) noexcept {
     return lhs.compare(rhs) >= 0;
 }
 

@@ -17,9 +17,17 @@
 
 #pragma once
 
-#include "BinaryTupleSchema.h"
-#include "common/platform.h"
-#include "common/types.h"
+#include "big_decimal.h"
+#include "big_integer.h"
+#include "binary_tuple_schema.h"
+#include "ignite_date.h"
+#include "ignite_date_time.h"
+#include "ignite_time.h"
+#include "ignite_timestamp.h"
+
+#include "../common/bytes.h"
+#include "../common/types.h"
+#include "../common/uuid.h"
 
 #include <cassert>
 #include <cstring>
@@ -46,24 +54,24 @@ namespace ignite {
  *    order with the same values.
  * 5. Finally, the resulting binary tuple is obtained with the @ref build call.
  */
-class BinaryTupleBuilder {
-    const IntT elementCount; /**< Total number of elements. */
+class binary_tuple_builder {
+    const IntT element_count; /**< Total number of elements. */
 
-    IntT elementIndex; /**< Index of the next element to add. */
+    IntT element_index; /**< Index of the next element to add. */
 
-    IntT nullElements; /**< The number of null elements. */
+    IntT null_elements; /**< The number of null elements. */
 
-    SizeT valueAreaSize; /**< Total size of all values. */
+    SizeT value_area_size; /**< Total size of all values. */
 
-    SizeT entrySize; /**< Size of an offset table entry. */
+    SizeT entry_size; /**< Size of an offset table entry. */
 
-    std::byte *nextEntry; /**< Position for the next offset table entry. */
+    std::byte *next_entry; /**< Position for the next offset table entry. */
 
-    std::byte *valueBase; /**< Position of the value area.*/
+    std::byte *value_base; /**< Position of the value area.*/
 
-    std::byte *nextValue; /**< Position for the next value. */
+    std::byte *next_value; /**< Position for the next value. */
 
-    std::vector<std::byte> binaryTuple; /**< Internal buffer for tuple generation. */
+    std::vector<std::byte> binary_tuple; /**< Internal buffer for tuple generation. */
 
 public:
     /**
@@ -71,7 +79,7 @@ public:
      *
      * @param schema Binary tuple schema.
      */
-    explicit BinaryTupleBuilder(IntT elementCount) noexcept;
+    explicit binary_tuple_builder(IntT element_count) noexcept;
 
     /**
      * @brief Starts a new tuple.
@@ -82,9 +90,9 @@ public:
      * @brief Assigns a null value for the next element.
      */
     void claim(std::nullopt_t /*null*/) noexcept {
-        assert(elementIndex < elementCount);
-        nullElements++;
-        elementIndex++;
+        assert(element_index < element_count);
+        null_elements++;
+        element_index++;
     }
 
     /**
@@ -93,9 +101,9 @@ public:
      * @param valueSize required size for the value
      */
     void claim(SizeT valueSize) noexcept {
-        assert(elementIndex < elementCount);
-        valueAreaSize += valueSize;
-        elementIndex++;
+        assert(element_index < element_count);
+        value_area_size += valueSize;
+        element_index++;
     }
 
     /**
@@ -104,7 +112,7 @@ public:
      * @param type Element type.
      * @param bytes Binary element value.
      */
-    void claim(DATA_TYPE type, const bytes_view &bytes) noexcept { claim(sizeOf(type, bytes)); }
+    void claim(ignite_type type, const bytes_view &bytes) noexcept { claim(gauge(type, bytes)); }
 
     /**
      * @brief Assigns a value or null for the next element.
@@ -114,7 +122,7 @@ public:
      * @param slice Optional value of an internal tuple field.
      */
     template <typename BytesT>
-    void claim(DATA_TYPE type, const std::optional<BytesT> &slice) noexcept {
+    void claim(ignite_type type, const std::optional<BytesT> &slice) noexcept {
         if (slice.has_value()) {
             claim(type, slice.value());
         } else {
@@ -130,9 +138,9 @@ public:
      * @param tuple Tuple in the internal form.
      */
     template <typename BytesT>
-    void claim(const BinaryTupleSchema &schema, const std::vector<std::optional<BytesT>> &tuple) noexcept {
-        for (IntT i = 0; i < schema.numElements(); i++) {
-            claim(schema.getElement(i).dataType, tuple[i]);
+    void claim(const binary_tuple_schema &schema, const std::vector<std::optional<BytesT>> &tuple) noexcept {
+        for (IntT i = 0; i < schema.num_elements(); i++) {
+            claim(schema.get_element(i).dataType, tuple[i]);
         }
     }
 
@@ -145,10 +153,11 @@ public:
      * @brief Appends a null value for the next element.
      */
     void append(std::nullopt_t /*null*/) {
-        assert(nullElements > 0);
-        assert(elementIndex < elementCount);
-        binaryTuple[BinaryTupleSchema::getNullOffset(elementIndex)] |= BinaryTupleSchema::getNullMask(elementIndex);
-        appendEntry();
+        assert(null_elements > 0);
+        assert(element_index < element_count);
+        binary_tuple[binary_tuple_schema::get_null_offset(element_index)] |=
+            binary_tuple_schema::get_null_mask(element_index);
+        append_entry();
     }
 
     /**
@@ -157,7 +166,7 @@ public:
      * @param type Element type.
      * @param value Value of an internal tuple field.
      */
-    void append(DATA_TYPE type, const bytes_view &bytes);
+    void append(ignite_type type, const bytes_view &bytes);
 
     /**
      * @brief Appends a value or null for the next element.
@@ -167,7 +176,7 @@ public:
      * @param slice Optional value of an internal tuple field.
      */
     template <typename BytesT>
-    void append(DATA_TYPE type, const std::optional<BytesT> &slice) {
+    void append(ignite_type type, const std::optional<BytesT> &slice) {
         if (slice.has_value()) {
             append(type, slice.value());
         } else {
@@ -183,9 +192,9 @@ public:
      * @param tuple Tuple in the internal form.
      */
     template <typename BytesT>
-    void append(const BinaryTupleSchema &schema, const std::vector<std::optional<BytesT>> &tuple) {
-        for (IntT i = 0; i < schema.numElements(); i++) {
-            append(schema.getElement(i).dataType, tuple[i]);
+    void append(const binary_tuple_schema &schema, const std::vector<std::optional<BytesT>> &tuple) {
+        for (IntT i = 0; i < schema.num_elements(); i++) {
+            append(schema.get_element(i).dataType, tuple[i]);
         }
     }
 
@@ -195,8 +204,8 @@ public:
      * @return Byte buffer with binary tuple.
      */
     const std::vector<std::byte> &build() {
-        assert(elementIndex == elementCount);
-        return binaryTuple;
+        assert(element_index == element_count);
+        return binary_tuple;
     }
 
     /**
@@ -209,7 +218,7 @@ public:
      */
     template <typename BytesT>
     const std::vector<std::byte> &build(
-        const BinaryTupleSchema &schema, const std::vector<std::optional<BytesT>> &tuple) {
+        const binary_tuple_schema &schema, const std::vector<std::optional<BytesT>> &tuple) {
         start();
         claim(schema, tuple);
         layout();
@@ -241,7 +250,7 @@ private:
      * @param value Actual element value.
      * @return Required size.
      */
-    static SizeT sizeOfInt8(std::int8_t value) noexcept { return value == 0 ? 0 : sizeof(std::int8_t); }
+    static SizeT gauge_int8(std::int8_t value) noexcept { return value == 0 ? 0 : sizeof(std::int8_t); }
 
     /**
      * @brief Computes required binary size for a given value.
@@ -249,9 +258,9 @@ private:
      * @param value Actual element value.
      * @return Required size.
      */
-    static SizeT sizeOfInt16(std::int16_t value) noexcept {
+    static SizeT gauge_int16(std::int16_t value) noexcept {
         if (fits<std::int16_t, std::int8_t>(value)) {
-            return sizeOfInt8(std::int8_t(value));
+            return gauge_int8(std::int8_t(value));
         }
         return sizeof(std::int16_t);
     }
@@ -262,9 +271,9 @@ private:
      * @param value Actual element value.
      * @return Required size.
      */
-    static SizeT sizeOfInt32(std::int32_t value) noexcept {
+    static SizeT gauge_int32(std::int32_t value) noexcept {
         if (fits<std::int32_t, std::int8_t>(value)) {
-            return sizeOfInt8(std::int8_t(value));
+            return gauge_int8(std::int8_t(value));
         }
         if (fits<std::int32_t, std::int16_t>(value)) {
             return sizeof(std::int16_t);
@@ -278,9 +287,9 @@ private:
      * @param value Actual element value.
      * @return Required size.
      */
-    static SizeT sizeOfInt64(std::int64_t value) noexcept {
+    static SizeT gauge_int64(std::int64_t value) noexcept {
         if (fits<std::int64_t, std::int16_t>(value)) {
-            return sizeOfInt16(std::int16_t(value));
+            return gauge_int16(std::int16_t(value));
         }
         if (fits<std::int64_t, std::int32_t>(value)) {
             return sizeof(std::int32_t);
@@ -294,7 +303,7 @@ private:
      * @param value Actual element value.
      * @return Required size.
      */
-    static SizeT sizeOfFloat(float value) noexcept { return value == 0.0f ? 0 : sizeof(float); }
+    static SizeT gauge_float(float value) noexcept { return value == 0.0f ? 0 : sizeof(float); }
 
     /**
      * @brief Computes required binary size for a given value.
@@ -302,9 +311,99 @@ private:
      * @param value Actual element value.
      * @return Required size.
      */
-    static SizeT sizeOfDouble(double value) noexcept {
+    static SizeT gauge_double(double value) noexcept {
         float floatValue = static_cast<float>(value);
-        return floatValue == value ? sizeOfFloat(floatValue) : sizeof(double);
+        return floatValue == value ? gauge_float(floatValue) : sizeof(double);
+    }
+
+    /**
+     * @brief Computes required binary size for a given value.
+     *
+     * @param value Actual element value.
+     * @return Required size.
+     */
+    static SizeT gauge_number(const big_integer &value) noexcept {
+        return value.is_zero() ? 0 : value.byte_size();
+    }
+
+    /**
+     * @brief Computes required binary size for a given value.
+     *
+     * @param value Actual element value.
+     * @return Required size.
+     */
+    static SizeT gauge_number(const big_decimal &value) noexcept {
+        return value.is_zero() ? 0 : value.get_unscaled_value().byte_size();
+    }
+
+    /**
+     * @brief Computes required binary size for a given value.
+     *
+     * @param value Actual element value.
+     * @return Required size.
+     */
+    static SizeT gauge_uuid(const uuid &value) noexcept {
+        return value == uuid() ? 0 : 16;
+    }
+
+    /**
+     * @brief Computes required binary size for a given value.
+     *
+     * @param value Actual element value.
+     * @return Required size.
+     */
+    static SizeT gauge_date(const ignite_date &value) noexcept {
+        return value == ignite_date() ? 0 : 3;
+    }
+
+    /**
+     * @brief Computes required binary size for a given value.
+     *
+     * @param value Actual element value.
+     * @return Required size.
+     */
+    static SizeT gauge_time(const ignite_time &value) noexcept {
+        if (value == ignite_time()) {
+            return 0;
+        }
+
+        auto nanos = value.get_nano();
+        if ((nanos % 1000) != 0) {
+            return 6;
+        } else if ((nanos % 1000000) != 0) {
+            return 5;
+        }
+        return 4;
+    }
+
+    /**
+     * @brief Computes required binary size for a given value.
+     *
+     * @param value Actual element value.
+     * @return Required size.
+     */
+    static SizeT gauge_date_time(const ignite_date_time &value) noexcept {
+        if (value == ignite_date_time()) {
+            return 0;
+        }
+
+        auto nanos = value.get_nano();
+        if ((nanos % 1000) != 0) {
+            return 8;
+        } else if ((nanos % 1000000) != 0) {
+            return 8;
+        }
+        return 7;
+    }
+
+    /**
+     * @brief Computes required binary size for a given value.
+     *
+     * @param value Actual element value.
+     * @return Required size.
+     */
+    static SizeT gauge_timestamp(const ignite_timestamp &value) noexcept {
+        return value == ignite_timestamp() ? 0 : value.get_nano() == 0 ? 8 : 12;
     }
 
     /**
@@ -314,23 +413,14 @@ private:
      * @param bytes Binary element value.
      * @return Required size.
      */
-    static SizeT sizeOf(DATA_TYPE type, bytes_view bytes);
+    static SizeT gauge(ignite_type type, bytes_view bytes);
 
     /**
      * @brief Writes binary value of specified element.
      *
      * @param bytes Binary element value.
      */
-    void putBytes(bytes_view bytes);
-
-    /**
-     * @brief Writes binary value of specified element.
-     *
-     * The written value may differ from the original because of value compression.
-     *
-     * @param bytes Binary element value.
-     */
-    void putInt8(bytes_view bytes);
+    void put_bytes(bytes_view bytes);
 
     /**
      * @brief Writes binary value of specified element.
@@ -339,7 +429,7 @@ private:
      *
      * @param bytes Binary element value.
      */
-    void putInt16(bytes_view bytes);
+    void put_int8(bytes_view bytes);
 
     /**
      * @brief Writes binary value of specified element.
@@ -348,7 +438,7 @@ private:
      *
      * @param bytes Binary element value.
      */
-    void putInt32(bytes_view bytes);
+    void put_int16(bytes_view bytes);
 
     /**
      * @brief Writes binary value of specified element.
@@ -357,7 +447,7 @@ private:
      *
      * @param bytes Binary element value.
      */
-    void putInt64(bytes_view bytes);
+    void put_int32(bytes_view bytes);
 
     /**
      * @brief Writes binary value of specified element.
@@ -366,7 +456,7 @@ private:
      *
      * @param bytes Binary element value.
      */
-    void putFloat(bytes_view bytes);
+    void put_int64(bytes_view bytes);
 
     /**
      * @brief Writes binary value of specified element.
@@ -375,18 +465,25 @@ private:
      *
      * @param bytes Binary element value.
      */
-    void putDouble(bytes_view bytes);
+    void put_float(bytes_view bytes);
+
+    /**
+     * @brief Writes binary value of specified element.
+     *
+     * The written value may differ from the original because of value compression.
+     *
+     * @param bytes Binary element value.
+     */
+    void put_double(bytes_view bytes);
 
     /**
      * @brief Adds an entry to the offset table.
      */
-    void appendEntry() {
-        uint64_t offset = nextValue - valueBase;
-        static_assert(platform::ByteOrder::littleEndian);
-        assert(nextEntry + entrySize <= valueBase);
-        std::memcpy(nextEntry, &offset, entrySize);
-        nextEntry += entrySize;
-        elementIndex++;
+    void append_entry() {
+        auto offset = bytes::htol<std::ptrdiff_t>(next_value - value_base);
+        std::memcpy(next_entry, &offset, entry_size);
+        next_entry += entry_size;
+        element_index++;
     }
 };
 
