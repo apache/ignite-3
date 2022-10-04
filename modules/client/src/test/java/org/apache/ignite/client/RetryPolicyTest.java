@@ -222,6 +222,11 @@ public class RetryPolicyTest {
         }
     }
 
+    @Test
+    public void testExceptionInRetryPolicyPropagatesToCaller() {
+        // TODO IGNITE-17812
+    }
+
     private IgniteClient getClient(RetryPolicy retryPolicy) {
         return IgniteClient.builder()
                 .addresses("127.0.0.1:" + server.port())
