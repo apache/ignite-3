@@ -182,7 +182,9 @@ public class ClientCompute implements IgniteCompute {
             }
 
             w.out().packString(jobClassName);
-            w.out().packObjectArray(args);
+            w.out().packObjectArrayAsBinaryTuple(args);
+
+            // TODO: IGNITE-17777 use BinaryTuple
         }, r -> (R) r.in().unpackObjectWithType(), node.name(), null);
     }
 
@@ -218,8 +220,10 @@ public class ClientCompute implements IgniteCompute {
                     ClientRecordSerializer.writeRecRaw(key, keyMapper, schema, w, TuplePart.KEY);
 
                     w.packString(jobClassName);
-                    w.packObjectArray(args);
+                    w.packObjectArrayAsBinaryTuple(args);
                 },
+
+                // TODO: IGNITE-17777 use BinaryTuple
                 r -> (R) r.unpackObjectWithType());
     }
 
@@ -239,9 +243,7 @@ public class ClientCompute implements IgniteCompute {
                     ClientTupleSerializer.writeTupleRaw(key, schema, outputChannel, true);
 
                     w.packString(jobClassName);
-
-                    // TODO: IGNITE-17777 use BinaryTuple
-                    w.packObjectArray(args);
+                    w.packObjectArrayAsBinaryTuple(args);
                 },
 
                 // TODO: IGNITE-17777 use BinaryTuple
