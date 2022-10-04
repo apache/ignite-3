@@ -62,6 +62,7 @@ import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValue
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageFactoryCreator;
 import org.apache.ignite.internal.recovery.ConfigurationCatchUpListener;
 import org.apache.ignite.internal.recovery.RecoveryCompletionFutureFactory;
@@ -264,7 +265,7 @@ public class IgniteImpl implements Ignite {
                 nodeCfgMgr.configurationRegistry().getConfiguration(ComputeConfiguration.KEY)
         );
 
-        raftMgr = new Loza(clusterSvc, workDir);
+        raftMgr = new Loza(clusterSvc, nodeCfgMgr.configurationRegistry().getConfiguration(RaftConfiguration.KEY), workDir);
 
         txManager = new TableTxManagerImpl(clusterSvc, new HeapLockManager());
 

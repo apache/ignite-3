@@ -21,20 +21,14 @@ import static org.apache.ignite.internal.pagememory.persistence.checkpoint.Check
 
 import java.nio.file.Path;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
-import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryTableStorage;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -49,20 +43,10 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
     @WorkDirectory
     private Path workDir;
 
-    @InjectConfiguration(
-            value = "mock.checkpoint.checkpointDelayMillis = 0",
-            polymorphicExtensions = UnsafeMemoryAllocatorConfigurationSchema.class
-    )
+    @InjectConfiguration(value = "mock.checkpoint.checkpointDelayMillis = 0")
     private PersistentPageMemoryStorageEngineConfiguration engineConfig;
 
     @InjectConfiguration(
-            polymorphicExtensions = {
-                    PersistentPageMemoryDataStorageConfigurationSchema.class,
-                    UnknownDataStorageConfigurationSchema.class,
-                    HashIndexConfigurationSchema.class,
-                    NullValueDefaultConfigurationSchema.class,
-                    UnlimitedBudgetConfigurationSchema.class
-            },
             value = "mock.tables.foo.dataStorage.name = " + PersistentPageMemoryStorageEngine.ENGINE_NAME
     )
     private TablesConfiguration tablesConfig;
