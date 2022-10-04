@@ -29,7 +29,7 @@ enum class ExtensionTypes : std::int8_t {
 
     DECIMAL = 2,
 
-    GUID = 3,
+    UUID = 3,
 
     DATE = 4,
 

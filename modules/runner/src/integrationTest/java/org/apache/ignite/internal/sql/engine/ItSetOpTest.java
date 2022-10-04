@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.util.List;
 import java.util.function.Predicate;
 import java.util.stream.StreamSupport;
 import org.junit.jupiter.api.BeforeAll;
@@ -38,7 +39,7 @@ public class ItSetOpTest extends AbstractBasicIntegrationTest {
         createTable("EMP2");
 
         int idx = 0;
-        insertData("PUBLIC.EMP1", new String[]{"ID", "NAME", "SALARY"}, new Object[][]{
+        insertData("PUBLIC.EMP1", List.of("ID", "NAME", "SALARY"), new Object[][]{
                 {idx++, "Igor", 10d},
                 {idx++, "Igor", 11d},
                 {idx++, "Igor", 12d},
@@ -49,7 +50,7 @@ public class ItSetOpTest extends AbstractBasicIntegrationTest {
         });
 
         idx = 0;
-        insertData("PUBLIC.EMP2", new String[]{"ID", "NAME", "SALARY"}, new Object[][]{
+        insertData("PUBLIC.EMP2", List.of("ID", "NAME", "SALARY"), new Object[][]{
                 {idx++, "Roman", 10d},
                 {idx++, "Roman", 11d},
                 {idx++, "Roman", 12d},

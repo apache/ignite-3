@@ -168,7 +168,7 @@ public abstract class AbstractSortedIndexStorageTest {
      * Creates a Sorted Index using the given columns.
      */
     private SortedIndexStorage createIndexStorage(List<ColumnDefinition> indexSchema) {
-        SortedIndexDefinitionBuilder indexDefinitionBuilder = SchemaBuilders.sortedIndex(randomString(random, 10));
+        SortedIndexDefinitionBuilder indexDefinitionBuilder = SchemaBuilders.sortedIndex("TEST_IDX");
 
         indexSchema.forEach(column -> {
             SortedIndexColumnBuilder columnBuilder = indexDefinitionBuilder.addIndexColumn(column.name());

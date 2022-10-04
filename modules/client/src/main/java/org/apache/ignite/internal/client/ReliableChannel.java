@@ -286,7 +286,7 @@ public final class ReliableChannel implements AutoCloseable {
                             failure0.addSuppressed(err);
                         }
 
-                        if (shouldRetry(opCode, attempt, connectionErr)) {
+                        if (shouldRetry(opCode, attempt, connectionErr, failure0)) {
                             log.debug("Going to retry request because of error [opCode={}, currentAttempt={}, errMsg={}]",
                                     failure0, opCode, attempt, failure0.getMessage());
 
@@ -575,7 +575,7 @@ public final class ReliableChannel implements AutoCloseable {
 
                 onChannelFailure(hld, c);
 
-                if (!shouldRetry(ClientOperationType.CHANNEL_CONNECT, attempt, e)) {
+                if (!shouldRetry(ClientOperationType.CHANNEL_CONNECT, attempt, e, failure)) {
                     break;
                 }
             }
@@ -585,14 +585,16 @@ public final class ReliableChannel implements AutoCloseable {
     }
 
     /** Determines whether specified operation should be retried. */
-    private boolean shouldRetry(int opCode, int iteration, IgniteClientConnectionException exception) {
+    private boolean shouldRetry(int opCode, int iteration, IgniteClientConnectionException exception,
+                                IgniteClientConnectionException aggregateException) {
         ClientOperationType opType = ClientUtils.opCodeToClientOperationType(opCode);
 
-        return shouldRetry(opType, iteration, exception);
+        return shouldRetry(opType, iteration, exception, aggregateException);
     }
 
     /** Determines whether specified operation should be retried. */
-    private boolean shouldRetry(ClientOperationType opType, int iteration, IgniteClientConnectionException exception) {
+    private boolean shouldRetry(ClientOperationType opType, int iteration, IgniteClientConnectionException exception,
+                                IgniteClientConnectionException aggregateException) {
         if (opType == null) {
             // System operation.
             return iteration < RetryLimitPolicy.DFLT_RETRY_LIMIT;
@@ -606,7 +608,12 @@ public final class ReliableChannel implements AutoCloseable {
 
         RetryPolicyContext ctx = new RetryPolicyContextImpl(clientCfg, opType, iteration, exception);
 
-        return plc.shouldRetry(ctx);
+        try {
+            return plc.shouldRetry(ctx);
+        } catch (Throwable t) {
+            aggregateException.addSuppressed(t);
+            return false;
+        }
     }
 
     /**

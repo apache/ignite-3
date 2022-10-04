@@ -31,6 +31,7 @@ dependencies {
     annotationProcessor project(':ignite-configuration-annotation-processor')
 
     testImplementation project(':ignite-core')
+    testImplementation project(':ignite-index')
     testImplementation project(':ignite-storage-api')
     testImplementation project(':ignite-configuration')
     testImplementation project(':ignite-transactions')

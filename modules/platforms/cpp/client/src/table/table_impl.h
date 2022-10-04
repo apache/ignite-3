@@ -21,7 +21,7 @@
 #include <memory>
 #include <utility>
 
-#include "common/guid.h"
+#include "common/uuid.h"
 
 namespace ignite::detail {
 
@@ -46,7 +46,7 @@ public:
      * @param name Name.
      * @param id ID.
      */
-    TableImpl(std::string name, Guid id)
+    TableImpl(std::string name, uuid id)
         : m_name(std::move(name))
         , m_id(id) { }
 
@@ -62,7 +62,7 @@ private:
     std::string m_name;
 
     /** Table ID. */
-    Guid m_id;
+    uuid m_id;
 };
 
 } // namespace ignite::detail

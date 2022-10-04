@@ -96,7 +96,7 @@ public class TransactionsExample {
             //--------------------------------------------------------------------------------------
 
             KeyValueView<AccountKey, Account> accounts = client.tables()
-                    .table("PUBLIC.accounts")
+                    .table("accounts")
                     .keyValueView(AccountKey.class, Account.class);
 
             final AccountKey key = new AccountKey(123);

@@ -38,7 +38,6 @@ import org.apache.calcite.avatica.util.TimeUnit;
 import org.apache.calcite.jdbc.JavaTypeFactoryImpl;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeSystem;
-import org.apache.calcite.runtime.Geometries;
 import org.apache.calcite.sql.SqlIntervalQualifier;
 import org.apache.calcite.sql.SqlUtil;
 import org.apache.calcite.sql.parser.SqlParserPos;
@@ -136,7 +135,7 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
                 case VARBINARY:
                     return ByteString.class;
                 case GEOMETRY:
-                    return Geometries.Geom.class;
+                    throw new IllegalArgumentException("Type is not supported.");
                 case SYMBOL:
                     return Enum.class;
                 case ANY:
@@ -295,7 +294,7 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
                 case VARBINARY:
                     return byte[].class;
                 case GEOMETRY:
-                    return Geometries.Geom.class;
+                    throw new IllegalArgumentException("Type is not supported.");
                 case SYMBOL:
                     return Enum.class;
                 case ANY:

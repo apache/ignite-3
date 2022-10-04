@@ -134,7 +134,13 @@ public class Session implements AsyncCloseable {
      * @param resource Resource to be registered within session.
      */
     public void registerResource(AsyncCloseable resource) {
-        if (!lock.readLock().tryLock() || expired()) {
+        if (!lock.readLock().tryLock()) {
+            throw new IllegalStateException(format("Attempt to register resource to an expired session [{}]", sessionId));
+        }
+
+        if (expired()) {
+            lock.readLock().unlock();
+
             throw new IllegalStateException(format("Attempt to register resource to an expired session [{}]", sessionId));
         }
 
@@ -145,8 +151,21 @@ public class Session implements AsyncCloseable {
         }
     }
 
+    /**
+     * Unregisters the given resource from session.
+     *
+     * @param resource Resource to unregister.
+     */
     public void unregisterResource(AsyncCloseable resource) {
-        resources.remove(resource);
+        if (!lock.readLock().tryLock()) {
+            return;
+        }
+
+        try {
+            resources.remove(resource);
+        } finally {
+            lock.readLock().unlock();
+        }
     }
 
     /** {@inheritDoc} */

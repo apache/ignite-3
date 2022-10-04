@@ -16,8 +16,8 @@
  */
 
 #include "common/ignite_error.h"
+#include "common/bytes.h"
 
-#include "ignite/protocol/extension_types.h"
 #include "ignite/protocol/reader.h"
 #include "ignite/protocol/utils.h"
 
@@ -42,12 +42,7 @@ Reader::Reader(bytes_view buffer)
 std::int64_t Reader::readInt64() {
     checkDataInStream();
 
-    msgpack_object object = m_currentVal.data;
-    if (object.type != MSGPACK_OBJECT_NEGATIVE_INTEGER && object.type != MSGPACK_OBJECT_POSITIVE_INTEGER)
-        throw ignite_error("The value in stream is not an integer number");
-
-    auto res = object.via.i64;
-
+    auto res = unpack_object<int64_t>(m_currentVal.data);
     next();
 
     return res;
@@ -56,12 +51,7 @@ std::int64_t Reader::readInt64() {
 std::string Reader::readString() {
     checkDataInStream();
 
-    msgpack_object object = m_currentVal.data;
-    if (object.type != MSGPACK_OBJECT_STR)
-        throw ignite_error("The value in stream is not a string");
-
-    std::string res{object.via.str.ptr, object.via.str.size};
-
+    std::string res = unpack_object<std::string>(m_currentVal.data);
     next();
 
     return res;
@@ -74,24 +64,12 @@ std::optional<std::string> Reader::readStringNullable() {
     return readString();
 }
 
-Guid Reader::readGuid() {
+uuid Reader::readUuid() {
     checkDataInStream();
 
-    if (m_currentVal.data.type != MSGPACK_OBJECT_EXT
-        && m_currentVal.data.via.ext.type != std::int8_t(ExtensionTypes::GUID))
-        throw ignite_error("The value in stream is not a GUID");
-
-    if (m_currentVal.data.via.ext.size != 16)
-        throw ignite_error("Unexpected value size");
-
-    auto data = reinterpret_cast<const std::byte *>(m_currentVal.data.via.ext.ptr);
-
-    int64_t most = protocol::readInt64(data);
-    int64_t least = protocol::readInt64(data, 8);
-
-    Guid res(most, least);
-
+    uuid res = unpack_object<uuid>(m_currentVal.data);
     next();
+
     return res;
 }
 
@@ -107,11 +85,6 @@ void Reader::next() {
     checkDataInStream();
 
     m_moveRes = msgpack_unpacker_next(&m_unpacker, &m_currentVal);
-}
-
-void Reader::checkDataInStream() {
-    if (m_moveRes < 0)
-        throw ignite_error("No more data in stream");
 }
 
 } // namespace ignite::protocol

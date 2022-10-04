@@ -183,7 +183,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     @ParameterizedTest
     @CsvSource({"1,3345", "2,3345", "3,3344", "4,3345"})
     void testExecuteColocatedRunsComputeJobOnKeyNode(int key, int port) {
-        var table = String.format("%s.%s", SCHEMA_NAME, TABLE_NAME);
+        var table = TABLE_NAME;
         var keyTuple = Tuple.create().set(COLUMN_KEY, key);
         var keyPojo = new TestPojo(key);
 

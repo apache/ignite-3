@@ -94,7 +94,7 @@ public class KeyValueViewPojoExample {
             //--------------------------------------------------------------------------------------
 
             KeyValueView<AccountKey, Account> kvView = client.tables()
-                    .table("PUBLIC.accounts")
+                    .table("accounts")
                     .keyValueView(AccountKey.class, Account.class);
 
             //--------------------------------------------------------------------------------------

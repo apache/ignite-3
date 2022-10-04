@@ -139,25 +139,4 @@ public class SchemaUtils {
 
         return true;
     }
-
-    /**
-     * Creates canonical table name.
-     *
-     * @return Table with schema canonical name.
-     */
-    public static String canonicalName(String schema, String name) {
-        return schema + '.' + name;
-    }
-
-    /**
-     * Extracts schema from canonical, made by {@link #canonicalName(String, String)}.
-     *
-     * @param canonicalName Canonical name.
-     * @return Schema.
-     */
-    public static String extractSchema(String canonicalName) {
-        int sepPos = canonicalName.indexOf('.');
-        assert sepPos != -1 : "No schema defined in " + canonicalName;
-        return canonicalName.substring(0, sepPos);
-    }
 }

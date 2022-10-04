@@ -86,8 +86,6 @@ public:
 
     /**
      * Stop connection.
-     *
-     * @return Future representing finishing of the connection process.
      */
     void stop();
 
@@ -97,8 +95,7 @@ public:
      * @tparam T Result type.
      * @param op Operation code.
      * @param wr Writer function.
-     * @param rd Reader function.
-     * @return Future result.
+     * @param handler Response handler.
      */
     template <typename T>
     void performRequest(ClientOperation op, const std::function<void(protocol::Writer &)> &wr,
@@ -112,6 +109,18 @@ public:
             if (res)
                 return;
         }
+    }
+
+    /**
+     * Perform request.
+     *
+     * @tparam T Result type.
+     * @param op Operation code.
+     * @param handler Response handler.
+     */
+    template <typename T>
+    void performRequest(ClientOperation op, std::shared_ptr<ResponseHandlerImpl<T>> handler) {
+        performRequest(op, [](protocol::Writer&) {}, std::move(handler));
     }
 
 private:

@@ -74,7 +74,7 @@ public class MockNode {
 
         this.clusterService = ClusterServiceTestUtils.clusterService(testInfo, port, nodeFinder);
 
-        Loza raftManager = new Loza(clusterService, workDir, new HybridClock());
+        Loza raftManager = new Loza(clusterService, null, workDir, new HybridClock());
 
         this.clusterManager = new ClusterManagementGroupManager(
                 vaultManager,

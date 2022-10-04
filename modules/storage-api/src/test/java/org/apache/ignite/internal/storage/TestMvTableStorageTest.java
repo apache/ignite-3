@@ -17,17 +17,11 @@
 
 package org.apache.ignite.internal.storage;
 
-import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
-import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestStorageEngine;
-import org.apache.ignite.internal.storage.impl.schema.TestDataStorageConfigurationSchema;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -42,14 +36,6 @@ public class TestMvTableStorageTest extends AbstractMvTableStorageTest {
     @BeforeEach
     void setUp(
             @InjectConfiguration(
-                    polymorphicExtensions = {
-                            TestDataStorageConfigurationSchema.class,
-                            UnknownDataStorageConfigurationSchema.class,
-                            HashIndexConfigurationSchema.class,
-                            SortedIndexConfigurationSchema.class,
-                            NullValueDefaultConfigurationSchema.class,
-                            UnlimitedBudgetConfigurationSchema.class
-                    },
                     value = "mock.tables.foo.dataStorage.name = " + TestStorageEngine.ENGINE_NAME
             )
             TablesConfiguration tablesConfig

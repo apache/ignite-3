@@ -29,9 +29,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.hlc.HybridClock;
+import org.apache.ignite.configuration.schemas.table.VolatileRaftConfiguration;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.RaftServer;
@@ -95,6 +97,9 @@ public class Loza implements IgniteComponent {
     /** Prevents double stopping of the component. */
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
+    /** Raft configuration. */
+    private final RaftConfiguration raftConfiguration;
+
     /**
      * The constructor.
      *
@@ -102,32 +107,15 @@ public class Loza implements IgniteComponent {
      * @param dataPath      Data path.
      * @param clock         A hybrid logical clock.
      */
-    public Loza(ClusterService clusterNetSvc, Path dataPath, HybridClock clock) {
+    public Loza(ClusterService clusterNetSvc, RaftConfiguration raftConfiguration, Path dataPath, HybridClock clock) {
         this.clusterNetSvc = clusterNetSvc;
+        this.raftConfiguration = raftConfiguration;
 
         NodeOptions options = new NodeOptions();
 
         options.setClock(clock);
 
         this.raftServer = new JraftServerImpl(clusterNetSvc, dataPath, options);
-
-        this.executor = new ScheduledThreadPoolExecutor(CLIENT_POOL_SIZE,
-                new NamedThreadFactory(NamedThreadFactory.threadPrefix(clusterNetSvc.localConfiguration().getName(),
-                        CLIENT_POOL_NAME), LOG
-                )
-        );
-    }
-
-    /**
-     * The constructor. Used for testing purposes.
-     *
-     * @param srv Pre-started raft server.
-     */
-    @TestOnly
-    public Loza(JraftServerImpl srv) {
-        this.clusterNetSvc = srv.clusterService();
-
-        this.raftServer = srv;
 
         this.executor = new ScheduledThreadPoolExecutor(CLIENT_POOL_SIZE,
                 new NamedThreadFactory(NamedThreadFactory.threadPrefix(clusterNetSvc.localConfiguration().getName(),
@@ -350,6 +338,10 @@ public class Loza implements IgniteComponent {
      */
     public TopologyService topologyService() {
         return clusterNetSvc.topologyService();
+    }
+
+    public VolatileRaftConfiguration volatileRaft() {
+        return raftConfiguration.volatileRaft();
     }
 
     /**

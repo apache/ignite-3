@@ -49,20 +49,11 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.EntryCountBudgetConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
-import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.notifications.ConfigurationStorageRevisionListenerHolder;
-import org.apache.ignite.internal.configuration.schema.ExtendedTableConfigurationSchema;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.testframework.InjectRevisionListenerHolder;
@@ -168,21 +159,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     private Consumer<Function<Long, CompletableFuture<?>>> revisionUpdater;
 
     /** Tables configuration. */
-    @InjectConfiguration(
-            internalExtensions = ExtendedTableConfigurationSchema.class,
-            polymorphicExtensions = {
-                    HashIndexConfigurationSchema.class,
-                    SortedIndexConfigurationSchema.class,
-                    UnknownDataStorageConfigurationSchema.class,
-                    RocksDbDataStorageConfigurationSchema.class,
-                    TestDataStorageConfigurationSchema.class,
-                    ConstantValueDefaultConfigurationSchema.class,
-                    FunctionCallDefaultConfigurationSchema.class,
-                    NullValueDefaultConfigurationSchema.class,
-                    UnlimitedBudgetConfigurationSchema.class,
-                    EntryCountBudgetConfigurationSchema.class
-            }
-    )
+    @InjectConfiguration
     private TablesConfiguration tblsCfg;
 
     TableManager tblManager;
@@ -334,7 +311,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         readFirst(queryProc.queryAsync("PUBLIC", newTblSql));
 
         assertTrue(tblManager.tables().stream().anyMatch(t -> t.name()
-                .equalsIgnoreCase("PUBLIC." + curMethodName)));
+                .equalsIgnoreCase(curMethodName)));
 
         String finalNewTblSql1 = newTblSql;
 
@@ -372,7 +349,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         readFirst(queryProc.queryAsync("PUBLIC", newTblSql));
 
         assertTrue(tblManager.tables().stream().anyMatch(t -> t.name()
-                .equalsIgnoreCase("PUBLIC." + curMethodName)));
+                .equalsIgnoreCase(curMethodName)));
     }
 
     /**
@@ -805,6 +782,6 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     }
 
     private @Nullable TableView tableView(String tableName) {
-        return tblsCfg.tables().value().get("PUBLIC." + tableName.toUpperCase());
+        return tblsCfg.tables().value().get(tableName.toUpperCase());
     }
 }

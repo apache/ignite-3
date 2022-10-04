@@ -96,13 +96,13 @@ public class ClientTupleTest {
     @Test
     public void testSetThrowsWhenColumnIsNotPresent() {
         var ex = assertThrows(ColumnNotFoundException.class, () -> getBuilder().set("x", "y"));
-        assertThat(ex.getMessage(), containsString("Column 'X' does not exist"));
+        assertThat(ex.getMessage(), containsString("Column does not exist [name=\"X\"]"));
     }
 
     @Test
     public void testValueThrowsWhenColumnIsNotPresent() {
         var ex = assertThrows(ColumnNotFoundException.class, () -> getBuilder().value("x"));
-        assertThat(ex.getMessage(), containsString("Column 'X' does not exist"));
+        assertThat(ex.getMessage(), containsString("Column does not exist [name=\"X\"]"));
 
         var ex2 = assertThrows(IndexOutOfBoundsException.class, () -> getBuilder().value(100));
         assertThat(ex2.getMessage(), containsString("Index 100 out of bounds for length 2"));

@@ -26,9 +26,6 @@ import java.util.List;
 import java.util.function.Supplier;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.schema.SchemaMismatchException;
-import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
-import org.apache.ignite.internal.schema.testutils.definition.ColumnDefinition;
-import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -92,8 +89,7 @@ class ItSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
                 () -> tbl.insert(null, Tuple.create().set("key", 1L).set("valInt", -111).set("valStrNew", "str"))
         );
 
-        addColumn(grid, SchemaBuilders.column("valStrNew", ColumnType.string())
-                .asNullable(true).withDefaultValue("default").build());
+        addColumn(grid, "valStrNew VARCHAR DEFAULT 'default'");
 
         // Check old row conversion.
         Tuple keyTuple1 = Tuple.create().set("key", 1L);
@@ -171,8 +167,7 @@ class ItSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
         );
 
         renameColumn(grid, "valInt", "val2");
-        addColumn(grid, SchemaBuilders.column("valInt", ColumnType.INT32).asNullable(true)
-                .withDefaultValue(-1).build());
+        addColumn(grid, "valInt INT DEFAULT -1");
 
         // Check old row conversion.
         Tuple keyTuple1 = Tuple.create().set("key", 1L);
@@ -203,10 +198,6 @@ class ItSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
 
         createTable(grid);
 
-        final ColumnDefinition column = SchemaBuilders.column("val", ColumnType.string()).asNullable(true)
-                .withDefaultValue("default")
-                .build();
-
         RecordView<Tuple> tbl = grid.get(0).tables().table(TABLE).recordView();
 
         tbl.insert(null, Tuple.create().set("key", 1L).set("valInt", 111));
@@ -218,7 +209,7 @@ class ItSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
                 )
         );
 
-        addColumn(grid, column);
+        addColumn(grid, "val VARCHAR DEFAULT 'default'");
 
         assertNull(tbl.get(null, Tuple.create().set("key", 2L)));
 
@@ -226,7 +217,7 @@ class ItSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
 
         tbl.insert(null, Tuple.create().set("key", 3L).set("valInt", 333));
 
-        dropColumn(grid, column.name());
+        dropColumn(grid, "val");
 
         tbl.insert(null, Tuple.create().set("key", 4L).set("valInt", 444));
 
@@ -237,7 +228,7 @@ class ItSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
                 )
         );
 
-        addColumn(grid, SchemaBuilders.column("val", ColumnType.string()).withDefaultValue("default").build());
+        addColumn(grid, "val VARCHAR DEFAULT 'default'");
 
         tbl.insert(null, Tuple.create().set("key", 5L).set("valInt", 555));
 
@@ -284,7 +275,7 @@ class ItSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
         tbl.insert(null, Tuple.create().set("key", 1L).set("valInt", 111));
 
         changeDefault(grid, colName, (Supplier<Object> & Serializable) () -> "newDefault");
-        addColumn(grid, SchemaBuilders.column("val", ColumnType.string()).withDefaultValue("newDefault").build());
+        addColumn(grid, "val VARCHAR DEFAULT 'newDefault'");
 
         tbl.insert(null, Tuple.create().set("key", 2L).set("valInt", 222));
 

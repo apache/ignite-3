@@ -46,7 +46,10 @@ public class ItJdbcSelectAfterAlterTable extends AbstractJdbcSelfTest {
     @AfterEach
     @Override protected void afterTest(TestInfo testInfo) throws Exception {
         super.afterTest(testInfo);
-        clusterNodes.get(0).tables().dropTableAsync("PUBLIC.PERSON").get();
+
+        try (Statement stmt = conn.createStatement()) {
+            stmt.executeUpdate("DROP TABLE public.person");
+        }
     }
 
     /**

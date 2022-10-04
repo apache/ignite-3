@@ -33,10 +33,13 @@ import java.util.stream.Stream;
 import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.raft.ConcurrentMapClusterStateStorage;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -53,7 +56,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Tests for the {@link DistributedConfigurationStorage}.
  */
 @ExtendWith(WorkDirectoryExtension.class)
+@ExtendWith(ConfigurationExtension.class)
 public class ItDistributedConfigurationStorageTest {
+    @InjectConfiguration
+    private static RaftConfiguration raftConfiguration;
+
     /**
      * An emulation of an Ignite node, that only contains components necessary for tests.
      */
@@ -84,7 +91,7 @@ public class ItDistributedConfigurationStorageTest {
                     new StaticNodeFinder(List.of(addr))
             );
 
-            raftManager = new Loza(clusterService, workDir, new HybridClock());
+            raftManager = new Loza(clusterService, raftConfiguration, workDir, new HybridClock());
 
             cmgManager = new ClusterManagementGroupManager(
                     vaultManager,
