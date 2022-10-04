@@ -29,10 +29,12 @@ import java.nio.ByteBuffer;
 import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.Period;
 import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
@@ -956,6 +958,54 @@ public class ClientMessagePacker implements AutoCloseable {
                 builder.appendInt(ClientDataType.DECIMAL);
                 builder.appendInt(bigDecimal.scale());
                 builder.appendDecimal(bigDecimal, bigDecimal.scale());
+            } else if (arg instanceof UUID) {
+                builder.appendInt(ClientDataType.UUID);
+                builder.appendNull();
+                builder.appendUuid((UUID) arg);
+            } else if (arg instanceof String) {
+                builder.appendInt(ClientDataType.STRING);
+                builder.appendNull();
+                builder.appendString((String) arg);
+            } else if (arg instanceof byte[]) {
+                builder.appendInt(ClientDataType.BYTES);
+                builder.appendNull();
+                builder.appendBytes((byte[]) arg);
+            } else if (arg instanceof BitSet) {
+                builder.appendInt(ClientDataType.BITMASK);
+                builder.appendNull();
+                builder.appendBitmask((BitSet) arg);
+            } else if (arg instanceof LocalDate) {
+                builder.appendInt(ClientDataType.DATE);
+                builder.appendNull();
+                builder.appendDate((LocalDate) arg);
+            } else if (arg instanceof LocalTime) {
+                builder.appendInt(ClientDataType.TIME);
+                builder.appendNull();
+                builder.appendTime((LocalTime) arg);
+            } else if (arg instanceof LocalDateTime) {
+                builder.appendInt(ClientDataType.DATETIME);
+                builder.appendNull();
+                builder.appendDateTime((LocalDateTime) arg);
+            } else if (arg instanceof Instant) {
+                builder.appendInt(ClientDataType.TIMESTAMP);
+                builder.appendNull();
+                builder.appendTimestamp((Instant) arg);
+            } else if (arg instanceof BigInteger) {
+                builder.appendInt(ClientDataType.NUMBER);
+                builder.appendNull();
+                builder.appendNumber((BigInteger) arg);
+            } else if (arg instanceof Boolean) {
+                builder.appendInt(ClientDataType.BOOLEAN);
+                builder.appendNull();
+                builder.appendByte((byte) ((Boolean) arg ? 1 : 0));
+            } else if (arg instanceof Duration) {
+                builder.appendInt(ClientDataType.DURATION);
+                builder.appendNull();
+                builder.appendDuration((Duration) arg);
+            } else if (arg instanceof Period) {
+                builder.appendInt(ClientDataType.PERIOD);
+                builder.appendNull();
+                builder.appendPeriod((Period) arg);
             }
         }
     }
