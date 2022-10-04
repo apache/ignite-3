@@ -194,8 +194,8 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
         Index<IndexDescriptor> hashIndexMock = Mockito.mock(Index.class);
 
         Mockito.doReturn(indexDescriptor).when(hashIndexMock).descriptor();
-        Mockito.doAnswer(invocation ->
-                {
+        //CHECKSTYLE:OFF:Indentation
+        Mockito.doAnswer(invocation -> {
                     if (key != null) {
                         validateBound(indexDescriptor, schemaDescriptor, invocation.getArgument(2));
                     }
@@ -204,6 +204,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
                 })
                 .when(hashIndexMock)
                 .scan(Mockito.anyInt(), Mockito.any(), Mockito.any(), Mockito.any());
+        //CHECKSTYLE:ON:Indentation
 
         Mockito.doReturn(IgniteIndex.Type.HASH).when(indexMock).type();
         Mockito.doReturn(hashIndexMock).when(indexMock).index();
@@ -239,6 +240,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
         SortedIndex sortedIndexMock = Mockito.mock(SortedIndex.class);
 
         Mockito.doReturn(indexDescriptor).when(sortedIndexMock).descriptor();
+        //CHECKSTYLE:OFF:Indentation
         Mockito.doAnswer(invocation ->
                 {
                     if (lowerBound != null) {
@@ -249,9 +251,9 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
                     }
 
                     return dummyPublisher(partitionData(tableData, schemaDescriptor, invocation.getArgument(0)));
-                })
-                .when(sortedIndexMock)
+                }).when(sortedIndexMock)
                 .scan(Mockito.anyInt(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.anyInt(), Mockito.any());
+        //CHECKSTYLE:ON:Indentation
 
         Mockito.doReturn(Type.SORTED).when(indexMock).type();
         Mockito.doReturn(sortedIndexMock).when(indexMock).index();
