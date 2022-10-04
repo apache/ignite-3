@@ -61,7 +61,7 @@ class ClientSqlCommon {
 
         switch (col.type()) {
             case BOOLEAN:
-                out.appendByte((Boolean)row.value(idx) ? (byte)1 : (byte)0);
+                out.appendByte((Boolean) row.value(idx) ? (byte) 1 : (byte) 0);
                 break;
 
             case INT8:
