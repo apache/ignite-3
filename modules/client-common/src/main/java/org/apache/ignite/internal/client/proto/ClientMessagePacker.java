@@ -901,6 +901,54 @@ public class ClientMessagePacker implements AutoCloseable {
     }
 
     /**
+     * Packs an array of different objects.
+     *
+     * @param args Object array.
+     * @throws UnsupportedOperationException in case of unknown type.
+     */
+    public void packObjectArrayAsBinaryTuple(Object[] args) {
+        assert !closed : "Packer is closed";
+
+        if (args == null) {
+            packNil();
+
+            return;
+        }
+
+        packArrayHeader(args.length);
+
+        var builder = new BinaryTupleBuilder(args.length, true);
+
+        for (Object arg : args) {
+            if (arg == null) {
+                packInt(0);
+                builder.appendNull();
+            } else if (arg instanceof Byte) {
+                packInt(ClientDataType.INT8);
+                builder.appendByte((Byte) arg);
+            } else if (arg instanceof Short) {
+                packInt(ClientDataType.INT16);
+                builder.appendShort((Short) arg);
+            } else if (arg instanceof Integer) {
+                packInt(ClientDataType.INT32);
+                builder.appendInt((Integer) arg);
+            } else if (arg instanceof Long) {
+                packInt(ClientDataType.INT64);
+                builder.appendLong((Long) arg);
+            } else if (arg instanceof Float) {
+                packInt(ClientDataType.FLOAT);
+                builder.appendFloat((Float) arg);
+            } else if (arg instanceof Double) {
+                packInt(ClientDataType.DOUBLE);
+                builder.appendDouble((Double) arg);
+            } else if (arg instanceof BigDecimal) {
+                packInt(ClientDataType.DECIMAL);
+                builder.appendDecimal((BigDecimal) arg, TODO);
+            }
+        }
+    }
+
+    /**
      * Packs binary tuple with no-value set.
      *
      * @param builder Builder.

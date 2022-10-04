@@ -71,4 +71,13 @@ public class ClientDataType {
 
     /** Big Integer. */
     public static final int BIGINTEGER = 17;
+
+    /** Boolean. */
+    public static final int BOOLEAN = 18;
+
+    /** Duration. */
+    public static final int DURATION = 19;
+
+    /** Period. */
+    public static final int PERIOD = 20;
 }
