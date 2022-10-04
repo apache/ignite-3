@@ -20,6 +20,7 @@ package org.apache.ignite.internal.schema.testutils.builder;
 
 import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
 import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
+import org.apache.ignite.internal.util.IgniteNameUtils;
 
 /**
  * Schema builder helper.
@@ -78,7 +79,7 @@ public final class SchemaBuilders {
      * @return Sorted index builder.
      */
     public static SortedIndexDefinitionBuilder sortedIndex(String name) {
-        return new SortedIndexDefinitionBuilderImpl(name);
+        return new SortedIndexDefinitionBuilderImpl(IgniteNameUtils.quote(name));
     }
 
     /**

@@ -24,9 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Comparator;
 import java.util.concurrent.CompletionException;
-import java.util.function.Consumer;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
-import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.internal.client.table.ClientTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.lang.TableAlreadyExistsException;
@@ -40,8 +38,8 @@ import org.junit.jupiter.api.Test;
 public class ClientTablesTest extends AbstractClientTest {
     @Test
     public void testTablesWhenTablesExist() {
-        server.tables().createTable(DEFAULT_TABLE, null);
-        server.tables().createTable("t", null);
+        ((FakeIgniteTables) server.tables()).createTable(DEFAULT_TABLE);
+        ((FakeIgniteTables) server.tables()).createTable("t");
 
         var tables = client.tables().tables();
         assertEquals(2, tables.size());
@@ -60,7 +58,7 @@ public class ClientTablesTest extends AbstractClientTest {
 
     @Test
     public void testTableReturnsInstanceWhenExists() {
-        server.tables().createTable(DEFAULT_TABLE, null);
+        ((FakeIgniteTables) server.tables()).createTable(DEFAULT_TABLE);
         Table table = client.tables().table(DEFAULT_TABLE);
 
         assertEquals(DEFAULT_TABLE, table.name());
@@ -76,7 +74,7 @@ public class ClientTablesTest extends AbstractClientTest {
     @Test
     @Disabled("IGNITE-15179")
     public void testCreateTable() {
-        var clientTable = client.tables().createTable("t1", t -> t.changeReplicas(2));
+        var clientTable = ((FakeIgniteTables) server.tables()).createTable("t1");
         assertEquals("t1", clientTable.name());
 
         var serverTables = server.tables().tables();
@@ -90,11 +88,10 @@ public class ClientTablesTest extends AbstractClientTest {
     @Test
     @Disabled("IGNITE-15179")
     public void testCreateTableWhenExists() {
-        Consumer<TableChange> consumer = t -> t.changeReplicas(2);
-        client.tables().createTable(DEFAULT_TABLE, consumer);
+        ((FakeIgniteTables) server.tables()).createTable(DEFAULT_TABLE);
 
         var ex = assertThrows(CompletionException.class,
-                () -> client.tables().createTable(DEFAULT_TABLE, consumer));
+                () -> ((FakeIgniteTables) server.tables()).createTable(DEFAULT_TABLE));
 
         assertTrue(ex.getMessage().endsWith(FakeIgniteTables.TABLE_EXISTS));
         assertEquals(TableAlreadyExistsException.class, ex.getCause().getClass());

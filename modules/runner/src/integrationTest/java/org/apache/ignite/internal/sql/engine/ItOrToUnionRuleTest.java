@@ -23,12 +23,6 @@ import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsUn
 import static org.hamcrest.CoreMatchers.not;
 
 import java.util.List;
-import java.util.Map;
-import org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter;
-import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
-import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
-import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
-import org.apache.ignite.table.Table;
 import org.hamcrest.CoreMatchers;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
@@ -59,35 +53,15 @@ public class ItOrToUnionRuleTest extends AbstractBasicIntegrationTest {
      */
     @BeforeAll
     static void initTestData() {
-        TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "PRODUCTS").columns(
-                        SchemaBuilders.column("ID", ColumnType.INT32).build(),
-                        SchemaBuilders.column("CATEGORY", ColumnType.string()).asNullable(true).build(),
-                        SchemaBuilders.column("CAT_ID", ColumnType.INT32).build(),
-                        SchemaBuilders.column("SUBCATEGORY", ColumnType.string()).asNullable(true).build(),
-                        SchemaBuilders.column("SUBCAT_ID", ColumnType.INT32).build(),
-                        SchemaBuilders.column("NAME", ColumnType.string()).asNullable(true).build()
-                )
-                .withPrimaryKey("ID")
-                .build();
+        sql("CREATE TABLE products (id INT PRIMARY KEY, category VARCHAR, cat_id INT NOT NULL,"
+                + " subcategory VARCHAR, subcat_id INT NOT NULL, name VARCHAR)");
 
-        String tbl1CanonicalName = schTbl1.canonicalName();
+        sql("CREATE INDEX " + IDX_CATEGORY + " ON products (category)");
+        sql("CREATE INDEX " + IDX_CAT_ID + " ON products (cat_id)");
+        sql("CREATE INDEX " + IDX_SUBCATEGORY + " ON products (subcategory)");
+        sql("CREATE INDEX " + IDX_SUBCAT_ID + " ON products (subcat_id)");
 
-        Table tbl = CLUSTER_NODES.get(0).tables().createTable(tbl1CanonicalName, tblCh ->
-                SchemaConfigurationConverter.convert(schTbl1, tblCh)
-                        .changeReplicas(1)
-                        .changePartitions(10)
-        );
-
-        Map<String, List<String>> idxs = Map.of(
-                IDX_CATEGORY, List.of("CATEGORY"),
-                IDX_CAT_ID, List.of("CAT_ID"),
-                IDX_SUBCATEGORY, List.of("SUBCATEGORY"),
-                IDX_SUBCAT_ID, List.of("SUBCAT_ID")
-        );
-
-        addIndexes(CLUSTER_NODES.get(0), idxs, tbl1CanonicalName);
-
-        insertData(tbl, new String[]{"ID", "CATEGORY", "CAT_ID", "SUBCATEGORY", "SUBCAT_ID", "NAME"}, new Object[][]{
+        insertData("products", List.of("ID", "CATEGORY", "CAT_ID", "SUBCATEGORY", "SUBCAT_ID", "NAME"), new Object[][]{
                 {1, "Photo", 1, "Camera Media", 11, "Media 1"},
                 {2, "Photo", 1, "Camera Media", 11, "Media 2"},
                 {3, "Photo", 1, "Camera Lens", 12, "Lens 1"},

@@ -26,7 +26,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.DefaultValueProvider;
 import org.apache.ignite.internal.schema.NativeTypes;
@@ -67,9 +66,13 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
 
     private volatile List<String> partitionAssignments = null;
 
-    /** {@inheritDoc} */
-    @Override
-    public Table createTable(String name, Consumer<TableChange> tableInitChange) {
+    /**
+     * Creates a table.
+     *
+     * @param name Table name.
+     * @return Table.
+     */
+    public Table createTable(String name) {
         return createTable(name, UUID.randomUUID());
     }
 
@@ -94,39 +97,17 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
         return newTable;
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<Table> createTableAsync(String name, Consumer<TableChange> tableInitChange) {
-        return CompletableFuture.completedFuture(createTable(name, tableInitChange));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void alterTable(String name, Consumer<TableChange> tableChange) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public CompletableFuture<Void> alterTableAsync(String name, Consumer<TableChange> tableChange) {
-        throw new UnsupportedOperationException();
-    }
-
-    /** {@inheritDoc} */
-    @Override
+    /**
+     * Drops a table.
+     *
+     * @param name Table name.
+     */
     public void dropTable(String name) {
         var table = tables.remove(name);
 
         if (table != null) {
             tablesById.remove(table.tableId());
         }
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<Void> dropTableAsync(String name) {
-        dropTable(name);
-
-        return CompletableFuture.completedFuture(null);
     }
 
     /** {@inheritDoc} */

@@ -26,9 +26,6 @@ import java.util.List;
 import java.util.function.Supplier;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.schema.SchemaMismatchException;
-import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
-import org.apache.ignite.internal.schema.testutils.definition.ColumnDefinition;
-import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Test;
@@ -102,8 +99,7 @@ class ItSchemaChangeKvViewTest extends AbstractSchemaChangeTest {
                 )
         );
 
-        addColumn(grid, SchemaBuilders.column("valStrNew", ColumnType.string()).asNullable(true)
-                .withDefaultValue("default").build());
+        addColumn(grid, "valStrNew VARCHAR DEFAULT 'default'");
 
         // Check old row conversion.
         Tuple keyTuple = Tuple.create().set("key", 1L);
@@ -184,9 +180,6 @@ class ItSchemaChangeKvViewTest extends AbstractSchemaChangeTest {
 
         createTable(grid);
 
-        final ColumnDefinition column = SchemaBuilders.column("val", ColumnType.string()).asNullable(true)
-                .withDefaultValue("default").build();
-
         KeyValueView<Tuple, Tuple> kvView = grid.get(0).tables().table(TABLE).keyValueView();
 
         kvView.put(null, Tuple.create().set("key", 1L), Tuple.create().set("valInt", 111));
@@ -199,7 +192,7 @@ class ItSchemaChangeKvViewTest extends AbstractSchemaChangeTest {
                 )
         );
 
-        addColumn(grid, column);
+        addColumn(grid, "val VARCHAR DEFAULT 'default'");
 
         assertNull(kvView.get(null, Tuple.create().set("key", 2L)));
 
@@ -211,7 +204,7 @@ class ItSchemaChangeKvViewTest extends AbstractSchemaChangeTest {
 
         kvView.put(null, Tuple.create().set("key", 3L), Tuple.create().set("valInt", 333));
 
-        dropColumn(grid, column.name());
+        dropColumn(grid, "val");
 
         kvView.put(
                 null,
@@ -227,8 +220,7 @@ class ItSchemaChangeKvViewTest extends AbstractSchemaChangeTest {
                 )
         );
 
-        addColumn(grid, SchemaBuilders.column("val", ColumnType.string()).asNullable(true)
-                .withDefaultValue("default").build());
+        addColumn(grid, "val VARCHAR DEFAULT 'default'");
 
         kvView.put(null, Tuple.create().set("key", 5L), Tuple.create().set("valInt", 555));
 
@@ -276,7 +268,7 @@ class ItSchemaChangeKvViewTest extends AbstractSchemaChangeTest {
         kvView.put(null, Tuple.create().set("key", 1L), Tuple.create().set("valInt", 111));
 
         changeDefault(grid, colName, (Supplier<Object> & Serializable) () -> "newDefault");
-        addColumn(grid, SchemaBuilders.column("val", ColumnType.string()).withDefaultValue("newDefault").build());
+        addColumn(grid, "val VARCHAR DEFAULT 'newDefault'");
 
         kvView.put(null, Tuple.create().set("key", 2L), Tuple.create().set("valInt", 222));
 

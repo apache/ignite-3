@@ -38,15 +38,8 @@ import org.apache.ignite.configuration.ConfigurationWrongPolymorphicTypeIdExcept
 import org.apache.ignite.configuration.schemas.store.DataStorageConfiguration;
 import org.apache.ignite.configuration.schemas.store.DataStorageView;
 import org.apache.ignite.configuration.schemas.store.UnknownDataStorageChange;
-import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
 import org.apache.ignite.configuration.schemas.store.UnknownDataStorageView;
-import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.EntryCountBudgetConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
-import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -68,24 +61,13 @@ public class DataStorageManagerTest {
 
     @InjectConfiguration(
             polymorphicExtensions = {
-                    UnknownDataStorageConfigurationSchema.class,
                     FirstDataStorageConfigurationSchema.class,
                     SecondDataStorageConfigurationSchema.class
             }
     )
     private DataStorageConfiguration dataStorageConfig;
 
-    @InjectConfiguration(polymorphicExtensions = {
-            HashIndexConfigurationSchema.class,
-            UnknownDataStorageConfigurationSchema.class,
-            FirstDataStorageConfigurationSchema.class,
-            SecondDataStorageConfigurationSchema.class,
-            ConstantValueDefaultConfigurationSchema.class,
-            FunctionCallDefaultConfigurationSchema.class,
-            NullValueDefaultConfigurationSchema.class,
-            UnlimitedBudgetConfigurationSchema.class,
-            EntryCountBudgetConfigurationSchema.class
-    })
+    @InjectConfiguration
     private TablesConfiguration tablesConfig;
 
     @Test

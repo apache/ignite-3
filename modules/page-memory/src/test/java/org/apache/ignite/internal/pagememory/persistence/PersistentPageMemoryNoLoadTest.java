@@ -55,7 +55,6 @@ import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionConfiguration;
-import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMeta.PartitionMetaSnapshot;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
@@ -79,7 +78,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelfTest {
     private static PageIoRegistry ioRegistry;
 
-    @InjectConfiguration(polymorphicExtensions = UnsafeMemoryAllocatorConfigurationSchema.class)
+    @InjectConfiguration
     private PersistentPageMemoryDataRegionConfiguration dataRegionCfg;
 
     @BeforeAll

@@ -25,7 +25,6 @@ import static org.mockito.Mockito.mock;
 import org.apache.ignite.configuration.schemas.store.DataStorageConfiguration;
 import org.apache.ignite.configuration.schemas.store.DataStorageView;
 import org.apache.ignite.configuration.schemas.store.KnownDataStorage;
-import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.schema.configuration.schema.TestDataStorageChange;
@@ -39,7 +38,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(ConfigurationExtension.class)
 public class KnownDataStorageValidatorTest {
     @InjectConfiguration(
-            polymorphicExtensions = {UnknownDataStorageConfigurationSchema.class, TestDataStorageConfigurationSchema.class}
+            polymorphicExtensions = {
+                TestDataStorageConfigurationSchema.class
+            }
     )
     private DataStorageConfiguration dataStorageConfig;
 

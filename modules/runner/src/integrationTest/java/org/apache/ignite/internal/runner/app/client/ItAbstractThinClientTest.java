@@ -33,15 +33,12 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter;
-import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
-import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
-import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.sql.Session;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestInfo;
@@ -55,8 +52,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @ExtendWith(WorkDirectoryExtension.class)
 public abstract class ItAbstractThinClientTest extends IgniteAbstractTest {
-    protected static final String SCHEMA_NAME = "PUB";
-
     protected static final String TABLE_NAME = "TBL1";
 
     protected static final String COLUMN_KEY = "key";
@@ -110,16 +105,10 @@ public abstract class ItAbstractThinClientTest extends IgniteAbstractTest {
             startedNodes.add(future.join());
         }
 
-        TableDefinition schTbl = SchemaBuilders.tableBuilder(SCHEMA_NAME, TABLE_NAME).columns(
-                SchemaBuilders.column(COLUMN_KEY, ColumnType.INT32).build(),
-                SchemaBuilders.column(COLUMN_VAL, ColumnType.string()).asNullable(true).build()
-        ).withPrimaryKey(COLUMN_KEY).build();
-
-        startedNodes.get(0).tables().createTable(schTbl.canonicalName(), tblCh ->
-                SchemaConfigurationConverter.convert(schTbl, tblCh)
-                        .changeReplicas(1)
-                        .changePartitions(10)
-        );
+        try (Session session = startedNodes.get(0).sql().createSession()) {
+            session.execute(null, "CREATE TABLE " + TABLE_NAME + "("
+                    + COLUMN_KEY + " INT PRIMARY KEY, " + COLUMN_VAL + " VARCHAR) WITH replicas=1, partitions=10");
+        }
 
         client = IgniteClient.builder().addresses(getClientAddresses().toArray(new String[0])).build();
 

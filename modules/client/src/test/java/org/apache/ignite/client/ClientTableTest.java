@@ -29,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Arrays;
 import java.util.List;
+import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.client.fakes.FakeSchemaRegistry;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.RecordView;
@@ -389,9 +390,9 @@ public class ClientTableTest extends AbstractClientTableTest {
 
     @Test
     public void testGetFromDroppedTableThrowsException() {
-        server.tables().createTable("drop-me", null);
+        ((FakeIgniteTables) server.tables()).createTable("drop-me");
         Table clientTable = client.tables().table("drop-me");
-        server.tables().dropTable("drop-me");
+        ((FakeIgniteTables) server.tables()).dropTable("drop-me");
 
         Tuple tuple = Tuple.create().set("id", 1);
         var ex = assertThrows(IgniteException.class, () -> clientTable.recordView().get(null, tuple));

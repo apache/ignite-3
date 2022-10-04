@@ -32,7 +32,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import org.apache.ignite.binary.BinaryObject;
-import org.apache.ignite.internal.util.IgniteObjectName;
+import org.apache.ignite.internal.util.IgniteNameUtils;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -100,7 +100,7 @@ class TupleImpl implements Tuple, Serializable {
     /** {@inheritDoc} */
     @Override
     public Tuple set(@NotNull String columnName, Object val) {
-        String columnName0 = IgniteObjectName.parse(columnName);
+        String columnName0 = IgniteNameUtils.parseSimpleName(columnName);
 
         int idx = colMapping.computeIfAbsent(Objects.requireNonNull(columnName0), name -> colMapping.size());
 
@@ -128,7 +128,7 @@ class TupleImpl implements Tuple, Serializable {
     public int columnIndex(@NotNull String columnName) {
         Objects.requireNonNull(columnName);
 
-        Integer idx = colMapping.get(IgniteObjectName.parse(columnName));
+        Integer idx = colMapping.get(IgniteNameUtils.parseSimpleName(columnName));
 
         return idx == null ? -1 : idx;
     }

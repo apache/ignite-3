@@ -35,9 +35,12 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.affinity.RendezvousAffinityFunction;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
@@ -69,12 +72,17 @@ import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mockito;
 
 /**
  * Distributed transaction test using a single partition table.
  */
+@ExtendWith(ConfigurationExtension.class)
 public class ItTxDistributedTestSingleNode extends TxAbstractTest {
+    @InjectConfiguration
+    private static RaftConfiguration raftConfiguration;
+
     private static final IgniteLogger LOG = Loggers.forClass(ItTxDistributedTestSingleNode.class);
 
     public static final int NODE_PORT_BASE = 20_000;
@@ -180,7 +188,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 new NamedThreadFactory(Loza.CLIENT_POOL_NAME, LOG));
 
         for (int i = 0; i < nodes; i++) {
-            var raftSrv = new Loza(cluster.get(i), workDir.resolve("node" + i));
+            var raftSrv = new Loza(cluster.get(i), raftConfiguration, workDir.resolve("node" + i));
 
             raftSrv.start();
 

@@ -19,7 +19,7 @@ package org.apache.ignite.internal.schema.testutils.builder;
 
 import java.util.Collections;
 import java.util.Map;
-import org.apache.ignite.internal.util.IgniteObjectName;
+import org.apache.ignite.internal.util.IgniteNameUtils;
 
 /**
  * Index base class.
@@ -50,7 +50,7 @@ public abstract class AbstractIndexBuilder implements SchemaObjectBuilder {
      * @param unique Unique flag.
      */
     AbstractIndexBuilder(String name, boolean unique) {
-        this.name = IgniteObjectName.parse(name);
+        this.name = IgniteNameUtils.parseSimpleName(name);
         this.unique = unique;
     }
 

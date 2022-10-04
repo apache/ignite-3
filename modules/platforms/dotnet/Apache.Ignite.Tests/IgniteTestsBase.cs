@@ -29,9 +29,9 @@ namespace Apache.Ignite.Tests
     /// </summary>
     public class IgniteTestsBase
     {
-        protected const string TableName = "PUB.TBL1";
+        protected const string TableName = "TBL1";
 
-        protected const string TableAllColumnsName = "PUB.TBL_ALL_COLUMNS";
+        protected const string TableAllColumnsName = "TBL_ALL_COLUMNS";
 
         protected const string KeyCol = "key";
 
