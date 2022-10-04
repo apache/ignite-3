@@ -24,16 +24,11 @@ import static org.hamcrest.Matchers.is;
 
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
-import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageConfiguration;
-import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -68,13 +63,6 @@ public class RocksDbStorageEngineTest {
     @Test
     void testCreateTableWithDefaultDataRegion(
             @InjectConfiguration(
-                    polymorphicExtensions = {
-                            RocksDbDataStorageConfigurationSchema.class,
-                            UnknownDataStorageConfigurationSchema.class,
-                            HashIndexConfigurationSchema.class,
-                            NullValueDefaultConfigurationSchema.class,
-                            UnlimitedBudgetConfigurationSchema.class
-                    },
                     value = "mock.tables.foo.dataStorage.name=" + RocksDbStorageEngine.ENGINE_NAME
             )
             TablesConfiguration tablesConfig
@@ -97,13 +85,6 @@ public class RocksDbStorageEngineTest {
     @Test
     void testCreateTableWithDynamicCustomDataRegion(
             @InjectConfiguration(
-                    polymorphicExtensions = {
-                            RocksDbDataStorageConfigurationSchema.class,
-                            UnknownDataStorageConfigurationSchema.class,
-                            HashIndexConfigurationSchema.class,
-                            NullValueDefaultConfigurationSchema.class,
-                            UnlimitedBudgetConfigurationSchema.class
-                    },
                     value = "mock.tables.foo.dataStorage{name=" + RocksDbStorageEngine.ENGINE_NAME + ", dataRegion=foobar}"
             )
             TablesConfiguration tablesConfig

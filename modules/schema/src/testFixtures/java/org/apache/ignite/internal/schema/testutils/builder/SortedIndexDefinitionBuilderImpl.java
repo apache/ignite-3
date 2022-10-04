@@ -26,7 +26,7 @@ import org.apache.ignite.internal.schema.testutils.definition.index.SortedIndexC
 import org.apache.ignite.internal.schema.testutils.definition.index.SortedIndexColumnDefinitionImpl;
 import org.apache.ignite.internal.schema.testutils.definition.index.SortedIndexDefinition;
 import org.apache.ignite.internal.schema.testutils.definition.index.SortedIndexDefinitionImpl;
-import org.apache.ignite.internal.util.IgniteObjectName;
+import org.apache.ignite.internal.util.IgniteNameUtils;
 
 /**
  * Sorted index builder.
@@ -133,7 +133,7 @@ class SortedIndexDefinitionBuilderImpl extends AbstractIndexBuilder implements S
         /** {@inheritDoc} */
         @Override
         public SortedIndexColumnBuilderImpl withName(String name) {
-            this.name = IgniteObjectName.parse(name);
+            this.name = IgniteNameUtils.parseSimpleName(name);
 
             return this;
         }

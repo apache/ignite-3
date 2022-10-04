@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThr
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import org.apache.ignite.client.fakes.FakeIgnite;
+import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -43,7 +44,7 @@ public class ReconnectTest {
     @Test
     public void clientReconnectsToAnotherAddressOnNodeFail() throws Exception {
         FakeIgnite ignite1 = new FakeIgnite();
-        ignite1.tables().createTable("t", c -> {});
+        ((FakeIgniteTables) ignite1.tables()).createTable("t");
 
         server = AbstractClientTest.startServer(
                 10900,
@@ -61,7 +62,7 @@ public class ReconnectTest {
         server.close();
 
         FakeIgnite ignite2 = new FakeIgnite();
-        ignite2.tables().createTable("t2", c -> {});
+        ((FakeIgniteTables) ignite2.tables()).createTable("t2");
 
         server2 = AbstractClientTest.startServer(
                 10950,
@@ -76,7 +77,7 @@ public class ReconnectTest {
     @SuppressWarnings("ThrowableNotThrown")
     public void testOperationFailsWhenAllServersFail() throws Exception {
         FakeIgnite ignite1 = new FakeIgnite();
-        ignite1.tables().createTable("t", c -> {});
+        ((FakeIgniteTables) ignite1.tables()).createTable("t");
 
         server = AbstractClientTest.startServer(
                 10900,

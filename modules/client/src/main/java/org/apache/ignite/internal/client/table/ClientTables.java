@@ -23,8 +23,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Consumer;
-import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.table.Table;
@@ -43,50 +41,6 @@ public class ClientTables implements IgniteTables {
      */
     public ClientTables(ReliableChannel ch) {
         this.ch = ch;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Table createTable(String name, Consumer<TableChange> tableInitChange) {
-        return sync(createTableAsync(name, tableInitChange));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<Table> createTableAsync(String name, Consumer<TableChange> tableInitChange) {
-        Objects.requireNonNull(name);
-        Objects.requireNonNull(tableInitChange);
-
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void alterTable(String name, Consumer<TableChange> tableChange) {
-        sync(alterTableAsync(name, tableChange));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<Void> alterTableAsync(String name, Consumer<TableChange> tableChange) {
-        Objects.requireNonNull(name);
-        Objects.requireNonNull(tableChange);
-
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void dropTable(String name) {
-        sync(dropTableAsync(name));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<Void> dropTableAsync(String name) {
-        Objects.requireNonNull(name);
-
-        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */

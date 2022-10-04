@@ -21,17 +21,14 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 
 import java.util.ArrayList;
-import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.ColumnDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.ColumnDefaultView;
 import org.apache.ignite.configuration.schemas.table.ColumnTypeView;
 import org.apache.ignite.configuration.schemas.table.ColumnView;
 import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultView;
 import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultView;
-import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.NullValueDefaultView;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
-import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.schema.BitmaskNativeType;
@@ -125,11 +122,6 @@ public class ConfigurationToSchemaDescriptorConverterTest extends AbstractSchema
 
     @Test
     public void convertTableView(@InjectConfiguration(
-            polymorphicExtensions = {
-                    UnknownDataStorageConfigurationSchema.class,
-                    NullValueDefaultConfigurationSchema.class,
-                    UnlimitedBudgetConfigurationSchema.class
-            },
             value = "mock {"
                     + "primaryKey {columns=[K1, K2], colocationColumns=[K2]},"
                     + "columns: ["

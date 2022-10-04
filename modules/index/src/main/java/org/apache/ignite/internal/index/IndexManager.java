@@ -18,9 +18,6 @@
 package org.apache.ignite.internal.index;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.getByInternalId;
-import static org.apache.ignite.internal.schema.SchemaUtils.canonicalName;
-import static org.apache.ignite.internal.util.IgniteObjectName.parseCanonicalName;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -38,7 +35,6 @@ import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableIndexChange;
 import org.apache.ignite.configuration.schemas.table.TableIndexConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableIndexView;
-import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.configuration.schema.ExtendedTableConfiguration;
 import org.apache.ignite.internal.index.event.IndexEvent;
@@ -135,12 +131,6 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         try {
             validateName(indexName);
 
-            // TODO: IGNITE-17677 Refactoring of usage IgniteObjectName utility class
-            String canonicalIndexName = parseCanonicalName(canonicalName(schemaName, indexName));
-
-            // TODO: IGNITE-17677 Refactoring of usage IgniteObjectName utility class
-            String canonicalName = parseCanonicalName(canonicalName(schemaName, tableName));
-
             CompletableFuture<Boolean> future = new CompletableFuture<>();
 
             // Check index existence flag, avoid usage of hasCause + IndexAlreadyExistsException.
@@ -149,16 +139,16 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
             tablesCfg.indexes().change(indexListChange -> {
                 idxExist.set(false);
 
-                if (indexListChange.get(canonicalIndexName) != null) {
+                if (indexListChange.get(indexName) != null) {
                     idxExist.set(true);
 
-                    throw new IndexAlreadyExistsException(canonicalIndexName);
+                    throw new IndexAlreadyExistsException(schemaName, indexName);
                 }
 
-                TableConfiguration tableCfg = tablesCfg.tables().get(canonicalName);
+                TableConfiguration tableCfg = tablesCfg.tables().get(tableName);
 
                 if (tableCfg == null) {
-                    throw new TableNotFoundException(canonicalName);
+                    throw new TableNotFoundException(schemaName, tableName);
                 }
 
                 ExtendedTableConfiguration exTableCfg = ((ExtendedTableConfiguration) tableCfg);
@@ -167,7 +157,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
 
                 Consumer<TableIndexChange> chg = indexChange.andThen(c -> c.changeTableId(tableId));
 
-                indexListChange.create(canonicalIndexName, chg);
+                indexListChange.create(indexName, chg);
             }).whenComplete((index, th) -> {
                 if (th != null) {
                     LOG.info("Unable to create index [schema={}, table={}, index={}]",
@@ -179,7 +169,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                         future.completeExceptionally(th);
                     }
                 } else {
-                    TableIndexConfiguration idxCfg = tablesCfg.indexes().get(canonicalIndexName);
+                    TableIndexConfiguration idxCfg = tablesCfg.indexes().get(indexName);
 
                     if (idxCfg != null && idxCfg.value() != null) {
                         LOG.info("Index created [schema={}, table={}, index={}, indexId={}]",
@@ -228,8 +218,6 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         try {
             validateName(indexName);
 
-            final String canonicalName = parseCanonicalName(canonicalName(schemaName, indexName));
-
             final CompletableFuture<Boolean> future = new CompletableFuture<>();
 
             // Check index existence flag, avoid usage of hasCause + IndexAlreadyExistsException.
@@ -238,23 +226,15 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
             tablesCfg.indexes().change(indexListChange -> {
                 idxOrTblNotExist.set(false);
 
-                TableIndexView idxView = indexListChange.get(canonicalName);
+                TableIndexView idxView = indexListChange.get(indexName);
 
                 if (idxView == null) {
                     idxOrTblNotExist.set(true);
 
-                    throw new IndexNotFoundException(canonicalName);
+                    throw new IndexNotFoundException(schemaName, indexName);
                 }
 
-                TableView tableView = getByInternalId(tablesCfg.tables().value(), idxView.tableId());
-
-                if (tableView == null) {
-                    idxOrTblNotExist.set(true);
-
-                    throw new TableNotFoundException(canonicalName);
-                }
-
-                indexListChange.delete(canonicalName);
+                indexListChange.delete(indexName);
             }).whenComplete((ignored, th) -> {
                 if (th != null) {
                     LOG.info("Unable to drop index [schema={}, index={}]", th, schemaName, indexName);

@@ -538,7 +538,7 @@ namespace Apache.Ignite.Tests.Table
             using var deferDropTable = new DisposeAction(
                 () => Client.Sql.ExecuteAsync(null, "DROP TABLE TestBigPoco").GetAwaiter().GetResult());
 
-            var table = await Client.Tables.GetTableAsync("PUBLIC.TestBigPoco");
+            var table = await Client.Tables.GetTableAsync("TestBigPoco");
             var pocoView = table!.GetRecordView<Poco2>();
 
             var poco = new Poco2

@@ -15,35 +15,36 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration;
+package org.apache.ignite.internal.raft.configuration;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorConfiguration;
-import org.apache.ignite.configuration.schemas.compute.ComputeConfiguration;
-import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
-import org.apache.ignite.configuration.schemas.rest.RestConfiguration;
+import org.apache.ignite.configuration.schemas.table.EntryCountBudgetConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
+import org.apache.ignite.internal.configuration.ConfigurationModule;
 
 /**
- * {@link ConfigurationModule} for node-local configuration provided by ignite-api.
+ * {@link ConfigurationModule} for node-local configuration provided by ignite-raft.
  */
-public class CoreLocalConfigurationModule implements ConfigurationModule {
-    /** {@inheritDoc} */
+public class RaftConfigurationModule implements ConfigurationModule {
     @Override
     public ConfigurationType type() {
         return ConfigurationType.LOCAL;
     }
 
-    /** {@inheritDoc} */
     @Override
     public Collection<RootKey<?, ?>> rootKeys() {
+        return Collections.singleton(RaftConfiguration.KEY);
+    }
+
+    @Override
+    public Collection<Class<?>> polymorphicSchemaExtensions() {
         return List.of(
-                NetworkConfiguration.KEY,
-                RestConfiguration.KEY,
-                ClientConnectorConfiguration.KEY,
-                ComputeConfiguration.KEY
+                UnlimitedBudgetConfigurationSchema.class,
+                EntryCountBudgetConfigurationSchema.class
         );
     }
 }

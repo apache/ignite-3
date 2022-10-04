@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.runner.app;
 
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter.convert;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -33,16 +32,13 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
-import org.apache.ignite.internal.schema.testutils.definition.ColumnDefinition;
-import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
-import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
@@ -56,19 +52,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(WorkDirectoryExtension.class)
 public class ItDataSchemaSyncTest extends IgniteAbstractTest {
     /**
-     * Schema name.
-     */
-    public static final String SCHEMA = "PUBLIC";
-
-    /**
-     * Short table name.
-     */
-    public static final String SHORT_TABLE_NAME = "tbl1";
-
-    /**
      * Table name.
      */
-    public static final String TABLE_NAME = SCHEMA + "." + SHORT_TABLE_NAME;
+    public static final String TABLE_NAME = "tbl1";
 
     /**
      * Nodes bootstrap configuration.
@@ -148,7 +134,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
         Ignite ignite0 = clusterNodes.get(0);
         IgniteImpl ignite1 = (IgniteImpl) clusterNodes.get(1);
 
-        createTable(ignite0, SCHEMA, SHORT_TABLE_NAME);
+        createTable(ignite0, TABLE_NAME);
 
         TableImpl table = (TableImpl) ignite0.tables().table(TABLE_NAME);
 
@@ -168,15 +154,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
 
         listenerInhibitor.startInhibit();
 
-        ColumnDefinition columnDefinition = SchemaBuilders.column("valStr2", ColumnType.string())
-                .withDefaultValue("default")
-                .build();
-
-        ignite0.tables().alterTable(TABLE_NAME,
-                tblChanger -> tblChanger.changeColumns(cols ->
-                        cols.create(columnDefinition.name(), colChg -> convert(columnDefinition, colChg))
-                )
-        );
+        sql(ignite0, "ALTER TABLE " + TABLE_NAME + " ADD COLUMN valstr2 VARCHAR NOT NULL DEFAULT 'default'");
 
         for (Ignite node : clusterNodes) {
             if (node == ignite1) {
@@ -249,23 +227,18 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
     }
 
     /**
-     * Creates a table with the passed name on the specific schema.
+     * Creates a table with the passed name.
      *
      * @param node Cluster node.
-     * @param schemaName Schema name.
-     * @param shortTableName Table name.
+     * @param tableName Table name.
      */
-    protected void createTable(Ignite node, String schemaName, String shortTableName) {
-        // Create table on node 0.
-        TableDefinition schTbl1 = SchemaBuilders.tableBuilder(schemaName, shortTableName).columns(
-                SchemaBuilders.column("key", ColumnType.INT64).build(),
-                SchemaBuilders.column("valInt", ColumnType.INT32).asNullable(true).build(),
-                SchemaBuilders.column("valStr", ColumnType.string()).withDefaultValue("default").build()
-        ).withPrimaryKey("key").build();
+    protected void createTable(Ignite node, String tableName) {
+        sql(node, "CREATE TABLE " + tableName + "(key BIGINT PRIMARY KEY, valint INT, valstr VARCHAR)");
+    }
 
-        node.tables().createTable(
-                schTbl1.canonicalName(),
-                tblCh -> convert(schTbl1, tblCh).changeReplicas(2).changePartitions(10)
-        );
+    protected void sql(Ignite node, String query, Object... args) {
+        try (Session session = node.sql().createSession()) {
+            session.execute(null, query, args);
+        }
     }
 }

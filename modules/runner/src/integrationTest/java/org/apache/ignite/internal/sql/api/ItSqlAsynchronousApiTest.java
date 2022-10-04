@@ -125,7 +125,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         checkDdl(true, ses, "CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
         checkError(
                 TableAlreadyExistsException.class,
-                "Table already exists [name=PUBLIC.TEST]",
+                "Table already exists [name=\"PUBLIC\".\"TEST\"]",
                 ses,
                 "CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)"
         );
@@ -135,14 +135,14 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         checkDdl(true, ses, "ALTER TABLE TEST ADD COLUMN IF NOT EXISTS VAL1 VARCHAR");
         checkError(
                 TableNotFoundException.class,
-                "The table does not exist [name=PUBLIC.NOT_EXISTS_TABLE]",
+                "The table does not exist [name=\"PUBLIC\".\"NOT_EXISTS_TABLE\"]",
                 ses,
                 "ALTER TABLE NOT_EXISTS_TABLE ADD COLUMN VAL1 VARCHAR"
         );
         checkDdl(false, ses, "ALTER TABLE IF EXISTS NOT_EXISTS_TABLE ADD COLUMN VAL1 VARCHAR");
         checkError(
                 ColumnAlreadyExistsException.class,
-                "Column already exists [name=VAL1]",
+                "Column already exists [name=\"VAL1\"]",
                 ses,
                 "ALTER TABLE TEST ADD COLUMN VAL1 INT"
         );
@@ -152,7 +152,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         checkDdl(true, ses, "CREATE INDEX TEST_IDX ON TEST(VAL0)");
         checkError(
                 IndexAlreadyExistsException.class,
-                "Index already exists [name=PUBLIC.TEST_IDX]",
+                "Index already exists [name=\"PUBLIC\".\"TEST_IDX\"]",
                 ses,
                 "CREATE INDEX TEST_IDX ON TEST(VAL1)"
         );
@@ -166,14 +166,14 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         checkDdl(true, ses, "ALTER TABLE TEST DROP COLUMN VAL1");
         checkError(
                 TableNotFoundException.class,
-                "The table does not exist [name=PUBLIC.NOT_EXISTS_TABLE]",
+                "The table does not exist [name=\"PUBLIC\".\"NOT_EXISTS_TABLE\"]",
                 ses,
                 "ALTER TABLE NOT_EXISTS_TABLE DROP COLUMN VAL1"
         );
         checkDdl(false, ses, "ALTER TABLE IF EXISTS NOT_EXISTS_TABLE DROP COLUMN VAL1");
         checkError(
                 ColumnNotFoundException.class,
-                "Column 'VAL1' does not exist in table '\"PUBLIC\".\"TEST\"'",
+                "Column does not exist [tableName=\"PUBLIC\".\"TEST\", columnName=\"VAL1\"]",
                 ses,
                 "ALTER TABLE TEST DROP COLUMN VAL1"
         );
@@ -185,7 +185,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         checkDdl(true, ses, "DROP TABLE TEST");
         checkError(
                 TableNotFoundException.class,
-                "The table does not exist [name=PUBLIC.TEST]",
+                "The table does not exist [name=\"PUBLIC\".\"TEST\"]",
                 ses,
                 "DROP TABLE TEST"
         );
@@ -194,7 +194,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
 
         checkError(
                 IndexNotFoundException.class,
-                "Index 'PUBLIC.TEST_IDX' does not exist.", ses,
+                "Index does not exist [name=\"PUBLIC\".\"TEST_IDX\"]", ses,
                 "DROP INDEX TEST_IDX"
         );
     }
