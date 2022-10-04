@@ -472,7 +472,11 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                     .prepareRaftGroup(
                             CMG_RAFT_GROUP_NAME,
                             resolveNodes(clusterService, nodeNames),
-                            this::createCmgRaftGroupListener,
+                            () -> {
+                                clusterStateStorage.start();
+
+                                return new CmgRaftGroupListener(clusterStateStorage);
+                            },
                             this::createCmgRaftGroupEventsListener,
                             RaftGroupOptions.defaults()
                     )
@@ -480,12 +484,6 @@ public class ClusterManagementGroupManager implements IgniteComponent {
         } catch (Exception e) {
             return failedFuture(e);
         }
-    }
-
-    private CmgRaftGroupListener createCmgRaftGroupListener() {
-        clusterStateStorage.start();
-
-        return new CmgRaftGroupListener(clusterStateStorage);
     }
 
     private RaftGroupEventsListener createCmgRaftGroupEventsListener() {
