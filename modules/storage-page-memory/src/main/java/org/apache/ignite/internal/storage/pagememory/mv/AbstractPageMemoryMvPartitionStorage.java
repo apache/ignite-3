@@ -682,6 +682,21 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     }
 
     @Override
+    public @Nullable RowId closestRowId(RowId lowerBound) throws StorageException {
+        try {
+            Cursor<VersionChain> cursor = versionChainTree.find(new VersionChainKey(lowerBound), null);
+
+            if (!cursor.hasNext()) {
+                return null;
+            }
+
+            return cursor.next().rowId();
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException("Error occurred while trying to read a row id", e);
+        }
+    }
+
+    @Override
     public long rowsCount() {
         try {
             return versionChainTree.size();

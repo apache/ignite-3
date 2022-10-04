@@ -17,7 +17,12 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot;
 
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.incoming.RebalanceSnapshotCopier;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotReader;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
+import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.option.SnapshotCopierOptions;
@@ -33,36 +38,52 @@ import org.jetbrains.annotations.Nullable;
  *
  * @see PartitionSnapshotStorageFactory
  */
-class PartitionSnapshotStorage implements SnapshotStorage {
+@SuppressWarnings("PublicField")
+public class PartitionSnapshotStorage implements SnapshotStorage {
+    /** Topology service. */
+    public final TopologyService topologyService;
+
+    /** Snapshot manager. */
+    public final OutgoingSnapshotsManager outgoingSnapshotsManager;
+
     /** Snapshot URI. Points to a snapshot folder. Never created on physical storage. */
-    final String snapshotUri;
+    public final String snapshotUri;
 
     /** Raft options. */
-    final RaftOptions raftOptions;
+    public final RaftOptions raftOptions;
 
     /** Instance of partition. */
-    final PartitionAccess partition;
+    public final PartitionAccess partition;
 
     /** Snapshot meta, constructed from the storage data and reaft group configuration. */
-    final SnapshotMeta snapshotMeta;
+    public final SnapshotMeta snapshotMeta;
 
     /** Snapshot throttle instance. */
-    @Nullable SnapshotThrottle snapshotThrottle;
+    public @Nullable SnapshotThrottle snapshotThrottle;
+
+    /** Flag indicating that startup snapshot has been opened. */
+    private final AtomicBoolean startupSnapshotOpened = new AtomicBoolean();
 
     /**
      * Constructor.
      *
+     * @param topologyService Topology service.
+     * @param outgoingSnapshotsManager Outgoing snapshot manager.
      * @param snapshotUri Snapshot URI.
      * @param raftOptions RAFT options.
      * @param partition Partition.
      * @param snapshotMeta Snapshot meta.
      */
     public PartitionSnapshotStorage(
+            TopologyService topologyService,
+            OutgoingSnapshotsManager outgoingSnapshotsManager,
             String snapshotUri,
             RaftOptions raftOptions,
             PartitionAccess partition,
             SnapshotMeta snapshotMeta
     ) {
+        this.topologyService = topologyService;
+        this.outgoingSnapshotsManager = outgoingSnapshotsManager;
         this.snapshotUri = snapshotUri;
         this.raftOptions = raftOptions;
         this.partition = partition;
@@ -98,21 +119,29 @@ class PartitionSnapshotStorage implements SnapshotStorage {
     /** {@inheritDoc} */
     @Override
     public SnapshotReader open() {
-        return new InitPartitionSnapshotReader(this);
+        if (startupSnapshotOpened.compareAndSet(false, true)) {
+            return new InitPartitionSnapshotReader(this);
+        }
+
+        return new OutgoingSnapshotReader(this);
     }
 
     /** {@inheritDoc} */
     @Override
     public SnapshotReader copyFrom(String uri, SnapshotCopierOptions opts) {
-        //TODO IGNITE-17083
-        throw new UnsupportedOperationException("Not implemented yet: https://issues.apache.org/jira/browse/IGNITE-17083");
+        throw new UnsupportedOperationException("Synchronous snapshot copy is not supported.");
     }
 
     /** {@inheritDoc} */
     @Override
     public SnapshotCopier startToCopyFrom(String uri, SnapshotCopierOptions opts) {
-        //TODO IGNITE-17083
-        throw new UnsupportedOperationException("Not implemented yet: https://issues.apache.org/jira/browse/IGNITE-17083");
+        SnapshotUri snapshotUri = SnapshotUri.fromStringUri(uri);
+
+        RebalanceSnapshotCopier copier = new RebalanceSnapshotCopier(this, snapshotUri);
+
+        copier.start();
+
+        return copier;
     }
 
     /** {@inheritDoc} */

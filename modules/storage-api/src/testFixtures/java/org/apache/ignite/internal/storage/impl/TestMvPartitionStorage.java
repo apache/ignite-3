@@ -23,7 +23,7 @@ import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.function.BiConsumer;
 import java.util.function.Predicate;
@@ -43,7 +43,7 @@ import org.jetbrains.annotations.Nullable;
  * Test implementation of MV partition storage.
  */
 public class TestMvPartitionStorage implements MvPartitionStorage {
-    private final ConcurrentMap<RowId, VersionChain> map = new ConcurrentSkipListMap<>();
+    private final ConcurrentNavigableMap<RowId, VersionChain> map = new ConcurrentSkipListMap<>();
 
     private long lastAppliedIndex = 0;
 
@@ -417,6 +417,13 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
                 return res;
             }
         };
+    }
+
+    @Override
+    public @Nullable RowId closestRowId(RowId lowerBound) throws StorageException {
+        Entry<RowId, VersionChain> mapEntry = map.tailMap(lowerBound).firstEntry();
+
+        return mapEntry == null ? null : mapEntry.getKey();
     }
 
     /** {@inheritDoc} */

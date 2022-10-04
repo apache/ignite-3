@@ -17,32 +17,23 @@
 
 package org.apache.ignite.internal.table.message;
 
-import org.apache.ignite.network.annotations.MessageGroup;
+import java.util.List;
+import java.util.UUID;
+import org.apache.ignite.internal.tx.TxMeta;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Marshallable;
+import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Table module message group.
+ * Snapshot TX state partition data response message.
  */
-@MessageGroup(groupType = 8, groupName = "TableMessages")
-public interface TableMessageGroup {
-    /** {@link HasDataRequest}. */
-    int HAS_DATA_REQUEST = 0;
+@Transferable(TableMessageGroup.SNAPSHOT_TX_DATA_RESPONSE)
+public interface SnapshotTxDataResponse extends NetworkMessage {
+    @Marshallable
+    List<UUID> txIds();
 
-    /** {@link HasDataResponse}. */
-    int HAS_DATA_RESPONSE = 1;
+    @Marshallable
+    List<TxMeta> txMeta();
 
-    /** {@link SnapshotMetaRequest}. */
-    int SNAPSHOT_META_REQUEST = 10;
-
-    /** {@link SnapshotMetaResponse}. */
-    int SNAPSHOT_META_RESPONSE = 11;
-
-    int SNAPSHOT_MV_DATA_REQUEST = 12;
-
-    int SNAPSHOT_MV_DATA_SINGLE_RESPONSE = 13;
-
-    int SNAPSHOT_MV_DATA_RESPONSE = 14;
-
-    int SNAPSHOT_TX_DATA_REQUEST = 15;
-
-    int SNAPSHOT_TX_DATA_RESPONSE = 16;
+    boolean finish();
 }

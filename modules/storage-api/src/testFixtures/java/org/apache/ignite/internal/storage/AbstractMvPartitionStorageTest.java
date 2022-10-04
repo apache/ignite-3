@@ -46,7 +46,6 @@ import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.junit.jupiter.api.Test;
 
@@ -976,7 +975,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
     void testReadingNothingWithLowerRowIdIfHigherRowIdWritesExist() {
         RowId rowId = commitAbortAndAddUncommitted();
 
-        RowId lowerRowId = getPreviousRowId(rowId);
+        RowId lowerRowId = decrement(rowId);
 
         assertNull(read(lowerRowId, clock.now()));
     }
@@ -984,7 +983,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
     @Test
     void testReadingNothingByTxIdWithLowerRowId() {
         RowId higherRowId = new RowId(PARTITION_ID);
-        RowId lowerRowId = getPreviousRowId(higherRowId);
+        RowId lowerRowId = decrement(higherRowId);
 
         UUID txId = UUID.randomUUID();
 
@@ -1000,7 +999,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
     @Test
     void testReadingCorrectWriteIntentByTimestampIfLowerRowIdWriteIntentExists() {
         RowId higherRowId = new RowId(PARTITION_ID);
-        RowId lowerRowId = getPreviousRowId(higherRowId);
+        RowId lowerRowId = decrement(higherRowId);
 
         storage.runConsistently(() -> {
             addWrite(lowerRowId, binaryRow2, newTransactionId());
@@ -1017,7 +1016,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
     @Test
     void testReadingCorrectWriteIntentByTimestampIfHigherRowIdWriteIntentExists() {
         RowId higherRowId = new RowId(PARTITION_ID);
-        RowId lowerRowId = getPreviousRowId(higherRowId);
+        RowId lowerRowId = decrement(higherRowId);
 
         storage.runConsistently(() -> {
             addWrite(lowerRowId, binaryRow, newTransactionId());
@@ -1171,32 +1170,41 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
         assertEquals(value, list.get(1).getValue());
     }
 
+    @Test
+    void testClosestRowId() {
+        RowId rowId0 = new RowId(PARTITION_ID, 1, -1);
+        RowId rowId1 = new RowId(PARTITION_ID, 1, 0);
+        RowId rowId2 = new RowId(PARTITION_ID, 1, 1);
+
+        addWrite(rowId1, binaryRow, txId);
+        addWrite(rowId2, binaryRow2, txId);
+
+        assertEquals(rowId1, storage.closestRowId(rowId0));
+        assertEquals(rowId1, storage.closestRowId(rowId0.increment()));
+
+        assertEquals(rowId1, storage.closestRowId(rowId1));
+
+        assertEquals(rowId2, storage.closestRowId(rowId2));
+
+        assertNull(storage.closestRowId(rowId2.increment()));
+    }
+
     /**
      * Returns row id that is lexicographically smaller (by the value of one) than the argument.
      *
      * @param value Row id.
      * @return Row id value minus 1.
      */
-    private RowId getPreviousRowId(RowId value) {
-        Pair<Long, Long> previous128Uint = getPrevious128Uint(value.mostSignificantBits(), value.leastSignificantBits());
+    private RowId decrement(RowId value) {
+        long msb = value.mostSignificantBits();
+        long lsb = value.leastSignificantBits();
 
-        return new RowId(value.partitionId(), previous128Uint.getFirst(), previous128Uint.getSecond());
-    }
-
-    /**
-     * Performs a decrement operation on a 128-bit unsigned value that is represented by two longs.
-     *
-     * @param msb Most significant bytes of 128-bit unsigned integer.
-     * @param lsb Least significant bytes of 128-bit unsigned integer.
-     * @return Less by one value.
-     */
-    private Pair<Long, Long> getPrevious128Uint(long msb, long lsb) {
-        assert (msb | lsb) != 0L : "Cheer up! That was very unlikely";
-
-        if (lsb-- == 0L) {
-            --msb;
+        if (--lsb == Long.MAX_VALUE) {
+            if (--msb == Long.MAX_VALUE) {
+                throw new IllegalArgumentException();
+            }
         }
 
-        return new Pair<>(msb, lsb);
+        return new RowId(value.partitionId(), msb, lsb);
     }
 }

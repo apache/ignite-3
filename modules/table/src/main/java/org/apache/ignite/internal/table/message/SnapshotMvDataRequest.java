@@ -17,32 +17,11 @@
 
 package org.apache.ignite.internal.table.message;
 
-import org.apache.ignite.network.annotations.MessageGroup;
+import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Table module message group.
+ * Snapshot partition data request message.
  */
-@MessageGroup(groupType = 8, groupName = "TableMessages")
-public interface TableMessageGroup {
-    /** {@link HasDataRequest}. */
-    int HAS_DATA_REQUEST = 0;
-
-    /** {@link HasDataResponse}. */
-    int HAS_DATA_RESPONSE = 1;
-
-    /** {@link SnapshotMetaRequest}. */
-    int SNAPSHOT_META_REQUEST = 10;
-
-    /** {@link SnapshotMetaResponse}. */
-    int SNAPSHOT_META_RESPONSE = 11;
-
-    int SNAPSHOT_MV_DATA_REQUEST = 12;
-
-    int SNAPSHOT_MV_DATA_SINGLE_RESPONSE = 13;
-
-    int SNAPSHOT_MV_DATA_RESPONSE = 14;
-
-    int SNAPSHOT_TX_DATA_REQUEST = 15;
-
-    int SNAPSHOT_TX_DATA_RESPONSE = 16;
+@Transferable(TableMessageGroup.SNAPSHOT_MV_DATA_REQUEST)
+public interface SnapshotMvDataRequest extends SnapshotRequestMessage {
 }

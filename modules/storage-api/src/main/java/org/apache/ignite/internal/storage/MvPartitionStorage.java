@@ -245,6 +245,14 @@ public interface MvPartitionStorage extends AutoCloseable {
     PartitionTimestampCursor scan(Predicate<BinaryRow> keyFilter, HybridTimestamp timestamp) throws StorageException;
 
     /**
+     * Returns a row id, existing in the storage, that's greater or equal than the lower bound. {@code null} if not found.
+     *
+     * @param lowerBound Lower bound.
+     * @throws StorageException If failed to read data from the storage.
+     */
+    @Nullable RowId closestRowId(RowId lowerBound) throws StorageException;
+
+    /**
      * Returns rows count belongs to current storage.
      *
      * @return Rows count.

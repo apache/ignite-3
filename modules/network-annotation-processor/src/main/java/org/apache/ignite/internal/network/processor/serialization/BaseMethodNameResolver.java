@@ -118,7 +118,7 @@ class BaseMethodNameResolver {
             return "Uuid";
         } else if (typeUtils.isSameType(parameterType, IgniteUuid.class)) {
             return "IgniteUuid";
-        } else if (typeUtils.isSameType(parameterType, NetworkMessage.class)) {
+        } else if (typeUtils.isSubType(parameterType, NetworkMessage.class)) {
             return "Message";
         } else if (typeUtils.isSameType(parameterType, BitSet.class)) {
             return "BitSet";

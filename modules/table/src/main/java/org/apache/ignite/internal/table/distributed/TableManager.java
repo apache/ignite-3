@@ -107,6 +107,7 @@ import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.raft.RebalanceRaftGroupEventsListener;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionSnapshotStorageFactory;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.table.event.TableEvent;
@@ -763,7 +764,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         //TODO Revisit peers String representation: https://issues.apache.org/jira/browse/IGNITE-17420
         raftGroupOptions.snapshotStorageFactory(new PartitionSnapshotStorageFactory(
+                raftMgr.topologyService(),
                 //TODO IGNITE-17302 Use miniumum from mv storage and tx state storage.
+                new OutgoingSnapshotsManager(raftMgr.messagingService()),
                 partitionStorage::persistedIndex,
                 peers.stream().map(n -> new Peer(n.address())).map(PeerId::fromPeer).map(Object::toString).collect(Collectors.toList()),
                 List.of()
