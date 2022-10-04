@@ -121,6 +121,7 @@ public class ClientSession implements Session {
 
             w.out().packString(clientStatement.query());
 
+            // TODO: IGNITE-17777 use BinaryTuple
             w.out().packObjectArray(arguments);
         }, r -> new ClientAsyncResultSet(r.clientChannel(), r.in()));
     }

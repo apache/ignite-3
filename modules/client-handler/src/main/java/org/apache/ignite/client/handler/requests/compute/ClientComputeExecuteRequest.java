@@ -75,6 +75,7 @@ public class ClientComputeExecuteRequest {
             return OBJECT_EMPTY_ARRAY;
         }
 
+        // TODO: IGNITE-17777 use BinaryTuple
         int argCnt = in.unpackArrayHeader();
 
         if (argCnt == 0) {

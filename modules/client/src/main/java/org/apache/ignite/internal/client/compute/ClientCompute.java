@@ -239,8 +239,12 @@ public class ClientCompute implements IgniteCompute {
                     ClientTupleSerializer.writeTupleRaw(key, schema, outputChannel, true);
 
                     w.packString(jobClassName);
+
+                    // TODO: IGNITE-17777 use BinaryTuple
                     w.packObjectArray(args);
                 },
+
+                // TODO: IGNITE-17777 use BinaryTuple
                 r -> (R) r.unpackObjectWithType());
     }
 

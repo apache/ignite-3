@@ -157,6 +157,7 @@ public class ClientSqlExecuteRequest {
             return null;
         }
 
+        // TODO: IGNITE-17777 use BinaryTuple
         int size = in.unpackArrayHeader();
 
         if (size == 0) {
