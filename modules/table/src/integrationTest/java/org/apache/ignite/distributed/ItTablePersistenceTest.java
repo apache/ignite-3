@@ -64,7 +64,7 @@ import org.junit.jupiter.api.Disabled;
 /**
  * Persistent partitions raft group snapshots tests.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-16644 MvPartitionStorage hasn't supported snapshots yet")
+@Disabled("IGNITE-16644, IGNITE-17817 MvPartitionStorage hasn't supported snapshots yet")
 public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<PartitionListener> {
     private static final SchemaDescriptor SCHEMA = new SchemaDescriptor(
             1,
