@@ -241,8 +241,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
 
         Mockito.doReturn(indexDescriptor).when(sortedIndexMock).descriptor();
         //CHECKSTYLE:OFF:Indentation
-        Mockito.doAnswer(invocation ->
-                {
+        Mockito.doAnswer(invocation -> {
                     if (lowerBound != null) {
                         validateBoundPrefix(indexDescriptor, schemaDescriptor, invocation.getArgument(2));
                     }
