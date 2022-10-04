@@ -27,10 +27,17 @@ public class TestRetryPolicy extends RetryLimitPolicy {
     /** Policy invocations. */
     public final List<RetryPolicyContext> invocations = new ArrayList<>();
 
+    /** Whether the policy should throw. */
+    public boolean shouldThrow;
+
     /** {@inheritDoc} */
     @Override
     public boolean shouldRetry(RetryPolicyContext context) {
         invocations.add(context);
+
+        if (shouldThrow) {
+            throw new RuntimeException("TestRetryPolicy exception.");
+        }
 
         return super.shouldRetry(context);
     }

@@ -223,8 +223,14 @@ public class RetryPolicyTest {
     }
 
     @Test
-    public void testExceptionInRetryPolicyPropagatesToCaller() {
-        // TODO IGNITE-17812
+    public void testExceptionInRetryPolicyPropagatesToCaller() throws Exception {
+        initServer(reqId -> reqId % 2 == 0);
+        var plc = new TestRetryPolicy();
+        plc.shouldThrow = true;
+
+        try (var client = getClient(plc)) {
+            assertThrows(IgniteException.class, () -> client.tables().tables());
+        }
     }
 
     private IgniteClient getClient(RetryPolicy retryPolicy) {
