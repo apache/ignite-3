@@ -48,15 +48,6 @@ import org.apache.ignite.table.manager.IgniteTables;
  * Facade over {@link IgniteTables} to get information about database entities in terms of JDBC.
  */
 public class JdbcMetadataCatalog {
-    /** Table name separator. */
-    private static final String TABLE_NAME_SEPARATOR = "\\.";
-
-    /** Table schema. */
-    private static final int TABLE_SCHEMA = 0;
-
-    /** Table name. */
-    private static final int TABLE_NAME = 1;
-
     /** Primary key identifier. */
     private static final String PK = "PK_";
 
@@ -100,8 +91,8 @@ public class JdbcMetadataCatalog {
         String tlbNameRegex = translateSqlWildcardsToRegex(tblNamePtrn);
 
         return tables.tablesAsync().thenApply(tableList -> tableList.stream()
-                .filter(t -> matches(getTblSchema(t.name()), schemaNameRegex))
-                .filter(t -> matches(getTblName(t.name()), tlbNameRegex))
+                .filter(t -> matches(DEFAULT_SCHEMA_NAME, schemaNameRegex))
+                .filter(t -> matches(t.name(), tlbNameRegex))
                 .map(this::createPrimaryKeyMeta)
                 .collect(Collectors.toSet())
         );
@@ -126,10 +117,10 @@ public class JdbcMetadataCatalog {
 
         return tables.tablesAsync().thenApply(tablesList -> {
             return tablesList.stream()
-                    .filter(t -> matches(getTblSchema(t.name()), schemaNameRegex))
-                    .filter(t -> matches(getTblName(t.name()), tlbNameRegex))
+                    .filter(t -> matches(DEFAULT_SCHEMA_NAME, schemaNameRegex))
+                    .filter(t -> matches(t.name(), tlbNameRegex))
                     .sorted(byTblTypeThenSchemaThenTblName)
-                    .map(t -> new JdbcTableMeta(getTblSchema(t.name()), getTblName(t.name()), TBL_TYPE))
+                    .map(t -> new JdbcTableMeta(DEFAULT_SCHEMA_NAME, t.name(), TBL_TYPE))
                     .collect(Collectors.toList());
         });
     }
@@ -151,8 +142,8 @@ public class JdbcMetadataCatalog {
 
         return tables.tablesAsync().thenApply(tablesList -> {
             return tablesList.stream()
-                    .filter(t -> matches(getTblSchema(t.name()), schemaNameRegex))
-                    .filter(t -> matches(getTblName(t.name()), tlbNameRegex))
+                    .filter(t -> matches(DEFAULT_SCHEMA_NAME, schemaNameRegex))
+                    .filter(t -> matches(t.name(), tlbNameRegex))
                     .flatMap(
                         tbl -> {
                             SchemaDescriptor schema = ((TableImpl) tbl).schemaView().schema();
@@ -195,7 +186,7 @@ public class JdbcMetadataCatalog {
 
         return tables.tablesAsync().thenApply(tablesList ->
                 tablesList.stream()
-                    .map(tbl -> getTblSchema(tbl.name()))
+                    .map(tbl -> DEFAULT_SCHEMA_NAME)
                     .filter(schema -> matches(schema, schemaNameRegex))
                     .collect(Collectors.toCollection(() -> schemas))
         );
@@ -208,10 +199,7 @@ public class JdbcMetadataCatalog {
      * @return Jdbc primary key metadata.
      */
     private JdbcPrimaryKeyMeta createPrimaryKeyMeta(Table tbl) {
-        String schemaName = getTblSchema(tbl.name());
-        String tblName = getTblName(tbl.name());
-
-        final String keyName = PK + tblName;
+        final String keyName = PK + tbl.name();
 
         SchemaRegistry registry = ((TableImpl) tbl).schemaView();
 
@@ -219,7 +207,7 @@ public class JdbcMetadataCatalog {
                 .map(Column::name)
                 .collect(Collectors.toList());
 
-        return new JdbcPrimaryKeyMeta(schemaName, tblName, keyName, keyColNames);
+        return new JdbcPrimaryKeyMeta(DEFAULT_SCHEMA_NAME, tbl.name(), keyName, keyColNames);
     }
 
     /**
@@ -234,34 +222,14 @@ public class JdbcMetadataCatalog {
 
         return new JdbcColumnMeta(
                 col.name(),
-                getTblSchema(tblName),
-                getTblName(tblName),
+                DEFAULT_SCHEMA_NAME,
+                tblName,
                 col.name(),
                 Commons.nativeTypeToClass(colType),
                 Commons.nativeTypePrecision(colType),
                 Commons.nativeTypeScale(colType),
                 col.nullable()
         );
-    }
-
-    /**
-     * Splits the tableName into schema and table name and returns the table name.
-     *
-     * @param tblName Table name.
-     * @return Table name string.
-     */
-    private String getTblName(String tblName) {
-        return tblName.split(TABLE_NAME_SEPARATOR)[TABLE_NAME];
-    }
-
-    /**
-     * Splits the tableName into schema and table name and returns the table schema.
-     *
-     * @param tblName Table name.
-     * @return Table schema string.
-     */
-    private String getTblSchema(String tblName) {
-        return tblName.split(TABLE_NAME_SEPARATOR)[TABLE_SCHEMA];
     }
 
     /**

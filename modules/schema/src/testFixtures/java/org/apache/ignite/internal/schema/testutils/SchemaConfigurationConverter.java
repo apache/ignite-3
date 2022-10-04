@@ -466,7 +466,7 @@ public class SchemaConfigurationConverter {
      * @return TablesChange to get result from.
      */
     public static TablesChange createTable(TableDefinition tbl, TablesChange tblsChange) {
-        return tblsChange.changeTables(tblsChg -> tblsChg.create(tbl.canonicalName(), tblChg -> convert(tbl, tblChg)));
+        return tblsChange.changeTables(tblsChg -> tblsChg.create(tbl.name(), tblChg -> convert(tbl, tblChg)));
     }
 
     /**
@@ -477,7 +477,7 @@ public class SchemaConfigurationConverter {
      * @return TablesChange to get result from.
      */
     public static TablesChange dropTable(TableDefinition tbl, TablesChange tblsChange) {
-        return tblsChange.changeTables(schmTblChange -> schmTblChange.delete(tbl.canonicalName()));
+        return tblsChange.changeTables(schmTblChange -> schmTblChange.delete(tbl.name()));
     }
 
     /**

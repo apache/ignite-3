@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table.distributed;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.apache.ignite.raft.jraft.test.TestUtils.peersToIds;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -148,13 +149,13 @@ public class TableManagerTest extends IgniteAbstractTest {
     private static final IgniteLogger LOG = Loggers.forClass(TableManagerTest.class);
 
     /** The name of the table which is preconfigured. */
-    private static final String PRECONFIGURED_TABLE_NAME = "t1";
+    private static final String PRECONFIGURED_TABLE_NAME = "T1";
 
     /** The name of the table which will be configured dynamically. */
-    private static final String DYNAMIC_TABLE_NAME = "t2";
+    private static final String DYNAMIC_TABLE_NAME = "T2";
 
     /** The name of table to drop it. */
-    private static final String DYNAMIC_TABLE_FOR_DROP_NAME = "t3";
+    private static final String DYNAMIC_TABLE_FOR_DROP_NAME = "T3";
 
     /** Table partitions. */
     private static final int PARTITIONS = 32;
@@ -301,7 +302,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         ).withPrimaryKey("key").build();
 
         tblsCfg.tables().change(tablesChange -> {
-            tablesChange.create(scmTbl.canonicalName(), tableChange -> {
+            tablesChange.create(scmTbl.name(), tableChange -> {
                 (SchemaConfigurationConverter.convert(scmTbl, tableChange))
                         .changeReplicas(REPLICAS)
                         .changePartitions(PARTITIONS);
@@ -332,7 +333,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         assertEquals(1, tableManager.tables().size());
 
-        assertNotNull(tableManager.table(scmTbl.canonicalName()));
+        assertNotNull(tableManager.table(scmTbl.name()));
 
         checkTableDataStorage(tblsCfg.tables().value(), RocksDbStorageEngine.ENGINE_NAME);
     }
@@ -353,7 +354,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         assertNotNull(table);
 
-        assertSame(table, tblManagerFut.join().table(scmTbl.canonicalName()));
+        assertSame(table, tblManagerFut.join().table(scmTbl.name()));
 
         checkTableDataStorage(tblsCfg.tables().value(), RocksDbStorageEngine.ENGINE_NAME);
     }
@@ -374,9 +375,9 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         TableManager tableManager = tblManagerFut.join();
 
-        tableManager.dropTable(scmTbl.canonicalName());
+        await(tableManager.dropTableAsync(DYNAMIC_TABLE_FOR_DROP_NAME));
 
-        assertNull(tableManager.table(scmTbl.canonicalName()));
+        assertNull(tableManager.table(scmTbl.name()));
 
         assertEquals(0, tableManager.tables().size());
     }
@@ -392,8 +393,6 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         tableManager.beforeNodeStop();
         tableManager.stop();
-
-        String tblFullName = "PUBLIC." + DYNAMIC_TABLE_FOR_DROP_NAME;
 
         Consumer<TableChange> createTableChange = (TableChange change) ->
                 SchemaConfigurationConverter.convert(SchemaBuilders.tableBuilder("PUBLIC", DYNAMIC_TABLE_FOR_DROP_NAME).columns(
@@ -415,20 +414,17 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         TableManager igniteTables = tableManager;
 
-        assertThrows(IgniteException.class, () -> igniteTables.createTable(tblFullName, createTableChange));
-        assertThrows(IgniteException.class, () -> igniteTables.createTableAsync(tblFullName, createTableChange));
+        assertThrows(IgniteException.class, () -> igniteTables.createTableAsync(DYNAMIC_TABLE_FOR_DROP_NAME, createTableChange));
 
-        assertThrows(IgniteException.class, () -> igniteTables.alterTable(tblFullName, addColumnChange));
-        assertThrows(IgniteException.class, () -> igniteTables.alterTableAsync(tblFullName, addColumnChange));
+        assertThrows(IgniteException.class, () -> igniteTables.alterTableAsync(DYNAMIC_TABLE_FOR_DROP_NAME, addColumnChange));
 
-        assertThrows(IgniteException.class, () -> igniteTables.dropTable(tblFullName));
-        assertThrows(IgniteException.class, () -> igniteTables.dropTableAsync(tblFullName));
+        assertThrows(IgniteException.class, () -> igniteTables.dropTableAsync(DYNAMIC_TABLE_FOR_DROP_NAME));
 
         assertThrows(IgniteException.class, () -> igniteTables.tables());
         assertThrows(IgniteException.class, () -> igniteTables.tablesAsync());
 
-        assertThrows(IgniteException.class, () -> igniteTables.table(tblFullName));
-        assertThrows(IgniteException.class, () -> igniteTables.tableAsync(tblFullName));
+        assertThrows(IgniteException.class, () -> igniteTables.table(DYNAMIC_TABLE_FOR_DROP_NAME));
+        assertThrows(IgniteException.class, () -> igniteTables.tableAsync(DYNAMIC_TABLE_FOR_DROP_NAME));
     }
 
     /**
@@ -498,7 +494,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         CompletableFuture<Table> getFut = CompletableFuture.supplyAsync(() -> {
             phaser.awaitAdvance(0);
 
-            return tblManagerFut.join().table(scmTbl.canonicalName());
+            return tblManagerFut.join().table(scmTbl.name());
         });
 
         CompletableFuture<Collection<Table>> getAllTablesFut = CompletableFuture.supplyAsync(() -> {
@@ -537,11 +533,12 @@ public class TableManagerTest extends IgniteAbstractTest {
         assertNotNull(table);
 
         assertThrows(RuntimeException.class,
-                () -> tblManagerFut.join().createTable(scmTbl.canonicalName(), tblCh -> SchemaConfigurationConverter.convert(scmTbl, tblCh)
-                        .changeReplicas(REPLICAS)
-                        .changePartitions(PARTITIONS)));
+                () -> await(tblManagerFut.join().createTableAsync(DYNAMIC_TABLE_NAME,
+                        tblCh -> SchemaConfigurationConverter.convert(scmTbl, tblCh)
+                                .changeReplicas(REPLICAS)
+                                .changePartitions(PARTITIONS))));
 
-        assertSame(table, tblManagerFut.join().table(scmTbl.canonicalName()));
+        assertSame(table, tblManagerFut.join().table(scmTbl.name()));
     }
 
     /**
@@ -608,11 +605,11 @@ public class TableManagerTest extends IgniteAbstractTest {
         final int tablesBeforeCreation = tableManager.tables().size();
 
         tblsCfg.tables().listen(ctx -> {
-            boolean createTbl = ctx.newValue().get(tableDefinition.canonicalName()) != null
-                    && ctx.oldValue().get(tableDefinition.canonicalName()) == null;
+            boolean createTbl = ctx.newValue().get(tableDefinition.name()) != null
+                    && ctx.oldValue().get(tableDefinition.name()) == null;
 
-            boolean dropTbl = ctx.oldValue().get(tableDefinition.canonicalName()) != null
-                    && ctx.newValue().get(tableDefinition.canonicalName()) == null;
+            boolean dropTbl = ctx.oldValue().get(tableDefinition.name()) != null
+                    && ctx.newValue().get(tableDefinition.name()) == null;
 
             if (!createTbl && !dropTbl) {
                 return completedFuture(null);
@@ -633,7 +630,7 @@ public class TableManagerTest extends IgniteAbstractTest {
             return completedFuture(true);
         });
 
-        CompletableFuture<Table> tbl2Fut = tableManager.createTableAsync(tableDefinition.canonicalName(),
+        CompletableFuture<Table> tbl2Fut = tableManager.createTableAsync(tableDefinition.name(),
                 tblCh -> SchemaConfigurationConverter.convert(tableDefinition, tblCh)
                         .changeReplicas(REPLICAS)
                         .changePartitions(PARTITIONS)

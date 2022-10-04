@@ -17,7 +17,7 @@
 
 package org.apache.ignite.table.mapper;
 
-import org.apache.ignite.internal.util.IgniteObjectName;
+import org.apache.ignite.internal.util.IgniteNameUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -38,7 +38,7 @@ class OneColumnMapperImpl<ObjectT> implements OneColumnMapper<ObjectT> {
 
     OneColumnMapperImpl(@NotNull Class<ObjectT> targetType, @Nullable String mappedColumn, @Nullable TypeConverter<ObjectT, ?> converter) {
         this.targetType = targetType;
-        this.mappedColumn = IgniteObjectName.parse(mappedColumn);
+        this.mappedColumn = IgniteNameUtils.parseSimpleName(mappedColumn);
         this.converter = converter;
     }
 

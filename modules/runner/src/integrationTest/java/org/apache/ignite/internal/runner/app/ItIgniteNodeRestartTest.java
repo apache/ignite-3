@@ -19,7 +19,6 @@ package org.apache.ignite.internal.runner.app;
 
 import static java.util.stream.Collectors.joining;
 import static org.apache.ignite.internal.recovery.ConfigurationCatchUpListener.CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY;
-import static org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter.convert;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -72,9 +71,6 @@ import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
 import org.apache.ignite.internal.recovery.ConfigurationCatchUpListener;
 import org.apache.ignite.internal.recovery.RecoveryCompletionFutureFactory;
 import org.apache.ignite.internal.schema.SchemaManager;
-import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
-import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
-import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.DataStorageModules;
@@ -99,6 +95,7 @@ import org.apache.ignite.network.MessageSerializationRegistryImpl;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.scalecube.ScaleCubeClusterServiceFactory;
 import org.apache.ignite.raft.jraft.RaftMessagesSerializationRegistryInitializer;
+import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.intellij.lang.annotations.Language;
@@ -118,9 +115,6 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
     /** Value producer for table data, is used to create data and check it later. */
     private static final IntFunction<String> VALUE_PRODUCER = i -> "val " + i;
-
-    /** Prefix for full table name. */
-    private static final String SCHEMA_PREFIX = "PUBLIC.";
 
     /** Test table name. */
     private static final String TABLE_NAME = "Table1";
@@ -767,7 +761,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         stopPartialNode(components);
 
-        Table table = ignite.tables().table(SCHEMA_PREFIX + TABLE_NAME);
+        Table table = ignite.tables().table(TABLE_NAME);
 
         assertNotNull(table);
 
@@ -781,8 +775,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         assertNotNull(tableManager);
 
-        assertTablePresent(tableManager, SCHEMA_PREFIX + TABLE_NAME.toUpperCase());
-        assertTablePresent(tableManager, SCHEMA_PREFIX + TABLE_NAME_2.toUpperCase());
+        assertTablePresent(tableManager, TABLE_NAME.toUpperCase());
+        assertTablePresent(tableManager, TABLE_NAME_2.toUpperCase());
     }
 
     /**
@@ -808,7 +802,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         assertNotNull(tableManager);
 
-        assertTablePresent(tableManager, SCHEMA_PREFIX + TABLE_NAME.toUpperCase());
+        assertTablePresent(tableManager, TABLE_NAME.toUpperCase());
     }
 
     /**
@@ -840,7 +834,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         TableManager tableManager = findComponent(components, TableManager.class);
 
-        assertTablePresent(tableManager, SCHEMA_PREFIX + TABLE_NAME.toUpperCase());
+        assertTablePresent(tableManager, TABLE_NAME.toUpperCase());
     }
 
     /**
@@ -882,8 +876,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         TableManager tableManager = findComponent(components, TableManager.class);
 
-        assertTablePresent(tableManager, SCHEMA_PREFIX + TABLE_NAME.toUpperCase());
-        assertTablePresent(tableManager, SCHEMA_PREFIX + TABLE_NAME_2.toUpperCase());
+        assertTablePresent(tableManager, TABLE_NAME.toUpperCase());
+        assertTablePresent(tableManager, TABLE_NAME_2.toUpperCase());
     }
 
     /**
@@ -938,7 +932,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         TableManager tableManager = findComponent(components, TableManager.class);
 
         for (int i = 0; i < cfgGap; i++) {
-            assertTablePresent(tableManager, SCHEMA_PREFIX + "T" + i);
+            assertTablePresent(tableManager, "T" + i);
         }
     }
 
@@ -994,7 +988,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * @param name Table name.
      */
     private static void checkTableWithData(Ignite ignite, String name) {
-        Table table = ignite.tables().table("PUBLIC." + name);
+        Table table = ignite.tables().table(name);
 
         assertNotNull(table);
 
@@ -1025,25 +1019,14 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * @param partitions Partitions count.
      */
     private static void createTableWithData(Ignite ignite, String name, int replicas, int partitions) {
-        TableDefinition scmTbl1 = SchemaBuilders.tableBuilder("PUBLIC", name).columns(
-                SchemaBuilders.column("id", ColumnType.INT32).build(),
-                SchemaBuilders.column("name", ColumnType.string()).asNullable(true).build()
-        ).withPrimaryKey(
-                SchemaBuilders.primaryKey()
-                        .withColumns("id")
-                        .build()
-        ).build();
+        try (Session session = ignite.sql().createSession()) {
+            session.execute(null, "CREATE TABLE " + name
+                    + "(id INT PRIMARY KEY, name VARCHAR) WITH replicas=" + replicas + ", partitions=" + partitions);
 
-        Table table = ignite.tables().createTable(
-                scmTbl1.canonicalName(),
-                tbl -> convert(scmTbl1, tbl).changeReplicas(replicas).changePartitions(partitions)
-        );
-
-        for (int i = 0; i < 100; i++) {
-            Tuple key = Tuple.create().set("id", i);
-            Tuple val = Tuple.create().set("name", VALUE_PRODUCER.apply(i));
-
-            table.keyValueView().put(null, key, val);
+            for (int i = 0; i < 100; i++) {
+                session.execute(null, "INSERT INTO " + name + "(id, name) VALUES (?, ?)",
+                        i, VALUE_PRODUCER.apply(i));
+            }
         }
     }
 

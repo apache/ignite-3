@@ -18,9 +18,8 @@
 package org.apache.ignite.internal.sql.engine;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
-import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
@@ -33,29 +32,14 @@ import org.junit.jupiter.params.provider.EnumSource;
 public class ItJoinTest extends AbstractBasicIntegrationTest {
     @BeforeAll
     public static void beforeTestsStarted() {
-        createTable(
-                SchemaBuilders.tableBuilder("PUBLIC", "T1").columns(
-                        SchemaBuilders.column("ID", ColumnType.INT32).build(),
-                        SchemaBuilders.column("C1", ColumnType.INT32).build(),
-                        SchemaBuilders.column("C2", ColumnType.INT32).asNullable(true).build(),
-                        SchemaBuilders.column("C3", ColumnType.INT32).asNullable(true).build()
-                ).withPrimaryKey("ID")
-        );
-
-        createTable(
-                SchemaBuilders.tableBuilder("PUBLIC", "T2").columns(
-                        SchemaBuilders.column("ID", ColumnType.INT32).build(),
-                        SchemaBuilders.column("C1", ColumnType.INT32).build(),
-                        SchemaBuilders.column("C2", ColumnType.INT32).asNullable(true).build(),
-                        SchemaBuilders.column("C3", ColumnType.INT32).asNullable(true).build()
-                ).withPrimaryKey("ID")
-        );
+        sql("CREATE TABLE t1 (id INT PRIMARY KEY, c1 INT NOT NULL, c2 INT, c3 INT)");
+        sql("CREATE TABLE t2 (id INT PRIMARY KEY, c1 INT NOT NULL, c2 INT, c3 INT)");
 
         // TODO: support indexes. https://issues.apache.org/jira/browse/IGNITE-17304
         // sql("create index t1_idx on t1 (c3, c2, c1)");
         // sql("create index t2_idx on t2 (c3, c2, c1)");
 
-        insertData("PUBLIC.T1", new String[] {"ID", "C1", "C2", "C3"},
+        insertData("t1", List.of("ID", "C1", "C2", "C3"),
                 new Object[] {0, 1, 1, 1},
                 new Object[] {1, 2, null, 2},
                 new Object[] {2, 2, 2, 2},
@@ -64,7 +48,7 @@ public class ItJoinTest extends AbstractBasicIntegrationTest {
                 new Object[] {5, 4, 4, 4}
         );
 
-        insertData("PUBLIC.T2", new String[] {"ID", "C1", "C2", "C3"},
+        insertData("t2", List.of("ID", "C1", "C2", "C3"),
                 new Object[] {0, 1, 1, 1},
                 new Object[] {1, 2, 2, null},
                 new Object[] {2, 2, 2, 2},

@@ -334,7 +334,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         readFirst(queryProc.queryAsync("PUBLIC", newTblSql));
 
         assertTrue(tblManager.tables().stream().anyMatch(t -> t.name()
-                .equalsIgnoreCase("PUBLIC." + curMethodName)));
+                .equalsIgnoreCase(curMethodName)));
 
         String finalNewTblSql1 = newTblSql;
 
@@ -372,7 +372,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         readFirst(queryProc.queryAsync("PUBLIC", newTblSql));
 
         assertTrue(tblManager.tables().stream().anyMatch(t -> t.name()
-                .equalsIgnoreCase("PUBLIC." + curMethodName)));
+                .equalsIgnoreCase(curMethodName)));
     }
 
     /**
@@ -800,6 +800,6 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     }
 
     private @Nullable TableView tableView(String tableName) {
-        return tblsCfg.tables().value().get("PUBLIC." + tableName.toUpperCase());
+        return tblsCfg.tables().value().get(tableName.toUpperCase());
     }
 }

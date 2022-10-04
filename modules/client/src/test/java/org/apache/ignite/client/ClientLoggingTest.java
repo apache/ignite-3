@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.ResourceBundle;
 import java.util.function.Supplier;
 import org.apache.ignite.client.fakes.FakeIgnite;
+import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.LoggerFactory;
 import org.junit.jupiter.api.AfterEach;
@@ -52,7 +53,7 @@ public class ClientLoggingTest {
     @Test
     public void loggersSetToDifferentClientsNotInterfereWithEachOther() throws Exception {
         FakeIgnite ignite1 = new FakeIgnite();
-        ignite1.tables().createTable("t", c -> {});
+        ((FakeIgniteTables) ignite1.tables()).createTable("t");
 
         server = startServer(10950, ignite1);
 
@@ -71,7 +72,7 @@ public class ClientLoggingTest {
         server.close();
 
         FakeIgnite ignite2 = new FakeIgnite();
-        ignite2.tables().createTable("t2", c -> {});
+        ((FakeIgniteTables) ignite2.tables()).createTable("t2");
 
         server2 = startServer(10951, ignite2);
 

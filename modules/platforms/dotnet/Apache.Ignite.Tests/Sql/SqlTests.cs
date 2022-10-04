@@ -165,7 +165,7 @@ namespace Apache.Ignite.Tests.Sql
         [Test]
         public async Task TestPutSqlGetKv()
         {
-            var table = await Client.Tables.GetTableAsync("PUBLIC.TEST");
+            var table = await Client.Tables.GetTableAsync("TEST");
             var res = await table!.RecordBinaryView.GetAsync(null, new IgniteTuple { ["ID"] = 1 });
 
             Assert.AreEqual("s-1", res!["VAL"]);
@@ -250,7 +250,7 @@ namespace Apache.Ignite.Tests.Sql
             var ex = Assert.ThrowsAsync<TableAlreadyExistsException>(
                 async () => await Client.Sql.ExecuteAsync(null, "CREATE TABLE TEST(ID INT PRIMARY KEY)"));
 
-            StringAssert.EndsWith("Table already exists [name=PUBLIC.TEST]", ex!.Message);
+            StringAssert.EndsWith("Table already exists [name=\"PUBLIC\".\"TEST\"]", ex!.Message);
             StringAssert.StartsWith("IGN-TBL-1", ex.Message);
             StringAssert.StartsWith("IGN-TBL-1", ex.CodeAsString);
             StringAssert.StartsWith("TBL", ex.GroupName);
@@ -263,7 +263,7 @@ namespace Apache.Ignite.Tests.Sql
             var ex = Assert.ThrowsAsync<TableNotFoundException>(
                 async () => await Client.Sql.ExecuteAsync(null, "ALTER TABLE NOT_EXISTS_TABLE ADD COLUMN VAL1 VARCHAR"));
 
-            StringAssert.EndsWith("The table does not exist [name=PUBLIC.NOT_EXISTS_TABLE]", ex!.Message);
+            StringAssert.EndsWith("The table does not exist [name=\"PUBLIC\".\"NOT_EXISTS_TABLE\"]", ex!.Message);
             StringAssert.StartsWith("IGN-TBL-2", ex.Message);
             StringAssert.StartsWith("IGN-TBL-2", ex.CodeAsString);
             StringAssert.StartsWith("TBL", ex.GroupName);
@@ -276,7 +276,7 @@ namespace Apache.Ignite.Tests.Sql
             var ex = Assert.ThrowsAsync<ColumnAlreadyExistsException>(
                 async () => await Client.Sql.ExecuteAsync(null, "ALTER TABLE TEST ADD COLUMN ID INT"));
 
-            StringAssert.EndsWith("Column already exists [name=ID]", ex!.Message);
+            StringAssert.EndsWith("Column already exists [name=\"ID\"]", ex!.Message);
             StringAssert.StartsWith("IGN-TBL-3", ex.Message);
             StringAssert.StartsWith("IGN-TBL-3", ex.CodeAsString);
             StringAssert.StartsWith("TBL", ex.GroupName);

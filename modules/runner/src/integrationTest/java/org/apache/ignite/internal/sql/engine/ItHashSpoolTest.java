@@ -40,9 +40,9 @@ public class ItHashSpoolTest extends AbstractBasicIntegrationTest {
             LOG.info("Start cleanUp()");
         }
 
-        CLUSTER_NODES.get(0).tables().tables().stream()
-                .map(Table::name)
-                .forEach(CLUSTER_NODES.get(0).tables()::dropTable);
+        for (Table table : CLUSTER_NODES.get(0).tables().tables()) {
+            sql("DROP TABLE " + table.name());
+        }
 
         if (LOG.isInfoEnabled()) {
             LOG.info("End cleanUp()");

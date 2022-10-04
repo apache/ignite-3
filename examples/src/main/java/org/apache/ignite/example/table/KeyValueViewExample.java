@@ -94,7 +94,7 @@ public class KeyValueViewExample {
             //
             //--------------------------------------------------------------------------------------
 
-            KeyValueView<Tuple, Tuple> kvView = client.tables().table("PUBLIC.accounts").keyValueView();
+            KeyValueView<Tuple, Tuple> kvView = client.tables().table("accounts").keyValueView();
 
             //--------------------------------------------------------------------------------------
             //

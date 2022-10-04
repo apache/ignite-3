@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.exec.ddl;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.sql.engine.SqlQueryProcessor.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.lang.ErrorGroups.Sql.DEL_PK_COMUMN_CONSTRAINT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.UNSUPPORTED_DDL_OPERATION_ERR;
@@ -53,7 +54,6 @@ import org.apache.ignite.internal.schema.DecimalNativeType;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.NumberNativeType;
-import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.schema.TemporalNativeType;
 import org.apache.ignite.internal.schema.VarlenNativeType;
 import org.apache.ignite.internal.schema.configuration.ValueSerializationHelper;
@@ -73,7 +73,6 @@ import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.util.ArrayUtils;
-import org.apache.ignite.internal.util.IgniteObjectName;
 import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.lang.ColumnAlreadyExistsException;
 import org.apache.ignite.lang.ColumnNotFoundException;
@@ -169,24 +168,14 @@ public class DdlCommandHandler {
             }
         };
 
-        String fullName = SchemaUtils.canonicalName(
-                IgniteObjectName.quote(cmd.schemaName()),
-                IgniteObjectName.quote(cmd.tableName())
-        );
-
-        return tableManager.createTableAsync(fullName, tblChanger)
+        return tableManager.createTableAsync(cmd.tableName(), tblChanger)
                 .thenApply(Objects::nonNull)
                 .handle(handleTableModificationResult(cmd.ifTableExists()));
     }
 
     /** Handles drop table command. */
     private CompletableFuture<Boolean> handleDropTable(DropTableCommand cmd) {
-        String fullName = SchemaUtils.canonicalName(
-                IgniteObjectName.quote(cmd.schemaName()),
-                IgniteObjectName.quote(cmd.tableName())
-        );
-
-        return tableManager.dropTableAsync(fullName)
+        return tableManager.dropTableAsync(cmd.tableName())
                 .thenApply(v -> Boolean.TRUE)
                 .handle(handleTableModificationResult(cmd.ifTableExists()));
     }
@@ -197,12 +186,7 @@ public class DdlCommandHandler {
             return completedFuture(Boolean.FALSE);
         }
 
-        String fullName = SchemaUtils.canonicalName(
-                IgniteObjectName.quote(cmd.schemaName()),
-                IgniteObjectName.quote(cmd.tableName())
-        );
-
-        return addColumnInternal(fullName, cmd.columns(), cmd.ifColumnNotExists())
+        return addColumnInternal(cmd.tableName(), cmd.columns(), cmd.ifColumnNotExists())
                 .handle(handleTableModificationResult(cmd.ifTableExists()));
     }
 
@@ -212,12 +196,7 @@ public class DdlCommandHandler {
             return completedFuture(Boolean.FALSE);
         }
 
-        String fullName = SchemaUtils.canonicalName(
-                IgniteObjectName.quote(cmd.schemaName()),
-                IgniteObjectName.quote(cmd.tableName())
-        );
-
-        return dropColumnInternal(fullName, cmd.columns(), cmd.ifColumnExists())
+        return dropColumnInternal(cmd.tableName(), cmd.columns(), cmd.ifColumnExists())
                 .handle(handleTableModificationResult(cmd.ifTableExists()));
     }
 
@@ -379,46 +358,46 @@ public class DdlCommandHandler {
     /**
      * Drops a column(s) exceptional behavior depends on {@code colExist} flag.
      *
-     * @param fullName Table with schema name.
+     * @param tableName Table name.
      * @param colNames Columns definitions.
-     * @param ignoreColumnExistance Flag indicates exceptionally behavior in case of already existing column.
+     * @param ignoreColumnExistence Flag indicates exceptionally behavior in case of already existing column.
      * @return {@code true} if the full columns set is applied successfully. Otherwise, returns {@code false}.
      */
-    private CompletableFuture<Boolean> dropColumnInternal(String fullName, Set<String> colNames, boolean ignoreColumnExistance) {
+    private CompletableFuture<Boolean> dropColumnInternal(String tableName, Set<String> colNames, boolean ignoreColumnExistence) {
         AtomicBoolean ret = new AtomicBoolean(true);
 
         return tableManager.alterTableAsync(
-                        fullName,
-                        chng -> chng.changeColumns(cols -> {
-                            ret.set(true); // Reset state if closure have been restarted.
+                tableName,
+                chng -> chng.changeColumns(cols -> {
+                    ret.set(true); // Reset state if closure have been restarted.
 
-                            PrimaryKeyView priKey = chng.primaryKey();
+                    PrimaryKeyView priKey = chng.primaryKey();
 
-                            Map<String, String> colNamesToOrders = columnOrdersToNames(chng.columns());
+                    Map<String, String> colNamesToOrders = columnOrdersToNames(chng.columns());
 
-                            Set<String> colNames0 = new HashSet<>();
+                    Set<String> colNames0 = new HashSet<>();
 
-                            Set<String> primaryCols = Set.of(priKey.columns());
+                    Set<String> primaryCols = Set.of(priKey.columns());
 
-                            for (String colName : colNames) {
-                                if (!colNamesToOrders.containsKey(colName)) {
-                                    ret.set(false);
+                    for (String colName : colNames) {
+                        if (!colNamesToOrders.containsKey(colName)) {
+                            ret.set(false);
 
-                                    if (!ignoreColumnExistance) {
-                                        throw new ColumnNotFoundException(colName, fullName);
-                                    }
-                                } else {
-                                    colNames0.add(colName);
-                                }
-
-                                if (primaryCols.contains(colName)) {
-                                    throw new SqlException(DEL_PK_COMUMN_CONSTRAINT_ERR, IgniteStringFormatter
-                                            .format("Can`t delete column, belongs to primary key: [name={}]", colName));
-                                }
+                            if (!ignoreColumnExistence) {
+                                throw new ColumnNotFoundException(DEFAULT_SCHEMA_NAME, tableName, colName);
                             }
+                        } else {
+                            colNames0.add(colName);
+                        }
 
-                            colNames0.forEach(k -> cols.delete(colNamesToOrders.get(k)));
-                        }))
+                        if (primaryCols.contains(colName)) {
+                            throw new SqlException(DEL_PK_COMUMN_CONSTRAINT_ERR, IgniteStringFormatter
+                                    .format("Can`t delete column, belongs to primary key: [name={}]", colName));
+                        }
+                    }
+
+                    colNames0.forEach(k -> cols.delete(colNamesToOrders.get(k)));
+                }))
                 .thenApply(v -> ret.get());
     }
 

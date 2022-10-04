@@ -20,6 +20,7 @@ package org.apache.ignite.internal.inmemory;
 import static ca.seinesoftware.hamcrest.path.PathMatcher.exists;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.everyItem;
@@ -104,7 +105,7 @@ class ItRaftStorageVolatilityTest extends AbstractClusterIntegrationTest {
 
     private UUID testTableId(IgniteImpl ignite) {
         TableManager tables = (TableManager) ignite.tables();
-        return tables.tableImpl("PUBLIC." + TABLE_NAME).tableId();
+        return tables.tableImpl(TABLE_NAME).tableId();
     }
 
     @Test
@@ -227,7 +228,7 @@ class ItRaftStorageVolatilityTest extends AbstractClusterIntegrationTest {
                 SchemaBuilders.column("NAME", ColumnType.string()).asNullable(true).build()
         ).withPrimaryKey("ID").build();
 
-        node(0).tables().createTable(tableDef.canonicalName(), tableChange -> {
+        await(((TableManager) node(0).tables()).createTableAsync(tableName, tableChange -> {
             SchemaConfigurationConverter.convert(tableDef, tableChange)
                     .changePartitions(1)
                     .changeDataStorage(storageChange -> {
@@ -238,6 +239,6 @@ class ItRaftStorageVolatilityTest extends AbstractClusterIntegrationTest {
                             budgetChange.convert(EntryCountBudgetChange.class).changeEntriesCountLimit(1);
                         });
                     });
-        });
+        }));
     }
 }
