@@ -196,16 +196,7 @@ namespace Apache.Ignite.Internal.Proto
 
             foreach (var obj in arr)
             {
-                if (obj is string s)
-                {
-                    builder.AppendInt((int)ClientDataType.String);
-                    builder.AppendInt(0); // Scale
-                    builder.AppendString(s);
-                }
-                else
-                {
-                    throw new Exception("TODO");
-                }
+                builder.AppendObjectWithType(obj);
             }
 
             writer.Write(builder.Build().Span);

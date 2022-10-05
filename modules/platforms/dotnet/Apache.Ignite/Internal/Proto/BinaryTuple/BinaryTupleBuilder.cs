@@ -601,31 +601,39 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                 AppendInt(scale);
                 PutDecimal(scale, bits, scale);
             }
-
-            switch (colType)
+            else if (value is BigInteger bigInt)
             {
-                case ClientDataType.Number:
-                    AppendNumber((BigInteger)value);
-                    break;
-
-                case ClientDataType.Date:
-                    AppendDate((LocalDate)value);
-                    break;
-
-                case ClientDataType.Time:
-                    AppendTime((LocalTime)value);
-                    break;
-
-                case ClientDataType.DateTime:
-                    AppendDateTime((LocalDateTime)value);
-                    break;
-
-                case ClientDataType.Timestamp:
-                    AppendTimestamp((Instant)value);
-                    break;
-
-                default:
-                    throw new IgniteClientException(ErrorGroups.Client.Protocol, "Unsupported type: " + colType);
+                AppendInt((int)ClientDataType.Number);
+                AppendInt(0);
+                AppendNumber(bigInt);
+            }
+            else if (value is LocalDate localDate)
+            {
+                AppendInt((int)ClientDataType.Date);
+                AppendInt(0);
+                AppendDate(localDate);
+            }
+            else if (value is LocalTime localTime)
+            {
+                AppendInt((int)ClientDataType.Time);
+                AppendInt(0);
+                AppendTime(localTime);
+            }
+            else if (value is LocalDateTime localDateTime)
+            {
+                AppendInt((int)ClientDataType.DateTime);
+                AppendInt(0);
+                AppendDateTime(localDateTime);
+            }
+            else if (value is Instant instant)
+            {
+                AppendInt((int)ClientDataType.Timestamp);
+                AppendInt(0);
+                AppendTimestamp(instant);
+            }
+            else
+            {
+                throw new IgniteClientException(ErrorGroups.Client.Protocol, "Unsupported type: " + value.GetType());
             }
         }
 

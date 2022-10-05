@@ -163,6 +163,7 @@ namespace Apache.Ignite.Tests.Compute
         [Test]
         public async Task TestAllSupportedArgTypes()
         {
+            // TODO IGNITE-17777 support all types
             await Test(byte.MinValue);
             await Test(byte.MaxValue, -1);
             await Test(sbyte.MinValue);
