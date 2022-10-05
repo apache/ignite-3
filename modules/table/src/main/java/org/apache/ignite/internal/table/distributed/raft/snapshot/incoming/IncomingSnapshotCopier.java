@@ -38,7 +38,7 @@ import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
 /**
  * Snapshot copier implementation for partitions. Used to stream partition data from the leader to the local node.
  */
-public class RebalanceSnapshotCopier extends SnapshotCopier {
+public class IncomingSnapshotCopier extends SnapshotCopier {
     /** Messages factory. */
     private static final TableMessagesFactory MSG_FACTORY = new TableMessagesFactory();
 
@@ -65,7 +65,7 @@ public class RebalanceSnapshotCopier extends SnapshotCopier {
      * @param snapshotStorage Snapshot storage.
      * @param snapshotUri Snapshot URI.
      */
-    public RebalanceSnapshotCopier(PartitionSnapshotStorage snapshotStorage, SnapshotUri snapshotUri) {
+    public IncomingSnapshotCopier(PartitionSnapshotStorage snapshotStorage, SnapshotUri snapshotUri) {
         this.snapshotStorage = snapshotStorage;
         this.snapshotUri = snapshotUri;
     }
@@ -107,7 +107,7 @@ public class RebalanceSnapshotCopier extends SnapshotCopier {
     @Override
     public SnapshotReader getReader() {
         // This one's called when "join" is complete.
-        return new FinishedSnapshotReader(snapshotMeta);
+        return new IncomingSnapshotReader(snapshotMeta);
     }
 
     @Override

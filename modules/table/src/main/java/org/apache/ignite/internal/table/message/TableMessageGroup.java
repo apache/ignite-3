@@ -36,13 +36,18 @@ public interface TableMessageGroup {
     /** {@link SnapshotMetaResponse}. */
     int SNAPSHOT_META_RESPONSE = 11;
 
+    /** {@link SnapshotMvDataRequest}. */
     int SNAPSHOT_MV_DATA_REQUEST = 12;
 
+    /** {@link SnapshotMvDataResponse.SnapshotMvDataSingleResponse}. */
     int SNAPSHOT_MV_DATA_SINGLE_RESPONSE = 13;
 
+    /** {@link SnapshotMvDataResponse}. */
     int SNAPSHOT_MV_DATA_RESPONSE = 14;
 
+    /** {@link SnapshotTxDataRequest}. */
     int SNAPSHOT_TX_DATA_REQUEST = 15;
 
+    /** {@link SnapshotTxDataResponse}. */
     int SNAPSHOT_TX_DATA_RESPONSE = 16;
 }

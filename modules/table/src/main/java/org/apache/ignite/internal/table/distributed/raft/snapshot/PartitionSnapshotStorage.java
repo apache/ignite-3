@@ -19,7 +19,7 @@ package org.apache.ignite.internal.table.distributed.raft.snapshot;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
-import org.apache.ignite.internal.table.distributed.raft.snapshot.incoming.RebalanceSnapshotCopier;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.incoming.IncomingSnapshotCopier;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotReader;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.network.TopologyService;
@@ -137,7 +137,7 @@ public class PartitionSnapshotStorage implements SnapshotStorage {
     public SnapshotCopier startToCopyFrom(String uri, SnapshotCopierOptions opts) {
         SnapshotUri snapshotUri = SnapshotUri.fromStringUri(uri);
 
-        RebalanceSnapshotCopier copier = new RebalanceSnapshotCopier(this, snapshotUri);
+        IncomingSnapshotCopier copier = new IncomingSnapshotCopier(this, snapshotUri);
 
         copier.start();
 

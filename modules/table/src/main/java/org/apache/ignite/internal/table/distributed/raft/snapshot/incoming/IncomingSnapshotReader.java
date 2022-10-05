@@ -25,7 +25,7 @@ import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
 /**
  * Snapshot reader implementation to read the metadata of downloaded snapshot.
  */
-class FinishedSnapshotReader extends SnapshotReader {
+class IncomingSnapshotReader extends SnapshotReader {
     /** Snapshot meta. */
     private final SnapshotMeta snapshotMeta;
 
@@ -34,7 +34,7 @@ class FinishedSnapshotReader extends SnapshotReader {
      *
      * @param snapshotMeta Snapshot meta.
      */
-    FinishedSnapshotReader(SnapshotMeta snapshotMeta) {
+    IncomingSnapshotReader(SnapshotMeta snapshotMeta) {
         this.snapshotMeta = snapshotMeta;
     }
 
