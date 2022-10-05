@@ -55,6 +55,16 @@ public interface FlowBuilder<I, O>  {
     }
 
     /**
+     * Returns a {@link FlowBuilder} consisting of the results of replacing each element
+     * of this flow with the contents of a mapped flow produced
+     * by applying the provided mapping function to each element.
+     *
+     * @param mapper function to apply to each element which produces a flow of new values
+     * @return the new {@link FlowBuilder}
+     */
+    <OT> FlowBuilder<I, OT> flatMap(Function<O, FlowBuilder<O, OT>> mapper);
+
+    /**
      * Appends the flow to this builder if the result of the current flow matches the predicate.
      *
      * @param tester predicate to test
