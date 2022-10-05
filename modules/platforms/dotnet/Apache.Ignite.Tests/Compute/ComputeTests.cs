@@ -192,7 +192,7 @@ namespace Apache.Ignite.Tests.Compute
             await Test(BigInteger.Zero);
             await Test(BigInteger.MinusOne);
             await Test(new BigInteger(123456));
-            await Test(BigInteger.Pow(1234, 567));
+            await Test(BigInteger.Pow(1234, 56));
             await Test(Guid.Empty);
             await Test(Guid.NewGuid());
 

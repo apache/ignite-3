@@ -340,7 +340,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             {
                 var size = value.GetByteCount();
                 var destination = GetSpan(size);
-                var success = value.TryWriteBytes(destination, out int written);
+                var success = value.TryWriteBytes(destination, out int written, isBigEndian: true);
 
                 Debug.Assert(success, "success");
                 Debug.Assert(written == size, "written == size");

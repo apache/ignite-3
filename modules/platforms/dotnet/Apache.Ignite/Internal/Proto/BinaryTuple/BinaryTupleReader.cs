@@ -224,7 +224,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         public BigInteger GetNumber(int index) => Seek(index) switch
         {
             { IsEmpty: true } => default,
-            var s => new BigInteger(s)
+            var s => new BigInteger(s, isBigEndian: true)
         };
 
         /// <summary>
