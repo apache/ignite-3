@@ -64,7 +64,6 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -75,7 +74,10 @@ import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.ConfigurationProperty;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
-import org.apache.ignite.configuration.validation.ConfigurationValidationException;
+import org.apache.ignite.configuration.schemas.table.TableChange;
+import org.apache.ignite.configuration.schemas.table.TableConfiguration;
+import org.apache.ignite.configuration.schemas.table.TableView;
+import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.baseline.BaselineManager;
@@ -96,19 +98,9 @@ import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.storage.impl.LogStorageFactoryCreator;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
-import org.apache.ignite.internal.schema.SchemaUtils;
-import org.apache.ignite.internal.schema.configuration.ExtendedTableChange;
-import org.apache.ignite.internal.schema.configuration.ExtendedTableConfiguration;
-import org.apache.ignite.internal.schema.configuration.ExtendedTableView;
-import org.apache.ignite.internal.schema.configuration.TableChange;
-import org.apache.ignite.internal.schema.configuration.TableConfiguration;
-import org.apache.ignite.internal.schema.configuration.TableView;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.event.SchemaEvent;
 import org.apache.ignite.internal.schema.event.SchemaEventParameters;
-import org.apache.ignite.internal.schema.marshaller.schema.SchemaSerializerImpl;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
@@ -1127,8 +1119,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private CompletableFuture<Table> createTableAsyncInternal(String name, Consumer<TableChange> tableInitChange) {
         CompletableFuture<Table> tblFut = new CompletableFuture<>();
 
-        AtomicReference<byte[]> schemaSer = new AtomicReference<>();
-
         tableAsyncInternal(name).thenAccept(tbl -> {
             if (tbl != null) {
                 tblFut.completeExceptionally(new TableAlreadyExistsException(DEFAULT_SCHEMA_NAME, name));
@@ -1162,13 +1152,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 tableChange.partitions(),
                                 tableChange.replicas(),
                                 HashSet::new)));
-
-                        // Table schema preparation.
-                        final SchemaDescriptor schemaDesc = SchemaUtils.prepareSchemaDescriptor(INITIAL_SCHEMA_VERSION, tableChange);
-
-                        final byte[] serializedSchema = SchemaSerializerImpl.INSTANCE.serialize(schemaDesc);
-
-                        schemaSer.set(serializedSchema);
                     });
                 })).exceptionally(t -> {
                     Throwable ex = getRootCause(t);
@@ -1218,14 +1201,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private CompletableFuture<Void> alterTableAsyncInternal(String name, Consumer<TableChange> tableChange) {
         CompletableFuture<Void> tblFut = new CompletableFuture<>();
 
-        AtomicReference<SchemaDescriptor> newSchemaDesc = new AtomicReference<>();
-
         tableAsync(name).thenAccept(tbl -> {
             if (tbl == null) {
                 tblFut.completeExceptionally(new TableNotFoundException(DEFAULT_SCHEMA_NAME, name));
             } else {
-                TableImpl tblImpl = (TableImpl) tbl;
-
                 tablesCfg.tables().change(ch -> {
                     if (ch.get(name) == null) {
                         throw new TableNotFoundException(DEFAULT_SCHEMA_NAME, name);
@@ -1238,36 +1217,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                         int lastSchemaVer = latestSchemaVersion(metaStorageMgr, exTblChange.id());
 
-                        assert lastSchemaVer == exTblChange.schemaId() : "Different schema versions, expected=" + lastSchemaVer
-                                + " found=" + exTblChange.schemaId();
-
                         exTblChange.changeSchemaId(lastSchemaVer + 1);
-
-                        ExtendedTableView currTableView = (ExtendedTableView) tablesCfg.tables().get(name).value();
-
-                        //TODO IGNITE-15747 Remove try-catch and force configuration validation
-                        // here to ensure a valid configuration passed to prepareSchemaDescriptor() method.
-                        SchemaDescriptor schemaDesc = SchemaUtils.prepareSchemaDescriptor(lastSchemaVer + 1, tblCh);
-
-                        try {
-                            schemaDesc.columnMapping(SchemaUtils.columnMapper(
-                                    tblImpl.schemaView().schema(lastSchemaVer),
-                                    currTableView.columns(),
-                                    schemaDesc,
-                                    tblCh.columns()));
-                        } catch (IllegalArgumentException ex) {
-                            // Convert unexpected exceptions here,
-                            // because validation actually happens later,
-                            // when bulk configuration update is applied.
-                            ConfigurationValidationException e =
-                                    new ConfigurationValidationException(ex.getMessage());
-
-                            e.addSuppressed(ex);
-
-                            throw e;
-                        }
-
-                        newSchemaDesc.set(schemaDesc);
                     });
                 }).whenComplete((res, t) -> {
                     if (t != null) {

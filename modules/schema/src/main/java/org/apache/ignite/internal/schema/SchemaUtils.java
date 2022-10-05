@@ -71,10 +71,6 @@ public class SchemaUtils {
     ) {
         ColumnMapper mapper = null;
 
-        // since newTblColumns comes from a Change class, it can only be of the same size or larger than the previous configuration,
-        // because removed keys are simply replaced with nulls
-        assert newTblColumns.size() >= oldTblColumns.size();
-
         for (int i = 0; i < newTblColumns.size(); ++i) {
             ColumnView newColView = newTblColumns.get(i);
 
