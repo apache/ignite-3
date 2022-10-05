@@ -306,7 +306,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
         ByteBufferRow row = rowVersionToBinaryRow(rowVersion);
 
-        if (!keyFilter.test(row)) {
+        if (keyFilter != null && !keyFilter.test(row)) {
             return null;
         }
 
@@ -464,16 +464,6 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         } while (curCommit != null);
 
         return ReadResult.EMPTY;
-    }
-
-    @Deprecated
-    @Override
-    public RowId insert(BinaryRow row, UUID txId) throws StorageException {
-        RowId rowId = new RowId(partitionId);
-
-        addWrite(rowId, row, txId, UUID.randomUUID(), 0);
-
-        return rowId;
     }
 
     private RowVersion insertRowVersion(@Nullable BinaryRow row, long nextPartitionlessLink) {

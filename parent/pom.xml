@@ -348,6 +348,12 @@
 
             <dependency>
                 <groupId>org.apache.ignite</groupId>
+                <artifactId>ignite-replicator</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.ignite</groupId>
                 <artifactId>ignite-raft</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -739,6 +745,13 @@
             <dependency>
                 <groupId>org.apache.ignite</groupId>
                 <artifactId>ignite-schema</artifactId>
+                <version>${project.version}</version>
+                <type>test-jar</type>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.ignite</groupId>
+                <artifactId>ignite-transactions</artifactId>
                 <version>${project.version}</version>
                 <type>test-jar</type>
             </dependency>

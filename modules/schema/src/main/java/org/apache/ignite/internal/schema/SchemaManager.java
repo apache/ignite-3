@@ -75,7 +75,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
-    /** Prevents double stopping the component. */
+    /** Prevents double stopping of the component. */
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
     /** Tables configuration. */

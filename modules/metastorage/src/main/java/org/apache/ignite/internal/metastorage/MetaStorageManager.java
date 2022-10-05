@@ -136,7 +136,7 @@ public class MetaStorageManager implements IgniteComponent {
      */
     private volatile boolean isInitialized = false;
 
-    /** Prevents double stopping the component. */
+    /** Prevents double stopping of the component. */
     private final AtomicBoolean isStopped = new AtomicBoolean();
 
     /**

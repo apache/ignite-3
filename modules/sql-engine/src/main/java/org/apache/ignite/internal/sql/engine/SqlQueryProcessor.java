@@ -404,7 +404,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
                                 // Transactional DDL is not supported as well as RO transactions, hence
                                 // only DML requiring RW transaction is covered
-                                boolean implicitTxRequired = plan.type() == Type.DML && outerTx == null;
+                                boolean implicitTxRequired = (plan.type() == Type.DML || plan.type() == Type.QUERY) && outerTx == null;
                                 InternalTransaction implicitTx = implicitTxRequired ? txManager.begin() : null;
 
                                 BaseQueryContext enrichedContext =

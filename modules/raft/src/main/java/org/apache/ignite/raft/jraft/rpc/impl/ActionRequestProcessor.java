@@ -19,9 +19,7 @@ package org.apache.ignite.raft.jraft.rpc.impl;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
-import java.util.function.BiFunction;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
@@ -72,34 +70,10 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
             return;
         }
 
-        JraftServerImpl.DelegatingStateMachine fsm = (JraftServerImpl.DelegatingStateMachine) node.getOptions().getFsm();
-
-        // Apply a filter before commiting to STM.
-        CompletableFuture<Void> fut = fsm.getListener().onBeforeApply(request.command());
-
-        if (fut != null) {
-            fut.handle(new BiFunction<Void, Throwable, Void>() {
-                @Override
-                public Void apply(Void ignored, Throwable err) {
-                    if (err == null) {
-                        if (request.command() instanceof WriteCommand) {
-                            applyWrite(node, request, rpcCtx);
-                        } else {
-                            applyRead(node, request, rpcCtx);
-                        }
-                    } else {
-                        sendSMError(rpcCtx, err, false);
-                    }
-
-                    return null;
-                }
-            });
+        if (request.command() instanceof WriteCommand) {
+            applyWrite(node, request, rpcCtx);
         } else {
-            if (request.command() instanceof WriteCommand) {
-                applyWrite(node, request, rpcCtx);
-            } else {
-                applyRead(node, request, rpcCtx);
-            }
+            applyRead(node, request, rpcCtx);
         }
     }
 

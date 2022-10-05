@@ -314,23 +314,6 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     }
 
     /** {@inheritDoc} */
-    @Deprecated
-    @Override
-    public RowId insert(BinaryRow row, UUID txId) throws StorageException {
-        RowId rowId = new RowId(partitionId);
-
-        ByteBuffer keyBuf = prepareHeapKeyBuf(rowId);
-
-        try {
-            writeUnversioned(keyBuf.array(), row, txId, UUID.randomUUID(), partitionId);
-        } catch (RocksDBException e) {
-            throw new StorageException("Failed to insert new row into storage", e);
-        }
-
-        return rowId;
-    }
-
-    /** {@inheritDoc} */
     @Override
     public @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, UUID commitTableId, int commitPartitionId)
             throws TxIdMismatchException, StorageException {
@@ -807,7 +790,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
                     BinaryRow binaryRow = wrapValueIntoBinaryRow(valueBytes, isWriteIntent);
 
-                    if (binaryRow != null && keyFilter.test(binaryRow)) {
+                    if (binaryRow != null && (keyFilter == null || keyFilter.test(binaryRow))) {
                         if (isWriteIntent) {
                             validateTxId(valueBytes, txId);
                         }
