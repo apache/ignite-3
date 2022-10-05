@@ -170,8 +170,6 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     /** {@inheritDoc} */
     @Override
     public boolean compareAndSet(UUID txId, TxState txStateExpected, TxMeta txMeta, long commandIndex) {
-        System.out.println("!!! CAS rocksDB expected: " + txStateExpected + " txMetaToSet :" + txMeta);
-
         requireNonNull(txMeta);
 
         if (!busyLock.enterBusy()) {
@@ -188,8 +186,6 @@ public class TxStateRocksDbStorage implements TxStateStorage {
             if (txMetaExistingBytes == null && txStateExpected == null) {
                 writeBatch.put(txIdBytes, toBytes(txMeta));
 
-                System.out.println(">>> 1");
-
                 result = true;
             } else {
                 if (txMetaExistingBytes != null) {
@@ -198,23 +194,13 @@ public class TxStateRocksDbStorage implements TxStateStorage {
                     if (txMetaExisting.txState() == txStateExpected) {
                         writeBatch.put(txIdBytes, toBytes(txMeta));
 
-                        System.out.println(">>> 2");
-
-                        result = true;
-                    } else if (txMetaExisting.txState() == txMeta.txState() && ((txMetaExisting.commitTimestamp() == null && txMeta.commitTimestamp() == null) || txMetaExisting.commitTimestamp().equals(txMeta.commitTimestamp()))) {
-
-                        System.out.println(">>> 3");
-
                         result = true;
                     } else {
-
-                        System.out.println(">>> 4: txExistingMeta: " + txMetaExisting + " equality: " + txMetaExisting.equals(txMeta) + " :::: existingGroups:  " + String.join(", ", txMetaExisting.enlistedPartitions()) + " :::::: txMetaToSet: " + String.join(", ", txMeta.enlistedPartitions()) );
-
-                        result = false;
+                        result = txMetaExisting.txState() == txMeta.txState() && (
+                                (txMetaExisting.commitTimestamp() == null && txMeta.commitTimestamp() == null)
+                                        || txMetaExisting.commitTimestamp().equals(txMeta.commitTimestamp()));
                     }
                 } else {
-                    System.out.println(">>> 5");
-
                     result = false;
                 }
             }
