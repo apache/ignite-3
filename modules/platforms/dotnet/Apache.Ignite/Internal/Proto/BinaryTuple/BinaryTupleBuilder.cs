@@ -320,30 +320,16 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="scale">Decimal scale from schema.</param>
         public void AppendDecimal(decimal value, int scale)
         {
+            if (value == decimal.Zero)
+            {
+                OnWrite();
+                return;
+            }
+
             Span<int> bits = stackalloc int[4];
-            decimal.GetBits(value, bits);
-            var valueScale = (bits[3] & 0x00FF0000) >> 16;
+            var valueScale = GetDecimalBitsAndScale(value, bits);
 
-            var bytes = MemoryMarshal.Cast<int, byte>(bits[..3]);
-            var unscaledValue = new BigInteger(bytes);
-
-            if (scale > valueScale)
-            {
-                unscaledValue *= BigInteger.Pow(new BigInteger(10), scale - valueScale);
-            }
-            else if (scale < valueScale)
-            {
-                unscaledValue /= BigInteger.Pow(new BigInteger(10), valueScale - scale);
-            }
-
-            var size = unscaledValue.GetByteCount();
-            var destination = GetSpan(size);
-            var success = unscaledValue.TryWriteBytes(destination, out int written);
-
-            Debug.Assert(success, "success");
-            Debug.Assert(written == size, "written == size");
-
-            OnWrite();
+            PutDecimal(scale, bits, valueScale);
         }
 
         /// <summary>
@@ -536,6 +522,114 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         }
 
         /// <summary>
+        /// Appends an object.
+        /// </summary>
+        /// <param name="value">Value.</param>
+        public void AppendObjectWithType(object? value)
+        {
+            if (value == null)
+            {
+                AppendNull();
+            }
+            else if (value is sbyte i8)
+            {
+                AppendInt((int)ClientDataType.Int8);
+                AppendInt(0);
+                AppendByte(i8);
+            }
+            else if (value is short i16)
+            {
+                AppendInt((int)ClientDataType.Int16);
+                AppendInt(0);
+                AppendShort(i16);
+            }
+            else if (value is int i32)
+            {
+                AppendInt((int)ClientDataType.Int32);
+                AppendInt(0);
+                AppendInt(i32);
+            }
+            else if (value is long i64)
+            {
+                AppendInt((int)ClientDataType.Int64);
+                AppendInt(0);
+                AppendLong(i64);
+            }
+            else if (value is float f32)
+            {
+                AppendInt((int)ClientDataType.Float);
+                AppendInt(0);
+                AppendFloat(f32);
+            }
+            else if (value is double f64)
+            {
+                AppendInt((int)ClientDataType.Double);
+                AppendInt(0);
+                AppendDouble(f64);
+            }
+            else if (value is Guid uuid)
+            {
+                AppendInt((int)ClientDataType.Uuid);
+                AppendInt(0);
+                AppendGuid(uuid);
+            }
+            else if (value is string str)
+            {
+                AppendInt((int)ClientDataType.String);
+                AppendInt(0);
+                AppendString(str);
+            }
+            else if (value is byte[] bytes)
+            {
+                AppendInt((int)ClientDataType.Bytes);
+                AppendInt(0);
+                AppendBytes(bytes);
+            }
+            else if (value is BitArray bitArray)
+            {
+                AppendInt((int)ClientDataType.BitMask);
+                AppendInt(0);
+                AppendBitmask(bitArray);
+            }
+            else if (value is decimal dec)
+            {
+                AppendInt((int)ClientDataType.Decimal);
+
+                Span<int> bits = stackalloc int[4];
+                var scale = GetDecimalBitsAndScale(dec, bits);
+
+                AppendInt(scale);
+                PutDecimal(scale, bits, scale);
+            }
+
+            switch (colType)
+            {
+                case ClientDataType.Number:
+                    AppendNumber((BigInteger)value);
+                    break;
+
+                case ClientDataType.Date:
+                    AppendDate((LocalDate)value);
+                    break;
+
+                case ClientDataType.Time:
+                    AppendTime((LocalTime)value);
+                    break;
+
+                case ClientDataType.DateTime:
+                    AppendDateTime((LocalDateTime)value);
+                    break;
+
+                case ClientDataType.Timestamp:
+                    AppendTimestamp((Instant)value);
+                    break;
+
+                default:
+                    throw new IgniteClientException(ErrorGroups.Client.Protocol, "Unsupported type: " + colType);
+            }
+        }
+
+        /// <summary>
         /// Builds the tuple.
         /// <para />
         /// NOTE: This should be called only once as it messes up with accumulated internal data.
@@ -616,6 +710,37 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         public void Dispose()
         {
             _buffer.Dispose();
+        }
+
+        private static int GetDecimalBitsAndScale(decimal value, Span<int> bits)
+        {
+            decimal.GetBits(value, bits);
+
+            return (bits[3] & 0x00FF0000) >> 16;
+        }
+
+        private void PutDecimal(int scale, Span<int> bits, int valueScale)
+        {
+            var bytes = MemoryMarshal.Cast<int, byte>(bits[..3]);
+            var unscaledValue = new BigInteger(bytes);
+
+            if (scale > valueScale)
+            {
+                unscaledValue *= BigInteger.Pow(new BigInteger(10), scale - valueScale);
+            }
+            else if (scale < valueScale)
+            {
+                unscaledValue /= BigInteger.Pow(new BigInteger(10), valueScale - scale);
+            }
+
+            var size = unscaledValue.GetByteCount();
+            var destination = GetSpan(size);
+            var success = unscaledValue.TryWriteBytes(destination, out int written);
+
+            Debug.Assert(success, "success");
+            Debug.Assert(written == size, "written == size");
+
+            OnWrite();
         }
 
         private void PutByte(sbyte value) => _buffer.WriteByte(unchecked((byte)value));
