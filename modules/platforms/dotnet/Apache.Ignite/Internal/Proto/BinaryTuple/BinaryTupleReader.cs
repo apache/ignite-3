@@ -149,7 +149,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         public Guid GetGuid(int index) => Seek(index) switch
         {
             { IsEmpty: true } => default,
-            var s => UuidSerializer.ReadLittleEndian(s)
+            var s => UuidSerializer.Read(s)
         };
 
         /// <summary>

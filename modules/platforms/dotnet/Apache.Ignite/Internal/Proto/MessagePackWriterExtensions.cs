@@ -41,7 +41,7 @@ namespace Apache.Ignite.Internal.Proto
 
             var jBytes = writer.GetSpan(16);
 
-            UuidSerializer.WriteBigEndian(guid, jBytes);
+            UuidSerializer.Write(guid, jBytes);
 
             writer.Advance(16);
         }

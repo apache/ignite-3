@@ -146,7 +146,7 @@ namespace Apache.Ignite.Internal.Proto
 
             Debug.Assert(jBytes.Length == guidSize, "jBytes.Length == 16");
 
-            return UuidSerializer.ReadBigEndian(jBytes);
+            return UuidSerializer.Read(jBytes);
         }
 
         /// <summary>

@@ -285,7 +285,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         {
             if (value != default)
             {
-                UuidSerializer.WriteLittleEndian(value, GetSpan(16));
+                UuidSerializer.Write(value, GetSpan(16));
             }
 
             OnWrite();
