@@ -65,7 +65,7 @@ public class ItClusterInitTest extends IgniteAbstractTest {
         // init is idempotent
         IgnitionManager.init(nodeName, List.of(nodeName), "cluster");
 
-        // TODO: remove 'waitForCondition' after https://issues.apache.org/jira/browse/IGNITE-16811 is fixed
+        // TODO: remove 'waitForCondition' after https://issues.apache.org/jira/browse/IGNITE-17814 is fixed
         assertTrue(
                 waitForCondition(() -> {
                     // init should fail if the list of nodes is different

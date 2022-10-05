@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "common/types.h"
+#include "../common/types.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -27,7 +27,7 @@ namespace ignite {
 /**
  * @brief A helper to work with binary tuple header.
  */
-struct BinaryTupleHeader {
+struct binary_tuple_header {
     /** Header size in bytes. */
     static constexpr std::size_t SIZE = 1;
 
@@ -41,7 +41,7 @@ struct BinaryTupleHeader {
     std::byte flags{0};
 
     /** Encodes size as bit mask. */
-    static constexpr unsigned int sizeToFlags(SizeT size) noexcept {
+    static constexpr unsigned int size_to_flags(SizeT size) noexcept {
         if (size <= UINT8_MAX) {
             return 0b00;
         } else if (size <= UINT16_MAX) {
@@ -51,22 +51,22 @@ struct BinaryTupleHeader {
         }
     }
 
-    /** Sets the size of varlen-table entries. */
-    unsigned int setVarLenEntrySize(SizeT varlenAreaSize) noexcept {
-        const unsigned sizeLog2 = sizeToFlags(varlenAreaSize);
+    /** Sets the size of offset-table entries based on the value area size. */
+    unsigned int set_entry_size(SizeT value_area_size) noexcept {
+        const unsigned size_log2 = size_to_flags(value_area_size);
         flags &= ~VARLEN_ENTRY_SIZE_MASK;
-        flags |= std::byte(sizeLog2);
-        return 1u << sizeLog2;
+        flags |= std::byte(size_log2);
+        return 1u << size_log2;
     }
 
-    /** Gets the size of a single varlen-table entry, in bytes. */
-    SizeT getVarLenEntrySize() const noexcept { return 1u << static_cast<unsigned>(flags & VARLEN_ENTRY_SIZE_MASK); }
+    /** Gets the size of a single offset-table entry, in bytes. */
+    SizeT get_entry_size() const noexcept { return 1u << static_cast<unsigned>(flags & VARLEN_ENTRY_SIZE_MASK); }
 
     /** Sets the nullmap flag on. */
-    void setNullMapFlag() noexcept { flags |= NULLMAP_FLAG; }
+    void set_nullmap_flag() noexcept { flags |= NULLMAP_FLAG; }
 
     /** Gets the nullmap flag value. */
-    bool getNullMapFlag() const noexcept { return (flags & NULLMAP_FLAG) != std::byte{0}; }
+    bool get_nullmap_flag() const noexcept { return (flags & NULLMAP_FLAG) != std::byte{0}; }
 };
 
 } // namespace ignite

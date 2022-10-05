@@ -693,7 +693,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * @param testInfo Test information object.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16811")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17814")
     public void testTwoNodesRestartReverse(TestInfo testInfo) {
         twoNodesRestart(testInfo, false);
     }
