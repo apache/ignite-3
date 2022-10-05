@@ -933,31 +933,31 @@ public class ClientMessagePacker implements AutoCloseable {
     private static void appendObjectToBinaryTuple(BinaryTupleBuilder builder, Object arg) {
         if (arg == null) {
             builder.appendNull();
-            builder.appendNull();
+            builder.appendInt(0);
             builder.appendNull();
         } else if (arg instanceof Byte) {
             builder.appendInt(ClientDataType.INT8);
-            builder.appendNull();
+            builder.appendInt(0);
             builder.appendByte((Byte) arg);
         } else if (arg instanceof Short) {
             builder.appendInt(ClientDataType.INT16);
-            builder.appendNull();
+            builder.appendInt(0);
             builder.appendShort((Short) arg);
         } else if (arg instanceof Integer) {
             builder.appendInt(ClientDataType.INT32);
-            builder.appendNull();
+            builder.appendInt(0);
             builder.appendInt((Integer) arg);
         } else if (arg instanceof Long) {
             builder.appendInt(ClientDataType.INT64);
-            builder.appendNull();
+            builder.appendInt(0);
             builder.appendLong((Long) arg);
         } else if (arg instanceof Float) {
             builder.appendInt(ClientDataType.FLOAT);
-            builder.appendNull();
+            builder.appendInt(0);
             builder.appendFloat((Float) arg);
         } else if (arg instanceof Double) {
             builder.appendInt(ClientDataType.DOUBLE);
-            builder.appendNull();
+            builder.appendInt(0);
             builder.appendDouble((Double) arg);
         } else if (arg instanceof BigDecimal) {
             BigDecimal bigDecimal = (BigDecimal) arg;
@@ -967,51 +967,51 @@ public class ClientMessagePacker implements AutoCloseable {
             builder.appendDecimal(bigDecimal, bigDecimal.scale());
         } else if (arg instanceof UUID) {
             builder.appendInt(ClientDataType.UUID);
-            builder.appendNull();
+            builder.appendInt(0);
             builder.appendUuid((UUID) arg);
         } else if (arg instanceof String) {
             builder.appendInt(ClientDataType.STRING);
-            builder.appendNull();
+            builder.appendInt(0);
             builder.appendString((String) arg);
         } else if (arg instanceof byte[]) {
             builder.appendInt(ClientDataType.BYTES);
-            builder.appendNull();
+            builder.appendInt(0);
             builder.appendBytes((byte[]) arg);
         } else if (arg instanceof BitSet) {
             builder.appendInt(ClientDataType.BITMASK);
-            builder.appendNull();
+            builder.appendInt(0);
             builder.appendBitmask((BitSet) arg);
         } else if (arg instanceof LocalDate) {
             builder.appendInt(ClientDataType.DATE);
-            builder.appendNull();
+            builder.appendInt(0);
             builder.appendDate((LocalDate) arg);
         } else if (arg instanceof LocalTime) {
             builder.appendInt(ClientDataType.TIME);
-            builder.appendNull();
+            builder.appendInt(0);
             builder.appendTime((LocalTime) arg);
         } else if (arg instanceof LocalDateTime) {
             builder.appendInt(ClientDataType.DATETIME);
-            builder.appendNull();
+            builder.appendInt(0);
             builder.appendDateTime((LocalDateTime) arg);
         } else if (arg instanceof Instant) {
             builder.appendInt(ClientDataType.TIMESTAMP);
-            builder.appendNull();
+            builder.appendInt(0);
             builder.appendTimestamp((Instant) arg);
         } else if (arg instanceof BigInteger) {
             builder.appendInt(ClientDataType.NUMBER);
-            builder.appendNull();
+            builder.appendInt(0);
             builder.appendNumber((BigInteger) arg);
         } else if (arg instanceof Boolean) {
             builder.appendInt(ClientDataType.BOOLEAN);
-            builder.appendNull();
+            builder.appendInt(0);
             builder.appendByte((byte) ((Boolean) arg ? 1 : 0));
         } else if (arg instanceof Duration) {
             builder.appendInt(ClientDataType.DURATION);
-            builder.appendNull();
+            builder.appendInt(0);
             builder.appendDuration((Duration) arg);
         } else if (arg instanceof Period) {
             builder.appendInt(ClientDataType.PERIOD);
-            builder.appendNull();
+            builder.appendInt(0);
             builder.appendPeriod((Period) arg);
         }
     }

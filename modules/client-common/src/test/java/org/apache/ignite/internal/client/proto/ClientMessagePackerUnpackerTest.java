@@ -49,6 +49,11 @@ public class ClientMessagePackerUnpackerTest {
     /** Random. */
     private final Random rnd = new Random();
 
+    /** Args of all types. */
+    private final Object[] argsAllTypes = new Object[]{(byte) 4, (short) 8, 15, 16L, 23.0f, 42.0d, "TEST_STRING", null, UUID.randomUUID(),
+            LocalTime.now(), LocalDate.now(), LocalDateTime.now(), Instant.now(), Period.of(1, 2, 3),
+            Duration.of(1, ChronoUnit.DAYS)};
+
     @Test
     public void testPackerCloseReleasesPooledBuffer() {
         var buf = PooledByteBufAllocator.DEFAULT.directBuffer();
@@ -310,11 +315,7 @@ public class ClientMessagePackerUnpackerTest {
     @Test
     public void testObjectArrayAsBinaryTuple() {
         try (var packer = new ClientMessagePacker(PooledByteBufAllocator.DEFAULT.directBuffer())) {
-            Object[] args = new Object[]{(byte) 4, (short) 8, 15, 16L, 23.0f, 42.0d, "TEST_STRING", null, UUID.randomUUID(),
-                    LocalTime.now(), LocalDate.now(), LocalDateTime.now(), Instant.now(), Period.of(1, 2, 3),
-                    Duration.of(1, ChronoUnit.DAYS)};
-
-            packer.packObjectArrayAsBinaryTuple(args);
+            packer.packObjectArrayAsBinaryTuple(argsAllTypes);
             packer.packObjectArrayAsBinaryTuple(null);
             packer.packObjectArrayAsBinaryTuple(new Object[0]);
 
@@ -325,9 +326,28 @@ public class ClientMessagePackerUnpackerTest {
                 Object[] res2 = unpacker.unpackObjectArrayFromBinaryTuple();
                 Object[] res3 = unpacker.unpackObjectArrayFromBinaryTuple();
 
-                assertArrayEquals(args, res1);
+                assertArrayEquals(argsAllTypes, res1);
                 assertNull(res2);
                 assertEquals(0, res3.length);
+            }
+        }
+    }
+
+    @Test
+    public void testObjectAsBinaryTuple() {
+        try (var packer = new ClientMessagePacker(PooledByteBufAllocator.DEFAULT.directBuffer())) {
+            for (Object arg : argsAllTypes) {
+                packer.packObjectAsBinaryTuple(arg);
+            }
+
+            byte[] data = ByteBufUtil.getBytes(packer.getBuffer());
+
+            try (var unpacker = new ClientMessageUnpacker(Unpooled.wrappedBuffer(data, 4, data.length - 4))) {
+                for (Object arg : argsAllTypes) {
+                    var res = unpacker.unpackObjectFromBinaryTuple();
+
+                    assertEquals(arg, res);
+                }
             }
         }
     }
