@@ -34,13 +34,13 @@ Parameters:
 * `tableName` - name of the table. Can be schema-qualified.
 * `tableColumn` - name and type of a column to be created in the new table.
 * `IF NOT EXISTS` - create the table only if a table with the same name does not exist.
-* `ENGINE` - selects the storage engine to use. Currently `pagememory` and `rocksdb` are available.
+* `ENGINE` - selects the storage engine to use. Currently `aipersist`, `aimem` and `rocksdb` are available.
 * `COLOCATED BY` - colocation key. The key can be composite. Primary key must include colocation key. Was `affinity_key` in Ignite 2.x.
 * `WITH` - accepts the following additional parameters:
 
 ** `Replicas` - sets the number of partition copies, including the master copy.
 ** `Partitions` - sets the number of table partitions.
-** Other parameters, depending on the databalse engine.
+** Other parameters, depending on the database engine.
 
 image::images/svg/create_table_bnf1.svg[Embedded,opts=inline]
 image::images/svg/create_table_bnf2.svg[Embedded,opts=inline]
