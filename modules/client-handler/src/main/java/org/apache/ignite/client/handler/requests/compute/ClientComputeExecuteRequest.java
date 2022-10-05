@@ -58,7 +58,7 @@ public class ClientComputeExecuteRequest {
 
         Object[] args = unpackArgs(in);
 
-        return compute.execute(Set.of(node), jobClassName, args).thenAccept(out::packObjectWithType);
+        return compute.execute(Set.of(node), jobClassName, args).thenAccept(out::packObjectAsBinaryTuple);
     }
 
     /**

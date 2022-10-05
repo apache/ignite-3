@@ -184,8 +184,7 @@ public class ClientCompute implements IgniteCompute {
             w.out().packString(jobClassName);
             w.out().packObjectArrayAsBinaryTuple(args);
 
-            // TODO: IGNITE-17777 use BinaryTuple
-        }, r -> (R) r.in().unpackObjectWithType(), node.name(), null);
+        }, r -> (R) r.in().unpackObjectFromBinaryTuple(), node.name(), null);
     }
 
     private ClusterNode randomNode(Set<ClusterNode> nodes) {
@@ -223,8 +222,7 @@ public class ClientCompute implements IgniteCompute {
                     w.packObjectArrayAsBinaryTuple(args);
                 },
 
-                // TODO: IGNITE-17777 use BinaryTuple
-                r -> (R) r.unpackObjectWithType());
+                r -> (R) r.unpackObjectFromBinaryTuple());
     }
 
     private <R> CompletableFuture<R> executeColocatedTupleKey(
@@ -246,8 +244,7 @@ public class ClientCompute implements IgniteCompute {
                     w.packObjectArrayAsBinaryTuple(args);
                 },
 
-                // TODO: IGNITE-17777 use BinaryTuple
-                r -> (R) r.unpackObjectWithType());
+                r -> (R) r.unpackObjectFromBinaryTuple());
     }
 
     private CompletableFuture<ClientTable> getTable(String tableName) {

@@ -51,7 +51,6 @@ public class ClientComputeExecuteColocatedRequest {
         String jobClassName = in.unpackString();
         Object[] args = unpackArgs(in);
 
-        // TODO: IGNITE-17777 use BinaryTuple
-        return compute.executeColocated(table.name(), keyTuple, jobClassName, args).thenAccept(out::packObjectWithType);
+        return compute.executeColocated(table.name(), keyTuple, jobClassName, args).thenAccept(out::packObjectAsBinaryTuple);
     }
 }
