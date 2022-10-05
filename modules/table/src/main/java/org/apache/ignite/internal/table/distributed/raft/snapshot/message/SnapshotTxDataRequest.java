@@ -15,17 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.message;
+package org.apache.ignite.internal.table.distributed.raft.snapshot.message;
 
-import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.network.annotations.Transferable;
-import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 
 /**
- * Snapshot meta response message.
+ * Snapshot TX state partition data request message.
  */
-@Transferable(TableMessageGroup.SNAPSHOT_META_RESPONSE)
-public interface SnapshotMetaResponse extends NetworkMessage {
-    /** Snapshot meta. */
-    SnapshotMeta meta();
+@Transferable(TableMessageGroup.SNAPSHOT_TX_DATA_REQUEST)
+public interface SnapshotTxDataRequest extends SnapshotRequestMessage {
 }

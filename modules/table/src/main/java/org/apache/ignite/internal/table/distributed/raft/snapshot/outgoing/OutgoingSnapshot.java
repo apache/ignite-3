@@ -18,12 +18,12 @@
 package org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.table.message.SnapshotMetaRequest;
-import org.apache.ignite.internal.table.message.SnapshotMetaResponse;
-import org.apache.ignite.internal.table.message.SnapshotMvDataRequest;
-import org.apache.ignite.internal.table.message.SnapshotMvDataResponse;
-import org.apache.ignite.internal.table.message.SnapshotTxDataRequest;
-import org.apache.ignite.internal.table.message.SnapshotTxDataResponse;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMetaRequest;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMetaResponse;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMvDataRequest;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMvDataResponse;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotTxDataRequest;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotTxDataResponse;
 
 /**
  * Outgoing snapshot.

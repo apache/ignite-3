@@ -15,10 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.message;
+package org.apache.ignite.internal.table.distributed.raft.snapshot.message;
 
 import java.util.List;
 import java.util.UUID;
+import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Marshallable;

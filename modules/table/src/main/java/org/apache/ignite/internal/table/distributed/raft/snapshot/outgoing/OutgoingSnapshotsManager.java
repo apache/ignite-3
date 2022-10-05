@@ -24,11 +24,11 @@ import java.util.concurrent.ConcurrentMap;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.table.message.SnapshotMetaRequest;
-import org.apache.ignite.internal.table.message.SnapshotMvDataRequest;
-import org.apache.ignite.internal.table.message.SnapshotRequestMessage;
-import org.apache.ignite.internal.table.message.SnapshotTxDataRequest;
-import org.apache.ignite.internal.table.message.TableMessageGroup;
+import org.apache.ignite.internal.table.distributed.TableMessageGroup;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMetaRequest;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMvDataRequest;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotRequestMessage;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotTxDataRequest;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
@@ -120,29 +120,19 @@ public class OutgoingSnapshotsManager implements IgniteComponent {
             NetworkMessage networkMessage,
             OutgoingSnapshot outgoingSnapshot
     ) {
-        CompletableFuture<? extends NetworkMessage> responseFuture;
-
         switch (networkMessage.messageType()) {
             case TableMessageGroup.SNAPSHOT_META_REQUEST:
-                responseFuture = outgoingSnapshot.handleSnapshotMetaRequest((SnapshotMetaRequest) networkMessage);
-
-                break;
+                return outgoingSnapshot.handleSnapshotMetaRequest((SnapshotMetaRequest) networkMessage);
 
             case TableMessageGroup.SNAPSHOT_MV_DATA_REQUEST:
-                responseFuture = outgoingSnapshot.handleSnapshotMvDataRequest((SnapshotMvDataRequest) networkMessage);
-
-                break;
+                return outgoingSnapshot.handleSnapshotMvDataRequest((SnapshotMvDataRequest) networkMessage);
 
             case TableMessageGroup.SNAPSHOT_TX_DATA_REQUEST:
-                responseFuture = outgoingSnapshot.handleSnapshotTxDataRequest((SnapshotTxDataRequest) networkMessage);
-
-                break;
+                return outgoingSnapshot.handleSnapshotTxDataRequest((SnapshotTxDataRequest) networkMessage);
 
             default:
                 return null;
         }
-
-        return responseFuture;
     }
 
     private CompletableFuture<Void> respond(

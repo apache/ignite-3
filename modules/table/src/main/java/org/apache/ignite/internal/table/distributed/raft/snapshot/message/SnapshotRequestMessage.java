@@ -15,13 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.message;
+package org.apache.ignite.internal.table.distributed.raft.snapshot.message;
 
-import org.apache.ignite.network.annotations.Transferable;
+import java.util.UUID;
+import org.apache.ignite.network.NetworkMessage;
 
 /**
- * Snapshot meta request message.
+ * Base interface for snapshot request messages.
  */
-@Transferable(TableMessageGroup.SNAPSHOT_META_REQUEST)
-public interface SnapshotMetaRequest extends SnapshotRequestMessage {
+public interface SnapshotRequestMessage extends NetworkMessage {
+    /** Snapshot id. */
+    UUID id();
 }
