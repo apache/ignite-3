@@ -421,9 +421,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     @Override
     public @Nullable RowId closestRowId(RowId lowerBound) throws StorageException {
-        Entry<RowId, VersionChain> mapEntry = map.tailMap(lowerBound).firstEntry();
-
-        return mapEntry == null ? null : mapEntry.getKey();
+        return map.ceilingKey(lowerBound);
     }
 
     /** {@inheritDoc} */

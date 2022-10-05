@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.message;
 
+import org.apache.ignite.internal.table.message.SnapshotMvDataResponse.ResponseEntry;
 import org.apache.ignite.network.annotations.MessageGroup;
 
 /**
@@ -39,8 +40,8 @@ public interface TableMessageGroup {
     /** {@link SnapshotMvDataRequest}. */
     int SNAPSHOT_MV_DATA_REQUEST = 12;
 
-    /** {@link SnapshotMvDataResponse.SnapshotMvDataSingleResponse}. */
-    int SNAPSHOT_MV_DATA_SINGLE_RESPONSE = 13;
+    /** {@link ResponseEntry}. */
+    int SNAPSHOT_MV_DATA_RESPONSE_ENTRY = 13;
 
     /** {@link SnapshotMvDataResponse}. */
     int SNAPSHOT_MV_DATA_RESPONSE = 14;

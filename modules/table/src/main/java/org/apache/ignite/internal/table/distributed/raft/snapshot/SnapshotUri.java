@@ -61,7 +61,7 @@ public class SnapshotUri {
      * @param snapshotId Snapshot id.
      * @param nodeName Sender node name.
      */
-    public SnapshotUri(UUID snapshotId, String nodeName) {
+    private SnapshotUri(UUID snapshotId, String nodeName) {
         this.snapshotId = snapshotId;
         this.nodeName = nodeName;
     }

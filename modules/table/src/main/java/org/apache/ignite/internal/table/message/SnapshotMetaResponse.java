@@ -26,5 +26,6 @@ import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
  */
 @Transferable(TableMessageGroup.SNAPSHOT_META_RESPONSE)
 public interface SnapshotMetaResponse extends NetworkMessage {
+    /** Snapshot meta. */
     SnapshotMeta meta();
 }

@@ -29,11 +29,14 @@ import org.apache.ignite.network.annotations.Transferable;
  */
 @Transferable(TableMessageGroup.SNAPSHOT_TX_DATA_RESPONSE)
 public interface SnapshotTxDataResponse extends NetworkMessage {
+    /** List of transaction ids in the response. */
     @Marshallable
     List<UUID> txIds();
 
+    /** List of transaction metas in the response. */
     @Marshallable
     List<TxMeta> txMeta();
 
+    /** Flag that indicates whether this is the last response or not. */
     boolean finish();
 }

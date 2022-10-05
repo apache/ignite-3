@@ -24,5 +24,6 @@ import org.apache.ignite.network.NetworkMessage;
  * Base interface for snapshot request messages.
  */
 public interface SnapshotRequestMessage extends NetworkMessage {
+    /** Snapshot id. */
     UUID id();
 }

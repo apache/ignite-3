@@ -72,20 +72,24 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
 
     @Override
     public void cancel() {
-        //TODO Implement.
+        //TODO https://issues.apache.org/jira/browse/IGNITE-17262
+        // Implement.
     }
 
     @Override
     public void join() throws InterruptedException {
-        //TODO Implement proper join.
+        //TODO https://issues.apache.org/jira/browse/IGNITE-17262
+        // Implement proper join.
         threadPool.awaitTermination(1, TimeUnit.SECONDS);
     }
 
     @Override
     public void start() {
-        ClusterNode sourceNode = snapshotStorage.topologyService.getByConsistentId(snapshotUri.nodeName);
+        //TODO https://issues.apache.org/jira/browse/IGNITE-17262
+        // What if node can't be resolved?
+        ClusterNode sourceNode = snapshotStorage.topologyService().getByConsistentId(snapshotUri.nodeName);
 
-        MessagingService messagingService = snapshotStorage.outgoingSnapshotsManager.messagingService();
+        MessagingService messagingService = snapshotStorage.outgoingSnapshotsManager().messagingService();
 
         threadPool.submit(() -> {
             //TODO https://issues.apache.org/jira/browse/IGNITE-17262
@@ -96,11 +100,11 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
                     1000L
             );
 
-            metaRequestFuture.whenCompleteAsync((networkMessage, throwable) -> {
+            metaRequestFuture.whenComplete((networkMessage, throwable) -> {
                 SnapshotMetaResponse metaResponse = (SnapshotMetaResponse) networkMessage;
 
                 snapshotMeta = metaResponse.meta();
-            }, threadPool);
+            });
         });
     }
 

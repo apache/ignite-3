@@ -41,25 +41,26 @@ import org.jetbrains.annotations.Nullable;
 @SuppressWarnings("PublicField")
 public class PartitionSnapshotStorage implements SnapshotStorage {
     /** Topology service. */
-    public final TopologyService topologyService;
+    private final TopologyService topologyService;
 
     /** Snapshot manager. */
-    public final OutgoingSnapshotsManager outgoingSnapshotsManager;
+    private final OutgoingSnapshotsManager outgoingSnapshotsManager;
 
     /** Snapshot URI. Points to a snapshot folder. Never created on physical storage. */
-    public final String snapshotUri;
+    private final String snapshotUri;
 
     /** Raft options. */
-    public final RaftOptions raftOptions;
+    private final RaftOptions raftOptions;
 
     /** Instance of partition. */
-    public final PartitionAccess partition;
+    private final PartitionAccess partition;
 
-    /** Snapshot meta, constructed from the storage data and reaft group configuration. */
-    public final SnapshotMeta snapshotMeta;
+    /** Snapshot meta, constructed from the storage data and raft group configuration. */
+    private final SnapshotMeta snapshotMeta;
 
     /** Snapshot throttle instance. */
-    public @Nullable SnapshotThrottle snapshotThrottle;
+    @Nullable
+    private SnapshotThrottle snapshotThrottle;
 
     /** Flag indicating that startup snapshot has been opened. */
     private final AtomicBoolean startupSnapshotOpened = new AtomicBoolean();
@@ -88,6 +89,41 @@ public class PartitionSnapshotStorage implements SnapshotStorage {
         this.raftOptions = raftOptions;
         this.partition = partition;
         this.snapshotMeta = snapshotMeta;
+    }
+
+    /**
+     * Returns a topology service.
+     */
+    public TopologyService topologyService() {
+        return topologyService;
+    }
+
+    /**
+     * Returns an outgoing snapshots manager.
+     */
+    public OutgoingSnapshotsManager outgoingSnapshotsManager() {
+        return outgoingSnapshotsManager;
+    }
+
+    /**
+     * Returns a snapshot URI. Points to a snapshot folder. Never created on physical storage.
+     */
+    public String snapshotUri() {
+        return snapshotUri;
+    }
+
+    /**
+     * Returns a partition.
+     */
+    public PartitionAccess partition() {
+        return partition;
+    }
+
+    /**
+     * Returns a snapshot meta, constructed from the storage data and raft group configuration.
+     */
+    public SnapshotMeta startupSnapshotMeta() {
+        return snapshotMeta;
     }
 
     /** {@inheritDoc} */

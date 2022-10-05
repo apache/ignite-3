@@ -66,7 +66,7 @@ class IncomingSnapshotReader extends SnapshotReader {
 
     @Override
     public String getPath() {
-        throw new UnsupportedOperationException("No path for the rebalance snapshot.");
+        throw new UnsupportedOperationException("No path for the rebalance snapshot");
     }
 
     @Override
@@ -77,6 +77,6 @@ class IncomingSnapshotReader extends SnapshotReader {
 
     @Override
     public Message getFileMeta(String fileName) {
-        throw new UnsupportedOperationException("No files in the snapshot.");
+        throw new UnsupportedOperationException("No files in the snapshot");
     }
 }

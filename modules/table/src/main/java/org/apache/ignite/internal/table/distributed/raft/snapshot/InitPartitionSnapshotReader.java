@@ -42,13 +42,13 @@ class InitPartitionSnapshotReader extends SnapshotReader {
     /** {@inheritDoc} */
     @Override
     public SnapshotMeta load() {
-        return snapshotStorage.snapshotMeta;
+        return snapshotStorage.startupSnapshotMeta();
     }
 
     /** {@inheritDoc} */
     @Override
     public String getPath() {
-        return snapshotStorage.snapshotUri;
+        return snapshotStorage.snapshotUri();
     }
 
     /** {@inheritDoc} */
@@ -61,13 +61,13 @@ class InitPartitionSnapshotReader extends SnapshotReader {
     /** {@inheritDoc} */
     @Override
     public Message getFileMeta(String fileName) {
-        throw new UnsupportedOperationException("No files in the snapshot.");
+        throw new UnsupportedOperationException("No files in the snapshot");
     }
 
     /** {@inheritDoc} */
     @Override
     public String generateURIForCopy() {
-        throw new UnsupportedOperationException("Can't copy a startup snapshot.");
+        throw new UnsupportedOperationException("Can't copy a startup snapshot");
     }
 
     /** {@inheritDoc} */

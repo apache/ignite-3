@@ -48,15 +48,15 @@ public class OutgoingSnapshotReader extends SnapshotReader {
         this.snapshotStorage = snapshotStorage;
 
         snapshotMeta = new RaftMessagesFactory().snapshotMeta()
-                .lastIncludedIndex(snapshotStorage.partition.persistedIndex())
-                .lastIncludedTerm(snapshotStorage.snapshotMeta.lastIncludedTerm())
-                .peersList(snapshotStorage.snapshotMeta.peersList())
-                .learnersList(snapshotStorage.snapshotMeta.learnersList())
+                .lastIncludedIndex(snapshotStorage.partition().persistedIndex())
+                .lastIncludedTerm(snapshotStorage.startupSnapshotMeta().lastIncludedTerm())
+                .peersList(snapshotStorage.startupSnapshotMeta().peersList())
+                .learnersList(snapshotStorage.startupSnapshotMeta().learnersList())
                 .build();
 
         OutgoingSnapshot outgoingSnapshot = new OutgoingSnapshot();
 
-        snapshotStorage.outgoingSnapshotsManager.startOutgoingSnapshot(id, outgoingSnapshot);
+        snapshotStorage.outgoingSnapshotsManager().registerOutgoingSnapshot(id, outgoingSnapshot);
     }
 
     @Override
@@ -66,14 +66,14 @@ public class OutgoingSnapshotReader extends SnapshotReader {
 
     @Override
     public String generateURIForCopy() {
-        String localNodeName = snapshotStorage.topologyService.localMember().name();
+        String localNodeName = snapshotStorage.topologyService().localMember().name();
 
         return SnapshotUri.toStringUri(id, localNodeName);
     }
 
     @Override
     public void close() throws IOException {
-        snapshotStorage.outgoingSnapshotsManager.stopOutgoingSnapshot(id);
+        snapshotStorage.outgoingSnapshotsManager().finishOutgoingSnapshot(id);
     }
 
     @Override
@@ -89,7 +89,7 @@ public class OutgoingSnapshotReader extends SnapshotReader {
 
     @Override
     public String getPath() {
-        throw new UnsupportedOperationException("No path for the rebalance snapshot.");
+        throw new UnsupportedOperationException("No path for the rebalance snapshot");
     }
 
     @Override
@@ -100,6 +100,6 @@ public class OutgoingSnapshotReader extends SnapshotReader {
 
     @Override
     public Message getFileMeta(String fileName) {
-        throw new UnsupportedOperationException("No files in the snapshot.");
+        throw new UnsupportedOperationException("No files in the snapshot");
     }
 }

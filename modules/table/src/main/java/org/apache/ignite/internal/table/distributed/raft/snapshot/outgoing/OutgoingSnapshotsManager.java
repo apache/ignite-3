@@ -35,7 +35,7 @@ import org.apache.ignite.network.NetworkMessage;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Outgoing snapshots manager.
+ * Outgoing snapshots manager. Manages a collection of all ougoing snapshots, currently present on the Ignite node.
  */
 public class OutgoingSnapshotsManager implements IgniteComponent {
     /** Logger. */
@@ -57,7 +57,7 @@ public class OutgoingSnapshotsManager implements IgniteComponent {
     }
 
     /**
-     * Returns a messagins service.
+     * Returns a messaging service.
      */
     public MessagingService messagingService() {
         return messagingService;
@@ -78,7 +78,7 @@ public class OutgoingSnapshotsManager implements IgniteComponent {
      * @param snapshotId Snapshot id.
      * @param outgoingSnapshot Outgoing snapshot.
      */
-    void startOutgoingSnapshot(UUID snapshotId, OutgoingSnapshot outgoingSnapshot) {
+    void registerOutgoingSnapshot(UUID snapshotId, OutgoingSnapshot outgoingSnapshot) {
         outgoingSnapshots.put(snapshotId, outgoingSnapshot);
     }
 
@@ -87,7 +87,7 @@ public class OutgoingSnapshotsManager implements IgniteComponent {
      *
      * @param snapshotId Snapshot id.
      */
-    void stopOutgoingSnapshot(UUID snapshotId) {
+    void finishOutgoingSnapshot(UUID snapshotId) {
         outgoingSnapshots.remove(snapshotId);
     }
 
@@ -103,12 +103,23 @@ public class OutgoingSnapshotsManager implements IgniteComponent {
 
         if (outgoingSnapshot == null) {
             if (LOG.isWarnEnabled()) {
-                LOG.warn("Unexpected snapshot request message has been received [message={}]", networkMessage.toString());
+                LOG.warn("Unexpected snapshot request message has been received [message={}]", networkMessage);
             }
 
             return;
         }
 
+        CompletableFuture<? extends NetworkMessage> responseFuture = handleSnapshotRequestMessage(networkMessage, outgoingSnapshot);
+
+        if (responseFuture != null) {
+            responseFuture.whenComplete((response, throwable) -> respond(response, throwable, sender, correlationId));
+        }
+    }
+
+    private static @Nullable CompletableFuture<? extends NetworkMessage> handleSnapshotRequestMessage(
+            NetworkMessage networkMessage,
+            OutgoingSnapshot outgoingSnapshot
+    ) {
         CompletableFuture<? extends NetworkMessage> responseFuture;
 
         switch (networkMessage.messageType()) {
@@ -128,10 +139,10 @@ public class OutgoingSnapshotsManager implements IgniteComponent {
                 break;
 
             default:
-                return;
+                return null;
         }
 
-        responseFuture.whenComplete((response, throwable) -> respond(response, throwable, sender, correlationId));
+        return responseFuture;
     }
 
     private CompletableFuture<Void> respond(
@@ -140,6 +151,7 @@ public class OutgoingSnapshotsManager implements IgniteComponent {
             NetworkAddress sender,
             Long correlationId
     ) {
+        //TODO Handle offline sender and stopped manager.
         return messagingService.respond(sender, response, correlationId);
     }
 }

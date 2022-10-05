@@ -22,6 +22,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.hlc.HybridTimestamp;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
@@ -32,27 +33,39 @@ import org.jetbrains.annotations.Nullable;
  */
 @Transferable(TableMessageGroup.SNAPSHOT_MV_DATA_RESPONSE)
 public interface SnapshotMvDataResponse extends NetworkMessage {
-    Collection<SnapshotMvDataSingleResponse> rows();
+    /** List of version chains. */
+    Collection<ResponseEntry> rows();
 
+    /** Flag that indicates whether this is the last response or not. */
     boolean finish();
 
     /**
      * Single row response as a message.
      */
-    @Transferable(TableMessageGroup.SNAPSHOT_MV_DATA_SINGLE_RESPONSE)
-    interface SnapshotMvDataSingleResponse extends NetworkMessage {
+    @SuppressWarnings("PublicInnerClass")
+    @Transferable(TableMessageGroup.SNAPSHOT_MV_DATA_RESPONSE_ENTRY)
+    interface ResponseEntry extends NetworkMessage {
+        /** Individual row id. */
+        UUID rowId();
+
+        /** List of {@link BinaryRow}s for a given {@link #rowId()} */
         @Marshallable
         List<ByteBuffer> rowVersions();
 
+        /**
+         * List of commit timestamps for all committed versions. Might be smaller than {@link #rowVersions()} if there's a write-intent
+         * in the chain.
+         */
         @Marshallable
         List<HybridTimestamp> timestamps();
 
-        UUID rowId();
-
+        /** Transaction id for write-intent if it's present. */
         @Nullable UUID txId();
 
+        /** Commit table id for write-intent if it's present. */
         @Nullable UUID commitTableId();
 
+        /** Commit partition id for write-intent if it's present. {@code -1} otherwise. */
         int commitPartitionId();
     }
 }
