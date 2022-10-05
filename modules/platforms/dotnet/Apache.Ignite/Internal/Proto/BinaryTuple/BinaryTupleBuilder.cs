@@ -326,10 +326,9 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                 return;
             }
 
-            Span<int> bits = stackalloc int[4];
-            var valueScale = GetDecimalBitsAndScale(value, bits);
+            var (unscaledValue, valueScale) = DeconstructDecimal(value);
 
-            PutDecimal(scale, bits, valueScale);
+            PutDecimal(scale, unscaledValue, valueScale);
         }
 
         /// <summary>
@@ -595,11 +594,10 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             {
                 AppendInt((int)ClientDataType.Decimal);
 
-                Span<int> bits = stackalloc int[4];
-                var scale = GetDecimalBitsAndScale(dec, bits);
+                var (unscaled, scale) = DeconstructDecimal(dec);
 
                 AppendInt(scale);
-                PutDecimal(scale, bits, scale);
+                PutDecimal(scale, unscaled, scale);
             }
             else if (value is BigInteger bigInt)
             {
@@ -720,18 +718,19 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             _buffer.Dispose();
         }
 
-        private static int GetDecimalBitsAndScale(decimal value, Span<int> bits)
+        private static (BigInteger Unscaled, int Scale) DeconstructDecimal(decimal value)
         {
+            Span<int> bits = stackalloc int[4];
             decimal.GetBits(value, bits);
 
-            return (bits[3] & 0x00FF0000) >> 16;
+            var scale = (bits[3] & 0x00FF0000) >> 16;
+            var bytes = MemoryMarshal.Cast<int, byte>(bits[..3]);
+
+            return (new BigInteger(bytes), scale);
         }
 
-        private void PutDecimal(int scale, Span<int> bits, int valueScale)
+        private void PutDecimal(int scale, BigInteger unscaledValue, int valueScale)
         {
-            var bytes = MemoryMarshal.Cast<int, byte>(bits[..3]);
-            var unscaledValue = new BigInteger(bytes);
-
             if (scale > valueScale)
             {
                 unscaledValue *= BigInteger.Pow(new BigInteger(10), scale - valueScale);
