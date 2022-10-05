@@ -27,10 +27,13 @@ import io.netty.buffer.PooledByteBufAllocator;
 import io.netty.buffer.Unpooled;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.Period;
+import java.time.temporal.ChronoUnit;
 import java.util.BitSet;
 import java.util.Random;
 import java.util.UUID;
@@ -297,6 +300,28 @@ public class ClientMessagePackerUnpackerTest {
             try (var unpacker = new ClientMessageUnpacker(Unpooled.wrappedBuffer(data))) {
                 unpacker.skipValues(4);
                 Object[] res = unpacker.unpackObjectArray();
+                assertArrayEquals(args, res);
+            }
+        }
+    }
+
+    @Test
+    public void testObjectArrayAsBinaryTuple() {
+        try (var packer = new ClientMessagePacker(PooledByteBufAllocator.DEFAULT.directBuffer())) {
+            Object[] args = new Object[]{(byte) 4, (short) 8, 15, 16L, 23.0f, 42.0d, "TEST_STRING", null, UUID.randomUUID(),
+                    LocalTime.now(), LocalDate.now(), LocalDateTime.now(), Instant.now(), Period.of(1, 2, 3),
+                    Duration.of(1, ChronoUnit.DAYS)};
+
+            packer.packObjectArrayAsBinaryTuple(args);
+
+            var buf = packer.getBuffer();
+
+            byte[] data = new byte[buf.readableBytes()];
+
+            buf.readBytes(data);
+
+            try (var unpacker = new ClientMessageUnpacker(Unpooled.wrappedBuffer(data, 4, data.length - 4))) {
+                Object[] res = unpacker.unpackObjectArrayFromBinaryTuple();
                 assertArrayEquals(args, res);
             }
         }
