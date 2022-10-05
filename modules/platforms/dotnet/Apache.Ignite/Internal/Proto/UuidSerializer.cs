@@ -32,20 +32,25 @@ namespace Apache.Ignite.Internal.Proto
         /// </summary>
         /// <param name="guid">Guid.</param>
         /// <param name="span">Target span.</param>
-        public static void Write(Guid guid, Span<byte> span)
+        public static void WriteBigEndian(Guid guid, Span<byte> span)
         {
-            var written = guid.TryWriteBytes(span);
+            var written = guid.TryWriteBytes(span); // Always little-endian.
             Debug.Assert(written, "written");
 
-            // Reverse endianness of the first part.
-            var a = BinaryPrimitives.ReverseEndianness(MemoryMarshal.Read<int>(span));
-            MemoryMarshal.Write(span, ref a);
+            span[..4].Reverse();
+            span[4..6].Reverse();
+            span[6..8].Reverse();
+        }
 
-            var b = BinaryPrimitives.ReverseEndianness(MemoryMarshal.Read<short>(span[4..]));
-            MemoryMarshal.Write(span[4..], ref b);
-
-            var c = BinaryPrimitives.ReverseEndianness(MemoryMarshal.Read<short>(span[6..]));
-            MemoryMarshal.Write(span[6..], ref c);
+        /// <summary>
+        /// Writes Guid as Java UUID.
+        /// </summary>
+        /// <param name="guid">Guid.</param>
+        /// <param name="span">Target span.</param>
+        public static void WriteLittleEndian(Guid guid, Span<byte> span)
+        {
+            var written = guid.TryWriteBytes(span); // Always little-endian.
+            Debug.Assert(written, "written");
         }
 
         /// <summary>
@@ -53,22 +58,23 @@ namespace Apache.Ignite.Internal.Proto
         /// </summary>
         /// <param name="span">Span.</param>
         /// <returns>Guid.</returns>
-        public static Guid Read(ReadOnlySpan<byte> span)
+        public static Guid ReadBigEndian(ReadOnlySpan<byte> span)
         {
-            // Hoist bounds checks.
-            var k = span[15];
-            var a = BinaryPrimitives.ReverseEndianness(MemoryMarshal.Read<int>(span));
-            var b = BinaryPrimitives.ReverseEndianness(MemoryMarshal.Read<short>(span[4..]));
-            var c = BinaryPrimitives.ReverseEndianness(MemoryMarshal.Read<short>(span[6..]));
-            var d = span[8];
-            var e = span[9];
-            var f = span[10];
-            var g = span[11];
-            var h = span[12];
-            var i = span[13];
-            var j = span[14];
+            Span<byte> leSpan = stackalloc byte[16];
+            span.CopyTo(leSpan);
 
-            return new Guid(a, b, c, d, e, f, g, h, i, j, k);
+            leSpan[..4].Reverse();
+            leSpan[4..6].Reverse();
+            leSpan[6..8].Reverse();
+
+            return new Guid(leSpan);
         }
+
+        /// <summary>
+        /// Reads Java UUID as Guid.
+        /// </summary>
+        /// <param name="span">Span.</param>
+        /// <returns>Guid.</returns>
+        public static Guid ReadLittleEndian(ReadOnlySpan<byte> span) => new(span);
     }
 }
