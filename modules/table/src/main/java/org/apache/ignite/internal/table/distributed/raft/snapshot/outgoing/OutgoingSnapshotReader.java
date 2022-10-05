@@ -47,6 +47,7 @@ public class OutgoingSnapshotReader extends SnapshotReader {
     public OutgoingSnapshotReader(PartitionSnapshotStorage snapshotStorage) {
         this.snapshotStorage = snapshotStorage;
 
+        //TODO This meta is wrong, we need a right one.
         snapshotMeta = new RaftMessagesFactory().snapshotMeta()
                 .lastIncludedIndex(snapshotStorage.partition().persistedIndex())
                 .lastIncludedTerm(snapshotStorage.startupSnapshotMeta().lastIncludedTerm())

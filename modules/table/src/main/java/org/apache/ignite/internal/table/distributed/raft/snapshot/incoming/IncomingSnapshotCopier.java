@@ -21,7 +21,6 @@ import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionSnapshotStorage;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.SnapshotUri;
@@ -80,7 +79,6 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
     public void join() throws InterruptedException {
         //TODO https://issues.apache.org/jira/browse/IGNITE-17262
         // Implement proper join.
-        threadPool.awaitTermination(1, TimeUnit.SECONDS);
     }
 
     @Override

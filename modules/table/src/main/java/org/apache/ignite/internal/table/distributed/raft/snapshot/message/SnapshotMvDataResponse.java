@@ -49,7 +49,7 @@ public interface SnapshotMvDataResponse extends NetworkMessage {
         /** Individual row id. */
         UUID rowId();
 
-        /** List of {@link BinaryRow}s for a given {@link #rowId()}ю */
+        /** List of {@link BinaryRow}s for a given {@link #rowId()}. */
         @Marshallable
         List<ByteBuffer> rowVersions();
 

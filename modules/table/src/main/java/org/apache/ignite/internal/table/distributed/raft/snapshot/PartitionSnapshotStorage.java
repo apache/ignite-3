@@ -39,7 +39,6 @@ import org.jetbrains.annotations.Nullable;
  *
  * @see PartitionSnapshotStorageFactory
  */
-@SuppressWarnings("PublicField")
 public class PartitionSnapshotStorage implements SnapshotStorage {
     /** Topology service. */
     private final TopologyService topologyService;
