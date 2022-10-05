@@ -19,6 +19,7 @@ package org.apache.ignite.internal.metrics;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -56,7 +57,7 @@ public class ThreadPoolMetricTest {
 
         exec.submit(() -> {}).get(1, TimeUnit.SECONDS);
 
-        waitForCondition(() -> completedTaskCount.value() > 0, 10, TimeUnit.SECONDS.toMillis(1));
+        assertTrue(waitForCondition(() -> completedTaskCount.value() > 0, 10, TimeUnit.SECONDS.toMillis(1)));
 
         // ------------------------------------------------------------------------
 
