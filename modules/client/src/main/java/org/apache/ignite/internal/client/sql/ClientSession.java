@@ -273,7 +273,7 @@ public class ClientSession implements Session {
         if (props != null) {
             for (Entry<String, Object> entry : props.entrySet()) {
                 w.out().packString(entry.getKey());
-                w.out().packObjectWithType(entry.getValue());
+                w.out().packObjectAsBinaryTuple(entry.getValue());
             }
         }
 
@@ -281,7 +281,7 @@ public class ClientSession implements Session {
             for (Entry<String, Object> entry : properties.entrySet()) {
                 if (props == null || !props.containsKey(entry.getKey())) {
                     w.out().packString(entry.getKey());
-                    w.out().packObjectWithType(entry.getValue());
+                    w.out().packObjectAsBinaryTuple(entry.getValue());
                 }
             }
         }
