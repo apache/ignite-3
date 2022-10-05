@@ -320,10 +320,11 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="scale">Decimal scale from schema.</param>
         public void AppendDecimal(decimal value, int scale)
         {
-            var bits = decimal.GetBits(value);
+            Span<int> bits = stackalloc int[4];
+            decimal.GetBits(value, bits);
             var valueScale = (bits[3] & 0x00FF0000) >> 16;
 
-            var bytes = MemoryMarshal.Cast<int, byte>(bits.AsSpan(0, 3));
+            var bytes = MemoryMarshal.Cast<int, byte>(bits[..3]);
             var unscaledValue = new BigInteger(bytes);
 
             if (scale > valueScale)
