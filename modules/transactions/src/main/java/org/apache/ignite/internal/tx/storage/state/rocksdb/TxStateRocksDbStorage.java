@@ -28,6 +28,7 @@ import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_S
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -207,12 +208,12 @@ public class TxStateRocksDbStorage implements TxStateStorage {
                         result = true;
                     } else {
 
-                        System.out.println(">>> 4: txExistingMeta: " + txMetaExisting + " equality: " + txMetaExisting.equals(txMeta));
+                        System.out.println(">>> 4: txExistingMeta: " + txMetaExisting + " equality: " + txMetaExisting.equals(txMeta) + " :::: existingGroups:  " + String.join(", ", txMetaExisting.enlistedPartitions()) + " :::::: txMetaToSet: " + String.join(", ", txMeta.enlistedPartitions()) );
 
                         result = false;
                     }
                 } else {
-                    System.out.println(">>> 4");
+                    System.out.println(">>> 5");
 
                     result = false;
                 }
