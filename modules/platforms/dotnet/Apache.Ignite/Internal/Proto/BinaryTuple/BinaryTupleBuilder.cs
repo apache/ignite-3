@@ -724,9 +724,12 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             decimal.GetBits(value, bits);
 
             var scale = (bits[3] & 0x00FF0000) >> 16;
-            var bytes = MemoryMarshal.Cast<int, byte>(bits[..3]);
+            var sign = bits[3] >> 31;
 
-            return (new BigInteger(bytes), scale);
+            var bytes = MemoryMarshal.Cast<int, byte>(bits[..3]);
+            var unscaled = new BigInteger(bytes, true);
+
+            return (sign < 0 ? -unscaled : unscaled, scale);
         }
 
         private void PutDecimal(int scale, BigInteger unscaledValue, int valueScale)
