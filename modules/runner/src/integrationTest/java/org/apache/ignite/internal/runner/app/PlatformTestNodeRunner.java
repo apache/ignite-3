@@ -61,7 +61,8 @@ public class PlatformTestNodeRunner {
     /** Nodes bootstrap configuration. */
     private static final Map<String, String> nodesBootstrapCfg = Map.of(
             NODE_NAME, "{\n"
-                    + "  \"clientConnector\":{\"port\": 10942,\"portRange\":10,\"idleTimeout\":1000,\"sendServerExceptionStackTraceToClient\":true},"
+                    + "  \"clientConnector\":{\"port\": 10942,\"portRange\":10,\"idleTimeout\":1000,\""
+                    + "sendServerExceptionStackTraceToClient\":true},"
                     + "  \"network\": {\n"
                     + "    \"port\":3344,\n"
                     + "    \"nodeFinder\": {\n"
@@ -71,7 +72,8 @@ public class PlatformTestNodeRunner {
                     + "}",
 
             NODE_NAME2, "{\n"
-                    + "  \"clientConnector\":{\"port\": 10942,\"portRange\":10,\"idleTimeout\":1000,\"sendServerExceptionStackTraceToClient\":true},"
+                    + "  \"clientConnector\":{\"port\": 10942,\"portRange\":10,\"idleTimeout\":1000,"
+                    + "\"sendServerExceptionStackTraceToClient\":true},"
                     + "  \"network\": {\n"
                     + "    \"port\":3345,\n"
                     + "    \"nodeFinder\": {\n"
