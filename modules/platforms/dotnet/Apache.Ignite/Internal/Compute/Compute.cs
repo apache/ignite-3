@@ -160,7 +160,7 @@ namespace Apache.Ignite.Internal.Compute
                 }
 
                 w.Write(jobClassName);
-                w.WriteObjectArrayWithTypes(args);
+                w.WriteObjectArrayAsBinaryTuple(args);
 
                 w.Flush();
             }
@@ -239,7 +239,7 @@ namespace Apache.Ignite.Internal.Compute
                 serializerHandler.Write(ref w, schema, key, true);
 
                 w.Write(jobClassName);
-                w.WriteObjectArrayWithTypes(args);
+                w.WriteObjectArrayAsBinaryTuple(args);
 
                 w.Flush();
 
