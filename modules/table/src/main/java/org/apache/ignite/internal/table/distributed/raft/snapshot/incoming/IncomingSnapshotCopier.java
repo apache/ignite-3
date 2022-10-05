@@ -48,7 +48,8 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
     private final SnapshotUri snapshotUri;
 
     /** Rebalance thread-pool, used to write data into a storage. */
-    //TODO Use external pool.
+    //TODO https://issues.apache.org/jira/browse/IGNITE-17262
+    // Use external pool.
     private final ExecutorService threadPool = Executors.newSingleThreadExecutor();
 
     /**

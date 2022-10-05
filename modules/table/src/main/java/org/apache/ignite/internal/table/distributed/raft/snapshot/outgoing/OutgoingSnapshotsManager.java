@@ -141,7 +141,8 @@ public class OutgoingSnapshotsManager implements IgniteComponent {
             NetworkAddress sender,
             Long correlationId
     ) {
-        //TODO Handle offline sender and stopped manager.
+        //TODO https://issues.apache.org/jira/browse/IGNITE-17262
+        // Handle offline sender and stopped manager.
         return messagingService.respond(sender, response, correlationId);
     }
 }
