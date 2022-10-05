@@ -49,6 +49,8 @@ namespace Apache.Ignite.Internal.Proto
         /// <param name="span">Target span.</param>
         public static void WriteLittleEndian(Guid guid, Span<byte> span)
         {
+            // TODO: This entire class is wrong. We should ensure identical string representation for debugging purposes.
+            // See Ignite 2.x implementation.
             var written = guid.TryWriteBytes(span); // Always little-endian.
             Debug.Assert(written, "written");
         }
