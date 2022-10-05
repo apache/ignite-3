@@ -23,7 +23,6 @@ import java.io.Serializable;
 import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.raft.commands.InitCmgStateCommand;
@@ -38,7 +37,6 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.ReadCommand;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.apache.ignite.raft.client.service.CommandClosure;
@@ -172,11 +170,6 @@ public class CmgRaftGroupListener implements RaftGroupListener {
     public void onShutdown() {
         // Raft storage lifecycle is managed by outside components.
         validationManager.close();
-    }
-
-    @Override
-    public @Nullable CompletableFuture<Void> onBeforeApply(Command command) {
-        return null;
     }
 
     @TestOnly

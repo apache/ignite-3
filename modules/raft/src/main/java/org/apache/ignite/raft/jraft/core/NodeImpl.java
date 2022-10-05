@@ -34,6 +34,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.stream.Collectors;
+import org.apache.ignite.hlc.HybridClock;
+import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -88,6 +90,7 @@ import org.apache.ignite.raft.jraft.rpc.RaftClientService;
 import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;
 import org.apache.ignite.raft.jraft.rpc.RaftServerService;
 import org.apache.ignite.raft.jraft.rpc.ReadIndexResponseBuilder;
+import org.apache.ignite.raft.jraft.rpc.RequestVoteResponseBuilder;
 import org.apache.ignite.raft.jraft.rpc.RpcRequestClosure;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesRequest;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesResponse;
@@ -132,6 +135,8 @@ public class NodeImpl implements Node, RaftServerService {
 
     // Max retry times when applying tasks.
     private static final int MAX_APPLY_RETRY_TIMES = 3;
+
+    private volatile HybridClock clock;
 
     /**
      * Internal states
@@ -545,6 +550,18 @@ public class NodeImpl implements Node, RaftServerService {
         this.wakingCandidate = null;
     }
 
+    public HybridClock clock() {
+        return clock;
+    }
+
+    public HybridTimestamp clockNow() {
+        return clock.now();
+    }
+
+    public HybridTimestamp clockUpdate(HybridTimestamp timestamp) {
+        return clock.update(timestamp);
+    }
+
     private boolean initSnapshotStorage() {
         if (StringUtils.isEmpty(this.options.getSnapshotUri())) {
             LOG.warn("Do not set snapshot uri, ignore initSnapshotStorage.");
@@ -840,6 +857,7 @@ public class NodeImpl implements Node, RaftServerService {
         }
         Requires.requireNonNull(opts.getServiceFactory(), "Null jraft service factory");
         this.serviceFactory = opts.getServiceFactory();
+        this.clock = opts.getNodeOptions().getClock();
         // Term is not an option since changing it is very dangerous
         final long bootstrapLogTerm = opts.getLastLogIndex() > 0 ? 1 : 0;
         final LogId bootstrapId = new LogId(opts.getLastLogIndex(), bootstrapLogTerm);
@@ -937,6 +955,7 @@ public class NodeImpl implements Node, RaftServerService {
         Requires.requireNonNull(opts.getRaftOptions(), "Null raft options");
         Requires.requireNonNull(opts.getServiceFactory(), "Null jraft service factory");
         this.serviceFactory = opts.getServiceFactory();
+        this.clock = opts.getClock();
         this.options = opts;
         this.raftOptions = opts.getRaftOptions();
         this.metrics = new NodeMetrics(opts.isEnableMetrics());
@@ -2089,11 +2108,16 @@ public class NodeImpl implements Node, RaftServerService {
             if (request.term() < this.currTerm) {
                 LOG.warn("Node {} ignore stale AppendEntriesRequest from {}, term={}, currTerm={}.", getNodeId(),
                     request.serverId(), request.term(), this.currTerm);
-                return raftOptions.getRaftMessagesFactory()
-                    .appendEntriesResponse()
-                    .success(false)
-                    .term(this.currTerm)
-                    .build();
+                AppendEntriesResponseBuilder rb = raftOptions.getRaftMessagesFactory()
+                        .appendEntriesResponse()
+                        .success(false)
+                        .term(this.currTerm);
+
+                if (request.timestamp() != null) {
+                    rb.timestamp(clock.update(request.timestamp()));
+                }
+
+                return rb.build();
             }
 
             // Check term and state to step down
@@ -2105,11 +2129,16 @@ public class NodeImpl implements Node, RaftServerService {
                 // loss of split brain
                 stepDown(request.term() + 1, false, new Status(RaftError.ELEADERCONFLICT,
                     "More than one leader in the same term."));
-                return raftOptions.getRaftMessagesFactory()
-                    .appendEntriesResponse()
-                    .success(false) //
-                    .term(request.term() + 1) //
-                    .build();
+                AppendEntriesResponseBuilder rb = raftOptions.getRaftMessagesFactory()
+                        .appendEntriesResponse()
+                        .success(false) //
+                        .term(request.term() + 1);
+
+                if (request.timestamp() != null) {
+                    rb.timestamp(clock.update(request.timestamp()));
+                }
+
+                return rb.build();
             }
 
             updateLastLeaderTimestamp(Utils.monotonicMs());
@@ -2132,12 +2161,17 @@ public class NodeImpl implements Node, RaftServerService {
                     getNodeId(), request.serverId(), request.term(), prevLogIndex, prevLogTerm, localPrevLogTerm,
                     lastLogIndex, entriesCount);
 
-                return raftOptions.getRaftMessagesFactory()
-                    .appendEntriesResponse()
-                    .success(false)
-                    .term(this.currTerm)
-                    .lastLogIndex(lastLogIndex)
-                    .build();
+                AppendEntriesResponseBuilder rb = raftOptions.getRaftMessagesFactory()
+                        .appendEntriesResponse()
+                        .success(false)
+                        .term(this.currTerm)
+                        .lastLogIndex(lastLogIndex);
+
+                if (request.timestamp() != null) {
+                    rb.timestamp(clock.update(request.timestamp()));
+                }
+
+                return rb.build();
             }
 
             if (entriesCount == 0) {
@@ -2147,6 +2181,9 @@ public class NodeImpl implements Node, RaftServerService {
                     .success(true)
                     .term(this.currTerm)
                     .lastLogIndex(this.logManager.getLastLogIndex());
+                if (request.timestamp() != null) {
+                    respBuilder.timestamp(clock.update(request.timestamp()));
+                }
                 doUnlock = false;
                 this.writeLock.unlock();
                 // see the comments at FollowerStableClosure#run()

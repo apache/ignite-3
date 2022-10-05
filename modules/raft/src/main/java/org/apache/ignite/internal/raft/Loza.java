@@ -29,6 +29,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.schemas.table.VolatileRaftConfiguration;
+import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -51,6 +52,7 @@ import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
+import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupServiceImpl;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.jetbrains.annotations.TestOnly;
@@ -92,7 +94,7 @@ public class Loza implements IgniteComponent {
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
-    /** Prevents double stopping the component. */
+    /** Prevents double stopping of the component. */
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
     /** Raft configuration. */
@@ -102,13 +104,18 @@ public class Loza implements IgniteComponent {
      * The constructor.
      *
      * @param clusterNetSvc Cluster network service.
-     * @param dataPath Data path.
+     * @param dataPath      Data path.
+     * @param clock         A hybrid logical clock.
      */
-    public Loza(ClusterService clusterNetSvc, RaftConfiguration raftConfiguration, Path dataPath) {
+    public Loza(ClusterService clusterNetSvc, RaftConfiguration raftConfiguration, Path dataPath, HybridClock clock) {
         this.clusterNetSvc = clusterNetSvc;
         this.raftConfiguration = raftConfiguration;
 
-        this.raftServer = new JraftServerImpl(clusterNetSvc, dataPath);
+        NodeOptions options = new NodeOptions();
+
+        options.setClock(clock);
+
+        this.raftServer = new JraftServerImpl(clusterNetSvc, dataPath, options);
 
         this.executor = new ScheduledThreadPoolExecutor(CLIENT_POOL_SIZE,
                 new NamedThreadFactory(NamedThreadFactory.threadPrefix(clusterNetSvc.localConfiguration().getName(),

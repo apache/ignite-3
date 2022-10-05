@@ -19,6 +19,7 @@ package org.apache.ignite.internal.tx.storage.state;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.configuration.storage.StorageException;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.util.Cursor;
@@ -30,45 +31,6 @@ import org.apache.ignite.lang.IgniteInternalException;
  * Storage for transaction meta, {@link TxMeta}.
  */
 public interface TxStateStorage extends AutoCloseable {
-    /**
-     * Start the storage.
-     *
-     * @throws IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_CREATE_ERR} error code in case when
-     *                                 creation of the storage has failed.
-     */
-    void start();
-
-    /**
-     * Whether the storage is started.
-     *
-     * @return {@code true} if the storage is started, {@code false} otherwise.
-     */
-    boolean isStarted();
-
-    /**
-     * Stop the storage.
-     */
-    void stop() throws Exception;
-
-    /**
-     * Flushes current state of the data or <i>the state from the nearest future</i> to the storage. It means that the future can be
-     * completed when {@link #persistedIndex()} is higher than {@link #lastAppliedIndex()} at the moment of the method's call. This feature
-     * allows implementing a batch flush for several partitions at once.
-     *
-     * @return Future that's completed when flushing of the data is completed.
-     */
-    CompletableFuture<Void> flush();
-
-    /**
-     * Index of the highest write command applied to the storage. {@code 0} if index is unknown.
-     */
-    long lastAppliedIndex();
-
-    /**
-     * {@link #lastAppliedIndex()} value consistent with the data, already persisted on the storage.
-     */
-    long persistedIndex();
-
     /**
      * Get tx meta by tx id.
      *
@@ -90,7 +52,8 @@ public interface TxStateStorage extends AutoCloseable {
     void put(UUID txId, TxMeta txMeta);
 
     /**
-     * Atomically change the tx meta in the storage.
+     * Atomically change the tx meta in the storage. If transaction meta that is already in the storage, is equal to {@code txMeta},
+     * the operation also succeeds.
      *
      * @param txId Tx id.
      * @param txStateExpected Tx state that is expected to be in the storage.
@@ -119,10 +82,27 @@ public interface TxStateStorage extends AutoCloseable {
     Cursor<IgniteBiTuple<UUID, TxMeta>> scan();
 
     /**
-     * Removes all data from the storage and frees all resources.
+     * Flushes current state of the data or <i>the state from the nearest future</i> to the storage. It means that the future can be
+     * completed when persisted index is higher than last applied index at the moment of the method's call.
      *
-     * @throws IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_DESTROY_ERR} error code in case when
-     *                                 the operation has failed.
+     * @return Future that's completed when flushing of the data is completed.
+     */
+    CompletableFuture<Void> flush();
+
+    /**
+     * Index of the highest write command applied to the storage. {@code 0} if index is unknown.
+     */
+    long lastAppliedIndex();
+
+    /**
+     * {@link #lastAppliedIndex()} value consistent with the data, already persisted on the storage.
+     */
+    long persistedIndex();
+
+    /**
+     * Removes all data from the storage.
+     *
+     * @throws StorageException In case when the operation has failed.
      */
     void destroy();
 }
