@@ -21,8 +21,10 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.randomByt
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.netty.buffer.ByteBufUtil;
 import io.netty.buffer.PooledByteBufAllocator;
 import io.netty.buffer.Unpooled;
 import java.math.BigDecimal;
@@ -313,16 +315,19 @@ public class ClientMessagePackerUnpackerTest {
                     Duration.of(1, ChronoUnit.DAYS)};
 
             packer.packObjectArrayAsBinaryTuple(args);
+            packer.packObjectArrayAsBinaryTuple(null);
+            packer.packObjectArrayAsBinaryTuple(new Object[0]);
 
-            var buf = packer.getBuffer();
-
-            byte[] data = new byte[buf.readableBytes()];
-
-            buf.readBytes(data);
+            byte[] data = ByteBufUtil.getBytes(packer.getBuffer());
 
             try (var unpacker = new ClientMessageUnpacker(Unpooled.wrappedBuffer(data, 4, data.length - 4))) {
-                Object[] res = unpacker.unpackObjectArrayFromBinaryTuple();
-                assertArrayEquals(args, res);
+                Object[] res1 = unpacker.unpackObjectArrayFromBinaryTuple();
+                Object[] res2 = unpacker.unpackObjectArrayFromBinaryTuple();
+                Object[] res3 = unpacker.unpackObjectArrayFromBinaryTuple();
+
+                assertArrayEquals(args, res1);
+                assertNull(res2);
+                assertEquals(0, res3.length);
             }
         }
     }
