@@ -321,7 +321,6 @@ public class MessageImplGenerator {
                 .addParameter(Object.class, "descriptorsObj");
 
         String uosPackage = "org.apache.ignite.internal.network.serialization.marshal";
-        String registryPackage = "org.apache.ignite.internal.network.serialization";
         ClassName marshallerClass = ClassName.get(uosPackage, "UserObjectMarshaller");
 
         unmarshal.addStatement("$T marshaller = ($T) marshallerObj", marshallerClass, marshallerClass);
