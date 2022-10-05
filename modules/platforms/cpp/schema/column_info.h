@@ -17,23 +17,23 @@
 
 #pragma once
 
-#include "DataType.h"
+#include "ignite_type.h"
 
 namespace ignite {
 
 /**
  * @brief Basic column info.
  */
-struct ColumnInfo {
-    DATA_TYPE dataType;
+struct column_info {
+    ignite_type dataType;
     bool nullable;
 
-    bool hasFixedSize() const { return isFixedSizeType(dataType); }
+    bool hasFixedSize() const { return is_fixed_size_type(dataType); }
 
-    size_t getFixedSize() const { return getTypeSize(dataType); }
+    size_t getFixedSize() const { return get_type_size(dataType); }
 
-    bool operator==(const ColumnInfo &other) const { return dataType == other.dataType && nullable == other.nullable; }
-    bool operator!=(const ColumnInfo &other) const { return !(operator==(other)); }
+    bool operator==(const column_info &other) const { return dataType == other.dataType && nullable == other.nullable; }
+    bool operator!=(const column_info &other) const { return !(operator==(other)); }
 };
 
 } // namespace ignite
