@@ -15,61 +15,61 @@
  * limitations under the License.
  */
 
-#include "DataType.h"
+#include "ignite_type.h"
 
 #include <stdexcept>
 #include <string>
 
 namespace ignite {
 
-bool isFixedSizeType(DATA_TYPE t) {
+bool is_fixed_size_type(ignite_type t) {
     switch (t) {
-        case DATA_TYPE::INT8:
-        case DATA_TYPE::INT16:
-        case DATA_TYPE::INT32:
-        case DATA_TYPE::INT64:
-        case DATA_TYPE::FLOAT:
-        case DATA_TYPE::DOUBLE:
-        case DATA_TYPE::UUID:
-        case DATA_TYPE::DATE:
-        case DATA_TYPE::TIME:
-        case DATA_TYPE::DATETIME:
-        case DATA_TYPE::TIMESTAMP:
+        case ignite_type::INT8:
+        case ignite_type::INT16:
+        case ignite_type::INT32:
+        case ignite_type::INT64:
+        case ignite_type::FLOAT:
+        case ignite_type::DOUBLE:
+        case ignite_type::UUID:
+        case ignite_type::DATE:
+        case ignite_type::TIME:
+        case ignite_type::DATETIME:
+        case ignite_type::TIMESTAMP:
             return true;
         default:
             return false;
     }
 }
 
-SizeT getTypeSize(DATA_TYPE t) {
+SizeT get_type_size(ignite_type t) {
     switch (t) {
-        case DATA_TYPE::INT8:
+        case ignite_type::INT8:
             return 1;
-        case DATA_TYPE::INT16:
+        case ignite_type::INT16:
             return 2;
-        case DATA_TYPE::INT32:
+        case ignite_type::INT32:
             return 4;
-        case DATA_TYPE::INT64:
+        case ignite_type::INT64:
             return 8;
-        case DATA_TYPE::FLOAT:
+        case ignite_type::FLOAT:
             return 4;
-        case DATA_TYPE::DOUBLE:
+        case ignite_type::DOUBLE:
             return 8;
-        case DATA_TYPE::UUID:
+        case ignite_type::UUID:
             return 16;
-        case DATA_TYPE::DATE:
+        case ignite_type::DATE:
             return 3;
-        case DATA_TYPE::TIME:
+        case ignite_type::TIME:
             return 5;
-        case DATA_TYPE::DATETIME:
+        case ignite_type::DATETIME:
             return 8;
-        case DATA_TYPE::TIMESTAMP:
+        case ignite_type::TIMESTAMP:
             return 10;
-        case DATA_TYPE::BITMASK:
-        case DATA_TYPE::NUMBER:
-        case DATA_TYPE::DECIMAL:
-        case DATA_TYPE::STRING:
-        case DATA_TYPE::BINARY:
+        case ignite_type::BITMASK:
+        case ignite_type::NUMBER:
+        case ignite_type::DECIMAL:
+        case ignite_type::STRING:
+        case ignite_type::BINARY:
             /* Only fixed size types are supported for now. */
             throw std::logic_error("Can't get size of variable-size type id " + std::to_string(static_cast<int>(t)));
         default:

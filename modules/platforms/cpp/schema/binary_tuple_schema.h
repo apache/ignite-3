@@ -17,9 +17,10 @@
 
 #pragma once
 
-#include "BinaryTupleHeader.h"
-#include "ColumnInfo.h"
-#include "common/types.h"
+#include "binary_tuple_header.h"
+#include "column_info.h"
+
+#include "../common/types.h"
 
 #include <iterator>
 #include <vector>
@@ -29,29 +30,32 @@ namespace ignite {
 /**
  * Descriptor for building and parsing binary tuples.
  */
-class BinaryTupleSchema {
+class binary_tuple_schema {
 private:
-    std::vector<ColumnInfo> elements; /**< Element info needed for tuple construction. */
+    std::vector<column_info> elements; /**< Element info needed for tuple construction. */
 
     bool nullables = false;
 
 public:
-    BinaryTupleSchema() noexcept = default;
-    BinaryTupleSchema(BinaryTupleSchema &&other) noexcept = default;
-    BinaryTupleSchema &operator=(BinaryTupleSchema &&other) noexcept = default;
+    binary_tuple_schema() noexcept = default;
+    binary_tuple_schema(binary_tuple_schema &&other) noexcept = default;
+    binary_tuple_schema &operator=(binary_tuple_schema &&other) noexcept = default;
+
+    binary_tuple_schema(const binary_tuple_schema &other) = delete;
+    binary_tuple_schema &operator=(const binary_tuple_schema &other) = delete;
 
     /**
      * @brief Constructs a new Binary Tuple Schema object.
      *
-     * @tparam T ColumnInfo iterator.
+     * @tparam T column_info iterator.
      * @param begin
      * @param end
      */
     template <typename T>
-    BinaryTupleSchema(T begin, T end) {
+    binary_tuple_schema(T begin, T end) {
         elements.reserve(std::distance(begin, end));
         for (; begin < end; begin++) {
-            const ColumnInfo element = *begin;
+            const column_info element = *begin;
             if (element.nullable) {
                 nullables = true;
             }
@@ -65,14 +69,14 @@ public:
      * @return true If there is one or more nullable elements.
      * @return false If there are no nullable elements.
      */
-    bool hasNullables() const noexcept { return nullables; }
+    bool has_nullables() const noexcept { return nullables; }
 
     /**
      * @brief Gets total number of elements in tuple schema.
      *
      * @return Number of elements.
      */
-    IntT numElements() const noexcept { return static_cast<IntT>(elements.size()); }
+    IntT num_elements() const noexcept { return static_cast<IntT>(elements.size()); }
 
     /**
      * @brief Gets element info.
@@ -80,14 +84,14 @@ public:
      * @param index Element number.
      * @return Element info.
      */
-    const ColumnInfo &getElement(IntT index) const { return elements[index]; }
+    const column_info &get_element(IntT index) const { return elements[index]; }
 
     /**
      * @brief Gets the nullmap size.
      *
      * @return Nullmap size in bytes.
      */
-    static constexpr SizeT getNullMapSize(IntT numElements) noexcept { return (numElements + 7) / 8; }
+    static constexpr SizeT get_nullmap_size(IntT num_elements) noexcept { return (num_elements + 7) / 8; }
 
     /**
      * @brief Gets offset of the byte that contains null-bit of a given tuple element.
@@ -95,7 +99,7 @@ public:
      * @param index Tuple element index.
      * @return Offset of the required byte relative to the tuple start.
      */
-    static constexpr SizeT getNullOffset(IntT index) noexcept { return BinaryTupleHeader::SIZE + index / 8; }
+    static constexpr SizeT get_null_offset(IntT index) noexcept { return binary_tuple_header::SIZE + index / 8; }
 
     /**
      * @brief Gets a null-bit mask corresponding to a given tuple element.
@@ -103,7 +107,7 @@ public:
      * @param index Tuple element index.
      * @return Mask to extract the required null-bit.
      */
-    static constexpr std::byte getNullMask(IntT index) noexcept { return std::byte{1} << (index % 8); }
+    static constexpr std::byte get_null_mask(IntT index) noexcept { return std::byte{1} << (index % 8); }
 
     /**
      * @brief Checks if a null-bit is set for a given tuple element.
@@ -116,8 +120,8 @@ public:
      * @return true If the required null-bit is set.
      * @return false If the required null-bit is clear.
      */
-    static bool hasNull(const bytes_view &tuple, IntT index) noexcept {
-        return (tuple[getNullOffset(index)] & getNullMask(index)) != std::byte{0};
+    static bool has_null(const bytes_view &tuple, IntT index) noexcept {
+        return (tuple[get_null_offset(index)] & get_null_mask(index)) != std::byte{0};
     }
 };
 
