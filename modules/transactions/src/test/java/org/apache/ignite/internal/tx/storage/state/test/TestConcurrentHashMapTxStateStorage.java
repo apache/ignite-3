@@ -64,15 +64,14 @@ public class TestConcurrentHashMapTxStateStorage implements TxStateStorage {
                 }
             } else if (old != null) {
                 if (old.txState() == txStateExpected) {
-                    boolean replace = storage.replace(txId, old, txMeta);
-                    if (replace) {
+                    if (storage.replace(txId, old, txMeta)) {
                         return true;
-                    } else {
                     }
-                } else
+                } else {
                     return old.txState() == txMeta.txState() && (
                             (old.commitTimestamp() == null && txMeta.commitTimestamp() == null)
                                     || old.commitTimestamp().equals(txMeta.commitTimestamp()));
+                }
             }
         }
     }
