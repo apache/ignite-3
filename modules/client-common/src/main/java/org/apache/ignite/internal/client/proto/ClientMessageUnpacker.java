@@ -51,6 +51,7 @@ import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.util.ArrayUtils;
+import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.lang.IgniteException;
 import org.msgpack.core.ExtensionTypeHeader;
 import org.msgpack.core.MessageFormat;
@@ -1070,7 +1071,6 @@ public class ClientMessageUnpacker implements AutoCloseable {
      * Unpacks object array.
      *
      * @return Object array.
-     * @throws IllegalStateException in case of unexpected value type.
      */
     public Object[] unpackObjectArrayFromBinaryTuple() {
         assert refCnt > 0 : "Unpacker is closed";
@@ -1086,99 +1086,102 @@ public class ClientMessageUnpacker implements AutoCloseable {
         }
 
         Object[] args = new Object[size];
-
         var reader = new BinaryTupleReader(size * 3, readBinaryUnsafe());
 
         for (int i = 0; i < size; i++) {
-            int typeIdx = i * 3;
-
-            if (reader.hasNullValue(typeIdx)) {
-                continue;
-            }
-
-            int type = reader.intValue(typeIdx);
-            int valIdx = typeIdx + 2;
-
-            switch (type) {
-                case INT8:
-                    args[i] = reader.byteValue(valIdx);
-                    break;
-
-                case INT16:
-                    args[i] = reader.shortValue(valIdx);
-                    break;
-
-                case INT32:
-                    args[i] = reader.intValue(valIdx);
-                    break;
-
-                case INT64:
-                    args[i] = reader.longValue(valIdx);
-                    break;
-
-                case FLOAT:
-                    args[i] = reader.floatValue(valIdx);
-                    break;
-
-                case DOUBLE:
-                    args[i] = reader.doubleValue(valIdx);
-                    break;
-
-                case DECIMAL:
-                    args[i] = reader.decimalValue(valIdx, reader.intValue(typeIdx + 1));
-                    break;
-
-                case ClientDataType.UUID:
-                    args[i] = reader.uuidValue(valIdx);
-                    break;
-
-                case STRING:
-                    args[i] = reader.stringValue(valIdx);
-                    break;
-
-                case BYTES:
-                    args[i] = reader.bytesValue(valIdx);
-                    break;
-
-                case BITMASK:
-                    args[i] = reader.bitmaskValue(valIdx);
-                    break;
-
-                case DATE:
-                    args[i] = reader.dateValue(valIdx);
-                    break;
-
-                case TIME:
-                    args[i] = reader.timeValue(valIdx);
-                    break;
-
-                case DATETIME:
-                    args[i] = reader.dateTimeValue(valIdx);
-                    break;
-
-                case TIMESTAMP:
-                    args[i] = reader.timestampValue(valIdx);
-                    break;
-
-                case NUMBER:
-                    args[i] = reader.numberValue(valIdx);
-                    break;
-
-                case BOOLEAN:
-                    args[i] = reader.byteValue(valIdx) != 0;
-                    break;
-
-                case DURATION:
-                    args[i] = reader.durationValue(valIdx);
-                    break;
-
-                case PERIOD:
-                    args[i] = reader.periodValue(valIdx);
-                    break;
-            }
+            args[i] = getObjectFromBinaryTuple(reader, i);
         }
 
         return args;
+    }
+
+    /**
+     * Unpacks object.
+     *
+     * @return Object.
+     */
+    public Object unpackObjectFromBinaryTuple() {
+        assert refCnt > 0 : "Unpacker is closed";
+
+        if (tryUnpackNil()) {
+            return null;
+        }
+
+        var reader = new BinaryTupleReader(3, readBinaryUnsafe());
+        return getObjectFromBinaryTuple(reader, 0);
+    }
+
+    private static Object getObjectFromBinaryTuple(BinaryTupleReader reader, int i) {
+        int typeIdx = i * 3;
+
+        if (reader.hasNullValue(typeIdx)) {
+            return null;
+        }
+
+        int type = reader.intValue(typeIdx);
+        int valIdx = typeIdx + 2;
+
+        switch (type) {
+            case INT8:
+                return reader.byteValue(valIdx);
+
+            case INT16:
+                return reader.shortValue(valIdx);
+
+            case INT32:
+                return reader.intValue(valIdx);
+
+            case INT64:
+                return reader.longValue(valIdx);
+
+            case FLOAT:
+                return reader.floatValue(valIdx);
+
+            case DOUBLE:
+                return reader.doubleValue(valIdx);
+
+            case DECIMAL:
+                return reader.decimalValue(valIdx, reader.intValue(typeIdx + 1));
+
+            case ClientDataType.UUID:
+                return reader.uuidValue(valIdx);
+
+            case STRING:
+                return reader.stringValue(valIdx);
+
+            case BYTES:
+                return reader.bytesValue(valIdx);
+
+            case BITMASK:
+                return reader.bitmaskValue(valIdx);
+
+            case DATE:
+                return reader.dateValue(valIdx);
+
+            case TIME:
+                return reader.timeValue(valIdx);
+
+            case DATETIME:
+                return reader.dateTimeValue(valIdx);
+
+            case TIMESTAMP:
+                return reader.timestampValue(valIdx);
+
+            case NUMBER:
+                return reader.numberValue(valIdx);
+
+            case BOOLEAN:
+                return reader.byteValue(valIdx) != 0;
+
+            case DURATION:
+                return reader.durationValue(valIdx);
+
+            case PERIOD:
+                return reader.periodValue(valIdx);
+
+            default:
+                throw new IgniteException(ErrorGroups.Client.PROTOCOL_ERR, "Unknown client data type: " + type);
+        }
     }
 
     /**
