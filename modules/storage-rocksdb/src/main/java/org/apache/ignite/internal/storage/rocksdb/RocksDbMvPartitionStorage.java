@@ -38,6 +38,7 @@ import java.util.function.Predicate;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
+import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -958,6 +959,8 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             it.seek(keyBuf);
 
             if (!it.isValid()) {
+                RocksUtils.checkIterator(it);
+
                 return null;
             }
 
