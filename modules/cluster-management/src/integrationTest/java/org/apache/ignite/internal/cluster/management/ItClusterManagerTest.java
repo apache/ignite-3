@@ -45,6 +45,7 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.StaticNodeFinder;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -71,7 +72,7 @@ public class ItClusterManagerTest {
                 .mapToObj(i -> new NetworkAddress("localhost", PORT_BASE + i))
                 .collect(toList());
 
-        StaticNodeFinder nodeFinder = new StaticNodeFinder(addrs);
+        var nodeFinder = new StaticNodeFinder(addrs);
 
         for (int i = 0; i < numNodes; ++i) {
             var node = new MockNode(testInfo, addrs.get(i), nodeFinder, workDir.resolve("node" + i));
@@ -92,6 +93,18 @@ public class ItClusterManagerTest {
         for (MockNode node : cluster) {
             node.stop();
         }
+    }
+
+    private MockNode addNodeToCluster(TestInfo testInfo) throws IOException {
+        var addr = new NetworkAddress("localhost", PORT_BASE + cluster.size());
+
+        var nodeFinder = new StaticNodeFinder(clusterNodeAddresses());
+
+        var node = new MockNode(testInfo, addr, nodeFinder, workDir.resolve("node" + cluster.size()));
+
+        cluster.add(node);
+
+        return node;
     }
 
     /**
@@ -209,6 +222,10 @@ public class ItClusterManagerTest {
         // successful init
         clusterManager.initCluster(List.of(cluster.get(0).name()), List.of(), "cluster");
 
+        for (MockNode node : cluster) {
+            assertThat(node.clusterManager().joinFuture(), willCompleteSuccessfully());
+        }
+
         // different node
         assertThrowsWithCause(
                 () -> clusterManager.initCluster(List.of(cluster.get(1).name()), List.of(), "cluster"),
@@ -260,13 +277,7 @@ public class ItClusterManagerTest {
         initCluster(cmgNodes, cmgNodes);
 
         // create and start a new node
-        var addr = new NetworkAddress("localhost", PORT_BASE + cluster.size());
-
-        var nodeFinder = new StaticNodeFinder(Arrays.asList(clusterNodeAddresses()));
-
-        var node = new MockNode(testInfo, addr, nodeFinder, workDir.resolve("node" + cluster.size()));
-
-        cluster.add(node);
+        MockNode node = addNodeToCluster(testInfo);
 
         node.start();
 
@@ -340,7 +351,7 @@ public class ItClusterManagerTest {
      * Tests a scenario when a node starts joining a cluster having a CMG leader, but finishes the join after the CMG leader changed.
      */
     @Test
-    void testJoinLeaderChange(TestInfo testInfo) throws Exception {
+    void testLeaderChangeDuringJoin(TestInfo testInfo) throws Exception {
         // Start a cluster of 3 nodes so that the CMG leader node could be stopped later.
         startCluster(3, testInfo);
 
@@ -350,17 +361,11 @@ public class ItClusterManagerTest {
         initCluster(cmgNodes, cmgNodes);
 
         // Start a new node, but do not send the JoinReadyCommand.
-        var addr = new NetworkAddress("localhost", PORT_BASE + cluster.size());
-
-        var nodeFinder = new StaticNodeFinder(Arrays.asList(clusterNodeAddresses()));
-
-        var node = new MockNode(testInfo, addr, nodeFinder, workDir.resolve("node" + cluster.size()));
+        MockNode node = addNodeToCluster(testInfo);
 
         node.startComponents();
 
         assertThat(node.clusterManager().joinFuture(), willCompleteSuccessfully());
-
-        cluster.add(node);
 
         // Find the CMG leader and stop it
         MockNode leaderNode = cluster.stream()
@@ -374,10 +379,47 @@ public class ItClusterManagerTest {
                 .findAny()
                 .orElseThrow();
 
+        leaderNode.beforeNodeStop();
         leaderNode.stop();
 
         // Issue the JoinReadCommand on the joining node. It is expected that the joining node is still treated as validated.
         assertThat(node.clusterManager().onJoinReady(), willCompleteSuccessfully());
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17814")
+    @Test
+    void testLeaderChangeBeforeJoin(TestInfo testInfo) throws Exception {
+        // Start a cluster of 3 nodes so that the CMG leader node could be stopped later.
+        startCluster(3, testInfo);
+
+        String[] cmgNodes = clusterNodeNames();
+
+        // Start the CMG on all 3 nodes.
+        initCluster(cmgNodes, cmgNodes);
+
+        // Find the CMG leader and stop it
+        MockNode leaderNode = cluster.stream()
+                .filter(n -> {
+                    CompletableFuture<Boolean> isLeader = n.clusterManager().isCmgLeader();
+
+                    assertThat(isLeader, willCompleteSuccessfully());
+
+                    return isLeader.join();
+                })
+                .findAny()
+                .orElseThrow();
+
+        leaderNode.beforeNodeStop();
+        leaderNode.stop();
+
+        // Start a new node.
+        MockNode node = addNodeToCluster(testInfo);
+
+        node.start();
+
+        Thread.sleep(10000);
+
+        assertThat(node.clusterManager().joinFuture(), willCompleteSuccessfully());
     }
 
     private ClusterNode[] currentPhysicalTopology() {
@@ -392,11 +434,11 @@ public class ItClusterManagerTest {
                 .toArray(String[]::new);
     }
 
-    private NetworkAddress[] clusterNodeAddresses() {
+    private List<NetworkAddress> clusterNodeAddresses() {
         return cluster.stream()
                 .map(MockNode::localMember)
                 .map(ClusterNode::address)
-                .toArray(NetworkAddress[]::new);
+                .collect(toList());
     }
 
     private void waitForLogicalTopology() throws InterruptedException {

@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.network.serialization.marshal;
 
-import org.apache.ignite.internal.network.serialization.DescriptorRegistry;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -46,5 +45,5 @@ public interface UserObjectMarshaller {
      * @throws UnmarshalException if unmarshalling fails
      */
     @Nullable
-    <T> T unmarshal(byte[] bytes, DescriptorRegistry mergedDescriptors) throws UnmarshalException;
+    <T> T unmarshal(byte[] bytes, Object mergedDescriptors) throws UnmarshalException;
 }
