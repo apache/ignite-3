@@ -178,24 +178,27 @@ namespace Apache.Ignite.Tests.Compute
             await Test(double.MinValue);
             await Test(double.MaxValue);
             await Test(123.456m);
+            await Test(-123.456m);
             await Test(decimal.MinValue);
             await Test(decimal.MaxValue);
             await Test(new byte[] { 1, 255 });
             await Test("Ignite 🔥");
-            await Test(Guid.NewGuid());
-            await Test(Guid.Empty);
-            await Test(new BitArray(new[] { byte.MaxValue }));
+            await Test(new BitArray(new[] { byte.MaxValue }), "{0, 1, 2, 3, 4, 5, 6, 7}");
             await Test(LocalDate.MinIsoValue);
             await Test(LocalTime.Noon);
             await Test(LocalDateTime.MaxIsoValue);
             await Test(Instant.FromUtc(2001, 3, 4, 5, 6));
             await Test(BigInteger.Pow(1234, 56789));
+            await Test(Guid.Empty);
+            await Test(Guid.NewGuid());
 
-            async Task Test(object val, object? expected = null)
+            async Task Test(object val, string? expectedStr = null)
             {
-                var res = await Client.Compute.ExecuteAsync<object>(await Client.GetClusterNodesAsync(), EchoJob, val);
+                var nodes = await Client.GetClusterNodesAsync();
+                var str = expectedStr ?? val.ToString()!.Replace("E+", "E");
+                var res = await Client.Compute.ExecuteAsync<object>(nodes, EchoJob, val, str);
 
-                Assert.AreEqual(expected ?? val, res);
+                Assert.AreEqual(val, res);
             }
         }
 
