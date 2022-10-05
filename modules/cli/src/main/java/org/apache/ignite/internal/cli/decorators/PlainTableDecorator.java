@@ -34,6 +34,6 @@ public class PlainTableDecorator extends TableDecorator {
      */
     @Override
     public TerminalOutput decorate(Table table) {
-        return () -> PlainTableRenderer.render(table.header(), table.content());
+        return () -> new PlainTableRenderer().render(table.header(), table.content());
     }
 }

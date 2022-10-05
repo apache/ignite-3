@@ -37,6 +37,6 @@ public class PlainTopologyDecorator extends TopologyDecorator {
     @Override
     public TerminalOutput decorate(List<ClusterNode> topology) {
         String[][] content = topologyToContent(topology);
-        return () -> PlainTableRenderer.render(HEADERS, content);
+        return () -> new PlainTableRenderer().render(HEADERS, content);
     }
 }
