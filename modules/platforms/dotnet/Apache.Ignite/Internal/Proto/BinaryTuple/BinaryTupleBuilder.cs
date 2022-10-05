@@ -320,15 +320,14 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="scale">Decimal scale from schema.</param>
         public void AppendDecimal(decimal value, int scale)
         {
-            if (value == decimal.Zero)
+            if (value != decimal.Zero)
             {
-                OnWrite();
-                return;
+                var (unscaledValue, valueScale) = DeconstructDecimal(value);
+
+                PutDecimal(scale, unscaledValue, valueScale);
             }
 
-            var (unscaledValue, valueScale) = DeconstructDecimal(value);
-
-            PutDecimal(scale, unscaledValue, valueScale);
+            OnWrite();
         }
 
         /// <summary>
@@ -597,7 +596,9 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                 var (unscaled, scale) = DeconstructDecimal(dec);
 
                 AppendInt(scale);
+
                 PutDecimal(scale, unscaled, scale);
+                OnWrite();
             }
             else if (value is BigInteger bigInt)
             {
@@ -749,8 +750,6 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
             Debug.Assert(success, "success");
             Debug.Assert(written == size, "written == size");
-
-            OnWrite();
         }
 
         private void PutByte(sbyte value) => _buffer.WriteByte(unchecked((byte)value));
