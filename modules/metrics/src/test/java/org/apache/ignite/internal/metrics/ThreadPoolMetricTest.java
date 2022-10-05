@@ -40,32 +40,37 @@ public class ThreadPoolMetricTest {
         // System component, e.g. thread pool executor
         ThreadPoolExecutor exec = new ThreadPoolExecutor(4, 4, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>());
 
-        // Metrics source for thread pool
-        ThreadPoolMetricSource src = new ThreadPoolMetricSource("example.thread_pool.ExamplePool", exec);
+        try {
+            // Metrics source for thread pool
+            ThreadPoolMetricSource src = new ThreadPoolMetricSource("example.thread_pool.ExamplePool", exec);
 
-        // Register source after the component created.
-        registry.registerSource(src);
+            // Register source after the component created.
+            registry.registerSource(src);
 
-        // ------------------------------------------------------------------------
+            // ------------------------------------------------------------------------
 
-        // Enable metrics by signal (or because configuration)
-        MetricSet metricSet = registry.enable(src.name());
+            // Enable metrics by signal (or because configuration)
+            MetricSet metricSet = registry.enable(src.name());
 
-        LongMetric completedTaskCount = metricSet.get("CompletedTaskCount");
+            LongMetric completedTaskCount = metricSet.get("CompletedTaskCount");
 
-        assertEquals(0L, completedTaskCount.value());
+            assertEquals(0L, completedTaskCount.value());
 
-        exec.submit(() -> {}).get(1, TimeUnit.SECONDS);
+            exec.submit(() -> {}).get(1, TimeUnit.SECONDS);
 
-        assertTrue(waitForCondition(() -> completedTaskCount.value() > 0, 10, TimeUnit.SECONDS.toMillis(1)));
+            assertTrue(waitForCondition(() -> completedTaskCount.value() > 0, 10, TimeUnit.SECONDS.toMillis(1)));
 
-        // ------------------------------------------------------------------------
+            assertEquals(1L, completedTaskCount.value());
 
-        // Disable metrics by signal
-        registry.disable(src.name());
+            // ------------------------------------------------------------------------
 
-        // Component is stopped\destroyed
-        registry.unregisterSource(src);
-        exec.shutdown();
+            // Disable metrics by signal
+            registry.disable(src.name());
+
+            // Component is stopped\destroyed
+            registry.unregisterSource(src);
+        } finally {
+            exec.shutdown();
+        }
     }
 }
