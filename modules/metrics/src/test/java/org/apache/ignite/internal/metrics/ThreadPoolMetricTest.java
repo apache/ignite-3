@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.metrics;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -30,7 +30,7 @@ import org.junit.jupiter.api.Test;
  */
 public class ThreadPoolMetricTest {
     @Test
-    public void test() throws ExecutionException, InterruptedException {
+    public void test() throws Exception {
         // Should be one per node.
         MetricRegistry registry = new MetricRegistry();
 
@@ -54,8 +54,9 @@ public class ThreadPoolMetricTest {
 
         assertEquals(0L, completedTaskCount.value());
 
-        exec.submit(() -> {}).get();
-        assertEquals(1L, completedTaskCount.value());
+        exec.submit(() -> {}).get(1, TimeUnit.SECONDS);
+
+        waitForCondition(() -> completedTaskCount.value() > 0, 10, TimeUnit.SECONDS.toMillis(1));
 
         // ------------------------------------------------------------------------
 
