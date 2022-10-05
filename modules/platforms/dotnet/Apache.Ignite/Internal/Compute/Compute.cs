@@ -169,7 +169,7 @@ namespace Apache.Ignite.Internal.Compute
             {
                 var reader = buf.GetReader();
 
-                return (T)reader.ReadObjectWithType()!;
+                return (T)reader.ReadObjectFromBinaryTuple()!;
             }
         }
 
@@ -250,7 +250,7 @@ namespace Apache.Ignite.Internal.Compute
             {
                 var reader = buf.GetReader();
 
-                return (T)reader.ReadObjectWithType()!;
+                return (T)reader.ReadObjectFromBinaryTuple()!;
             }
         }
     }

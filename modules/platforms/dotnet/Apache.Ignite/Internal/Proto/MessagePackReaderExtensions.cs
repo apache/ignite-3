@@ -21,6 +21,7 @@ namespace Apache.Ignite.Internal.Proto
     using System.Buffers;
     using System.Diagnostics;
     using System.Runtime.CompilerServices;
+    using BinaryTuple;
     using MessagePack;
 
     /// <summary>
@@ -80,6 +81,26 @@ namespace Apache.Ignite.Internal.Proto
             }
 
             return ReadObject(ref reader, (ClientDataType)reader.ReadInt32());
+        }
+
+        /// <summary>
+        /// Reads <see cref="ClientDataType"/> and value.
+        /// </summary>
+        /// <param name="reader">Reader.</param>
+        /// <returns>Value.</returns>
+        public static object? ReadObjectFromBinaryTuple(this ref MessagePackReader reader)
+        {
+            if (reader.TryReadNil())
+            {
+                return null;
+            }
+
+            var tuple = new BinaryTupleReader(reader.ReadBytesAsMemory(), 3);
+
+            var type = (ClientDataType)tuple.GetInt(0);
+            var scale = tuple.GetInt(1);
+
+            return tuple.GetObject(2, type, scale);
         }
 
         /// <summary>
