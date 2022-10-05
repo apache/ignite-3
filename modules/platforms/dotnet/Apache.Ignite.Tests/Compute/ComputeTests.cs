@@ -18,14 +18,17 @@
 namespace Apache.Ignite.Tests.Compute
 {
     using System;
+    using System.Collections;
     using System.Collections.Generic;
     using System.Linq;
     using System.Net;
+    using System.Numerics;
     using System.Threading.Tasks;
     using Ignite.Compute;
     using Ignite.Table;
     using Internal.Network;
     using Network;
+    using NodaTime;
     using NUnit.Framework;
     using Table;
 
@@ -159,33 +162,34 @@ namespace Apache.Ignite.Tests.Compute
             StringAssert.Contains("Specified node is not present in the cluster: y", ex!.Message);
         }
 
-        // TODO IGNITE-17777 Thin 3.0: use BinaryTuple for Compute and SQL results and arguments
         [Test]
         public async Task TestAllSupportedArgTypes()
         {
-            // TODO IGNITE-17777 support all types
-            await Test(byte.MinValue);
-            await Test(byte.MaxValue, -1);
             await Test(sbyte.MinValue);
             await Test(sbyte.MaxValue);
             await Test(short.MinValue);
             await Test(short.MaxValue);
-            await Test(ushort.MinValue);
-            await Test(ushort.MaxValue, -1);
             await Test(int.MinValue);
             await Test(int.MaxValue);
-            await Test(uint.MinValue);
-            await Test(uint.MaxValue, -1);
             await Test(long.MinValue);
             await Test(long.MaxValue);
-            await Test(ulong.MinValue);
-            await Test(ulong.MaxValue, -1);
             await Test(float.MinValue);
             await Test(float.MaxValue);
             await Test(double.MinValue);
             await Test(double.MaxValue);
+            await Test(123.456m);
+            await Test(decimal.MinValue);
+            await Test(decimal.MaxValue);
+            await Test(new byte[] { 1, 255 });
             await Test("Ignite 🔥");
             await Test(Guid.NewGuid());
+            await Test(Guid.Empty);
+            await Test(new BitArray(new[] { byte.MaxValue }));
+            await Test(LocalDate.MinIsoValue);
+            await Test(LocalTime.Noon);
+            await Test(LocalDateTime.MaxIsoValue);
+            await Test(Instant.FromUtc(2001, 3, 4, 5, 6));
+            await Test(BigInteger.Pow(1234, 56789));
 
             async Task Test(object val, object? expected = null)
             {
