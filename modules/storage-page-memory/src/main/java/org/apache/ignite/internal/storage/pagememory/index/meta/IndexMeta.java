@@ -31,15 +31,21 @@ public class IndexMeta {
     @IgniteToStringExclude
     private final long metaPageId;
 
+    private final int inlineSize;
+
     /**
      * Constructor.
      *
      * @param id Index ID.
      * @param metaPageId Index tree meta page ID.
+     * @param inlineSize Inline size in bytes.
      */
-    public IndexMeta(UUID id, long metaPageId) {
+    public IndexMeta(UUID id, long metaPageId, int inlineSize) {
+        assert inlineSize >= 0 && inlineSize <= 0xFFFF : inlineSize;
+
         this.id = id;
         this.metaPageId = metaPageId;
+        this.inlineSize = inlineSize;
     }
 
     /**
@@ -54,6 +60,13 @@ public class IndexMeta {
      */
     public long metaPageId() {
         return metaPageId;
+    }
+
+    /**
+     * Returns inline size in bytes.
+     */
+    public int inlineSize() {
+        return inlineSize;
     }
 
     @Override

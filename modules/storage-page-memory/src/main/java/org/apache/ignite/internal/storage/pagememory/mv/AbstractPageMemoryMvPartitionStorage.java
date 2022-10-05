@@ -172,7 +172,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      * @param indexId Index UUID.
      */
     public PageMemoryHashIndexStorage getOrCreateHashIndex(UUID indexId) {
-        return hashIndexes.computeIfAbsent(indexId, uuid -> createOrRestoreHashIndex(new IndexMeta(indexId, 0L)));
+        return hashIndexes.computeIfAbsent(indexId, uuid -> createOrRestoreHashIndex(new IndexMeta(indexId, 0L, 0)));
     }
 
     /**
@@ -181,7 +181,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      * @param indexId Index UUID.
      */
     public PageMemorySortedIndexStorage getOrCreateSortedIndex(UUID indexId) {
-        return sortedIndexes.computeIfAbsent(indexId, uuid -> createOrRestoreSortedIndex(new IndexMeta(indexId, 0L)));
+        return sortedIndexes.computeIfAbsent(indexId, uuid -> createOrRestoreSortedIndex(new IndexMeta(indexId, 0L, 0)));
     }
 
     private PageMemoryHashIndexStorage createOrRestoreHashIndex(IndexMeta indexMeta) {
@@ -211,7 +211,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             );
 
             if (initNew) {
-                boolean replaced = indexMetaTree.putx(new IndexMeta(indexMeta.id(), metaPageId));
+                // TODO: IGNITE-17536 вот тут надо будет передавать посчитанное значение
+                boolean replaced = indexMetaTree.putx(new IndexMeta(indexMeta.id(), metaPageId, 0));
 
                 assert !replaced;
             }
@@ -250,7 +251,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             );
 
             if (initNew) {
-                boolean replaced = indexMetaTree.putx(new IndexMeta(indexMeta.id(), metaPageId));
+                // TODO: IGNITE-17671 Need to implement for sorted indexes
+                boolean replaced = indexMetaTree.putx(new IndexMeta(indexMeta.id(), metaPageId, 0));
 
                 assert !replaced;
             }
