@@ -952,7 +952,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
     @Override
     public @Nullable RowId closestRowId(RowId lowerBound) throws StorageException {
-        ByteBuffer keyBuf = prepareHeapKeyBuf(lowerBound).limit(ROW_PREFIX_SIZE);
+        ByteBuffer keyBuf = prepareHeapKeyBuf(lowerBound).position(0).limit(ROW_PREFIX_SIZE);
 
         try (RocksIterator it = db.newIterator(cf, scanReadOptions)) {
             it.seek(keyBuf);
@@ -968,6 +968,8 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             readKeyBuf.position(ROW_ID_OFFSET);
 
             return getRowId(readKeyBuf);
+        } finally {
+            keyBuf.limit(MAX_KEY_SIZE);
         }
     }
 
