@@ -400,7 +400,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
         private static decimal ReadDecimal(ReadOnlySpan<byte> span, int scale)
         {
-            var unscaled = new BigInteger(span);
+            var unscaled = new BigInteger(span, isBigEndian: true);
             var res = (decimal)unscaled;
 
             if (scale > 0)
