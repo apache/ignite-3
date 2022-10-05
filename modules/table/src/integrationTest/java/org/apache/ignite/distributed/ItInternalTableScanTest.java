@@ -23,10 +23,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -39,54 +39,26 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.raft.Loza;
-import org.apache.ignite.internal.raft.server.RaftGroupOptions;
-import org.apache.ignite.internal.raft.server.RaftServer;
-import org.apache.ignite.internal.raft.server.impl.RaftServerImpl;
+import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.storage.DataRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
-import org.apache.ignite.internal.storage.PartitionTimestampCursor;
-import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.InternalTable;
-import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
-import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
-import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.internal.tx.Timestamp;
-import org.apache.ignite.internal.tx.TxManager;
-import org.apache.ignite.internal.tx.impl.HeapLockManager;
-import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.util.ByteUtils;
-import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.network.StaticNodeFinder;
-import org.apache.ignite.raft.client.Peer;
-import org.apache.ignite.raft.client.service.RaftGroupService;
-import org.apache.ignite.raft.jraft.RaftMessagesFactory;
-import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupServiceImpl;
-import org.apache.ignite.utils.ClusterServiceTestUtils;
+import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.NotNull;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
@@ -94,137 +66,19 @@ import org.mockito.junit.jupiter.MockitoExtension;
  */
 @ExtendWith(MockitoExtension.class)
 public class ItInternalTableScanTest {
-    private static final IgniteLogger LOG = Loggers.forClass(ItInternalTableScanTest.class);
-
-    private static final RaftMessagesFactory FACTORY = new RaftMessagesFactory();
-
-    private static final String TEST_TABLE_NAME = "testTbl";
-
-    /** Id for the test RAFT group. */
-    public static final String RAFT_GRP_ID = "test_part_grp";
-
     /** Mock partition storage. */
     @Mock
     private MvPartitionStorage mockStorage;
 
-    private ClusterService network;
-
-    private RaftServer raftSrv;
-
-    private TxManager txManager;
-
     /** Internal table to test. */
     private InternalTable internalTbl;
 
-    /** Executor for raft group services. */
-    ScheduledExecutorService executor;
-
-    private final Function<NetworkAddress, ClusterNode> addressToNode = addr -> {
-        throw new UnsupportedOperationException();
-    };
-
     /**
-     * Prepare test environment.
-     * <ol>
-     * <li>Start network node.</li>
-     * <li>Start raft server.</li>
-     * <li>Prepare partitioned raft group.</li>
-     * <li>Prepare partitioned raft group service.</li>
-     * <li>Prepare internal table as a test object.</li>
-     * </ol>
-     *
-     * @throws Exception If any.
+     * Prepare test environment using DummyInternalTableImpl and Mocked storage.
      */
     @BeforeEach
-    public void setUp(TestInfo testInfo) throws Exception {
-        NetworkAddress nodeNetworkAddress = new NetworkAddress("localhost", 20_000);
-
-        network = ClusterServiceTestUtils.clusterService(
-                testInfo,
-                20_000,
-                new StaticNodeFinder(List.of(nodeNetworkAddress))
-        );
-
-        network.start();
-
-        raftSrv = new RaftServerImpl(network, FACTORY);
-
-        raftSrv.start();
-
-        String grpName = "test_part_grp";
-
-        List<Peer> conf = List.of(new Peer(nodeNetworkAddress));
-
-        mockStorage = mock(MvPartitionStorage.class);
-
-        txManager = new TxManagerImpl(network, new HeapLockManager());
-
-        txManager.start();
-
-        UUID tblId = UUID.randomUUID();
-
-        raftSrv.startRaftGroup(
-                grpName,
-                new PartitionListener(tblId, new VersionedRowStore(mockStorage, txManager)),
-                conf,
-                RaftGroupOptions.defaults()
-        );
-
-        executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME, LOG));
-
-        RaftGroupService raftGrpSvc = RaftGroupServiceImpl.start(
-                RAFT_GRP_ID,
-                network,
-                FACTORY,
-                10_000,
-                conf,
-                true,
-                200,
-                executor
-        ).get(3, TimeUnit.SECONDS);
-
-        internalTbl = new InternalTableImpl(
-                TEST_TABLE_NAME,
-                tblId,
-                Int2ObjectMaps.singleton(0, raftGrpSvc),
-                1,
-                NetworkAddress::toString,
-                addressToNode,
-                txManager,
-                mock(MvTableStorage.class)
-        );
-    }
-
-    /**
-     * Cleanup previously started network and raft server.
-     *
-     * @throws Exception If failed to stop component.
-     */
-    @AfterEach
-    public void tearDown() throws Exception {
-        raftSrv.stopRaftGroup(RAFT_GRP_ID);
-
-        if (raftSrv != null) {
-            raftSrv.beforeNodeStop();
-        }
-
-        if (network != null) {
-            network.beforeNodeStop();
-        }
-
-        IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
-
-        if (raftSrv != null) {
-            raftSrv.stop();
-        }
-
-        if (network != null) {
-            network.stop();
-        }
-
-        if (txManager != null) {
-            txManager.stop();
-        }
+    public void setUp(TestInfo testInfo) {
+        internalTbl = new DummyInternalTableImpl(Mockito.mock(ReplicaService.class), mockStorage);
     }
 
     /**
@@ -305,8 +159,8 @@ public class ItInternalTableScanTest {
 
         AtomicReference<Throwable> gotException = new AtomicReference<>();
 
-        when(mockStorage.scan(any(), any(Timestamp.class))).thenAnswer(invocation -> {
-            var cursor = mock(PartitionTimestampCursor.class);
+        when(mockStorage.scan(any(), any(UUID.class))).thenAnswer(invocation -> {
+            var cursor = mock(Cursor.class);
 
             when(cursor.hasNext()).thenAnswer(hnInvocation -> true);
 
@@ -363,7 +217,7 @@ public class ItInternalTableScanTest {
 
         AtomicReference<Throwable> gotException = new AtomicReference<>();
 
-        when(mockStorage.scan(any(), any(Timestamp.class))).thenThrow(new StorageException("Some storage exception"));
+        when(mockStorage.scan(any(), any(UUID.class))).thenThrow(new StorageException("Some storage exception"));
 
         internalTbl.scan(0, null).subscribe(new Subscriber<>() {
 
@@ -518,13 +372,12 @@ public class ItInternalTableScanTest {
 
         List<BinaryRow> retrievedItems = Collections.synchronizedList(new ArrayList<>());
 
-        when(mockStorage.scan(any(), any(Timestamp.class))).thenAnswer(invocation -> {
-            var cursor = mock(PartitionTimestampCursor.class);
+        when(mockStorage.scan(any(), any(UUID.class))).thenAnswer(invocation -> {
+            var cursor = mock(Cursor.class);
 
             when(cursor.hasNext()).thenAnswer(hnInvocation -> cursorTouchCnt.get() < submittedItems.size());
 
-            when(cursor.next()).thenAnswer(ninvocation ->
-                    ReadResult.createFromCommitted(submittedItems.get(cursorTouchCnt.getAndIncrement())));
+            when(cursor.next()).thenAnswer(ninvocation -> submittedItems.get(cursorTouchCnt.getAndIncrement()));
 
             return cursor;
         });
@@ -584,10 +437,10 @@ public class ItInternalTableScanTest {
     private void invalidRequestNtest(int reqAmount) throws InterruptedException {
         // The latch that allows to await Subscriber.onComplete() before asserting test invariants
         // and avoids the race between closing the cursor and stopping the node.
-        CountDownLatch subscriberFinishedLatch = new CountDownLatch(2);
+        CountDownLatch subscriberFinishedLatch = new CountDownLatch(1);
 
-        when(mockStorage.scan(any(), any(Timestamp.class))).thenAnswer(invocation -> {
-            var cursor = mock(PartitionTimestampCursor.class);
+        lenient().when(mockStorage.scan(any(), any(UUID.class))).thenAnswer(invocation -> {
+            var cursor = mock(Cursor.class);
 
             doAnswer(
                     invocationClose -> {

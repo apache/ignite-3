@@ -119,17 +119,6 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     }
 
     /** {@inheritDoc} */
-    @Deprecated
-    @Override
-    public RowId insert(BinaryRow row, UUID txId) throws StorageException {
-        RowId rowId = new RowId(partitionId);
-
-        addWrite(rowId, row, txId, UUID.randomUUID(), 0);
-
-        return rowId;
-    }
-
-    /** {@inheritDoc} */
     @Override
     public @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, UUID commitTableId, int commitPartitionId)
             throws TxIdMismatchException {

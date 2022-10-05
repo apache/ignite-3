@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage;
 
+import java.io.Serializable;
 import java.util.UUID;
 import org.apache.ignite.internal.tx.Timestamp;
 
@@ -25,7 +26,7 @@ import org.apache.ignite.internal.tx.Timestamp;
  *
  * @see MvPartitionStorage
  */
-public final class RowId implements Comparable<RowId> {
+public final class RowId implements Serializable, Comparable<RowId> {
     /** Partition id. Short type reduces payload when transferring an object over network. */
     private final short partitionId;
 

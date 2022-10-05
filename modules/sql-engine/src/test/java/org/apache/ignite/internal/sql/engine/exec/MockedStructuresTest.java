@@ -758,13 +758,18 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 revisionUpdater,
                 tblsCfg,
                 rm,
+                null,
+                null,
+                null,
                 bm,
                 ts,
                 tm,
                 dataStorageManager,
+                workDir,
                 msm,
                 schemaManager,
-                view -> new LocalLogStorageFactory()
+                view -> new LocalLogStorageFactory(),
+                null
         );
 
         tableManager.start();

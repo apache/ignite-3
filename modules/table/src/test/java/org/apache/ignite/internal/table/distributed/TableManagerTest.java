@@ -82,6 +82,8 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
+import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
+import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaUtils;
@@ -166,6 +168,10 @@ public class TableManagerTest extends IgniteAbstractTest {
     /** Raft manager. */
     @Mock
     private Loza rm;
+
+    /** Replica manager. */
+    @Mock
+    private ReplicaManager replicaMgr;
 
     /** TX manager. */
     @Mock(lenient = true)
@@ -443,6 +449,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         tableManager.stop();
 
         verify(rm, times(PARTITIONS)).stopRaftGroup(anyString());
+        verify(replicaMgr, times(PARTITIONS)).stopReplica(anyString());
     }
 
     /**
@@ -743,13 +750,18 @@ public class TableManagerTest extends IgniteAbstractTest {
                 revisionUpdater,
                 tblsCfg,
                 rm,
+                replicaMgr,
+                null,
+                null,
                 bm,
                 ts,
                 tm,
                 dsm = createDataStorageManager(configRegistry, workDir, rocksDbEngineConfig),
+                workDir,
                 msm,
                 sm = new SchemaManager(revisionUpdater, tblsCfg),
-                budgetView -> new LocalLogStorageFactory()
+                budgetView -> new LocalLogStorageFactory(),
+                null
         );
 
         sm.start();

@@ -22,6 +22,7 @@ import static java.util.Collections.unmodifiableList;
 import java.io.Serializable;
 import java.util.List;
 import org.apache.ignite.hlc.HybridTimestamp;
+import org.apache.ignite.internal.tostring.S;
 
 /** Transaction meta. */
 public class TxMeta implements Serializable {
@@ -60,5 +61,38 @@ public class TxMeta implements Serializable {
 
     public HybridTimestamp commitTimestamp() {
         return commitTimestamp;
+    }
+
+    @Override
+    public String toString() {
+        return S.toString(TxMeta.class, this);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        TxMeta txMeta = (TxMeta) o;
+
+        if (txState != txMeta.txState) {
+            return false;
+        }
+        if (enlistedPartitions != null ? !enlistedPartitions.equals(txMeta.enlistedPartitions) : txMeta.enlistedPartitions != null) {
+            return false;
+        }
+        return commitTimestamp != null ? commitTimestamp.equals(txMeta.commitTimestamp) : txMeta.commitTimestamp == null;
+    }
+
+    @Override
+    public int hashCode() {
+        int result = txState != null ? txState.hashCode() : 0;
+        result = 31 * result + (enlistedPartitions != null ? enlistedPartitions.hashCode() : 0);
+        result = 31 * result + (commitTimestamp != null ? commitTimestamp.hashCode() : 0);
+        return result;
     }
 }

@@ -30,6 +30,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
+import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.raft.ConcurrentMapClusterStateStorage;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -90,7 +91,7 @@ public class ItDistributedConfigurationStorageTest {
                     new StaticNodeFinder(List.of(addr))
             );
 
-            raftManager = new Loza(clusterService, raftConfiguration, workDir);
+            raftManager = new Loza(clusterService, raftConfiguration, workDir, new HybridClock());
 
             cmgManager = new ClusterManagementGroupManager(
                     vaultManager,
