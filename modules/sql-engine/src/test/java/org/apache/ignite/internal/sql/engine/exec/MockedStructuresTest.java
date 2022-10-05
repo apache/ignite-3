@@ -35,12 +35,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -50,6 +52,8 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import org.apache.ignite.configuration.schemas.table.TableView;
+import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.notifications.ConfigurationStorageRevisionListenerHolder;
@@ -60,12 +64,12 @@ import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
+import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.SchemaUtils;
-import org.apache.ignite.internal.schema.configuration.TableView;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.sql.engine.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.QueryContext;
@@ -87,6 +91,7 @@ import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.ColumnAlreadyExistsException;
 import org.apache.ignite.lang.ColumnNotFoundException;
@@ -218,6 +223,8 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         when(rm.messagingService()).thenReturn(mock(MessagingService.class));
         when(rm.topologyService()).thenReturn(mock(TopologyService.class));
 
+        mockMetastore();
+
         revisionUpdater = (Function<Long, CompletableFuture<?>> function) -> {
             function.apply(0L).join();
 
@@ -280,6 +287,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
      */
     @Test
     public void testInnerTxInitiated() throws Exception {
+        //mockMetastore();
         SessionId sesId = queryProc.createSession(1000, PropertiesHolder.fromMap(Map.of()));
 
         InternalTransaction tx = mock(InternalTransaction.class);
@@ -297,11 +305,20 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         verify(tm, never()).begin();
     }
 
+    /** Dummy metastore activity mock. */
+    private void mockMetastore() throws Exception {
+        Cursor cursorMocked = mock(Cursor.class);
+        Iterator itMock = mock(Iterator.class);
+        when(itMock.hasNext()).thenReturn(false);
+        when(msm.prefix(any())).thenReturn(cursorMocked);
+        when(cursorMocked.iterator()).thenReturn(itMock);
+    }
+
     /**
      * Tests create a table through public API.
      */
     @Test
-    public void testCreateTable() {
+    public void testCreateTable() throws Exception {
         SqlQueryProcessor finalQueryProc = queryProc;
 
         String curMethodName = getCurrentMethodName();
@@ -679,6 +696,19 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         CountDownLatch alter = new CountDownLatch(1);
         CountDownLatch watcher = new CountDownLatch(1);
+
+        SchemaDescriptor schema = new SchemaDescriptor(
+                1,
+                new Column[]{new Column("id".toUpperCase(), NativeTypes.INT64, false)},
+                new Column[]{new Column("val".toUpperCase(), NativeTypes.INT64, false)}
+        );
+
+        byte[] ser = SchemaSerializerImpl.INSTANCE.serialize(schema);
+
+        try (MockedStatic<SchemaUtils> schemaServiceMock = mockStatic(SchemaUtils.class)) {
+            schemaServiceMock.when(() -> SchemaUtils.schemaById(any(), any(), eq(1)))
+                    .thenReturn(ser);
+        }
 
         runAsync(() -> {
             watcher.await();

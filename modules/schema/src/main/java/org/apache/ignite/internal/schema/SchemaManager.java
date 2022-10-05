@@ -36,6 +36,7 @@ import org.apache.ignite.configuration.ConfigurationProperty;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.configuration.schemas.table.ColumnView;
+import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.causality.VersionedValue;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
@@ -132,7 +133,9 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
 
             String tableName = tblCfg.name().value();
 
-            SchemaDescriptor schemaDescFromUpdate = SchemaUtils.prepareSchemaDescriptor(verFromUpdate, tblCfg.value());
+            TableView cfg0 = tblCfg.value();
+
+            SchemaDescriptor schemaDescFromUpdate = SchemaUtils.prepareSchemaDescriptor(verFromUpdate, cfg0);
 
             byte[] curSchemaDesc = schemaById(metastorageMgr, tblId, verFromUpdate);
 
