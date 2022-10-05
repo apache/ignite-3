@@ -323,10 +323,8 @@ public class MessageImplGenerator {
         String uosPackage = "org.apache.ignite.internal.network.serialization.marshal";
         String registryPackage = "org.apache.ignite.internal.network.serialization";
         ClassName marshallerClass = ClassName.get(uosPackage, "UserObjectMarshaller");
-        ClassName descriptorRegistryClass = ClassName.get(registryPackage, "DescriptorRegistry");
 
         unmarshal.addStatement("$T marshaller = ($T) marshallerObj", marshallerClass, marshallerClass);
-        unmarshal.addStatement("$T descriptorRegistry = ($T) descriptorsObj", descriptorRegistryClass, descriptorRegistryClass);
 
         for (ExecutableElement executableElement : message.getters()) {
             TypeMirror type = executableElement.getReturnType();
@@ -336,7 +334,7 @@ public class MessageImplGenerator {
                 isNeeded = true;
 
                 String baName = getByteArrayFieldName(objectName);
-                unmarshal.addStatement("$N = marshaller.unmarshal($N, descriptorRegistry)", objectName, baName);
+                unmarshal.addStatement("$N = marshaller.unmarshal($N, descriptorsObj)", objectName, baName);
                 unmarshal.addStatement("$N = null", baName);
             } else {
                 Optional<MaybeMessageType> objectType = resolveType(type);
@@ -348,19 +346,19 @@ public class MessageImplGenerator {
                 switch (objectType.get()) {
                     case OBJECT_ARRAY:
                         isNeeded = generateObjectArrayHandler((ArrayType) type, unmarshal, objectName,
-                                "unmarshal(marshaller, descriptorRegistry)") || isNeeded;
+                                "unmarshal(marshaller, descriptorsObj)") || isNeeded;
                         break;
                     case COLLECTION:
                         isNeeded = generateCollectionHandler((DeclaredType) type, unmarshal, objectName,
-                                "unmarshal(marshaller, descriptorRegistry)") || isNeeded;
+                                "unmarshal(marshaller, descriptorsObj)") || isNeeded;
                         break;
                     case MESSAGE:
                         isNeeded = generateMessageHandler(unmarshal, objectName,
-                                "unmarshal(marshaller, descriptorRegistry)") || isNeeded;
+                                "unmarshal(marshaller, descriptorsObj)") || isNeeded;
                         break;
                     case MAP:
                         isNeeded = generateMapHandler(unmarshal, (DeclaredType) type, objectName,
-                            "unmarshal(marshaller, descriptorRegistry)") || isNeeded;
+                            "unmarshal(marshaller, descriptorsObj)") || isNeeded;
                         break;
                     default:
                         break;
