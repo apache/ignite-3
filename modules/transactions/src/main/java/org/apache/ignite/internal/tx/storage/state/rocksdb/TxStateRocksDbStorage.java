@@ -201,7 +201,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
                         System.out.println(">>> 2");
 
                         result = true;
-                    } else if (txMetaExisting.equals(txMeta)) {
+                    } else if (txMetaExisting.txState() == txMeta.txState() && ((txMetaExisting.commitTimestamp() == null && txMeta.commitTimestamp() == null) || txMetaExisting.commitTimestamp().equals(txMeta.commitTimestamp()))) {
 
                         System.out.println(">>> 3");
 
