@@ -27,6 +27,7 @@ dependencies {
 
     testImplementation libs.hamcrest.core
     testImplementation libs.mockito.core
+    testImplementation project(':ignite-core')
 }
 
 description = 'ignite-metrics'
