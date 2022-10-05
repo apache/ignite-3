@@ -101,7 +101,6 @@ public class PartitionSnapshotStorageFactory implements SnapshotStorageFactory {
                 topologyService,
                 outgoingSnapshotsManager,
                 uri,
-                raftOptions,
                 partition,
                 snapshotMeta
         );

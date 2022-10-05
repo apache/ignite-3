@@ -15,10 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.raft.snapshot;
+package org.apache.ignite.internal.table.distributed.raft.snapshot.startup;
 
 import java.io.IOException;
 import java.util.Set;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionSnapshotStorage;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
@@ -26,7 +27,7 @@ import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
 /**
  * Snapshot reader used for raft group bootstrap. Reads initial state of the storage.
  */
-class InitPartitionSnapshotReader extends SnapshotReader {
+public class StartupPartitionSnapshotReader extends SnapshotReader {
     /** Instance of snapshot storage for shared fields access. */
     private final PartitionSnapshotStorage snapshotStorage;
 
@@ -35,7 +36,7 @@ class InitPartitionSnapshotReader extends SnapshotReader {
      *
      * @param snapshotStorage Snapshot storage.
      */
-    public InitPartitionSnapshotReader(PartitionSnapshotStorage snapshotStorage) {
+    public StartupPartitionSnapshotReader(PartitionSnapshotStorage snapshotStorage) {
         this.snapshotStorage = snapshotStorage;
     }
 

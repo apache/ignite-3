@@ -22,9 +22,9 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.incoming.IncomingSnapshotCopier;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotReader;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.startup.StartupPartitionSnapshotReader;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
-import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.option.SnapshotCopierOptions;
 import org.apache.ignite.raft.jraft.storage.SnapshotStorage;
 import org.apache.ignite.raft.jraft.storage.SnapshotThrottle;
@@ -49,9 +49,6 @@ public class PartitionSnapshotStorage implements SnapshotStorage {
     /** Snapshot URI. Points to a snapshot folder. Never created on physical storage. */
     private final String snapshotUri;
 
-    /** Raft options. */
-    private final RaftOptions raftOptions;
-
     /** Instance of partition. */
     private final PartitionAccess partition;
 
@@ -71,7 +68,6 @@ public class PartitionSnapshotStorage implements SnapshotStorage {
      * @param topologyService Topology service.
      * @param outgoingSnapshotsManager Outgoing snapshot manager.
      * @param snapshotUri Snapshot URI.
-     * @param raftOptions RAFT options.
      * @param partition Partition.
      * @param snapshotMeta Snapshot meta.
      */
@@ -79,14 +75,12 @@ public class PartitionSnapshotStorage implements SnapshotStorage {
             TopologyService topologyService,
             OutgoingSnapshotsManager outgoingSnapshotsManager,
             String snapshotUri,
-            RaftOptions raftOptions,
             PartitionAccess partition,
             SnapshotMeta snapshotMeta
     ) {
         this.topologyService = topologyService;
         this.outgoingSnapshotsManager = outgoingSnapshotsManager;
         this.snapshotUri = snapshotUri;
-        this.raftOptions = raftOptions;
         this.partition = partition;
         this.snapshotMeta = snapshotMeta;
     }
@@ -126,6 +120,13 @@ public class PartitionSnapshotStorage implements SnapshotStorage {
         return snapshotMeta;
     }
 
+    /**
+     * Returns a snapshot throttle instance.
+     */
+    public SnapshotThrottle snapshotThrottle() {
+        return snapshotThrottle;
+    }
+
     /** {@inheritDoc} */
     @Override
     public boolean init(Void opts) {
@@ -156,7 +157,7 @@ public class PartitionSnapshotStorage implements SnapshotStorage {
     @Override
     public SnapshotReader open() {
         if (startupSnapshotOpened.compareAndSet(false, true)) {
-            return new InitPartitionSnapshotReader(this);
+            return new StartupPartitionSnapshotReader(this);
         }
 
         return new OutgoingSnapshotReader(this);
