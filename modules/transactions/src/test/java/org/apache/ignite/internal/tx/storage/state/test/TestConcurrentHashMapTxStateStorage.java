@@ -52,20 +52,35 @@ public class TestConcurrentHashMapTxStateStorage implements TxStateStorage {
     /** {@inheritDoc} */
     @Override
     public boolean compareAndSet(UUID txId, TxState txStateExpected, @NotNull TxMeta txMeta, long commandIndex) {
+        System.out.println("!!! CAS TestConcurrentHashMapTxStateStorage expected: " + txStateExpected + " txMetaToSet :" + txMeta);
+
         while (true) {
             TxMeta old = storage.get(txId);
 
-            if (old == null && txStateExpected == null && storage.putIfAbsent(txId, txMeta) == null) {
-                return true;
-            }
-            if (old != null) {
-                if (old.txState() == txStateExpected) {
-                    if (storage.replace(txId, old, txMeta)) {
-                        return true;
-                    }
-                } else if (old.equals(txMeta)) {
+            if (old == null && txStateExpected == null) {
+                TxMeta oldMeta = storage.putIfAbsent(txId, txMeta);
+                if (oldMeta == null) {
+                    System.out.println(">>> 1");
                     return true;
                 } else {
+                    System.out.println(">>> 2 oldMeta: " + oldMeta);
+                    return false;
+                }
+            } else if (old != null) {
+                if (old.txState() == txStateExpected) {
+                    System.out.println(">>> 3");
+                    boolean replace = storage.replace(txId, old, txMeta);
+                    if (replace) {
+                        System.out.println(">>> 4");
+                        return true;
+                    } else {
+                        System.out.println(">>> 5");
+                    }
+                } else if (old.equals(txMeta)) {
+                    System.out.println(">>> 6");
+                    return true;
+                } else {
+                    System.out.println(">>> 7 old:" + old + " eq: " + old.equals(txMeta));
                     return false;
                 }
             }
