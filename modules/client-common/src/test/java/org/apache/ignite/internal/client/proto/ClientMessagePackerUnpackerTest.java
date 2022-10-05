@@ -39,7 +39,6 @@ import java.time.temporal.ChronoUnit;
 import java.util.BitSet;
 import java.util.Random;
 import java.util.UUID;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.junit.jupiter.api.Test;
 
 /**
