@@ -382,6 +382,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 ).thenAccept(
                         raftSvc -> {
                             try {
+                                HybridClock safeTimeClock = new HybridClock();
+
                                 replicaManagers.get(node).startReplica(
                                         grpId,
                                         new PartitionReplicaListener(
@@ -392,7 +394,9 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                                                 partId,
                                                 grpId,
                                                 tblId,
-                                                primaryIndex
+                                                primaryIndex,
+                                                clocks.get(node),
+                                                safeTimeClock
                                         )
                                 );
                             } catch (NodeStoppingException e) {

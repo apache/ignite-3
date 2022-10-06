@@ -34,7 +34,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.raft.jraft.Node;
@@ -673,11 +672,7 @@ public class Replicator implements ThreadId.OnError {
         final RpcResponseClosure<AppendEntriesResponse> heartBeatClosure) {
         final AppendEntriesRequestBuilder rb = raftOptions.getRaftMessagesFactory().appendEntriesRequest();
         if (isHeartbeat) {
-            HybridTimestamp currentTimestamp = options.getNode().clockNow();
-
-            rb.timestamp(currentTimestamp);
-
-            rb.safeTimestamp(options.getNode().safeTimeNow());
+            rb.timestamp(options.getNode().clockNow());
         }
         if (!fillCommonFields(rb, this.nextIndex - 1, isHeartbeat)) {
             // id is unlock in installSnapshot

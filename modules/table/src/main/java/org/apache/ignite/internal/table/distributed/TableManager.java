@@ -787,7 +787,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                             partId,
                                                             grpId,
                                                             tblId,
-                                                            primaryIndex
+                                                            primaryIndex,
+                                                            clock,
+                                                            safeTimeClock
                                                     )
                                             );
                                         } catch (NodeStoppingException ex) {
@@ -1766,7 +1768,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                             part,
                                             partId,
                                             tblId,
-                                            primaryIndex
+                                            primaryIndex,
+                                            clock,
+                                            safeTimeClock
                                     )
                             );
                         }

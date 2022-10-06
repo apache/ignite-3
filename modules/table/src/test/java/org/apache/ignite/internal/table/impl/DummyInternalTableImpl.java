@@ -208,7 +208,9 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 0,
                 groupId,
                 tableId(),
-                primaryIndex
+                primaryIndex,
+                new HybridClock(),
+                new HybridClock()
         );
 
         partitionListener = new PartitionListener(

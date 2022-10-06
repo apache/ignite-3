@@ -140,9 +140,6 @@ public final class RpcRequests {
         long lastLogIndex();
 
         boolean preVote();
-
-        @Marshallable
-        HybridTimestamp safeTimestamp();
     }
 
     @Transferable(value = RaftMessageGroup.RpcRequestsMessageGroup.REQUEST_VOTE_RESPONSE)
@@ -181,9 +178,6 @@ public final class RpcRequests {
 
         @Marshallable
         HybridTimestamp timestamp();
-
-        @Marshallable
-        HybridTimestamp safeTimestamp();
     }
 
     @Transferable(value = RaftMessageGroup.RpcRequestsMessageGroup.APPEND_ENTRIES_RESPONSE)
