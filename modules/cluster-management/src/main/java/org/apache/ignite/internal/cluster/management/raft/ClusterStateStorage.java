@@ -57,6 +57,15 @@ public interface ClusterStateStorage extends AutoCloseable {
     void put(byte[] key, byte[] value);
 
     /**
+     * Atomically removes all keys starting with the given prefix and inserts a new value associated with the given key.
+     *
+     * @param prefix Key prefix that should be removed.
+     * @param key Key to insert.
+     * @param value Value to insert.
+     */
+    void replaceAll(byte[] prefix, byte[] key, byte[] value);
+
+    /**
      * Removes the value associated with the given key. Does nothing if no such association exists.
      *
      * @param key Key which value should be removed.

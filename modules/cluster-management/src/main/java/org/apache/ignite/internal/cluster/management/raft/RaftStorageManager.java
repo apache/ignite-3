@@ -19,14 +19,17 @@ package org.apache.ignite.internal.cluster.management.raft;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
+import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
+import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.cluster.management.ClusterState;
-import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
@@ -45,8 +48,6 @@ class RaftStorageManager {
     /** Prefix for validation tokens. */
     private static final byte[] VALIDATED_NODE_PREFIX = "validation_".getBytes(UTF_8);
 
-    private static final byte[] EMPTY_VALUE = new byte[0];
-
     private final ClusterStateStorage storage;
 
     RaftStorageManager(ClusterStateStorage storage) {
@@ -60,7 +61,9 @@ class RaftStorageManager {
      */
     @Nullable
     ClusterState getClusterState() {
-        return get(CMG_STATE_KEY, ClusterState.class);
+        byte[] value = storage.get(CMG_STATE_KEY);
+
+        return value == null ? null : fromBytes(value);
     }
 
     /**
@@ -69,19 +72,14 @@ class RaftStorageManager {
      * @param state Cluster state.
      */
     void putClusterState(ClusterState state) {
-        storage.put(CMG_STATE_KEY, ByteUtils.toBytes(state));
+        storage.put(CMG_STATE_KEY, toBytes(state));
     }
 
     /**
      * Retrieves the current logical topology.
      */
     Collection<ClusterNode> getLogicalTopology() {
-        Cursor<ClusterNode> cursor = storage.getWithPrefix(
-                LOGICAL_TOPOLOGY_PREFIX,
-                (k, v) -> (ClusterNode) ByteUtils.fromBytes(v)
-        );
-
-        try (cursor) {
+        try (Cursor<ClusterNode> cursor = storage.getWithPrefix(LOGICAL_TOPOLOGY_PREFIX, (k, v) -> fromBytes(v))) {
             return cursor.stream().collect(toList());
         } catch (Exception e) {
             throw new IgniteInternalException("Unable to get data from storage", e);
@@ -94,7 +92,16 @@ class RaftStorageManager {
      * @param node Node to save.
      */
     void putLogicalTopologyNode(ClusterNode node) {
-        storage.put(logicalTopologyKey(node), ByteUtils.toBytes(node));
+        byte[] nodeNameBytes = node.name().getBytes(UTF_8);
+
+        byte[] nodeIdBytes = node.id().getBytes(UTF_8);
+
+        byte[] key = logicalTopologyKey(nodeNameBytes, nodeIdBytes);
+
+        // Replace all nodes with the same consistent ID.
+        byte[] prefix = Arrays.copyOf(key, key.length - nodeIdBytes.length);
+
+        storage.replaceAll(prefix, key, toBytes(node));
     }
 
     /**
@@ -120,7 +127,19 @@ class RaftStorageManager {
     }
 
     private static byte[] logicalTopologyKey(ClusterNode node) {
-        return prefixedKey(LOGICAL_TOPOLOGY_PREFIX, node.id());
+        byte[] nodeNameBytes = node.name().getBytes(UTF_8);
+
+        byte[] nodeIdBytes = node.id().getBytes(UTF_8);
+
+        return logicalTopologyKey(nodeNameBytes, nodeIdBytes);
+    }
+
+    private static byte[] logicalTopologyKey(byte[] nodeNameBytes, byte[] nodeIdBytes) {
+        return ByteBuffer.allocate(LOGICAL_TOPOLOGY_PREFIX.length + nodeNameBytes.length + nodeIdBytes.length)
+                .put(LOGICAL_TOPOLOGY_PREFIX)
+                .put(nodeNameBytes)
+                .put(nodeIdBytes)
+                .array();
     }
 
     /**
@@ -136,7 +155,7 @@ class RaftStorageManager {
      * Marks the given node as validated.
      */
     void putValidatedNode(String nodeId) {
-        storage.put(validatedNodeKey(nodeId), EMPTY_VALUE);
+        storage.put(validatedNodeKey(nodeId), BYTE_EMPTY_ARRAY);
     }
 
     /**
@@ -147,7 +166,12 @@ class RaftStorageManager {
     }
 
     private static byte[] validatedNodeKey(String nodeId) {
-        return prefixedKey(VALIDATED_NODE_PREFIX, nodeId);
+        byte[] nodeIdBytes = nodeId.getBytes(UTF_8);
+
+        return ByteBuffer.allocate(VALIDATED_NODE_PREFIX.length + nodeIdBytes.length)
+                .put(VALIDATED_NODE_PREFIX)
+                .put(nodeIdBytes)
+                .array();
     }
 
     /**
@@ -164,22 +188,6 @@ class RaftStorageManager {
         } catch (Exception e) {
             throw new IgniteInternalException("Unable to get data from storage", e);
         }
-    }
-
-    @Nullable
-    private <T> T get(byte[] key, Class<T> cls) {
-        byte[] value = storage.get(key);
-
-        return value == null ? null : cls.cast(ByteUtils.fromBytes(value));
-    }
-
-    private static byte[] prefixedKey(byte[] prefix, String nodeId) {
-        byte[] nodeIdBytes = nodeId.getBytes(UTF_8);
-
-        return ByteBuffer.allocate(prefix.length + nodeIdBytes.length)
-                .put(prefix)
-                .put(nodeIdBytes)
-                .array();
     }
 
     /**

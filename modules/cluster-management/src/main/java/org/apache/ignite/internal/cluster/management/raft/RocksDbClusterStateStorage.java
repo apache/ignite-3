@@ -109,6 +109,22 @@ public class RocksDbClusterStateStorage implements ClusterStateStorage {
     }
 
     @Override
+    public void replaceAll(byte[] prefix, byte[] key, byte[] value) {
+        try (
+                var batch = new WriteBatch();
+                var options = new WriteOptions();
+        ) {
+            batch.deleteRange(prefix, RocksUtils.incrementArray(prefix));
+
+            batch.put(key, value);
+
+            db.write(options, batch);
+        } catch (RocksDBException e) {
+            throw new IgniteInternalException("Unable to replace data in Rocks DB", e);
+        }
+    }
+
+    @Override
     public void remove(byte[] key) {
         try {
             db.delete(key);
