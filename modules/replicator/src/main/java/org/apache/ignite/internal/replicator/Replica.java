@@ -23,7 +23,6 @@ import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
-import org.apache.ignite.internal.replicator.message.SafeTimestampAware;
 import org.apache.ignite.lang.IgniteStringFormatter;
 
 /**
@@ -67,12 +66,6 @@ public class Replica {
                 request.groupId(),
                 replicaGrpId);
 
-        if (request instanceof SafeTimestampAware) {
-            SafeTimestampAware timestampAwareRequest = (SafeTimestampAware) request;
-
-            syncSafeTimestamp(timestampAwareRequest.safeTimestamp());
-        }
-
         return listener.invoke(request);
     }
 
@@ -96,6 +89,6 @@ public class Replica {
 
     private void safeTimeSync() {
         // TODO HLC
-        listener.invoke(new ReplicaMessagesFactory().safeTimeSyncRequest().safeTimestamp(safeTimestamp()).build());
+        //listener.invoke(new ReplicaMessagesFactory().safeTimeSyncRequest().safeTimestamp(safeTimestamp()).build());
     }
 }

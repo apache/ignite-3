@@ -39,8 +39,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.hlc.HybridTimestamp;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
@@ -449,7 +447,6 @@ public class InternalTableImpl implements InternalTable {
                         .term(term)
                         .requestType(RequestType.RW_GET)
                         .timestamp(currentTimestamp)
-                        .safeTimestamp(safeTimestamp(keyRow, currentTimestamp))
                         .build()
         );
     }
@@ -486,7 +483,6 @@ public class InternalTableImpl implements InternalTable {
                         .term(term)
                         .requestType(RequestType.RW_UPSERT)
                         .timestamp(currentTimestamp)
-                        .safeTimestamp(safeTimestamp(row, currentTimestamp))
                         .build());
     }
 
@@ -522,7 +518,6 @@ public class InternalTableImpl implements InternalTable {
                         .term(term)
                         .requestType(RequestType.RW_GET_AND_UPSERT)
                         .timestamp(currentTimestamp)
-                        .safeTimestamp(safeTimestamp(row, currentTimestamp))
                         .build()
         );
     }
@@ -542,7 +537,6 @@ public class InternalTableImpl implements InternalTable {
                         .term(term)
                         .requestType(RequestType.RW_INSERT)
                         .timestamp(currentTimestamp)
-                        .safeTimestamp(safeTimestamp(row, currentTimestamp))
                         .build()
         );
     }
@@ -579,7 +573,6 @@ public class InternalTableImpl implements InternalTable {
                         .term(term)
                         .requestType(RequestType.RW_REPLACE_IF_EXIST)
                         .timestamp(clock.now())
-                        .safeTimestamp(safeTimestamp(row, currentTimestamp))
                         .build()
         );
     }
@@ -617,7 +610,6 @@ public class InternalTableImpl implements InternalTable {
                         .term(term)
                         .requestType(RequestType.RW_GET_AND_REPLACE)
                         .timestamp(currentTimestamp)
-                        .safeTimestamp(safeTimestamp(row, currentTimestamp))
                         .build()
         );
     }
@@ -637,7 +629,6 @@ public class InternalTableImpl implements InternalTable {
                         .term(term)
                         .requestType(RequestType.RW_DELETE)
                         .timestamp(currentTimestamp)
-                        .safeTimestamp(safeTimestamp(keyRow, currentTimestamp))
                         .build()
         );
     }
@@ -657,7 +648,6 @@ public class InternalTableImpl implements InternalTable {
                         .term(term)
                         .requestType(RequestType.RW_DELETE_EXACT)
                         .timestamp(currentTimestamp)
-                        .safeTimestamp(safeTimestamp(oldRow, currentTimestamp))
                         .build()
         );
     }
@@ -677,7 +667,6 @@ public class InternalTableImpl implements InternalTable {
                         .term(term)
                         .requestType(RequestType.RW_GET_AND_DELETE)
                         .timestamp(currentTimestamp)
-                        .safeTimestamp(safeTimestamp(row, currentTimestamp))
                         .build()
         );
     }
@@ -902,24 +891,6 @@ public class InternalTableImpl implements InternalTable {
             return tx.enlist(svc.groupId(),
                     new IgniteBiTuple<>(clusterNodeResolver.apply(primaryPeerAndTerm.get1().address()), primaryPeerAndTerm.get2()));
         });
-    }
-
-    /**
-     * Returns safe timestamp for corresponding replica.
-     *
-     * @param row Binary row.
-     * @return Safe timestamp.
-     */
-    private HybridTimestamp safeTimestamp(BinaryRowEx row, HybridTimestamp timestamp) {
-        String partGroupId = partitionMap.get(partId(row)).groupId();
-
-        try {
-            Replica replica = replicaManager.replica(partGroupId);
-
-            return replica.syncSafeTimestamp(timestamp);
-        } catch (NodeStoppingException e) {
-            throw new TransactionException("Failed to create replica request.");
-        }
     }
 
     /**

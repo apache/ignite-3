@@ -42,7 +42,6 @@ import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutExcepti
 import org.apache.ignite.internal.replicator.exception.UnsupportedReplicaRequestException;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
-import org.apache.ignite.internal.replicator.message.SafeTimeSyncRequest;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
@@ -193,8 +192,6 @@ public class PartitionReplicaListener implements ReplicaListener {
                         return processTxFinishAction((TxFinishReplicaRequest) request);
                     } else if (request instanceof TxCleanupReplicaRequest) {
                         return processTxCleanupAction((TxCleanupReplicaRequest) request);
-                    } else if (request instanceof SafeTimeSyncRequest) {
-                        return processSafeTimeSyncRequest((SafeTimeSyncRequest) request);
                     } else {
                         throw new UnsupportedReplicaRequestException(request.getClass());
                     }
@@ -358,12 +355,6 @@ public class PartitionReplicaListener implements ReplicaListener {
         return raftClient
                 .run(new TxCleanupCommand(request.txId(), request.commit(), request.commitTimestamp()))
                 .thenRun(() -> lockManager.locks(request.txId()).forEachRemaining(lockManager::release));
-    }
-
-    private CompletableFuture processSafeTimeSyncRequest(SafeTimeSyncRequest request) {
-        safeTimeClock.sync(request.safeTimestamp());
-
-        return completedFuture(null);
     }
 
     /**

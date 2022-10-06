@@ -565,11 +565,11 @@ public class NodeImpl implements Node, RaftServerService {
     }
 
     public HybridTimestamp safeTimeNow() {
-        return safeTimeClock.now();
+        return safeTimeClock != null ? safeTimeClock.now() : null;
     }
 
     public HybridTimestamp safeTimeClockUpdate(HybridTimestamp safeTimestamp) {
-        return safeTimeClock.update(safeTimestamp);
+        return safeTimeClock != null ? safeTimeClock.update(safeTimestamp) : null;
     }
 
     public HybridTimestamp safeTimeClockSync(HybridTimestamp safeTimestamp) {

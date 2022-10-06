@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.replicator.message;
 
 import org.apache.ignite.hlc.HybridTimestamp;
+import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
 
@@ -25,7 +26,7 @@ import org.apache.ignite.network.annotations.Transferable;
  * Message with a timestamp to adjust a hybrid logical clock.
  */
 @Transferable(ReplicaMessageGroup.TIMESTAMP_AWARE)
-public interface TimestampAware extends SafeTimestampAware {
+public interface TimestampAware extends NetworkMessage {
     /**
      * Gets a hybrid timestamp.
      *

@@ -317,7 +317,6 @@ public class ReplicaManager implements IgniteComponent {
                     .timestampAwareReplicaResponse()
                     .result(result)
                     .timestamp(clock.update(requestTimestamp))
-                    .safeTimestamp(safeTimestamp)
                     .build();
         } else {
             return REPLICA_MESSAGES_FACTORY
@@ -338,7 +337,6 @@ public class ReplicaManager implements IgniteComponent {
                     .errorTimestampAwareReplicaResponse()
                     .throwable(ex)
                     .timestamp(clock.update(requestTimestamp))
-                    .safeTimestamp(safeTimestamp)
                     .build();
         } else {
             return REPLICA_MESSAGES_FACTORY

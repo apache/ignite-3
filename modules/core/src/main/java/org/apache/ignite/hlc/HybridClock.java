@@ -85,6 +85,10 @@ public class HybridClock {
         return update(requestTime, true);
     }
 
+    public HybridTimestamp sync(HybridTimestamp requestTime) {
+        return update(requestTime, false);
+    }
+
     /**
      * Creates a timestamp for a received event.
      *
@@ -107,10 +111,6 @@ public class HybridClock {
                 return newLatestTime;
             }
         }
-    }
-
-    public HybridTimestamp sync(HybridTimestamp requestTime) {
-        return update(requestTime, false);
     }
 
     /** {@inheritDoc} */
