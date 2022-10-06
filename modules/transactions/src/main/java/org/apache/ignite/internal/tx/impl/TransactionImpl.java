@@ -22,13 +22,13 @@ import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_COMMIT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ROLLBACK_ERR;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -58,7 +58,7 @@ public class TransactionImpl implements InternalTransaction {
     private final Map<String, IgniteBiTuple<ClusterNode, Long>> enlisted = new ConcurrentSkipListMap<>();
 
     /** Enlisted operation futures in this transaction. */
-    private final List<CompletableFuture<?>> enlistedResults = Collections.synchronizedList(new ArrayList<>());
+    private final List<CompletableFuture<?>> enlistedResults = new CopyOnWriteArrayList<>();
 
     /**
      * The constructor.
