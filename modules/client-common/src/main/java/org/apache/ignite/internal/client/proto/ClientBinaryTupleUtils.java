@@ -17,6 +17,25 @@
 
 package org.apache.ignite.internal.client.proto;
 
+import static org.apache.ignite.internal.client.proto.ClientDataType.BITMASK;
+import static org.apache.ignite.internal.client.proto.ClientDataType.BOOLEAN;
+import static org.apache.ignite.internal.client.proto.ClientDataType.BYTES;
+import static org.apache.ignite.internal.client.proto.ClientDataType.DATE;
+import static org.apache.ignite.internal.client.proto.ClientDataType.DATETIME;
+import static org.apache.ignite.internal.client.proto.ClientDataType.DECIMAL;
+import static org.apache.ignite.internal.client.proto.ClientDataType.DOUBLE;
+import static org.apache.ignite.internal.client.proto.ClientDataType.DURATION;
+import static org.apache.ignite.internal.client.proto.ClientDataType.FLOAT;
+import static org.apache.ignite.internal.client.proto.ClientDataType.INT16;
+import static org.apache.ignite.internal.client.proto.ClientDataType.INT32;
+import static org.apache.ignite.internal.client.proto.ClientDataType.INT64;
+import static org.apache.ignite.internal.client.proto.ClientDataType.INT8;
+import static org.apache.ignite.internal.client.proto.ClientDataType.NUMBER;
+import static org.apache.ignite.internal.client.proto.ClientDataType.PERIOD;
+import static org.apache.ignite.internal.client.proto.ClientDataType.STRING;
+import static org.apache.ignite.internal.client.proto.ClientDataType.TIME;
+import static org.apache.ignite.internal.client.proto.ClientDataType.TIMESTAMP;
+import static org.apache.ignite.internal.client.proto.ClientDataType.UUID;
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
 
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
@@ -49,72 +68,154 @@ public class ClientBinaryTupleUtils {
         }
 
         switch (clientDataType) {
-            case ClientDataType.INT8:
+            case INT8:
                 tuple.set(columnName, reader.byteValue(readerIndex));
                 break;
 
-            case ClientDataType.INT16:
+            case INT16:
                 tuple.set(columnName, reader.shortValue(readerIndex));
                 break;
 
-            case ClientDataType.INT32:
+            case INT32:
                 tuple.set(columnName, reader.intValue(readerIndex));
                 break;
 
-            case ClientDataType.INT64:
+            case INT64:
                 tuple.set(columnName, reader.longValue(readerIndex));
                 break;
 
-            case ClientDataType.FLOAT:
+            case FLOAT:
                 tuple.set(columnName, reader.floatValue(readerIndex));
                 break;
 
-            case ClientDataType.DOUBLE:
+            case DOUBLE:
                 tuple.set(columnName, reader.doubleValue(readerIndex));
                 break;
 
-            case ClientDataType.DECIMAL:
+            case DECIMAL:
                 tuple.set(columnName, reader.decimalValue(readerIndex, decimalScale));
                 break;
 
-            case ClientDataType.UUID:
+            case UUID:
                 tuple.set(columnName, reader.uuidValue(readerIndex));
                 break;
 
-            case ClientDataType.STRING:
+            case STRING:
                 tuple.set(columnName, reader.stringValue(readerIndex));
                 break;
 
-            case ClientDataType.BYTES:
+            case BYTES:
                 tuple.set(columnName, reader.bytesValue(readerIndex));
                 break;
 
-            case ClientDataType.BITMASK:
+            case BITMASK:
                 tuple.set(columnName, reader.bitmaskValue(readerIndex));
                 break;
 
-            case ClientDataType.NUMBER:
+            case NUMBER:
                 tuple.set(columnName, reader.numberValue(readerIndex));
                 break;
 
-            case ClientDataType.DATE:
+            case DATE:
                 tuple.set(columnName, reader.dateValue(readerIndex));
                 break;
 
-            case ClientDataType.TIME:
+            case TIME:
                 tuple.set(columnName, reader.timeValue(readerIndex));
                 break;
 
-            case ClientDataType.DATETIME:
+            case DATETIME:
                 tuple.set(columnName, reader.dateTimeValue(readerIndex));
                 break;
 
-            case ClientDataType.TIMESTAMP:
+            case TIMESTAMP:
                 tuple.set(columnName, reader.timestampValue(readerIndex));
                 break;
 
             default:
-                throw new IgniteException(PROTOCOL_ERR, "Unsupported type: " + clientDataType);
+                throw unsupportedTypeException(clientDataType);
         }
+    }
+
+    /**
+     * Reads an object from binary tuple at the specified index.
+     *
+     * @param reader Binary tuple reader.
+     * @param index  Starting index in the binary tuple.
+     * @return Object.
+     */
+    public static Object readObject(BinaryTupleReader reader, int index) {
+        if (reader.hasNullValue(index)) {
+            return null;
+        }
+
+        int type = reader.intValue(index);
+        int valIdx = index + 2;
+
+        switch (type) {
+            case INT8:
+                return reader.byteValue(valIdx);
+
+            case INT16:
+                return reader.shortValue(valIdx);
+
+            case INT32:
+                return reader.intValue(valIdx);
+
+            case INT64:
+                return reader.longValue(valIdx);
+
+            case FLOAT:
+                return reader.floatValue(valIdx);
+
+            case DOUBLE:
+                return reader.doubleValue(valIdx);
+
+            case DECIMAL:
+                return reader.decimalValue(valIdx, reader.intValue(index + 1));
+
+            case UUID:
+                return reader.uuidValue(valIdx);
+
+            case STRING:
+                return reader.stringValue(valIdx);
+
+            case BYTES:
+                return reader.bytesValue(valIdx);
+
+            case BITMASK:
+                return reader.bitmaskValue(valIdx);
+
+            case DATE:
+                return reader.dateValue(valIdx);
+
+            case TIME:
+                return reader.timeValue(valIdx);
+
+            case DATETIME:
+                return reader.dateTimeValue(valIdx);
+
+            case TIMESTAMP:
+                return reader.timestampValue(valIdx);
+
+            case NUMBER:
+                return reader.numberValue(valIdx);
+
+            case BOOLEAN:
+                return reader.byteValue(valIdx) != 0;
+
+            case DURATION:
+                return reader.durationValue(valIdx);
+
+            case PERIOD:
+                return reader.periodValue(valIdx);
+
+            default:
+                throw unsupportedTypeException(type);
+        }
+    }
+
+    private static IgniteException unsupportedTypeException(int dataType) {
+        return new IgniteException(PROTOCOL_ERR, "Unsupported type: " + dataType);
     }
 }
