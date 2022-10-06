@@ -699,8 +699,9 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
         public void TestObjectWithType()
         {
             var guid = Guid.NewGuid();
-            var date = LocalDate.FromDateTime(DateTime.UtcNow);
-            var dateTime = LocalDateTime.FromDateTime(DateTime.UtcNow);
+            var utcNow = DateTime.UtcNow;
+            var date = LocalDate.FromDateTime(utcNow);
+            var dateTime = LocalDateTime.FromDateTime(utcNow);
             var bitArray = new BitArray(new[] { byte.MaxValue });
             var bytes = new byte[] { 1, 2 };
 
@@ -723,8 +724,9 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
                     b.AppendObjectWithType(LocalTime.FromMinutesSinceMidnight(123));
                     b.AppendObjectWithType(date);
                     b.AppendObjectWithType(dateTime);
+                    b.AppendObjectWithType(Instant.FromDateTimeUtc(utcNow));
                 },
-                16 * 3);
+                17 * 3);
 
             Assert.IsNull(reader.GetObject(0));
             Assert.AreEqual(sbyte.MaxValue, reader.GetObject(3));
@@ -742,6 +744,7 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
             Assert.AreEqual(LocalTime.FromMinutesSinceMidnight(123), reader.GetObject(39));
             Assert.AreEqual(date, reader.GetObject(42));
             Assert.AreEqual(dateTime, reader.GetObject(45));
+            Assert.AreEqual(Instant.FromDateTimeUtc(utcNow), reader.GetObject(48));
         }
 
         private static BinaryTupleReader BuildAndRead(BinaryTupleBuilderAction build, int numElements = 1)
