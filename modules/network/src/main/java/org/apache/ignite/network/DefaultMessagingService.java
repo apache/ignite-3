@@ -45,7 +45,6 @@ import org.apache.ignite.internal.network.netty.InNetworkObject;
 import org.apache.ignite.internal.network.netty.NettySender;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorRegistry;
 import org.apache.ignite.internal.network.serialization.DescriptorRegistry;
-import org.apache.ignite.internal.network.serialization.UserObjectSerializationContext;
 import org.apache.ignite.internal.network.serialization.marshal.UserObjectMarshaller;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
@@ -98,14 +97,15 @@ public class DefaultMessagingService extends AbstractMessagingService {
      *
      * @param factory Network messages factory.
      * @param topologyService Topology service.
-     * @param userObjectSerializationContext Serialization context.
+     * @param classDescriptorRegistry Descriptor registry.
+     * @param marshaller Marshaller.
      */
     public DefaultMessagingService(NetworkMessagesFactory factory, TopologyService topologyService,
-            UserObjectSerializationContext userObjectSerializationContext) {
+            ClassDescriptorRegistry classDescriptorRegistry, UserObjectMarshaller marshaller) {
         this.factory = factory;
         this.topologyService = topologyService;
-        this.marshaller = userObjectSerializationContext.marshaller();
-        this.classDescriptorRegistry = userObjectSerializationContext.descriptorRegistry();
+        this.classDescriptorRegistry = classDescriptorRegistry;
+        this.marshaller = marshaller;
     }
 
     /**

@@ -79,6 +79,8 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
     /** Recovery descriptor. */
     private RecoveryDescriptor recoveryDescriptor;
 
+    private volatile Runnable beforeHandshakeComplete = () -> {};
+
     /**
      * Constructor.
      *
@@ -198,10 +200,17 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
      * Finishes handshaking process by removing handshake handler from the pipeline and creating a {@link NettySender}.
      */
     private void finishHandshake() {
+        beforeHandshakeComplete.run();
+
         // Removes handshake handler from the pipeline as the handshake is finished
         this.ctx.pipeline().remove(this.handler);
 
         handshakeCompleteFuture.complete(new NettySender(channel, remoteLaunchId.toString(), remoteConsistentId));
+    }
+
+    @TestOnly
+    public void setBeforeHandshakeComplete(Runnable beforeHandshakeComplete) {
+        this.beforeHandshakeComplete = beforeHandshakeComplete;
     }
 
     @TestOnly

@@ -22,6 +22,8 @@ import io.netty.channel.ChannelFuture;
 import io.netty.util.concurrent.Future;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
+import java.util.function.Supplier;
+import org.apache.ignite.internal.future.OrderedCompletableFuture;
 import org.jetbrains.annotations.Async.Execute;
 import org.jetbrains.annotations.Async.Schedule;
 
@@ -43,7 +45,26 @@ public class NettyUtils {
             @Schedule F nettyFuture,
             Function<F, T> mapper
     ) {
-        var fut = new CompletableFuture<T>();
+        return toCompletableFuture(nettyFuture, mapper, CompletableFuture::new);
+    }
+
+    /**
+     * Convert a Netty {@link Future} to a {@link CompletableFuture}.
+     *
+     * @param nettyFuture Netty future.
+     * @param mapper      Function that maps successfully resolved Netty future to a value for a CompletableFuture.
+     * @param completableFutureFactory Factory used to produce a fresh instance of a {@link CompletableFuture}.
+     * @param <T>         Resulting future type.
+     * @param <R>         Netty future result type.
+     * @param <F>         Netty future type.
+     * @return CompletableFuture.
+     */
+    public static <T, R, F extends Future<R>> CompletableFuture<T> toCompletableFuture(
+            @Schedule F nettyFuture,
+            Function<F, T> mapper,
+            Supplier<? extends CompletableFuture<T>> completableFutureFactory
+    ) {
+        var fut = completableFutureFactory.get();
 
         nettyFuture.addListener((@Execute F future) -> {
             if (future.isSuccess()) {
@@ -70,12 +91,13 @@ public class NettyUtils {
     }
 
     /**
-     * Convert a Netty {@link ChannelFuture} to a {@link CompletableFuture}.
+     * Convert a Netty {@link ChannelFuture} to a {@link CompletableFuture}. The returned future is ordered (that is,
+     * all its dependents will be resolved in the same order in which they were registered).
      *
      * @param channelFuture Channel future.
      * @return CompletableFuture.
      */
     public static CompletableFuture<Channel> toChannelCompletableFuture(ChannelFuture channelFuture) {
-        return toCompletableFuture(channelFuture, ChannelFuture::channel);
+        return toCompletableFuture(channelFuture, ChannelFuture::channel, OrderedCompletableFuture::new);
     }
 }

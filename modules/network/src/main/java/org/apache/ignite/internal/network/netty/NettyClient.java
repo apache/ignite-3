@@ -22,6 +22,7 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.socket.SocketChannel;
 import java.net.SocketAddress;
+import java.util.Objects;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
@@ -50,7 +51,7 @@ public class NettyClient {
     private volatile CompletableFuture<NettySender> clientFuture = null;
 
     /** Future that resolves when the client channel is opened. */
-    private CompletableFuture<Void> channelFuture = new CompletableFuture<>();
+    private final CompletableFuture<Void> channelFuture = new CompletableFuture<>();
 
     /** Client channel. */
     @Nullable
@@ -144,8 +145,9 @@ public class NettyClient {
      *
      * @return Client start future.
      */
-    @Nullable
     public CompletableFuture<NettySender> sender() {
+        Objects.requireNonNull(clientFuture, "NettyClient is not connected yet");
+
         return clientFuture;
     }
 

@@ -92,6 +92,9 @@ public class ConnectionManager {
     /** Recovery descriptor provider. */
     private final RecoveryDescriptorProvider descriptorProvider = new DefaultRecoveryDescriptorProvider();
 
+    /** An action that is invoked before handshake completes. Only useful for tests. */
+    private volatile Runnable beforeHandshakeComplete = () -> {};
+
     /**
      * Constructor.
      *
@@ -193,11 +196,7 @@ public class ConnectionManager {
                         ? existingClient : connect(addr, (short) 0)
         );
 
-        CompletableFuture<NettySender> sender = client.sender();
-
-        assert sender != null;
-
-        return sender;
+        return client.sender();
     }
 
     /**
@@ -292,7 +291,11 @@ public class ConnectionManager {
     }
 
     private HandshakeManager createClientHandshakeManager(short connectionId) {
-        return new RecoveryClientHandshakeManager(launchId, consistentId, connectionId, FACTORY, descriptorProvider);
+        RecoveryClientHandshakeManager handshakeManager = new RecoveryClientHandshakeManager(launchId, consistentId,
+                connectionId, FACTORY, descriptorProvider);
+        handshakeManager.setBeforeHandshakeComplete(beforeHandshakeComplete);
+
+        return handshakeManager;
     }
 
     private HandshakeManager createServerHandshakeManager() {
@@ -314,7 +317,6 @@ public class ConnectionManager {
      *
      * @return This node's consistent id.
      */
-    @TestOnly
     public String consistentId() {
         return consistentId;
     }
@@ -337,5 +339,10 @@ public class ConnectionManager {
     @TestOnly
     public Map<String, NettySender> channels() {
         return Collections.unmodifiableMap(channels);
+    }
+
+    @TestOnly
+    public void setBeforeHandshakeComplete(Runnable beforeHandshakeComplete) {
+        this.beforeHandshakeComplete = beforeHandshakeComplete;
     }
 }
