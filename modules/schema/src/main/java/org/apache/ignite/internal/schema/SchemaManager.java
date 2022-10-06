@@ -122,7 +122,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
         try {
             ExtendedTableView tblCfg = (ExtendedTableView) ctx.config(ExtendedTableConfiguration.class).value();
 
-            Integer verFromUpdate = tblCfg.schemaId();
+            int verFromUpdate = tblCfg.schemaId();
 
             UUID tblId = tblCfg.id();
 
@@ -155,11 +155,15 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
                     () -> fireEvent(SchemaEvent.CREATE, new SchemaEventParameters(causalityToken, tblId, schemaDescFromUpdate))));
 
             if (curSchemaDesc == null) {
-                byte[] serialized = SchemaSerializerImpl.INSTANCE.serialize(schemaDescFromUpdate);
+                try {
+                    byte[] serialized = SchemaSerializerImpl.INSTANCE.serialize(schemaDescFromUpdate);
 
-                createSchemaFut.thenCompose(t -> metastorageMgr.put(
-                        schemaWithVerHistKey(tblId, verFromUpdate), serialized)
-                ).thenApply(t -> t);
+                    createSchemaFut.thenCompose(t -> metastorageMgr.put(
+                            schemaWithVerHistKey(tblId, verFromUpdate), serialized)
+                    ).thenApply(t -> t);
+                } catch (Throwable th) {
+                    createSchemaFut.completeExceptionally(th);
+                }
             }
 
             return createSchemaFut;
