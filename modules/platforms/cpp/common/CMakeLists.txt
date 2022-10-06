@@ -26,7 +26,6 @@ set(HEADERS
     guid.h
     ignite_error.h
     ignite_result.h
-    platform.h
     types.h
     uuid.h)
 

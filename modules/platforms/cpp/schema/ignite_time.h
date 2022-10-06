@@ -41,7 +41,8 @@ public:
      * @param second Second-of-minute, from 0 to 59.
      * @param nano Nano-of-second, from 0 to 999,999,999.
      */
-    constexpr ignite_time(int hour, int minute, int second = 0, int nano = 0)
+    constexpr ignite_time(
+        std::int_fast8_t hour, std::int_fast8_t minute, std::int_fast8_t second = 0, std::int32_t nano = 0)
         : hour(hour)
         , minute(minute)
         , second(second)
@@ -52,22 +53,22 @@ public:
     /**
      * Gets the hour-of-day field.
      */
-    constexpr int get_hour() const noexcept { return hour; }
+    constexpr auto get_hour() const noexcept { return hour; }
 
     /**
      * Gets the minute-of-hour field.
      */
-    constexpr int get_minute() const noexcept { return minute; }
+    constexpr auto get_minute() const noexcept { return minute; }
 
     /**
      * Gets the second-of-minute field.
      */
-    constexpr int get_second() const noexcept { return second; }
+    constexpr auto get_second() const noexcept { return second; }
 
     /**
      * Gets the nano-of-second field.
      */
-    constexpr int get_nano() const noexcept { return nano; }
+    constexpr std::int32_t get_nano() const noexcept { return nano; }
 
     /**
      * Compare to another value.
