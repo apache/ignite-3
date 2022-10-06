@@ -144,6 +144,7 @@ public class ClientSqlExecuteRequest {
 
         var propCount = in.unpackMapHeader();
 
+        // TODO IGNITE-17777 use single BinaryTuple for all properties.
         for (int i = 0; i < propCount; i++) {
             sessionBuilder.property(in.unpackString(), in.unpackObjectFromBinaryTuple());
         }
