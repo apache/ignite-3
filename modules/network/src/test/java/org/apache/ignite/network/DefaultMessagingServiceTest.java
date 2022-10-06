@@ -41,6 +41,9 @@ import org.apache.ignite.internal.network.messages.TestMessageSerializationFacto
 import org.apache.ignite.internal.network.messages.TestMessageTypes;
 import org.apache.ignite.internal.network.messages.TestMessagesFactory;
 import org.apache.ignite.internal.network.netty.ConnectionManager;
+import org.apache.ignite.internal.network.recovery.RecoveryClientHandhakeManagerFactory;
+import org.apache.ignite.internal.network.recovery.RecoveryClientHandshakeManager;
+import org.apache.ignite.internal.network.recovery.RecoveryDescriptorProvider;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorFactory;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorRegistry;
 import org.apache.ignite.internal.network.serialization.SerializationService;
@@ -104,9 +107,13 @@ class DefaultMessagingServiceTest {
         configureSender();
         configureReceiver();
 
+        CountDownLatch allowSendLatch = new CountDownLatch(1);
+
         try (
-                Services senderServices = createMessagingService("sender", "sender-network", senderNetworkConfig);
-                Services receiverServices = createMessagingService("receiver", "receiver-network", receiverNetworkConfig)
+                Services senderServices = createMessagingService(
+                        "sender", "sender-network", senderNetworkConfig, () -> awaitQuietly(allowSendLatch)
+                );
+                Services receiverServices = createMessagingService("receiver", "receiver-network", receiverNetworkConfig, () -> {})
         ) {
             List<String> payloads = new CopyOnWriteArrayList<>();
             CountDownLatch messagesDeliveredLatch = new CountDownLatch(2);
@@ -118,9 +125,6 @@ class DefaultMessagingServiceTest {
                         messagesDeliveredLatch.countDown();
                     }
             );
-
-            CountDownLatch allowSendLatch = new CountDownLatch(1);
-            senderServices.connectionManager.setBeforeHandshakeComplete(() -> awaitQuietly(allowSendLatch));
 
             senderServices.messagingService.send(receiverNode, testMessage("one"));
             senderServices.messagingService.send(receiverNode, testMessage("two"));
@@ -137,7 +141,7 @@ class DefaultMessagingServiceTest {
     void messageSendFutureIsOrdered() throws Exception {
         configureSender();
 
-        try (Services senderServices = createMessagingService("sender", "sender-network", senderNetworkConfig)) {
+        try (Services senderServices = createMessagingService("sender", "sender-network", senderNetworkConfig, () -> {})) {
             CompletableFuture<Void> sendFuture = senderServices.messagingService.send(receiverNode, testMessage("one"));
 
             assertThat(sendFuture, is(instanceOf(OrderedCompletableFuture.class)));
@@ -178,8 +182,12 @@ class DefaultMessagingServiceTest {
         return testMessagesFactory.testMessage().msg(message).build();
     }
 
-    private Services createMessagingService(String consistentId, String senderEventLoopGroupNamePrefix,
-            NetworkConfiguration networkConfig) {
+    private Services createMessagingService(
+            String consistentId,
+            String senderEventLoopGroupNamePrefix,
+            NetworkConfiguration networkConfig,
+            Runnable beforeHandshake
+    ) {
         ClassDescriptorRegistry classDescriptorRegistry = new ClassDescriptorRegistry();
         ClassDescriptorFactory classDescriptorFactory = new ClassDescriptorFactory(classDescriptorRegistry);
         UserObjectMarshaller marshaller = new DefaultUserObjectMarshaller(classDescriptorRegistry, classDescriptorFactory);
@@ -197,13 +205,35 @@ class DefaultMessagingServiceTest {
         NettyBootstrapFactory bootstrapFactory = new NettyBootstrapFactory(networkConfig, senderEventLoopGroupNamePrefix);
         bootstrapFactory.start();
 
-        ConnectionManager connectionManager = new ConnectionManager(networkConfig.value(), serializationService, UUID.randomUUID(),
-                consistentId, bootstrapFactory);
+        ConnectionManager connectionManager = new ConnectionManager(
+                networkConfig.value(),
+                serializationService,
+                UUID.randomUUID(),
+                consistentId,
+                bootstrapFactory,
+                clientHandshakeManagerFactoryAdding(beforeHandshake)
+        );
         connectionManager.start();
 
         messagingService.setConnectionManager(connectionManager);
 
         return new Services(connectionManager, messagingService);
+    }
+
+    private static RecoveryClientHandhakeManagerFactory clientHandshakeManagerFactoryAdding(Runnable beforeHandshake) {
+        return new RecoveryClientHandhakeManagerFactory() {
+            @Override
+            public RecoveryClientHandshakeManager create(UUID launchId, String consistentId, short connectionId,
+                    RecoveryDescriptorProvider recoveryDescriptorProvider) {
+                return new RecoveryClientHandshakeManager(launchId, consistentId, connectionId, recoveryDescriptorProvider) {
+                    @Override
+                    protected void finishHandshake() {
+                        beforeHandshake.run();
+                        super.finishHandshake();
+                    }
+                };
+            }
+        };
     }
 
     private static class Services implements AutoCloseable {

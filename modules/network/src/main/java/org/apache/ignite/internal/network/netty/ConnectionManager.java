@@ -36,6 +36,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
+import org.apache.ignite.internal.network.recovery.RecoveryClientHandhakeManagerFactory;
 import org.apache.ignite.internal.network.recovery.RecoveryClientHandshakeManager;
 import org.apache.ignite.internal.network.recovery.RecoveryDescriptorProvider;
 import org.apache.ignite.internal.network.recovery.RecoveryServerHandshakeManager;
@@ -83,6 +84,9 @@ public class ConnectionManager {
     /** Node launch id. As opposed to {@link #consistentId}, this identifier changes between restarts. */
     private final UUID launchId;
 
+    /** Factory producing {@link RecoveryClientHandshakeManager} instances. */
+    private final RecoveryClientHandhakeManagerFactory clientHandhakeManagerFactory;
+
     /** Start flag. */
     private final AtomicBoolean started = new AtomicBoolean(false);
 
@@ -91,9 +95,6 @@ public class ConnectionManager {
 
     /** Recovery descriptor provider. */
     private final RecoveryDescriptorProvider descriptorProvider = new DefaultRecoveryDescriptorProvider();
-
-    /** An action that is invoked before handshake completes. Only useful for tests. */
-    private volatile Runnable beforeHandshakeComplete = () -> {};
 
     /**
      * Constructor.
@@ -111,9 +112,38 @@ public class ConnectionManager {
             String consistentId,
             NettyBootstrapFactory bootstrapFactory
     ) {
+        this(
+                networkConfiguration,
+                serializationService,
+                launchId,
+                consistentId,
+                bootstrapFactory,
+                new DefaultRecoveryClientHandhakeManagerFactory()
+        );
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param networkConfiguration          Network configuration.
+     * @param serializationService          Serialization service.
+     * @param launchId                      Launch id of this node.
+     * @param consistentId                  Consistent id of this node.
+     * @param bootstrapFactory              Bootstrap factory.
+     * @param clientHandhakeManagerFactory  Factory for {@link RecoveryClientHandshakeManager} instances.
+     */
+    public ConnectionManager(
+            NetworkView networkConfiguration,
+            SerializationService serializationService,
+            UUID launchId,
+            String consistentId,
+            NettyBootstrapFactory bootstrapFactory,
+            RecoveryClientHandhakeManagerFactory clientHandhakeManagerFactory
+    ) {
         this.serializationService = serializationService;
         this.launchId = launchId;
         this.consistentId = consistentId;
+        this.clientHandhakeManagerFactory = clientHandhakeManagerFactory;
 
         this.server = new NettyServer(
                 networkConfiguration,
@@ -291,11 +321,12 @@ public class ConnectionManager {
     }
 
     private HandshakeManager createClientHandshakeManager(short connectionId) {
-        RecoveryClientHandshakeManager handshakeManager = new RecoveryClientHandshakeManager(launchId, consistentId,
-                connectionId, FACTORY, descriptorProvider);
-        handshakeManager.setBeforeHandshakeComplete(beforeHandshakeComplete);
-
-        return handshakeManager;
+        return clientHandhakeManagerFactory.create(
+                launchId,
+                consistentId,
+                connectionId,
+                descriptorProvider
+        );
     }
 
     private HandshakeManager createServerHandshakeManager() {
@@ -341,8 +372,14 @@ public class ConnectionManager {
         return Collections.unmodifiableMap(channels);
     }
 
-    @TestOnly
-    public void setBeforeHandshakeComplete(Runnable beforeHandshakeComplete) {
-        this.beforeHandshakeComplete = beforeHandshakeComplete;
+    /**
+     * Factory producing vanilla {@link RecoveryClientHandshakeManager} instances.
+     */
+    private static class DefaultRecoveryClientHandhakeManagerFactory implements RecoveryClientHandhakeManagerFactory {
+        @Override
+        public RecoveryClientHandshakeManager create(UUID launchId, String consistentId, short connectionId,
+                RecoveryDescriptorProvider recoveryDescriptorProvider) {
+            return new RecoveryClientHandshakeManager(launchId, consistentId, connectionId, recoveryDescriptorProvider);
+        }
     }
 }

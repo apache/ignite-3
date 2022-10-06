@@ -43,14 +43,14 @@ import org.jetbrains.annotations.TestOnly;
  * Recovery protocol handshake manager for a client.
  */
 public class RecoveryClientHandshakeManager implements HandshakeManager {
+    /** Message factory. */
+    private static final NetworkMessagesFactory MESSAGE_FACTORY = new NetworkMessagesFactory();
+
     /** Launch id. */
     private final UUID launchId;
 
     /** Consistent id. */
     private final String consistentId;
-
-    /** Message factory. */
-    private final NetworkMessagesFactory messageFactory;
 
     /** Recovery descriptor provider. */
     private final RecoveryDescriptorProvider recoveryDescriptorProvider;
@@ -79,23 +79,19 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
     /** Recovery descriptor. */
     private RecoveryDescriptor recoveryDescriptor;
 
-    private volatile Runnable beforeHandshakeComplete = () -> {};
-
     /**
      * Constructor.
      *
      * @param launchId Launch id.
      * @param consistentId Consistent id.
-     * @param messageFactory Message factory.
      * @param recoveryDescriptorProvider Recovery descriptor provider.
      */
     public RecoveryClientHandshakeManager(
-            UUID launchId, String consistentId, short connectionId, NetworkMessagesFactory messageFactory,
+            UUID launchId, String consistentId, short connectionId,
             RecoveryDescriptorProvider recoveryDescriptorProvider) {
         this.launchId = launchId;
         this.consistentId = consistentId;
         this.connectionId = connectionId;
-        this.messageFactory = messageFactory;
         this.recoveryDescriptorProvider = recoveryDescriptorProvider;
     }
 
@@ -167,9 +163,9 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
     }
 
     private void handshake(RecoveryDescriptor descriptor) {
-        PipelineUtils.afterHandshake(ctx.pipeline(), descriptor, createMessageHandler(), messageFactory);
+        PipelineUtils.afterHandshake(ctx.pipeline(), descriptor, createMessageHandler(), MESSAGE_FACTORY);
 
-        HandshakeStartResponseMessage response = messageFactory.handshakeStartResponseMessage()
+        HandshakeStartResponseMessage response = MESSAGE_FACTORY.handshakeStartResponseMessage()
                 .launchId(launchId)
                 .consistentId(consistentId)
                 .receivedCount(descriptor.receivedCount())
@@ -199,18 +195,11 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
     /**
      * Finishes handshaking process by removing handshake handler from the pipeline and creating a {@link NettySender}.
      */
-    private void finishHandshake() {
-        beforeHandshakeComplete.run();
-
+    protected void finishHandshake() {
         // Removes handshake handler from the pipeline as the handshake is finished
         this.ctx.pipeline().remove(this.handler);
 
         handshakeCompleteFuture.complete(new NettySender(channel, remoteLaunchId.toString(), remoteConsistentId));
-    }
-
-    @TestOnly
-    public void setBeforeHandshakeComplete(Runnable beforeHandshakeComplete) {
-        this.beforeHandshakeComplete = beforeHandshakeComplete;
     }
 
     @TestOnly
