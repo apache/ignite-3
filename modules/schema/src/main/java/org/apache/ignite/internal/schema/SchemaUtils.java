@@ -17,27 +17,15 @@
 
 package org.apache.ignite.internal.schema;
 
-import static org.apache.ignite.internal.schema.SchemaManager.INITIAL_SCHEMA_VERSION;
-import static org.apache.ignite.internal.schema.SchemaManager.SCHEMA_STORE_PREDICATE;
-
-import java.util.NoSuchElementException;
 import java.util.Optional;
-import java.util.UUID;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.schemas.table.ColumnView;
 import org.apache.ignite.configuration.schemas.table.TableView;
-import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metastorage.client.Entry;
 import org.apache.ignite.internal.schema.configuration.ConfigurationToSchemaDescriptorConverter;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.mapping.ColumnMapper;
 import org.apache.ignite.internal.schema.mapping.ColumnMapping;
-import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.lang.ByteArray;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteStringFormatter;
-import org.apache.ignite.lang.NodeStoppingException;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Stateless schema utils that produces helper methods for schema preparation.
@@ -147,104 +135,5 @@ public class SchemaUtils {
         }
 
         return true;
-    }
-
-    /**
-     * Forms schema history key.
-     *
-     * @param tblId Table id.
-     * @param ver Schema version.
-     * @return {@link ByteArray} representation.
-     */
-    public static ByteArray schemaWithVerHistKey(UUID tblId, int ver) {
-        return ByteArray.fromString(tblId + SCHEMA_STORE_PREDICATE + ver);
-    }
-
-    /**
-     * Forms schema history predicate.
-     *
-     * @param tblId Table id.
-     * @return {@link ByteArray} representation.
-     */
-    public static ByteArray schemaHistPredicate(UUID tblId) {
-        return ByteArray.fromString(tblId + SCHEMA_STORE_PREDICATE);
-    }
-
-    /**
-     * Gets the latest version of the table schema which available in Metastore.
-     *
-     * @param tblId Table id.
-     * @param metastorageMgr Metastorage manager.
-     * @return The latest schema version.
-     */
-    public static int latestSchemaVersion(MetaStorageManager metastorageMgr, UUID tblId) {
-        try {
-            Cursor<Entry> cur = metastorageMgr.prefix(schemaHistPredicate(tblId));
-
-            int lastVer = INITIAL_SCHEMA_VERSION;
-
-            for (Entry ent : cur) {
-                String key = ent.key().toString();
-                int pos = key.indexOf(':');
-                assert pos != -1 : "Unexpected key: " + key;
-
-                key = key.substring(pos + 1);
-                int descVer = Integer.parseInt(key);
-
-                if (descVer > lastVer) {
-                    lastVer = descVer;
-                }
-            }
-
-            return lastVer;
-        } catch (NoSuchElementException e) {
-            assert false : "Table must exist. [tableId=" + tblId + ']';
-
-            return INITIAL_SCHEMA_VERSION;
-        } catch (NodeStoppingException e) {
-            throw new IgniteException(e.traceId(), e.code(), e.getMessage(), e);
-        }
-    }
-
-    /**
-     * Gets the latest serialized schema of the table which available in Metastore.
-     *
-     * @param tblId Table id.
-     * @param metastorageMgr Metastorage manager.
-     * @return The latest schema version or {@code null} if not found.
-     */
-    public static @Nullable byte[] schemaById(MetaStorageManager metastorageMgr, UUID tblId, int ver) {
-        try {
-            Cursor<Entry> cur = metastorageMgr.prefix(schemaHistPredicate(tblId));
-
-            int lastVer = INITIAL_SCHEMA_VERSION;
-            byte[] schema = null;
-
-            for (Entry ent : cur) {
-                String key = ent.key().toString();
-                int pos = key.indexOf(':');
-                assert pos != -1 : "Unexpected key: " + key;
-
-                key = key.substring(pos + 1);
-                int descVer = Integer.parseInt(key);
-
-                if (ver != -1) {
-                    if (ver == descVer) {
-                        return ent.value();
-                    }
-                } else if (descVer >= lastVer) {
-                    lastVer = descVer;
-                    schema = ent.value();
-                }
-            }
-
-            return schema;
-        } catch (NoSuchElementException e) {
-            assert false : "Table must exist. [tableId=" + tblId + ']';
-
-            return null;
-        } catch (NodeStoppingException e) {
-            throw new IgniteException(e.traceId(), e.code(), e.getMessage(), e);
-        }
     }
 }

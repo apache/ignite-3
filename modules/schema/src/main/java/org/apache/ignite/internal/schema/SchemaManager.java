@@ -19,14 +19,12 @@ package org.apache.ignite.internal.schema;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.internal.schema.SchemaUtils.latestSchemaVersion;
-import static org.apache.ignite.internal.schema.SchemaUtils.schemaById;
-import static org.apache.ignite.internal.schema.SchemaUtils.schemaWithVerHistKey;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -47,7 +45,9 @@ import org.apache.ignite.internal.schema.event.SchemaEvent;
 import org.apache.ignite.internal.schema.event.SchemaEventParameters;
 import org.apache.ignite.internal.schema.marshaller.schema.SchemaSerializerImpl;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
+import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
@@ -151,20 +151,24 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
 
             CompletableFuture<?> createSchemaFut = createSchema(causalityToken, tblId, tableName, schemaDescFromUpdate);
 
-            registriesVv.get(causalityToken).thenRun(() -> inBusyLock(busyLock,
-                    () -> fireEvent(SchemaEvent.CREATE, new SchemaEventParameters(causalityToken, tblId, schemaDescFromUpdate))));
-
             if (curSchemaDesc == null) {
                 try {
                     byte[] serialized = SchemaSerializerImpl.INSTANCE.serialize(schemaDescFromUpdate);
 
                     createSchemaFut.thenCompose(t -> metastorageMgr.put(
                             schemaWithVerHistKey(tblId, verFromUpdate), serialized)
-                    ).thenApply(t -> t);
+                    );
                 } catch (Throwable th) {
                     createSchemaFut.completeExceptionally(th);
                 }
             }
+
+            createSchemaFut.whenComplete((ignore, th) -> {
+                if (th == null) {
+                    registriesVv.get(causalityToken).thenRun(() -> inBusyLock(busyLock,
+                            () -> fireEvent(SchemaEvent.CREATE, new SchemaEventParameters(causalityToken, tblId, schemaDescFromUpdate))));
+                }
+            });
 
             return createSchemaFut;
         } finally {
@@ -335,7 +339,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
     }
 
     /**
-     * Try to found schema in cache.
+     * Try to find schema in cache.
      *
      * @param tblId Table id.
      * @param schemaVer Schema version.
@@ -439,5 +443,104 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
      */
     private <T extends ConfigurationProperty<?>> T directProxy(T property) {
         return getMetadataLocallyOnly ? property : ConfigurationUtil.directProxy(property);
+    }
+
+    /**
+     * Gets the latest version of the table schema which available in Metastore.
+     *
+     * @param tblId Table id.
+     * @param metastorageMgr Metastorage manager.
+     * @return The latest schema version.
+     */
+    public static int latestSchemaVersion(MetaStorageManager metastorageMgr, UUID tblId) {
+        try {
+            Cursor<Entry> cur = metastorageMgr.prefix(schemaHistPredicate(tblId));
+
+            int lastVer = INITIAL_SCHEMA_VERSION;
+
+            for (Entry ent : cur) {
+                String key = ent.key().toString();
+                int pos = key.indexOf(':');
+                assert pos != -1 : "Unexpected key: " + key;
+
+                key = key.substring(pos + 1);
+                int descVer = Integer.parseInt(key);
+
+                if (descVer > lastVer) {
+                    lastVer = descVer;
+                }
+            }
+
+            return lastVer;
+        } catch (NoSuchElementException e) {
+            assert false : "Table must exist. [tableId=" + tblId + ']';
+
+            return INITIAL_SCHEMA_VERSION;
+        } catch (NodeStoppingException e) {
+            throw new IgniteException(e.traceId(), e.code(), e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Gets the latest serialized schema of the table which available in Metastore.
+     *
+     * @param tblId Table id.
+     * @param metastorageMgr Metastorage manager.
+     * @return The latest schema version or {@code null} if not found.
+     */
+    public static @Nullable byte[] schemaById(MetaStorageManager metastorageMgr, UUID tblId, int ver) {
+        try {
+            Cursor<Entry> cur = metastorageMgr.prefix(schemaHistPredicate(tblId));
+
+            int lastVer = INITIAL_SCHEMA_VERSION;
+            byte[] schema = null;
+
+            for (Entry ent : cur) {
+                String key = ent.key().toString();
+                int pos = key.indexOf(':');
+                assert pos != -1 : "Unexpected key: " + key;
+
+                key = key.substring(pos + 1);
+                int descVer = Integer.parseInt(key);
+
+                if (ver != -1) {
+                    if (ver == descVer) {
+                        return ent.value();
+                    }
+                } else if (descVer >= lastVer) {
+                    lastVer = descVer;
+                    schema = ent.value();
+                }
+            }
+
+            return schema;
+        } catch (NoSuchElementException e) {
+            assert false : "Table must exist. [tableId=" + tblId + ']';
+
+            return null;
+        } catch (NodeStoppingException e) {
+            throw new IgniteException(e.traceId(), e.code(), e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Forms schema history key.
+     *
+     * @param tblId Table id.
+     * @param ver Schema version.
+     * @return {@link ByteArray} representation.
+     */
+    public static ByteArray schemaWithVerHistKey(UUID tblId, int ver) {
+        return ByteArray.fromString(tblId + SCHEMA_STORE_PREDICATE + ver);
+    }
+
+    /**
+     * Forms schema history predicate.
+     *
+     * @param tblId Table id.
+     * @return {@link ByteArray} representation.
+     */
+    public static ByteArray schemaHistPredicate(UUID tblId) {
+        return ByteArray.fromString(tblId + SCHEMA_STORE_PREDICATE);
     }
 }
