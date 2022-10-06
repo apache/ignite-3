@@ -15,38 +15,35 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.call.cluster.topology;
+package org.apache.ignite.internal.cli.call.node.metric;
 
 import jakarta.inject.Singleton;
 import java.util.List;
 import org.apache.ignite.internal.cli.core.call.Call;
 import org.apache.ignite.internal.cli.core.call.CallOutput;
 import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
-import org.apache.ignite.internal.cli.core.call.UrlCallInput;
+import org.apache.ignite.internal.cli.core.call.StringCallInput;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliApiException;
-import org.apache.ignite.rest.client.api.TopologyApi;
+import org.apache.ignite.rest.client.api.NodeMetricApi;
 import org.apache.ignite.rest.client.invoker.ApiException;
 import org.apache.ignite.rest.client.invoker.Configuration;
-import org.apache.ignite.rest.client.model.ClusterNode;
+import org.apache.ignite.rest.client.model.MetricSource;
 
-/**
- * Shows logical cluster topology.
- */
+/** Lists node metric sources. */
 @Singleton
-public class LogicalTopologyCall implements Call<UrlCallInput, List<ClusterNode>> {
-
+public class NodeMetricListCall implements Call<StringCallInput, List<MetricSource>> {
     /** {@inheritDoc} */
     @Override
-    public CallOutput<List<ClusterNode>> execute(UrlCallInput input) {
-        String clusterUrl = input.getUrl();
+    public CallOutput<List<MetricSource>> execute(StringCallInput input) {
+
         try {
-            return DefaultCallOutput.success(fetchLogicalTopology(clusterUrl));
+            return DefaultCallOutput.success(listNodeMetrics(input));
         } catch (ApiException | IllegalArgumentException e) {
-            return DefaultCallOutput.failure(new IgniteCliApiException(e, clusterUrl));
+            return DefaultCallOutput.failure(new IgniteCliApiException(e, input.getString()));
         }
     }
 
-    private List<ClusterNode> fetchLogicalTopology(String url) throws ApiException {
-        return new TopologyApi(Configuration.getDefaultApiClient().setBasePath(url)).logical();
+    private static List<MetricSource> listNodeMetrics(StringCallInput input) throws ApiException {
+        return new NodeMetricApi(Configuration.getDefaultApiClient().setBasePath(input.getString())).listNodeMetrics();
     }
 }

@@ -508,6 +508,67 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
                 assertThatStderrIsEmpty();
             }
         }
+
+        @Nested
+        @DisplayName("metric")
+        class Metric {
+            @Test
+            @DisplayName("metric enable srcName")
+            void enable() {
+                clientAndServer
+                        .when(request()
+                                .withMethod("POST")
+                                .withPath("/management/v1/metric/node/enable")
+                                .withBody("srcName")
+                        )
+                        .respond(response(null));
+
+                int exitCode = execute("node metric enable --node-url " + mockUrl + " srcName");
+
+                assertThatExitCodeMeansSuccess(exitCode);
+
+                assertOutputEqual("Metric source was enabled successfully");
+                assertThatStderrIsEmpty();
+            }
+
+            @Test
+            @DisplayName("metric disable srcName")
+            void disable() {
+                clientAndServer
+                        .when(request()
+                                .withMethod("POST")
+                                .withPath("/management/v1/metric/node/disable")
+                                .withBody("srcName")
+                        )
+                        .respond(response(null));
+
+                int exitCode = execute("node metric disable --node-url " + mockUrl + " srcName");
+
+                assertThatExitCodeMeansSuccess(exitCode);
+
+                assertOutputEqual("Metric source was disabled successfully");
+                assertThatStderrIsEmpty();
+            }
+
+            @Test
+            @DisplayName("metric list")
+            void list() {
+                String responseBody = "[{\"name\":\"enabledMetric\",\"enabled\":true},{\"name\":\"disabledMetric\",\"enabled\":false}]";
+                clientAndServer
+                        .when(request()
+                                .withMethod("GET")
+                                .withPath("/management/v1/metric/node")
+                        )
+                        .respond(response(responseBody));
+
+                int exitCode = execute("node metric list --node-url " + mockUrl);
+
+                assertThatExitCodeMeansSuccess(exitCode);
+
+                assertOutputEqual("Enabled metric sources:\nenabledMetric\nDisabled metric sources:\ndisabledMetric\n");
+                assertThatStderrIsEmpty();
+            }
+        }
     }
 
     /**
