@@ -15,9 +15,10 @@
  * limitations under the License.
  */
 
+#include "tables_impl.h"
+
 #include "ignite/protocol/reader.h"
 #include "ignite/protocol/writer.h"
-#include "table/tables_impl.h"
 
 namespace ignite::detail {
 
@@ -47,7 +48,7 @@ void TablesImpl::getTablesAsync(ignite_callback<std::vector<Table>> callback) {
         std::vector<Table> tables;
         tables.reserve(reader.read_map_size());
 
-        reader.read_map<uuid, std::string>([&tables] (auto&& id, auto&& name) {
+        reader.read_map<uuid, std::string>([&tables](auto &&id, auto &&name) {
             auto tableImpl = std::make_shared<TableImpl>(std::forward<std::string>(name), std::forward<uuid>(id));
             tables.push_back(Table{tableImpl});
         });

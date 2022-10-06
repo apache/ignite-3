@@ -16,6 +16,7 @@
  */
 
 #include "ignite_runner.h"
+
 #include "common/ignite_error.h"
 
 #include <gtest/gtest.h>

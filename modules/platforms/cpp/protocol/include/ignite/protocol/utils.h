@@ -17,8 +17,8 @@
 
 #pragma once
 
-#include "common/ignite_error.h"
 #include "common/bytes.h"
+#include "common/ignite_error.h"
 #include "common/types.h"
 #include "common/uuid.h"
 #include "ignite/protocol/extension_types.h"
@@ -39,9 +39,9 @@ class reader;
 static constexpr std::array<std::byte, 4> MAGIC_BYTES = {
     std::byte('I'), std::byte('G'), std::byte('N'), std::byte('I')};
 
-template<typename T>
-[[nodiscard]] T unpack_object(const msgpack_object&) {
-    static_assert(false, "Unpacking is not implemented for the type");
+template <typename T>
+[[nodiscard]] T unpack_object(const msgpack_object &) {
+    static_assert(sizeof(T) == 0, "Unpacking is not implemented for the type");
 }
 
 /**
@@ -51,8 +51,8 @@ template<typename T>
  * @return Number.
  * @throw ignite_error if the object is not a number.
  */
-template<>
-[[nodiscard]] std::int64_t unpack_object(const msgpack_object& object);
+template <>
+[[nodiscard]] std::int64_t unpack_object(const msgpack_object &object);
 
 /**
  * Unpack number.
@@ -61,8 +61,8 @@ template<>
  * @return Number.
  * @throw ignite_error if the object is not a number.
  */
-template<>
-[[nodiscard]] std::int32_t unpack_object(const msgpack_object& object);
+template <>
+[[nodiscard]] std::int32_t unpack_object(const msgpack_object &object);
 
 /**
  * Unpack number.
@@ -71,8 +71,8 @@ template<>
  * @return Number.
  * @throw ignite_error if the object is not a number.
  */
-template<>
-[[nodiscard]] std::int16_t unpack_object(const msgpack_object& object);
+template <>
+[[nodiscard]] std::int16_t unpack_object(const msgpack_object &object);
 
 /**
  * Unpack string.
@@ -81,8 +81,8 @@ template<>
  * @return String.
  * @throw ignite_error if the object is not a string.
  */
-template<>
-[[nodiscard]] std::string unpack_object(const msgpack_object& object);
+template <>
+[[nodiscard]] std::string unpack_object(const msgpack_object &object);
 
 /**
  * Unpack UUID.
@@ -91,8 +91,8 @@ template<>
  * @return UUID.
  * @throw ignite_error if the object is not a UUID.
  */
-template<>
-[[nodiscard]] uuid unpack_object(const msgpack_object& object);
+template <>
+[[nodiscard]] uuid unpack_object(const msgpack_object &object);
 
 /**
  * Make random UUID.

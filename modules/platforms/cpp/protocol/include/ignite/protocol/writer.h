@@ -118,7 +118,6 @@ private:
     std::unique_ptr<msgpack_packer, void (*)(msgpack_packer *)> m_packer;
 };
 
-
 /**
  * Write message to buffer.
  *

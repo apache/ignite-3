@@ -120,7 +120,8 @@ public:
      */
     template <typename T>
     void performRequest(ClientOperation op, std::shared_ptr<ResponseHandlerImpl<T>> handler) {
-        performRequest(op, [](protocol::writer&) {}, std::move(handler));
+        performRequest(
+            op, [](protocol::writer &) {}, std::move(handler));
     }
 
 private:

@@ -31,7 +31,7 @@ using namespace ignite;
 /**
  * Test suite.
  */
-class tables_test : public ignite_runner_suite {};
+class tables_test : public ignite_runner_suite { };
 
 TEST_F(tables_test, tables_get_table_async_promises) {
     IgniteClientConfiguration cfg{NODE_ADDRS};
@@ -141,9 +141,7 @@ TEST_F(tables_test, tables_get_tables_async_promises) {
     auto tables = tablesPromise->get_future().get();
     ASSERT_GT(tables.size(), 0);
 
-    auto it = std::find_if(tables.begin(), tables.end(), [] (auto& table) {
-        return table.getName() == "PUB.TBL1";
-    });
+    auto it = std::find_if(tables.begin(), tables.end(), [](auto &table) { return table.getName() == "PUB.TBL1"; });
 
     ASSERT_NE(it, tables.end());
 }

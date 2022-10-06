@@ -20,18 +20,18 @@
 
 #include <msgpack.h>
 
+#include <limits>
 #include <mutex>
 #include <random>
 #include <sstream>
-#include <limits>
 #include <type_traits>
 
 namespace ignite::protocol {
 
-template<typename T>
+template <typename T>
 T unpack_int(const msgpack_object &object) {
-    static_assert(std::numeric_limits<T>::is_integer && std::numeric_limits<T>::is_signed,
-            "Type T is not a signed integer type");
+    static_assert(
+        std::numeric_limits<T>::is_integer && std::numeric_limits<T>::is_signed, "Type T is not a signed integer type");
 
     auto i64_val = unpack_object<std::int64_t>(object);
 
@@ -45,7 +45,7 @@ T unpack_int(const msgpack_object &object) {
     return T(i64_val);
 }
 
-template<>
+template <>
 std::int64_t unpack_object(const msgpack_object &object) {
     if (object.type != MSGPACK_OBJECT_NEGATIVE_INTEGER && object.type != MSGPACK_OBJECT_POSITIVE_INTEGER)
         throw ignite_error("The value in stream is not an integer number");
@@ -53,17 +53,17 @@ std::int64_t unpack_object(const msgpack_object &object) {
     return object.via.i64;
 }
 
-template<>
+template <>
 std::int32_t unpack_object(const msgpack_object &object) {
     return unpack_int<std::int32_t>(object);
 }
 
-template<>
+template <>
 std::int16_t unpack_object(const msgpack_object &object) {
     return unpack_int<std::int16_t>(object);
 }
 
-template<>
+template <>
 uuid unpack_object(const msgpack_object &object) {
     if (object.type != MSGPACK_OBJECT_EXT && object.via.ext.type != std::int8_t(extension_type::UUID))
         throw ignite_error("The value in stream is not a UUID");
@@ -79,7 +79,7 @@ uuid unpack_object(const msgpack_object &object) {
     return {msb, lsb};
 }
 
-template<>
+template <>
 std::string unpack_object(const msgpack_object &object) {
     if (object.type != MSGPACK_OBJECT_STR)
         throw ignite_error("The value in stream is not a string");

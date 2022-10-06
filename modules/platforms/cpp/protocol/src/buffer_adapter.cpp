@@ -17,8 +17,8 @@
 
 #include "ignite/protocol/buffer_adapter.h"
 
-#include "common/ignite_error.h"
 #include "common/bytes.h"
+#include "common/ignite_error.h"
 #include "ignite/protocol/utils.h"
 
 namespace ignite::protocol {

@@ -17,10 +17,10 @@
 
 #pragma once
 
-#include "ignite/protocol/utils.h"
 #include "common/ignite_error.h"
 #include "common/types.h"
 #include "common/uuid.h"
+#include "ignite/protocol/utils.h"
 
 #include <msgpack.h>
 
@@ -60,7 +60,7 @@ public:
      * @return Object of type T.
      * @throw ignite_error if there is no object of specified type in the stream.
      */
-    template<typename T>
+    template <typename T>
     [[nodiscard]] T read_object() {
         check_data_in_stream();
 
@@ -77,7 +77,7 @@ public:
      * @return Object of type T or std::nullopt if there is nil in the stream.
      * @throw ignite_error if there is no object of specified type in the stream.
      */
-    template<typename T>
+    template <typename T>
     [[nodiscard]] std::optional<T> read_object_nullable() {
         if (try_read_nil())
             return std::nullopt;
@@ -93,8 +93,8 @@ public:
      * @return Object of type T or @c on_nil if there is nil in stream.
      * @throw ignite_error if there is no object of specified type in the stream.
      */
-    template<typename T>
-    [[nodiscard]] T read_object_or_default(T&& on_nil) {
+    template <typename T>
+    [[nodiscard]] T read_object_or_default(T &&on_nil) {
         if (try_read_nil())
             return std::forward<T>(on_nil);
 
@@ -127,27 +127,21 @@ public:
      *
      * @return String value.
      */
-    [[nodiscard]] std::string read_string() {
-        return read_object<std::string>();
-    }
+    [[nodiscard]] std::string read_string() { return read_object<std::string>(); }
 
     /**
      * Read string.
      *
      * @return String value or nullopt.
      */
-    [[nodiscard]] std::optional<std::string> read_string_nullable() {
-        return read_object_nullable<std::string>();
-    }
+    [[nodiscard]] std::optional<std::string> read_string_nullable() { return read_object_nullable<std::string>(); }
 
     /**
      * Read UUID.
      *
      * @return UUID value.
      */
-    [[nodiscard]] uuid read_uuid() {
-        return read_object<uuid>();
-    }
+    [[nodiscard]] uuid read_uuid() { return read_object<uuid>(); }
 
     /**
      * Read Map size.
@@ -170,8 +164,8 @@ public:
      * @tparam V Value type.
      * @param handler Pair handler.
      */
-     template<typename K, typename V>
-     void read_map(const std::function<void(K&&, V&&)>& handler) {
+    template <typename K, typename V>
+    void read_map(const std::function<void(K &&, V &&)> &handler) {
         auto size = read_map_size();
         for (std::uint32_t i = 0; i < size; ++i) {
             auto key = unpack_object<K>(m_current_val.data.via.map.ptr[i].key);
