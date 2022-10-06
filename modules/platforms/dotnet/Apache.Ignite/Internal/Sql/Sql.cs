@@ -70,7 +70,7 @@ namespace Apache.Ignite.Internal.Sql
                 w.WriteNil(); // Session timeout (unused, session is closed by the server immediately).
 
                 w.Write(statement.Properties.Count);
-                var propTuple = new BinaryTupleBuilder(statement.Properties.Count * 4);
+                using var propTuple = new BinaryTupleBuilder(statement.Properties.Count * 4);
 
                 foreach (var (key, val) in statement.Properties)
                 {
