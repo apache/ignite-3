@@ -22,6 +22,7 @@ import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_COMMIT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ROLLBACK_ERR;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -54,10 +55,10 @@ public class TransactionImpl implements InternalTransaction {
     private final TxManager txManager;
 
     /** Enlisted replication groups: replication group id -> (primary replica node, raft term). */
-    private Map<String, IgniteBiTuple<ClusterNode, Long>> enlisted = new ConcurrentSkipListMap<>();
+    private final Map<String, IgniteBiTuple<ClusterNode, Long>> enlisted = new ConcurrentSkipListMap<>();
 
     /** Enlisted operation futures in this transaction. */
-    private volatile List<CompletableFuture<?>>  enlistedResults = new ArrayList<>();
+    private final List<CompletableFuture<?>> enlistedResults = Collections.synchronizedList(new ArrayList<>());
 
     /**
      * The constructor.
