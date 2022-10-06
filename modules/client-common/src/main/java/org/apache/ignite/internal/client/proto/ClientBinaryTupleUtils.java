@@ -38,9 +38,21 @@ import static org.apache.ignite.internal.client.proto.ClientDataType.TIMESTAMP;
 import static org.apache.ignite.internal.client.proto.ClientDataType.UUID;
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
 
+import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.Tuple;
+
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.Period;
+import java.util.BitSet;
+import java.util.UUID;
 
 /**
  * Client binary tuple utils.
@@ -215,7 +227,98 @@ public class ClientBinaryTupleUtils {
         }
     }
 
+    public static void appendObject(BinaryTupleBuilder builder, Object arg) {
+        if (arg == null) {
+            builder.appendNull();
+            builder.appendInt(0);
+            builder.appendNull();
+        } else if (arg instanceof Byte) {
+            builder.appendInt(ClientDataType.INT8);
+            builder.appendInt(0);
+            builder.appendByte((Byte) arg);
+        } else if (arg instanceof Short) {
+            builder.appendInt(ClientDataType.INT16);
+            builder.appendInt(0);
+            builder.appendShort((Short) arg);
+        } else if (arg instanceof Integer) {
+            builder.appendInt(ClientDataType.INT32);
+            builder.appendInt(0);
+            builder.appendInt((Integer) arg);
+        } else if (arg instanceof Long) {
+            builder.appendInt(ClientDataType.INT64);
+            builder.appendInt(0);
+            builder.appendLong((Long) arg);
+        } else if (arg instanceof Float) {
+            builder.appendInt(ClientDataType.FLOAT);
+            builder.appendInt(0);
+            builder.appendFloat((Float) arg);
+        } else if (arg instanceof Double) {
+            builder.appendInt(ClientDataType.DOUBLE);
+            builder.appendInt(0);
+            builder.appendDouble((Double) arg);
+        } else if (arg instanceof BigDecimal) {
+            BigDecimal bigDecimal = (BigDecimal) arg;
+            builder.appendInt(ClientDataType.DECIMAL);
+            builder.appendInt(bigDecimal.scale());
+            builder.appendDecimal(bigDecimal, bigDecimal.scale());
+        } else if (arg instanceof java.util.UUID) {
+            builder.appendInt(ClientDataType.UUID);
+            builder.appendInt(0);
+            builder.appendUuid((UUID) arg);
+        } else if (arg instanceof String) {
+            builder.appendInt(ClientDataType.STRING);
+            builder.appendInt(0);
+            builder.appendString((String) arg);
+        } else if (arg instanceof byte[]) {
+            builder.appendInt(ClientDataType.BYTES);
+            builder.appendInt(0);
+            builder.appendBytes((byte[]) arg);
+        } else if (arg instanceof BitSet) {
+            builder.appendInt(ClientDataType.BITMASK);
+            builder.appendInt(0);
+            builder.appendBitmask((BitSet) arg);
+        } else if (arg instanceof LocalDate) {
+            builder.appendInt(ClientDataType.DATE);
+            builder.appendInt(0);
+            builder.appendDate((LocalDate) arg);
+        } else if (arg instanceof LocalTime) {
+            builder.appendInt(ClientDataType.TIME);
+            builder.appendInt(0);
+            builder.appendTime((LocalTime) arg);
+        } else if (arg instanceof LocalDateTime) {
+            builder.appendInt(ClientDataType.DATETIME);
+            builder.appendInt(0);
+            builder.appendDateTime((LocalDateTime) arg);
+        } else if (arg instanceof Instant) {
+            builder.appendInt(ClientDataType.TIMESTAMP);
+            builder.appendInt(0);
+            builder.appendTimestamp((Instant) arg);
+        } else if (arg instanceof BigInteger) {
+            builder.appendInt(ClientDataType.NUMBER);
+            builder.appendInt(0);
+            builder.appendNumber((BigInteger) arg);
+        } else if (arg instanceof Boolean) {
+            builder.appendInt(ClientDataType.BOOLEAN);
+            builder.appendInt(0);
+            builder.appendByte((byte) ((Boolean) arg ? 1 : 0));
+        } else if (arg instanceof Duration) {
+            builder.appendInt(ClientDataType.DURATION);
+            builder.appendInt(0);
+            builder.appendDuration((Duration) arg);
+        } else if (arg instanceof Period) {
+            builder.appendInt(ClientDataType.PERIOD);
+            builder.appendInt(0);
+            builder.appendPeriod((Period) arg);
+        } else {
+            throw unsupportedTypeException(arg.getClass());
+        }
+    }
+
     private static IgniteException unsupportedTypeException(int dataType) {
         return new IgniteException(PROTOCOL_ERR, "Unsupported type: " + dataType);
+    }
+
+    private static IgniteException unsupportedTypeException(Class<?> cls) {
+        return new IgniteException(PROTOCOL_ERR, "Unsupported type: " + cls);
     }
 }
