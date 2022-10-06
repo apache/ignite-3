@@ -618,9 +618,28 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
         }
 
         [Test]
-        public void TestAppendDefault()
+        public void TestDefault()
         {
-            Assert.Fail("TODO");
+            var reader = BuildAndRead((ref BinaryTupleBuilder b) => b.AppendDefault());
+
+            Assert.AreEqual(0, reader.GetInt(0));
+            Assert.AreEqual(0, reader.GetByte(0));
+            Assert.AreEqual(0, reader.GetShort(0));
+            Assert.AreEqual(0, reader.GetLong(0));
+            Assert.AreEqual(0, reader.GetDouble(0));
+            Assert.AreEqual(0, reader.GetFloat(0));
+            Assert.AreEqual(0, reader.GetDecimal(0, 123));
+            Assert.AreEqual(BigInteger.Zero, reader.GetNumber(0));
+            Assert.AreEqual(string.Empty, reader.GetString(0));
+            Assert.AreEqual(string.Empty, reader.GetStringNullable(0));
+            Assert.AreEqual(new BitArray(0), reader.GetBitmask(0));
+            Assert.AreEqual(Guid.Empty, reader.GetGuid(0));
+            Assert.AreEqual(Array.Empty<byte>(), reader.GetBytes(0));
+            Assert.AreEqual(Duration.Zero, reader.GetDuration(0));
+            Assert.AreEqual(Period.Zero, reader.GetPeriod(0));
+            Assert.AreEqual(LocalTime.Midnight, reader.GetTime(0));
+            Assert.AreEqual(default(LocalDate), reader.GetDate(0));
+            Assert.AreEqual(default(LocalDateTime), reader.GetDateTime(0));
         }
 
         [Test]
