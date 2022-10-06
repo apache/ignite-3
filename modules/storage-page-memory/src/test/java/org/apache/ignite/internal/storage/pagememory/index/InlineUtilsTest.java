@@ -17,11 +17,11 @@
 
 package org.apache.ignite.internal.storage.pagememory.index;
 
-import static org.apache.ignite.internal.storage.pagememory.index.InlineSizeCalculator.BIG_NUMBER_INLINE_SIZE;
-import static org.apache.ignite.internal.storage.pagememory.index.InlineSizeCalculator.DEFAULT_VARLEN_COLUMN_INLINE_SIZE;
-import static org.apache.ignite.internal.storage.pagememory.index.InlineSizeCalculator.MAX_INLINE_SIZE;
-import static org.apache.ignite.internal.storage.pagememory.index.InlineSizeCalculator.calculateBinaryTupleInlineSize;
-import static org.apache.ignite.internal.storage.pagememory.index.InlineSizeCalculator.inlineSize;
+import static org.apache.ignite.internal.storage.pagememory.index.InlineUtils.BIG_NUMBER_INLINE_SIZE;
+import static org.apache.ignite.internal.storage.pagememory.index.InlineUtils.DEFAULT_VARLEN_COLUMN_INLINE_SIZE;
+import static org.apache.ignite.internal.storage.pagememory.index.InlineUtils.MAX_INLINE_SIZE;
+import static org.apache.ignite.internal.storage.pagememory.index.InlineUtils.calculateBinaryTupleInlineSize;
+import static org.apache.ignite.internal.storage.pagememory.index.InlineUtils.inlineSize;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -38,9 +38,9 @@ import org.apache.ignite.internal.storage.index.IndexDescriptor.ColumnDescriptor
 import org.junit.jupiter.api.Test;
 
 /**
- * For {@link InlineSizeCalculator} testing.
+ * For {@link InlineUtils} testing.
  */
-public class InlineSizeCalculatorTest {
+public class InlineUtilsTest {
     @Test
     void testInlineSizeForNativeType() {
         EnumSet<NativeTypeSpec> nativeTypeSpecs = EnumSet.allOf(NativeTypeSpec.class);

@@ -24,6 +24,8 @@ import static org.apache.ignite.internal.util.Constants.KiB;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.List;
+import org.apache.ignite.internal.pagememory.io.IoVersions;
+import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.VarlenNativeType;
@@ -31,9 +33,9 @@ import org.apache.ignite.internal.storage.index.IndexDescriptor;
 import org.apache.ignite.internal.storage.index.IndexDescriptor.ColumnDescriptor;
 
 /**
- * Calculator of inline size in bytes.
+ * Helper class for inline indexes.
  */
-public class InlineSizeCalculator {
+public class InlineUtils {
     /** Heuristic maximum inline size in bytes for storing entries in B+tree InnerNodes. */
     public static final int MAX_INLINE_SIZE = 2 * KiB;
 
@@ -107,5 +109,19 @@ public class InlineSizeCalculator {
             default:
                 throw new IllegalArgumentException("Unknown type " + nativeType.spec());
         }
+    }
+
+    /**
+     * Returns IO versions for index page IO.
+     *
+     * @param <T> Index page IO type.
+     * @param versions IO versions for each inline size, from {@code 1} to {@link #MAX_INLINE_SIZE} bytes.
+     * @param inlineSize Inline size in bytes.
+     */
+    public static <T extends PageIo> IoVersions<T> ioVersions(List<IoVersions<T>> versions, int inlineSize) {
+        assert versions.size() < MAX_INLINE_SIZE : versions.size();
+        assert inlineSize > 0 && inlineSize <= MAX_INLINE_SIZE : inlineSize;
+
+        return versions.get(inlineSize - 1);
     }
 }

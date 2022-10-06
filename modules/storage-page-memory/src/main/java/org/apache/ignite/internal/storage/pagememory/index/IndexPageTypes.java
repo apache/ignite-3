@@ -21,8 +21,8 @@ package org.apache.ignite.internal.storage.pagememory.index;
  * Collection of all page types that relate to indexes.
  */
 public interface IndexPageTypes {
-    /** Page IO type. */
-    short T_VALUE_VERSION_DATA_IO = 100;
+    /** Index columns data IO type. */
+    short T_INDEX_COLUMNS_DATA_IO = 100;
 
     /** Index meta tree meta IO type. */
     short T_INDEX_META_TREE_META_IO = 101;
@@ -34,20 +34,22 @@ public interface IndexPageTypes {
     short T_INDEX_META_LEAF_IO = 103;
 
     /** Hash index tree meta IO type. */
-    short T_HASH_INDEX_META_IO = 10_000;
+    short T_HASH_INDEX_META_IO = 104;
 
     /** Hash index tree inner IO type. */
-    short T_HASH_INDEX_INNER_IO = 10_001;
+    short T_HASH_INDEX_INNER_IO_START = 10_000;
 
     /** Hash index tree meta IO type. */
-    short T_HASH_INDEX_LEAF_IO = 10_002;
+    short T_HASH_INDEX_LEAF_IO_START = 15_000;
+
+    // TODO: IGNITE-17671 Implement for sorted indexes
 
     /** Sorted index tree meta IO type. */
-    short T_SORTED_INDEX_META_IO = 10_003;
+    short T_SORTED_INDEX_META_IO = 105;
 
     /** Sorted index tree inner IO type. */
-    short T_SORTED_INDEX_INNER_IO = 10_004;
+    short T_SORTED_INDEX_INNER_IO = 106;
 
     /** Sorted index tree meta IO type. */
-    short T_SORTED_INDEX_LEAF_IO = 10_005;
+    short T_SORTED_INDEX_LEAF_IO = 107;
 }

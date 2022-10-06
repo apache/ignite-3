@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.storage.pagememory.index.hash;
 
+import static org.apache.ignite.internal.storage.pagememory.index.InlineUtils.ioVersions;
+
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.datapage.DataPageReader;
@@ -69,12 +71,16 @@ public class HashIndexTree extends BplusTree<HashIndexRowKey, HashIndexRow> {
     ) throws IgniteInternalCheckedException {
         super("HashIndexTree_" + grpId, grpId, grpName, partId, pageMem, lockLsnr, globalRmvId, metaPageId, reuseList);
 
-        setIos(HashIndexTreeInnerIo.VERSIONS, HashIndexTreeLeafIo.VERSIONS, HashIndexTreeMetaIo.VERSIONS);
+        setIos(
+                ioVersions(HashIndexTreeInnerIo.VERSIONS, inlineSize),
+                ioVersions(HashIndexTreeLeafIo.VERSIONS, inlineSize),
+                HashIndexTreeMetaIo.VERSIONS
+        );
 
         dataPageReader = new DataPageReader(pageMem, grpId, statisticsHolder());
 
         // TODO: IGNITE-17536 вот тут дальше делать надо
-
+        // TODO: IGNITE-17536 а вот в целом нужно это или нет?
         this.inlineSize = inlineSize;
 
         initTree(initNew);

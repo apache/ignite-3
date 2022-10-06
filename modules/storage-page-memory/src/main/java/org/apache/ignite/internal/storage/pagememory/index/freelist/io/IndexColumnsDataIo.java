@@ -40,8 +40,8 @@ public class IndexColumnsDataIo extends AbstractDataPageIo<IndexColumns> {
      *
      * @param ver Page format version.
      */
-    protected IndexColumnsDataIo(int ver) {
-        super(IndexPageTypes.T_VALUE_VERSION_DATA_IO, ver);
+    private IndexColumnsDataIo(int ver) {
+        super(IndexPageTypes.T_INDEX_COLUMNS_DATA_IO, ver);
     }
 
     @Override

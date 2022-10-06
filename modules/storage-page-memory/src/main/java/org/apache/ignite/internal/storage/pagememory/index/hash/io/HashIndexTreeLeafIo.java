@@ -17,11 +17,16 @@
 
 package org.apache.ignite.internal.storage.pagememory.index.hash.io;
 
+import static java.util.stream.Collectors.toUnmodifiableList;
+import static org.apache.ignite.internal.storage.pagememory.index.IndexPageTypes.T_HASH_INDEX_LEAF_IO_START;
+import static org.apache.ignite.internal.storage.pagememory.index.InlineUtils.MAX_INLINE_SIZE;
+
+import java.util.List;
+import java.util.stream.IntStream;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.tree.io.BplusIo;
 import org.apache.ignite.internal.pagememory.tree.io.BplusLeafIo;
-import org.apache.ignite.internal.storage.pagememory.index.IndexPageTypes;
 import org.apache.ignite.internal.storage.pagememory.index.hash.HashIndexRowKey;
 import org.apache.ignite.internal.storage.pagememory.index.hash.HashIndexTree;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
@@ -30,16 +35,20 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
  * {@link BplusLeafIo} implementation for {@link HashIndexTree}.
  */
 public class HashIndexTreeLeafIo extends BplusLeafIo<HashIndexRowKey> implements HashIndexTreeIo {
-    /** I/O versions. */
-    public static final IoVersions<HashIndexTreeLeafIo> VERSIONS = new IoVersions<>(new HashIndexTreeLeafIo(1));
+    /** IO versions for each inline size in bytes, except {@code 0}, start from {@code 1} byte. */
+    public static final List<IoVersions<HashIndexTreeLeafIo>> VERSIONS = IntStream.range(1, MAX_INLINE_SIZE)
+            .mapToObj(i -> new IoVersions<>(new HashIndexTreeLeafIo(1, i)))
+            .collect(toUnmodifiableList());
 
     /**
      * Constructor.
      *
      * @param ver Page format version.
+     * @param inlineSize Inline size in bytes.
      */
-    protected HashIndexTreeLeafIo(int ver) {
-        super(IndexPageTypes.T_HASH_INDEX_LEAF_IO, ver, SIZE_IN_BYTES);
+    private HashIndexTreeLeafIo(int ver, int inlineSize) {
+        // TODO: IGNITE-17536 заменить SIZE_IN_BYTES на inlineSize
+        super(T_HASH_INDEX_LEAF_IO_START + inlineSize, ver, SIZE_IN_BYTES);
     }
 
     @Override

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage.pagememory.index;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import org.apache.ignite.internal.pagememory.PageMemory;
@@ -40,20 +41,25 @@ public class IndexPageIoModule implements PageIoModule {
     /** {@inheritDoc} */
     @Override
     public Collection<IoVersions<?>> ioVersions() {
-        return List.of(
-                IndexColumnsDataIo.VERSIONS,
-                // Meta tree IO.
-                IndexMetaTreeMetaIo.VERSIONS,
-                IndexMetaInnerIo.VERSIONS,
-                IndexMetaLeafIo.VERSIONS,
-                // Hash index IO.
-                HashIndexTreeMetaIo.VERSIONS,
-                HashIndexTreeInnerIo.VERSIONS,
-                HashIndexTreeLeafIo.VERSIONS,
-                // Sorted index IO.
-                SortedIndexTreeMetaIo.VERSIONS,
-                SortedIndexTreeInnerIo.VERSIONS,
-                SortedIndexTreeLeafIo.VERSIONS
-        );
+        List<IoVersions<?>> ioVersions = new ArrayList<>();
+
+        ioVersions.add(IndexColumnsDataIo.VERSIONS);
+
+        // Meta tree IO.
+        ioVersions.add(IndexMetaTreeMetaIo.VERSIONS);
+        ioVersions.add(IndexMetaInnerIo.VERSIONS);
+        ioVersions.add(IndexMetaLeafIo.VERSIONS);
+
+        // Hash index IO.
+        ioVersions.add(HashIndexTreeMetaIo.VERSIONS);
+        ioVersions.addAll(HashIndexTreeInnerIo.VERSIONS);
+        ioVersions.addAll(HashIndexTreeLeafIo.VERSIONS);
+
+        // Sorted index IO.
+        ioVersions.add(SortedIndexTreeMetaIo.VERSIONS);
+        ioVersions.add(SortedIndexTreeInnerIo.VERSIONS);
+        ioVersions.add(SortedIndexTreeLeafIo.VERSIONS);
+
+        return ioVersions;
     }
 }

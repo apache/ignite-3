@@ -19,7 +19,7 @@ package org.apache.ignite.internal.storage.pagememory.mv;
 
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.getByInternalId;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
-import static org.apache.ignite.internal.storage.pagememory.index.InlineSizeCalculator.calculateBinaryTupleInlineSize;
+import static org.apache.ignite.internal.storage.pagememory.index.InlineUtils.calculateBinaryTupleInlineSize;
 
 import java.nio.ByteBuffer;
 import java.util.NoSuchElementException;
