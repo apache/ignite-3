@@ -35,6 +35,7 @@ import org.apache.ignite.internal.storage.index.IndexDescriptor.ColumnDescriptor
 /**
  * Helper class for inline indexes.
  */
+// TODO: IGNITE-17536 вот тут надо подсчет размера изменить
 public class InlineUtils {
     /** Heuristic maximum inline size in bytes for storing entries in B+tree InnerNodes. */
     public static final int MAX_INLINE_SIZE = 2 * KiB;

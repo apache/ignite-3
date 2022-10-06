@@ -27,6 +27,7 @@ import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.tree.io.BplusInnerIo;
 import org.apache.ignite.internal.pagememory.tree.io.BplusIo;
+import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.pagememory.index.hash.HashIndexRowKey;
 import org.apache.ignite.internal.storage.pagememory.index.hash.HashIndexTree;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
@@ -35,7 +36,7 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
  * {@link BplusInnerIo} implementation for {@link HashIndexTree}.
  */
 public class HashIndexTreeInnerIo extends BplusInnerIo<HashIndexRowKey> implements HashIndexTreeIo {
-    /** IO versions for each inline size in bytes, except {@code 0}, start from {@code 1} byte. */
+    /** IO versions for each inline {@link BinaryTuple} size in bytes, starting at {@code 1} byte. */
     public static final List<IoVersions<HashIndexTreeInnerIo>> VERSIONS = IntStream.range(1, MAX_INLINE_SIZE)
             .mapToObj(i -> new IoVersions<>(new HashIndexTreeInnerIo(1, i)))
             .collect(toUnmodifiableList());
@@ -44,11 +45,11 @@ public class HashIndexTreeInnerIo extends BplusInnerIo<HashIndexRowKey> implemen
      * Constructor.
      *
      * @param ver Page format version.
-     * @param inlineSize Inline size in bytes.
+     * @param binaryTupleInlineSize Size of the inline {@link BinaryTuple} in bytes.
      */
-    private HashIndexTreeInnerIo(int ver, int inlineSize) {
-        // TODO: IGNITE-17536 заменить SIZE_IN_BYTES на inlineSize
-        super(T_HASH_INDEX_INNER_IO_START + inlineSize, ver, true, SIZE_IN_BYTES);
+    private HashIndexTreeInnerIo(int ver, int binaryTupleInlineSize) {
+        // TODO: IGNITE-17536 нужно пересчитать размер элементов в зависимости от инлайна
+        super(T_HASH_INDEX_INNER_IO_START + binaryTupleInlineSize, ver, true, SIZE_IN_BYTES);
     }
 
     @Override
