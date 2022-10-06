@@ -57,6 +57,7 @@ import org.apache.ignite.sql.SqlBatchException;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
@@ -226,6 +227,7 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
+    @Disabled ("IGNITE-17806 Rollback SQL automatically created transaction when an error has happened")
     public void errors() throws InterruptedException {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
         for (int i = 0; i < ROW_COUNT; ++i) {
@@ -276,6 +278,12 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
             rs.close();
             assertThrowsWithCause(() -> rs.forEachRemaining(Object::hashCode), CursorClosedException.class);
         }
+
+        TxManager txManagerInternal = (TxManager) IgniteTestUtils.getFieldValue(CLUSTER_NODES.get(0), IgniteImpl.class, "txManager");
+
+        var states = (Map<UUID, TxState>) IgniteTestUtils.getFieldValue(txManagerInternal, TxManagerImpl.class, "states");
+
+        states.forEach((k, v) -> assertNotSame(v, TxState.PENDING));
     }
 
     @Test

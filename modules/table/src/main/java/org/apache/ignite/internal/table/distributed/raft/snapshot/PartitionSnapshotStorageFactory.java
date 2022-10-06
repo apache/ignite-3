@@ -20,6 +20,8 @@ package org.apache.ignite.internal.table.distributed.raft.snapshot;
 import java.util.List;
 import org.apache.ignite.internal.raft.storage.SnapshotStorageFactory;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
+import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
@@ -38,6 +40,12 @@ import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
  * {@code true}, and {@link SnapshotWriter#addFile(String)} throws an exception.
  */
 public class PartitionSnapshotStorageFactory implements SnapshotStorageFactory {
+    /** Topology service. */
+    private final TopologyService topologyService;
+
+    /** Snapshot manager. */
+    private final OutgoingSnapshotsManager outgoingSnapshotsManager;
+
     /** Partition storage. */
     private final PartitionAccess partition;
 
@@ -53,14 +61,23 @@ public class PartitionSnapshotStorageFactory implements SnapshotStorageFactory {
     /**
      * Constructor.
      *
+     * @param topologyService Topology service.
+     * @param outgoingSnapshotsManager Snapshot manager.
      * @param partition MV partition storage.
      * @param peers List of raft group peers to be used in snapshot meta.
      * @param learners List of raft group learners to be used in snapshot meta.
-     *
      * @see SnapshotMeta
      */
     @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
-    public PartitionSnapshotStorageFactory(PartitionAccess partition, List<String> peers, List<String> learners) {
+    public PartitionSnapshotStorageFactory(
+            TopologyService topologyService,
+            OutgoingSnapshotsManager outgoingSnapshotsManager,
+            PartitionAccess partition,
+            List<String> peers,
+            List<String> learners
+    ) {
+        this.topologyService = topologyService;
+        this.outgoingSnapshotsManager = outgoingSnapshotsManager;
         this.partition = partition;
         this.peers = peers;
         this.learners = learners;
@@ -80,6 +97,13 @@ public class PartitionSnapshotStorageFactory implements SnapshotStorageFactory {
                 .learnersList(learners)
                 .build();
 
-        return new PartitionSnapshotStorage(uri, raftOptions, partition, snapshotMeta);
+        return new PartitionSnapshotStorage(
+                topologyService,
+                outgoingSnapshotsManager,
+                uri,
+                raftOptions,
+                partition,
+                snapshotMeta
+        );
     }
 }

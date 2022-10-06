@@ -28,7 +28,7 @@ import java.nio.channels.WritableByteChannel;
  * Heap byte buffer-based row.
  */
 public class ByteBufferRow implements BinaryRow {
-    public static ByteOrder ORDER = ByteOrder.LITTLE_ENDIAN;
+    public static final ByteOrder ORDER = ByteOrder.LITTLE_ENDIAN;
 
     /** Row buffer. */
     private final ByteBuffer buf;

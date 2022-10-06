@@ -70,7 +70,7 @@ public class ComputeComponentImpl implements ComputeComponent {
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
-    /** Prevents double stopping the component. */
+    /** Prevents double stopping of the component. */
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
     private final InFlightFutures inFlightFutures = new InFlightFutures();

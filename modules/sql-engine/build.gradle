@@ -45,7 +45,6 @@ dependencies {
     implementation libs.jsonpath.core
     implementation libs.classgraph
     implementation libs.javassist
-    implementation libs.esri.geometry
     implementation libs.checker.qual
 
     annotationProcessor project(':ignite-network-annotation-processor')

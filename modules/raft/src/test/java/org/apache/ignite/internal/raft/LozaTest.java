@@ -24,6 +24,7 @@ import static org.mockito.Mockito.mock;
 import java.util.List;
 import java.util.UUID;
 import java.util.function.Supplier;
+import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.lang.NodeStoppingException;
@@ -62,7 +63,7 @@ public class LozaTest extends IgniteAbstractTest {
         Mockito.doReturn(mock(MessagingService.class)).when(clusterNetSvc).messagingService();
         Mockito.doReturn(mock(TopologyService.class)).when(clusterNetSvc).topologyService();
 
-        Loza loza = new Loza(clusterNetSvc, mock(RaftConfiguration.class), workDir);
+        Loza loza = new Loza(clusterNetSvc, mock(RaftConfiguration.class), workDir, new HybridClock());
 
         loza.start();
 

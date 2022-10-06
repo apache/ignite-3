@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
@@ -49,6 +50,7 @@ import org.apache.ignite.rest.client.api.ClusterConfigurationApi;
 import org.apache.ignite.rest.client.api.ClusterManagementApi;
 import org.apache.ignite.rest.client.api.NodeConfigurationApi;
 import org.apache.ignite.rest.client.api.NodeManagementApi;
+import org.apache.ignite.rest.client.api.NodeMetricApi;
 import org.apache.ignite.rest.client.api.TopologyApi;
 import org.apache.ignite.rest.client.invoker.ApiClient;
 import org.apache.ignite.rest.client.invoker.ApiException;
@@ -81,8 +83,6 @@ public class ItGeneratedRestClientTest {
     @WorkDirectory
     private Path workDir;
 
-    private CompletableFuture<Ignite> ignite;
-
     private ClusterConfigurationApi clusterConfigurationApi;
 
     private NodeConfigurationApi nodeConfigurationApi;
@@ -92,6 +92,8 @@ public class ItGeneratedRestClientTest {
     private NodeManagementApi nodeManagementApi;
 
     private TopologyApi topologyApi;
+
+    private NodeMetricApi nodeMetricApi;
 
     private ObjectMapper objectMapper;
 
@@ -135,6 +137,7 @@ public class ItGeneratedRestClientTest {
         clusterManagementApi = new ClusterManagementApi(client);
         nodeManagementApi = new NodeManagementApi(client);
         topologyApi = new TopologyApi(client);
+        nodeMetricApi = new NodeMetricApi(client);
 
         objectMapper = new ObjectMapper();
     }
@@ -320,6 +323,25 @@ public class ItGeneratedRestClientTest {
     @Test
     void nodeVersion() throws ApiException {
         assertThat(nodeManagementApi.nodeVersion(), is(notNullValue()));
+    }
+
+    @Test
+    void nodeMetricList() throws ApiException {
+        assertThat(nodeMetricApi.listNodeMetrics(), empty());
+    }
+
+    @Test
+    void enableInvalidNodeMetric() throws JsonProcessingException {
+        var thrown = assertThrows(
+                ApiException.class,
+                () -> nodeMetricApi.enableNodeMetric("no.such.metric")
+        );
+
+        assertThat(thrown.getCode(), equalTo(404));
+
+        Problem problem = objectMapper.readValue(thrown.getResponseBody(), Problem.class);
+        assertThat(problem.getStatus(), equalTo(404));
+        assertThat(problem.getDetail(), containsString("Metrics source with given name doesn't exist: no.such.metric"));
     }
 
     private CompletableFuture<Ignite> startNodeAsync(TestInfo testInfo, int index) {

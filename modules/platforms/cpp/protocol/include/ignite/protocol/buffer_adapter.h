@@ -17,18 +17,18 @@
 
 #pragma once
 
-#include <limits>
-
-#include <msgpack.h>
-
 #include "common/types.h"
+
+#include <limits>
 
 namespace ignite::protocol {
 
 /**
- * BufferAdapter.
+ * Buffer adapter.
+ *
+ * Used to allow msgpack classes to write data to std::vector<std::byte>.
  */
-class BufferAdapter {
+class buffer_adapter {
 public:
     /** Length header size in bytes. */
     static constexpr size_t LENGTH_HEADER_SIZE = 4;
@@ -38,43 +38,43 @@ public:
      *
      * @param data Data.
      */
-    explicit BufferAdapter(std::vector<std::byte> &data)
+    explicit buffer_adapter(std::vector<std::byte> &data)
         : m_buffer(data)
-        , m_lengthPos(std::numeric_limits<std::size_t>::max()) { }
+        , m_length_pos(std::numeric_limits<std::size_t>::max()) { }
 
     /**
      * Write raw data.
      *
      * @param data Data to write.
      */
-    void writeRawData(bytes_view data) { m_buffer.insert(m_buffer.end(), data.begin(), data.end()); }
+    void write_raw(bytes_view data) { m_buffer.insert(m_buffer.end(), data.begin(), data.end()); }
 
     /**
      * Get underlying data buffer view.
      *
      * @return Underlying data buffer view.
      */
-    [[nodiscard]] bytes_view getData() const { return m_buffer; }
+    [[nodiscard]] bytes_view data() const { return m_buffer; }
 
     /**
      * Reserving space for length header.
      */
-    void reserveLengthHeader() {
-        m_lengthPos = m_buffer.size();
+    void reserve_length_header() {
+        m_length_pos = m_buffer.size();
         m_buffer.insert(m_buffer.end(), 4, std::byte{0});
     }
 
     /**
      * Write buffer length to previously reserved position.
      */
-    void writeLengthHeader();
+    void write_length_header();
 
 private:
-    /** BufferAdapter. */
+    /** Buffer */
     std::vector<std::byte> &m_buffer;
 
     /** Length position. */
-    std::size_t m_lengthPos{std::numeric_limits<std::size_t>::max()};
+    std::size_t m_length_pos{std::numeric_limits<std::size_t>::max()};
 };
 
 } // namespace ignite::protocol
