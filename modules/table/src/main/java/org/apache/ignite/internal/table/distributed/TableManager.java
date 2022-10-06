@@ -23,7 +23,6 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.getByInternalId;
 import static org.apache.ignite.internal.schema.SchemaManager.INITIAL_SCHEMA_VERSION;
-import static org.apache.ignite.internal.schema.SchemaUtils.latestSchemaVersion;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.apache.ignite.internal.utils.RebalanceUtil.ASSIGNMENTS_SWITCH_REDUCE_PREFIX;
@@ -68,6 +67,7 @@ import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.IntSupplier;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.ConfigurationChangeException;
@@ -1186,7 +1186,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      *                         </ul>
      * @see TableNotFoundException
      */
-    public CompletableFuture<Void> alterTableAsync(String name, Consumer<TableChange> tableChange) {
+    public CompletableFuture<Void> alterTableAsync(String name, Predicate<TableChange> tableChange) {
         if (!busyLock.enterBusy()) {
             throw new IgniteException(new NodeStoppingException());
         }
@@ -1197,8 +1197,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
     }
 
-    /** See {@link #alterTableAsync(String, Consumer)} for details. */
-    private CompletableFuture<Void> alterTableAsyncInternal(String name, Consumer<TableChange> tableChange) {
+    /** See {@link #alterTableAsync(String, Predicate)} for details. */
+    private CompletableFuture<Void> alterTableAsyncInternal(String name, Predicate<TableChange> tableChange) {
         CompletableFuture<Void> tblFut = new CompletableFuture<>();
 
         tableAsync(name).thenAccept(tbl -> {
@@ -1211,13 +1211,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     }
 
                     ch.update(name, tblCh -> {
-                        tableChange.accept(tblCh);
+                        if (!tableChange.test(tblCh)) {
+                            return;
+                        }
 
                         ExtendedTableChange exTblChange = (ExtendedTableChange) tblCh;
 
-                        int lastSchemaVer = latestSchemaVersion(metaStorageMgr, exTblChange.id());
-
-                        exTblChange.changeSchemaId(lastSchemaVer + 1);
+                        exTblChange.changeSchemaId(exTblChange.schemaId() + 1);
                     });
                 }).whenComplete((res, t) -> {
                     if (t != null) {

@@ -175,7 +175,10 @@ public class ItRebalanceDistributedTest {
         assertEquals(1, nodes.get(0).clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY)
                 .tables().get("TBL1").replicas().value());
 
-        await(nodes.get(0).tableManager.alterTableAsync("TBL1", ch -> ch.changeReplicas(2)));
+        await(nodes.get(0).tableManager.alterTableAsync("TBL1", ch -> {
+            ch.changeReplicas(2);
+            return true;
+        }));
 
         waitPartitionAssignmentsSyncedToExpected(0, 2);
 
@@ -200,8 +203,15 @@ public class ItRebalanceDistributedTest {
         assertEquals(1, nodes.get(0).clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY).tables()
                 .get("TBL1").replicas().value());
 
-        await(nodes.get(0).tableManager.alterTableAsync("TBL1", ch -> ch.changeReplicas(2)));
-        await(nodes.get(0).tableManager.alterTableAsync("TBL1", ch -> ch.changeReplicas(3)));
+        await(nodes.get(0).tableManager.alterTableAsync("TBL1", ch -> {
+            ch.changeReplicas(2);
+            return true;
+        }));
+
+        await(nodes.get(0).tableManager.alterTableAsync("TBL1", ch -> {
+            ch.changeReplicas(3);
+            return true;
+        }));
 
         waitPartitionAssignmentsSyncedToExpected(0, 3);
 
@@ -226,9 +236,20 @@ public class ItRebalanceDistributedTest {
         assertEquals(1, nodes.get(0).clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY).tables()
                 .get("TBL1").replicas().value());
 
-        await(nodes.get(0).tableManager.alterTableAsync("TBL1", ch -> ch.changeReplicas(2)));
-        await(nodes.get(0).tableManager.alterTableAsync("TBL1", ch -> ch.changeReplicas(3)));
-        await(nodes.get(0).tableManager.alterTableAsync("TBL1", ch -> ch.changeReplicas(2)));
+        await(nodes.get(0).tableManager.alterTableAsync("TBL1", ch -> {
+            ch.changeReplicas(2);
+            return true;
+        }));
+
+        await(nodes.get(0).tableManager.alterTableAsync("TBL1", ch -> {
+            ch.changeReplicas(3);
+            return true;
+        }));
+
+        await(nodes.get(0).tableManager.alterTableAsync("TBL1", ch -> {
+            ch.changeReplicas(2);
+            return true;
+        }));
 
         waitPartitionAssignmentsSyncedToExpected(0, 2);
 
@@ -277,7 +298,10 @@ public class ItRebalanceDistributedTest {
                     return false;
                 });
 
-        await(nodes.get(0).tableManager.alterTableAsync("TBL1", ch -> ch.changeReplicas(3)));
+        await(nodes.get(0).tableManager.alterTableAsync("TBL1", ch -> {
+            ch.changeReplicas(3);
+            return true;
+        }));
 
         countDownLatch.await();
 
@@ -308,7 +332,10 @@ public class ItRebalanceDistributedTest {
         assertEquals(1, nodes.get(0).clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY)
                 .tables().get("TBL1").replicas().value());
 
-        await(nodes.get(0).tableManager.alterTableAsync("TBL1", ch -> ch.changeReplicas(1)));
+        await(nodes.get(0).tableManager.alterTableAsync("TBL1", ch -> {
+            ch.changeReplicas(1);
+            return true;
+        }));
 
         waitPartitionAssignmentsSyncedToExpected(0, 1);
 
@@ -331,7 +358,10 @@ public class ItRebalanceDistributedTest {
             return false;
         });
 
-        await(nodes.get(0).tableManager.alterTableAsync("TBL1", ch -> ch.changeReplicas(3)));
+        await(nodes.get(0).tableManager.alterTableAsync("TBL1", ch -> {
+            ch.changeReplicas(3);
+            return true;
+        }));
 
         waitPartitionAssignmentsSyncedToExpected(0, 3);
 

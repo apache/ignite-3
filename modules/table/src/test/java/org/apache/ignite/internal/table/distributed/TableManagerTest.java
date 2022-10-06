@@ -63,6 +63,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.NamedListView;
@@ -374,15 +375,18 @@ public class TableManagerTest extends IgniteAbstractTest {
                         .changeReplicas(REPLICAS)
                         .changePartitions(PARTITIONS);
 
-        final Consumer<TableChange> addColumnChange = (TableChange change) ->
-                change.changeColumns(cols -> {
-                    int colIdx = change.columns().namedListKeys().stream().mapToInt(Integer::parseInt).max().getAsInt() + 1;
+        final Predicate<TableChange> addColumnChange = (TableChange change) -> {
+            change.changeColumns(cols -> {
+                int colIdx = change.columns().namedListKeys().stream().mapToInt(Integer::parseInt).max().getAsInt() + 1;
 
-                    cols.create(String.valueOf(colIdx),
-                            colChg -> SchemaConfigurationConverter.convert(SchemaBuilders.column("name", ColumnType.string()).build(),
-                                    colChg));
+                cols.create(String.valueOf(colIdx),
+                        colChg -> SchemaConfigurationConverter.convert(SchemaBuilders.column("name", ColumnType.string()).build(),
+                                colChg));
 
-                });
+            });
+
+            return true;
+        };
 
         TableManager igniteTables = tableManager;
 
