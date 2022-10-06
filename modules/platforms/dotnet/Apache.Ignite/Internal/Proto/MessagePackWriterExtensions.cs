@@ -47,18 +47,6 @@ namespace Apache.Ignite.Internal.Proto
         }
 
         /// <summary>
-        /// Writes Ignite UUID.
-        /// </summary>
-        /// <param name="writer">Writer.</param>
-        public static void WriteNoValue(this ref MessagePackWriter writer)
-        {
-            writer.WriteExtensionFormatHeader(
-                new ExtensionHeader((sbyte)ClientMessagePackType.NoValue, 1));
-
-            writer.Advance(1);
-        }
-
-        /// <summary>
         /// Writes BitSet header and reserves space for bits, returns a span to write bits to.
         /// </summary>
         /// <param name="writer">Writer.</param>

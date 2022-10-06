@@ -30,60 +30,6 @@ namespace Apache.Ignite.Internal.Proto
     internal static class MessagePackReaderExtensions
     {
         /// <summary>
-        /// Reads an object with specified type.
-        /// </summary>
-        /// <param name="reader">Reader.</param>
-        /// <param name="type">Type.</param>
-        /// <returns>Resulting object.</returns>
-        public static object? ReadObject(this ref MessagePackReader reader, ClientDataType type)
-        {
-            switch (type)
-            {
-                case ClientDataType.Int8:
-                    return reader.ReadSByte();
-
-                case ClientDataType.Int16:
-                    return reader.ReadInt16();
-
-                case ClientDataType.Int32:
-                    return reader.ReadInt32();
-
-                case ClientDataType.Int64:
-                    return reader.ReadInt64();
-
-                case ClientDataType.Float:
-                    return reader.ReadSingle();
-
-                case ClientDataType.Double:
-                    return reader.ReadDouble();
-
-                case ClientDataType.Uuid:
-                    return reader.ReadGuid();
-
-                case ClientDataType.String:
-                    return reader.ReadString();
-
-                default:
-                    throw new IgniteClientException(ErrorGroups.Client.Protocol, "Unsupported type: " + type);
-            }
-        }
-
-        /// <summary>
-        /// Reads <see cref="ClientDataType"/> and value.
-        /// </summary>
-        /// <param name="reader">Reader.</param>
-        /// <returns>Value.</returns>
-        public static object? ReadObjectWithType(this ref MessagePackReader reader)
-        {
-            if (reader.TryReadNil())
-            {
-                return null;
-            }
-
-            return ReadObject(ref reader, (ClientDataType)reader.ReadInt32());
-        }
-
-        /// <summary>
         /// Reads <see cref="ClientDataType"/> and value.
         /// </summary>
         /// <param name="reader">Reader.</param>
@@ -147,30 +93,6 @@ namespace Apache.Ignite.Internal.Proto
             Debug.Assert(jBytes.Length == guidSize, "jBytes.Length == 16");
 
             return UuidSerializer.Read(jBytes);
-        }
-
-        /// <summary>
-        /// Reads <see cref="ClientMessagePackType.NoValue"/> if it is the next token.
-        /// </summary>
-        /// <param name="reader">Reader.</param>
-        /// <returns><c>true</c> if the next token was NoValue; <c>false</c> otherwise.</returns>
-        public static bool TryReadNoValue(this ref MessagePackReader reader)
-        {
-            if (reader.NextCode != MessagePackCode.FixExt1)
-            {
-                return false;
-            }
-
-            var header = reader.CreatePeekReader().ReadExtensionFormatHeader();
-
-            if (header.TypeCode != (sbyte)ClientMessagePackType.NoValue)
-            {
-                return false;
-            }
-
-            reader.ReadRaw(3);
-
-            return true;
         }
 
         /// <summary>
