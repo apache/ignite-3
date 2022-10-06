@@ -420,7 +420,7 @@ public class InternalTableImpl implements InternalTable {
                     } catch (TransactionException enlistResultException) {
                         return tx0.rollbackAsync().handle((ignored, err) -> {
                             if (err != null) {
-                                e.addSuppressed(err);
+                                enlistResultException.addSuppressed(err);
                             }
 
                             throw enlistResultException;
