@@ -184,11 +184,18 @@ namespace Apache.Ignite.Tests
             props["sessionTimeoutMs"] = reader.TryReadNil() ? (long?)null : reader.ReadInt64();
 
             // ReSharper restore RedundantCast
-            var propCount = reader.ReadMapHeader();
+            var propCount = reader.ReadInt32();
+            var propTuple = new BinaryTupleReader(reader.ReadBytesAsMemory(), propCount * 4);
 
             for (int i = 0; i < propCount; i++)
             {
-                props[reader.ReadString()] = reader.ReadObjectFromBinaryTuple();
+                var idx = i * 4;
+
+                var name = propTuple.GetString(idx);
+                var type = (ClientDataType)propTuple.GetInt(idx + 1);
+                var scale = propTuple.GetInt(idx + 2);
+
+                props[name] = propTuple.GetObject(idx + 3, type, scale);
             }
 
             var sql = reader.ReadString();
