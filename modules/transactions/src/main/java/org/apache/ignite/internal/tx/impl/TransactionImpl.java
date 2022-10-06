@@ -17,12 +17,13 @@
 
 package org.apache.ignite.internal.tx.impl;
 
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_COMMIT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ROLLBACK_ERR;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -58,7 +59,10 @@ public class TransactionImpl implements InternalTransaction {
     private final Map<String, IgniteBiTuple<ClusterNode, Long>> enlisted = new ConcurrentSkipListMap<>();
 
     /** Enlisted operation futures in this transaction. */
-    private final List<CompletableFuture<?>> enlistedResults = Collections.synchronizedList(new ArrayList<>());
+    private final List<CompletableFuture<?>> enlistedResults = new ArrayList<>();
+
+    /** Guard that prevents finishing or enlisting new operations into already finished or finishing transaction. */
+    private boolean txInFinishState = false;
 
     /**
      * The constructor.
@@ -138,6 +142,14 @@ public class TransactionImpl implements InternalTransaction {
      * @return The future.
      */
     private CompletableFuture<Void> finish(boolean commit) {
+        synchronized (this) {
+            if (txInFinishState) {
+                return failedFuture(new TransactionException(commit ? TX_COMMIT_ERR : TX_ROLLBACK_ERR,
+                        "Failed to finish already finished transaction txId={" + id + '}'));
+            }
+            txInFinishState = true;
+        }
+
         // TODO: https://issues.apache.org/jira/browse/IGNITE-17688 Add proper exception handling.
         return CompletableFuture
                 .allOf(enlistedResults.toArray(new CompletableFuture[0]))
@@ -182,7 +194,12 @@ public class TransactionImpl implements InternalTransaction {
 
     /** {@inheritDoc} */
     @Override
-    public void enlistResultFuture(CompletableFuture<?> resultFuture) {
+    public synchronized void enlistResultFuture(CompletableFuture<?> resultFuture) {
+        if (txInFinishState) {
+            throw new TransactionException(TX_ALREADY_FINISHED_ERR,
+                    "Failed to enlist operation into already finished transaction txId={" + id + '}');
+        }
+
         enlistedResults.add(resultFuture);
     }
 }

@@ -22,6 +22,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -65,6 +66,7 @@ public interface InternalTransaction extends Transaction {
      * Enlists operation future in transaction. It's used in order to wait corresponding tx operations before commit.
      *
      * @param resultFuture Operation result future.
+     * @throws TransactionException if failed to enlist operation result future because transaction was already moved to finishing state.
      */
-    void enlistResultFuture(CompletableFuture<?> resultFuture);
+    void enlistResultFuture(CompletableFuture<?> resultFuture) throws TransactionException;
 }
