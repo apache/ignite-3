@@ -1750,12 +1750,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             MvPartitionStorage partitionStorage = tbl.internalTable().storage().getOrCreateMvPartition(partId);
 
                             replicaMgr.startReplica(grpId,
-                                    tbl.internalTable().partitionRaftGroupService(partId),
                                     new PartitionReplicaListener(
                                             partitionStorage,
                                             tbl.internalTable().partitionRaftGroupService(partId),
                                             txManager,
                                             lockMgr,
+                                            partId,
                                             grpId,
                                             tblId,
                                             primaryIndex,

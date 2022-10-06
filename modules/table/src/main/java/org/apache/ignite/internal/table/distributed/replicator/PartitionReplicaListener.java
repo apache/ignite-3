@@ -26,6 +26,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -43,6 +44,8 @@ import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.PartitionTimestampCursor;
+import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
 import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
@@ -210,7 +213,9 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         IgniteUuid cursorId = new IgniteUuid(txId, request.scanId());
 
-        Cursor<BinaryRow> cursor = cursors.computeIfAbsent(cursorId, id -> mvDataStorage.scan(row -> true, request.timestamp()));
+        PartitionTimestampCursor timestampCursor = mvDataStorage.scan(row -> true, request.timestamp());
+
+        Cursor<BinaryRow> cursor = cursors.computeIfAbsent(cursorId, id -> new BinaryRowCursorWrapper(timestampCursor));
 
         ArrayList<BinaryRow> batchRows = new ArrayList<>(batchCount);
 
@@ -228,7 +233,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Result future.
      */
     private CompletableFuture<Object> processReadOnlySingleEntryAction(ReadOnlySingleRowReplicaRequest request) {
-        BinaryRow searchKey = new ByteBufferRow(request.binaryRow().keySlice());
+        ByteBuffer searchKey = request.binaryRow().keySlice();
 
         UUID indexId = indexIdOrDefault(indexScanId/*request.indexToUse()*/);
 
@@ -240,7 +245,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         //TODO: Use timestamp to find a row id.
         RowId rowId = rowIdByKey(indexId, searchKey);
 
-        BinaryRow result = rowId != null ? mvDataStorage.read(rowId, request.timestamp()) : null;
+        BinaryRow result = rowId != null ? resolveWriteIntent(mvDataStorage.read(rowId, request.timestamp())) : null;
 
         return CompletableFuture.completedFuture(result);
     }
@@ -252,7 +257,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Result future.
      */
     private CompletableFuture<Object> processReadOnlyMultiEntryAction(ReadOnlyMultiRowReplicaRequest request) {
-        Collection<BinaryRow> keyRows = request.binaryRows().stream().map(br -> new ByteBufferRow(br.keySlice())).collect(
+        Collection<ByteBuffer> keyRows = request.binaryRows().stream().map(br -> br.keySlice()).collect(
                 Collectors.toList());
 
         UUID indexId = indexIdOrDefault(indexScanId/*request.indexToUse()*/);
@@ -264,14 +269,30 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         ArrayList<BinaryRow> result = new ArrayList<>(keyRows.size());
 
-        for (BinaryRow searchKey : keyRows) {
+        for (ByteBuffer searchKey : keyRows) {
             //TODO: Use timestamp to find a row id.
             RowId rowId = rowIdByKey(indexId, searchKey);
 
-            result.add(rowId != null ? mvDataStorage.read(rowId, request.timestamp()) : null);
+            result.add(rowId != null ? resolveWriteIntent(mvDataStorage.read(rowId, request.timestamp())) : null);
         }
 
         return CompletableFuture.completedFuture(result);
+    }
+
+    /**
+     * Resolves a read result to the matched row.
+     * If the result dos not math any row, the method return {@code null}.
+     * TODO: Use a write intent resolution procedure to get a row form {@link ReadResult}.
+     *
+     * @param readResult Read result.
+     * @return {@link BinaryRow} or {@code null}.
+     */
+    private BinaryRow resolveWriteIntent(ReadResult readResult) {
+        if (readResult == null) {
+            return null;
+        }
+
+        return readResult.binaryRow();
     }
 
     /**
@@ -421,7 +442,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return CompletableFuture of void.
      */
     // TODO: need to properly handle primary replica changes https://issues.apache.org/jira/browse/IGNITE-17615
-    private CompletableFuture<Object> processTxCleanupAction(TxCleanupReplicaRequest request) {
+    private CompletableFuture processTxCleanupAction(TxCleanupReplicaRequest request) {
         try {
             closeAllTransactionCursors(request.txId());
         } catch (Exception e) {
@@ -1135,6 +1156,64 @@ public class PartitionReplicaListener implements ReplicaListener {
                     );
         } else {
             return CompletableFuture.completedFuture(null);
+        }
+    }
+
+    /**
+     * Cursor wrapper to resolve a write intent, which may be required for scan by timestamp.
+     */
+    private class BinaryRowCursorWrapper implements Cursor<BinaryRow> {
+        /** Cursor by specific timestamp. */
+        private final PartitionTimestampCursor timestampCursor;
+
+        /** Next row. */
+        private BinaryRow nextRow;
+
+        /**
+         * The constructor.
+         *
+         * @param timestampCursor Cursor by specific timestamp.
+         */
+        BinaryRowCursorWrapper(PartitionTimestampCursor timestampCursor) {
+            this.timestampCursor = timestampCursor;
+
+            goNext();
+        }
+
+        /**
+         * Writes a next row into {@link nextRow} property and resolves a write intent if it is required.
+         */
+        private void goNext() {
+            BinaryRow row = null;
+
+            while (timestampCursor.hasNext() && row == null) {
+                nextRow = resolveWriteIntent(timestampCursor.next());
+            }
+
+            nextRow = row;
+        }
+
+        @Override
+        public boolean hasNext() {
+            return nextRow != null;
+        }
+
+        @Override
+        public BinaryRow next() {
+            if (nextRow == null) {
+                throw new NoSuchElementException();
+            }
+
+            BinaryRow curRow = nextRow;
+
+            goNext();
+
+            return curRow;
+        }
+
+        @Override
+        public void close() throws Exception {
+            timestampCursor.close();
         }
     }
 }
