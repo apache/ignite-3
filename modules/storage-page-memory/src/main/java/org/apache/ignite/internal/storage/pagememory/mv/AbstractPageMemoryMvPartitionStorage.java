@@ -19,6 +19,7 @@ package org.apache.ignite.internal.storage.pagememory.mv;
 
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.getByInternalId;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
+import static org.apache.ignite.internal.storage.pagememory.index.InlineSizeCalculator.calculateBinaryTupleInlineSize;
 
 import java.nio.ByteBuffer;
 import java.util.NoSuchElementException;
@@ -198,6 +199,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
             String tableName = tableStorage.configuration().value().name();
 
+            int inlineSize = initNew ? calculateBinaryTupleInlineSize(indexDescriptor) : indexMeta.inlineSize();
+
             HashIndexTree hashIndexTree = new HashIndexTree(
                     groupId,
                     tableName,
@@ -207,12 +210,12 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                     new AtomicLong(),
                     metaPageId,
                     rowVersionFreeList,
+                    inlineSize,
                     initNew
             );
 
             if (initNew) {
-                // TODO: IGNITE-17536 вот тут надо будет передавать посчитанное значение
-                boolean replaced = indexMetaTree.putx(new IndexMeta(indexMeta.id(), metaPageId, 0));
+                boolean replaced = indexMetaTree.putx(new IndexMeta(indexMeta.id(), metaPageId, inlineSize));
 
                 assert !replaced;
             }

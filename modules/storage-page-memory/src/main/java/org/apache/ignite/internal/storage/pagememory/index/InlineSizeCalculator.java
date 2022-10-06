@@ -21,8 +21,14 @@ import static org.apache.ignite.internal.binarytuple.BinaryTupleCommon.HEADER_SI
 import static org.apache.ignite.internal.binarytuple.BinaryTupleCommon.nullMapSize;
 import static org.apache.ignite.internal.util.Constants.KiB;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.util.List;
 import org.apache.ignite.internal.schema.BinaryTuple;
-import org.apache.ignite.internal.schema.BinaryTupleSchema;
+import org.apache.ignite.internal.schema.NativeType;
+import org.apache.ignite.internal.schema.VarlenNativeType;
+import org.apache.ignite.internal.storage.index.IndexDescriptor;
+import org.apache.ignite.internal.storage.index.IndexDescriptor.ColumnDescriptor;
 
 /**
  * Calculator of inline size in bytes.
@@ -31,33 +37,75 @@ public class InlineSizeCalculator {
     /** Heuristic maximum inline size in bytes for storing entries in B+tree InnerNodes. */
     public static final int MAX_INLINE_SIZE = 2 * KiB;
 
-    /** Heuristic inline size in bytes for variable length columns, such as strings. */
-    public static final int VARLEN_COLUMN_INLINE_SIZE = 10;
+    /** Heuristic default inline size in bytes for variable length columns, such as strings. */
+    public static final int DEFAULT_VARLEN_COLUMN_INLINE_SIZE = 10;
+
+    /** Heuristic inline size in bytes for big numbers, such as {@link BigDecimal} and {@link BigInteger}. */
+    public static final int BIG_NUMBER_INLINE_SIZE = 4;
 
     /** Heuristic size class in bytes for offset table in {@link BinaryTuple}. */
     public static final int TABLE_OFFSET_CLASS_SIZE = 2;
 
     /**
-     * Calculates the inline size for a {@link BinaryTuple}.
-     *
-     * <p>Binary tuple format is taken into account:
+     * Calculates the inline size for a {@link BinaryTuple} given its format.
      * <ul>
      *     <li>Header - 1 byte;</li>
-     *     <li>Nullmap (if there are null columns) - (Number of columns + 7) / 8 bytes;</li>
-     *     <li>Offset table - (Number of columns * {@link #TABLE_OFFSET_CLASS_SIZE}) bytes;</li>
-     *     <li>Value area - total size of all column types ({@link #VARLEN_COLUMN_INLINE_SIZE} for varlen columns) in bytes.</li>
+     *     <li>Nullmap (if there are nullable columns) - (Number of columns * 7) / 8 bytes;</li>
+     *     <li>Table offset - Number of columns * {@link #TABLE_OFFSET_CLASS_SIZE} bytes;</li>
+     *     <li>Value area - total size of the columns in bytes.</li>
      * </ul>
      *
-     * @param schema Binary tuple schema.
-     * @return Inline size in bytes.
+     * @param indexDescriptor Index descriptor.
+     * @return Inline size in bytes, no more than the {@link #MAX_INLINE_SIZE}.
      */
-    public static int calculateInlineSize(BinaryTupleSchema schema) {
-        int inlineSize = HEADER_SIZE
-                + (schema.hasNullableElements() ? nullMapSize(schema.elementCount()) : 0)
-                + schema.elementCount() * TABLE_OFFSET_CLASS_SIZE;
+    public static int calculateBinaryTupleInlineSize(IndexDescriptor indexDescriptor) {
+        List<? extends ColumnDescriptor> columns = indexDescriptor.columns();
 
-        // TODO: IGNITE-17536 надо будет переделать немного
+        boolean hasNullableColumns = columns.stream().anyMatch(ColumnDescriptor::nullable);
+
+        int inlineSize = HEADER_SIZE // Header.
+                + (hasNullableColumns ? nullMapSize(columns.size()) : 0) // Nullmap if present.
+                + columns.size() * TABLE_OFFSET_CLASS_SIZE; // Table offset.
+
+        for (int i = 0; i < columns.size() && inlineSize < MAX_INLINE_SIZE; i++) {
+            inlineSize += inlineSize(columns.get(i).type());
+        }
 
         return Math.min(MAX_INLINE_SIZE, inlineSize);
+    }
+
+    /**
+     * Returns the inline size depending on the {@link NativeType}.
+     *
+     * @param nativeType Column native type.
+     * @return Inline size in bytes.
+     */
+    static int inlineSize(NativeType nativeType) {
+        if (nativeType.spec().fixedLength()) {
+            return nativeType.sizeInBytes();
+        }
+
+        // Variable length columns.
+
+        switch (nativeType.spec()) {
+            case BYTES: {
+                int length = ((VarlenNativeType) nativeType).length();
+
+                return length == Integer.MAX_VALUE ? DEFAULT_VARLEN_COLUMN_INLINE_SIZE : length;
+            }
+
+            case STRING: {
+                int length = ((VarlenNativeType) nativeType).length();
+
+                return length == Integer.MAX_VALUE ? DEFAULT_VARLEN_COLUMN_INLINE_SIZE : length * 2;
+            }
+
+            case NUMBER:
+            case DECIMAL:
+                return BIG_NUMBER_INLINE_SIZE;
+
+            default:
+                throw new IllegalArgumentException("Unknown type " + nativeType.spec());
+        }
     }
 }

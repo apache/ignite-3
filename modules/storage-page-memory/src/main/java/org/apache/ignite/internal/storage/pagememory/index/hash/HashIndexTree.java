@@ -38,6 +38,8 @@ public class HashIndexTree extends BplusTree<HashIndexRowKey, HashIndexRow> {
     /** Data page reader instance to read payload from data pages. */
     private final DataPageReader dataPageReader;
 
+    private final int inlineSize;
+
     /**
      * Constructor.
      *
@@ -49,6 +51,7 @@ public class HashIndexTree extends BplusTree<HashIndexRowKey, HashIndexRow> {
      * @param globalRmvId Remove ID.
      * @param metaPageId Meta page ID.
      * @param reuseList Reuse list.
+     * @param inlineSize Inline size in bytes.
      * @param initNew {@code True} if new tree should be created.
      * @throws IgniteInternalCheckedException If failed.
      */
@@ -61,6 +64,7 @@ public class HashIndexTree extends BplusTree<HashIndexRowKey, HashIndexRow> {
             AtomicLong globalRmvId,
             long metaPageId,
             @Nullable ReuseList reuseList,
+            int inlineSize,
             boolean initNew
     ) throws IgniteInternalCheckedException {
         super("HashIndexTree_" + grpId, grpId, grpName, partId, pageMem, lockLsnr, globalRmvId, metaPageId, reuseList);
@@ -68,6 +72,10 @@ public class HashIndexTree extends BplusTree<HashIndexRowKey, HashIndexRow> {
         setIos(HashIndexTreeInnerIo.VERSIONS, HashIndexTreeLeafIo.VERSIONS, HashIndexTreeMetaIo.VERSIONS);
 
         dataPageReader = new DataPageReader(pageMem, grpId, statisticsHolder());
+
+        // TODO: IGNITE-17536 вот тут дальше делать надо
+
+        this.inlineSize = inlineSize;
 
         initTree(initNew);
     }
