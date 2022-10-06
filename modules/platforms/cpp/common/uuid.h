@@ -72,7 +72,9 @@ public:
      *
      * @return The version number of this instance.
      */
-    [[nodiscard]] constexpr std::int32_t version() const noexcept { return static_cast<std::int32_t>((most >> 12) & 0x0f); }
+    [[nodiscard]] constexpr std::int32_t version() const noexcept {
+        return static_cast<std::int32_t>((most >> 12) & 0x0f);
+    }
 
     /**
      * The variant number associated with this instance. The variant
@@ -243,8 +245,8 @@ template <typename C, typename T>
 
     is.flags(savedFlags);
 
-    result = uuid(std::int64_t((parts[0] << 32) | (parts[1] << 16) | parts[2]),
-                  std::int64_t((parts[3] << 48) | parts[4]));
+    result =
+        uuid(std::int64_t((parts[0] << 32) | (parts[1] << 16) | parts[2]), std::int64_t((parts[3] << 48) | parts[4]));
 
     return is;
 }

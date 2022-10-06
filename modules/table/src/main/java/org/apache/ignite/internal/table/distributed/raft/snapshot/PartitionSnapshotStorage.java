@@ -17,7 +17,13 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot;
 
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.incoming.IncomingSnapshotCopier;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotReader;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.startup.StartupPartitionSnapshotReader;
+import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.option.SnapshotCopierOptions;
@@ -33,40 +39,105 @@ import org.jetbrains.annotations.Nullable;
  *
  * @see PartitionSnapshotStorageFactory
  */
-class PartitionSnapshotStorage implements SnapshotStorage {
+public class PartitionSnapshotStorage implements SnapshotStorage {
+    /** Topology service. */
+    private final TopologyService topologyService;
+
+    /** Snapshot manager. */
+    private final OutgoingSnapshotsManager outgoingSnapshotsManager;
+
     /** Snapshot URI. Points to a snapshot folder. Never created on physical storage. */
-    final String snapshotUri;
+    private final String snapshotUri;
 
     /** Raft options. */
-    final RaftOptions raftOptions;
+    private final RaftOptions raftOptions;
 
     /** Instance of partition. */
-    final PartitionAccess partition;
+    private final PartitionAccess partition;
 
-    /** Snapshot meta, constructed from the storage data and reaft group configuration. */
-    final SnapshotMeta snapshotMeta;
+    /** Snapshot meta, constructed from the storage data and raft group configuration. */
+    private final SnapshotMeta snapshotMeta;
 
     /** Snapshot throttle instance. */
-    @Nullable SnapshotThrottle snapshotThrottle;
+    @Nullable
+    private SnapshotThrottle snapshotThrottle;
+
+    /** Flag indicating that startup snapshot has been opened. */
+    private final AtomicBoolean startupSnapshotOpened = new AtomicBoolean();
 
     /**
      * Constructor.
      *
+     * @param topologyService Topology service.
+     * @param outgoingSnapshotsManager Outgoing snapshot manager.
      * @param snapshotUri Snapshot URI.
      * @param raftOptions RAFT options.
      * @param partition Partition.
      * @param snapshotMeta Snapshot meta.
      */
     public PartitionSnapshotStorage(
+            TopologyService topologyService,
+            OutgoingSnapshotsManager outgoingSnapshotsManager,
             String snapshotUri,
             RaftOptions raftOptions,
             PartitionAccess partition,
             SnapshotMeta snapshotMeta
     ) {
+        this.topologyService = topologyService;
+        this.outgoingSnapshotsManager = outgoingSnapshotsManager;
         this.snapshotUri = snapshotUri;
         this.raftOptions = raftOptions;
         this.partition = partition;
         this.snapshotMeta = snapshotMeta;
+    }
+
+    /**
+     * Returns a topology service.
+     */
+    public TopologyService topologyService() {
+        return topologyService;
+    }
+
+    /**
+     * Returns an outgoing snapshots manager.
+     */
+    public OutgoingSnapshotsManager outgoingSnapshotsManager() {
+        return outgoingSnapshotsManager;
+    }
+
+    /**
+     * Returns a snapshot URI. Points to a snapshot folder. Never created on physical storage.
+     */
+    public String snapshotUri() {
+        return snapshotUri;
+    }
+
+    /**
+     * Returns raft options.
+     */
+    public RaftOptions raftOptions() {
+        return raftOptions;
+    }
+
+    /**
+     * Returns a partition.
+     */
+    public PartitionAccess partition() {
+        return partition;
+    }
+
+    /**
+     * Returns a snapshot meta, constructed from the storage data and raft group configuration.
+     */
+    public SnapshotMeta startupSnapshotMeta() {
+        return snapshotMeta;
+    }
+
+    /**
+     * Returns a snapshot throttle instance.
+     */
+    public SnapshotThrottle snapshotThrottle() {
+        return snapshotThrottle;
     }
 
     /** {@inheritDoc} */
@@ -98,21 +169,29 @@ class PartitionSnapshotStorage implements SnapshotStorage {
     /** {@inheritDoc} */
     @Override
     public SnapshotReader open() {
-        return new InitPartitionSnapshotReader(this);
+        if (startupSnapshotOpened.compareAndSet(false, true)) {
+            return new StartupPartitionSnapshotReader(this);
+        }
+
+        return new OutgoingSnapshotReader(this);
     }
 
     /** {@inheritDoc} */
     @Override
     public SnapshotReader copyFrom(String uri, SnapshotCopierOptions opts) {
-        //TODO IGNITE-17083
-        throw new UnsupportedOperationException("Not implemented yet: https://issues.apache.org/jira/browse/IGNITE-17083");
+        throw new UnsupportedOperationException("Synchronous snapshot copy is not supported.");
     }
 
     /** {@inheritDoc} */
     @Override
     public SnapshotCopier startToCopyFrom(String uri, SnapshotCopierOptions opts) {
-        //TODO IGNITE-17083
-        throw new UnsupportedOperationException("Not implemented yet: https://issues.apache.org/jira/browse/IGNITE-17083");
+        SnapshotUri snapshotUri = SnapshotUri.fromStringUri(uri);
+
+        IncomingSnapshotCopier copier = new IncomingSnapshotCopier(this, snapshotUri);
+
+        copier.start();
+
+        return copier;
     }
 
     /** {@inheritDoc} */

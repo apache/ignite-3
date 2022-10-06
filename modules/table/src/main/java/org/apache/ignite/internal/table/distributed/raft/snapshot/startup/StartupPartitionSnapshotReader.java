@@ -15,19 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.raft.snapshot;
+package org.apache.ignite.internal.table.distributed.raft.snapshot.startup;
 
 import java.io.IOException;
 import java.util.Set;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionSnapshotStorage;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Snapshot reader used for raft group bootstrap. Reads initial state of the storage.
  */
-class InitPartitionSnapshotReader extends SnapshotReader {
+public class StartupPartitionSnapshotReader extends SnapshotReader {
     /** Instance of snapshot storage for shared fields access. */
     private final PartitionSnapshotStorage snapshotStorage;
 
@@ -36,20 +36,20 @@ class InitPartitionSnapshotReader extends SnapshotReader {
      *
      * @param snapshotStorage Snapshot storage.
      */
-    public InitPartitionSnapshotReader(PartitionSnapshotStorage snapshotStorage) {
+    public StartupPartitionSnapshotReader(PartitionSnapshotStorage snapshotStorage) {
         this.snapshotStorage = snapshotStorage;
     }
 
     /** {@inheritDoc} */
     @Override
     public SnapshotMeta load() {
-        return snapshotStorage.snapshotMeta;
+        return snapshotStorage.startupSnapshotMeta();
     }
 
     /** {@inheritDoc} */
     @Override
     public String getPath() {
-        return snapshotStorage.snapshotUri;
+        return snapshotStorage.snapshotUri();
     }
 
     /** {@inheritDoc} */
@@ -61,16 +61,14 @@ class InitPartitionSnapshotReader extends SnapshotReader {
 
     /** {@inheritDoc} */
     @Override
-    public @Nullable Message getFileMeta(String fileName) {
-        // No files in the snapshot.
-        return null;
+    public Message getFileMeta(String fileName) {
+        throw new UnsupportedOperationException("No files in the snapshot");
     }
 
     /** {@inheritDoc} */
     @Override
     public String generateURIForCopy() {
-        //TODO IGNITE-17083
-        throw new UnsupportedOperationException("Not implemented yet: https://issues.apache.org/jira/browse/IGNITE-17083");
+        throw new UnsupportedOperationException("Can't copy a startup snapshot");
     }
 
     /** {@inheritDoc} */

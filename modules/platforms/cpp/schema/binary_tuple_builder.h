@@ -322,9 +322,7 @@ private:
      * @param value Actual element value.
      * @return Required size.
      */
-    static SizeT gauge_number(const big_integer &value) noexcept {
-        return value.is_zero() ? 0 : value.byte_size();
-    }
+    static SizeT gauge_number(const big_integer &value) noexcept { return value.is_zero() ? 0 : value.byte_size(); }
 
     /**
      * @brief Computes required binary size for a given value.
@@ -342,9 +340,7 @@ private:
      * @param value Actual element value.
      * @return Required size.
      */
-    static SizeT gauge_uuid(const uuid &value) noexcept {
-        return value == uuid() ? 0 : 16;
-    }
+    static SizeT gauge_uuid(const uuid &value) noexcept { return value == uuid() ? 0 : 16; }
 
     /**
      * @brief Computes required binary size for a given value.
@@ -352,9 +348,7 @@ private:
      * @param value Actual element value.
      * @return Required size.
      */
-    static SizeT gauge_date(const ignite_date &value) noexcept {
-        return value == ignite_date() ? 0 : 3;
-    }
+    static SizeT gauge_date(const ignite_date &value) noexcept { return value == ignite_date() ? 0 : 3; }
 
     /**
      * @brief Computes required binary size for a given value.

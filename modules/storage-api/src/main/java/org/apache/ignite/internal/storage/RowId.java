@@ -20,6 +20,7 @@ package org.apache.ignite.internal.storage;
 import java.io.Serializable;
 import java.util.UUID;
 import org.apache.ignite.internal.tx.Timestamp;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Class that represents row id in primary index of the table. Contains a timestamp-based UUID and a partition id.
@@ -32,6 +33,10 @@ public final class RowId implements Serializable, Comparable<RowId> {
 
     /** Unique id. */
     private final UUID uuid;
+
+    public static RowId lowestRowId(int partitionId) {
+        return new RowId(partitionId, Long.MIN_VALUE, Long.MIN_VALUE);
+    }
 
     /**
      * Create a row id with the UUID value based on {@link Timestamp}.
@@ -54,8 +59,6 @@ public final class RowId implements Serializable, Comparable<RowId> {
     }
 
     private RowId(int partitionId, UUID uuid) {
-        assert (uuid.getMostSignificantBits() | uuid.getLeastSignificantBits()) != 0L : "Nil UUID is not allowed";
-
         this.partitionId = (short) partitionId;
         this.uuid = uuid;
     }
@@ -116,6 +119,25 @@ public final class RowId implements Serializable, Comparable<RowId> {
         }
 
         return uuid.compareTo(rowId.uuid);
+    }
+
+    /**
+     * Returns the next row id withing a single partition, or {@code null} if current row id already has maximal possible value.
+     */
+    public @Nullable RowId increment() {
+        long lsb = uuid.getLeastSignificantBits() + 1;
+
+        long msb = uuid.getMostSignificantBits();
+
+        if (lsb == Long.MIN_VALUE) {
+            ++msb;
+
+            if (msb == Long.MIN_VALUE) {
+                return null;
+            }
+        }
+
+        return new RowId(partitionId, msb, lsb);
     }
 
     @Override
