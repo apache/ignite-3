@@ -136,6 +136,7 @@ namespace Apache.Ignite.Internal.Sql
 
                 for (var rowIdx = 0; rowIdx < pageSize; rowIdx++)
                 {
+                    // TODO IGNITE-17777 deduplicate.
                     var row = new IgniteTuple(cols.Count);
                     var tupleReader = new BinaryTupleReader(reader.ReadBytesAsMemory(), cols.Count);
 
