@@ -136,17 +136,7 @@ namespace Apache.Ignite.Internal.Sql
 
                 for (var rowIdx = 0; rowIdx < pageSize; rowIdx++)
                 {
-                    // TODO IGNITE-17777 deduplicate.
-                    var row = new IgniteTuple(cols.Count);
-                    var tupleReader = new BinaryTupleReader(reader.ReadBytesAsMemory(), cols.Count);
-
-                    for (var i = 0; i < cols.Count; i++)
-                    {
-                        var col = cols[i];
-                        row[col.Name] = ReadValue(ref tupleReader, col, i);
-                    }
-
-                    res.Add(row);
+                    res.Add(ReadRow(cols, ref reader));
                 }
 
                 if (!reader.End)
@@ -214,6 +204,20 @@ namespace Apache.Ignite.Internal.Sql
             }
 
             return new ResultSetMetadata(columns);
+        }
+
+        private static IgniteTuple ReadRow(IReadOnlyList<IColumnMetadata> cols, ref MessagePackReader reader)
+        {
+            var tupleReader = new BinaryTupleReader(reader.ReadBytesAsMemory(), cols.Count);
+            var row = new IgniteTuple(cols.Count);
+
+            for (var i = 0; i < cols.Count; i++)
+            {
+                var col = cols[i];
+                row[col.Name] = ReadValue(ref tupleReader, col, i);
+            }
+
+            return row;
         }
 
         private static object? ReadValue(ref BinaryTupleReader reader, IColumnMetadata col, int idx)
@@ -295,14 +299,7 @@ namespace Apache.Ignite.Internal.Sql
                     // Can't use ref struct reader from above inside iterator block (CS4013).
                     // Use a new reader for every row (stack allocated).
                     var reader = buf.GetReader(offset);
-                    var tupleReader = new BinaryTupleReader(reader.ReadBytesAsMemory(), cols.Count);
-                    var row = new IgniteTuple(cols.Count);
-
-                    for (var i = 0; i < cols.Count; i++)
-                    {
-                        var col = cols[i];
-                        row[col.Name] = ReadValue(ref tupleReader, col, i);
-                    }
+                    var row = ResultSet.ReadRow(cols, ref reader);
 
                     offset += (int)reader.Consumed;
                     return row;
