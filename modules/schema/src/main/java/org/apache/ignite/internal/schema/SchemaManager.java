@@ -36,7 +36,6 @@ import org.apache.ignite.configuration.ConfigurationProperty;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.configuration.schemas.table.ColumnView;
-import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.causality.VersionedValue;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
@@ -121,21 +120,15 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
         }
 
         try {
-            ExtendedTableConfiguration tblCfg = ctx.config(ExtendedTableConfiguration.class);
+            ExtendedTableView tblCfg = (ExtendedTableView) ctx.config(ExtendedTableConfiguration.class).value();
 
-            Integer verFromUpdate = tblCfg.schemaId().value();
+            Integer verFromUpdate = tblCfg.schemaId();
 
-            assert verFromUpdate != null && verFromUpdate.equals(tblCfg.schemaId().value());
+            UUID tblId = tblCfg.id();
 
-            long causalityToken = ctx.storageRevision();
+            String tableName = tblCfg.name();
 
-            UUID tblId = tblCfg.id().value();
-
-            String tableName = tblCfg.name().value();
-
-            TableView cfg0 = tblCfg.value();
-
-            SchemaDescriptor schemaDescFromUpdate = SchemaUtils.prepareSchemaDescriptor(verFromUpdate, cfg0);
+            SchemaDescriptor schemaDescFromUpdate = SchemaUtils.prepareSchemaDescriptor(verFromUpdate, tblCfg);
 
             byte[] curSchemaDesc = schemaById(metastorageMgr, tblId, verFromUpdate);
 
@@ -154,14 +147,14 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
                         newCols));
             }
 
-            boolean updateMeta = curSchemaDesc == null;
+            long causalityToken = ctx.storageRevision();
 
             CompletableFuture<?> createSchemaFut = createSchema(causalityToken, tblId, tableName, schemaDescFromUpdate);
 
             registriesVv.get(causalityToken).thenRun(() -> inBusyLock(busyLock,
                     () -> fireEvent(SchemaEvent.CREATE, new SchemaEventParameters(causalityToken, tblId, schemaDescFromUpdate))));
 
-            if (updateMeta) {
+            if (curSchemaDesc == null) {
                 byte[] serialized = SchemaSerializerImpl.INSTANCE.serialize(schemaDescFromUpdate);
 
                 createSchemaFut.thenCompose(t -> metastorageMgr.put(
