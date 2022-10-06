@@ -53,7 +53,7 @@ void TablesImpl::getTablesAsync(ignite_callback<std::vector<Table>> callback) {
             tables.push_back(Table{tableImpl});
         });
 
-        return std::move(tables);
+        return tables;
     };
 
     auto handler =
