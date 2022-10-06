@@ -309,7 +309,6 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 Mockito.mock(MvTableStorage.class),
                 Mockito.mock(TxStateTableStorage.class),
                 startClient() ? clientReplicaSvc : replicaServices.get(localNode),
-                startClient() ? Mockito.mock(ReplicaManager.class) : replicaManagers.get(localNode),
                 startClient() ? clientClock : clocks.get(localNode)
         ), new DummySchemaManagerImpl(ACCOUNTS_SCHEMA));
 
@@ -324,7 +323,6 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 Mockito.mock(MvTableStorage.class),
                 Mockito.mock(TxStateTableStorage.class),
                 startClient() ? clientReplicaSvc : replicaServices.get(localNode),
-                startClient() ? Mockito.mock(ReplicaManager.class) : replicaManagers.get(localNode),
                 startClient() ? clientClock : clocks.get(localNode)
         ), new DummySchemaManagerImpl(CUSTOMERS_SCHEMA));
 
@@ -384,8 +382,6 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 ).thenAccept(
                         raftSvc -> {
                             try {
-                                HybridClock safeTimeClock = new HybridClock();
-
                                 replicaManagers.get(node).startReplica(
                                         grpId,
                                         new PartitionReplicaListener(
@@ -396,11 +392,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                                                 partId,
                                                 grpId,
                                                 tblId,
-                                                primaryIndex,
-                                                clocks.get(node),
-                                                safeTimeClock
-                                        ),
-                                        safeTimeClock
+                                                primaryIndex
+                                        )
                                 );
                             } catch (NodeStoppingException e) {
                                 fail("Unexpected node stopping", e);

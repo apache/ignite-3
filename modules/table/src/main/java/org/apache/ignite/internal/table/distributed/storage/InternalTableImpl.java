@@ -38,9 +38,6 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.hlc.HybridClock;
-import org.apache.ignite.hlc.HybridTimestamp;
-import org.apache.ignite.internal.replicator.Replica;
-import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
@@ -61,7 +58,6 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.IgniteTetraFunction;
 import org.apache.ignite.lang.IgniteTriFunction;
-import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.Peer;
@@ -111,9 +107,6 @@ public class InternalTableImpl implements InternalTable {
     /** Replica service. */
     protected final ReplicaService replicaSvc;
 
-    /** Replica manager. */
-    private final ReplicaManager replicaManager;
-
     /** Mutex for the partition map update. */
     private final Object updatePartMapMux = new Object();
 
@@ -147,7 +140,6 @@ public class InternalTableImpl implements InternalTable {
             MvTableStorage tableStorage,
             TxStateTableStorage txStateStorage,
             ReplicaService replicaSvc,
-            ReplicaManager replicaManager,
             HybridClock clock
     ) {
         this.tableName = tableName;
@@ -160,7 +152,6 @@ public class InternalTableImpl implements InternalTable {
         this.tableStorage = tableStorage;
         this.txStateStorage = txStateStorage;
         this.replicaSvc = replicaSvc;
-        this.replicaManager = replicaManager;
         this.tableMessagesFactory = new TableMessagesFactory();
         this.clock = clock;
     }
@@ -435,8 +426,6 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<BinaryRow> get(BinaryRowEx keyRow, InternalTransaction tx) {
-        HybridTimestamp currentTimestamp = clock.now();
-
         return enlistInTx(
                 keyRow,
                 tx,
@@ -446,7 +435,7 @@ public class InternalTableImpl implements InternalTable {
                         .transactionId(txo.id())
                         .term(term)
                         .requestType(RequestType.RW_GET)
-                        .timestamp(currentTimestamp)
+                        .timestamp(clock.now())
                         .build()
         );
     }
@@ -471,8 +460,6 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> upsert(BinaryRowEx row, InternalTransaction tx) {
-        HybridTimestamp currentTimestamp = clock.now();
-
         return enlistInTx(
                 row,
                 tx,
@@ -482,7 +469,7 @@ public class InternalTableImpl implements InternalTable {
                         .transactionId(txo.id())
                         .term(term)
                         .requestType(RequestType.RW_UPSERT)
-                        .timestamp(currentTimestamp)
+                        .timestamp(clock.now())
                         .build());
     }
 
@@ -506,8 +493,6 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<BinaryRow> getAndUpsert(BinaryRowEx row, InternalTransaction tx) {
-        HybridTimestamp currentTimestamp = clock.now();
-
         return enlistInTx(
                 row,
                 tx,
@@ -517,7 +502,7 @@ public class InternalTableImpl implements InternalTable {
                         .transactionId(txo.id())
                         .term(term)
                         .requestType(RequestType.RW_GET_AND_UPSERT)
-                        .timestamp(currentTimestamp)
+                        .timestamp(clock.now())
                         .build()
         );
     }
@@ -525,8 +510,6 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Boolean> insert(BinaryRowEx row, InternalTransaction tx) {
-        HybridTimestamp currentTimestamp = clock.now();
-
         return enlistInTx(
                 row,
                 tx,
@@ -536,7 +519,7 @@ public class InternalTableImpl implements InternalTable {
                         .transactionId(txo.id())
                         .term(term)
                         .requestType(RequestType.RW_INSERT)
-                        .timestamp(currentTimestamp)
+                        .timestamp(clock.now())
                         .build()
         );
     }
@@ -561,8 +544,6 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Boolean> replace(BinaryRowEx row, InternalTransaction tx) {
-        HybridTimestamp currentTimestamp = clock.now();
-
         return enlistInTx(
                 row,
                 tx,
@@ -598,8 +579,6 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<BinaryRow> getAndReplace(BinaryRowEx row, InternalTransaction tx) {
-        HybridTimestamp currentTimestamp = clock.now();
-
         return enlistInTx(
                 row,
                 tx,
@@ -609,7 +588,7 @@ public class InternalTableImpl implements InternalTable {
                         .transactionId(txo.id())
                         .term(term)
                         .requestType(RequestType.RW_GET_AND_REPLACE)
-                        .timestamp(currentTimestamp)
+                        .timestamp(clock.now())
                         .build()
         );
     }
@@ -617,8 +596,6 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Boolean> delete(BinaryRowEx keyRow, InternalTransaction tx) {
-        HybridTimestamp currentTimestamp = clock.now();
-
         return enlistInTx(
                 keyRow,
                 tx,
@@ -628,7 +605,7 @@ public class InternalTableImpl implements InternalTable {
                         .transactionId(txo.id())
                         .term(term)
                         .requestType(RequestType.RW_DELETE)
-                        .timestamp(currentTimestamp)
+                        .timestamp(clock.now())
                         .build()
         );
     }
@@ -636,8 +613,6 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Boolean> deleteExact(BinaryRowEx oldRow, InternalTransaction tx) {
-        HybridTimestamp currentTimestamp = clock.now();
-
         return enlistInTx(
                 oldRow,
                 tx,
@@ -647,7 +622,7 @@ public class InternalTableImpl implements InternalTable {
                         .transactionId(txo.id())
                         .term(term)
                         .requestType(RequestType.RW_DELETE_EXACT)
-                        .timestamp(currentTimestamp)
+                        .timestamp(clock.now())
                         .build()
         );
     }
@@ -655,8 +630,6 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<BinaryRow> getAndDelete(BinaryRowEx row, InternalTransaction tx) {
-        HybridTimestamp currentTimestamp = clock.now();
-
         return enlistInTx(
                 row,
                 tx,
@@ -666,7 +639,7 @@ public class InternalTableImpl implements InternalTable {
                         .transactionId(txo.id())
                         .term(term)
                         .requestType(RequestType.RW_GET_AND_DELETE)
-                        .timestamp(currentTimestamp)
+                        .timestamp(clock.now())
                         .build()
         );
     }

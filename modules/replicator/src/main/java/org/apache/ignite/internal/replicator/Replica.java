@@ -18,10 +18,7 @@
 package org.apache.ignite.internal.replicator;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.hlc.HybridClock;
-import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
-import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.lang.IgniteStringFormatter;
 
@@ -35,23 +32,18 @@ public class Replica {
     /** Replica listener. */
     private final ReplicaListener listener;
 
-    private final HybridClock safeTimeClock;
-
     /**
      * The constructor of a replica server.
      *
      * @param replicaGrpId Replication group id.
      * @param listener Replica listener.
-     * @param safeTimeClock
      */
     public Replica(
             String replicaGrpId,
-            ReplicaListener listener,
-            HybridClock safeTimeClock
+            ReplicaListener listener
     ) {
         this.replicaGrpId = replicaGrpId;
         this.listener = listener;
-        this.safeTimeClock = safeTimeClock;
     }
 
     /**
@@ -67,28 +59,5 @@ public class Replica {
                 replicaGrpId);
 
         return listener.invoke(request);
-    }
-
-    /**
-     * Safe time for this replica.
-     *
-     * @return Safe timestamp.
-     */
-    public HybridTimestamp safeTimestamp() {
-        return safeTimeClock.now();
-    }
-
-    /**
-     * Sync safe time for this replica.
-     *
-     * @return Safe timestamp.
-     */
-    public HybridTimestamp syncSafeTimestamp(HybridTimestamp timestamp) {
-        return safeTimeClock.sync(timestamp);
-    }
-
-    private void safeTimeSync() {
-        // TODO HLC
-        //listener.invoke(new ReplicaMessagesFactory().safeTimeSyncRequest().safeTimestamp(safeTimestamp()).build());
     }
 }

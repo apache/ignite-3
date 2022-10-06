@@ -35,7 +35,6 @@ import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
-import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
@@ -106,12 +105,6 @@ public class PartitionReplicaListener implements ReplicaListener {
     /** Dummy primary index. */
     private final ConcurrentHashMap<ByteBuffer, RowId> primaryIndex;
 
-    /** Hybrid clock. */
-    private final HybridClock hybridClock;
-
-    /** Safe time clock. */
-    private final HybridClock safeTimeClock;
-
     /**
      * Cursors map. The key of the map is internal Ignite uuid which consists of a transaction id ({@link UUID}) and a cursor id ({@link
      * Long}).
@@ -127,7 +120,6 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param lockManager Lock manager.
      * @param tableId Table id.
      * @param primaryIndex Primary index.
-     * @param hybridClock Hybrid clock.
      */
     public PartitionReplicaListener(
             MvPartitionStorage mvDataStorage,
@@ -137,9 +129,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             int partId,
             String replicationGroupId,
             UUID tableId,
-            ConcurrentHashMap<ByteBuffer, RowId> primaryIndex,
-            HybridClock hybridClock,
-            HybridClock safeTimeClock
+            ConcurrentHashMap<ByteBuffer, RowId> primaryIndex
     ) {
         this.mvDataStorage = mvDataStorage;
         this.raftClient = raftClient;
@@ -149,8 +139,6 @@ public class PartitionReplicaListener implements ReplicaListener {
         this.replicationGroupId = replicationGroupId;
         this.tableId = tableId;
         this.primaryIndex = primaryIndex;
-        this.hybridClock = hybridClock;
-        this.safeTimeClock = safeTimeClock;
 
         //TODO: IGNITE-17479 Integrate indexes into replicaListener command handlers
         this.indexScanId = new UUID(tableId.getMostSignificantBits(), tableId.getLeastSignificantBits() + 1);

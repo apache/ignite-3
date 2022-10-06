@@ -787,11 +787,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                             partId,
                                                             grpId,
                                                             tblId,
-                                                            primaryIndex,
-                                                            clock,
-                                                            safeTimeClock
-                                                    ),
-                                                    safeTimeClock
+                                                            primaryIndex
+                                                    )
                                             );
                                         } catch (NodeStoppingException ex) {
                                             throw new AssertionError("Loza was stopped before Table manager", ex);
@@ -963,7 +960,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         tableStorage.start();
 
         InternalTableImpl internalTable = new InternalTableImpl(name, tblId, new Int2ObjectOpenHashMap<>(partitions),
-                partitions, netAddrResolver, clusterNodeResolver, txManager, tableStorage, txStateStorage, replicaSvc, replicaMgr, clock);
+                partitions, netAddrResolver, clusterNodeResolver, txManager, tableStorage, txStateStorage, replicaSvc, clock);
 
         var table = new TableImpl(internalTable);
 
@@ -1769,11 +1766,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                             part,
                                             partId,
                                             tblId,
-                                            primaryIndex,
-                                            clock,
-                                            safeTimeClock
-                                    ),
-                                    safeTimeClock
+                                            primaryIndex
+                                    )
                             );
                         }
                     } catch (NodeStoppingException e) {

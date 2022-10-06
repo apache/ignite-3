@@ -568,12 +568,8 @@ public class NodeImpl implements Node, RaftServerService {
         return safeTimeClock != null ? safeTimeClock.now() : null;
     }
 
-    public HybridTimestamp safeTimeClockUpdate(HybridTimestamp safeTimestamp) {
-        return safeTimeClock != null ? safeTimeClock.update(safeTimestamp) : null;
-    }
-
     public HybridTimestamp safeTimeClockSync(HybridTimestamp safeTimestamp) {
-        return safeTimeClock.sync(safeTimestamp);
+        return safeTimeClock != null ? safeTimeClock.sync(safeTimestamp) : null;
     }
 
     private boolean initSnapshotStorage() {
@@ -1350,6 +1346,7 @@ public class NodeImpl implements Node, RaftServerService {
                             .term(electSelfTerm)
                             .lastLogIndex(lastLogId.getIndex())
                             .lastLogTerm(lastLogId.getTerm())
+                            .safeTimestamp(safeTimeNow())
                             .build();
                     this.rpcClientService.requestVote(peer.getEndpoint(), done.request, done);
                 });
@@ -1894,6 +1891,8 @@ public class NodeImpl implements Node, RaftServerService {
                 final LogId requestLastLogId = new LogId(request.lastLogIndex(), request.lastLogTerm());
                 granted = requestLastLogId.compareTo(lastLogId) >= 0;
 
+                safeTimeClockSync(request.safeTimestamp());
+
                 LOG.info(
                     "Node {} received PreVoteRequest from {}, term={}, currTerm={}, granted={}, requestLastLogId={}, lastLogId={}.",
                     getNodeId(), request.serverId(), request.term(), this.currTerm, granted, requestLastLogId,
@@ -2013,6 +2012,8 @@ public class NodeImpl implements Node, RaftServerService {
                     this.votedId = candidateId.copy();
                     this.metaStorage.setVotedFor(candidateId);
                 }
+
+                safeTimeClockSync(request.safeTimestamp());
             }
             while (false);
 
@@ -2119,6 +2120,8 @@ public class NodeImpl implements Node, RaftServerService {
                     .newResponse(raftOptions.getRaftMessagesFactory(), RaftError.EINVAL,
                         "Parse serverId failed: %s.", request.serverId());
             }
+
+            safeTimeClockSync(request.safeTimestamp());
 
             // Check stale term
             if (request.term() < this.currTerm) {
@@ -2948,6 +2951,7 @@ public class NodeImpl implements Node, RaftServerService {
                             .term(preVoteTerm + 1) // next term
                             .lastLogIndex(lastLogId.getIndex())
                             .lastLogTerm(lastLogId.getTerm())
+                            .safeTimestamp(safeTimeNow())
                             .build();
                     this.rpcClientService.preVote(peer.getEndpoint(), done.request, done);
                 });

@@ -677,7 +677,6 @@ public class Replicator implements ThreadId.OnError {
 
             rb.timestamp(currentTimestamp);
 
-            options.getNode().safeTimeClockUpdate(currentTimestamp);
             rb.safeTimestamp(options.getNode().safeTimeNow());
         }
         if (!fillCommonFields(rb, this.nextIndex - 1, isHeartbeat)) {
@@ -1102,10 +1101,6 @@ public class Replicator implements ThreadId.OnError {
         }
         if (response != null && response.timestamp() != null) {
             r.options.getNode().clockUpdate(response.timestamp());
-
-            if (response.safeTimestamp() != null) {
-                r.options.getNode().safeTimeClockUpdate(response.safeTimestamp());
-            }
         }
         boolean doUnlock = true;
         try {

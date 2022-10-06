@@ -85,6 +85,12 @@ public class HybridClock {
         return update(requestTime, true);
     }
 
+    /**
+     * Synchronizes this timestamp with a timestamp from request.
+     *
+     * @param requestTime Timestamp from request.
+     * @return The hybrid timestamp.
+     */
     public HybridTimestamp sync(HybridTimestamp requestTime) {
         return update(requestTime, false);
     }
