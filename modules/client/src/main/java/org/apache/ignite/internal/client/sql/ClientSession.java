@@ -26,8 +26,11 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.TimeUnit;
+
+import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
+import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.Session;
@@ -268,23 +271,26 @@ public class ClientSession implements Session {
             }
         }
 
-        w.out().packMapHeader(size);
+        w.out().packInt(size);
+        var builder = new BinaryTupleBuilder(size * 4, true);
 
         if (props != null) {
             for (Entry<String, Object> entry : props.entrySet()) {
-                w.out().packString(entry.getKey());
-                w.out().packObjectAsBinaryTuple(entry.getValue());
+                builder.appendString(entry.getKey());
+                ClientBinaryTupleUtils.appendObject(builder, entry.getValue());
             }
         }
 
         if (properties != null) {
             for (Entry<String, Object> entry : properties.entrySet()) {
                 if (props == null || !props.containsKey(entry.getKey())) {
-                    w.out().packString(entry.getKey());
-                    w.out().packObjectAsBinaryTuple(entry.getValue());
+                    builder.appendString(entry.getKey());
+                    ClientBinaryTupleUtils.appendObject(builder, entry.getValue());
                 }
             }
         }
+
+        w.out().packBinaryTuple(builder);
     }
 
     private static <T> T oneOf(T a, T b) {

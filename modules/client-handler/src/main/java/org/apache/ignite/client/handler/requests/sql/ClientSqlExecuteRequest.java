@@ -28,6 +28,8 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.client.handler.ClientResource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
+import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
+import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientSqlColumnTypeConverter;
@@ -142,11 +144,11 @@ public class ClientSqlExecuteRequest {
             sessionBuilder.idleTimeout(in.unpackLong(), TimeUnit.MILLISECONDS);
         }
 
-        var propCount = in.unpackMapHeader();
+        var propCount = in.unpackInt();
+        var reader = new BinaryTupleReader(propCount * 4, in.readBinaryUnsafe());
 
-        // TODO IGNITE-17777 use single BinaryTuple for all properties.
         for (int i = 0; i < propCount; i++) {
-            sessionBuilder.property(in.unpackString(), in.unpackObjectFromBinaryTuple());
+            sessionBuilder.property(reader.stringValue(i * 4), ClientBinaryTupleUtils.readObject(reader, i * 4 + 1));
         }
 
         return sessionBuilder.build();
