@@ -525,114 +525,115 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="value">Value.</param>
         public void AppendObjectWithType(object? value)
         {
-            if (value == null)
+            switch (value)
             {
-                AppendNull();
-            }
-            else if (value is sbyte i8)
-            {
-                AppendInt((int)ClientDataType.Int8);
-                AppendInt(0);
-                AppendByte(i8);
-            }
-            else if (value is short i16)
-            {
-                AppendInt((int)ClientDataType.Int16);
-                AppendInt(0);
-                AppendShort(i16);
-            }
-            else if (value is int i32)
-            {
-                AppendInt((int)ClientDataType.Int32);
-                AppendInt(0);
-                AppendInt(i32);
-            }
-            else if (value is long i64)
-            {
-                AppendInt((int)ClientDataType.Int64);
-                AppendInt(0);
-                AppendLong(i64);
-            }
-            else if (value is float f32)
-            {
-                AppendInt((int)ClientDataType.Float);
-                AppendInt(0);
-                AppendFloat(f32);
-            }
-            else if (value is double f64)
-            {
-                AppendInt((int)ClientDataType.Double);
-                AppendInt(0);
-                AppendDouble(f64);
-            }
-            else if (value is Guid uuid)
-            {
-                AppendInt((int)ClientDataType.Uuid);
-                AppendInt(0);
-                AppendGuid(uuid);
-            }
-            else if (value is string str)
-            {
-                AppendInt((int)ClientDataType.String);
-                AppendInt(0);
-                AppendString(str);
-            }
-            else if (value is byte[] bytes)
-            {
-                AppendInt((int)ClientDataType.Bytes);
-                AppendInt(0);
-                AppendBytes(bytes);
-            }
-            else if (value is BitArray bitArray)
-            {
-                AppendInt((int)ClientDataType.BitMask);
-                AppendInt(0);
-                AppendBitmask(bitArray);
-            }
-            else if (value is decimal dec)
-            {
-                AppendInt((int)ClientDataType.Decimal);
+                case null:
+                    AppendNull();
+                    break;
 
-                var (unscaled, scale) = DeconstructDecimal(dec);
+                case int i32:
+                    AppendInt((int)ClientDataType.Int32);
+                    AppendInt(0);
+                    AppendInt(i32);
+                    break;
 
-                AppendInt(scale);
+                case long i64:
+                    AppendInt((int)ClientDataType.Int64);
+                    AppendInt(0);
+                    AppendLong(i64);
+                    break;
 
-                PutDecimal(scale, unscaled, scale);
-                OnWrite();
-            }
-            else if (value is BigInteger bigInt)
-            {
-                AppendInt((int)ClientDataType.Number);
-                AppendInt(0);
-                AppendNumber(bigInt);
-            }
-            else if (value is LocalDate localDate)
-            {
-                AppendInt((int)ClientDataType.Date);
-                AppendInt(0);
-                AppendDate(localDate);
-            }
-            else if (value is LocalTime localTime)
-            {
-                AppendInt((int)ClientDataType.Time);
-                AppendInt(0);
-                AppendTime(localTime);
-            }
-            else if (value is LocalDateTime localDateTime)
-            {
-                AppendInt((int)ClientDataType.DateTime);
-                AppendInt(0);
-                AppendDateTime(localDateTime);
-            }
-            else if (value is Instant instant)
-            {
-                AppendInt((int)ClientDataType.Timestamp);
-                AppendInt(0);
-                AppendTimestamp(instant);
-            }
-            else
-            {
-                throw new IgniteClientException(ErrorGroups.Client.Protocol, "Unsupported type: " + value.GetType());
+                case string str:
+                    AppendInt((int)ClientDataType.String);
+                    AppendInt(0);
+                    AppendString(str);
+                    break;
+
+                case Guid uuid:
+                    AppendInt((int)ClientDataType.Uuid);
+                    AppendInt(0);
+                    AppendGuid(uuid);
+                    break;
+
+                case sbyte i8:
+                    AppendInt((int)ClientDataType.Int8);
+                    AppendInt(0);
+                    AppendByte(i8);
+                    break;
+
+                case short i16:
+                    AppendInt((int)ClientDataType.Int16);
+                    AppendInt(0);
+                    AppendShort(i16);
+                    break;
+
+                case float f32:
+                    AppendInt((int)ClientDataType.Float);
+                    AppendInt(0);
+                    AppendFloat(f32);
+                    break;
+
+                case double f64:
+                    AppendInt((int)ClientDataType.Double);
+                    AppendInt(0);
+                    AppendDouble(f64);
+                    break;
+
+                case byte[] bytes:
+                    AppendInt((int)ClientDataType.Bytes);
+                    AppendInt(0);
+                    AppendBytes(bytes);
+                    break;
+
+                case decimal dec:
+                    AppendInt((int)ClientDataType.Decimal);
+
+                    var (unscaled, scale) = DeconstructDecimal(dec);
+
+                    AppendInt(scale);
+
+                    PutDecimal(scale, unscaled, scale);
+                    OnWrite();
+                    break;
+
+                case BigInteger bigInt:
+                    AppendInt((int)ClientDataType.Number);
+                    AppendInt(0);
+                    AppendNumber(bigInt);
+                    break;
+
+                case LocalDate localDate:
+                    AppendInt((int)ClientDataType.Date);
+                    AppendInt(0);
+                    AppendDate(localDate);
+                    break;
+
+                case LocalTime localTime:
+                    AppendInt((int)ClientDataType.Time);
+                    AppendInt(0);
+                    AppendTime(localTime);
+                    break;
+
+                case LocalDateTime localDateTime:
+                    AppendInt((int)ClientDataType.DateTime);
+                    AppendInt(0);
+                    AppendDateTime(localDateTime);
+                    break;
+
+                case Instant instant:
+                    AppendInt((int)ClientDataType.Timestamp);
+                    AppendInt(0);
+                    AppendTimestamp(instant);
+                    break;
+
+                case BitArray bitArray:
+                    AppendInt((int)ClientDataType.BitMask);
+                    AppendInt(0);
+                    AppendBitmask(bitArray);
+                    break;
+
+                default:
+                    throw new IgniteClientException(ErrorGroups.Client.Protocol, "Unsupported type: " + value.GetType());
             }
         }
 
