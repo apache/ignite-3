@@ -289,33 +289,20 @@ namespace Apache.Ignite.Internal.Sql
 
                 for (var rowIdx = 0; rowIdx < pageSize; rowIdx++)
                 {
-                    yield return ReadRow();
-                }
-
-                ReadHasMore();
-
-                IgniteTuple ReadRow()
-                {
                     // Can't use ref struct reader from above inside iterator block (CS4013).
                     // Use a new reader for every row (stack allocated).
-                    var reader = buf.GetReader(offset);
-                    var row = ResultSet.ReadRow(cols, ref reader);
+                    var rowReader = buf.GetReader(offset);
+                    var row = ReadRow(cols, ref rowReader);
 
-                    offset += (int)reader.Consumed;
-                    return row;
+                    offset += (int)rowReader.Consumed;
+                    yield return row;
                 }
 
-                void ReadHasMore()
+                reader = buf.GetReader(offset);
+                if (!reader.End)
                 {
-                    var reader = buf.GetReader(offset);
-
-                    if (!reader.End)
-                    {
-                        hasMore = reader.ReadBoolean();
-                    }
+                    hasMore = reader.ReadBoolean();
                 }
-
-                // ReSharper restore AccessToModifiedClosure
             }
         }
 
