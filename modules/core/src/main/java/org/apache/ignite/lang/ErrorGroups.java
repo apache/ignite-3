@@ -276,9 +276,6 @@ public class ErrorGroups {
 
         /** Failed to rollback a transaction. */
         public static final int TX_ROLLBACK_ERR = TX_ERR_GROUP.registerErrorCode(8);
-
-        /** Failed to enlist operation into already finished transaction. */
-        public static final int TX_ALREADY_FINISHED_ERR = TX_ERR_GROUP.registerErrorCode(9);
     }
 
     /** Replicator error group. */
