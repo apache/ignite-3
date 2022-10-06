@@ -28,6 +28,7 @@ namespace Apache.Ignite.Internal.Sql
     using Ignite.Table;
     using MessagePack;
     using Proto;
+    using Proto.BinaryTuple;
 
     /// <summary>
     /// SQL result set.
@@ -136,10 +137,12 @@ namespace Apache.Ignite.Internal.Sql
                 for (var rowIdx = 0; rowIdx < pageSize; rowIdx++)
                 {
                     var row = new IgniteTuple(cols.Count);
+                    var tupleReader = new BinaryTupleReader(reader.ReadBytesAsMemory(), cols.Count);
 
-                    foreach (var col in cols)
+                    for (var i = 0; i < cols.Count; i++)
                     {
-                        row[col.Name] = ReadValue(ref reader, col.Type);
+                        var col = cols[i];
+                        row[col.Name] = ReadValue(ref tupleReader, col, i);
                     }
 
                     res.Add(row);
@@ -212,58 +215,36 @@ namespace Apache.Ignite.Internal.Sql
             return new ResultSetMetadata(columns);
         }
 
-        private static object? ReadValue(ref MessagePackReader reader, SqlColumnType type)
+        private static object? ReadValue(ref BinaryTupleReader reader, IColumnMetadata col, int idx)
         {
-            if (reader.TryReadNil())
+            if (reader.IsNull(idx))
             {
                 return null;
             }
 
-            switch (type)
+            return col.Type switch
             {
-                case SqlColumnType.Boolean:
-                    return reader.ReadBoolean();
-
-                case SqlColumnType.Int8:
-                    return reader.ReadSByte();
-
-                case SqlColumnType.Int16:
-                    return reader.ReadInt16();
-
-                case SqlColumnType.Int32:
-                    return reader.ReadInt32();
-
-                case SqlColumnType.Int64:
-                    return reader.ReadInt64();
-
-                case SqlColumnType.Float:
-                    return reader.ReadSingle();
-
-                case SqlColumnType.Double:
-                    return reader.ReadDouble();
-
-                case SqlColumnType.Datetime:
-                    return reader.ReadDateTime();
-
-                case SqlColumnType.Uuid:
-                    return reader.ReadGuid();
-
-                case SqlColumnType.String:
-                    return reader.ReadString();
-
-                case SqlColumnType.ByteArray:
-                case SqlColumnType.Period:
-                case SqlColumnType.Duration:
-                case SqlColumnType.Number:
-                case SqlColumnType.Bitmask:
-                case SqlColumnType.Date:
-                case SqlColumnType.Time:
-                case SqlColumnType.Decimal:
-                case SqlColumnType.Timestamp:
-                default:
-                    // TODO IGNITE-17777 Thin 3.0: use BinaryTuple for Compute and SQL results and arguments
-                    throw new ArgumentOutOfRangeException(nameof(type), type, null);
-            }
+                SqlColumnType.Boolean => reader.GetByte(idx) != 0,
+                SqlColumnType.Int8 => reader.GetByte(idx),
+                SqlColumnType.Int16 => reader.GetShort(idx),
+                SqlColumnType.Int32 => reader.GetInt(idx),
+                SqlColumnType.Int64 => reader.GetLong(idx),
+                SqlColumnType.Float => reader.GetFloat(idx),
+                SqlColumnType.Double => reader.GetDouble(idx),
+                SqlColumnType.Decimal => reader.GetDecimal(idx, col.Scale),
+                SqlColumnType.Date => reader.GetDate(idx),
+                SqlColumnType.Time => reader.GetTime(idx),
+                SqlColumnType.Datetime => reader.GetDateTime(idx),
+                SqlColumnType.Timestamp => reader.GetTimestamp(idx),
+                SqlColumnType.Uuid => reader.GetGuid(idx),
+                SqlColumnType.Bitmask => reader.GetBitmask(idx),
+                SqlColumnType.String => reader.GetString(idx),
+                SqlColumnType.ByteArray => reader.GetBytes(idx),
+                SqlColumnType.Period => reader.GetPeriod(idx),
+                SqlColumnType.Duration => reader.GetDuration(idx),
+                SqlColumnType.Number => reader.GetNumber(idx),
+                _ => throw new ArgumentOutOfRangeException(nameof(col.Type), col.Type, "Unknown SQL column type.")
+            };
         }
 
         private async IAsyncEnumerable<IIgniteTuple> EnumerateRows()
@@ -313,11 +294,13 @@ namespace Apache.Ignite.Internal.Sql
                     // Can't use ref struct reader from above inside iterator block (CS4013).
                     // Use a new reader for every row (stack allocated).
                     var reader = buf.GetReader(offset);
+                    var tupleReader = new BinaryTupleReader(reader.ReadBytesAsMemory(), cols.Count);
                     var row = new IgniteTuple(cols.Count);
 
-                    foreach (var col in cols)
+                    for (var i = 0; i < cols.Count; i++)
                     {
-                        row[col.Name] = ReadValue(ref reader, col.Type);
+                        var col = cols[i];
+                        row[col.Name] = ReadValue(ref tupleReader, col, i);
                     }
 
                     offset += (int)reader.Consumed;
