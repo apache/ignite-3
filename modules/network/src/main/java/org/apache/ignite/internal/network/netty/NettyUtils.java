@@ -64,19 +64,19 @@ public class NettyUtils {
             Function<F, T> mapper,
             Supplier<? extends CompletableFuture<T>> completableFutureFactory
     ) {
-        var fut = completableFutureFactory.get();
+        CompletableFuture<T> completableFuture = completableFutureFactory.get();
 
-        nettyFuture.addListener((@Execute F future) -> {
-            if (future.isSuccess()) {
-                fut.complete(mapper.apply(future));
-            } else if (future.isCancelled()) {
-                fut.cancel(true);
+        nettyFuture.addListener((@Execute F doneFuture) -> {
+            if (doneFuture.isSuccess()) {
+                completableFuture.complete(mapper.apply(doneFuture));
+            } else if (doneFuture.isCancelled()) {
+                completableFuture.cancel(true);
             } else {
-                fut.completeExceptionally(future.cause());
+                completableFuture.completeExceptionally(doneFuture.cause());
             }
         });
 
-        return fut;
+        return completableFuture;
     }
 
     /**
