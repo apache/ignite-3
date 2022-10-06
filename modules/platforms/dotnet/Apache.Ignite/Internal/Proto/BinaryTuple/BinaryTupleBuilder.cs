@@ -439,7 +439,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="value">Value.</param>
         /// <param name="colType">Column type.</param>
         /// <param name="scale">Decimal scale.</param>
-        public void AppendObject(object? value, ClientDataType colType, int scale)
+        public void AppendObject(object? value, ClientDataType colType, int scale = 0)
         {
             if (value == null)
             {

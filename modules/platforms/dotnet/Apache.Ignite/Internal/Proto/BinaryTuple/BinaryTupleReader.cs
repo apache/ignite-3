@@ -323,7 +323,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="columnType">Column type.</param>
         /// <param name="scale">Column decimal scale.</param>
         /// <returns>Value.</returns>
-        public object? GetObject(int index, ClientDataType columnType, int scale)
+        public object? GetObject(int index, ClientDataType columnType, int scale = 0)
         {
             if (IsNull(index))
             {

@@ -21,6 +21,7 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
     using System.Collections;
     using System.Linq;
     using System.Numerics;
+    using Internal.Proto;
     using Internal.Proto.BinaryTuple;
     using NodaTime;
     using NUnit.Framework;
@@ -640,6 +641,58 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
             Assert.AreEqual(LocalTime.Midnight, reader.GetTime(0));
             Assert.AreEqual(default(LocalDate), reader.GetDate(0));
             Assert.AreEqual(default(LocalDateTime), reader.GetDateTime(0));
+        }
+
+        [Test]
+        public void TestObject()
+        {
+            var guid = Guid.NewGuid();
+            var utcNow = DateTime.UtcNow;
+            var date = LocalDate.FromDateTime(utcNow);
+            var dateTime = LocalDateTime.FromDateTime(utcNow);
+            var bitArray = new BitArray(new[] { byte.MaxValue });
+            var bytes = new byte[] { 1, 2 };
+
+            var reader = BuildAndRead(
+                (ref BinaryTupleBuilder b) =>
+                {
+                    b.AppendObject(null, ClientDataType.String);
+                    b.AppendObject(sbyte.MaxValue, ClientDataType.Int8);
+                    b.AppendObject(short.MaxValue, ClientDataType.Int16);
+                    b.AppendObject(int.MaxValue, ClientDataType.Int32);
+                    b.AppendObject(long.MaxValue, ClientDataType.Int64);
+                    b.AppendObject(float.MaxValue, ClientDataType.Float);
+                    b.AppendObject(double.MaxValue, ClientDataType.Double);
+                    b.AppendObject(decimal.One, ClientDataType.Decimal);
+                    b.AppendObject(BigInteger.One, ClientDataType.Number);
+                    b.AppendObject("foo", ClientDataType.String);
+                    b.AppendObject(bitArray, ClientDataType.BitMask);
+                    b.AppendObject(guid, ClientDataType.Uuid);
+                    b.AppendObject(bytes, ClientDataType.Bytes);
+                    b.AppendObject(LocalTime.FromMinutesSinceMidnight(123), ClientDataType.Time);
+                    b.AppendObject(date, ClientDataType.Date);
+                    b.AppendObject(dateTime, ClientDataType.DateTime);
+                    b.AppendObject(Instant.FromDateTimeUtc(utcNow), ClientDataType.Timestamp);
+                },
+                17);
+
+            Assert.IsNull(reader.GetObject(0, ClientDataType.String));
+            Assert.AreEqual(sbyte.MaxValue, reader.GetObject(1, ClientDataType.Int8));
+            Assert.AreEqual(short.MaxValue, reader.GetObject(2, ClientDataType.Int16));
+            Assert.AreEqual(int.MaxValue, reader.GetObject(3, ClientDataType.Int32));
+            Assert.AreEqual(long.MaxValue, reader.GetObject(4, ClientDataType.Int64));
+            Assert.AreEqual(float.MaxValue, reader.GetObject(5, ClientDataType.Float));
+            Assert.AreEqual(double.MaxValue, reader.GetObject(6, ClientDataType.Double));
+            Assert.AreEqual(decimal.One, reader.GetObject(7, ClientDataType.Decimal));
+            Assert.AreEqual(BigInteger.One, reader.GetObject(8, ClientDataType.Number));
+            Assert.AreEqual("foo", reader.GetObject(9, ClientDataType.String));
+            Assert.AreEqual(bitArray, reader.GetObject(10, ClientDataType.BitMask));
+            Assert.AreEqual(guid, reader.GetObject(11, ClientDataType.Uuid));
+            Assert.AreEqual(bytes, reader.GetObject(12, ClientDataType.Bytes));
+            Assert.AreEqual(LocalTime.FromMinutesSinceMidnight(123), reader.GetObject(13, ClientDataType.Time));
+            Assert.AreEqual(date, reader.GetObject(14, ClientDataType.Date));
+            Assert.AreEqual(dateTime, reader.GetObject(15, ClientDataType.DateTime));
+            Assert.AreEqual(Instant.FromDateTimeUtc(utcNow), reader.GetObject(16, ClientDataType.Timestamp));
         }
 
         [Test]
