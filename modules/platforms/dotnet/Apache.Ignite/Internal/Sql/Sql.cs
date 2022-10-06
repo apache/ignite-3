@@ -73,12 +73,12 @@ namespace Apache.Ignite.Internal.Sql
                 foreach (var (key, val) in statement.Properties)
                 {
                     w.Write(key);
-                    w.WriteObjectWithType(val);
+                    w.WriteObjectAsBinaryTuple(val);
                 }
 
                 w.Write(statement.Query);
 
-                w.WriteObjectArrayWithTypes(args);
+                w.WriteObjectArrayAsBinaryTuple(args);
 
                 w.Flush();
                 return writer;

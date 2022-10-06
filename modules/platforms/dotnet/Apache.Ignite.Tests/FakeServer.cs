@@ -364,7 +364,7 @@ namespace Apache.Ignite.Tests
                     {
                         using var arrayBufferWriter = new PooledArrayBufferWriter();
                         var writer = new MessagePackWriter(arrayBufferWriter);
-                        writer.WriteObjectWithType(Node.Name);
+                        writer.WriteObjectAsBinaryTuple(Node.Name);
                         writer.Flush();
 
                         Send(handler, requestId, arrayBufferWriter);
