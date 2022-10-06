@@ -29,6 +29,7 @@ namespace Apache.Ignite.Tests
     using Internal.Buffers;
     using Internal.Network;
     using Internal.Proto;
+    using Internal.Proto.BinaryTuple;
     using MessagePack;
     using Network;
 
@@ -160,7 +161,9 @@ namespace Apache.Ignite.Tests
             writer.WriteArrayHeader(500); // Page size.
             for (int i = 0; i < 500; i++)
             {
-                writer.Write(i + 512); // Row of one.
+                using var tuple = new BinaryTupleBuilder(1, false);
+                tuple.AppendInt(i + 512);
+                writer.Write(tuple.Build().Span);
             }
 
             writer.Write(false); // Has next.
@@ -185,7 +188,7 @@ namespace Apache.Ignite.Tests
 
             for (int i = 0; i < propCount; i++)
             {
-                props[reader.ReadString()] = reader.ReadObjectWithType();
+                props[reader.ReadString()] = reader.ReadObjectFromBinaryTuple();
             }
 
             var sql = reader.ReadString();
@@ -219,11 +222,13 @@ namespace Apache.Ignite.Tests
                 writer.Write(0); // Precision.
                 writer.Write(false); // No origin.
 
-                writer.WriteArrayHeader(props.Count);
+                writer.WriteArrayHeader(props.Count); // Page size.
                 foreach (var (key, val) in props)
                 {
-                    writer.Write(key);
-                    writer.Write(val?.ToString() ?? string.Empty);
+                    using var tuple = new BinaryTupleBuilder(2, false);
+                    tuple.AppendString(key);
+                    tuple.AppendString(val?.ToString() ?? string.Empty);
+                    writer.Write(tuple.Build().Span);
                 }
             }
             else
@@ -244,7 +249,9 @@ namespace Apache.Ignite.Tests
                 writer.WriteArrayHeader(512); // Page size.
                 for (int i = 0; i < 512; i++)
                 {
-                    writer.Write(i); // Row of one.
+                    using var tuple = new BinaryTupleBuilder(1, false);
+                    tuple.AppendInt(i);
+                    writer.Write(tuple.Build().Span);
                 }
             }
 
