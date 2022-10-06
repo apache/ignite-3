@@ -43,10 +43,7 @@ namespace Apache.Ignite.Internal.Proto
 
             var tuple = new BinaryTupleReader(reader.ReadBytesAsMemory(), 3);
 
-            var type = (ClientDataType)tuple.GetInt(0);
-            var scale = tuple.GetInt(1);
-
-            return tuple.GetObject(2, type, scale);
+            return tuple.GetObject(0);
         }
 
         /// <summary>

@@ -528,6 +528,8 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             {
                 case null:
                     AppendNull();
+                    AppendNull();
+                    AppendNull();
                     break;
 
                 case int i32:

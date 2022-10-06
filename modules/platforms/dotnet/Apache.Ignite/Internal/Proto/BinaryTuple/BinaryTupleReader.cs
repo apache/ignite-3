@@ -352,6 +352,24 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             };
         }
 
+        /// <summary>
+        /// Gets an object value according to the type code at the specified index.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <returns>Value.</returns>
+        public object? GetObject(int index)
+        {
+            if (IsNull(index))
+            {
+                return null;
+            }
+
+            var type = (ClientDataType)GetInt(index);
+            var scale = GetInt(index + 1);
+
+            return GetObject(index + 2, type, scale);
+        }
+
         private static LocalDate ReadDate(ReadOnlySpan<byte> span)
         {
             // Read int32 from 3 bytes, preserving sign.
