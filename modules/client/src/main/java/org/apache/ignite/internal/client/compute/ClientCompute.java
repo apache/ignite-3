@@ -183,7 +183,6 @@ public class ClientCompute implements IgniteCompute {
 
             w.out().packString(jobClassName);
             w.out().packObjectArrayAsBinaryTuple(args);
-
         }, r -> (R) r.in().unpackObjectFromBinaryTuple(), node.name(), null);
     }
 
@@ -221,7 +220,6 @@ public class ClientCompute implements IgniteCompute {
                     w.packString(jobClassName);
                     w.packObjectArrayAsBinaryTuple(args);
                 },
-
                 r -> (R) r.unpackObjectFromBinaryTuple());
     }
 
@@ -243,7 +241,6 @@ public class ClientCompute implements IgniteCompute {
                     w.packString(jobClassName);
                     w.packObjectArrayAsBinaryTuple(args);
                 },
-
                 r -> (R) r.unpackObjectFromBinaryTuple());
     }
 
