@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.client.proto;
 
 import static org.apache.ignite.internal.client.proto.ClientMessageCommon.HEADER_SIZE;
-import static org.apache.ignite.internal.client.proto.ClientMessageCommon.NO_VALUE;
 import static org.msgpack.core.MessagePack.Code;
 
 import io.netty.buffer.ByteBuf;
@@ -183,6 +182,19 @@ public class ClientMessagePacker implements AutoCloseable {
     }
 
     /**
+     * Writes an int value.
+     *
+     * @param i the value to be written.
+     */
+    public void packIntNullable(Integer i) {
+        if (i == null) {
+            packNil();
+        } else {
+            packInt(i);
+        }
+    }
+
+    /**
      * Writes a long value.
      *
      * @param v the value to be written.
@@ -233,6 +245,19 @@ public class ClientMessagePacker implements AutoCloseable {
     }
 
     /**
+     * Writes a long value.
+     *
+     * @param v the value to be written.
+     */
+    public void packLongNullable(Long v) {
+        if (v == null) {
+            packNil();
+        } else {
+            packLong(v);
+        }
+    }
+
+    /**
      * Writes a float value.
      *
      * @param v the value to be written.
@@ -263,6 +288,11 @@ public class ClientMessagePacker implements AutoCloseable {
      */
     public void packString(String s) {
         assert !closed : "Packer is closed";
+
+        if (s == null) {
+            packNil();
+            return;
+        }
 
         // Header is a varint.
         // Use pessimistic utf8MaxBytes to reserve bytes for the header.
@@ -655,127 +685,6 @@ public class ClientMessagePacker implements AutoCloseable {
 
         buf.writeLong(val.getEpochSecond());
         buf.writeInt(val.getNano());
-    }
-
-    /**
-     * Packs an object.
-     *
-     * @param val Object value.
-     * @throws UnsupportedOperationException When type is not supported.
-     */
-    public void packObject(Object val) {
-        if (val == null) {
-            packNil();
-
-            return;
-        }
-
-        if (val == NO_VALUE) {
-            packNoValue();
-
-            return;
-        }
-
-        if (val instanceof Byte) {
-            packByte((byte) val);
-
-            return;
-        }
-
-        if (val instanceof Short) {
-            packShort((short) val);
-
-            return;
-        }
-
-        if (val instanceof Integer) {
-            packInt((int) val);
-
-            return;
-        }
-
-        if (val instanceof Long) {
-            packLong((long) val);
-
-            return;
-        }
-
-        if (val instanceof Float) {
-            packFloat((float) val);
-
-            return;
-        }
-
-        if (val instanceof Double) {
-            packDouble((double) val);
-
-            return;
-        }
-
-        if (val instanceof UUID) {
-            packUuid((UUID) val);
-
-            return;
-        }
-
-        if (val instanceof String) {
-            packString((String) val);
-
-            return;
-        }
-
-        if (val instanceof byte[]) {
-            byte[] bytes = (byte[]) val;
-            packBinaryHeader(bytes.length);
-            writePayload(bytes);
-
-            return;
-        }
-
-        if (val instanceof BigDecimal) {
-            packDecimal((BigDecimal) val);
-
-            return;
-        }
-
-        if (val instanceof BigInteger) {
-            packNumber((BigInteger) val);
-
-            return;
-        }
-
-        if (val instanceof BitSet) {
-            packBitSet((BitSet) val);
-
-            return;
-        }
-
-        if (val instanceof LocalDate) {
-            packDate((LocalDate) val);
-
-            return;
-        }
-
-        if (val instanceof LocalTime) {
-            packTime((LocalTime) val);
-
-            return;
-        }
-
-        if (val instanceof LocalDateTime) {
-            packDateTime((LocalDateTime) val);
-
-            return;
-        }
-
-        if (val instanceof Instant) {
-            packTimestamp((Instant) val);
-
-            return;
-        }
-
-        throw new UnsupportedOperationException(
-                "Unsupported type, can't serialize: " + val.getClass());
     }
 
     /**

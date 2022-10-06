@@ -113,11 +113,11 @@ public class ClientSession implements Session {
         return ch.serviceAsync(ClientOp.SQL_EXEC, w -> {
             writeTx(transaction, w);
 
-            w.out().packObject(oneOf(clientStatement.defaultSchema(), defaultSchema));
-            w.out().packObject(oneOf(clientStatement.pageSizeNullable(), defaultPageSize));
-            w.out().packObject(oneOf(clientStatement.queryTimeoutNullable(), defaultQueryTimeout));
+            w.out().packString(oneOf(clientStatement.defaultSchema(), defaultSchema));
+            w.out().packIntNullable(oneOf(clientStatement.pageSizeNullable(), defaultPageSize));
+            w.out().packLongNullable(oneOf(clientStatement.queryTimeoutNullable(), defaultQueryTimeout));
 
-            w.out().packObject(defaultSessionTimeout);
+            w.out().packLongNullable(defaultSessionTimeout);
 
             packProperties(w, clientStatement.properties());
 
