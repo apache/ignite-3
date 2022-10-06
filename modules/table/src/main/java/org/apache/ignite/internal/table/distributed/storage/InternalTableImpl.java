@@ -415,21 +415,7 @@ public class InternalTableImpl implements InternalTable {
                         throw (RuntimeException) e;
                     }); // Preserve failed state.
                 } else {
-<<<<<<< HEAD
-                    try {
-                        tx0.enlistResultFuture(fut);
-                    } catch (TransactionException enlistResultException) {
-                        return tx0.rollbackAsync().handle((ignored, err) -> {
-                            if (err != null) {
-                                enlistResultException.addSuppressed(err);
-                            }
-
-                            throw enlistResultException;
-                        });
-                    }
-=======
                     tx0.enlistResultFuture(fut);
->>>>>>> parent of 357e3f9d4... Ignite-17834 Changes based on code review.
 
                     return implicit ? tx0.commitAsync().thenApply(ignored -> r) : completedFuture(r);
                 }
