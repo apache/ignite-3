@@ -20,15 +20,9 @@ package org.apache.ignite.internal.client.proto;
 import static org.msgpack.core.MessagePack.Code;
 
 import io.netty.buffer.ByteBuf;
-import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
@@ -524,29 +518,6 @@ public class ClientMessageUnpacker implements AutoCloseable {
     }
 
     /**
-     * Tries to read a "no value" value.
-     *
-     * @return True when there was a "no value" value, false otherwise.
-     */
-    public boolean tryUnpackNoValue() {
-        assert refCnt > 0 : "Unpacker is closed";
-
-        int idx = buf.readerIndex();
-        byte code = buf.getByte(idx);
-
-        if (code == Code.FIXEXT1) {
-            byte extCode = buf.getByte(idx + 1);
-
-            if (extCode == ClientMsgPackType.NO_VALUE) {
-                buf.readerIndex(idx + 3);
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
      * Reads a payload.
      *
      * @param length Payload size.
@@ -739,32 +710,6 @@ public class ClientMessageUnpacker implements AutoCloseable {
     }
 
     /**
-     * Reads a decimal.
-     *
-     * @return Decimal value.
-     * @throws MessageTypeException when type is not Decimal.
-     */
-    public BigDecimal unpackDecimal() {
-        assert refCnt > 0 : "Unpacker is closed";
-
-        var hdr = unpackExtensionTypeHeader();
-        var type = hdr.getType();
-        var len = hdr.getLength();
-
-        if (type != ClientMsgPackType.DECIMAL) {
-            throw new MessageTypeException("Expected DECIMAL extension (2), but got " + type);
-        }
-
-        int pos = buf.readerIndex();
-        int scale = unpackInt();
-        int scaleSize = buf.readerIndex() - pos;
-
-        var bytes = readPayload(len - scaleSize);
-
-        return new BigDecimal(new BigInteger(bytes), scale);
-    }
-
-    /**
      * Reads a bit set.
      *
      * @return Bit set.
@@ -784,28 +729,6 @@ public class ClientMessageUnpacker implements AutoCloseable {
         var bytes = readPayload(len);
 
         return BitSet.valueOf(bytes);
-    }
-
-    /**
-     * Reads a number.
-     *
-     * @return BigInteger value.
-     * @throws MessageTypeException when type is not BigInteger.
-     */
-    public BigInteger unpackNumber() {
-        assert refCnt > 0 : "Unpacker is closed";
-
-        var hdr = unpackExtensionTypeHeader();
-        var type = hdr.getType();
-        var len = hdr.getLength();
-
-        if (type != ClientMsgPackType.NUMBER) {
-            throw new MessageTypeException("Expected NUMBER extension (1), but got " + type);
-        }
-
-        var bytes = readPayload(len);
-
-        return new BigInteger(bytes);
     }
 
     /**
@@ -829,109 +752,6 @@ public class ClientMessageUnpacker implements AutoCloseable {
         }
 
         return res;
-    }
-
-    /**
-     * Reads a date.
-     *
-     * @return Date value.
-     * @throws MessageTypeException when type is not DATE.
-     * @throws MessageSizeException when size is not correct.
-     */
-    public LocalDate unpackDate() {
-        assert refCnt > 0 : "Unpacker is closed";
-
-        var hdr = unpackExtensionTypeHeader();
-        var type = hdr.getType();
-        var len = hdr.getLength();
-
-        if (type != ClientMsgPackType.DATE) {
-            throw new MessageTypeException("Expected DATE extension (4), but got " + type);
-        }
-
-        if (len != 6) {
-            throw new MessageSizeException("Expected 6 bytes for DATE extension, but got " + len, len);
-        }
-
-        return LocalDate.of(buf.readInt(), buf.readByte(), buf.readByte());
-    }
-
-    /**
-     * Reads a time.
-     *
-     * @return Time value.
-     * @throws MessageTypeException when type is not TIME.
-     * @throws MessageSizeException when size is not correct.
-     */
-    public LocalTime unpackTime() {
-        assert refCnt > 0 : "Unpacker is closed";
-
-        var hdr = unpackExtensionTypeHeader();
-        var type = hdr.getType();
-        var len = hdr.getLength();
-
-        if (type != ClientMsgPackType.TIME) {
-            throw new MessageTypeException("Expected TIME extension (5), but got " + type);
-        }
-
-        if (len != 7) {
-            throw new MessageSizeException("Expected 7 bytes for TIME extension, but got " + len, len);
-        }
-
-        return LocalTime.of(buf.readByte(), buf.readByte(), buf.readByte(), buf.readInt());
-    }
-
-    /**
-     * Reads a datetime.
-     *
-     * @return Datetime value.
-     * @throws MessageTypeException when type is not DATETIME.
-     * @throws MessageSizeException when size is not correct.
-     */
-    public LocalDateTime unpackDateTime() {
-        assert refCnt > 0 : "Unpacker is closed";
-
-        var hdr = unpackExtensionTypeHeader();
-        var type = hdr.getType();
-        var len = hdr.getLength();
-
-        if (type != ClientMsgPackType.DATETIME) {
-            throw new MessageTypeException("Expected DATETIME extension (6), but got " + type);
-        }
-
-        if (len != 13) {
-            throw new MessageSizeException("Expected 13 bytes for DATETIME extension, but got " + len, len);
-        }
-
-        return LocalDateTime.of(
-                LocalDate.of(buf.readInt(), buf.readByte(), buf.readByte()),
-                LocalTime.of(buf.readByte(), buf.readByte(), buf.readByte(), buf.readInt())
-        );
-    }
-
-    /**
-     * Reads a timestamp.
-     *
-     * @return Timestamp value.
-     * @throws MessageTypeException when type is not TIMESTAMP.
-     * @throws MessageSizeException when size is not correct.
-     */
-    public Instant unpackTimestamp() {
-        assert refCnt > 0 : "Unpacker is closed";
-
-        var hdr = unpackExtensionTypeHeader();
-        var type = hdr.getType();
-        var len = hdr.getLength();
-
-        if (type != ClientMsgPackType.TIMESTAMP) {
-            throw new MessageTypeException("Expected TIMESTAMP extension (6), but got " + type);
-        }
-
-        if (len != 12) {
-            throw new MessageSizeException("Expected 12 bytes for TIMESTAMP extension, but got " + len, len);
-        }
-
-        return Instant.ofEpochSecond(buf.readLong(), buf.readInt());
     }
 
     /**

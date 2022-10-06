@@ -22,13 +22,7 @@ import static org.msgpack.core.MessagePack.Code;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufUtil;
-import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.nio.ByteBuffer;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
@@ -77,17 +71,6 @@ public class ClientMessagePacker implements AutoCloseable {
         assert !closed : "Packer is closed";
 
         buf.writeByte(Code.NIL);
-    }
-
-    /**
-     * Writes a "no value" value.
-     */
-    public void packNoValue() {
-        assert !closed : "Packer is closed";
-
-        buf.writeByte(Code.FIXEXT1);
-        buf.writeByte(ClientMsgPackType.NO_VALUE);
-        buf.writeByte(0);
     }
 
     /**
@@ -523,71 +506,6 @@ public class ClientMessagePacker implements AutoCloseable {
     }
 
     /**
-     * Writes a decimal.
-     *
-     * @param val Decimal value.
-     */
-    public void packDecimal(BigDecimal val) {
-        assert !closed : "Packer is closed";
-
-        byte[] unscaledValue = val.unscaledValue().toByteArray();
-
-        // Pack scale as varint.
-        int scale = val.scale();
-
-        int scaleBytes = 5;
-
-        if (scale < (1 << 7)) {
-            scaleBytes = 1;
-        } else if (scale < (1 << 8)) {
-            scaleBytes = 2;
-        } else if (scale < (1 << 16)) {
-            scaleBytes = 3;
-        }
-
-        int payloadLen = scaleBytes + unscaledValue.length;
-
-        packExtensionTypeHeader(ClientMsgPackType.DECIMAL, payloadLen);
-
-        switch (scaleBytes) {
-            case 1:
-                buf.writeByte(scale);
-                break;
-
-            case 2:
-                buf.writeByte(Code.UINT8);
-                buf.writeByte(scale);
-                break;
-
-            case 3:
-                buf.writeByte(Code.UINT16);
-                buf.writeShort(scale);
-                break;
-
-            default:
-                buf.writeByte(Code.UINT32);
-                buf.writeInt(scale);
-        }
-
-        buf.writeBytes(unscaledValue);
-    }
-
-    /**
-     * Writes a decimal.
-     *
-     * @param val Decimal value.
-     */
-    public void packNumber(BigInteger val) {
-        assert !closed : "Packer is closed";
-
-        byte[] data = val.toByteArray();
-
-        packExtensionTypeHeader(ClientMsgPackType.NUMBER, data.length);
-
-        buf.writeBytes(data);
-    }
-
-    /**
      * Writes a bit set.
      *
      * @param val Bit set value.
@@ -621,70 +539,6 @@ public class ClientMessagePacker implements AutoCloseable {
         for (int i : arr) {
             packInt(i);
         }
-    }
-
-    /**
-     * Writes a date.
-     *
-     * @param val Date value.
-     */
-    public void packDate(LocalDate val) {
-        assert !closed : "Packer is closed";
-
-        packExtensionTypeHeader(ClientMsgPackType.DATE, 6);
-
-        buf.writeInt(val.getYear());
-        buf.writeByte(val.getMonthValue());
-        buf.writeByte(val.getDayOfMonth());
-    }
-
-    /**
-     * Writes a time.
-     *
-     * @param val Time value.
-     */
-    public void packTime(LocalTime val) {
-        assert !closed : "Packer is closed";
-
-        packExtensionTypeHeader(ClientMsgPackType.TIME, 7);
-
-        buf.writeByte(val.getHour());
-        buf.writeByte(val.getMinute());
-        buf.writeByte(val.getSecond());
-        buf.writeInt(val.getNano());
-    }
-
-    /**
-     * Writes a datetime.
-     *
-     * @param val Datetime value.
-     */
-    public void packDateTime(LocalDateTime val) {
-        assert !closed : "Packer is closed";
-
-        packExtensionTypeHeader(ClientMsgPackType.DATETIME, 13);
-
-        buf.writeInt(val.getYear());
-        buf.writeByte(val.getMonthValue());
-        buf.writeByte(val.getDayOfMonth());
-        buf.writeByte(val.getHour());
-        buf.writeByte(val.getMinute());
-        buf.writeByte(val.getSecond());
-        buf.writeInt(val.getNano());
-    }
-
-    /**
-     * Writes a timestamp.
-     *
-     * @param val Timestamp value.
-     */
-    public void packTimestamp(Instant val) {
-        assert !closed : "Packer is closed";
-
-        packExtensionTypeHeader(ClientMsgPackType.TIMESTAMP, 12);
-
-        buf.writeLong(val.getEpochSecond());
-        buf.writeInt(val.getNano());
     }
 
     /**

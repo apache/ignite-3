@@ -22,7 +22,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
-import java.math.BigInteger;
 import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -100,14 +99,6 @@ public class ClientMessageUnpackerTest {
             Integer.MAX_VALUE, Long.MIN_VALUE, Long.MAX_VALUE})
     public void testUnpackLong(long l) {
         testUnpacker(p -> p.packLong(l), ClientMessageUnpacker::unpackLong, l);
-    }
-
-    @ParameterizedTest
-    @ValueSource(longs = {0, 1, -1, Byte.MAX_VALUE, Byte.MIN_VALUE, Short.MIN_VALUE, Short.MAX_VALUE, Integer.MIN_VALUE,
-            Integer.MAX_VALUE, Long.MIN_VALUE, Long.MAX_VALUE})
-    public void testUnpackBigInteger(long l) {
-        var bi = BigInteger.valueOf(l);
-        testUnpacker(p -> p.packNumber(bi), ClientMessageUnpacker::unpackNumber, bi);
     }
 
     @ParameterizedTest
