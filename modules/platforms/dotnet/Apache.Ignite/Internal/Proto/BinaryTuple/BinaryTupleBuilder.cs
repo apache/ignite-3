@@ -253,12 +253,11 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             if (value == null)
             {
                 AppendNull();
-                return;
             }
-
-            PutString(value);
-
-            OnWrite();
+            else
+            {
+                AppendString(value);
+            }
         }
 
         /// <summary>

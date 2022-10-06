@@ -332,6 +332,27 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
         }
 
         [Test]
+        public void TestStringNullable()
+        {
+            var values = new[] {"ascii", string.Empty, null};
+
+            var reader = BuildAndRead(
+                (ref BinaryTupleBuilder b) =>
+                {
+                    foreach (var value in values)
+                    {
+                        b.AppendStringNullable(value);
+                    }
+                },
+                numElements: values.Length);
+
+            for (var i = 0; i < values.Length; i++)
+            {
+               Assert.AreEqual(values[i], reader.GetStringNullable(i));
+            }
+        }
+
+        [Test]
         public void TestGuid()
         {
             var guid = Guid.NewGuid();
@@ -594,6 +615,18 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
 
             static void AssertNotSupported(Period p) =>
                 Assert.Throws<NotSupportedException>(() => BuildAndRead((ref BinaryTupleBuilder b) => b.AppendPeriod(p)));
+        }
+
+        [Test]
+        public void TestAppendDefault()
+        {
+            Assert.Fail("TODO");
+        }
+
+        [Test]
+        public void TestObjectWithType()
+        {
+            Assert.Fail("TODO");
         }
 
         private static BinaryTupleReader BuildAndRead(BinaryTupleBuilderAction build, int numElements = 1)
