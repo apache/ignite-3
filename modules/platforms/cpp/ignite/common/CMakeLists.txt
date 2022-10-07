@@ -37,16 +37,6 @@ target_include_directories(${TARGET} INTERFACE
 
 install(FILES ${HEADERS} DESTINATION ${INSTALL_INCLUDEDIR}/common COMPONENT Development)
 
-if (${ENABLE_TESTS})
-    add_executable(bits_test bits_test.cpp)
-    target_link_libraries(bits_test ${TARGET} GTest::gtest_main)
-    gtest_discover_tests(bits_test)
-
-    add_executable(bytes_test bytes_test.cpp)
-    target_link_libraries(bytes_test ${TARGET} GTest::gtest_main)
-    gtest_discover_tests(bytes_test)
-
-    add_executable(uuid_test uuid_test.cpp)
-    target_link_libraries(uuid_test ${TARGET} GTest::gtest_main)
-    gtest_discover_tests(uuid_test)
-endif()
+ignite_test(bits_test bits_test.cpp LIBS ${TARGET})
+ignite_test(bytes_test bytes_test.cpp LIBS ${TARGET})
+ignite_test(uuid_test uuid_test.cpp LIBS ${TARGET})

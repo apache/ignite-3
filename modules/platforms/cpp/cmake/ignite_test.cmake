@@ -15,24 +15,17 @@
 # limitations under the License.
 #
 
-project(ignite-schema)
+# ignite_test(<test-name> <test-src> [LIBS <lib>...])
+#
+# Function to add a unit test.
+function(ignite_test TEST_NAME TEST_SOURCE)
+    if (NOT ${ENABLE_TESTS})
+        return()
+    endif()
 
-set(TARGET ${PROJECT_NAME})
+    cmake_parse_arguments(IGNITE_TEST "" "" "LIBS" ${ARGN})
 
-add_library(${TARGET} STATIC
-    big_decimal.cpp big_decimal.h
-    big_integer.cpp big_integer.h
-    binary_tuple_builder.cpp binary_tuple_builder.h
-    binary_tuple_header.h
-    binary_tuple_parser.cpp binary_tuple_parser.h
-    binary_tuple_schema.h
-    column_info.h
-    ignite_date.h
-    ignite_date_time.h
-    ignite_time.h
-    ignite_timestamp.h
-    ignite_type.cpp ignite_type.h)
-
-target_link_libraries(${TARGET} ignite-common)
-
-ignite_test(bignum_test bignum_test.cpp LIBS ${TARGET})
+    add_executable(${TEST_NAME} ${TEST_SOURCE})
+    target_link_libraries(${TEST_NAME} ${IGNITE_TEST_LIBS} GTest::gtest_main)
+    gtest_discover_tests(${TEST_NAME})
+endfunction()

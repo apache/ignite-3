@@ -23,6 +23,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(CMAKE_PROJECT_VERSION ${PROJECT_VERSION})
 
+set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
+
 if(EXISTS ${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
     message(STATUS "Conan detected. Enabling...")
     include(${CMAKE_BINARY_DIR}/conan_paths.cmake)
@@ -88,6 +90,8 @@ if (${ENABLE_TESTS})
     include(GoogleTest)
     enable_testing()
 endif()
+
+include(ignite_test)
 
 # Add common libraries along with their unit tests if any.
 add_subdirectory(ignite/common)
