@@ -84,7 +84,7 @@ public abstract class BplusInnerIo<L> extends BplusIo<L> {
     public final void setLeft(long pageAddr, int idx, long pageId) {
         assertPageType(pageAddr);
 
-        writePartitionless(pageAddr + offset0(idx, SHIFT_LEFT), link(pageId, 0));
+        writePartitionless(pageAddr + offset0(idx, SHIFT_LEFT), pageId);
 
         assert pageId == getLeft(pageAddr, idx, partitionId(pageId));
     }
