@@ -25,17 +25,29 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 import org.jetbrains.annotations.Nullable;
 
 public class OrderingFuture<T> {
+    private boolean resolved;
     private T result;
     private Throwable exception;
-    private boolean resolved;
 
-    private final Queue<ResolveAction<T>> resolveQueue = new ArrayDeque<>();
+    private Queue<DependentAction<T>> dependents = new ArrayDeque<>();
     private final CountDownLatch resolveLatch = new CountDownLatch(1);
+
+    private final Lock readLock;
+    private final Lock writeLock;
+
+    public OrderingFuture() {
+        ReentrantReadWriteLock readWriteLock = new ReentrantReadWriteLock();
+
+        readLock = readWriteLock.readLock();
+        writeLock = readWriteLock.writeLock();
+    }
 
     public static <T> OrderingFuture<T> completedFuture(@Nullable T result) {
         var future = new OrderingFuture<T>();
@@ -64,89 +76,120 @@ public class OrderingFuture<T> {
     }
 
     public void complete(T result) {
-        synchronized (this) {
-            if (resolved) {
-                return;
-            }
-
-            this.result = result;
-            resolved = true;
-
-            resolveAfterCompletion();
-        }
+        completeInternal(result, null);
     }
 
     public void completeExceptionally(Throwable ex) {
-        synchronized (this) {
+        completeInternal(null, ex);
+    }
+
+    private void completeInternal(T result, Throwable ex) {
+        writeLock.lock();
+
+        try {
             if (resolved) {
                 return;
             }
 
-            this.exception = ex;
             resolved = true;
+            this.result = result;
+            this.exception = ex;
 
-            resolveAfterCompletion();
+            resolveDependents();
+        } finally {
+            writeLock.unlock();
         }
     }
 
-    private void resolveAfterCompletion() {
-        for (ResolveAction<T> action : resolveQueue) {
-            action.onResolved(result, exception);
+    private void resolveDependents() {
+        for (DependentAction<T> action : dependents) {
+            try {
+                action.onResolved(result, exception);
+            } catch (Exception e) {
+                // ignore
+            }
         }
+
+        dependents = null;
 
         resolveLatch.countDown();
     }
 
     public boolean isCompletedExceptionally() {
-        synchronized (this) {
+        readLock.lock();
+
+        try {
             return exception != null;
+        } finally {
+            readLock.unlock();
         }
     }
 
     public void whenComplete(BiConsumer<? super T, ? super Throwable> action) {
-        synchronized (this) {
+        readLock.lock();
+
+        try {
             if (resolved) {
-                try {
-                    action.accept(result, exception);
-                } catch (Exception e) {
-                    // ignore
-                }
+                acceptQuietly(action, result, exception);
             } else {
-                resolveQueue.add(new WhenComplete<>(action));
+                dependents.add(new WhenComplete<>(action));
             }
+        } finally {
+            readLock.unlock();
+        }
+    }
+
+    private static <T> void acceptQuietly(BiConsumer<? super T, ? super Throwable> action, T result, Throwable ex) {
+        try {
+            action.accept(result, ex);
+        } catch (Exception e) {
+            // ignore
         }
     }
 
     public <U> CompletableFuture<U> thenComposeToCompletable(Function<? super T, ? extends CompletableFuture<U>> mapper) {
-        synchronized (this) {
+        readLock.lock();
+
+        try {
             if (resolved) {
                 if (exception != null) {
                     return CompletableFuture.failedFuture(new CompletionException(exception));
                 }
 
-                try {
-                    return mapper.apply(result);
-                } catch (Throwable e) {
-                    return CompletableFuture.failedFuture(e);
-                }
+                return applyMapper(mapper, result);
             } else {
                 CompletableFuture<U> resultFuture = new CompletableFuture<>();
-                resolveQueue.add(new ThenCompose<>(resultFuture, mapper));
+                dependents.add(new ThenCompose<>(resultFuture, mapper));
                 return resultFuture;
             }
+        } finally {
+            readLock.unlock();
+        }
+    }
+
+    private static <T, U> CompletableFuture<U> applyMapper(Function<? super T, ? extends CompletableFuture<U>> mapper, T result) {
+        try {
+            return mapper.apply(result);
+        } catch (Throwable e) {
+            return CompletableFuture.failedFuture(e);
         }
     }
 
     public T getNow(T valueIfAbsent) {
-        synchronized (this) {
+        readLock.lock();
+
+        try {
             if (resolved) {
                 if (exception != null) {
                     throw new CompletionException(exception);
                 } else {
                     return result;
                 }
+            } else {
+                return valueIfAbsent;
             }
-            return valueIfAbsent;
+        } finally {
+            readLock.unlock();
         }
     }
 
@@ -156,34 +199,40 @@ public class OrderingFuture<T> {
             throw new TimeoutException();
         }
 
-        synchronized (this) {
+        readLock.lock();
+
+        try {
             if (exception != null) {
                 throw new ExecutionException(exception);
+            } else {
+                return result;
             }
-
-            return result;
+        } finally {
+            readLock.unlock();
         }
     }
 
     public CompletableFuture<T> toCompletableFuture() {
         CompletableFuture<T> completableFuture = new CompletableFuture<>();
 
-        this.whenComplete((res, ex) -> {
-            if (ex != null) {
-                completableFuture.completeExceptionally(ex);
-            } else {
-                completableFuture.complete(res);
-            }
-        });
+        this.whenComplete((res, ex) -> completeCompletableFuture(completableFuture, res, ex));
 
         return completableFuture;
     }
 
-    private interface ResolveAction<T> {
+    private static <T> void completeCompletableFuture(CompletableFuture<T> future, T result, Throwable ex) {
+        if (ex != null) {
+            future.completeExceptionally(ex);
+        } else {
+            future.complete(result);
+        }
+    }
+
+    private interface DependentAction<T> {
         void onResolved(T result, Throwable ex);
     }
 
-    private static class WhenComplete<T> implements ResolveAction<T> {
+    private static class WhenComplete<T> implements DependentAction<T> {
         private final BiConsumer<? super T, ? super Throwable> action;
 
         private WhenComplete(BiConsumer<? super T, ? super Throwable> action) {
@@ -192,11 +241,11 @@ public class OrderingFuture<T> {
 
         @Override
         public void onResolved(T result, Throwable ex) {
-            action.accept(result, ex);
+            acceptQuietly(action, result, ex);
         }
     }
 
-    private static class ThenCompose<T, U> implements ResolveAction<T> {
+    private static class ThenCompose<T, U> implements DependentAction<T> {
         private final CompletableFuture<U> resultFuture;
         private final Function<? super T, ? extends CompletableFuture<U>> mapper;
 
@@ -215,13 +264,7 @@ public class OrderingFuture<T> {
             try {
                 CompletableFuture<U> mapResult = mapper.apply(result);
 
-                mapResult.whenComplete((mapRes, mapEx) -> {
-                    if (mapEx != null) {
-                        resultFuture.completeExceptionally(mapEx);
-                    } else {
-                        resultFuture.complete(mapRes);
-                    }
-                });
+                mapResult.whenComplete((mapRes, mapEx) -> completeCompletableFuture(resultFuture, mapRes, mapEx));
             } catch (Throwable e) {
                 resultFuture.completeExceptionally(e);
             }

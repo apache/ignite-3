@@ -25,6 +25,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import org.junit.jupiter.api.Test;
 
+/**
+ * Tests making sure that callbacks are ordered correctly.
+ */
 class OrderingFutureCallbackOrderingTest {
     private final RuntimeException cause = new RuntimeException("Oops");
 

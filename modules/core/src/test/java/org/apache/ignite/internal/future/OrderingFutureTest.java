@@ -213,14 +213,18 @@ class OrderingFutureTest {
     void whenCompleteSwallowsExceptionThrownByActionOnAlreadyCompletedFuture() {
         OrderingFuture<Integer> future = OrderingFuture.completedFuture(1);
 
-        assertDoesNotThrow(() -> future.whenComplete((res, ex) -> { throw cause; }));
+        assertDoesNotThrow(() -> future.whenComplete((res, ex) -> {
+            throw cause;
+        }));
     }
 
     @Test
     void whenCompleteSwallowsExceptionThrownByActionOnAlreadyFailedFuture() {
         OrderingFuture<Integer> future = OrderingFuture.failedFuture(cause);
 
-        assertDoesNotThrow(() -> future.whenComplete((res, ex) -> { throw new RuntimeException("Another exception"); }));
+        assertDoesNotThrow(() -> future.whenComplete((res, ex) -> {
+            throw new RuntimeException("Another exception");
+        }));
     }
 
     @Test
@@ -300,7 +304,9 @@ class OrderingFutureTest {
     void composeToCompletablePropagatesExceptionFromActionOnCompletedFuture() {
         OrderingFuture<Integer> orderingFuture = OrderingFuture.completedFuture(1);
 
-        CompletableFuture<Integer> completableFuture = orderingFuture.thenComposeToCompletable(x -> { throw cause; });
+        CompletableFuture<Integer> completableFuture = orderingFuture.thenComposeToCompletable(x -> {
+            throw cause;
+        });
 
         assertThatFutureIsCompletedWithOurException(completableFuture);
     }
@@ -309,7 +315,9 @@ class OrderingFutureTest {
     void composeToCompletablePropagatesExceptionFromActionOnNormalCompletion() {
         OrderingFuture<Integer> orderingFuture = new OrderingFuture<>();
 
-        CompletableFuture<Integer> completableFuture = orderingFuture.thenComposeToCompletable(x -> { throw cause; });
+        CompletableFuture<Integer> completableFuture = orderingFuture.thenComposeToCompletable(x -> {
+            throw cause;
+        });
 
         orderingFuture.complete(1);
 
