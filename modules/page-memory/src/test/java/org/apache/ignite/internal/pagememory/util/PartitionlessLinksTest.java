@@ -23,11 +23,8 @@ import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.link;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
 import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.PARTITIONLESS_LINK_SIZE_BYTES;
-import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.PARTITIONLESS_PAGE_ID_SIZE_BYTES;
-import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.readPartitionlessLink;
-import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.readPartitionlessPageId;
-import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.writePartitionlessLink;
-import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.writePartitionlessPageId;
+import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.readPartitionless;
+import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.writePartitionless;
 import static org.apache.ignite.internal.util.GridUnsafe.allocateMemory;
 import static org.apache.ignite.internal.util.GridUnsafe.freeMemory;
 import static org.apache.ignite.internal.util.GridUnsafe.zeroMemory;
@@ -47,13 +44,13 @@ public class PartitionlessLinksTest {
 
             int offset = 0;
 
-            assertEquals(NULL_LINK, readPartitionlessLink(partitionId, addr, offset));
+            assertEquals(NULL_LINK, readPartitionless(partitionId, addr, offset));
 
             long link = link(pageId(partitionId, FLAG_DATA, 1), 2);
 
-            assertEquals(PARTITIONLESS_LINK_SIZE_BYTES, writePartitionlessLink(addr, link));
+            assertEquals(PARTITIONLESS_LINK_SIZE_BYTES, writePartitionless(addr, link));
 
-            assertEquals(link, readPartitionlessLink(partitionId, addr, offset));
+            assertEquals(link, readPartitionless(partitionId, addr, offset));
         });
     }
 
@@ -62,19 +59,21 @@ public class PartitionlessLinksTest {
         withAllocateMemory(512, addr -> {
             int partitionId = 1;
 
+            int offset = 0;
+
+            assertEquals(NULL_LINK, readPartitionless(partitionId, addr, offset));
+
             long pageId = pageId(partitionId, FLAG_AUX, 2);
 
-            int off = 0;
+            assertEquals(PARTITIONLESS_LINK_SIZE_BYTES, writePartitionless(addr + offset, pageId));
 
-            assertEquals(PARTITIONLESS_PAGE_ID_SIZE_BYTES, writePartitionlessPageId(addr, off, pageId));
-
-            assertEquals(pageId, readPartitionlessPageId(addr, off, partitionId));
+            assertEquals(pageId, readPartitionless(partitionId, addr, offset));
 
             pageId = pageId(partitionId, FLAG_DATA, 3, 1);
 
-            assertEquals(PARTITIONLESS_PAGE_ID_SIZE_BYTES, writePartitionlessPageId(addr, off, pageId));
+            assertEquals(PARTITIONLESS_LINK_SIZE_BYTES, writePartitionless(addr + offset, pageId));
 
-            assertEquals(pageId, readPartitionlessPageId(addr, off, partitionId));
+            assertEquals(pageId, readPartitionless(partitionId, addr, offset));
         });
     }
 

@@ -24,9 +24,9 @@ import static org.apache.ignite.internal.pagememory.util.PageUtils.getLong;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.getShort;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putLong;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putShort;
-import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.PARTITIONLESS_PAGE_ID_SIZE_BYTES;
-import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.readPartitionlessPageId;
-import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.writePartitionlessPageId;
+import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.PARTITIONLESS_LINK_SIZE_BYTES;
+import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.readPartitionless;
+import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.writePartitionless;
 
 import java.util.function.Consumer;
 import org.apache.ignite.internal.pagememory.io.PageIo;
@@ -66,7 +66,7 @@ import org.jetbrains.annotations.Nullable;
  *         page.
  *     </li>
  * </ul>
- * {@code forwardId} ({@link #getForwardPageId(long, int)}) is a link to the forward page, please refer to {@link BplusTree} for
+ * {@code forwardId} ({@link #getForward(long, int)}) is a link to the forward page, please refer to {@link BplusTree} for
  * the explanation.
  * <p/>
  * {@code removeId} ({@link #getRemoveId(long)}) is a special value that's used to check tree invariants during
@@ -78,11 +78,11 @@ public abstract class BplusIo<L> extends PageIo {
     /** Items count in the page offset - short. */
     private static final int CNT_OFF = COMMON_HEADER_END;
 
-    /** Forward page ID offset - {@link PartitionlessLinks#PARTITIONLESS_PAGE_ID_SIZE_BYTES}. */
+    /** Forward page ID offset - {@link PartitionlessLinks#PARTITIONLESS_LINK_SIZE_BYTES}. */
     private static final int FORWARD_OFF = CNT_OFF + Short.BYTES;
 
     /** Remove ID offset - long. */
-    private static final int REMOVE_ID_OFF = FORWARD_OFF + PARTITIONLESS_PAGE_ID_SIZE_BYTES;
+    private static final int REMOVE_ID_OFF = FORWARD_OFF + PARTITIONLESS_LINK_SIZE_BYTES;
 
     /** Offset start storing items in a page. */
     protected static final int ITEMS_OFF = REMOVE_ID_OFF + Long.BYTES;
@@ -129,13 +129,12 @@ public abstract class BplusIo<L> extends PageIo {
         return itemSize;
     }
 
-    /** {@inheritDoc} */
     @Override
     public void initNewPage(long pageAddr, long pageId, int pageSize) {
         super.initNewPage(pageAddr, pageId, pageSize);
 
         setCount(pageAddr, 0);
-        setForwardPageId(pageAddr, 0);
+        setForward(pageAddr, 0);
         setRemoveId(pageAddr, 0);
     }
 
@@ -145,8 +144,8 @@ public abstract class BplusIo<L> extends PageIo {
      * @param pageAddr Page address.
      * @param partId Partition ID.
      */
-    public final long getForwardPageId(long pageAddr, int partId) {
-        return readPartitionlessPageId(pageAddr, FORWARD_OFF, partId);
+    public final long getForward(long pageAddr, int partId) {
+        return readPartitionless(partId, pageAddr, FORWARD_OFF);
     }
 
     /**
@@ -155,12 +154,12 @@ public abstract class BplusIo<L> extends PageIo {
      * @param pageAddr Page address.
      * @param pageId Forward page ID.
      */
-    public final void setForwardPageId(long pageAddr, long pageId) {
+    public final void setForward(long pageAddr, long pageId) {
         assertPageType(pageAddr);
 
-        writePartitionlessPageId(pageAddr, FORWARD_OFF, pageId);
+        writePartitionless(pageAddr + FORWARD_OFF, pageId);
 
-        assert getForwardPageId(pageAddr, partitionId(pageId)) == pageId;
+        assert getForward(pageAddr, partitionId(pageId)) == pageId;
     }
 
     /**
@@ -403,7 +402,7 @@ public abstract class BplusIo<L> extends PageIo {
         copyItems(pageAddr, fwdPageAddr, mid, 0, cnt, true, partId);
 
         setCount(fwdPageAddr, cnt);
-        setForwardPageId(fwdPageAddr, getForwardPageId(pageAddr, partId));
+        setForward(fwdPageAddr, getForward(pageAddr, partId));
 
         // Copy remove ID to make sure that if inner remove touched this page, then retry
         // will happen even for newly allocated forward page.
@@ -421,7 +420,7 @@ public abstract class BplusIo<L> extends PageIo {
         assertPageType(pageAddr);
 
         setCount(pageAddr, mid);
-        setForwardPageId(pageAddr, fwdId);
+        setForward(pageAddr, fwdId);
     }
 
     /**
@@ -499,7 +498,7 @@ public abstract class BplusIo<L> extends PageIo {
         }
 
         copyItems(rightPageAddr, leftPageAddr, 0, leftCnt, rightCnt, !emptyBranch, partId);
-        setForwardPageId(leftPageAddr, getForwardPageId(rightPageAddr, partId));
+        setForward(leftPageAddr, getForward(rightPageAddr, partId));
 
         long rmvId = getRemoveId(rightPageAddr);
 
@@ -538,7 +537,7 @@ public abstract class BplusIo<L> extends PageIo {
                 .app(",\n\tleaf=").app(leaf)
                 .app(",\n\titemSize=").app(itemSize)
                 .app(",\n\tcnt=").app(getCount(addr))
-                .app(",\n\tforward=").appendHex(getForwardPageId(addr, partitionId(getPageId(addr))))
+                .app(",\n\tforward=").appendHex(getForward(addr, partitionId(getPageId(addr))))
                 .app(",\n\tremoveId=").appendHex(getRemoveId(addr))
                 .app("\n]");
     }
