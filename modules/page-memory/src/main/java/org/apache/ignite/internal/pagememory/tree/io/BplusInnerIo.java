@@ -17,9 +17,13 @@
 
 package org.apache.ignite.internal.pagememory.tree.io;
 
+import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionId;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.copyMemory;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.getLong;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putLong;
+import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.PARTITIONLESS_PAGE_ID_SIZE_BYTES;
+import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.readPartitionlessPageId;
+import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.writePartitionlessPageId;
 
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
@@ -37,7 +41,7 @@ public abstract class BplusInnerIo<L> extends BplusIo<L> {
     private static final int SHIFT_LEFT = ITEMS_OFF;
 
     /** Offset of the link. */
-    private static final int SHIFT_LINK = SHIFT_LEFT + 8;
+    private static final int SHIFT_LINK = SHIFT_LEFT + PARTITIONLESS_PAGE_ID_SIZE_BYTES;
 
     /** Offset of the right page ID of the item. */
     private final int shiftRight = SHIFT_LINK + itemSize;
@@ -57,61 +61,61 @@ public abstract class BplusInnerIo<L> extends BplusIo<L> {
     /** {@inheritDoc} */
     @Override
     public int getMaxCount(long pageAddr, int pageSize) {
-        return (pageSize - ITEMS_OFF - 8) / (getItemSize() + 8);
+        return (pageSize - SHIFT_LEFT - PARTITIONLESS_PAGE_ID_SIZE_BYTES) / (getItemSize() + PARTITIONLESS_PAGE_ID_SIZE_BYTES);
     }
 
     /**
-     * Returns left page id for item.
+     * Returns left page ID for item.
      *
      * @param pageAddr Page address.
      * @param idx Index of item.
-     * @return Page ID.
+     * @param partId Partition ID.
      */
-    public final long getLeft(long pageAddr, int idx) {
-        return getLong(pageAddr, (offset0(idx, SHIFT_LEFT)));
+    public final long getLeftPageId(long pageAddr, int idx, int partId) {
+        return readPartitionlessPageId(pageAddr, offset0(idx, SHIFT_LEFT), partId);
     }
 
     /**
-     * Sets left page id for item.
-     *
-     * @param pageAddr Page address.
-     * @param idx Index of item.
-     * @param pageId Page ID.
-     */
-    public final void setLeft(long pageAddr, int idx, long pageId) {
-        assertPageType(pageAddr);
-
-        putLong(pageAddr, offset0(idx, SHIFT_LEFT), pageId);
-
-        assert pageId == getLeft(pageAddr, idx);
-    }
-
-    /**
-     * Returns right page id for item.
-     *
-     * @param pageAddr Page address.
-     * @param idx Index of item.
-     */
-    public final long getRight(long pageAddr, int idx) {
-        return getLong(pageAddr, offset0(idx, shiftRight));
-    }
-
-    /**
-     * Returns right page id for item.
+     * Sets left page ID for item.
      *
      * @param pageAddr Page address.
      * @param idx Index of item.
      * @param pageId Page ID.
      */
-    private void setRight(long pageAddr, int idx, long pageId) {
+    public final void setLeftPageId(long pageAddr, int idx, long pageId) {
         assertPageType(pageAddr);
 
-        putLong(pageAddr, offset0(idx, shiftRight), pageId);
+        writePartitionlessPageId(pageAddr, offset0(idx, SHIFT_LEFT), pageId);
 
-        assert pageId == getRight(pageAddr, idx);
+        assert pageId == getLeftPageId(pageAddr, idx, partitionId(pageId));
     }
 
-    /** {@inheritDoc} */
+    /**
+     * Returns right page ID for item.
+     *
+     * @param pageAddr Page address.
+     * @param idx Index of item.
+     * @param partId Partition ID.
+     */
+    public final long getRightPageId(long pageAddr, int idx, int partId) {
+        return readPartitionlessPageId(pageAddr, offset0(idx, shiftRight), partId);
+    }
+
+    /**
+     * Sets right page ID for item.
+     *
+     * @param pageAddr Page address.
+     * @param idx Index of item.
+     * @param pageId Page ID.
+     */
+    private void setRightPageId(long pageAddr, int idx, long pageId) {
+        assertPageType(pageAddr);
+
+        writePartitionlessPageId(pageAddr, offset0(idx, shiftRight), pageId);
+
+        assert pageId == getRightPageId(pageAddr, idx, partitionId(pageId));
+    }
+
     @Override
     public final void copyItems(
             long srcPageAddr,
@@ -125,7 +129,7 @@ public abstract class BplusInnerIo<L> extends BplusIo<L> {
 
         assert srcIdx != dstIdx || srcPageAddr != dstPageAddr;
 
-        cnt *= getItemSize() + 8; // From items to bytes.
+        cnt *= getItemSize() + PARTITIONLESS_PAGE_ID_SIZE_BYTES; // From items to bytes.
 
         if (dstIdx > srcIdx) {
             copyMemory(srcPageAddr, offset(srcIdx), dstPageAddr, offset(dstIdx), cnt);
@@ -149,10 +153,9 @@ public abstract class BplusInnerIo<L> extends BplusIo<L> {
      * @param shift It can be either link itself or left or right page ID.
      */
     private int offset0(int idx, int shift) {
-        return shift + (8 + getItemSize()) * idx;
+        return shift + (PARTITIONLESS_PAGE_ID_SIZE_BYTES + getItemSize()) * idx;
     }
 
-    /** {@inheritDoc} */
     @Override
     public final int offset(int idx) {
         return offset0(idx, SHIFT_LINK);
@@ -160,7 +163,6 @@ public abstract class BplusInnerIo<L> extends BplusIo<L> {
 
     // Methods for B+Tree logic.
 
-    /** {@inheritDoc} */
     @Override
     public @Nullable byte[] insert(
             long pageAddr,
@@ -175,7 +177,7 @@ public abstract class BplusInnerIo<L> extends BplusIo<L> {
         rowBytes = super.insert(pageAddr, idx, row, rowBytes, rightId, needRowBytes);
 
         // Setup reference to the right page on split.
-        setRight(pageAddr, idx, rightId);
+        setRightPageId(pageAddr, idx, rightId);
 
         return rowBytes;
     }
@@ -207,9 +209,9 @@ public abstract class BplusInnerIo<L> extends BplusIo<L> {
         initNewPage(newRootPageAddr, newRootId, pageSize);
 
         setCount(newRootPageAddr, 1);
-        setLeft(newRootPageAddr, 0, leftChildId);
+        setLeftPageId(newRootPageAddr, 0, leftChildId);
         rowBytes = store(newRootPageAddr, 0, row, rowBytes, needRowBytes);
-        setRight(newRootPageAddr, 0, rightChildId);
+        setRightPageId(newRootPageAddr, 0, rightChildId);
 
         return rowBytes;
     }

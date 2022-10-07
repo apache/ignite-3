@@ -17,27 +17,34 @@
 
 package org.apache.ignite.internal.pagememory.util;
 
+import static org.apache.ignite.internal.pagememory.util.PageIdUtils.flag;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.link;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageIndex;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.tag;
+import static org.apache.ignite.internal.pagememory.util.PageUtils.getByte;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.getInt;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.getShort;
+import static org.apache.ignite.internal.pagememory.util.PageUtils.putByte;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putInt;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putShort;
 
 import java.nio.ByteBuffer;
 
 /**
- * Handling of <em>partitionless links</em>, that is, page memory links from which partition ID is removed.
+ * Auxiliary class for working with links and page IDs without partitions.
  *
  * <p>They are used to save storage space in cases when we know the partition ID from the context.
  *
  * @see PageIdUtils#link(long, int)
+ * @see PageIdUtils#pageId(int, byte, int)
  */
 public class PartitionlessLinks {
     /** Number of bytes a partitionless link takes in storage. */
     public static final int PARTITIONLESS_LINK_SIZE_BYTES = 6;
+
+    /** Number of bytes a partitionless page ID takes in storage. */
+    public static final int PARTITIONLESS_PAGE_ID_SIZE_BYTES = 5;
 
     /**
      * Reads a partitionless link from the memory.
@@ -45,7 +52,7 @@ public class PartitionlessLinks {
      * @param partitionId Partition ID.
      * @param pageAddr Page address.
      * @param offset Data offset.
-     * @return Partitionless link.
+     * @return Link with partition ID.
      */
     public static long readPartitionlessLink(int partitionId, long pageAddr, int offset) {
         int tag = getShort(pageAddr, offset) & 0xFFFF;
@@ -91,5 +98,41 @@ public class PartitionlessLinks {
         buffer.putShort((short) tag(link));
 
         buffer.putInt(pageIndex(link));
+    }
+
+    /**
+     * Reads a partitionless page ID from the memory.
+     *
+     * @param addr Address in memory.
+     * @param off Offset from {@code addr} in bytes.
+     * @param partId Partition ID.
+     * @return Page ID with partition ID.
+     */
+    public static long readPartitionlessPageId(long addr, int off, int partId) {
+        byte flag = getByte(addr, off);
+
+        int pageIdx = getInt(addr, off + Byte.BYTES);
+
+        return pageId(partId, flag, pageIdx);
+    }
+
+    /**
+     * Writes a partitionless page ID to memory.
+     * <ul>
+     *     <li>{@link PageIdUtils#flag Flag} - 1 byte;</li>
+     *     <li>{@link PageIdUtils#pageIndex Page index} - 4 bytes.</li>
+     * </ul>
+     *
+     * @param addr Address in memory.
+     * @param off Offset from {@code addr} in bytes.
+     * @param pageId Page ID.
+     * @return Number of bytes written (equal to {@link #PARTITIONLESS_PAGE_ID_SIZE_BYTES}).
+     */
+    public static long writePartitionlessPageId(long addr, int off, long pageId) {
+        putByte(addr, off, flag(pageId));
+
+        putInt(addr, off + Byte.BYTES, pageIndex(pageId));
+
+        return PARTITIONLESS_PAGE_ID_SIZE_BYTES;
     }
 }
