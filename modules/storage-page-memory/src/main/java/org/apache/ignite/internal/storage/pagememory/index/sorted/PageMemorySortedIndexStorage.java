@@ -51,6 +51,12 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
     /** Partition id. */
     private final int partitionId;
 
+    /** Lowest possible RowId according to signed long ordering. */
+    private final RowId lowestRowId;
+
+    /** Highest possible RowId according to signed long ordering. */
+    private final RowId highestRowId;
+
     /**
      * Constructor.
      *
@@ -64,6 +70,10 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
         this.sortedIndexTree = sortedIndexTree;
 
         partitionId = sortedIndexTree.partitionId();
+
+        lowestRowId = new RowId(partitionId, Long.MIN_VALUE, Long.MIN_VALUE);
+
+        highestRowId = new RowId(partitionId, Long.MAX_VALUE, Long.MAX_VALUE);
     }
 
     @Override
@@ -73,9 +83,9 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
 
     @Override
     public Cursor<RowId> get(BinaryTuple key) throws StorageException {
-        SortedIndexRowKey lowerBound = createLowerBound(BinaryTuplePrefix.fromBinaryTuple(key), true);
+        SortedIndexRowKey lowerBound = toSortedIndexRow(key, lowestRowId);
 
-        SortedIndexRowKey upperBound = createUpperBound(BinaryTuplePrefix.fromBinaryTuple(key), true);
+        SortedIndexRowKey upperBound = toSortedIndexRow(key, highestRowId);
 
         try {
             return map(sortedIndexTree.find(lowerBound, upperBound), SortedIndexRow::rowId);
@@ -86,10 +96,8 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
 
     @Override
     public void put(IndexRow row) {
-        IndexColumns indexColumns = new IndexColumns(partitionId, row.indexColumns().byteBuffer());
-
         try {
-            SortedIndexRow sortedIndexRow = new SortedIndexRow(indexColumns, row.rowId());
+            SortedIndexRow sortedIndexRow = toSortedIndexRow(row.indexColumns(), row.rowId());
 
             var insert = new InsertSortedIndexRowInvokeClosure(sortedIndexRow, freeList);
 
@@ -101,14 +109,12 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
 
     @Override
     public void remove(IndexRow row) {
-        IndexColumns indexColumns = new IndexColumns(partitionId, row.indexColumns().byteBuffer());
-
         try {
-            SortedIndexRow hashIndexRow = new SortedIndexRow(indexColumns, row.rowId());
+            SortedIndexRow sortedIndexRow = toSortedIndexRow(row.indexColumns(), row.rowId());
 
-            var remove = new RemoveSortedIndexRowInvokeClosure(hashIndexRow, freeList);
+            var remove = new RemoveSortedIndexRowInvokeClosure(sortedIndexRow, freeList);
 
-            sortedIndexTree.invoke(hashIndexRow, null, remove);
+            sortedIndexTree.invoke(sortedIndexRow, null, remove);
 
             // Performs actual deletion from freeList if necessary.
             remove.afterCompletion();
@@ -122,49 +128,36 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
         boolean includeLower = (flags & GREATER_OR_EQUAL) != 0;
         boolean includeUpper = (flags & LESS_OR_EQUAL) != 0;
 
-        SortedIndexRowKey lower = createLowerBound(lowerBound, includeLower);
+        SortedIndexRowKey lower = createBound(lowerBound, !includeLower);
 
-        SortedIndexRowKey upper = createUpperBound(upperBound, includeUpper);
+        SortedIndexRowKey upper = createBound(upperBound, includeUpper);
 
         try {
-            Cursor<SortedIndexRow> cursor = sortedIndexTree.find(lower, upper, includeLower, includeUpper, null, null);
-
-            return map(cursor, this::toIndexRowImpl);
+            return map(sortedIndexTree.find(lower, upper), this::toIndexRowImpl);
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Failed to create scan cursor", e);
         }
     }
 
-    private static void setEqualityFlag(BinaryTuplePrefix prefix) {
-        ByteBuffer buffer = prefix.byteBuffer();
-
-        byte flags = buffer.get(0);
-
-        buffer.put(0, (byte) (flags | BinaryTupleCommon.EQUALITY_FLAG));
-    }
-
     @Nullable
-    private SortedIndexRowKey createLowerBound(@Nullable BinaryTuplePrefix bound, boolean include) {
+    private SortedIndexRowKey createBound(@Nullable BinaryTuplePrefix bound, boolean setEqualityFlag) {
         if (bound == null) {
             return null;
         }
 
-        // Skip the lower bound, if needed.
-        if (!include) {
-            setEqualityFlag(bound);
+        ByteBuffer buffer = bound.byteBuffer();
+
+        if (setEqualityFlag) {
+            byte flags = buffer.get(0);
+
+            buffer.put(0, (byte) (flags | BinaryTupleCommon.EQUALITY_FLAG));
         }
 
-        return toSortedIndexRowKey(bound);
+        return new SortedIndexRowKey(new IndexColumns(partitionId, buffer));
     }
 
-    @Nullable
-    private SortedIndexRowKey createUpperBound(@Nullable BinaryTuplePrefix bound, boolean include) {
-        // Upper bound is skipped by default, so we need to invert the condition
-        return createLowerBound(bound, !include);
-    }
-
-    private SortedIndexRowKey toSortedIndexRowKey(BinaryTuplePrefix binaryTuple) {
-        return new SortedIndexRowKey(new IndexColumns(partitionId, binaryTuple.byteBuffer()));
+    private SortedIndexRow toSortedIndexRow(BinaryTuple tuple, RowId rowId) {
+        return new SortedIndexRow(new IndexColumns(partitionId, tuple.byteBuffer()), rowId);
     }
 
     private IndexRowImpl toIndexRowImpl(SortedIndexRow sortedIndexRow) {

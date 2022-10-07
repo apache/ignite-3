@@ -1245,13 +1245,13 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
 
     /** {@inheritDoc} */
     @Override
-    public final Cursor<T> find(L lower, L upper) throws IgniteInternalCheckedException {
+    public final Cursor<T> find(@Nullable L lower, @Nullable L upper) throws IgniteInternalCheckedException {
         return find(lower, upper, null);
     }
 
     /** {@inheritDoc} */
     @Override
-    public final Cursor<T> find(L lower, L upper, Object x) throws IgniteInternalCheckedException {
+    public final Cursor<T> find(@Nullable L lower, @Nullable L upper, Object x) throws IgniteInternalCheckedException {
         return find(lower, upper, null, x);
     }
 
@@ -1265,7 +1265,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
      * @return Cursor.
      * @throws IgniteInternalCheckedException If failed.
      */
-    public Cursor<T> find(L lower, L upper, TreeRowClosure<L, T> c, Object x) throws IgniteInternalCheckedException {
+    public Cursor<T> find(@Nullable L lower, @Nullable L upper, TreeRowClosure<L, T> c, Object x) throws IgniteInternalCheckedException {
         return find(lower, upper, true, true, c, x);
     }
 
