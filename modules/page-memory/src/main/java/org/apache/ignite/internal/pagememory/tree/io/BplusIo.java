@@ -65,11 +65,11 @@ import org.jetbrains.annotations.Nullable;
  * @see BplusTree
  */
 public abstract class BplusIo<L> extends PageIo {
-    /** Items count in the page offset. */
+    /** Items count in the page offset - short. */
     private static final int CNT_OFF = COMMON_HEADER_END;
 
     /** Forward page ID offset. */
-    private static final int FORWARD_OFF = CNT_OFF + 2;
+    private static final int FORWARD_OFF = CNT_OFF + Short.BYTES;
 
     /** Remove ID offset. */
     private static final int REMOVE_ID_OFF = FORWARD_OFF + 8;
@@ -323,7 +323,8 @@ public abstract class BplusIo<L> extends PageIo {
             int srcIdx,
             int dstIdx,
             int cnt,
-            boolean cpLeft
+            boolean cpLeft,
+            int partId
     ) throws IgniteInternalCheckedException;
 
     // Methods for B+Tree logic.
@@ -337,6 +338,7 @@ public abstract class BplusIo<L> extends PageIo {
      * @param rowBytes Row bytes.
      * @param rightId Page ID which will be to the right child for the inserted item.
      * @param needRowBytes If we need stored row bytes.
+     * @param partId Partition ID.
      * @return Row bytes.
      * @throws IgniteInternalCheckedException If failed.
      */
@@ -346,14 +348,15 @@ public abstract class BplusIo<L> extends PageIo {
             L row,
             @Nullable byte[] rowBytes,
             long rightId,
-            boolean needRowBytes
+            boolean needRowBytes,
+            int partId
     ) throws IgniteInternalCheckedException {
         assertPageType(pageAddr);
 
         int cnt = getCount(pageAddr);
 
         // Move right all the greater elements to make a free slot for a new row link.
-        copyItems(pageAddr, pageAddr, idx, idx + 1, cnt - idx, false);
+        copyItems(pageAddr, pageAddr, idx, idx + 1, cnt - idx, false, partId);
 
         setCount(pageAddr, cnt + 1);
 
@@ -369,6 +372,7 @@ public abstract class BplusIo<L> extends PageIo {
      * @param mid Bisection index.
      * @param cnt Initial elements count in the page being split.
      * @param pageSize Page size.
+     * @param partId Partition ID.
      * @throws IgniteInternalCheckedException If failed.
      */
     public void splitForwardPage(
@@ -377,7 +381,8 @@ public abstract class BplusIo<L> extends PageIo {
             long fwdPageAddr,
             int mid,
             int cnt,
-            int pageSize
+            int pageSize,
+            int partId
     ) throws IgniteInternalCheckedException {
         assertPageType(pageAddr);
 
@@ -385,7 +390,7 @@ public abstract class BplusIo<L> extends PageIo {
 
         cnt -= mid;
 
-        copyItems(pageAddr, fwdPageAddr, mid, 0, cnt, true);
+        copyItems(pageAddr, fwdPageAddr, mid, 0, cnt, true, partId);
 
         setCount(fwdPageAddr, cnt);
         setForward(fwdPageAddr, getForward(pageAddr));
@@ -415,14 +420,15 @@ public abstract class BplusIo<L> extends PageIo {
      * @param pageAddr Page address.
      * @param idx Index.
      * @param cnt Count.
+     * @param partId Partition ID.
      * @throws IgniteInternalCheckedException If failed.
      */
-    public void remove(long pageAddr, int idx, int cnt) throws IgniteInternalCheckedException {
+    public void remove(long pageAddr, int idx, int cnt, int partId) throws IgniteInternalCheckedException {
         assertPageType(pageAddr);
 
         cnt--;
 
-        copyItems(pageAddr, pageAddr, idx + 1, idx, cnt - idx, false);
+        copyItems(pageAddr, pageAddr, idx + 1, idx, cnt - idx, false, partId);
         setCount(pageAddr, cnt);
     }
 
@@ -436,6 +442,7 @@ public abstract class BplusIo<L> extends PageIo {
      * @param rightPageAddr Right page address.
      * @param emptyBranch We are merging an empty branch.
      * @param pageSize Page size without encryption overhead.
+     * @param partId Partition ID.
      * @return {@code false} If we were not able to merge.
      * @throws IgniteInternalCheckedException If failed.
      */
@@ -446,7 +453,8 @@ public abstract class BplusIo<L> extends PageIo {
             long leftPageAddr,
             long rightPageAddr,
             boolean emptyBranch,
-            int pageSize
+            int pageSize,
+            int partId
     ) throws IgniteInternalCheckedException {
         assertPageType(leftPageAddr);
 
@@ -480,7 +488,7 @@ public abstract class BplusIo<L> extends PageIo {
             leftCnt++;
         }
 
-        copyItems(rightPageAddr, leftPageAddr, 0, leftCnt, rightCnt, !emptyBranch);
+        copyItems(rightPageAddr, leftPageAddr, 0, leftCnt, rightCnt, !emptyBranch, partId);
         setForward(leftPageAddr, getForward(rightPageAddr));
 
         long rmvId = getRemoveId(rightPageAddr);

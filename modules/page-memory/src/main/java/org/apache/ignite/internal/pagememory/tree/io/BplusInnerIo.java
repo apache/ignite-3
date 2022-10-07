@@ -19,8 +19,6 @@ package org.apache.ignite.internal.pagememory.tree.io;
 
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionId;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.copyMemory;
-import static org.apache.ignite.internal.pagememory.util.PageUtils.getLong;
-import static org.apache.ignite.internal.pagememory.util.PageUtils.putLong;
 import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.PARTITIONLESS_PAGE_ID_SIZE_BYTES;
 import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.readPartitionlessPageId;
 import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.writePartitionlessPageId;
@@ -123,7 +121,8 @@ public abstract class BplusInnerIo<L> extends BplusIo<L> {
             int srcIdx,
             int dstIdx,
             int cnt,
-            boolean cpLeft
+            boolean cpLeft,
+            int partId
     ) {
         assertPageType(dstPageAddr);
 
@@ -135,11 +134,15 @@ public abstract class BplusInnerIo<L> extends BplusIo<L> {
             copyMemory(srcPageAddr, offset(srcIdx), dstPageAddr, offset(dstIdx), cnt);
 
             if (cpLeft) {
-                putLong(dstPageAddr, offset0(dstIdx, SHIFT_LEFT), getLong(srcPageAddr, (offset0(srcIdx, SHIFT_LEFT))));
+                long leftPageId = readPartitionlessPageId(srcPageAddr, offset0(srcIdx, SHIFT_LEFT), partId);
+
+                writePartitionlessPageId(dstPageAddr, offset0(dstIdx, SHIFT_LEFT), leftPageId);
             }
         } else {
             if (cpLeft) {
-                putLong(dstPageAddr, offset0(dstIdx, SHIFT_LEFT), getLong(srcPageAddr, (offset0(srcIdx, SHIFT_LEFT))));
+                long leftPageId = readPartitionlessPageId(srcPageAddr, offset0(srcIdx, SHIFT_LEFT), partId);
+
+                writePartitionlessPageId(dstPageAddr, offset0(dstIdx, SHIFT_LEFT), leftPageId);
             }
 
             copyMemory(srcPageAddr, offset(srcIdx), dstPageAddr, offset(dstIdx), cnt);
@@ -170,11 +173,12 @@ public abstract class BplusInnerIo<L> extends BplusIo<L> {
             L row,
             @Nullable byte[] rowBytes,
             long rightId,
-            boolean needRowBytes
+            boolean needRowBytes,
+            int partId
     ) throws IgniteInternalCheckedException {
         assertPageType(pageAddr);
 
-        rowBytes = super.insert(pageAddr, idx, row, rowBytes, rightId, needRowBytes);
+        rowBytes = super.insert(pageAddr, idx, row, rowBytes, rightId, needRowBytes, partId);
 
         // Setup reference to the right page on split.
         setRightPageId(pageAddr, idx, rightId);

@@ -2894,7 +2894,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
         }
 
         // Update forward page.
-        io.splitForwardPage(pageAddr, fwdId, fwdBuf, mid, cnt, pageSize());
+        io.splitForwardPage(pageAddr, fwdId, fwdBuf, mid, cnt, pageSize(), partId);
 
         // Update existing page.
         io.splitExistingPage(pageAddr, mid, fwdId);
@@ -3880,7 +3880,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
         }
 
         private void insertSimple(long pageAddr, BplusIo<L> io, int idx) throws IgniteInternalCheckedException {
-            io.insert(pageAddr, idx, row, null, rightId, false);
+            io.insert(pageAddr, idx, row, null, rightId, false, partId);
         }
 
         /**
@@ -5079,7 +5079,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             assert cnt > 0 : cnt;
             assert idx >= 0 && idx < cnt : idx + " " + cnt;
 
-            io.remove(pageAddr, idx, cnt);
+            io.remove(pageAddr, idx, cnt, partId);
         }
 
         /**
@@ -5210,7 +5210,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
 
             boolean emptyBranch = needMergeEmptyBranch == TRUE || needMergeEmptyBranch == READY;
 
-            if (!left.io.merge(prnt.io, prnt.buf, prntIdx, left.buf, right.buf, emptyBranch, pageSize())) {
+            if (!left.io.merge(prnt.io, prnt.buf, prntIdx, left.buf, right.buf, emptyBranch, pageSize(), partId)) {
                 return false;
             }
 
