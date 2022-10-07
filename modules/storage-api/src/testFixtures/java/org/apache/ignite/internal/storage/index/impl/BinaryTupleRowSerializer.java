@@ -67,7 +67,7 @@ public class BinaryTupleRowSerializer {
      * Creates a new instance for a Sorted Index.
      */
     public BinaryTupleRowSerializer(SortedIndexDescriptor descriptor) {
-        this(descriptor.indexColumns().stream()
+        this(descriptor.columns().stream()
                 .map(colDesc -> new ColumnDescriptor(colDesc.type(), colDesc.nullable()))
                 .collect(toUnmodifiableList()));
     }
@@ -76,7 +76,7 @@ public class BinaryTupleRowSerializer {
      * Creates a new instance for a Hash Index.
      */
     public BinaryTupleRowSerializer(HashIndexDescriptor descriptor) {
-        this(descriptor.indexColumns().stream()
+        this(descriptor.columns().stream()
                 .map(colDesc -> new ColumnDescriptor(colDesc.type(), colDesc.nullable()))
                 .collect(toUnmodifiableList()));
     }
