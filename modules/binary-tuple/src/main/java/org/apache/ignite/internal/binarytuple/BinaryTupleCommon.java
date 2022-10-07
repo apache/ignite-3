@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.binarytuple;
 
-import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -133,18 +132,5 @@ public class BinaryTupleCommon {
      */
     public static byte nullMask(int index) {
         return (byte) (1 << (index % 8));
-    }
-
-    /**
-     * Returns {@code true} if the given {@code buffer} represents a Binary Tuple Prefix.
-     *
-     * @param buffer Buffer containing a serialized Binary Tuple or Binary Tuple Prefix.
-     * @return {@code true} if the given {@code buffer} represents a Binary Tuple Prefix or {@code false} otherwise.
-     * @see BinaryTuplePrefixBuilder
-     */
-    public static boolean isPrefix(ByteBuffer buffer) {
-        byte flags = buffer.get(0);
-
-        return (flags & PREFIX_FLAG) != 0;
     }
 }

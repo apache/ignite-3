@@ -33,6 +33,7 @@ import java.util.BitSet;
 import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
+import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.binarytuple.BinaryTuplePrefixBuilder;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypes;
@@ -408,7 +409,13 @@ public class BinaryTupleComparatorTest {
                 .appendInt(1)
                 .build();
 
-        assertThat(comparator.compare(tuple1, tuple2), is(0));
+        assertThat(comparator.compare(tuple2, tuple1), is(lessThanOrEqualTo(-1)));
+        assertThat(comparator.compare(tuple1, tuple2), is(greaterThanOrEqualTo(1)));
+
+        setEqualityFlag(tuple2);
+
+        assertThat(comparator.compare(tuple2, tuple1), is(lessThanOrEqualTo(1)));
+        assertThat(comparator.compare(tuple1, tuple2), is(greaterThanOrEqualTo(-1)));
     }
 
     @Test
@@ -438,6 +445,18 @@ public class BinaryTupleComparatorTest {
                 .appendInt(null)
                 .build();
 
-        assertThat(comparator.compare(tuple1, tuple2), is(0));
+        assertThat(comparator.compare(tuple2, tuple1), is(lessThanOrEqualTo(-1)));
+        assertThat(comparator.compare(tuple1, tuple2), is(greaterThanOrEqualTo(1)));
+
+        setEqualityFlag(tuple2);
+
+        assertThat(comparator.compare(tuple2, tuple1), is(lessThanOrEqualTo(1)));
+        assertThat(comparator.compare(tuple1, tuple2), is(greaterThanOrEqualTo(-1)));
+    }
+
+    private static void setEqualityFlag(ByteBuffer buffer) {
+        byte flags = buffer.get(0);
+
+        buffer.put(0, (byte) (flags | BinaryTupleCommon.EQUALITY_FLAG));
     }
 }

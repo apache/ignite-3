@@ -17,11 +17,8 @@
 
 package org.apache.ignite.internal.storage.rocksdb.index;
 
-import static org.apache.ignite.internal.binarytuple.BinaryTupleCommon.isPrefix;
-
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.storage.index.BinaryTupleComparator;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.rocksdb.AbstractComparator;
@@ -59,7 +56,7 @@ public class RocksDbBinaryTupleComparator extends AbstractComparator {
 
     @Override
     public int compare(ByteBuffer a, ByteBuffer b) {
-        int comparePartitionId = Short.compare(a.getShort(), b.getShort());
+        int comparePartitionId = Short.compareUnsigned(a.getShort(), b.getShort());
 
         if (comparePartitionId != 0) {
             return comparePartitionId;
@@ -70,27 +67,7 @@ public class RocksDbBinaryTupleComparator extends AbstractComparator {
 
         int compareTuples = comparator.compare(firstBinaryTupleBuffer, secondBinaryTupleBuffer);
 
-        if (compareTuples != 0) {
-            return compareTuples;
-        }
-
-        // Binary Tuple Prefixes don't have row IDs, so they can't be compared further.
-        // We use the EQUALITY FLAG to determine the outcome of the comparison operation: if the flag is set, the prefix is considered
-        // larger than the tuple and if the flag is not set, the prefix is considered smaller than the tuple. This is needed to include
-        // or exclude the scan bounds.
-        if (isPrefix(firstBinaryTupleBuffer)) {
-            return equalityFlag(firstBinaryTupleBuffer);
-        } else if (isPrefix(secondBinaryTupleBuffer)) {
-            return -equalityFlag(secondBinaryTupleBuffer);
-        } else {
-            return compareRowIds(a, b);
-        }
-    }
-
-    private static int equalityFlag(ByteBuffer tuple) {
-        byte flags = tuple.get(0);
-
-        return (flags & BinaryTupleCommon.EQUALITY_FLAG) == 0 ? -1 : 1;
+        return compareTuples == 0 ? compareRowIds(a, b) : compareTuples;
     }
 
     private static int compareRowIds(ByteBuffer a, ByteBuffer b) {

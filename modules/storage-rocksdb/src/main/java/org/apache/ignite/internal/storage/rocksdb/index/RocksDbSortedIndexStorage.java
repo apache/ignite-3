@@ -188,11 +188,11 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
         };
     }
 
-    private static void setEqualityFlag(byte[] bound) {
+    private static void setEqualityFlag(byte[] prefix) {
         // Flags start after the partition ID.
-        byte flags = bound[Short.BYTES];
+        byte flags = prefix[Short.BYTES];
 
-        bound[Short.BYTES] = (byte) (flags | BinaryTupleCommon.EQUALITY_FLAG);
+        prefix[Short.BYTES] = (byte) (flags | BinaryTupleCommon.EQUALITY_FLAG);
     }
 
     private IndexRow decodeRow(ByteBuffer bytes) {

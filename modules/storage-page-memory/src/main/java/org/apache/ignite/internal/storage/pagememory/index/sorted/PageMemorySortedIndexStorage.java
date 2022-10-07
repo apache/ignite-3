@@ -17,6 +17,10 @@
 
 package org.apache.ignite.internal.storage.pagememory.index.sorted;
 
+import static org.apache.ignite.internal.util.CursorUtils.map;
+
+import java.nio.ByteBuffer;
+import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.storage.RowId;
@@ -28,7 +32,6 @@ import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumnsFreeList;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.internal.util.CursorUtils;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 
@@ -70,19 +73,15 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
 
     @Override
     public Cursor<RowId> get(BinaryTuple key) throws StorageException {
-        BinaryTuplePrefix prefix = BinaryTuplePrefix.fromBinaryTuple(key);
+        SortedIndexRowKey lowerBound = createLowerBound(BinaryTuplePrefix.fromBinaryTuple(key), true);
 
-        SortedIndexRowKey prefixKey = toSortedIndexRowKey(prefix);
-
-        Cursor<SortedIndexRow> cursor;
+        SortedIndexRowKey upperBound = createUpperBound(BinaryTuplePrefix.fromBinaryTuple(key), true);
 
         try {
-            cursor = sortedIndexTree.find(prefixKey, prefixKey);
+            return map(sortedIndexTree.find(lowerBound, upperBound), SortedIndexRow::rowId);
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Failed to create scan cursor", e);
         }
-
-        return CursorUtils.map(cursor, SortedIndexRow::rowId);
     }
 
     @Override
@@ -120,26 +119,60 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
 
     @Override
     public Cursor<IndexRow> scan(@Nullable BinaryTuplePrefix lowerBound, @Nullable BinaryTuplePrefix upperBound, int flags) {
-        Cursor<SortedIndexRow> cursor;
+        boolean includeLower = (flags & GREATER_OR_EQUAL) != 0;
+        boolean includeUpper = (flags & LESS_OR_EQUAL) != 0;
+
+        SortedIndexRowKey lower = createLowerBound(lowerBound, includeLower);
+
+        SortedIndexRowKey upper = createUpperBound(upperBound, includeUpper);
 
         try {
-            cursor = sortedIndexTree.find(
-                    toSortedIndexRowKey(lowerBound),
-                    toSortedIndexRowKey(upperBound),
-                    (flags & GREATER_OR_EQUAL) != 0,
-                    (flags & LESS_OR_EQUAL) != 0,
-                    null,
-                    null
-            );
+            Cursor<SortedIndexRow> cursor = sortedIndexTree.find(lower, upper, includeLower, includeUpper, null, null);
+
+            return map(cursor, this::toIndexRowImpl);
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Failed to create scan cursor", e);
         }
-
-        return CursorUtils.map(cursor, this::toIndexRowImpl);
     }
 
-    private @Nullable SortedIndexRowKey toSortedIndexRowKey(@Nullable BinaryTuplePrefix binaryTuple) {
-        return binaryTuple == null ? null : new SortedIndexRowKey(new IndexColumns(partitionId, binaryTuple.byteBuffer()));
+    private static void setEqualityFlag(BinaryTuplePrefix prefix) {
+        ByteBuffer buffer = prefix.byteBuffer();
+
+        byte flags = buffer.get(0);
+
+        buffer.put(0, (byte) (flags | BinaryTupleCommon.EQUALITY_FLAG));
+    }
+
+    @Nullable
+    private SortedIndexRowKey createLowerBound(@Nullable BinaryTuplePrefix bound, boolean include) {
+        if (bound == null) {
+            return null;
+        }
+
+        // Skip the lower bound, if needed.
+        if (!include) {
+            setEqualityFlag(bound);
+        }
+
+        return toSortedIndexRowKey(bound);
+    }
+
+    @Nullable
+    private SortedIndexRowKey createUpperBound(@Nullable BinaryTuplePrefix bound, boolean include) {
+        if (bound == null) {
+            return null;
+        }
+
+        // Include the upper bound, if needed.
+        if (include) {
+            setEqualityFlag(bound);
+        }
+
+        return toSortedIndexRowKey(bound);
+    }
+
+    private SortedIndexRowKey toSortedIndexRowKey(BinaryTuplePrefix binaryTuple) {
+        return new SortedIndexRowKey(new IndexColumns(partitionId, binaryTuple.byteBuffer()));
     }
 
     private IndexRowImpl toIndexRowImpl(SortedIndexRow sortedIndexRow) {
