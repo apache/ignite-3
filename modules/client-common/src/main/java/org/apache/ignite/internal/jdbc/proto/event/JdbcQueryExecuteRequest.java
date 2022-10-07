@@ -137,7 +137,7 @@ public class JdbcQueryExecuteRequest implements ClientMessage {
         packer.packInt(maxRows);
         packer.packString(sqlQry);
 
-        packer.packObjectArray(args);
+        packer.packObjectArrayAsBinaryTuple(args);
     }
 
     /** {@inheritDoc} */
@@ -149,7 +149,7 @@ public class JdbcQueryExecuteRequest implements ClientMessage {
         maxRows = unpacker.unpackInt();
         sqlQry = unpacker.unpackString();
 
-        args = unpacker.unpackObjectArray();
+        args = unpacker.unpackObjectArrayFromBinaryTuple();
     }
 
     /** {@inheritDoc} */

@@ -32,7 +32,7 @@ public class BitmaskNativeType extends NativeType {
      * @param bits The number of bits in the bitmask.
      */
     protected BitmaskNativeType(int bits) {
-        super(NativeTypeSpec.BITMASK, (bits + 7) / 8);
+        super(NativeTypeSpec.BITMASK, Math.max(1, (bits + 7) / 8));
 
         this.bits = bits;
     }
