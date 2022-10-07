@@ -56,7 +56,7 @@ public class BinaryTuplePrefixTest {
                 .appendDate(date)
                 .build();
 
-        assertTrue(BinaryTupleCommon.isPrefix(tuple));
+        assertTrue((tuple.get(0) & BinaryTupleCommon.PREFIX_FLAG) != 0);
 
         var prefix = new BinaryTuplePrefix(schema, tuple);
 
