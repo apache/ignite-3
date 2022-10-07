@@ -198,14 +198,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
 
         String nodeToStop = ignite1.name();
 
-        // Node restarting is not ideal for now, thus inhibitor is required.
-        WatchListenerInhibitor listenerInhibitor = WatchListenerInhibitor.metastorageEventsInhibitor(ignite1);
-
-        listenerInhibitor.startInhibit();
-
         IgnitionManager.stop(nodeToStop);
-
-        listenerInhibitor.stopWithoutResend();
 
         CompletableFuture<Ignite> ignite1Fut = nodesBootstrapCfg.entrySet().stream()
                 .filter(k -> k.getKey().equals(nodeToStop))
