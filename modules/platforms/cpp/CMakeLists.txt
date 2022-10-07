@@ -102,7 +102,10 @@ endif()
 
 # Add integration tests.
 if (${ENABLE_TESTS})
-    add_subdirectory(tests)
+    if (${ENABLE_CLIENT})
+        add_subdirectory(tests/test-common)
+        add_subdirectory(tests/client-test)
+    endif()
 endif()
 
 # Source code formatting with clang-format.
