@@ -564,14 +564,10 @@ public class NodeImpl implements Node, RaftServerService {
         return clock.update(timestamp);
     }
 
-    public HybridTimestamp safeTimeNow() {
-        return safeTimeClock != null ? safeTimeClock.now() : null;
-    }
-
     public void safeTimeClockSync(HybridTimestamp safeTimestamp) {
-        /*if (safeTimeClock != null) {
+        if (safeTimeClock != null) {
             safeTimeClock.sync(safeTimestamp);
-        }*/
+        }
     }
 
     private boolean initSnapshotStorage() {
@@ -1348,6 +1344,7 @@ public class NodeImpl implements Node, RaftServerService {
                             .term(electSelfTerm)
                             .lastLogIndex(lastLogId.getIndex())
                             .lastLogTerm(lastLogId.getTerm())
+                            .timestamp(clock.now())
                             .build();
                     this.rpcClientService.requestVote(peer.getEndpoint(), done.request, done);
                 });
@@ -1892,9 +1889,9 @@ public class NodeImpl implements Node, RaftServerService {
                 final LogId requestLastLogId = new LogId(request.lastLogIndex(), request.lastLogTerm());
                 granted = requestLastLogId.compareTo(lastLogId) >= 0;
 
-                /*if (request.safeTimestamp() != null) {
-                    safeTimeClockSync(request.safeTimestamp());
-                }*/
+                if (request.timestamp() != null) {
+                    safeTimeClockSync(request.timestamp());
+                }
 
                 LOG.info(
                     "Node {} received PreVoteRequest from {}, term={}, currTerm={}, granted={}, requestLastLogId={}, lastLogId={}.",
@@ -2016,9 +2013,9 @@ public class NodeImpl implements Node, RaftServerService {
                     this.metaStorage.setVotedFor(candidateId);
                 }
 
-                /*if (request.safeTimestamp() != null) {
-                    safeTimeClockSync(request.safeTimestamp());
-                }*/
+                if (request.timestamp() != null) {
+                    safeTimeClockSync(request.timestamp());
+                }
             }
             while (false);
 
@@ -2126,9 +2123,9 @@ public class NodeImpl implements Node, RaftServerService {
                         "Parse serverId failed: %s.", request.serverId());
             }
 
-            /*if (request.safeTimestamp() != null) {
-                safeTimeClockSync(request.safeTimestamp());
-            }*/
+            if (request.timestamp() != null) {
+                safeTimeClockSync(request.timestamp());
+            }
 
             // Check stale term
             if (request.term() < this.currTerm) {
@@ -2958,6 +2955,7 @@ public class NodeImpl implements Node, RaftServerService {
                             .term(preVoteTerm + 1) // next term
                             .lastLogIndex(lastLogId.getIndex())
                             .lastLogTerm(lastLogId.getTerm())
+                            .timestamp(clock.now())
                             .build();
                     this.rpcClientService.preVote(peer.getEndpoint(), done.request, done);
                 });

@@ -1589,6 +1589,8 @@ public class Replicator implements ThreadId.OnError {
             RecycleUtil.recycle(byteBufList);
         }
 
+        rb.timestamp(options.getNode().clockNow());
+
         final AppendEntriesRequest request = rb.build();
         if (LOG.isDebugEnabled()) {
             LOG.debug(
