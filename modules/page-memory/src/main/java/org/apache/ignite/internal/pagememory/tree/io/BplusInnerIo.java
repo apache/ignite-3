@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.PART
 import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.readPartitionlessPageId;
 import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.writePartitionlessPageId;
 
+import org.apache.ignite.internal.pagememory.util.PartitionlessLinks;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 
@@ -30,12 +31,11 @@ import org.jetbrains.annotations.Nullable;
  * Abstract IO routines for B+Tree inner pages.
  *
  * <p>The structure of the page is the following:
- * |ITEMS_OFF|w|A|x|B|y|C|z|
- * where capital letters are data items, lowercase letters are 8 byte page references.
+ * |ITEMS_OFF|w|A|x|B|y|C|z| where capital letters are data items, lowercase letters are page ID.
  * </p>
  */
 public abstract class BplusInnerIo<L> extends BplusIo<L> {
-    /** Offset of the left page ID of the item. */
+    /** Offset of the left page ID of the item - {@link PartitionlessLinks#PARTITIONLESS_PAGE_ID_SIZE_BYTES}. */
     private static final int SHIFT_LEFT = ITEMS_OFF;
 
     /** Offset of the link. */
