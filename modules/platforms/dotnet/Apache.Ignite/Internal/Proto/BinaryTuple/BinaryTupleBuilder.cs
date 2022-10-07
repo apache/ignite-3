@@ -885,7 +885,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         private void AppendTypeAndScale(ClientDataType type, int scale = 0)
         {
             AppendInt((int)type);
-            AppendInt(0);
+            AppendInt(scale);
         }
 
         private void OnWrite()
