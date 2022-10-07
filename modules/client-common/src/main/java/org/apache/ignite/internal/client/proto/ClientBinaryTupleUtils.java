@@ -238,85 +238,76 @@ public class ClientBinaryTupleUtils {
             builder.appendNull();
             builder.appendNull();
         } else if (obj instanceof Byte) {
-            builder.appendInt(ClientDataType.INT8);
-            builder.appendInt(0);
+            appendTypeAndScale(builder, INT8);
             builder.appendByte((Byte) obj);
         } else if (obj instanceof Short) {
-            builder.appendInt(ClientDataType.INT16);
-            builder.appendInt(0);
+            appendTypeAndScale(builder, INT16);
             builder.appendShort((Short) obj);
         } else if (obj instanceof Integer) {
-            builder.appendInt(ClientDataType.INT32);
-            builder.appendInt(0);
+            appendTypeAndScale(builder, INT32);
             builder.appendInt((Integer) obj);
         } else if (obj instanceof Long) {
-            builder.appendInt(ClientDataType.INT64);
-            builder.appendInt(0);
+            appendTypeAndScale(builder, INT64);
             builder.appendLong((Long) obj);
         } else if (obj instanceof Float) {
-            builder.appendInt(ClientDataType.FLOAT);
-            builder.appendInt(0);
+            appendTypeAndScale(builder, FLOAT);
             builder.appendFloat((Float) obj);
         } else if (obj instanceof Double) {
-            builder.appendInt(ClientDataType.DOUBLE);
-            builder.appendInt(0);
+            appendTypeAndScale(builder, DOUBLE);
             builder.appendDouble((Double) obj);
         } else if (obj instanceof BigDecimal) {
             BigDecimal bigDecimal = (BigDecimal) obj;
-            builder.appendInt(ClientDataType.DECIMAL);
-            builder.appendInt(bigDecimal.scale());
+            appendTypeAndScale(builder, DECIMAL, bigDecimal.scale());
             builder.appendDecimal(bigDecimal, bigDecimal.scale());
         } else if (obj instanceof java.util.UUID) {
-            builder.appendInt(ClientDataType.UUID);
-            builder.appendInt(0);
+            appendTypeAndScale(builder, UUID);
             builder.appendUuid((UUID) obj);
         } else if (obj instanceof String) {
-            builder.appendInt(ClientDataType.STRING);
-            builder.appendInt(0);
+            appendTypeAndScale(builder, STRING);
             builder.appendString((String) obj);
         } else if (obj instanceof byte[]) {
-            builder.appendInt(ClientDataType.BYTES);
-            builder.appendInt(0);
+            appendTypeAndScale(builder, BYTES);
             builder.appendBytes((byte[]) obj);
         } else if (obj instanceof BitSet) {
-            builder.appendInt(ClientDataType.BITMASK);
-            builder.appendInt(0);
+            appendTypeAndScale(builder, BITMASK);
             builder.appendBitmask((BitSet) obj);
         } else if (obj instanceof LocalDate) {
-            builder.appendInt(ClientDataType.DATE);
-            builder.appendInt(0);
+            appendTypeAndScale(builder, DATE);
             builder.appendDate((LocalDate) obj);
         } else if (obj instanceof LocalTime) {
-            builder.appendInt(ClientDataType.TIME);
-            builder.appendInt(0);
+            appendTypeAndScale(builder, TIME);
             builder.appendTime((LocalTime) obj);
         } else if (obj instanceof LocalDateTime) {
-            builder.appendInt(ClientDataType.DATETIME);
-            builder.appendInt(0);
+            appendTypeAndScale(builder, DATETIME);
             builder.appendDateTime((LocalDateTime) obj);
         } else if (obj instanceof Instant) {
-            builder.appendInt(ClientDataType.TIMESTAMP);
-            builder.appendInt(0);
+            appendTypeAndScale(builder, TIMESTAMP);
             builder.appendTimestamp((Instant) obj);
         } else if (obj instanceof BigInteger) {
-            builder.appendInt(ClientDataType.NUMBER);
-            builder.appendInt(0);
+            appendTypeAndScale(builder, NUMBER);
             builder.appendNumber((BigInteger) obj);
         } else if (obj instanceof Boolean) {
-            builder.appendInt(ClientDataType.BOOLEAN);
-            builder.appendInt(0);
+            appendTypeAndScale(builder, BOOLEAN);
             builder.appendByte((byte) ((Boolean) obj ? 1 : 0));
         } else if (obj instanceof Duration) {
-            builder.appendInt(ClientDataType.DURATION);
-            builder.appendInt(0);
+            appendTypeAndScale(builder, DURATION);
             builder.appendDuration((Duration) obj);
         } else if (obj instanceof Period) {
-            builder.appendInt(ClientDataType.PERIOD);
-            builder.appendInt(0);
+            appendTypeAndScale(builder, PERIOD);
             builder.appendPeriod((Period) obj);
         } else {
             throw unsupportedTypeException(obj.getClass());
         }
+    }
+
+    private static void appendTypeAndScale(BinaryTupleBuilder builder, int type, int scale) {
+        builder.appendInt(type);
+        builder.appendInt(scale);
+    }
+
+    private static void appendTypeAndScale(BinaryTupleBuilder builder, int type) {
+        builder.appendInt(type);
+        builder.appendInt(0);
     }
 
     private static IgniteException unsupportedTypeException(int dataType) {
