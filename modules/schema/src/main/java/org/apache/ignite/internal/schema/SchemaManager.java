@@ -68,15 +68,6 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
     /** Schema history key predicate part. */
     public static final String SCHEMA_STORE_PREDICATE = ".sch-hist:";
 
-    /**
-     * If this property is set to {@code true} then an attempt to get the configuration property directly from the meta storage will be
-     * skipped, and the local property will be returned.
-     * TODO: IGNITE-16774 This property and overall approach, access configuration directly through the Metastorage,
-     * TODO: will be removed after fix of the issue.
-     */
-    @TestOnly
-    private final boolean getMetadataLocallyOnly = IgniteSystemProperties.getBoolean("IGNITE_GET_METADATA_LOCALLY_ONLY");
-
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
