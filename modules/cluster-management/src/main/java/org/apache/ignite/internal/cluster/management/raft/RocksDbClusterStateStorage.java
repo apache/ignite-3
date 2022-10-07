@@ -20,6 +20,7 @@ package org.apache.ignite.internal.cluster.management.raft;
 import static org.apache.ignite.internal.rocksdb.snapshot.ColumnFamilyRange.fullRange;
 
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -114,7 +115,11 @@ public class RocksDbClusterStateStorage implements ClusterStateStorage {
                 var batch = new WriteBatch();
                 var options = new WriteOptions();
         ) {
-            batch.deleteRange(prefix, RocksUtils.incrementArray(prefix));
+            byte[] endKey = RocksUtils.incrementArray(prefix);
+
+            assert endKey != null : Arrays.toString(prefix);
+
+            batch.deleteRange(prefix, endKey);
 
             batch.put(key, value);
 

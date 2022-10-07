@@ -64,17 +64,23 @@ public class TestClusterStateStorage implements ClusterStateStorage {
 
     @Override
     public byte @Nullable [] get(byte[] key) {
-        return map.get(new ByteArray(key));
+        lock.readLock().lock();
+
+        try {
+            return map.get(new ByteArray(key));
+        } finally {
+            lock.readLock().unlock();
+        }
     }
 
     @Override
     public void put(byte[] key, byte[] value) {
-        lock.readLock().lock();
+        lock.writeLock().lock();
 
         try {
             map.put(new ByteArray(key), value);
         } finally {
-            lock.readLock().unlock();
+            lock.writeLock().unlock();
         }
     }
 

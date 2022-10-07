@@ -124,12 +124,45 @@ public abstract class AbstractClusterStateStorageTest {
         storage.put(key2, value2);
         storage.put(key3, value3);
 
+        // Replace by prefix common for all keys
+        storage.replaceAll("ke".getBytes(UTF_8), key1, value2);
+
+        assertThat(storage.get(key1), is(equalTo(value2)));
+        assertThat(storage.get(key2), is(nullValue()));
+        assertThat(storage.get(key3), is(nullValue()));
+    }
+
+    @Test
+    void testReplaceAllNonExistentPrefix() {
+        byte[] key1 = "key1".getBytes(UTF_8);
+        byte[] key2 = "key2".getBytes(UTF_8);
+        byte[] key3 = "keg".getBytes(UTF_8);
+
+        byte[] value1 = "value1".getBytes(UTF_8);
+        byte[] value2 = "value2".getBytes(UTF_8);
+        byte[] value3 = "value3".getBytes(UTF_8);
+
+        storage.put(key1, value1);
+        storage.put(key2, value2);
+        storage.put(key3, value3);
+
         // Replace by nonexistent prefix
         storage.replaceAll("bar".getBytes(UTF_8), key1, value3);
 
         assertThat(storage.get(key1), is(equalTo(value3)));
         assertThat(storage.get(key2), is(equalTo(value2)));
         assertThat(storage.get(key3), is(equalTo(value3)));
+    }
+
+    @Test
+    void testReplaceAllTwoKeys() {
+        byte[] key1 = "key1".getBytes(UTF_8);
+        byte[] key2 = "key2".getBytes(UTF_8);
+        byte[] key3 = "keg".getBytes(UTF_8);
+
+        byte[] value1 = "value1".getBytes(UTF_8);
+        byte[] value2 = "value2".getBytes(UTF_8);
+        byte[] value3 = "value3".getBytes(UTF_8);
 
         storage.put(key1, value1);
         storage.put(key2, value2);
@@ -141,17 +174,6 @@ public abstract class AbstractClusterStateStorageTest {
         assertThat(storage.get(key1), is(equalTo(value3)));
         assertThat(storage.get(key2), is(nullValue()));
         assertThat(storage.get(key3), is(equalTo(value3)));
-
-        storage.put(key1, value1);
-        storage.put(key2, value2);
-        storage.put(key3, value3);
-
-        // Replace by prefix common for all keys
-        storage.replaceAll("ke".getBytes(UTF_8), key1, value2);
-
-        assertThat(storage.get(key1), is(equalTo(value2)));
-        assertThat(storage.get(key2), is(nullValue()));
-        assertThat(storage.get(key3), is(nullValue()));
     }
 
     /**
