@@ -20,6 +20,7 @@ package org.apache.ignite.internal.pagememory.tree.io;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionId;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.getBytes;
+import static org.apache.ignite.internal.pagememory.util.PageUtils.getLong;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.getShort;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putLong;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putShort;
@@ -168,7 +169,7 @@ public abstract class BplusIo<L> extends PageIo {
      * @param pageAddr Page address.
      */
     public final long getRemoveId(long pageAddr) {
-        return PageUtils.getLong(pageAddr, REMOVE_ID_OFF);
+        return getLong(pageAddr, REMOVE_ID_OFF);
     }
 
     /**

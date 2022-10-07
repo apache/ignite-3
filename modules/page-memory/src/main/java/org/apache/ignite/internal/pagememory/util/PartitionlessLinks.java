@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.pagememory.util.PageIdUtils.flag;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.link;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageIndex;
+import static org.apache.ignite.internal.pagememory.util.PageIdUtils.rotationId;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.tag;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.getByte;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.getInt;
@@ -44,7 +45,7 @@ public class PartitionlessLinks {
     public static final int PARTITIONLESS_LINK_SIZE_BYTES = 6;
 
     /** Number of bytes a partitionless page ID takes in storage. */
-    public static final int PARTITIONLESS_PAGE_ID_SIZE_BYTES = 5;
+    public static final int PARTITIONLESS_PAGE_ID_SIZE_BYTES = 6;
 
     /**
      * Reads a partitionless link from the memory.
@@ -109,16 +110,19 @@ public class PartitionlessLinks {
      * @return Page ID with partition ID.
      */
     public static long readPartitionlessPageId(long addr, int off, int partId) {
-        byte flag = getByte(addr, off);
+        long rotationId = getByte(addr, off) & 0xFF;
 
-        int pageIdx = getInt(addr, off + Byte.BYTES);
+        byte flag = getByte(addr, off + Byte.BYTES);
 
-        return pageId(partId, flag, pageIdx);
+        int pageIdx = getInt(addr, off + Byte.BYTES + Byte.BYTES);
+
+        return pageId(partId, flag, pageIdx, rotationId);
     }
 
     /**
      * Writes a partitionless page ID to memory.
      * <ul>
+     *     <li>{@link PageIdUtils#rotationId} - 1 byte;</li>
      *     <li>{@link PageIdUtils#flag Flag} - 1 byte;</li>
      *     <li>{@link PageIdUtils#pageIndex Page index} - 4 bytes.</li>
      * </ul>
@@ -129,9 +133,11 @@ public class PartitionlessLinks {
      * @return Number of bytes written (equal to {@link #PARTITIONLESS_PAGE_ID_SIZE_BYTES}).
      */
     public static long writePartitionlessPageId(long addr, int off, long pageId) {
-        putByte(addr, off, flag(pageId));
+        putByte(addr, off, (byte) rotationId(pageId));
 
-        putInt(addr, off + Byte.BYTES, pageIndex(pageId));
+        putByte(addr, off + Byte.BYTES, flag(pageId));
+
+        putInt(addr, off + Byte.BYTES + Byte.BYTES, pageIndex(pageId));
 
         return PARTITIONLESS_PAGE_ID_SIZE_BYTES;
     }

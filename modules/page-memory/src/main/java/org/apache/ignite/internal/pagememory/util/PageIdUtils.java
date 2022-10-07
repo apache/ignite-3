@@ -129,6 +129,24 @@ public final class PageIdUtils {
     }
 
     /**
+     * Creates page ID from its components.
+     *
+     * @param partitionId Partition ID.
+     * @param flag Flag: {@link PageIdAllocator#FLAG_DATA} of {@link PageIdAllocator#FLAG_AUX}.
+     * @param pageIdx Page index, monotonically growing number within each partition.
+     * @param rotationId Rotation ID.
+     * @return Page ID constructed from the given pageIdx and partition ID, see {@link FullPageId}.
+     */
+    public static long pageId(int partitionId, byte flag, int pageIdx, long rotationId) {
+        long pageId = pageId(partitionId, flag, pageIdx);
+
+        pageId = (pageId & PAGE_ID_MASK) | (rotationId << ROTATION_ID_OFFSET);
+
+        return pageId;
+    }
+
+
+    /**
      * Converts page link into an effective page ID: page ID with only page index and partition ID.
      *
      * @param link Page link.
