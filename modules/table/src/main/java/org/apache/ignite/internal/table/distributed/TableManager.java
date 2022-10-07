@@ -849,7 +849,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             raftGroupOptions = RaftGroupOptions.forPersistentStores();
         }
 
-        //TODO Revisit peers String representation: https://issues.apache.org/jira/browse/IGNITE-17420
+        //TODO Revisit peers String representation: https://issues.apache.org/jira/browse/IGNITE-17814
         raftGroupOptions.snapshotStorageFactory(new PartitionSnapshotStorageFactory(
                 raftMgr.topologyService(),
                 //TODO IGNITE-17302 Use miniumum from mv storage and tx state storage.
