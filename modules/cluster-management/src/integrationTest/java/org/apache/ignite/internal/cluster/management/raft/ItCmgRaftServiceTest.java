@@ -81,7 +81,7 @@ public class ItCmgRaftServiceTest {
 
         private final Loza raftManager;
 
-        private final ClusterStateStorage raftStorage = new ConcurrentMapClusterStateStorage();
+        private final ClusterStateStorage raftStorage = new TestClusterStateStorage();
 
         Node(TestInfo testInfo, NetworkAddress addr, NodeFinder nodeFinder, Path workDir) {
             this.clusterService = clusterService(testInfo, addr.port(), nodeFinder);
