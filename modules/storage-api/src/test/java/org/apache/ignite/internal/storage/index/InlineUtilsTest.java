@@ -18,16 +18,22 @@
 package org.apache.ignite.internal.storage.index;
 
 import static org.apache.ignite.internal.storage.index.InlineUtils.BIG_NUMBER_INLINE_SIZE;
+import static org.apache.ignite.internal.storage.index.InlineUtils.MAX_BINARY_TUPLE_INLINE_SIZE;
 import static org.apache.ignite.internal.storage.index.InlineUtils.UNDEFINED_VARLEN_INLINE_SIZE;
+import static org.apache.ignite.internal.storage.index.InlineUtils.binaryTupleInlineSize;
 import static org.apache.ignite.internal.storage.index.InlineUtils.inlineSize;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.util.EnumSet;
+import java.util.List;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.NativeTypes;
+import org.apache.ignite.internal.storage.index.IndexDescriptor.ColumnDescriptor;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -106,5 +112,65 @@ public class InlineUtilsTest {
 
         // Let's check that all types have been checked.
         assertThat(nativeTypeSpecs, empty());
+    }
+
+    @Test
+    void testInlineSizeForBinaryTuple() {
+        IndexDescriptor indexDescriptor = testIndexDescriptor();
+
+        assertEquals(1, binaryTupleInlineSize(indexDescriptor));
+
+        indexDescriptor = testIndexDescriptor(
+                testColumnDescriptor(NativeTypes.INT8, false),
+                testColumnDescriptor(NativeTypes.UUID, false)
+        );
+
+        assertEquals(22, binaryTupleInlineSize(indexDescriptor));
+
+        indexDescriptor = testIndexDescriptor(
+                testColumnDescriptor(NativeTypes.INT8, true),
+                testColumnDescriptor(NativeTypes.UUID, false)
+        );
+
+        assertEquals(23, binaryTupleInlineSize(indexDescriptor));
+
+        indexDescriptor = testIndexDescriptor(
+                testColumnDescriptor(NativeTypes.INT8, true),
+                testColumnDescriptor(NativeTypes.stringOf(100), false),
+                testColumnDescriptor(NativeTypes.INT64, true)
+        );
+
+        assertEquals(217, binaryTupleInlineSize(indexDescriptor));
+
+        indexDescriptor = testIndexDescriptor(
+                testColumnDescriptor(NativeTypes.stringOf(MAX_BINARY_TUPLE_INLINE_SIZE), false),
+                testColumnDescriptor(NativeTypes.stringOf(MAX_BINARY_TUPLE_INLINE_SIZE), false)
+        );
+
+        assertEquals(MAX_BINARY_TUPLE_INLINE_SIZE, binaryTupleInlineSize(indexDescriptor));
+
+        indexDescriptor = testIndexDescriptor(
+                testColumnDescriptor(NativeTypes.stringOf(MAX_BINARY_TUPLE_INLINE_SIZE), true),
+                testColumnDescriptor(NativeTypes.stringOf(MAX_BINARY_TUPLE_INLINE_SIZE), false)
+        );
+
+        assertEquals(MAX_BINARY_TUPLE_INLINE_SIZE, binaryTupleInlineSize(indexDescriptor));
+    }
+
+    private static IndexDescriptor testIndexDescriptor(ColumnDescriptor... columnDescriptors) {
+        IndexDescriptor indexDescriptor = mock(IndexDescriptor.class);
+
+        when(indexDescriptor.columns()).then(answer -> List.of(columnDescriptors));
+
+        return indexDescriptor;
+    }
+
+    private static ColumnDescriptor testColumnDescriptor(NativeType nativeType, boolean nullable) {
+        ColumnDescriptor columnDescriptor = mock(ColumnDescriptor.class);
+
+        when(columnDescriptor.type()).thenReturn(nativeType);
+        when(columnDescriptor.nullable()).thenReturn(nullable);
+
+        return columnDescriptor;
     }
 }
