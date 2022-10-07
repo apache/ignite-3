@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Tests
 {
     using System.Collections.Generic;
+    using System.Data;
     using System.Threading.Tasks;
     using Ignite.Table;
     using NUnit.Framework;
@@ -178,6 +179,25 @@ namespace Apache.Ignite.Tests
         }
 
         [Test]
+        public async Task TestExceptionInRetryPolicyPropagatesToCaller()
+        {
+            var testRetryPolicy = new TestRetryPolicy { ShouldThrow = true };
+
+            var cfg = new IgniteClientConfiguration
+            {
+                RetryPolicy = testRetryPolicy
+            };
+
+            using var server = new FakeServer(reqId => reqId % 2 == 0);
+            using var client = await server.ConnectClientAsync(cfg);
+
+            await client.Tables.GetTablesAsync();
+
+            var ex = Assert.ThrowsAsync<DataException>(async () => await client.Tables.GetTablesAsync());
+            Assert.AreEqual("Error in TestRetryPolicy.", ex!.Message);
+        }
+
+        [Test]
         public async Task TestTableOperationWithoutTxIsRetried()
         {
             var cfg = new IgniteClientConfiguration
@@ -253,9 +273,16 @@ namespace Apache.Ignite.Tests
 
             public IReadOnlyList<IRetryPolicyContext> Invocations => _invocations;
 
+            public bool ShouldThrow { get; set; }
+
             public override bool ShouldRetry(IRetryPolicyContext context)
             {
                 _invocations.Add(context);
+
+                if (ShouldThrow)
+                {
+                    throw new DataException("Error in TestRetryPolicy.");
+                }
 
                 return base.ShouldRetry(context);
             }

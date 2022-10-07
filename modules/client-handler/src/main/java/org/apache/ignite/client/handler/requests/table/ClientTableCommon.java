@@ -22,7 +22,6 @@ import static org.apache.ignite.lang.ErrorGroups.Client.TABLE_ID_NOT_FOUND_ERR;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -137,6 +136,7 @@ public class ClientTableCommon {
             packer.packInt(schema.version());
         }
 
+        // TODO IGNITE-17636 Avoid conversion, copy BinaryTuple from storage to client.
         var builder = new BinaryTupleBuilder(columnCount(schema, part), true);
 
         if (part != TuplePart.VAL) {
@@ -151,7 +151,7 @@ public class ClientTableCommon {
             }
         }
 
-        packBinary(packer, builder.build());
+        packer.packBinaryTuple(builder);
     }
 
     /**
@@ -518,11 +518,6 @@ public class ClientTableCommon {
             case VAL: return schema.valueColumns().length();
             default: return schema.length();
         }
-    }
-
-    private static void packBinary(ClientMessagePacker packer, ByteBuffer buf) {
-        packer.packBinaryHeader(buf.limit() - buf.position());
-        packer.writePayload(buf);
     }
 
     private static int getDecimalScale(NativeType type) {

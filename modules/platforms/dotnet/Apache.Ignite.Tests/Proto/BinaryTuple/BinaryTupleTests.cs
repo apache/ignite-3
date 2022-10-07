@@ -21,6 +21,7 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
     using System.Collections;
     using System.Linq;
     using System.Numerics;
+    using Internal.Proto;
     using Internal.Proto.BinaryTuple;
     using NodaTime;
     using NUnit.Framework;
@@ -332,6 +333,27 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
         }
 
         [Test]
+        public void TestStringNullable()
+        {
+            var values = new[] {"ascii", string.Empty, null};
+
+            var reader = BuildAndRead(
+                (ref BinaryTupleBuilder b) =>
+                {
+                    foreach (var value in values)
+                    {
+                        b.AppendStringNullable(value);
+                    }
+                },
+                numElements: values.Length);
+
+            for (var i = 0; i < values.Length; i++)
+            {
+               Assert.AreEqual(values[i], reader.GetStringNullable(i));
+            }
+        }
+
+        [Test]
         public void TestGuid()
         {
             var guid = Guid.NewGuid();
@@ -396,12 +418,22 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
             Test(0, 3);
             Test(0, 0);
 
+            Test(decimal.MaxValue, 0);
+            Test(decimal.MinValue, 0);
+
             Test(12345.6789m, 4);
             Test(12345.678m, 4);
             Test(12345.67m, 4);
 
+            Test(-12345.6789m, 4);
+            Test(-12345.678m, 4);
+            Test(-12345.67m, 4);
+
             Test(12345.6789m, 2, 12345.67m);
             Test(12345.6789m, 0, 12345m);
+
+            Test(-12345.6789m, 2, -12345.67m);
+            Test(-12345.6789m, 0, -12345m);
 
             static void Test(decimal val, int scale, decimal? expected = null)
             {
@@ -584,6 +616,135 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
 
             static void AssertNotSupported(Period p) =>
                 Assert.Throws<NotSupportedException>(() => BuildAndRead((ref BinaryTupleBuilder b) => b.AppendPeriod(p)));
+        }
+
+        [Test]
+        public void TestDefault()
+        {
+            var reader = BuildAndRead((ref BinaryTupleBuilder b) => b.AppendDefault());
+
+            Assert.AreEqual(0, reader.GetInt(0));
+            Assert.AreEqual(0, reader.GetByte(0));
+            Assert.AreEqual(0, reader.GetShort(0));
+            Assert.AreEqual(0, reader.GetLong(0));
+            Assert.AreEqual(0, reader.GetDouble(0));
+            Assert.AreEqual(0, reader.GetFloat(0));
+            Assert.AreEqual(0, reader.GetDecimal(0, 123));
+            Assert.AreEqual(BigInteger.Zero, reader.GetNumber(0));
+            Assert.AreEqual(string.Empty, reader.GetString(0));
+            Assert.AreEqual(string.Empty, reader.GetStringNullable(0));
+            Assert.AreEqual(new BitArray(0), reader.GetBitmask(0));
+            Assert.AreEqual(Guid.Empty, reader.GetGuid(0));
+            Assert.AreEqual(Array.Empty<byte>(), reader.GetBytes(0));
+            Assert.AreEqual(Duration.Zero, reader.GetDuration(0));
+            Assert.AreEqual(Period.Zero, reader.GetPeriod(0));
+            Assert.AreEqual(LocalTime.Midnight, reader.GetTime(0));
+            Assert.AreEqual(default(LocalDate), reader.GetDate(0));
+            Assert.AreEqual(default(LocalDateTime), reader.GetDateTime(0));
+        }
+
+        [Test]
+        public void TestObject()
+        {
+            var guid = Guid.NewGuid();
+            var utcNow = DateTime.UtcNow;
+            var date = LocalDate.FromDateTime(utcNow);
+            var dateTime = LocalDateTime.FromDateTime(utcNow);
+            var bitArray = new BitArray(new[] { byte.MaxValue });
+            var bytes = new byte[] { 1, 2 };
+
+            var reader = BuildAndRead(
+                (ref BinaryTupleBuilder b) =>
+                {
+                    b.AppendObject(null, ClientDataType.String);
+                    b.AppendObject(sbyte.MaxValue, ClientDataType.Int8);
+                    b.AppendObject(short.MaxValue, ClientDataType.Int16);
+                    b.AppendObject(int.MaxValue, ClientDataType.Int32);
+                    b.AppendObject(long.MaxValue, ClientDataType.Int64);
+                    b.AppendObject(float.MaxValue, ClientDataType.Float);
+                    b.AppendObject(double.MaxValue, ClientDataType.Double);
+                    b.AppendObject(decimal.One, ClientDataType.Decimal);
+                    b.AppendObject(BigInteger.One, ClientDataType.Number);
+                    b.AppendObject("foo", ClientDataType.String);
+                    b.AppendObject(bitArray, ClientDataType.BitMask);
+                    b.AppendObject(guid, ClientDataType.Uuid);
+                    b.AppendObject(bytes, ClientDataType.Bytes);
+                    b.AppendObject(LocalTime.FromMinutesSinceMidnight(123), ClientDataType.Time);
+                    b.AppendObject(date, ClientDataType.Date);
+                    b.AppendObject(dateTime, ClientDataType.DateTime);
+                    b.AppendObject(Instant.FromDateTimeUtc(utcNow), ClientDataType.Timestamp);
+                },
+                17);
+
+            Assert.IsNull(reader.GetObject(0, ClientDataType.String));
+            Assert.AreEqual(sbyte.MaxValue, reader.GetObject(1, ClientDataType.Int8));
+            Assert.AreEqual(short.MaxValue, reader.GetObject(2, ClientDataType.Int16));
+            Assert.AreEqual(int.MaxValue, reader.GetObject(3, ClientDataType.Int32));
+            Assert.AreEqual(long.MaxValue, reader.GetObject(4, ClientDataType.Int64));
+            Assert.AreEqual(float.MaxValue, reader.GetObject(5, ClientDataType.Float));
+            Assert.AreEqual(double.MaxValue, reader.GetObject(6, ClientDataType.Double));
+            Assert.AreEqual(decimal.One, reader.GetObject(7, ClientDataType.Decimal));
+            Assert.AreEqual(BigInteger.One, reader.GetObject(8, ClientDataType.Number));
+            Assert.AreEqual("foo", reader.GetObject(9, ClientDataType.String));
+            Assert.AreEqual(bitArray, reader.GetObject(10, ClientDataType.BitMask));
+            Assert.AreEqual(guid, reader.GetObject(11, ClientDataType.Uuid));
+            Assert.AreEqual(bytes, reader.GetObject(12, ClientDataType.Bytes));
+            Assert.AreEqual(LocalTime.FromMinutesSinceMidnight(123), reader.GetObject(13, ClientDataType.Time));
+            Assert.AreEqual(date, reader.GetObject(14, ClientDataType.Date));
+            Assert.AreEqual(dateTime, reader.GetObject(15, ClientDataType.DateTime));
+            Assert.AreEqual(Instant.FromDateTimeUtc(utcNow), reader.GetObject(16, ClientDataType.Timestamp));
+        }
+
+        [Test]
+        public void TestObjectWithType()
+        {
+            var guid = Guid.NewGuid();
+            var utcNow = DateTime.UtcNow;
+            var date = LocalDate.FromDateTime(utcNow);
+            var dateTime = LocalDateTime.FromDateTime(utcNow);
+            var bitArray = new BitArray(new[] { byte.MaxValue });
+            var bytes = new byte[] { 1, 2 };
+
+            var reader = BuildAndRead(
+                (ref BinaryTupleBuilder b) =>
+                {
+                    b.AppendObjectWithType(null);
+                    b.AppendObjectWithType(sbyte.MaxValue);
+                    b.AppendObjectWithType(short.MaxValue);
+                    b.AppendObjectWithType(int.MaxValue);
+                    b.AppendObjectWithType(long.MaxValue);
+                    b.AppendObjectWithType(float.MaxValue);
+                    b.AppendObjectWithType(double.MaxValue);
+                    b.AppendObjectWithType(decimal.One);
+                    b.AppendObjectWithType(BigInteger.One);
+                    b.AppendObjectWithType("foo");
+                    b.AppendObjectWithType(bitArray);
+                    b.AppendObjectWithType(guid);
+                    b.AppendObjectWithType(bytes);
+                    b.AppendObjectWithType(LocalTime.FromMinutesSinceMidnight(123));
+                    b.AppendObjectWithType(date);
+                    b.AppendObjectWithType(dateTime);
+                    b.AppendObjectWithType(Instant.FromDateTimeUtc(utcNow));
+                },
+                17 * 3);
+
+            Assert.IsNull(reader.GetObject(0));
+            Assert.AreEqual(sbyte.MaxValue, reader.GetObject(3));
+            Assert.AreEqual(short.MaxValue, reader.GetObject(6));
+            Assert.AreEqual(int.MaxValue, reader.GetObject(9));
+            Assert.AreEqual(long.MaxValue, reader.GetObject(12));
+            Assert.AreEqual(float.MaxValue, reader.GetObject(15));
+            Assert.AreEqual(double.MaxValue, reader.GetObject(18));
+            Assert.AreEqual(decimal.One, reader.GetObject(21));
+            Assert.AreEqual(BigInteger.One, reader.GetObject(24));
+            Assert.AreEqual("foo", reader.GetObject(27));
+            Assert.AreEqual(bitArray, reader.GetObject(30));
+            Assert.AreEqual(guid, reader.GetObject(33));
+            Assert.AreEqual(bytes, reader.GetObject(36));
+            Assert.AreEqual(LocalTime.FromMinutesSinceMidnight(123), reader.GetObject(39));
+            Assert.AreEqual(date, reader.GetObject(42));
+            Assert.AreEqual(dateTime, reader.GetObject(45));
+            Assert.AreEqual(Instant.FromDateTimeUtc(utcNow), reader.GetObject(48));
         }
 
         private static BinaryTupleReader BuildAndRead(BinaryTupleBuilderAction build, int numElements = 1)

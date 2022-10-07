@@ -81,7 +81,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
             _valueBase = baseOffset + _entrySize * numElements;
 
-            _buffer.GetSpan(_valueBase);
+            _buffer.GetSpan(_valueBase).Clear();
             _buffer.Advance(_valueBase);
         }
 
@@ -253,12 +253,11 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             if (value == null)
             {
                 AppendNull();
-                return;
             }
-
-            PutString(value);
-
-            OnWrite();
+            else
+            {
+                AppendString(value);
+            }
         }
 
         /// <summary>
@@ -320,27 +319,12 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="scale">Decimal scale from schema.</param>
         public void AppendDecimal(decimal value, int scale)
         {
-            var bits = decimal.GetBits(value);
-            var valueScale = (bits[3] & 0x00FF0000) >> 16;
-
-            var bytes = MemoryMarshal.Cast<int, byte>(bits.AsSpan(0, 3));
-            var unscaledValue = new BigInteger(bytes);
-
-            if (scale > valueScale)
+            if (value != decimal.Zero)
             {
-                unscaledValue *= BigInteger.Pow(new BigInteger(10), scale - valueScale);
-            }
-            else if (scale < valueScale)
-            {
-                unscaledValue /= BigInteger.Pow(new BigInteger(10), valueScale - scale);
-            }
+                var (unscaledValue, valueScale) = DeconstructDecimal(value);
 
-            var size = unscaledValue.GetByteCount();
-            var destination = GetSpan(size);
-            var success = unscaledValue.TryWriteBytes(destination, out int written);
-
-            Debug.Assert(success, "success");
-            Debug.Assert(written == size, "written == size");
+                PutDecimal(scale, unscaledValue, valueScale);
+            }
 
             OnWrite();
         }
@@ -355,7 +339,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             {
                 var size = value.GetByteCount();
                 var destination = GetSpan(size);
-                var success = value.TryWriteBytes(destination, out int written);
+                var success = value.TryWriteBytes(destination, out int written, isBigEndian: true);
 
                 Debug.Assert(success, "success");
                 Debug.Assert(written == size, "written == size");
@@ -455,7 +439,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="value">Value.</param>
         /// <param name="colType">Column type.</param>
         /// <param name="scale">Decimal scale.</param>
-        public void AppendObject(object? value, ClientDataType colType, int scale)
+        public void AppendObject(object? value, ClientDataType colType, int scale = 0)
         {
             if (value == null)
             {
@@ -531,6 +515,107 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
                 default:
                     throw new IgniteClientException(ErrorGroups.Client.Protocol, "Unsupported type: " + colType);
+            }
+        }
+
+        /// <summary>
+        /// Appends an object.
+        /// </summary>
+        /// <param name="value">Value.</param>
+        public void AppendObjectWithType(object? value)
+        {
+            switch (value)
+            {
+                case null:
+                    AppendNull(); // Type.
+                    AppendNull(); // Scale.
+                    AppendNull(); // Value.
+                    break;
+
+                case int i32:
+                    AppendTypeAndScale(ClientDataType.Int32);
+                    AppendInt(i32);
+                    break;
+
+                case long i64:
+                    AppendTypeAndScale(ClientDataType.Int64);
+                    AppendLong(i64);
+                    break;
+
+                case string str:
+                    AppendTypeAndScale(ClientDataType.String);
+                    AppendString(str);
+                    break;
+
+                case Guid uuid:
+                    AppendTypeAndScale(ClientDataType.Uuid);
+                    AppendGuid(uuid);
+                    break;
+
+                case sbyte i8:
+                    AppendTypeAndScale(ClientDataType.Int8);
+                    AppendByte(i8);
+                    break;
+
+                case short i16:
+                    AppendTypeAndScale(ClientDataType.Int16);
+                    AppendShort(i16);
+                    break;
+
+                case float f32:
+                    AppendTypeAndScale(ClientDataType.Float);
+                    AppendFloat(f32);
+                    break;
+
+                case double f64:
+                    AppendTypeAndScale(ClientDataType.Double);
+                    AppendDouble(f64);
+                    break;
+
+                case byte[] bytes:
+                    AppendTypeAndScale(ClientDataType.Bytes);
+                    AppendBytes(bytes);
+                    break;
+
+                case decimal dec:
+                    var (unscaled, scale) = DeconstructDecimal(dec);
+                    AppendTypeAndScale(ClientDataType.Decimal, scale);
+                    PutDecimal(scale, unscaled, scale);
+                    OnWrite();
+                    break;
+
+                case BigInteger bigInt:
+                    AppendTypeAndScale(ClientDataType.Number);
+                    AppendNumber(bigInt);
+                    break;
+
+                case LocalDate localDate:
+                    AppendTypeAndScale(ClientDataType.Date);
+                    AppendDate(localDate);
+                    break;
+
+                case LocalTime localTime:
+                    AppendTypeAndScale(ClientDataType.Time);
+                    AppendTime(localTime);
+                    break;
+
+                case LocalDateTime localDateTime:
+                    AppendTypeAndScale(ClientDataType.DateTime);
+                    AppendDateTime(localDateTime);
+                    break;
+
+                case Instant instant:
+                    AppendTypeAndScale(ClientDataType.Timestamp);
+                    AppendTimestamp(instant);
+                    break;
+
+                case BitArray bitArray:
+                    AppendTypeAndScale(ClientDataType.BitMask);
+                    AppendBitmask(bitArray);
+                    break;
+
+                default:
+                    throw new IgniteClientException(ErrorGroups.Client.Protocol, "Unsupported type: " + value.GetType());
             }
         }
 
@@ -615,6 +700,39 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         public void Dispose()
         {
             _buffer.Dispose();
+        }
+
+        private static (BigInteger Unscaled, int Scale) DeconstructDecimal(decimal value)
+        {
+            Span<int> bits = stackalloc int[4];
+            decimal.GetBits(value, bits);
+
+            var scale = (bits[3] & 0x00FF0000) >> 16;
+            var sign = bits[3] >> 31;
+
+            var bytes = MemoryMarshal.Cast<int, byte>(bits[..3]);
+            var unscaled = new BigInteger(bytes, true);
+
+            return (sign < 0 ? -unscaled : unscaled, scale);
+        }
+
+        private void PutDecimal(int scale, BigInteger unscaledValue, int valueScale)
+        {
+            if (scale > valueScale)
+            {
+                unscaledValue *= BigInteger.Pow(new BigInteger(10), scale - valueScale);
+            }
+            else if (scale < valueScale)
+            {
+                unscaledValue /= BigInteger.Pow(new BigInteger(10), valueScale - scale);
+            }
+
+            var size = unscaledValue.GetByteCount();
+            var destination = GetSpan(size);
+            var success = unscaledValue.TryWriteBytes(destination, out int written, isBigEndian: true);
+
+            Debug.Assert(success, "success");
+            Debug.Assert(written == size, "written == size");
         }
 
         private void PutByte(sbyte value) => _buffer.WriteByte(unchecked((byte)value));
@@ -764,9 +882,12 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             buf[1..].CopyTo(GetSpan(3));
         }
 
-        /// <summary>
-        /// Proceed to the next tuple element.
-        /// </summary>
+        private void AppendTypeAndScale(ClientDataType type, int scale = 0)
+        {
+            AppendInt((int)type);
+            AppendInt(scale);
+        }
+
         private void OnWrite()
         {
             Debug.Assert(_elementIndex < _numElements, "_elementIndex < _numElements");
