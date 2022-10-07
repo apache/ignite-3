@@ -234,9 +234,9 @@ public class ClientBinaryTupleUtils {
      */
     public static void appendObject(BinaryTupleBuilder builder, Object obj) {
         if (obj == null) {
-            builder.appendNull();
-            builder.appendNull();
-            builder.appendNull();
+            builder.appendNull(); // Type.
+            builder.appendNull(); // Scale.
+            builder.appendNull(); // Value.
         } else if (obj instanceof Byte) {
             appendTypeAndScale(builder, INT8);
             builder.appendByte((Byte) obj);
