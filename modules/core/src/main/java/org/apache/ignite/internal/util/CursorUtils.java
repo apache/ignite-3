@@ -18,10 +18,7 @@
 package org.apache.ignite.internal.util;
 
 import java.util.Collections;
-import java.util.NoSuchElementException;
 import java.util.function.Function;
-import java.util.function.Predicate;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Utility class for working with cursors.
@@ -38,153 +35,6 @@ public class CursorUtils {
      */
     public static <T> Cursor<T> emptyCursor() {
         return (Cursor<T>) EMPTY;
-    }
-
-    /**
-     * Cursor wrapper that discards elements while they match a given predicate. As soon as any element does not match the predicate,
-     * no more elements will be discarded.
-     *
-     * @param <T> Cursor element type.
-     */
-    private static class DropWhileCursor<T> implements Cursor<T> {
-        private final Cursor<T> cursor;
-
-        @Nullable
-        private Predicate<T> predicate;
-
-        @Nullable
-        private T firstNotMatchedElement;
-
-        DropWhileCursor(Cursor<T> cursor, Predicate<T> predicate) {
-            this.cursor = cursor;
-            this.predicate = predicate;
-        }
-
-        @Override
-        public void close() throws Exception {
-            cursor.close();
-        }
-
-        @Override
-        public boolean hasNext() {
-            if (predicate == null) {
-                return firstNotMatchedElement != null || cursor.hasNext();
-            }
-
-            while (cursor.hasNext()) {
-                firstNotMatchedElement = cursor.next();
-
-                if (!predicate.test(firstNotMatchedElement)) {
-                    predicate = null;
-
-                    break;
-                }
-            }
-
-            return predicate == null;
-        }
-
-        @Override
-        public T next() {
-            if (!hasNext()) {
-                throw new NoSuchElementException();
-            }
-
-            if (firstNotMatchedElement != null) {
-                T next = firstNotMatchedElement;
-
-                firstNotMatchedElement = null;
-
-                return next;
-            } else {
-                return cursor.next();
-            }
-        }
-    }
-
-    /**
-     * Creates a cursor wrapper that discards elements while they match a given predicate. As soon as any element does not match the
-     * predicate, no more elements will be discarded.
-     *
-     * @param cursor Underlying cursor with data.
-     * @param predicate Predicate for elements to be discarded.
-     * @param <T> Cursor element type.
-     * @return Cursor wrapper.
-     */
-    public static <T> Cursor<T> dropWhile(Cursor<T> cursor, Predicate<T> predicate) {
-        return new DropWhileCursor<>(cursor, predicate);
-    }
-
-    /**
-     * Cursor wrapper that discards elements if they don't match a given predicate. As soon as any element does not match the predicate,
-     * all following elements will be discarded.
-     *
-     * @param <T> Cursor element type.
-     */
-    private static class TakeWhileCursor<T> implements Cursor<T> {
-        private final Cursor<T> cursor;
-
-        @Nullable
-        private Predicate<T> predicate;
-
-        @Nullable
-        private T next;
-
-        TakeWhileCursor(Cursor<T> cursor, Predicate<T> predicate) {
-            this.cursor = cursor;
-            this.predicate = predicate;
-        }
-
-        @Override
-        public void close() throws Exception {
-            cursor.close();
-        }
-
-        @Override
-        public boolean hasNext() {
-            if (next != null) {
-                return true;
-            } else if (predicate == null || !cursor.hasNext()) {
-                return false;
-            }
-
-            next = cursor.next();
-
-            if (predicate.test(next)) {
-                return true;
-            } else {
-                predicate = null;
-                next = null;
-
-                return false;
-            }
-        }
-
-        @Override
-        public T next() {
-            if (!hasNext()) {
-                throw new NoSuchElementException();
-            }
-
-            T result = next;
-
-            next = null;
-
-            return result;
-        }
-    }
-
-    /**
-     * Creates a cursor wrapper that discards elements if they don't match a given predicate. As soon as any element does not match the
-     * predicate, all following elements will be discarded.
-     *
-     * @param cursor Underlying cursor with data.
-     * @param predicate Predicate for elements to be kept.
-     * @param <T> Cursor element type.
-     * @return Cursor wrapper.
-     */
-    public static <T> Cursor<T> takeWhile(Cursor<T> cursor, Predicate<T> predicate) {
-        return new TakeWhileCursor<>(cursor, predicate);
     }
 
     /**
@@ -230,42 +80,5 @@ public class CursorUtils {
      */
     public static <T, U> Cursor<U> map(Cursor<T> cursor, Function<T, U> mapper) {
         return new MapCursor<>(cursor, mapper);
-    }
-
-    /**
-     * Creates a cursor that iterates over both given cursors.
-     *
-     * @param a First cursor.
-     * @param b Second cursor.
-     * @param <T> Cursor element type.
-     * @return Cursor that iterates over both given cursors.
-     */
-    public static <T> Cursor<T> concat(Cursor<T> a, Cursor<T> b) {
-        return new Cursor<>() {
-            private Cursor<T> currentCursor = a;
-
-            @Override
-            public void close() throws Exception {
-                IgniteUtils.closeAll(a, b);
-            }
-
-            @Override
-            public boolean hasNext() {
-                if (currentCursor.hasNext()) {
-                    return true;
-                } else if (currentCursor == b) {
-                    return false;
-                } else {
-                    currentCursor = b;
-
-                    return currentCursor.hasNext();
-                }
-            }
-
-            @Override
-            public T next() {
-                return currentCursor.next();
-            }
-        };
     }
 }

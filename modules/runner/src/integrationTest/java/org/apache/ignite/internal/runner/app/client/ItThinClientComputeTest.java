@@ -216,7 +216,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     }
 
     private void testEchoArg(Object arg) {
-        Object res = client().compute().execute(Set.of(node(0)), EchoJob.class, arg).join();
+        Object res = client().compute().execute(Set.of(node(0)), EchoJob.class, arg, arg.toString()).join();
 
         if (arg instanceof byte[]) {
             assertArrayEquals((byte[]) arg, (byte[]) res);
@@ -266,6 +266,14 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     private static class EchoJob implements ComputeJob<Object> {
         @Override
         public Object execute(JobExecutionContext context, Object... args) {
+            var value = args[0];
+
+            if (!(value instanceof byte[])) {
+                var expectedString = (String) args[1];
+                var valueString = value == null ? "null" : value.toString();
+                assertEquals(expectedString, valueString, "Unexpected string representation of value");
+            }
+
             return args[0];
         }
     }

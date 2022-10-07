@@ -23,48 +23,13 @@ namespace Apache.Ignite.Internal.Proto
     internal enum ClientMessagePackType
     {
         /// <summary>
-        /// Number.
-        /// </summary>
-        Number = 1,
-
-        /// <summary>
-        /// Decimal.
-        /// </summary>
-        Decimal = 2,
-
-        /// <summary>
         /// UUID / Guid.
         /// </summary>
         Uuid = 3,
 
         /// <summary>
-        /// Date.
-        /// </summary>
-        Date = 4,
-
-        /// <summary>
-        /// Time.
-        /// </summary>
-        Time = 5,
-
-        /// <summary>
-        /// DateTime.
-        /// </summary>
-        Datetime = 6,
-
-        /// <summary>
-        /// Timestamp.
-        /// </summary>
-        Timestamp = 7,
-
-        /// <summary>
         /// Bitmask.
         /// </summary>
         Bitmask = 8,
-
-        /// <summary>
-        /// Absent value for a column.
-        /// </summary>
-        NoValue = 10
     }
 }

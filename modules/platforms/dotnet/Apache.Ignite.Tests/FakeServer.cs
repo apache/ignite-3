@@ -29,6 +29,7 @@ namespace Apache.Ignite.Tests
     using Internal.Buffers;
     using Internal.Network;
     using Internal.Proto;
+    using Internal.Proto.BinaryTuple;
     using MessagePack;
     using Network;
 
@@ -160,7 +161,9 @@ namespace Apache.Ignite.Tests
             writer.WriteArrayHeader(500); // Page size.
             for (int i = 0; i < 500; i++)
             {
-                writer.Write(i + 512); // Row of one.
+                using var tuple = new BinaryTupleBuilder(1, false);
+                tuple.AppendInt(i + 512);
+                writer.Write(tuple.Build().Span);
             }
 
             writer.Write(false); // Has next.
@@ -181,11 +184,18 @@ namespace Apache.Ignite.Tests
             props["sessionTimeoutMs"] = reader.TryReadNil() ? (long?)null : reader.ReadInt64();
 
             // ReSharper restore RedundantCast
-            var propCount = reader.ReadMapHeader();
+            var propCount = reader.ReadInt32();
+            var propTuple = new BinaryTupleReader(reader.ReadBytesAsMemory(), propCount * 4);
 
             for (int i = 0; i < propCount; i++)
             {
-                props[reader.ReadString()] = reader.ReadObjectWithType();
+                var idx = i * 4;
+
+                var name = propTuple.GetString(idx);
+                var type = (ClientDataType)propTuple.GetInt(idx + 1);
+                var scale = propTuple.GetInt(idx + 2);
+
+                props[name] = propTuple.GetObject(idx + 3, type, scale);
             }
 
             var sql = reader.ReadString();
@@ -219,11 +229,13 @@ namespace Apache.Ignite.Tests
                 writer.Write(0); // Precision.
                 writer.Write(false); // No origin.
 
-                writer.WriteArrayHeader(props.Count);
+                writer.WriteArrayHeader(props.Count); // Page size.
                 foreach (var (key, val) in props)
                 {
-                    writer.Write(key);
-                    writer.Write(val?.ToString() ?? string.Empty);
+                    using var tuple = new BinaryTupleBuilder(2, false);
+                    tuple.AppendString(key);
+                    tuple.AppendString(val?.ToString() ?? string.Empty);
+                    writer.Write(tuple.Build().Span);
                 }
             }
             else
@@ -244,7 +256,9 @@ namespace Apache.Ignite.Tests
                 writer.WriteArrayHeader(512); // Page size.
                 for (int i = 0; i < 512; i++)
                 {
-                    writer.Write(i); // Row of one.
+                    using var tuple = new BinaryTupleBuilder(1, false);
+                    tuple.AppendInt(i);
+                    writer.Write(tuple.Build().Span);
                 }
             }
 
@@ -364,7 +378,7 @@ namespace Apache.Ignite.Tests
                     {
                         using var arrayBufferWriter = new PooledArrayBufferWriter();
                         var writer = new MessagePackWriter(arrayBufferWriter);
-                        writer.WriteObjectWithType(Node.Name);
+                        writer.WriteObjectAsBinaryTuple(Node.Name);
                         writer.Flush();
 
                         Send(handler, requestId, arrayBufferWriter);

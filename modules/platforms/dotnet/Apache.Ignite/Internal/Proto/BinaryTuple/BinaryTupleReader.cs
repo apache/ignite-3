@@ -224,7 +224,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         public BigInteger GetNumber(int index) => Seek(index) switch
         {
             { IsEmpty: true } => default,
-            var s => new BigInteger(s)
+            var s => new BigInteger(s, isBigEndian: true)
         };
 
         /// <summary>
@@ -323,7 +323,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="columnType">Column type.</param>
         /// <param name="scale">Column decimal scale.</param>
         /// <returns>Value.</returns>
-        public object? GetObject(int index, ClientDataType columnType, int scale)
+        public object? GetObject(int index, ClientDataType columnType, int scale = 0)
         {
             if (IsNull(index))
             {
@@ -350,6 +350,24 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                 ClientDataType.Number => GetNumber(index),
                 _ => throw new IgniteClientException(ErrorGroups.Client.Protocol, "Unsupported type: " + columnType)
             };
+        }
+
+        /// <summary>
+        /// Gets an object value according to the type code at the specified index.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <returns>Value.</returns>
+        public object? GetObject(int index)
+        {
+            if (IsNull(index))
+            {
+                return null;
+            }
+
+            var type = (ClientDataType)GetInt(index);
+            var scale = GetInt(index + 1);
+
+            return GetObject(index + 2, type, scale);
         }
 
         private static LocalDate ReadDate(ReadOnlySpan<byte> span)
@@ -400,7 +418,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
         private static decimal ReadDecimal(ReadOnlySpan<byte> span, int scale)
         {
-            var unscaled = new BigInteger(span);
+            var unscaled = new BigInteger(span, isBigEndian: true);
             var res = (decimal)unscaled;
 
             if (scale > 0)

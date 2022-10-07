@@ -22,8 +22,8 @@ import static org.apache.ignite.internal.pagememory.util.PageUtils.getShort;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putLong;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putShort;
 import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.PARTITIONLESS_LINK_SIZE_BYTES;
-import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.readPartitionlessLink;
-import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.writePartitionlessLink;
+import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.readPartitionless;
+import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.writePartitionless;
 import static org.apache.ignite.internal.storage.pagememory.mv.VersionChain.NULL_UUID_COMPONENT;
 
 import java.util.UUID;
@@ -128,8 +128,8 @@ public interface VersionChainIo {
             putShort(pageAddr, off + COMMIT_PARTITION_ID_OFFSET, (short) commitPartitionId);
         }
 
-        writePartitionlessLink(pageAddr + off + HEAD_LINK_OFFSET, row.headLink());
-        writePartitionlessLink(pageAddr + off + NEXT_LINK_OFFSET, row.nextLink());
+        writePartitionless(pageAddr + off + HEAD_LINK_OFFSET, row.headLink());
+        writePartitionless(pageAddr + off + NEXT_LINK_OFFSET, row.nextLink());
     }
 
     /**
@@ -176,8 +176,8 @@ public interface VersionChainIo {
 
         UUID txId = (txIdMsb == NULL_UUID_COMPONENT && txIdLsb == NULL_UUID_COMPONENT) ? null : new UUID(txIdMsb, txIdLsb);
 
-        long headLink = readPartitionlessLink(partitionId, pageAddr, offset + HEAD_LINK_OFFSET);
-        long nextLink = readPartitionlessLink(partitionId, pageAddr, offset + NEXT_LINK_OFFSET);
+        long headLink = readPartitionless(partitionId, pageAddr, offset + HEAD_LINK_OFFSET);
+        long nextLink = readPartitionless(partitionId, pageAddr, offset + NEXT_LINK_OFFSET);
 
         if (txId != null) {
             long commitTblIdMsb = getLong(pageAddr, offset + COMMIT_TABLE_ID_MSB_OFFSET);
