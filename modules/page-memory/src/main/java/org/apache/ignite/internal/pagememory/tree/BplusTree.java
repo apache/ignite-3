@@ -100,9 +100,9 @@ import org.jetbrains.annotations.Nullable;
  * <p>All pages in the tree are divided into levels. Leaves are always at the level {@code 0}. Levels of inner pages are thus positive.
  * Each
  * level represents a singly linked list - each page has a link to the <i>forward</i> page at the same level. It can be retrieved by calling
- * {@link BplusIo#getForward(long)}. This link must be a zero if there's no forward page. Forward links on level {@code 0} allow iterating
- * tree's keys and values effectively without traversing any inner nodes ({@code AbstractForwardCursor}). Forward links in inner nodes have
- * different purpose, more on that later.
+ * {@link BplusIo#getForward(long, int)}. This link must be a zero if there's no forward page. Forward links on level {@code 0} allow
+ * iterating tree's keys and values effectively without traversing any inner nodes ({@code AbstractForwardCursor}). Forward links in inner
+ * nodes have different purpose, more on that later.
  *
  * <p>Leaves have no links other than forward links. But inner nodes also have links to their children nodes. Every inner node can be
  * viewed
@@ -113,8 +113,8 @@ import org.jetbrains.annotations.Nullable;
  * </code></pre>
  * There are {@code N} items and {@code N+1} links. Each link points to page of a lower level. For example, pages on level {@code 2} always
  * point to pages of level {@code 1}. For an item {@code i} left subtree is defined by {@code link(i)} and right subtree is defined by
- * {@code link(i+1)} ({@link BplusInnerIo#getLeft(long, int)} and {@link BplusInnerIo#getRight(long, int)}). All items in the left subtree
- * are less or equal to the original item (basic property for the trees).
+ * {@code link(i+1)} ({@link BplusInnerIo#getLeft(long, int, int)} and {@link BplusInnerIo#getRight(long, int, int)}). All items in the left
+ * subtree are less or equal to the original item (basic property for the trees).
  *
  * <p>There's one more important property of these links: {@code forward(left(i)) == right(i)}. It is called the
  * <i>triangle invariant</i>. More information on B+Tree structure can easily be found online. Following documentation
@@ -271,12 +271,12 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                             res = new ArrayList<>(cnt + 1);
 
                             for (int i = 0; i < cnt; i++) {
-                                res.add(inner(io).getLeft(pageAddr, i));
+                                res.add(inner(io).getLeft(pageAddr, i, partId));
                             }
 
-                            res.add(inner(io).getRight(pageAddr, cnt - 1));
+                            res.add(inner(io).getRight(pageAddr, cnt - 1, partId));
                         } else {
-                            long left = inner(io).getLeft(pageAddr, 0);
+                            long left = inner(io).getLeft(pageAddr, 0, partId);
 
                             res = left == 0 ? Collections.<Long>emptyList() : Collections.singletonList(left);
                         }
@@ -344,7 +344,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             long res = doAskNeighbor(io, pageAddr, back);
 
             if (back) {
-                if (io.getForward(pageAddr) != g.backId) {
+                if (io.getForward(pageAddr, partId) != g.backId) {
                     // See how g.backId is setup in removeDown for this check.
                     return RETRY;
                 }
@@ -377,7 +377,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                 int lvl
         ) throws IgniteInternalCheckedException {
             // Check the triangle invariant.
-            if (io.getForward(pageAddr) != g.fwdId) {
+            if (io.getForward(pageAddr, partId) != g.fwdId) {
                 return RETRY;
             }
 
@@ -419,13 +419,13 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             assert !io.isLeaf() : io;
 
             // If idx == cnt then we go right down, else left down: getLeft(cnt) == getRight(cnt - 1).
-            g.pageId(inner(io).getLeft(pageAddr, idx));
+            g.pageId(inner(io).getLeft(pageAddr, idx, partId));
 
             // If we see the tree in consistent state, then our right down page must be forward for our left down page,
             // we need to setup fwdId and/or backId to be able to check this invariant on lower level.
             if (idx < cnt) {
                 // Go left down here.
-                g.fwdId(inner(io).getRight(pageAddr, idx));
+                g.fwdId(inner(io).getRight(pageAddr, idx, partId));
             } else {
                 // Go right down here or it is an empty branch.
                 assert idx == cnt;
@@ -433,7 +433,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                 // Here child's forward is unknown to us (we either go right or it is an empty "routing" page),
                 // need to ask our forward about the child's forward (it must be leftmost child of our forward page).
                 // This is ok from the locking standpoint because we take all locks in the forward direction.
-                long fwdId = io.getForward(pageAddr);
+                long fwdId = io.getForward(pageAddr, partId);
 
                 // Setup fwdId.
                 if (fwdId == 0) {
@@ -450,7 +450,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                 // Setup backId.
                 if (cnt != 0) {
                     // It is not a routing page and we are going to the right, can get backId here.
-                    g.backId(inner(io).getLeft(pageAddr, cnt - 1));
+                    g.backId(inner(io).getLeft(pageAddr, cnt - 1, partId));
                 } else if (needBackIfRouting) {
                     // Can't get backId here because of possible deadlock and it is only needed for remove operation.
                     return GO_DOWN_X;
@@ -478,7 +478,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                 int lvl
         ) throws IgniteInternalCheckedException {
             // Check the triangle invariant.
-            if (io.getForward(pageAddr) != p.fwdId) {
+            if (io.getForward(pageAddr, partId) != p.fwdId) {
                 return RETRY;
             }
 
@@ -537,7 +537,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             assert p.btmLvl == lvl : "we must always insert at the bottom level: " + p.btmLvl + " " + lvl;
 
             // Check triangle invariant.
-            if (io.getForward(pageAddr) != p.fwdId) {
+            if (io.getForward(pageAddr, partId) != p.fwdId) {
                 return RETRY;
             }
 
@@ -565,7 +565,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
 
                 // Here forward page can't be concurrently removed because we keep write lock on tail which is the only
                 // page who knows about the forward page, because it was just produced by split.
-                p.rightId = io.getForward(pageAddr);
+                p.rightId = io.getForward(pageAddr, partId);
                 p.setTailForSplit(pageId, page, pageAddr, io, p.btmLvl - 1);
 
                 assert p.rightId != 0;
@@ -596,7 +596,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             assert lvl == 0 : lvl; // Leaf.
 
             // Check the triangle invariant.
-            if (io.getForward(leafAddr) != r.fwdId) {
+            if (io.getForward(leafAddr, partId) != r.fwdId) {
                 return RETRY;
             }
 
@@ -614,7 +614,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
 
             // Need to do inner replace when we remove the rightmost element and the leaf has a forward page,
             // i.e. it is not the rightmost leaf of the tree.
-            boolean needReplaceInner = canGetRowFromInner && idx == cnt - 1 && io.getForward(leafAddr) != 0;
+            boolean needReplaceInner = canGetRowFromInner && idx == cnt - 1 && io.getForward(leafAddr, partId) != 0;
 
             // !!! Before modifying state we have to make sure that we will not go for retry.
 
@@ -680,7 +680,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                 int lvl
         ) throws IgniteInternalCheckedException {
             // Check that we have consistent view of the world.
-            if (io.getForward(backAddr) != r.pageId) {
+            if (io.getForward(backAddr, partId) != r.pageId) {
                 return RETRY;
             }
 
@@ -713,7 +713,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                 int lvl
         ) throws IgniteInternalCheckedException {
             // Check that we have consistent view of the world.
-            if (io.getForward(backAddr) != r.pageId) {
+            if (io.getForward(backAddr, partId) != r.pageId) {
                 return RETRY;
             }
 
@@ -768,7 +768,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                 int lvl
         ) {
             // Check the triangle invariant.
-            if (io.getForward(pageAddr) != u.fwdId) {
+            if (io.getForward(pageAddr, partId) != u.fwdId) {
                 return RETRY;
             }
 
@@ -797,7 +797,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             assert lvl > 0 : lvl; // We are not at the bottom.
 
             // Check that we have a correct view of the world.
-            if (io.getForward(pageAddr) != r.fwdId) {
+            if (io.getForward(pageAddr, partId) != r.fwdId) {
                 return RETRY;
             }
 
@@ -1429,7 +1429,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                                 }
                             }
 
-                            nextPageId = io.getForward(curPageAddr);
+                            nextPageId = io.getForward(curPageAddr, partId);
 
                             if (nextPageId == 0) {
                                 return null;
@@ -1748,7 +1748,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                         fail("Min row violated: " + row + " , minRow: " + minRow);
                     }
 
-                    long leftId = inner(io).getLeft(pageAddr, i);
+                    long leftId = inner(io).getLeft(pageAddr, i, partId);
 
                     L leafRow = getGreatestRowInSubTree(leftId);
 
@@ -1764,7 +1764,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                 }
 
                 // Need to handle the rightmost child subtree separately or handle empty routing page.
-                long rightId = inner(io).getLeft(pageAddr, cnt); // The same as getRight(cnt - 1)
+                long rightId = inner(io).getLeft(pageAddr, cnt, partId); // The same as getRight(cnt - 1)
 
                 validateDownKeys(rightId, minRow, lvl - 1);
             } finally {
@@ -1800,7 +1800,8 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                     return io.getLookupRow(this, pageAddr, cnt - 1);
                 }
 
-                long rightId = inner(io).getLeft(pageAddr, cnt); // The same as getRight(cnt - 1), but good for routing pages.
+                // The same as getRight(cnt - 1), but good for routing pages.
+                long rightId = inner(io).getLeft(pageAddr, cnt, partId);
 
                 return getGreatestRowInSubTree(rightId);
             } finally {
@@ -1846,7 +1847,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                     fail("Leaf.");
                 }
 
-                leftmostChildId = inner(io).getLeft(pageAddr, 0);
+                leftmostChildId = inner(io).getLeft(pageAddr, 0, partId);
             } finally {
                 readUnlock(pageId, page, pageAddr);
             }
@@ -1880,7 +1881,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                     fail("Leaf level mismatch: " + lvl);
                 }
 
-                long actualFwdId = io.getForward(pageAddr);
+                long actualFwdId = io.getForward(pageAddr, partId);
 
                 if (actualFwdId != fwdId) {
                     fail(new IgniteStringBuilder("Triangle: expected fwd ").appendHex(fwdId).app(", actual fwd ").appendHex(actualFwdId));
@@ -1899,7 +1900,11 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                 } else {
                     // Recursively go down if we are on inner level.
                     for (int i = 0; i < cnt; i++) {
-                        validateDownPages(inner(io).getLeft(pageAddr, i), inner(io).getRight(pageAddr, i), lvl - 1);
+                        validateDownPages(
+                                inner(io).getLeft(pageAddr, i, partId),
+                                inner(io).getRight(pageAddr, i, partId),
+                                lvl - 1
+                        );
                     }
 
                     if (fwdId != 0) {
@@ -1914,7 +1919,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                                     fail("IO on the same level must be the same");
                                 }
 
-                                fwdId = inner(io).getLeft(fwdPageAddr, 0);
+                                fwdId = inner(io).getLeft(fwdPageAddr, 0, partId);
                             } finally {
                                 readUnlock(fwdId0, fwdPage, fwdPageAddr);
                             }
@@ -1923,7 +1928,8 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                         }
                     }
 
-                    long leftId = inner(io).getLeft(pageAddr, cnt); // The same as io.getRight(cnt - 1) but works for routing pages.
+                    // The same as io.getRight(cnt - 1) but works for routing pages.
+                    long leftId = inner(io).getLeft(pageAddr, cnt, partId);
 
                     validateDownPages(leftId, fwdId, lvl - 1);
                 }
@@ -1953,16 +1959,16 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
         b.append(io.isLeaf() ? "L " : "I ");
 
         int cnt = io.getCount(pageAddr);
-        long fwdId = io.getForward(pageAddr);
+        long fwdId = io.getForward(pageAddr, partId);
 
         b.append("cnt=").append(cnt).append(' ');
         b.append("fwd=").append(formatPageId(fwdId)).append(' ');
 
         if (!io.isLeaf()) {
-            b.append("lm=").append(formatPageId(inner(io).getLeft(pageAddr, 0))).append(' ');
+            b.append("lm=").append(formatPageId(inner(io).getLeft(pageAddr, 0, partId))).append(' ');
 
             if (cnt > 0) {
-                b.append("rm=").append(formatPageId(inner(io).getRight(pageAddr, cnt - 1))).append(' ');
+                b.append("rm=").append(formatPageId(inner(io).getRight(pageAddr, cnt - 1, partId))).append(' ');
             }
         }
 
@@ -2478,7 +2484,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                             }
                         }
 
-                        long nextPageId = io.getForward(curPageAddr);
+                        long nextPageId = io.getForward(curPageAddr, partId);
 
                         if (nextPageId == 0) {
                             checkDestroyed();
@@ -2784,7 +2790,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                     // Recursively go down if we are on inner level.
                     // When i == cnt it is the same as io.getRight(cnt - 1) but works for routing pages.
                     for (int i = 0; i <= cnt; i++) {
-                        long leftId = inner(io).getLeft(pageAddr, i);
+                        long leftId = inner(io).getLeft(pageAddr, i, partId);
 
                         inner(io).setLeft(pageAddr, i, 0);
 
@@ -2888,7 +2894,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
         }
 
         // Update forward page.
-        io.splitForwardPage(pageAddr, fwdId, fwdBuf, mid, cnt, pageSize());
+        io.splitForwardPage(pageAddr, fwdId, fwdBuf, mid, cnt, pageSize(), partId);
 
         // Update existing page.
         io.splitExistingPage(pageAddr, mid, fwdId);
@@ -3063,10 +3069,10 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
 
             // We need to do get the rightmost child: io.getRight(cnt - 1),
             // here io.getLeft(cnt) is the same, but handles negative index if count is 0.
-            res = inner(io).getLeft(pageAddr, cnt);
+            res = inner(io).getLeft(pageAddr, cnt, partId);
         } else {
             // Leftmost child.
-            res = inner(io).getLeft(pageAddr, 0);
+            res = inner(io).getLeft(pageAddr, 0, partId);
         }
 
         assert res != 0 : "inner page with no route down: " + hexLong(PageIo.getPageId(pageAddr));
@@ -3397,7 +3403,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                     BplusIo<L> io = io(pageAddr);
 
                     // Check triangle invariant.
-                    if (io.getForward(pageAddr) != fwdId) {
+                    if (io.getForward(pageAddr, partId) != fwdId) {
                         return RETRY;
                     }
 
@@ -3437,7 +3443,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
 
             checkDestroyed();
 
-            nextPageId = io.getForward(pageAddr);
+            nextPageId = io.getForward(pageAddr, partId);
 
             if (startIdx == -1) {
                 startIdx = findLowerBound(pageAddr, io, cnt);
@@ -3781,7 +3787,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                 BplusInnerIo<L> io = (BplusInnerIo<L>) tail.io;
 
                 // Release tail in case of broken triangle invariant in locked pages.
-                if (io.getLeft(tail.buf, idx) != tail.down.pageId) {
+                if (io.getLeft(tail.buf, idx, partId) != tail.down.pageId) {
                     releaseTail();
 
                     return RETRY;
@@ -3900,7 +3906,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
 
             try {
                 // Need to check this before the actual split, because after the split we will have new forward page here.
-                boolean hadFwd = io.getForward(pageAddr) != 0;
+                boolean hadFwd = io.getForward(pageAddr, partId) != 0;
 
                 long fwdPageAddr = writeLock(fwdId, fwdPage); // Initial write, no need to check for concurrent modification.
 
@@ -5152,7 +5158,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                 idx++;
             }
 
-            return inner(prnt.io).getLeft(prnt.buf, idx) == child.pageId;
+            return inner(prnt.io).getLeft(prnt.buf, idx, partId) == child.pageId;
         }
 
         /**
@@ -5167,7 +5173,8 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
         private boolean checkChildren(Tail<L> prnt, Tail<L> left, Tail<L> right, int idx) {
             assert idx >= 0 && idx < prnt.getCount() : idx;
 
-            return inner(prnt.io).getLeft(prnt.buf, idx) == left.pageId && inner(prnt.io).getRight(prnt.buf, idx) == right.pageId;
+            return inner(prnt.io).getLeft(prnt.buf, idx, partId) == left.pageId
+                    && inner(prnt.io).getRight(prnt.buf, idx, partId) == right.pageId;
         }
 
         /**
@@ -5181,7 +5188,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
          */
         private boolean doMerge(Tail<L> prnt, Tail<L> left, Tail<L> right) throws IgniteInternalCheckedException {
             assert right.io == left.io; // Otherwise incompatible.
-            assert left.io.getForward(left.buf) == right.pageId;
+            assert left.io.getForward(left.buf, partId) == right.pageId;
 
             int prntCnt = prnt.getCount();
             int prntIdx = fix(insertionPoint(prnt));
@@ -5522,7 +5529,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
         assert row != null;
 
         if (sequentialWriteOptsEnabled) {
-            assert io.getForward(buf) == 0L;
+            assert io.getForward(buf, partId) == 0L;
 
             return -cnt - 1;
         }
@@ -5743,7 +5750,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
 
             // If we see an empty page here, it means that it is an empty tree.
             if (cnt == 0) {
-                assert io.getForward(pageAddr) == 0L;
+                assert io.getForward(pageAddr, partId) == 0L;
 
                 onNotFound(true);
             } else if (!fillFromBuffer(pageAddr, io, startIdx, cnt)) {
@@ -5822,7 +5829,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
 
             checkDestroyed();
 
-            nextPageId = io.getForward(pageAddr);
+            nextPageId = io.getForward(pageAddr, partId);
 
             return fillFromBuffer0(pageAddr, io, startIdx, cnt);
         }

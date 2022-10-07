@@ -117,13 +117,13 @@ public final class PageIdUtils {
      * @param partitionId Partition ID.
      * @param flag Flag: {@link PageIdAllocator#FLAG_DATA} of {@link PageIdAllocator#FLAG_AUX}.
      * @param pageIdx Page index, monotonically growing number within each partition.
-     * @return Page ID constructed from the given pageIdx and partition ID, see {@link FullPageId}
+     * @return Page ID constructed from the given pageIdx and partition ID, see {@link FullPageId}.
      */
     public static long pageId(int partitionId, byte flag, int pageIdx) {
         long pageId = flag & FLAG_MASK;
 
         pageId = (pageId << PART_ID_SIZE) | (partitionId & PART_ID_MASK);
-        pageId = (pageId << (PAGE_IDX_SIZE)) | (pageIdx & PAGE_IDX_MASK);
+        pageId = (pageId << PAGE_IDX_SIZE) | (pageIdx & PAGE_IDX_MASK);
 
         return pageId;
     }

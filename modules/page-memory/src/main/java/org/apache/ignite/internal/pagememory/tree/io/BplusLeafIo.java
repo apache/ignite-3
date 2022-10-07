@@ -34,13 +34,11 @@ public abstract class BplusLeafIo<L> extends BplusIo<L> {
         super(type, ver, true, true, itemSize);
     }
 
-    /** {@inheritDoc} */
     @Override
     public int getMaxCount(long pageAddr, int pageSize) {
         return (pageSize - ITEMS_OFF) / getItemSize();
     }
 
-    /** {@inheritDoc} */
     @Override
     public final void copyItems(
             long srcPageAddr,
@@ -51,12 +49,12 @@ public abstract class BplusLeafIo<L> extends BplusIo<L> {
             boolean cpLeft
     ) {
         assert srcIdx != dstIdx || srcPageAddr != dstPageAddr;
+
         assertPageType(dstPageAddr);
 
         copyMemory(srcPageAddr, offset(srcIdx), dstPageAddr, offset(dstIdx), cnt * getItemSize());
     }
 
-    /** {@inheritDoc} */
     @Override
     public final int offset(int idx) {
         assert idx >= 0 : idx;

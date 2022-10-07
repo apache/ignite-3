@@ -22,8 +22,8 @@ import static org.apache.ignite.internal.pagememory.util.PageUtils.getLong;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putInt;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putLong;
 import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.PARTITIONLESS_LINK_SIZE_BYTES;
-import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.readPartitionlessLink;
-import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.writePartitionlessLink;
+import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.readPartitionless;
+import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.writePartitionless;
 
 import java.nio.ByteBuffer;
 import java.util.UUID;
@@ -94,7 +94,7 @@ public interface HashIndexTreeIo {
 
         putInt(pageAddr, off + INDEX_COLUMNS_HASH_OFFSET, hashIndexRow.indexColumnsHash());
 
-        writePartitionlessLink(pageAddr + off + INDEX_COLUMNS_LINK_OFFSET, hashIndexRow.indexColumns().link());
+        writePartitionless(pageAddr + off + INDEX_COLUMNS_LINK_OFFSET, hashIndexRow.indexColumns().link());
 
         RowId rowId = hashIndexRow.rowId();
 
@@ -124,7 +124,7 @@ public interface HashIndexTreeIo {
             return cmp;
         }
 
-        long link = readPartitionlessLink(partitionId, pageAddr, off + INDEX_COLUMNS_LINK_OFFSET);
+        long link = readPartitionless(partitionId, pageAddr, off + INDEX_COLUMNS_LINK_OFFSET);
 
         //TODO Add in-place compare in IGNITE-17536
         ReadIndexColumnsValue indexColumnsTraversal = new ReadIndexColumnsValue();
@@ -168,7 +168,7 @@ public interface HashIndexTreeIo {
 
         int hash = getInt(pageAddr, off + INDEX_COLUMNS_HASH_OFFSET);
 
-        long link = readPartitionlessLink(partitionId, pageAddr, off + INDEX_COLUMNS_LINK_OFFSET);
+        long link = readPartitionless(partitionId, pageAddr, off + INDEX_COLUMNS_LINK_OFFSET);
 
         ReadIndexColumnsValue indexColumnsTraversal = new ReadIndexColumnsValue();
 
