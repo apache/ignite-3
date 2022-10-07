@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.runner.app;
 
 import static org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter.convert;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -28,6 +29,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
 import org.apache.ignite.internal.sql.engine.AbstractBasicIntegrationTest;
+import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.table.Table;
@@ -47,11 +49,8 @@ public class ItTableApiContractTest extends AbstractBasicIntegrationTest {
     /** Schema name. */
     public static final String SCHEMA = "PUBLIC";
 
-    /** Short table name. */
-    public static final String SHORT_TABLE_NAME = "tbl1";
-
     /** Table name. */
-    public static final String TABLE_NAME = SCHEMA + "." + SHORT_TABLE_NAME;
+    public static final String TABLE_NAME = "TBL1";
 
     /** Cluster nodes. */
     private static Ignite ignite;
@@ -76,31 +75,8 @@ public class ItTableApiContractTest extends AbstractBasicIntegrationTest {
     @AfterEach
     void afterTest() {
         if (ignite.tables().table(TABLE_NAME) != null) {
-            ignite.tables().dropTable(TABLE_NAME);
+            await(tableManager().dropTableAsync(TABLE_NAME));
         }
-    }
-
-    /**
-     * Checks a contract for dropping table.
-     *
-     * @throws Exception If failed.
-     */
-    @Test
-    public void testDropTable() throws Exception {
-        ignite.tables().createTable(TABLE_NAME, tableChange -> convert(SchemaBuilders.tableBuilder(SCHEMA, SHORT_TABLE_NAME)
-                .columns(
-                        SchemaBuilders.column("key", ColumnType.INT64).build(),
-                        SchemaBuilders.column("val", ColumnType.string()).build())
-                .withPrimaryKey("key")
-                .build(), tableChange)
-                .changeReplicas(2)
-                .changePartitions(10));
-
-        ignite.tables().dropTable(TABLE_NAME);
-
-        assertNull(ignite.tables().table(TABLE_NAME));
-
-        assertThrows(TableNotFoundException.class, () -> ignite.tables().dropTable(TABLE_NAME));
     }
 
     /**
@@ -109,23 +85,23 @@ public class ItTableApiContractTest extends AbstractBasicIntegrationTest {
      * @throws Exception If failed.
      */
     @Test
-    public void testDropTableAsync() throws Exception {
-        ignite.tables().createTable(TABLE_NAME, tableChange -> convert(SchemaBuilders.tableBuilder(SCHEMA, SHORT_TABLE_NAME)
+    public void testDropTable() throws Exception {
+        await(tableManager().createTableAsync(TABLE_NAME, tableChange -> convert(SchemaBuilders.tableBuilder(SCHEMA, TABLE_NAME)
                 .columns(
                         SchemaBuilders.column("key", ColumnType.INT64).build(),
                         SchemaBuilders.column("val", ColumnType.string()).build())
                 .withPrimaryKey("key")
                 .build(), tableChange)
                 .changeReplicas(2)
-                .changePartitions(10));
+                .changePartitions(10)));
 
-        CompletableFuture<Void> dropTblFut1 =  ignite.tables().dropTableAsync(TABLE_NAME);
+        CompletableFuture<Void> dropTblFut1 =  tableManager().dropTableAsync(TABLE_NAME);
 
         dropTblFut1.get();
 
         assertNull(ignite.tables().table(TABLE_NAME));
 
-        CompletableFuture<Void> dropTblFut2 = ignite.tables().dropTableAsync(TABLE_NAME);
+        CompletableFuture<Void> dropTblFut2 = tableManager().dropTableAsync(TABLE_NAME);
 
         assertThrows(TableNotFoundException.class, () -> futureResult(dropTblFut2));
     }
@@ -137,30 +113,30 @@ public class ItTableApiContractTest extends AbstractBasicIntegrationTest {
      */
     @Test
     public void testAlterTable() throws Exception {
-        ignite.tables().createTable(TABLE_NAME, tableChange -> convert(SchemaBuilders.tableBuilder(SCHEMA, SHORT_TABLE_NAME)
+        await(tableManager().createTableAsync(TABLE_NAME, tableChange -> convert(SchemaBuilders.tableBuilder(SCHEMA, TABLE_NAME)
                 .columns(
                         SchemaBuilders.column("key", ColumnType.INT64).build(),
                         SchemaBuilders.column("val", ColumnType.string()).build())
                 .withPrimaryKey("key")
                 .build(), tableChange)
                 .changeReplicas(2)
-                .changePartitions(10));
+                .changePartitions(10)));
 
-        ignite.tables().alterTable(TABLE_NAME,
+        await(tableManager().alterTableAsync(TABLE_NAME,
                 chng -> chng.changeColumns(cols -> {
                     cols.create("NAME", colChg -> convert(SchemaBuilders.column("name", ColumnType.string()).asNullable(true)
                             .withDefaultValue("default").build(), colChg));
-                }));
+                })));
 
         assertNotNull(ignite.tables().table(TABLE_NAME));
 
         assertNull(ignite.tables().table(TABLE_NAME + "_not_exist"));
 
-        assertThrows(TableNotFoundException.class, () -> ignite.tables().alterTable(TABLE_NAME + "_not_exist",
+        assertThrows(TableNotFoundException.class, () -> await(tableManager().alterTableAsync(TABLE_NAME + "_not_exist",
                 chng -> chng.changeColumns(cols -> {
                     cols.create("NAME", colChg -> convert(SchemaBuilders.column("name", ColumnType.string()).asNullable(true)
                             .withDefaultValue("default").build(), colChg));
-                })));
+                }))));
     }
 
     /**
@@ -170,22 +146,22 @@ public class ItTableApiContractTest extends AbstractBasicIntegrationTest {
      */
     @Test
     public void testAlterTableAsync() throws Exception {
-        ignite.tables().createTable(TABLE_NAME, tableChange -> convert(SchemaBuilders.tableBuilder(SCHEMA, SHORT_TABLE_NAME)
+        await(tableManager().createTableAsync(TABLE_NAME, tableChange -> convert(SchemaBuilders.tableBuilder(SCHEMA, TABLE_NAME)
                 .columns(
                         SchemaBuilders.column("key", ColumnType.INT64).build(),
                         SchemaBuilders.column("val", ColumnType.string()).build())
                 .withPrimaryKey("key")
                 .build(), tableChange)
                 .changeReplicas(2)
-                .changePartitions(10));
+                .changePartitions(10)));
 
-        CompletableFuture<Void> altTblFut1 = ignite.tables().alterTableAsync(TABLE_NAME,
+        CompletableFuture<Void> altTblFut1 = tableManager().alterTableAsync(TABLE_NAME,
                 chng -> chng.changeColumns(cols -> {
                     cols.create("NAME", colChg -> convert(SchemaBuilders.column("NAME", ColumnType.string()).asNullable(true)
                             .withDefaultValue("default").build(), colChg));
                 }));
 
-        CompletableFuture<Void> altTblFut2 = ignite.tables().alterTableAsync(TABLE_NAME + "_not_exist",
+        CompletableFuture<Void> altTblFut2 = tableManager().alterTableAsync(TABLE_NAME + "_not_exist",
                 chng -> chng.changeColumns(cols -> {
                     cols.create("NAME", colChg -> convert(SchemaBuilders.column("NAME", ColumnType.string()).asNullable(true)
                             .withDefaultValue("default").build(), colChg));
@@ -207,26 +183,28 @@ public class ItTableApiContractTest extends AbstractBasicIntegrationTest {
      */
     @Test
     public void testCreateTable() throws Exception {
-        Table table = ignite.tables().createTable(TABLE_NAME, tableChange -> convert(SchemaBuilders.tableBuilder(SCHEMA, SHORT_TABLE_NAME)
-                .columns(
-                        SchemaBuilders.column("key", ColumnType.INT64).build(),
-                        SchemaBuilders.column("val", ColumnType.string()).build())
-                .withPrimaryKey("key")
-                .build(), tableChange)
-                .changeReplicas(2)
-                .changePartitions(10));
+        Table table = await(tableManager().createTableAsync(TABLE_NAME,
+                tableChange -> convert(SchemaBuilders.tableBuilder(SCHEMA, TABLE_NAME)
+                        .columns(
+                                SchemaBuilders.column("key", ColumnType.INT64).build(),
+                                SchemaBuilders.column("val", ColumnType.string()).build())
+                        .withPrimaryKey("key")
+                        .build(), tableChange)
+                        .changeReplicas(2)
+                        .changePartitions(10)));
 
         assertNotNull(table);
 
         assertThrows(TableAlreadyExistsException.class,
-                () -> ignite.tables().createTable(TABLE_NAME, tableChange -> convert(SchemaBuilders.tableBuilder(SCHEMA, SHORT_TABLE_NAME)
-                        .columns(
-                                SchemaBuilders.column("new_key", ColumnType.INT64).build(),
-                                SchemaBuilders.column("new_val", ColumnType.string()).build())
-                        .withPrimaryKey("new_key")
-                        .build(), tableChange)
-                        .changeReplicas(2)
-                        .changePartitions(10)));
+                () -> await(tableManager().createTableAsync(TABLE_NAME,
+                        tableChange -> convert(SchemaBuilders.tableBuilder(SCHEMA, TABLE_NAME)
+                                .columns(
+                                        SchemaBuilders.column("new_key", ColumnType.INT64).build(),
+                                        SchemaBuilders.column("new_val", ColumnType.string()).build())
+                                .withPrimaryKey("new_key")
+                                .build(), tableChange)
+                                .changeReplicas(2)
+                                .changePartitions(10))));
     }
 
     /**
@@ -236,8 +214,8 @@ public class ItTableApiContractTest extends AbstractBasicIntegrationTest {
      */
     @Test
     public void testCreateTableAsync() throws Exception {
-        CompletableFuture<Table> tableFut1 = ignite.tables()
-                .createTableAsync(TABLE_NAME, tableChange -> convert(SchemaBuilders.tableBuilder(SCHEMA, SHORT_TABLE_NAME)
+        CompletableFuture<Table> tableFut1 = tableManager()
+                .createTableAsync(TABLE_NAME, tableChange -> convert(SchemaBuilders.tableBuilder(SCHEMA, TABLE_NAME)
                         .columns(
                                 SchemaBuilders.column("key", ColumnType.INT64).build(),
                                 SchemaBuilders.column("val", ColumnType.string()).build())
@@ -248,8 +226,8 @@ public class ItTableApiContractTest extends AbstractBasicIntegrationTest {
 
         assertNotNull(tableFut1.get());
 
-        CompletableFuture<Table> tableFut2 = ignite.tables()
-                .createTableAsync(TABLE_NAME, tableChange -> convert(SchemaBuilders.tableBuilder(SCHEMA, SHORT_TABLE_NAME)
+        CompletableFuture<Table> tableFut2 = tableManager()
+                .createTableAsync(TABLE_NAME, tableChange -> convert(SchemaBuilders.tableBuilder(SCHEMA, TABLE_NAME)
                         .columns(
                                 SchemaBuilders.column("new_key", ColumnType.INT64).build(),
                                 SchemaBuilders.column("new_val", ColumnType.string()).build())
@@ -259,6 +237,10 @@ public class ItTableApiContractTest extends AbstractBasicIntegrationTest {
                         .changePartitions(10));
 
         assertThrows(TableAlreadyExistsException.class, () -> futureResult(tableFut2));
+    }
+
+    private TableManager tableManager() {
+        return (TableManager) ignite.tables();
     }
 
     /**

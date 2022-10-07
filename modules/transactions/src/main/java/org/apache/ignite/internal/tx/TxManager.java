@@ -20,12 +20,12 @@ package org.apache.ignite.internal.tx;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -46,6 +46,8 @@ public interface TxManager extends IgniteComponent {
      * @param txId Transaction id.
      * @return The state or null if the state is unknown.
      */
+    // TODO: IGNITE-17638 TestOnly code, let's consider using Txn state map instead of states.
+    @Deprecated
     @Nullable TxState state(UUID txId);
 
     /**
@@ -56,30 +58,9 @@ public interface TxManager extends IgniteComponent {
      * @param after After state.
      * @return {@code True} if a state was changed.
      */
+    // TODO: IGNITE-17638 TestOnly code, let's consider using Txn state map instead of states.
+    @Deprecated
     boolean changeState(UUID txId, @Nullable TxState before, TxState after);
-
-    /**
-     * Forgets the transaction state. Intended for cleanup.
-     *
-     * @param txId Transaction id.
-     */
-    void forget(UUID txId);
-
-    /**
-     * Commits a transaction.
-     *
-     * @param txId Transaction id.
-     * @return The future.
-     */
-    CompletableFuture<Void> commitAsync(UUID txId);
-
-    /**
-     * Aborts a transaction.
-     *
-     * @param txId Transaction id.
-     * @return The future.
-     */
-    CompletableFuture<Void> rollbackAsync(UUID txId);
 
     /**
      * Acqures a write lock.
@@ -89,8 +70,11 @@ public interface TxManager extends IgniteComponent {
      * @param txId Transaction id.
      * @return The future.
      * @throws LockException When a lock can't be taken due to possible deadlock.
+     *
+     * @deprecated @see LockManager#acquire(java.util.UUID, org.apache.ignite.internal.tx.LockKey, org.apache.ignite.internal.tx.LockMode)
      */
-    public CompletableFuture<Void> writeLock(IgniteUuid lockId, ByteBuffer keyData, UUID txId);
+    @Deprecated
+    public CompletableFuture<Lock> writeLock(UUID lockId, ByteBuffer keyData, UUID txId);
 
     /**
      * Acqures a read lock.
@@ -100,44 +84,55 @@ public interface TxManager extends IgniteComponent {
      * @param txId Transaction id.
      * @return The future.
      * @throws LockException When a lock can't be taken due to possible deadlock.
+     *
+     * @deprecated @see LockManager#acquire(java.util.UUID, org.apache.ignite.internal.tx.LockKey, org.apache.ignite.internal.tx.LockMode)
      */
-    public CompletableFuture<Void> readLock(IgniteUuid lockId, ByteBuffer keyData, UUID txId);
+    @Deprecated
+    public CompletableFuture<Lock> readLock(UUID lockId, ByteBuffer keyData, UUID txId);
 
     /**
-     * Returns a transaction state or starts a new in the PENDING state.
+     * Returns lock manager.
      *
-     * @param txId Transaction id.
-     * @return @{code null} if a transaction was created, or a current state.
+     * @return Lock manager for the given transactions manager.
+     * @deprecated Use lockManager directly.
      */
-    @Nullable
-    TxState getOrCreateTransaction(UUID txId);
+    @Deprecated
+    public LockManager lockManager();
 
     /**
-     * Finishes a dependant remote transactions.
+     * Finishes a dependant transactions.
      *
-     * @param addr   The address.
+     * @param recipientNode Recipient node.
+     * @param term Raft term.
      * @param commit {@code True} if a commit requested.
-     * @param groups Enlisted partition groups.
-     * @param txId   Transaction id.
-     */
-    CompletableFuture<Void> finishRemote(NetworkAddress addr, boolean commit, Set<String> groups, UUID txId);
-
-    /**
-     * Keys that are locked by the transaction.
-     *
+     * @param groups Enlisted partition groups with raft terms.
      * @param txId Transaction id.
-     * @return Keys that are locked by the transaction.
      */
-    @TestOnly
-    Map<IgniteUuid, List<byte[]>> lockedKeys(UUID txId);
+    CompletableFuture<Void> finish(
+            ClusterNode recipientNode,
+            Long term,
+            boolean commit,
+            Map<ClusterNode, List<IgniteBiTuple<String, Long>>> groups,
+            UUID txId
+    );
 
     /**
-     * Checks if a passed address belongs to a local node.
+     * Sends cleanup request to the specified primary replica.
      *
-     * @param addr The address.
-     * @return {@code True} if a local node.
+     * @param recipientNode Primary replica to process given cleanup request.
+     * @param replicationGroupIds Replication group id with raft term.
+     * @param txId Transaction id.
+     * @param commit {@code True} if a commit requested.
+     * @param commitTimestamp Commit timestamp.
+     * @return Completable future of Void.
      */
-    boolean isLocal(NetworkAddress addr);
+    CompletableFuture<Void> cleanup(
+            ClusterNode recipientNode,
+            List<IgniteBiTuple<String, Long>> replicationGroupIds,
+            UUID txId,
+            boolean commit,
+            HybridTimestamp commitTimestamp
+            );
 
     /**
      * Returns a number of finished transactions.

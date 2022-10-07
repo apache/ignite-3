@@ -48,6 +48,11 @@
             <artifactId>ignite-configuration-api</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>org.apache.ignite</groupId>
+            <artifactId>ignite-rest-api</artifactId>
+        </dependency>
+
         <!-- 3rd party dependencies -->
         <dependency>
             <groupId>org.jetbrains</groupId>
@@ -85,6 +90,13 @@
             <scope>test</scope>
             <type>test-jar</type>
         </dependency>
+
+        <dependency>
+            <groupId>org.apache.ignite</groupId>
+            <artifactId>ignite-core</artifactId>
+            <scope>test</scope>
+            <type>test-jar</type>
+        </dependency>
     </dependencies>
 
     <build>
@@ -105,6 +117,11 @@
                             <groupId>org.apache.ignite</groupId>
                             <artifactId>ignite-configuration-annotation-processor</artifactId>
                             <version>${project.version}</version>
+                        </path>
+                        <path>
+                            <groupId>io.micronaut</groupId>
+                            <artifactId>micronaut-inject-java</artifactId>
+                            <version>${micronaut.version}</version>
                         </path>
                     </annotationProcessorPaths>
                 </configuration>

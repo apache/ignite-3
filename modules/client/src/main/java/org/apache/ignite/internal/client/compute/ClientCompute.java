@@ -48,6 +48,8 @@ import org.apache.ignite.table.mapper.Mapper;
  * Client compute implementation.
  */
 public class ClientCompute implements IgniteCompute {
+    private static final String DEFAULT_SCHEMA_NAME = "PUBLIC";
+
     /** Indicates a missing table. */
     private static final Object MISSING_TABLE_TOKEN = new Object();
 
@@ -180,8 +182,8 @@ public class ClientCompute implements IgniteCompute {
             }
 
             w.out().packString(jobClassName);
-            w.out().packObjectArray(args);
-        }, r -> (R) r.in().unpackObjectWithType(), node.name(), null);
+            w.out().packObjectArrayAsBinaryTuple(args);
+        }, r -> (R) r.in().unpackObjectFromBinaryTuple(), node.name(), null);
     }
 
     private ClusterNode randomNode(Set<ClusterNode> nodes) {
@@ -216,9 +218,9 @@ public class ClientCompute implements IgniteCompute {
                     ClientRecordSerializer.writeRecRaw(key, keyMapper, schema, w, TuplePart.KEY);
 
                     w.packString(jobClassName);
-                    w.packObjectArray(args);
+                    w.packObjectArrayAsBinaryTuple(args);
                 },
-                r -> (R) r.unpackObjectWithType());
+                r -> (R) r.unpackObjectFromBinaryTuple());
     }
 
     private <R> CompletableFuture<R> executeColocatedTupleKey(
@@ -237,9 +239,9 @@ public class ClientCompute implements IgniteCompute {
                     ClientTupleSerializer.writeTupleRaw(key, schema, outputChannel, true);
 
                     w.packString(jobClassName);
-                    w.packObjectArray(args);
+                    w.packObjectArrayAsBinaryTuple(args);
                 },
-                r -> (R) r.unpackObjectWithType());
+                r -> (R) r.unpackObjectFromBinaryTuple());
     }
 
     private CompletableFuture<ClientTable> getTable(String tableName) {
@@ -252,7 +254,7 @@ public class ClientCompute implements IgniteCompute {
 
         return tables.tableAsync(tableName).thenApply(t -> {
             if (t == null) {
-                throw new TableNotFoundException(tableName);
+                throw new TableNotFoundException(DEFAULT_SCHEMA_NAME, tableName);
             }
 
             ClientTable clientTable = (ClientTable) t;

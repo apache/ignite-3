@@ -23,7 +23,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.calcite.runtime.CalciteContextException;
 import org.junit.jupiter.api.AfterEach;
@@ -40,16 +39,9 @@ public class ItDataTypesTest extends AbstractBasicIntegrationTest {
     public void dropTables() {
         var igniteTables = CLUSTER_NODES.get(0).tables();
 
-        var tables = igniteTables.tables();
-
-        var futs = new CompletableFuture<?>[tables.size()];
-
-        int idx = 0;
-        for (var table : tables) {
-            futs[idx++] = igniteTables.dropTableAsync(table.name());
+        for (var table : igniteTables.tables()) {
+            sql("DROP TABLE " + table.name());
         }
-
-        CompletableFuture.allOf(futs).join();
     }
 
     /** Tests correctness with unicode. */

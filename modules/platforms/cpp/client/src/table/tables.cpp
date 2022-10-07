@@ -28,6 +28,10 @@ void Tables::getTableAsync(const std::string &name, ignite_callback<std::optiona
     getImpl().getTableAsync(name, std::move(callback));
 }
 
+void Tables::getTablesAsync(ignite_callback<std::vector<Table>> callback) {
+    getImpl().getTablesAsync(std::move(callback));
+}
+
 Tables::Tables(std::shared_ptr<void> impl)
     : m_impl(std::move(impl)) {
 }

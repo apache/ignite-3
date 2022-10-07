@@ -305,6 +305,81 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
+  /management/v1/metric/node:
+    get:
+      tags:
+      - nodeMetric
+      operationId: listNodeMetrics
+      parameters: []
+      responses:
+        "200":
+          description: Metric sources returned
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MetricSource'
+        "500":
+          description: Internal error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /management/v1/metric/node/disable:
+    post:
+      tags:
+      - nodeMetric
+      operationId: disableNodeMetric
+      parameters: []
+      requestBody:
+        content:
+          text/plain:
+            schema:
+              type: string
+        required: true
+      responses:
+        "200":
+          description: Metric source disabled
+        "500":
+          description: Internal error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        "404":
+          description: Metric source not found
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /management/v1/metric/node/enable:
+    post:
+      tags:
+      - nodeMetric
+      operationId: enableNodeMetric
+      parameters: []
+      requestBody:
+        content:
+          text/plain:
+            schema:
+              type: string
+        required: true
+      responses:
+        "200":
+          description: Metric source enabled
+        "500":
+          description: Internal error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        "404":
+          description: Metric source not found
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
   /management/v1/node/state:
     get:
       tags:
@@ -415,6 +490,16 @@ components:
           type: string
         reason:
           type: string
+    MetricSource:
+      required:
+      - enabled
+      - name
+      type: object
+      properties:
+        name:
+          type: string
+        enabled:
+          type: boolean
     NetworkAddress:
       required:
       - consistentId

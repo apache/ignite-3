@@ -37,14 +37,18 @@ import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.raft.ConcurrentMapClusterStateStorage;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorageListener;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -65,6 +69,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Integration test for checking different aspects of distributed configuration.
  */
 @ExtendWith(WorkDirectoryExtension.class)
+@ExtendWith(ConfigurationExtension.class)
 public class ItDistributedConfigurationPropertiesTest {
     /** Test distributed configuration schema. */
     @ConfigurationRoot(rootName = "root", type = ConfigurationType.DISTRIBUTED)
@@ -72,6 +77,9 @@ public class ItDistributedConfigurationPropertiesTest {
         @Value(hasDefault = true)
         public String str = "foo";
     }
+
+    @InjectConfiguration
+    private static RaftConfiguration raftConfiguration;
 
     /**
      * An emulation of an Ignite node, that only contains components necessary for tests.
@@ -99,7 +107,8 @@ public class ItDistributedConfigurationPropertiesTest {
                 TestInfo testInfo,
                 Path workDir,
                 NetworkAddress addr,
-                List<NetworkAddress> memberAddrs
+                List<NetworkAddress> memberAddrs,
+                RaftConfiguration raftConfiguration
         ) {
             vaultManager = new VaultManager(new InMemoryVaultService());
 
@@ -109,7 +118,7 @@ public class ItDistributedConfigurationPropertiesTest {
                     new StaticNodeFinder(memberAddrs)
             );
 
-            raftManager = new Loza(clusterService, workDir);
+            raftManager = new Loza(clusterService, raftConfiguration, workDir, new HybridClock());
 
             cmgManager = new ClusterManagementGroupManager(
                     vaultManager,
@@ -213,14 +222,16 @@ public class ItDistributedConfigurationPropertiesTest {
                 testInfo,
                 workDir.resolve("firstNode"),
                 firstNodeAddr,
-                allNodes
+                allNodes,
+                raftConfiguration
         );
 
         secondNode = new Node(
                 testInfo,
                 workDir.resolve("secondNode"),
                 secondNodeAddr,
-                allNodes
+                allNodes,
+                raftConfiguration
         );
 
         firstNode.start();

@@ -21,10 +21,12 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.Period;
 import java.util.BitSet;
 import java.util.UUID;
 
@@ -317,6 +319,28 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
     public Instant timestampValue(int index) {
         seek(index);
         return begin == 0 ? null : timestampValue(begin, end);
+    }
+
+    /**
+     * Reads value of specified element.
+     *
+     * @param index Element index.
+     * @return Element value.
+     */
+    public Duration durationValue(int index) {
+        seek(index);
+        return begin == 0 ? null : durationValue(begin, end);
+    }
+
+    /**
+     * Reads value of specified element.
+     *
+     * @param index Element index.
+     * @return Element value.
+     */
+    public Period periodValue(int index) {
+        seek(index);
+        return begin == 0 ? null : periodValue(begin, end);
     }
 
     /**

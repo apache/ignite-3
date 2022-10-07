@@ -23,6 +23,9 @@ namespace ignite::detail {
  * Client operation code.
  */
 enum class ClientOperation {
+    /** Get all tables. */
+    TABLES_GET = 3,
+
     /** Get table. */
     TABLE_GET = 4,
 

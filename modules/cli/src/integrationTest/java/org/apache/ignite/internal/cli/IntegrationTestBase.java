@@ -22,19 +22,17 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import java.io.PrintWriter;
 import java.io.Writer;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
@@ -42,21 +40,20 @@ import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter;
-import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
-import org.apache.ignite.internal.schema.testutils.builder.TableDefinitionBuilder;
-import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
-import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
 import org.apache.ignite.internal.sql.engine.AsyncCursor;
 import org.apache.ignite.internal.sql.engine.AsyncCursor.BatchedResult;
+import org.apache.ignite.internal.sql.engine.QueryContext;
+import org.apache.ignite.internal.sql.engine.QueryProperty;
+import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
+import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteStringFormatter;
-import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
-import org.apache.ignite.table.Tuple;
+import org.apache.ignite.tx.Transaction;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.TestInstance;
@@ -69,6 +66,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @MicronautTest(rebuildContext = true)
 public class IntegrationTestBase extends BaseIgniteAbstractTest {
+    /** Timeout should be big enough to prevent premature session expiration. */
+    private static final long SESSION_IDLE_TIMEOUT = TimeUnit.SECONDS.toMillis(60);
+
     public static final int DEFAULT_NODES_COUNT = 3;
 
     /** Correct ignite cluster url. */
@@ -100,117 +100,42 @@ public class IntegrationTestBase extends BaseIgniteAbstractTest {
     @WorkDirectory
     private static Path WORK_DIR;
 
-    protected static Table createAndPopulateTable() {
-        TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "PERSON").columns(
-                SchemaBuilders.column("ID", ColumnType.INT32).build(),
-                SchemaBuilders.column("NAME", ColumnType.string()).asNullable(true).build(),
-                SchemaBuilders.column("SALARY", ColumnType.DOUBLE).asNullable(true).build()
-        ).withPrimaryKey("ID").build();
-
-        Table tbl = CLUSTER_NODES.get(0).tables().createTable(schTbl1.canonicalName(), tblCh ->
-                SchemaConfigurationConverter.convert(schTbl1, tblCh)
-                        .changeReplicas(1)
-                        .changePartitions(10)
-        );
+    protected static void createAndPopulateTable() {
+        sql("CREATE TABLE person ( id INT PRIMARY KEY, name VARCHAR, salary DOUBLE)");
 
         int idx = 0;
 
-        insertData(tbl, new String[]{"ID", "NAME", "SALARY"}, new Object[][]{
-                {idx++, "Igor", 10d},
-                {idx++, null, 15d},
-                {idx++, "Ilya", 15d},
-                {idx++, "Roma", 10d},
-                {idx, "Roma", 10d}
-        });
-
-        return tbl;
-    }
-
-    protected static void createTable(TableDefinitionBuilder tblBld) {
-        TableDefinition schTbl1 = tblBld.build();
-
-        CLUSTER_NODES.get(0).tables().createTable(schTbl1.canonicalName(), tblCh ->
-                SchemaConfigurationConverter.convert(schTbl1, tblCh)
-                        .changeReplicas(1)
-                        .changePartitions(10)
-        );
-    }
-
-    protected static Table table(String canonicalName) {
-        return CLUSTER_NODES.get(0).tables().table(canonicalName);
-    }
-
-    protected static void insertData(String tblName, String[] columnNames, Object[]... tuples) {
-        insertData(CLUSTER_NODES.get(0).tables().table(tblName), columnNames, tuples);
-    }
-
-    protected static void insertData(Table table, String[] columnNames, Object[]... tuples) {
-        RecordView<Tuple> view = table.recordView();
-
-        int batchSize = 128;
-
-        List<Tuple> batch = new ArrayList<>(batchSize);
-        for (Object[] tuple : tuples) {
-            assert tuple != null && tuple.length == columnNames.length;
-
-            Tuple toInsert = Tuple.create();
-
-            for (int i = 0; i < tuple.length; i++) {
-                toInsert.set(columnNames[i], tuple[i]);
-            }
-
-            batch.add(toInsert);
-
-            if (batch.size() == batchSize) {
-                Collection<Tuple> duplicates = view.insertAll(null, batch);
-
-                if (!duplicates.isEmpty()) {
-                    throw new AssertionError("Duplicated rows detected: " + duplicates);
-                }
-
-                batch.clear();
-            }
-        }
-
-        if (!batch.isEmpty()) {
-            view.insertAll(null, batch);
-
-            batch.clear();
-        }
-    }
-
-    protected static void checkData(Table table, String[] columnNames, Object[]... tuples) {
-        RecordView<Tuple> view = table.recordView();
-
-        for (Object[] tuple : tuples) {
-            assert tuple != null && tuple.length == columnNames.length;
-
-            Object id = tuple[0];
-
-            assert id != null : "Primary key cannot be null";
-
-            Tuple row = view.get(null, Tuple.create().set(columnNames[0], id));
-
-            assertNotNull(row);
-
-            for (int i = 0; i < columnNames.length; i++) {
-                assertEquals(tuple[i], row.value(columnNames[i]));
-            }
+        for (Object[] args : new Object[][]{
+            {idx++, "Igor", 10d},
+            {idx++, null, 15d},
+            {idx++, "Ilya", 15d},
+            {idx++, "Roma", 10d},
+            {idx, "Roma", 10d}
+        }) {
+            sql("INSERT INTO person(id, name, salary) VALUES (?, ?, ?)", args);
         }
     }
 
     protected static List<List<Object>> sql(String sql, Object... args) {
-        return getAllFromCursor(
-                ((IgniteImpl) CLUSTER_NODES.get(0)).queryEngine().queryAsync("PUBLIC", sql, args).get(0).join()
-        );
+        return sql(null, sql, args);
     }
 
-    private static <T> List<T> reverse(List<T> lst) {
-        List<T> res = new ArrayList<>(lst);
+    protected static List<List<Object>> sql(@Nullable Transaction tx, String sql, Object... args) {
+        var queryEngine = ((IgniteImpl) CLUSTER_NODES.get(0)).queryEngine();
 
-        Collections.reverse(res);
+        SessionId sessionId = queryEngine.createSession(SESSION_IDLE_TIMEOUT, PropertiesHolder.fromMap(
+                Map.of(QueryProperty.DEFAULT_SCHEMA, "PUBLIC")
+        ));
 
-        return res;
+        try {
+            var context = tx != null ? QueryContext.of(tx) : QueryContext.of();
+
+            return getAllFromCursor(
+                    await(queryEngine.querySingleAsync(sessionId, context, sql, args))
+            );
+        } finally {
+            queryEngine.closeSession(sessionId);
+        }
     }
 
     private static <T> List<T> getAllFromCursor(AsyncCursor<T> cur) {

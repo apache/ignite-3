@@ -36,6 +36,9 @@ public class ErrorGroups {
         /** Component not started error. */
         public static final int COMPONENT_NOT_STARTED_ERR = COMMON_ERR_GROUP.registerErrorCode(3);
 
+        /** Illegal argument or argument in a wrong format has been passed. */
+        public static final int ILLEGAL_ARGUMENT_ERR = COMMON_ERR_GROUP.registerErrorCode(4);
+
         /** Unknown error. */
         @Deprecated
         public static final int UNKNOWN_ERR = COMMON_ERR_GROUP.registerErrorCode(0xFFFF);
@@ -136,59 +139,62 @@ public class ErrorGroups {
         /** Query validation error. */
         public static final int QUERY_VALIDATION_ERR = SQL_ERR_GROUP.registerErrorCode(15);
 
-        /** Table not found. */
-        public static final int TABLE_NOT_FOUND_ERR = SQL_ERR_GROUP.registerErrorCode(16);
+        /** Object is not found in schema. */
+        public static final int OBJECT_NOT_FOUND_ERR = SQL_ERR_GROUP.registerErrorCode(16);
+
+        /** Object already exists in schema. */
+        public static final int OBJECT_ALREADY_EXISTS_ERR = SQL_ERR_GROUP.registerErrorCode(17);
 
         /** Table version not found. */
-        public static final int TABLE_VER_NOT_FOUND_ERR = SQL_ERR_GROUP.registerErrorCode(17);
+        public static final int TABLE_VER_NOT_FOUND_ERR = SQL_ERR_GROUP.registerErrorCode(18);
 
         /** Invalid table option. */
-        public static final int TABLE_OPTION_ERR = SQL_ERR_GROUP.registerErrorCode(18);
+        public static final int TABLE_OPTION_ERR = SQL_ERR_GROUP.registerErrorCode(19);
 
         /** Query mapping error. */
-        public static final int QUERY_MAPPING_ERR = SQL_ERR_GROUP.registerErrorCode(19);
+        public static final int QUERY_MAPPING_ERR = SQL_ERR_GROUP.registerErrorCode(20);
 
         /** DDL execution error. */
-        public static final int DDL_EXEC_ERR = SQL_ERR_GROUP.registerErrorCode(20);
+        public static final int DDL_EXEC_ERR = SQL_ERR_GROUP.registerErrorCode(21);
 
         /** DML result error. */
-        public static final int INVALID_DML_RESULT_ERR = SQL_ERR_GROUP.registerErrorCode(21);
+        public static final int INVALID_DML_RESULT_ERR = SQL_ERR_GROUP.registerErrorCode(22);
 
         /** SQL data type to relational conversion error. */
-        public static final int SQL_TO_REL_CONVERSION_ERR = SQL_ERR_GROUP.registerErrorCode(22);
+        public static final int SQL_TO_REL_CONVERSION_ERR = SQL_ERR_GROUP.registerErrorCode(23);
 
         /** Relational expression serialization error. */
-        public static final int REL_SERIALIZATION_ERR = SQL_ERR_GROUP.registerErrorCode(23);
+        public static final int REL_SERIALIZATION_ERR = SQL_ERR_GROUP.registerErrorCode(24);
 
         /** Relational expression deserialization error. */
-        public static final int REL_DESERIALIZATION_ERR = SQL_ERR_GROUP.registerErrorCode(24);
+        public static final int REL_DESERIALIZATION_ERR = SQL_ERR_GROUP.registerErrorCode(25);
 
         /** Class not found error. */
-        public static final int CLASS_NOT_FOUND_ERR = SQL_ERR_GROUP.registerErrorCode(25);
+        public static final int CLASS_NOT_FOUND_ERR = SQL_ERR_GROUP.registerErrorCode(26);
 
         /** Expression compilation error. */
-        public static final int EXPRESSION_COMPILATION_ERR = SQL_ERR_GROUP.registerErrorCode(26);
+        public static final int EXPRESSION_COMPILATION_ERR = SQL_ERR_GROUP.registerErrorCode(27);
 
         /** Node left the cluster. */
-        public static final int NODE_LEFT_ERR = SQL_ERR_GROUP.registerErrorCode(27);
+        public static final int NODE_LEFT_ERR = SQL_ERR_GROUP.registerErrorCode(28);
 
         /** Message send error. */
-        public static final int MESSAGE_SEND_ERR = SQL_ERR_GROUP.registerErrorCode(28);
+        public static final int MESSAGE_SEND_ERR = SQL_ERR_GROUP.registerErrorCode(29);
 
         /** Operation aborted/interrupted error. */
-        public static final int OPERATION_INTERRUPTED_ERR = SQL_ERR_GROUP.registerErrorCode(29);
+        public static final int OPERATION_INTERRUPTED_ERR = SQL_ERR_GROUP.registerErrorCode(30);
 
         /** An error occurred while canceling the operation. */
-        public static final int CANCEL_OPERATION_ERR = SQL_ERR_GROUP.registerErrorCode(30);
+        public static final int CANCEL_OPERATION_ERR = SQL_ERR_GROUP.registerErrorCode(31);
 
         /** Session expired error. */
-        public static final int SESSION_EXPIRED_ERR = SQL_ERR_GROUP.registerErrorCode(31);
+        public static final int SESSION_EXPIRED_ERR = SQL_ERR_GROUP.registerErrorCode(32);
 
         /** Session evaluation error. */
-        public static final int SCHEMA_EVALUATION_ERR = SQL_ERR_GROUP.registerErrorCode(32);
+        public static final int SCHEMA_EVALUATION_ERR = SQL_ERR_GROUP.registerErrorCode(33);
 
         /** Execution cancelled. */
-        public static final int EXECUTION_CANCELLED_ERR = SQL_ERR_GROUP.registerErrorCode(33);
+        public static final int EXECUTION_CANCELLED_ERR = SQL_ERR_GROUP.registerErrorCode(34);
     }
 
     /** Meta storage error group. */
@@ -247,16 +253,52 @@ public class ErrorGroups {
         /** Transactions error group. */
         public static final ErrorGroup TX_ERR_GROUP = ErrorGroup.newGroup("TX", 7);
 
-        /** Error on creation of tx state storage. */
-        public static final int TX_STATE_STORAGE_CREATE_ERR = TX_ERR_GROUP.registerErrorCode(1);
-
-        /** Error on destruction of tx state storage. */
-        public static final int TX_STATE_STORAGE_DESTROY_ERR = TX_ERR_GROUP.registerErrorCode(2);
-
         /** Error of tx state storage. */
-        public static final int TX_STATE_STORAGE_ERR = TX_ERR_GROUP.registerErrorCode(3);
+        public static final int TX_STATE_STORAGE_ERR = TX_ERR_GROUP.registerErrorCode(1);
 
         /** Tx state storage is stopped. */
-        public static final int TX_STATE_STORAGE_STOPPED_ERR = TX_ERR_GROUP.registerErrorCode(4);
+        public static final int TX_STATE_STORAGE_STOPPED_ERR = TX_ERR_GROUP.registerErrorCode(2);
+
+        /** Error of unexpected tx state on state change. */
+        public static final int TX_UNEXPECTED_STATE_ERR = TX_ERR_GROUP.registerErrorCode(3);
+
+        /** Failed to release a lock on a key. */
+        public static final int RELEASE_LOCK_ERR = TX_ERR_GROUP.registerErrorCode(4);
+
+        /** Failed to acquire a lock on a key due to a conflict. */
+        public static final int ACQUIRE_LOCK_ERR = TX_ERR_GROUP.registerErrorCode(5);
+
+        /** Failed to downgrade a lock on a key due to a conflict. */
+        public static final int DOWNGRADE_LOCK_ERR = TX_ERR_GROUP.registerErrorCode(6);
+
+        /** Failed to commit a transaction. */
+        public static final int TX_COMMIT_ERR = TX_ERR_GROUP.registerErrorCode(7);
+
+        /** Failed to rollback a transaction. */
+        public static final int TX_ROLLBACK_ERR = TX_ERR_GROUP.registerErrorCode(8);
+    }
+
+    /** Replicator error group. */
+    public static class Replicator {
+        /** Replicator error group. */
+        public static final ErrorGroup REPLICATOR_ERR_GROUP = ErrorGroup.newGroup("REP", 8);
+
+        /** Common error for the replication procedure. */
+        public static final int REPLICA_COMMON_ERR = REPLICATOR_ERR_GROUP.registerErrorCode(1);
+
+        /** Replica with the same identifier is already existed. */
+        public static final int REPLICA_IS_ALREADY_STARTED_ERR = REPLICATOR_ERR_GROUP.registerErrorCode(2);
+
+        /** Timeout has happened during the replication procedure. */
+        public static final int REPLICA_TIMEOUT_ERR = REPLICATOR_ERR_GROUP.registerErrorCode(3);
+
+        /** The error happens when the replication level try to handle an unsupported request. */
+        public static final int REPLICA_UNSUPPORTED_REQUEST_ERR = REPLICATOR_ERR_GROUP.registerErrorCode(4);
+
+        /** The error happens when the replica is not ready to handle a request. */
+        public static final int REPLICA_UNAVAILABLE_ERR = REPLICATOR_ERR_GROUP.registerErrorCode(5);
+
+        /** The error happens when the replica is not the current primary replica. */
+        public static final int REPLICA_MISS_ERR = REPLICATOR_ERR_GROUP.registerErrorCode(6);
     }
 }

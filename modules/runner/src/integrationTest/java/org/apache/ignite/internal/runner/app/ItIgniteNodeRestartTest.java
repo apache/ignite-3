@@ -19,7 +19,6 @@ package org.apache.ignite.internal.runner.app;
 
 import static java.util.stream.Collectors.joining;
 import static org.apache.ignite.internal.recovery.ConfigurationCatchUpListener.CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY;
-import static org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter.convert;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -51,6 +50,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
+import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
@@ -63,28 +63,29 @@ import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.LocalConfigurationStorage;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
 import org.apache.ignite.internal.recovery.ConfigurationCatchUpListener;
 import org.apache.ignite.internal.recovery.RecoveryCompletionFutureFactory;
+import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.SchemaManager;
-import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
-import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
-import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
-import org.apache.ignite.internal.table.distributed.TableTxManagerImpl;
-import org.apache.ignite.internal.table.message.TableMessagesSerializationRegistryInitializer;
+import org.apache.ignite.internal.table.distributed.TableMessagesSerializationRegistryInitializer;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessagesSerializationRegistryInitializer;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -99,6 +100,7 @@ import org.apache.ignite.network.MessageSerializationRegistryImpl;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.scalecube.ScaleCubeClusterServiceFactory;
 import org.apache.ignite.raft.jraft.RaftMessagesSerializationRegistryInitializer;
+import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.intellij.lang.annotations.Language;
@@ -107,20 +109,20 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * These tests check node restart scenarios.
  */
 @WithSystemProperty(key = CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY, value = "0")
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-17302")
+@ExtendWith(ConfigurationExtension.class)
 public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     /** Default node port. */
     private static final int DEFAULT_NODE_PORT = 3344;
 
     /** Value producer for table data, is used to create data and check it later. */
     private static final IntFunction<String> VALUE_PRODUCER = i -> "val " + i;
-
-    /** Prefix for full table name. */
-    private static final String SCHEMA_PREFIX = "PUBLIC.";
 
     /** Test table name. */
     private static final String TABLE_NAME = "Table1";
@@ -141,6 +143,9 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
     /** Cluster nodes. */
     private List<IgniteComponent> partialNode = null;
+
+    @InjectConfiguration
+    private static RaftConfiguration raftConfiguration;
 
     /**
      * Stops all started nodes.
@@ -223,9 +228,11 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 nettyBootstrapFactory
         );
 
-        var raftMgr = new Loza(clusterSvc, dir);
+        HybridClock hybridClock = new HybridClock();
 
-        var txManager = new TableTxManagerImpl(clusterSvc, new HeapLockManager());
+        var raftMgr = new Loza(clusterSvc, raftConfiguration, dir, hybridClock);
+
+        var txManager = new TxManagerImpl(null, new HeapLockManager(), hybridClock);
 
         var cmgManager = new ClusterManagementGroupManager(
                 vault,
@@ -257,12 +264,14 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         DataStorageModules dataStorageModules = new DataStorageModules(ServiceLoader.load(DataStorageModule.class));
 
+        Path storagePath = getPartitionsStorePath(dir);
+
         DataStorageManager dataStorageManager = new DataStorageManager(
                 clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY),
                 dataStorageModules.createStorageEngines(
                         name,
                         clusterCfgMgr.configurationRegistry(),
-                        getPartitionsStorePath(dir),
+                        storagePath,
                         null
                 )
         );
@@ -271,18 +280,27 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         SchemaManager schemaManager = new SchemaManager(registry, tblCfg);
 
+        ReplicaService replicaSvc = new ReplicaService(
+                clusterSvc.messagingService(),
+                null);
+
         TableManager tableManager = new TableManager(
                 name,
                 registry,
                 tblCfg,
                 raftMgr,
+                null,
+                null,
+                replicaSvc,
                 mock(BaselineManager.class),
                 clusterSvc.topologyService(),
                 txManager,
                 dataStorageManager,
+                storagePath,
                 metaStorageMgr,
                 schemaManager,
-                view -> new LocalLogStorageFactory()
+                view -> new LocalLogStorageFactory(),
+                null
         );
 
         // Preparing the result map.
@@ -675,7 +693,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * @param testInfo Test information object.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16811")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17814")
     public void testTwoNodesRestartReverse(TestInfo testInfo) {
         twoNodesRestart(testInfo, false);
     }
@@ -767,7 +785,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         stopPartialNode(components);
 
-        Table table = ignite.tables().table(SCHEMA_PREFIX + TABLE_NAME);
+        Table table = ignite.tables().table(TABLE_NAME);
 
         assertNotNull(table);
 
@@ -781,8 +799,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         assertNotNull(tableManager);
 
-        assertTablePresent(tableManager, SCHEMA_PREFIX + TABLE_NAME.toUpperCase());
-        assertTablePresent(tableManager, SCHEMA_PREFIX + TABLE_NAME_2.toUpperCase());
+        assertTablePresent(tableManager, TABLE_NAME.toUpperCase());
+        assertTablePresent(tableManager, TABLE_NAME_2.toUpperCase());
     }
 
     /**
@@ -808,7 +826,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         assertNotNull(tableManager);
 
-        assertTablePresent(tableManager, SCHEMA_PREFIX + TABLE_NAME.toUpperCase());
+        assertTablePresent(tableManager, TABLE_NAME.toUpperCase());
     }
 
     /**
@@ -840,7 +858,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         TableManager tableManager = findComponent(components, TableManager.class);
 
-        assertTablePresent(tableManager, SCHEMA_PREFIX + TABLE_NAME.toUpperCase());
+        assertTablePresent(tableManager, TABLE_NAME.toUpperCase());
     }
 
     /**
@@ -882,8 +900,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         TableManager tableManager = findComponent(components, TableManager.class);
 
-        assertTablePresent(tableManager, SCHEMA_PREFIX + TABLE_NAME.toUpperCase());
-        assertTablePresent(tableManager, SCHEMA_PREFIX + TABLE_NAME_2.toUpperCase());
+        assertTablePresent(tableManager, TABLE_NAME.toUpperCase());
+        assertTablePresent(tableManager, TABLE_NAME_2.toUpperCase());
     }
 
     /**
@@ -938,7 +956,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         TableManager tableManager = findComponent(components, TableManager.class);
 
         for (int i = 0; i < cfgGap; i++) {
-            assertTablePresent(tableManager, SCHEMA_PREFIX + "T" + i);
+            assertTablePresent(tableManager, "T" + i);
         }
     }
 
@@ -994,7 +1012,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * @param name Table name.
      */
     private static void checkTableWithData(Ignite ignite, String name) {
-        Table table = ignite.tables().table("PUBLIC." + name);
+        Table table = ignite.tables().table(name);
 
         assertNotNull(table);
 
@@ -1025,25 +1043,14 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * @param partitions Partitions count.
      */
     private static void createTableWithData(Ignite ignite, String name, int replicas, int partitions) {
-        TableDefinition scmTbl1 = SchemaBuilders.tableBuilder("PUBLIC", name).columns(
-                SchemaBuilders.column("id", ColumnType.INT32).build(),
-                SchemaBuilders.column("name", ColumnType.string()).asNullable(true).build()
-        ).withPrimaryKey(
-                SchemaBuilders.primaryKey()
-                        .withColumns("id")
-                        .build()
-        ).build();
+        try (Session session = ignite.sql().createSession()) {
+            session.execute(null, "CREATE TABLE " + name
+                    + "(id INT PRIMARY KEY, name VARCHAR) WITH replicas=" + replicas + ", partitions=" + partitions);
 
-        Table table = ignite.tables().createTable(
-                scmTbl1.canonicalName(),
-                tbl -> convert(scmTbl1, tbl).changeReplicas(replicas).changePartitions(partitions)
-        );
-
-        for (int i = 0; i < 100; i++) {
-            Tuple key = Tuple.create().set("id", i);
-            Tuple val = Tuple.create().set("name", VALUE_PRODUCER.apply(i));
-
-            table.keyValueView().put(null, key, val);
+            for (int i = 0; i < 100; i++) {
+                session.execute(null, "INSERT INTO " + name + "(id, name) VALUES (?, ?)",
+                        i, VALUE_PRODUCER.apply(i));
+            }
         }
     }
 

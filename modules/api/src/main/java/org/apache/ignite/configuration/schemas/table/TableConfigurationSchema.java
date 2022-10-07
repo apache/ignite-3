@@ -64,10 +64,4 @@ public class TableConfigurationSchema {
     /** Primary key configuration. */
     @ConfigValue
     public PrimaryKeyConfigurationSchema primaryKey;
-
-    // TODO: IGNITE-16647 - RAFT configuration should be moved elsewhere
-
-    /** Configuration for Raft groups corresponding to table partitions. */
-    @ConfigValue
-    public VolatileRaftConfigurationSchema volatileRaft;
 }

@@ -46,9 +46,9 @@ public class ItIndexSpoolTest extends AbstractBasicIntegrationTest {
             LOG.info("Start cleanUp()");
         }
 
-        CLUSTER_NODES.get(0).tables().tables().stream()
-                .map(Table::name)
-                .forEach(CLUSTER_NODES.get(0).tables()::dropTable);
+        for (Table table : CLUSTER_NODES.get(0).tables().tables()) {
+            sql("DROP TABLE " + table.name());
+        }
 
         if (LOG.isInfoEnabled()) {
             LOG.info("End cleanUp()");
@@ -86,7 +86,7 @@ public class ItIndexSpoolTest extends AbstractBasicIntegrationTest {
             // TODO: https://issues.apache.org/jira/browse/IGNITE-17304 uncomment this
             // sql("CREATE INDEX " + name + "_jid_idx ON " + name + "(jid)");
 
-            insertData("PUBLIC." + name, new String[]{"ID", "JID", "VAL"}, dataRows);
+            insertData(name, List.of("ID", "JID", "VAL"), dataRows);
         }
     }
 }

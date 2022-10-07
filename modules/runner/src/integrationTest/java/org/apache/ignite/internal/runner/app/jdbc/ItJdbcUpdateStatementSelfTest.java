@@ -120,7 +120,7 @@ public class ItJdbcUpdateStatementSelfTest extends AbstractJdbcSelfTest {
         updateFunction.accept(updateSql);
 
         KeyValueView<Integer, Person> person = clusterNodes.get(0).tables()
-                .table("PUBLIC.PERSON").keyValueView(Integer.class, Person.class);
+                .table("PERSON").keyValueView(Integer.class, Person.class);
 
         assertEquals("John", person.get(null, 1).firstname);
         assertEquals("Jack", person.get(null, 2).firstname);

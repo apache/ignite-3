@@ -46,7 +46,7 @@ public:
     /**
      * Handle response.
      */
-    [[nodiscard]] virtual ignite_result<void> handle(protocol::Reader &) = 0;
+    [[nodiscard]] virtual ignite_result<void> handle(protocol::reader &) = 0;
 
     /**
      * Set error.
@@ -75,7 +75,7 @@ public:
      *
      * @param func Function.
      */
-    explicit ResponseHandlerImpl(std::function<T(protocol::Reader &)> readFunc, ignite_callback<T> callback)
+    explicit ResponseHandlerImpl(std::function<T(protocol::reader &)> readFunc, ignite_callback<T> callback)
         : m_readFunc(std::move(readFunc))
         , m_callback(std::move(callback))
         , m_mutex() { }
@@ -85,13 +85,13 @@ public:
      *
      * @param reader Reader to be used to read response.
      */
-    [[nodiscard]] ignite_result<void> handle(protocol::Reader &reader) final {
+    [[nodiscard]] ignite_result<void> handle(protocol::reader &reader) final {
         ignite_callback<T> callback = removeCallback();
         if (!callback)
             return {};
 
-        auto res = ignite_result<T>::of_operation([&]() { return m_readFunc(reader); });
-        return ignite_result<void>::of_operation([&]() { callback(std::move(res)); });
+        auto res = result_of_operation<T>([&]() { return m_readFunc(reader); });
+        return result_of_operation<void>([&]() { callback(std::move(res)); });
     }
 
     /**
@@ -104,7 +104,7 @@ public:
         if (!callback)
             return {};
 
-        return ignite_result<void>::of_operation([&]() { callback({std::move(err)}); });
+        return result_of_operation<void>([&]() { callback({std::move(err)}); });
     }
 
 private:
@@ -121,7 +121,7 @@ private:
     }
 
     /** Read function. */
-    std::function<T(protocol::Reader &)> m_readFunc;
+    std::function<T(protocol::reader &)> m_readFunc;
 
     /** Promise. */
     ignite_callback<T> m_callback;

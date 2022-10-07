@@ -51,14 +51,14 @@ public:
      *
      * @return The most significant 64 bits of this instance.
      */
-    constexpr std::int64_t getMostSignificantBits() const noexcept { return most; }
+    [[nodiscard]] constexpr std::int64_t getMostSignificantBits() const noexcept { return most; }
 
     /**
      * Returns the least significant 64 bits of this instance.
      *
      * @return The least significant 64 bits of this instance.
      */
-    constexpr std::int64_t getLeastSignificantBits() const noexcept { return least; }
+    [[nodiscard]] constexpr std::int64_t getLeastSignificantBits() const noexcept { return least; }
 
     /**
      * The version number associated with this instance.  The version
@@ -72,7 +72,9 @@ public:
      *
      * @return The version number of this instance.
      */
-    constexpr std::int32_t version() const noexcept { return static_cast<std::int32_t>((most >> 12) & 0x0f); }
+    [[nodiscard]] constexpr std::int32_t version() const noexcept {
+        return static_cast<std::int32_t>((most >> 12) & 0x0f);
+    }
 
     /**
      * The variant number associated with this instance. The variant
@@ -86,8 +88,8 @@ public:
      *
      * @return The variant number of this instance.
      */
-    constexpr std::int32_t variant() const noexcept {
-        std::uint64_t least0 = static_cast<uint64_t>(least);
+    [[nodiscard]] constexpr std::int32_t variant() const noexcept {
+        auto least0 = static_cast<uint64_t>(least);
         return static_cast<std::int32_t>((least0 >> (64 - (least0 >> 62))) & (least >> 63));
     }
 
@@ -97,7 +99,7 @@ public:
      * @param other Instance to compare to.
      * @return Zero if equals, negative number if less, and positive if greater.
      */
-    constexpr int compare(const uuid &other) const noexcept {
+    [[nodiscard]] constexpr int compare(const uuid &other) const noexcept {
         if (most != other.most) {
             return most < other.most ? -1 : 1;
         }
@@ -190,11 +192,14 @@ constexpr bool operator>=(const uuid &lhs, const uuid &rhs) noexcept {
  */
 template <typename C, typename T>
 ::std::basic_ostream<C, T> &operator<<(std::basic_ostream<C, T> &os, const uuid &uuid) {
-    uint32_t part1 = static_cast<uint32_t>(uuid.getMostSignificantBits() >> 32);
-    uint16_t part2 = static_cast<uint16_t>(uuid.getMostSignificantBits() >> 16);
-    uint16_t part3 = static_cast<uint16_t>(uuid.getMostSignificantBits());
-    uint16_t part4 = static_cast<uint16_t>(uuid.getLeastSignificantBits() >> 48);
-    uint64_t part5 = uuid.getLeastSignificantBits() & 0x0000FFFFFFFFFFFFU;
+    auto msb = uuid.getMostSignificantBits();
+    auto lsb = uuid.getLeastSignificantBits();
+
+    auto part1 = static_cast<std::uint32_t>(msb >> 32);
+    auto part2 = static_cast<std::uint16_t>(msb >> 16);
+    auto part3 = static_cast<std::uint16_t>(msb);
+    auto part4 = static_cast<std::uint16_t>(lsb >> 48);
+    uint64_t part5 = lsb & 0x0000FFFFFFFFFFFFU;
 
     std::ios_base::fmtflags savedFlags = os.flags();
 
@@ -240,7 +245,8 @@ template <typename C, typename T>
 
     is.flags(savedFlags);
 
-    result = uuid((parts[0] << 32) | (parts[1] << 16) | parts[2], (parts[3] << 48) | parts[4]);
+    result =
+        uuid(std::int64_t((parts[0] << 32) | (parts[1] << 16) | parts[2]), std::int64_t((parts[3] << 48) | parts[4]));
 
     return is;
 }

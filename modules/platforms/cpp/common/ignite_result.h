@@ -17,13 +17,14 @@
 
 #pragma once
 
+#include "common/ignite_error.h"
+
 #include <cstdint>
 #include <functional>
 #include <future>
 #include <optional>
 #include <string>
-
-#include "common/ignite_error.h"
+#include <variant>
 
 namespace ignite {
 
@@ -42,8 +43,7 @@ public:
      * @param value Value.
      */
     ignite_result(T &&value) // NOLINT(google-explicit-constructor)
-        : m_value(std::move(value))
-        , m_error(std::nullopt) { }
+        : m_value(std::move(value)) { }
 
     /**
      * Constructor.
@@ -51,22 +51,21 @@ public:
      * @param message Message.
      */
     ignite_result(ignite_error &&error) // NOLINT(google-explicit-constructor)
-        : m_value(std::nullopt)
-        , m_error(std::move(error)) { }
+        : m_value(std::move(error)) { }
 
     /**
      * Has value.
      *
      * @return @c true if the result has value.
      */
-    [[nodiscard]] bool has_value() const noexcept { return m_value.has_value(); }
+    [[nodiscard]] bool has_value() const noexcept { return !has_error(); }
 
     /**
      * Has error.
      *
      * @return @c true if the result has error.
      */
-    [[nodiscard]] bool has_error() const noexcept { return m_error.has_value(); }
+    [[nodiscard]] bool has_error() const noexcept { return std::holds_alternative<ignite_error>(m_value); }
 
     /**
      * Get value.
@@ -77,7 +76,7 @@ public:
         if (!has_value())
             throw ignite_error("No value is present in result");
 
-        return std::move(m_value.value());
+        return std::get<T>(std::move(m_value));
     }
 
     /**
@@ -89,7 +88,7 @@ public:
         if (!has_value())
             throw ignite_error("No value is present in result");
 
-        return m_value.value();
+        return std::get<T>(m_value);
     }
 
     /**
@@ -101,7 +100,7 @@ public:
         if (!has_value())
             throw ignite_error("No value is present in result");
 
-        return m_value.value();
+        return std::get<T>(m_value);
     }
 
     /**
@@ -113,7 +112,7 @@ public:
         if (!has_error())
             throw ignite_error("No error is present in result");
 
-        return std::move(m_error.value());
+        return std::move(std::get<ignite_error>(m_value));
     }
 
     /**
@@ -125,7 +124,7 @@ public:
         if (!has_error())
             throw ignite_error("No error is present in result");
 
-        return m_error.value();
+        return std::get<ignite_error>(m_value);
     }
 
     /**
@@ -137,68 +136,20 @@ public:
         if (!has_error())
             throw ignite_error("No error is present in result");
 
-        return m_error.value();
+        return std::get<ignite_error>(m_value);
     }
 
     /**
-     * Bool operator. Can be used to check result for an error.
+     * Bool operator.
+     * Can be used to check result for an error.
      *
      * @return @c true if result does not contain error.
      */
     explicit operator bool() const noexcept { return !has_error(); }
 
-    /**
-     * Wrap operation result in ignite_result.
-     * @param operation Operation to wrap.
-     * @return ignite_result
-     */
-    static ignite_result of_operation(const std::function<T()> &operation) noexcept {
-        // TODO: IGNITE-17760 Move to common once it's re-factored
-        try {
-            return {operation()};
-        } catch (const ignite_error &err) {
-            return {ignite_error(err)};
-        } catch (const std::exception &err) {
-            std::string msg("Standard library exception is thrown: ");
-            msg += err.what();
-            return {ignite_error(status_code::GENERIC, msg, std::current_exception())};
-        } catch (...) {
-            return {ignite_error(status_code::UNKNOWN, "Unknown error is encountered when processing network event",
-                std::current_exception())};
-        }
-    }
-
-    /**
-     * Return promise setter.
-     *
-     * @param pr Promise.
-     * @return Promise setter.
-     */
-    static std::function<void(ignite_result<T>)> promise_setter(std::shared_ptr<std::promise<T>> pr) {
-        // TODO: IGNITE-17760 Move to common once it's re-factored
-        return [pr = std::move(pr)](
-                   ignite_result<T> &&res) mutable { ignite_result<T>::set_promise(*pr, std::move(res)); };
-    }
-
 private:
-    /**
-     * Set promise from result.
-     *
-     * @param pr Promise to set.
-     */
-    static void set_promise(std::promise<T> &pr, ignite_result res) {
-        if (res.has_error()) {
-            pr.set_exception(std::make_exception_ptr(std::move(res.m_error.value())));
-        } else {
-            pr.set_value(std::move(res.m_value.value()));
-        }
-    }
-
     /** Value. */
-    std::optional<T> m_value;
-
-    /** Error. */
-    std::optional<ignite_error> m_error;
+    std::variant<ignite_error, T> m_value;
 };
 
 /**
@@ -218,9 +169,8 @@ public:
      *
      * @param message Message.
      */
-    ignite_result(ignite_error &&error)
-        : // NOLINT(google-explicit-constructor)
-        m_error(std::move(error)) { }
+    ignite_result(ignite_error &&error) // NOLINT(google-explicit-constructor)
+        : m_error(std::move(error)) { }
 
     /**
      * Has error.
@@ -254,65 +204,79 @@ public:
     }
 
     /**
-     * Bool operator. Can be used to check result for an error.
+     * Bool operator.
+     * Can be used to check result for an error.
      *
      * @return @c true if result does not contain error.
      */
     explicit operator bool() const noexcept { return !has_error(); }
 
-    /**
-     * Wrap operation result in ignite_result.
-     * @param operation Operation to wrap.
-     * @return ignite_result
-     */
-    static ignite_result of_operation(const std::function<void()> &operation) noexcept {
-        // TODO: IGNITE-17760 Move to common once it's re-factored
-        try {
-            operation();
-            return {};
-        } catch (const ignite_error &err) {
-            return {ignite_error(err)};
-        } catch (const std::exception &err) {
-            std::string msg("Standard library exception is thrown: ");
-            msg += err.what();
-            return {ignite_error(status_code::GENERIC, msg, std::current_exception())};
-        } catch (...) {
-            return {ignite_error(status_code::UNKNOWN, "Unknown error is encountered when processing network event",
-                std::current_exception())};
-        }
-    }
-
-    /**
-     * Return promise setter.
-     *
-     * @param pr Promise.
-     * @return Promise setter.
-     */
-    static std::function<void(ignite_result<void>)> promise_setter(std::shared_ptr<std::promise<void>> pr) {
-        // TODO: IGNITE-17760 Move to common once it's re-factored
-        return [pr = std::move(pr)](
-                   ignite_result<void> &&res) mutable { ignite_result<void>::set_promise(*pr, std::move(res)); };
-    }
-
 private:
-    /**
-     * Set promise from result.
-     *
-     * @param pr Promise to set.
-     */
-    static void set_promise(std::promise<void> &pr, ignite_result res) {
-        if (res.has_error()) {
-            pr.set_exception(std::make_exception_ptr(std::move(res.m_error.value())));
-        } else {
-            pr.set_value();
-        }
-    }
-
     /** Error. */
     std::optional<ignite_error> m_error;
 };
 
 template <typename T>
 using ignite_callback = std::function<void(ignite_result<T> &&)>;
+
+/**
+ * Wrap operation result in ignite_result.
+ *
+ * @param operation Operation to wrap.
+ * @return ignite_result
+ */
+template <typename T>
+ignite_result<T> result_of_operation(const std::function<T()> &operation) noexcept {
+    // TODO: IGNITE-17760 Move to common once it's re-factored
+    try {
+        if constexpr (std::is_same<decltype(operation()), void>::value) {
+            operation();
+            return {};
+        } else {
+            return {operation()};
+        }
+    } catch (const ignite_error &err) {
+        return {ignite_error(err)};
+    } catch (const std::exception &err) {
+        std::string msg("Standard library exception is thrown: ");
+        msg += err.what();
+        return {ignite_error(status_code::GENERIC, msg, std::current_exception())};
+    } catch (...) {
+        return {ignite_error(status_code::UNKNOWN, "Unknown error is encountered when processing network event",
+            std::current_exception())};
+    }
+}
+
+/**
+ * Set promise from result.
+ *
+ * @param pr Promise to set.
+ * @param res Result to use.
+ */
+template <typename T>
+void result_set_promise(std::promise<T> &pr, ignite_result<T> &&res) {
+    // TODO: IGNITE-17760 Move to common once it's re-factored
+    if (!res) {
+        pr.set_exception(std::make_exception_ptr(std::move(res).error()));
+    } else {
+        if constexpr (std::is_same<T, void>::value) {
+            pr.set_value();
+        } else {
+            pr.set_value(std::move(res).value());
+        }
+    }
+}
+
+/**
+ * Get promise setter for a promise to be used with ignite result.
+ *
+ * @param pr Promise.
+ * @return Promise setter.
+ */
+template <typename T>
+std::function<void(ignite_result<T>)> result_promise_setter(std::shared_ptr<std::promise<T>> pr) {
+    // TODO: IGNITE-17760 Move to common once it's re-factored
+    return [pr = std::move(pr)](ignite_result<T> &&res) mutable { result_set_promise<T>(*pr, std::move(res)); };
+}
 
 } // namespace ignite

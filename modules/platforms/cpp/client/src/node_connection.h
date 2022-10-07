@@ -88,24 +88,24 @@ public:
      * @tparam T Result type.
      * @param op Operation code.
      * @param wr Writer function.
-     * @param rd Reader function.
+     * @param handler Response handler.
      * @return @c true on success and @c false otherwise.
      */
     template <typename T>
-    bool performRequest(ClientOperation op, const std::function<void(protocol::Writer &)> &wr,
+    bool performRequest(ClientOperation op, const std::function<void(protocol::writer &)> &wr,
         std::shared_ptr<ResponseHandlerImpl<T>> handler) {
         auto reqId = generateRequestId();
         std::vector<std::byte> message;
         {
-            protocol::BufferAdapter buffer(message);
-            buffer.reserveLengthHeader();
+            protocol::buffer_adapter buffer(message);
+            buffer.reserve_length_header();
 
-            protocol::Writer writer(buffer);
+            protocol::writer writer(buffer);
             writer.write(int32_t(op));
             writer.write(reqId);
             wr(writer);
 
-            buffer.writeLengthHeader();
+            buffer.write_length_header();
 
             {
                 std::lock_guard<std::mutex> lock(m_requestHandlersMutex);

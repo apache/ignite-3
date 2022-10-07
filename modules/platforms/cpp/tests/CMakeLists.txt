@@ -58,3 +58,5 @@ endfunction()
 add_boost_test(testBits.cpp ignite-common)
 add_boost_test(testBytes.cpp ignite-common)
 add_boost_test(testUuid.cpp ignite-common)
+
+add_boost_test(testDecimal.cpp ignite-schema)

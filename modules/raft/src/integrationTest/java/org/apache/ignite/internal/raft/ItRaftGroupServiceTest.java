@@ -31,6 +31,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import org.apache.ignite.hlc.HybridClock;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.network.ClusterNode;
@@ -54,9 +58,13 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(WorkDirectoryExtension.class)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@ExtendWith(ConfigurationExtension.class)
 public class ItRaftGroupServiceTest {
     @WorkDirectory
     private static Path workDir;
+
+    @InjectConfiguration
+    private static RaftConfiguration raftConfiguration;
 
     private static final int NODES_CNT = 2;
 
@@ -92,7 +100,7 @@ public class ItRaftGroupServiceTest {
         CompletableFuture<RaftGroupService>[] svcFutures = new CompletableFuture[NODES_CNT];
 
         for (int i = 0; i < NODES_CNT; i++) {
-            Loza raftServer = new Loza(clusterServices.get(i), workDir.resolve("node" + i));
+            Loza raftServer = new Loza(clusterServices.get(i), raftConfiguration, workDir.resolve("node" + i), new HybridClock());
 
             raftSrvs.add(raftServer);
 

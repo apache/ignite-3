@@ -25,6 +25,7 @@ namespace Apache.Ignite.Internal.Sql
     using Ignite.Table;
     using Ignite.Transactions;
     using Proto;
+    using Proto.BinaryTuple;
     using Transactions;
 
     /// <summary>
@@ -68,17 +69,20 @@ namespace Apache.Ignite.Internal.Sql
                 w.Write((long)statement.Timeout.TotalMilliseconds);
                 w.WriteNil(); // Session timeout (unused, session is closed by the server immediately).
 
-                w.WriteMapHeader(statement.Properties.Count);
+                w.Write(statement.Properties.Count);
+                using var propTuple = new BinaryTupleBuilder(statement.Properties.Count * 4);
 
                 foreach (var (key, val) in statement.Properties)
                 {
-                    w.Write(key);
-                    w.WriteObjectWithType(val);
+                    propTuple.AppendString(key);
+                    propTuple.AppendObjectWithType(val);
                 }
+
+                w.Write(propTuple.Build().Span);
 
                 w.Write(statement.Query);
 
-                w.WriteObjectArrayWithTypes(args);
+                w.WriteObjectArrayAsBinaryTuple(args);
 
                 w.Flush();
                 return writer;

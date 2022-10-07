@@ -17,189 +17,96 @@
 
 #pragma once
 
-#include <cstddef>
-#include <cstdint>
+#include "common/bytes.h"
+#include "common/ignite_error.h"
+#include "common/types.h"
+#include "common/uuid.h"
+#include "ignite/protocol/extension_types.h"
 
 #include <array>
 #include <optional>
 
-#include "common/ignite_error.h"
-#include "common/types.h"
+#include <cstddef>
+#include <cstdint>
 
-#include "ignite/protocol/reader.h"
+struct msgpack_object;
 
 namespace ignite::protocol {
+
+class reader;
+
 /** Magic bytes. */
 static constexpr std::array<std::byte, 4> MAGIC_BYTES = {
     std::byte('I'), std::byte('G'), std::byte('N'), std::byte('I')};
 
-/**
- * Read uint64 from bytes stream.
- *
- * @param data Data.
- * @param offset Offset.
- * @return Value
- */
-inline uint64_t readUint64(const std::byte *data, size_t offset = 0) {
-    // TODO IGNITE-17760: Replace read and write functions with ones from common/Bytes.h
-    return (std::uint64_t(data[offset]) << 56) | (std::uint64_t(data[offset + 1]) << 48)
-        | (std::uint64_t(data[offset + 2]) << 40) | (std::uint64_t(data[offset + 3]) << 32)
-        | (std::uint64_t(data[offset + 4]) << 24) | (std::uint64_t(data[offset + 5]) << 16)
-        | (std::uint64_t(data[offset + 6]) << 8) | std::uint64_t(data[offset + 7]);
+template <typename T>
+[[nodiscard]] T unpack_object(const msgpack_object &) {
+    static_assert(sizeof(T) == 0, "Unpacking is not implemented for the type");
 }
 
 /**
- * Read int64 from bytes stream.
+ * Unpack number.
  *
- * @param data Data.
- * @param offset Offset.
- * @return Value
+ * @param object MsgPack object.
+ * @return Number.
+ * @throw ignite_error if the object is not a number.
  */
-inline int64_t readInt64(const std::byte *data, size_t offset = 0) {
-    return std::int64_t(readUint64(data, offset));
-}
+template <>
+[[nodiscard]] std::int64_t unpack_object(const msgpack_object &object);
 
 /**
- * Read uint32 from bytes stream.
+ * Unpack number.
  *
- * @param data Data.
- * @param offset Offset.
- * @return Value
+ * @param object MsgPack object.
+ * @return Number.
+ * @throw ignite_error if the object is not a number.
  */
-inline uint32_t readUint32(const std::byte *data, size_t offset = 0) {
-    return (std::uint32_t(data[offset]) << 24) | (std::uint32_t(data[offset + 1]) << 16)
-        | (std::uint32_t(data[offset + 2]) << 8) | std::uint32_t(data[offset + 3]);
-}
+template <>
+[[nodiscard]] std::int32_t unpack_object(const msgpack_object &object);
 
 /**
- * Read int32 from bytes stream.
+ * Unpack number.
  *
- * @param data Data.
- * @param offset Offset.
- * @return Value
+ * @param object MsgPack object.
+ * @return Number.
+ * @throw ignite_error if the object is not a number.
  */
-inline int32_t readInt32(const std::byte *data, size_t offset = 0) {
-    return std::int32_t(readUint32(data, offset));
-}
+template <>
+[[nodiscard]] std::int16_t unpack_object(const msgpack_object &object);
 
 /**
- * Read uint16 from bytes stream.
+ * Unpack string.
  *
- * @param data Data.
- * @param offset Offset.
- * @return Value
+ * @param object MsgPack object.
+ * @return String.
+ * @throw ignite_error if the object is not a string.
  */
-inline uint16_t readUint16(const std::byte *data, size_t offset = 0) {
-    return std::uint16_t(data[offset + 1]) | (std::uint16_t(data[offset]) << 8);
-}
+template <>
+[[nodiscard]] std::string unpack_object(const msgpack_object &object);
 
 /**
- * Read int16 from bytes stream.
+ * Unpack UUID.
  *
- * @param data Data.
- * @param offset Offset.
- * @return Value
+ * @param object MsgPack object.
+ * @return UUID.
+ * @throw ignite_error if the object is not a UUID.
  */
-inline int16_t readInt16(const std::byte *data, size_t offset = 0) {
-    return std::int16_t(readUint16(data, offset));
-}
+template <>
+[[nodiscard]] uuid unpack_object(const msgpack_object &object);
 
 /**
- * Write uint64 to byte stream.
+ * Make random UUID.
  *
- * @param value Value to write.
- * @param buffer Buffer.
- * @param offset Offset.
- * @return Value
+ * @return Random UUID instance.
  */
-inline void writeUint64(uint64_t value, std::byte *buffer, size_t offset = 0) {
-    buffer[offset] = std::byte((value & 0xFF000000'00000000) >> 56);
-    buffer[offset + 1] = std::byte((value & 0x00FF0000'00000000) >> 48);
-    buffer[offset + 2] = std::byte((value & 0x0000FF00'00000000) >> 40);
-    buffer[offset + 3] = std::byte((value & 0x000000FF'00000000) >> 32);
-    buffer[offset + 4] = std::byte((value & 0x00000000'FF000000) >> 24);
-    buffer[offset + 5] = std::byte((value & 0x00000000'00FF0000) >> 16);
-    buffer[offset + 6] = std::byte((value & 0x00000000'0000FF00) >> 8);
-    buffer[offset + 7] = std::byte(value & 0x00000000'000000FF);
-}
-
-/**
- * Write int64 to byte stream.
- *
- * @param value Value to write.
- * @param buffer Buffer.
- * @param offset Offset.
- * @return Value
- */
-inline void writeInt64(int64_t value, std::byte *buffer, size_t offset = 0) {
-    return writeUint64(std::uint64_t(value), buffer, offset);
-}
-
-/**
- * Write uint32 to byte stream.
- *
- * @param value Value to write.
- * @param buffer Buffer.
- * @param offset Offset.
- * @return Value
- */
-inline void writeUint32(uint32_t value, std::byte *buffer, size_t offset = 0) {
-    buffer[offset] = std::byte((value & 0xFF000000) >> 24);
-    buffer[offset + 1] = std::byte((value & 0x00FF0000) >> 16);
-    buffer[offset + 2] = std::byte((value & 0x0000FF00) >> 8);
-    buffer[offset + 3] = std::byte(value & 0x000000FF);
-}
-
-/**
- * Write int32 to byte stream.
- *
- * @param value Value to write.
- * @param buffer Buffer.
- * @param offset Offset.
- * @return Value
- */
-inline void writeInt32(int32_t value, std::byte *buffer, size_t offset = 0) {
-    return writeUint32(std::uint32_t(value), buffer, offset);
-}
-
-/**
- * Write uint16 to byte stream.
- *
- * @param value Value to write.
- * @param buffer Buffer.
- * @param offset Offset.
- * @return Value
- */
-inline void writeUint16(uint16_t value, std::byte *buffer, size_t offset = 0) {
-    buffer[offset] = std::byte((value & 0xFF00) >> 8);
-    buffer[offset + 1] = std::byte(value & 0x00FF);
-}
-
-/**
- * Write int16 to byte stream.
- *
- * @param value Value to write.
- * @param buffer Buffer.
- * @param offset Offset.
- * @return Value
- */
-inline void writeInt16(int16_t value, std::byte *buffer, size_t offset = 0) {
-    return writeUint16(std::uint16_t(value), buffer, offset);
-}
-
-/**
- * Make random GUID.
- *
- * @return Random GUID instance.
- */
-ignite::Guid makeRandomGuid();
+[[nodiscard]] ignite::uuid make_random_uuid();
 
 /**
  * Read error.
  *
- * @param reader Reader.
- * @return Error.
+ * @param reader reader.
+ * @return Error if there is any.
  */
-std::optional<ignite_error> readError(protocol::Reader &reader);
+[[nodiscard]] std::optional<ignite_error> read_error(protocol::reader &reader);
 
 } // namespace ignite::protocol

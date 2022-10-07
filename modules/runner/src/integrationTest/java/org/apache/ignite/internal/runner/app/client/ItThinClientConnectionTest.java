@@ -48,7 +48,7 @@ public class ItThinClientConnectionTest extends ItAbstractThinClientTest {
                 assertEquals(1, tables.size());
 
                 Table table = tables.get(0);
-                assertEquals(String.format("%s.%s", SCHEMA_NAME, TABLE_NAME), table.name());
+                assertEquals(TABLE_NAME, table.name());
 
                 var tuple = Tuple.create().set(COLUMN_KEY, 1).set(COLUMN_VAL, "Hello");
                 var keyTuple = Tuple.create().set(COLUMN_KEY, 1);

@@ -94,7 +94,7 @@ public class RecordViewExample {
             //
             //--------------------------------------------------------------------------------------
 
-            RecordView<Tuple> accounts = client.tables().table("PUBLIC.accounts").recordView();
+            RecordView<Tuple> accounts = client.tables().table("accounts").recordView();
 
             //--------------------------------------------------------------------------------------
             //

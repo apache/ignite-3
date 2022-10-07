@@ -19,11 +19,11 @@ package org.apache.ignite.internal.sql.engine.schema;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.internal.schema.SchemaUtils.extractSchema;
+import static org.apache.ignite.internal.sql.engine.SqlQueryProcessor.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.OBJECT_NOT_FOUND_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.SCHEMA_EVALUATION_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Sql.TABLE_NOT_FOUND_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.TABLE_VER_NOT_FOUND_ERR;
 
 import java.util.Comparator;
@@ -61,8 +61,6 @@ import org.jetbrains.annotations.Nullable;
  * Holds actual schema and mutates it on schema change, requested by Ignite.
  */
 public class SqlSchemaManagerImpl implements SqlSchemaManager {
-    private static final String DEFAULT_SCHEMA_NAME = "PUBLIC";
-
     private final VersionedValue<Map<String, IgniteSchema>> schemasVv;
 
     private final VersionedValue<Map<UUID, InternalIgniteTable>> tablesVv;
@@ -157,7 +155,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
             }
 
             if (table == null) {
-                throw new IgniteInternalException(TABLE_NOT_FOUND_ERR,
+                throw new IgniteInternalException(OBJECT_NOT_FOUND_ERR,
                         IgniteStringFormatter.format("Table not found [tableId={}]", id));
             }
 
@@ -241,7 +239,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                                             });
                                 }))
                         .thenCombine(igniteTableFuture, (v, igniteTable) -> {
-                            schema.addTable(objectSimpleName(schemaName, table.name()), igniteTable);
+                            schema.addTable(table.name(), igniteTable);
 
                             return res;
                         });
@@ -288,12 +286,10 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                 IgniteSchema schema = res.compute(schemaName,
                         (k, v) -> v == null ? new IgniteSchema(schemaName) : IgniteSchema.copy(v));
 
-                String calciteTableName = objectSimpleName(schemaName, tableName);
-
-                InternalIgniteTable table = (InternalIgniteTable) schema.getTable(calciteTableName);
+                InternalIgniteTable table = (InternalIgniteTable) schema.getTable(tableName);
 
                 if (table != null) {
-                    schema.removeTable(calciteTableName);
+                    schema.removeTable(tableName);
 
                     return tablesVv.update(causalityToken, (tables, ex) -> inBusyLock(busyLock, () -> {
                         if (ex != null) {
@@ -325,7 +321,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     private SchemaPlus rebuild(Map<String, IgniteSchema> schemas) {
         SchemaPlus newCalciteSchema = Frameworks.createRootSchema(false);
 
-        newCalciteSchema.add("PUBLIC", new IgniteSchema("PUBLIC"));
+        newCalciteSchema.add(DEFAULT_SCHEMA_NAME, new IgniteSchema(DEFAULT_SCHEMA_NAME));
 
         schemas.forEach(newCalciteSchema::add);
 
@@ -375,13 +371,6 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     }
 
     /**
-     * Cut schema name from object canonical name, if found.
-     */
-    private static String objectSimpleName(String schemaName, String canonicalName) {
-        return canonicalName.substring(schemaName.length() + 1);
-    }
-
-    /**
      * Index created callback method register index in Calcite schema.
      *
      * @param index Index instance.
@@ -398,7 +387,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                     return failedFuture(e);
                 }
 
-                String schemaName = extractSchema(index.name());
+                String schemaName = DEFAULT_SCHEMA_NAME;
 
                 Map<String, IgniteSchema> res = new HashMap<>(schemas);
 

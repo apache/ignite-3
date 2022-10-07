@@ -20,51 +20,42 @@ package org.apache.ignite.internal.table.distributed.raft;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import org.apache.ignite.hlc.HybridClock;
+import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
+import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
-import org.apache.ignite.internal.table.distributed.command.DeleteAllCommand;
-import org.apache.ignite.internal.table.distributed.command.DeleteCommand;
-import org.apache.ignite.internal.table.distributed.command.DeleteExactAllCommand;
-import org.apache.ignite.internal.table.distributed.command.DeleteExactCommand;
-import org.apache.ignite.internal.table.distributed.command.GetAllCommand;
-import org.apache.ignite.internal.table.distributed.command.GetAndDeleteCommand;
-import org.apache.ignite.internal.table.distributed.command.GetAndReplaceCommand;
-import org.apache.ignite.internal.table.distributed.command.GetAndUpsertCommand;
-import org.apache.ignite.internal.table.distributed.command.GetCommand;
-import org.apache.ignite.internal.table.distributed.command.InsertAllCommand;
-import org.apache.ignite.internal.table.distributed.command.InsertCommand;
-import org.apache.ignite.internal.table.distributed.command.ReplaceCommand;
-import org.apache.ignite.internal.table.distributed.command.ReplaceIfExistCommand;
-import org.apache.ignite.internal.table.distributed.command.UpsertAllCommand;
-import org.apache.ignite.internal.table.distributed.command.UpsertCommand;
-import org.apache.ignite.internal.table.distributed.command.response.MultiRowsResponse;
-import org.apache.ignite.internal.table.distributed.command.response.SingleRowResponse;
-import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
+import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
+import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.internal.tx.storage.state.test.TestConcurrentHashMapTxStateStorage;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
@@ -82,6 +73,9 @@ public class PartitionCommandListenerTest {
     /** Key count. */
     public static final int KEY_COUNT = 100;
 
+    /** Partition id. */
+    public static final int PARTITION_ID = 0;
+
     /** Schema. */
     public static SchemaDescriptor SCHEMA = new SchemaDescriptor(
             1,
@@ -89,14 +83,20 @@ public class PartitionCommandListenerTest {
             new Column[]{new Column("value", NativeTypes.INT32, false)}
     );
 
+    /** Hybrid clock. */
+    private static final HybridClock CLOCK = new HybridClock();
+
     /** Table command listener. */
     private PartitionListener commandListener;
 
-    /** Versioned row store. */
-    private VersionedRowStore versionedRowStore;
-
     /** RAFT index. */
     private AtomicLong raftIndex = new AtomicLong();
+
+    /** Primary index. */
+    private ConcurrentHashMap<ByteBuffer, RowId> primaryIndex = new ConcurrentHashMap<>();
+
+    /** Partition storage. */
+    private MvPartitionStorage mvPartitionStorage = new TestMvPartitionStorage(PARTITION_ID);
 
     /**
      * Initializes a table listener before tests.
@@ -107,14 +107,13 @@ public class PartitionCommandListenerTest {
         NetworkAddress addr = new NetworkAddress("127.0.0.1", 5003);
         Mockito.when(clusterService.topologyService().localMember().address()).thenReturn(addr);
 
-        versionedRowStore = new VersionedRowStore(
-                new TestMvPartitionStorage(0),
-                new TxManagerImpl(clusterService, new HeapLockManager())
-        );
+        ReplicaService replicaService = Mockito.mock(ReplicaService.class, RETURNS_DEEP_STUBS);
 
         commandListener = new PartitionListener(
-                UUID.randomUUID(),
-                versionedRowStore
+                mvPartitionStorage,
+                new TestConcurrentHashMapTxStateStorage(),
+                new TxManagerImpl(replicaService, new HeapLockManager(), new HybridClock()),
+                primaryIndex
         );
     }
 
@@ -125,103 +124,31 @@ public class PartitionCommandListenerTest {
     public void testInsertCommands() {
         readAndCheck(false);
 
-        delete(false);
-
-        insert(false);
-
-        insert(true);
+        insert();
 
         readAndCheck(true);
 
-        delete(true);
+        delete();
     }
 
     /**
      * Upserts rows and checks them.
      */
     @Test
-    public void testUpsertValues() {
+    public void testUpdateValues() {
         readAndCheck(false);
 
-        upsert();
+        insert();
 
         readAndCheck(true);
 
-        delete(true);
+        update(integer -> integer + 1);
+
+        readAndCheck(true, integer -> integer + 1);
+
+        delete();
 
         readAndCheck(false);
-    }
-
-    /**
-     * Adds rows, replaces and checks them.
-     */
-    @Test
-    public void testReplaceCommand() {
-        upsert();
-
-        deleteExactValues(false);
-
-        replaceValues(true);
-
-        readAndCheck(true, i -> i + 1);
-
-        replaceValues(false);
-
-        readAndCheck(true, i -> i + 1);
-
-        deleteExactValues(true);
-
-        readAndCheck(false);
-    }
-
-    /**
-     * The test checks PutIfExist command.
-     */
-    @Test
-    public void testPutIfExistCommand() {
-        putIfExistValues(false);
-
-        readAndCheck(false);
-
-        upsert();
-
-        putIfExistValues(true);
-
-        readAndCheck(true, i -> i + 1);
-
-        getAndDeleteValues(true);
-
-        readAndCheck(false);
-
-        getAndDeleteValues(false);
-    }
-
-    /**
-     * The test checks GetAndReplace command.
-     */
-    @Test
-    public void testGetAndReplaceCommand() {
-        readAndCheck(false);
-
-        getAndUpsertValues(false);
-
-        readAndCheck(true);
-
-        getAndReplaceValues(true);
-
-        readAndCheck(true, i -> i + 1);
-
-        getAndUpsertValues(true);
-
-        readAndCheck(true);
-
-        deleteExactAllValues(true);
-
-        readAndCheck(false);
-
-        getAndReplaceValues(false);
-
-        deleteExactAllValues(false);
     }
 
     /**
@@ -229,17 +156,19 @@ public class PartitionCommandListenerTest {
      */
     @Test
     public void testUpsertRowsBatchedAndCheck() {
-        readAll(false);
+        readAndCheck(false);
 
-        deleteAll(false);
+        insertAll();
 
-        upsertAll();
+        readAndCheck(true);
 
-        readAll(true);
+        updateAll(integer -> integer + 2);
 
-        deleteAll(true);
+        readAndCheck(true, integer -> integer + 2);
 
-        readAll(false);
+        deleteAll();
+
+        readAndCheck(false);
     }
 
     /**
@@ -247,19 +176,15 @@ public class PartitionCommandListenerTest {
      */
     @Test
     public void testInsertRowsBatchedAndCheck() {
-        readAll(false);
+        readAndCheck(false);
 
-        deleteAll(false);
+        insertAll();
 
-        insertAll(false);
+        readAndCheck(true);
 
-        readAll(true);
+        deleteAll();
 
-        insertAll(true);
-
-        deleteAll(true);
-
-        readAll(false);
+        readAndCheck(false);
     }
 
     /**
@@ -325,57 +250,8 @@ public class PartitionCommandListenerTest {
 
     /**
      * Inserts all rows.
-     *
-     * @param existed True if rows are existed, false otherwise.
      */
-    private void insertAll(boolean existed) {
-        List<IgniteBiTuple<Row, UUID>> txs = new ArrayList<>();
-
-        commandListener.onWrite(batchIterator(clo -> {
-            when(clo.index()).thenReturn(raftIndex.incrementAndGet());
-
-            doAnswer(invocation -> {
-                MultiRowsResponse resp = invocation.getArgument(0);
-
-                if (existed) {
-                    assertEquals(KEY_COUNT, resp.getValues().size());
-
-                    for (BinaryRow binaryRow : resp.getValues()) {
-                        Row row = new Row(SCHEMA, binaryRow);
-
-                        int keyVal = row.intValue(0);
-
-                        assertTrue(keyVal < KEY_COUNT);
-                        assertEquals(keyVal, row.intValue(1));
-                    }
-                } else {
-                    assertTrue(resp.getValues().isEmpty());
-                }
-
-                return null;
-            }).when(clo).result(any(MultiRowsResponse.class));
-
-            Set<BinaryRow> rows = new HashSet<>(KEY_COUNT);
-            UUID txId = Timestamp.nextVersion().toUuid();
-
-            for (int i = 0; i < KEY_COUNT; i++) {
-                Row row = getTestRow(i, i);
-
-                rows.add(row);
-
-                txs.add(new IgniteBiTuple<>(row, txId));
-            }
-
-            when(clo.command()).thenReturn(new InsertAllCommand(rows, txId));
-        }));
-
-        txs.forEach(tuple -> versionedRowStore.commitWrite(tuple.getKey().keySlice(), tuple.getValue()));
-    }
-
-    /**
-     * Upserts values from the listener in the batch operation.
-     */
-    private void upsertAll() {
+    private void insertAll() {
         List<IgniteBiTuple<Row, UUID>> txs = new ArrayList<>();
 
         commandListener.onWrite(batchIterator(clo -> {
@@ -387,126 +263,112 @@ public class PartitionCommandListenerTest {
                 return null;
             }).when(clo).result(any());
 
-            Set<BinaryRow> rows = new HashSet<>(KEY_COUNT);
-
+            HashMap<RowId, BinaryRow> rows = new HashMap<>(KEY_COUNT);
             UUID txId = Timestamp.nextVersion().toUuid();
 
             for (int i = 0; i < KEY_COUNT; i++) {
                 Row row = getTestRow(i, i);
 
-                rows.add(row);
+                rows.put(new RowId(PARTITION_ID), row);
 
                 txs.add(new IgniteBiTuple<>(row, txId));
             }
 
-            when(clo.command()).thenReturn(new UpsertAllCommand(rows, Timestamp.nextVersion().toUuid()));
+            when(clo.command()).thenReturn(new UpdateAllCommand(rows, txId));
         }));
 
-        txs.forEach(tuple -> versionedRowStore.commitWrite(tuple.getKey().keySlice(), tuple.getValue()));
+        txs.forEach(tuple -> mvPartitionStorage.commitWrite(primaryIndex.get(tuple.getKey().keySlice()), CLOCK.now()));
+    }
+
+    /**
+     * Update values from the listener in the batch operation.
+     *
+     * @param keyValueMapper Mep a value to update to the iter number.
+     */
+    private void updateAll(Function<Integer, Integer> keyValueMapper) {
+        List<IgniteBiTuple<Row, UUID>> txs = new ArrayList<>();
+
+        commandListener.onWrite(batchIterator(clo -> {
+            when(clo.index()).thenReturn(raftIndex.incrementAndGet());
+
+            doAnswer(invocation -> {
+                assertNull(invocation.getArgument(0));
+
+                return null;
+            }).when(clo).result(any());
+
+            HashMap<RowId, BinaryRow> rows = new HashMap<>(KEY_COUNT);
+
+            UUID txId = Timestamp.nextVersion().toUuid();
+
+            for (int i = 0; i < KEY_COUNT; i++) {
+                Row row = getTestRow(i, keyValueMapper.apply(i));
+
+                rows.put(primaryIndex.get(row.keySlice()), row);
+
+                txs.add(new IgniteBiTuple<>(row, txId));
+            }
+
+            when(clo.command()).thenReturn(new UpdateAllCommand(rows, txId));
+        }));
+
+        txs.forEach(tuple -> mvPartitionStorage.commitWrite(primaryIndex.get(tuple.getKey().keySlice()), CLOCK.now()));
     }
 
     /**
      * Deletes all rows.
-     *
-     * @param existed True if rows are existed, false otherwise.
      */
-    private void deleteAll(boolean existed) {
+    private void deleteAll() {
         List<IgniteBiTuple<Row, UUID>> txs = new ArrayList<>();
 
         commandListener.onWrite(batchIterator(clo -> {
             when(clo.index()).thenReturn(raftIndex.incrementAndGet());
 
             doAnswer(invocation -> {
-                MultiRowsResponse resp = invocation.getArgument(0);
-
-                if (!existed) {
-                    assertEquals(KEY_COUNT, resp.getValues().size());
-
-                    for (BinaryRow binaryRow : resp.getValues()) {
-                        Row row = new Row(SCHEMA, binaryRow);
-
-                        int keyVal = row.intValue(0);
-
-                        assertTrue(keyVal < KEY_COUNT);
-                    }
-                } else {
-                    assertTrue(resp.getValues().isEmpty());
-                }
+                assertNull(invocation.getArgument(0));
 
                 return null;
-            }).when(clo).result(any(MultiRowsResponse.class));
+            }).when(clo).result(any());
 
-            Set<BinaryRow> keyRows = new HashSet<>(KEY_COUNT);
+            Set<RowId> keyRows = new HashSet<>(KEY_COUNT);
 
             UUID txId = Timestamp.nextVersion().toUuid();
 
             for (int i = 0; i < KEY_COUNT; i++) {
                 Row row = getTestRow(i, i);
 
-                keyRows.add(row);
+                keyRows.add(primaryIndex.get(row.keySlice()));
 
                 txs.add(new IgniteBiTuple<>(row, txId));
             }
 
-            when(clo.command()).thenReturn(new DeleteAllCommand(keyRows, Timestamp.nextVersion().toUuid()));
+            when(clo.command()).thenReturn(new UpdateAllCommand(keyRows, txId));
         }));
 
-        txs.forEach(tuple -> versionedRowStore.commitWrite(tuple.getKey().keySlice(), tuple.getValue()));
+        txs.forEach(
+                tuple -> mvPartitionStorage.commitWrite(primaryIndex.remove(tuple.getKey().keySlice()), CLOCK.now()));
     }
 
     /**
-     * Reads all rows.
+     * Update rows.
      *
-     * @param existed True if rows are existed, false otherwise.
+     * @param keyValueMapper Mep a value to update to the iter number.
      */
-    private void readAll(boolean existed) {
-        commandListener.onRead(batchIterator(clo -> {
-            doAnswer(invocation -> {
-                MultiRowsResponse resp = invocation.getArgument(0);
-
-                if (existed) {
-                    assertEquals(KEY_COUNT, resp.getValues().size());
-
-                    for (BinaryRow binaryRow : resp.getValues()) {
-                        Row row = new Row(SCHEMA, binaryRow);
-
-                        int keyVal = row.intValue(0);
-
-                        assertTrue(keyVal < KEY_COUNT);
-                        assertEquals(keyVal, row.intValue(1));
-                    }
-                } else {
-                    assertTrue(resp.getValues().isEmpty() || resp.getValues().stream()
-                            .allMatch(r -> r == null));
-                }
-
-                return null;
-            }).when(clo).result(any(MultiRowsResponse.class));
-
-            Set<BinaryRow> keyRows = new HashSet<>(KEY_COUNT);
-
-            for (int i = 0; i < KEY_COUNT; i++) {
-                keyRows.add(getTestKey(i));
-            }
-
-            when(clo.command()).thenReturn(new GetAllCommand(keyRows, Timestamp.nextVersion().toUuid()));
-        }));
-    }
-
-    /**
-     * Upserts rows.
-     */
-    private void upsert() {
+    private void update(Function<Integer, Integer> keyValueMapper) {
         List<IgniteBiTuple<Row, UUID>> txs = new ArrayList<>();
 
         commandListener.onWrite(iterator((i, clo) -> {
             UUID txId = Timestamp.nextVersion().toUuid();
-            Row row = getTestRow(i, i);
+            Row row = getTestRow(i, keyValueMapper.apply(i));
+            RowId rowId = primaryIndex.get(row.keySlice());
+
+            assertNotNull(rowId);
+
             txs.add(new IgniteBiTuple<>(row, txId));
 
             when(clo.index()).thenReturn(raftIndex.incrementAndGet());
 
-            when(clo.command()).thenReturn(new UpsertCommand(row, txId));
+            when(clo.command()).thenReturn(new UpdateCommand(rowId, row, txId));
 
             doAnswer(invocation -> {
                 assertNull(invocation.getArgument(0));
@@ -515,34 +377,37 @@ public class PartitionCommandListenerTest {
             }).when(clo).result(any());
         }));
 
-        txs.forEach(tuple -> versionedRowStore.commitWrite(tuple.getKey().keySlice(), tuple.getValue()));
+        txs.forEach(tuple -> mvPartitionStorage.commitWrite(primaryIndex.get(tuple.getKey().keySlice()), CLOCK.now()));
     }
 
     /**
      * Deletes row.
-     *
-     * @param existed True if rows are existed, false otherwise.
      */
-    private void delete(boolean existed) {
+    private void delete() {
         List<IgniteBiTuple<Row, UUID>> txs = new ArrayList<>();
 
         commandListener.onWrite(iterator((i, clo) -> {
             UUID txId = Timestamp.nextVersion().toUuid();
             Row row = getTestRow(i, i);
+            RowId rowId = primaryIndex.get(row.keySlice());
+
+            assertNotNull(rowId);
+
             txs.add(new IgniteBiTuple<>(row, txId));
 
             when(clo.index()).thenReturn(raftIndex.incrementAndGet());
 
-            when(clo.command()).thenReturn(new DeleteCommand(row, txId));
+            when(clo.command()).thenReturn(new UpdateCommand(rowId, txId));
 
             doAnswer(invocation -> {
-                assertEquals(existed, invocation.getArgument(0));
+                assertNull(invocation.getArgument(0));
 
                 return null;
             }).when(clo).result(any());
         }));
 
-        txs.forEach(tuple -> versionedRowStore.commitWrite(tuple.getKey().keySlice(), tuple.getValue()));
+        txs.forEach(
+                tuple -> mvPartitionStorage.commitWrite(primaryIndex.remove(tuple.getKey().keySlice()), CLOCK.now()));
     }
 
     /**
@@ -561,36 +426,28 @@ public class PartitionCommandListenerTest {
      * @param keyValueMapper Mapper a key to the value which will be expected.
      */
     private void readAndCheck(boolean existed, Function<Integer, Integer> keyValueMapper) {
-        commandListener.onRead(iterator((i, clo) -> {
-            when(clo.command()).thenReturn(new GetCommand(getTestKey(i), Timestamp.nextVersion().toUuid()));
+        for (int i = 0; i < KEY_COUNT; i++) {
+            Row keyRow = getTestKey(i);
 
-            doAnswer(invocation -> {
-                SingleRowResponse resp = invocation.getArgument(0);
+            RowId rowId = primaryIndex.get(keyRow.keySlice());
 
-                if (existed) {
-                    assertNotNull(resp.getValue());
+            if (existed) {
+                BinaryRow binaryRow = mvPartitionStorage.read(rowId, UUID.randomUUID());
 
-                    assertTrue(resp.getValue().hasValue());
+                Row row = new Row(SCHEMA, binaryRow);
 
-                    Row row = new Row(SCHEMA, resp.getValue());
-
-                    assertEquals(i, row.intValue(0));
-                    assertEquals(keyValueMapper.apply(i), row.intValue(1));
-                } else {
-                    assertNull(resp.getValue());
-                }
-
-                return null;
-            }).when(clo).result(any(SingleRowResponse.class));
-        }));
+                assertEquals(i, row.intValue(0));
+                assertEquals(keyValueMapper.apply(i), row.intValue(1));
+            } else {
+                assertNull(rowId);
+            }
+        }
     }
 
     /**
      * Inserts row.
-     *
-     * @param existed True if rows are existed, false otherwise.
      */
-    private void insert(boolean existed) {
+    private void insert() {
         List<IgniteBiTuple<Row, UUID>> txs = new ArrayList<>();
 
         commandListener.onWrite(iterator((i, clo) -> {
@@ -600,264 +457,16 @@ public class PartitionCommandListenerTest {
 
             when(clo.index()).thenReturn(raftIndex.incrementAndGet());
 
-            when(clo.command()).thenReturn(new InsertCommand(row, txId));
-
-            doAnswer(mock -> {
-                assertEquals(!existed, mock.getArgument(0));
-
-                return null;
-            }).when(clo).result(!existed);
-        }));
-
-        txs.forEach(tuple -> versionedRowStore.commitWrite(tuple.getKey().keySlice(), tuple.getValue()));
-    }
-
-    /**
-     * Deletes exact rows.
-     *
-     * @param existed True if rows are existed, false otherwise.
-     */
-    private void deleteExactAllValues(boolean existed) {
-        List<IgniteBiTuple<Row, UUID>> txs = new ArrayList<>();
-
-        commandListener.onWrite(batchIterator(clo -> {
-            UUID txId = Timestamp.nextVersion().toUuid();
-
-            HashSet rows = new HashSet(KEY_COUNT);
-
-            for (int i = 0; i < KEY_COUNT; i++) {
-                Row row = getTestRow(i, i);
-
-                rows.add(row);
-
-                txs.add(new IgniteBiTuple<>(row, txId));
-            }
-
-            when(clo.index()).thenReturn(raftIndex.incrementAndGet());
-
-            when(clo.command()).thenReturn(new DeleteExactAllCommand(rows, txId));
+            when(clo.command()).thenReturn(new UpdateCommand(new RowId(PARTITION_ID), row, txId));
 
             doAnswer(invocation -> {
-                MultiRowsResponse resp = invocation.getArgument(0);
-
-                if (!existed) {
-                    assertEquals(KEY_COUNT, resp.getValues().size());
-
-                    for (BinaryRow binaryRow : resp.getValues()) {
-                        Row row = new Row(SCHEMA, binaryRow);
-
-                        int keyVal = row.intValue(0);
-
-                        assertTrue(keyVal < KEY_COUNT);
-
-                        assertEquals(keyVal, row.intValue(1));
-                    }
-                } else {
-                    assertTrue(resp.getValues().isEmpty());
-                }
+                assertNull(invocation.getArgument(0));
 
                 return null;
             }).when(clo).result(any());
         }));
 
-        txs.forEach(tuple -> versionedRowStore.commitWrite(tuple.getKey().keySlice(), tuple.getValue()));
-    }
-
-    /**
-     * Gets and replaces rows.
-     *
-     * @param existed True if rows are existed, false otherwise.
-     */
-    private void getAndReplaceValues(boolean existed) {
-        List<IgniteBiTuple<Row, UUID>> txs = new ArrayList<>();
-
-        commandListener.onWrite(iterator((i, clo) -> {
-            UUID txId = Timestamp.nextVersion().toUuid();
-            Row row = getTestRow(i, i + 1);
-            txs.add(new IgniteBiTuple<>(row, txId));
-
-            when(clo.index()).thenReturn(raftIndex.incrementAndGet());
-
-            when(clo.command()).thenReturn(new GetAndReplaceCommand(row, txId));
-
-            doAnswer(invocation -> {
-                SingleRowResponse resp = invocation.getArgument(0);
-
-                if (existed) {
-                    Row row0 = new Row(SCHEMA, resp.getValue());
-
-                    assertEquals(i, row0.intValue(0));
-                    assertEquals(i, row0.intValue(1));
-                } else {
-                    assertNull(resp.getValue());
-                }
-
-                return null;
-            }).when(clo).result(any());
-        }));
-
-        txs.forEach(tuple -> versionedRowStore.commitWrite(tuple.getKey().keySlice(), tuple.getValue()));
-    }
-
-    /**
-     * Gets an upserts rows.
-     *
-     * @param existed True if rows are existed, false otherwise.
-     */
-    private void getAndUpsertValues(boolean existed) {
-        List<IgniteBiTuple<Row, UUID>> txs = new ArrayList<>();
-
-        commandListener.onWrite(iterator((i, clo) -> {
-            UUID txId = Timestamp.nextVersion().toUuid();
-            Row row = getTestRow(i, i);
-            txs.add(new IgniteBiTuple<>(row, txId));
-
-            when(clo.index()).thenReturn(raftIndex.incrementAndGet());
-
-            when(clo.command()).thenReturn(new GetAndUpsertCommand(row, txId));
-
-            doAnswer(invocation -> {
-                SingleRowResponse resp = invocation.getArgument(0);
-
-                if (existed) {
-                    Row row0 = new Row(SCHEMA, resp.getValue());
-
-                    assertEquals(i, row0.intValue(0));
-                    assertEquals(i + 1, row0.intValue(1));
-                } else {
-                    assertNull(resp.getValue());
-                }
-
-                return null;
-            }).when(clo).result(any());
-        }));
-
-        txs.forEach(tuple -> versionedRowStore.commitWrite(tuple.getKey().keySlice(), tuple.getValue()));
-    }
-
-    /**
-     * Gets and deletes rows.
-     *
-     * @param existed True if rows are existed, false otherwise.
-     */
-    private void getAndDeleteValues(boolean existed) {
-        List<IgniteBiTuple<Row, UUID>> txs = new ArrayList<>();
-
-        commandListener.onWrite(iterator((i, clo) -> {
-            UUID txId = Timestamp.nextVersion().toUuid();
-            Row row = getTestRow(i, i);
-            txs.add(new IgniteBiTuple<>(row, txId));
-
-            when(clo.index()).thenReturn(raftIndex.incrementAndGet());
-
-            when(clo.command()).thenReturn(new GetAndDeleteCommand(row, txId));
-
-            doAnswer(invocation -> {
-                SingleRowResponse resp = invocation.getArgument(0);
-
-                if (existed) {
-                    Row row0 = new Row(SCHEMA, resp.getValue());
-
-                    assertEquals(i, row0.intValue(0));
-                    assertEquals(i + 1, row0.intValue(1));
-                } else {
-                    assertNull(resp.getValue());
-                }
-
-                return null;
-            }).when(clo).result(any());
-        }));
-
-        txs.forEach(tuple -> versionedRowStore.commitWrite(tuple.getKey().keySlice(), tuple.getValue()));
-    }
-
-    /**
-     * Puts rows if exists.
-     *
-     * @param existed True if rows are existed, false otherwise.
-     */
-    private void putIfExistValues(boolean existed) {
-        List<IgniteBiTuple<Row, UUID>> txs = new ArrayList<>();
-
-        commandListener.onWrite(iterator((i, clo) -> {
-            UUID txId = Timestamp.nextVersion().toUuid();
-            Row row = getTestRow(i, i + 1);
-            txs.add(new IgniteBiTuple<>(row, txId));
-
-            when(clo.index()).thenReturn(raftIndex.incrementAndGet());
-
-            when(clo.command()).thenReturn(new ReplaceIfExistCommand(row, Timestamp.nextVersion().toUuid()));
-
-            doAnswer(invocation -> {
-                boolean result = invocation.getArgument(0);
-
-                assertEquals(existed, result);
-
-                return null;
-            }).when(clo).result(any());
-        }));
-
-        txs.forEach(tuple -> versionedRowStore.commitWrite(tuple.getKey().keySlice(), tuple.getValue()));
-    }
-
-    /**
-     * Deletes exact rows.
-     *
-     * @param existed True if rows are existed, false otherwise.
-     */
-    private void deleteExactValues(boolean existed) {
-        List<IgniteBiTuple<Row, UUID>> txs = new ArrayList<>();
-
-        commandListener.onWrite(iterator((i, clo) -> {
-            UUID txId = Timestamp.nextVersion().toUuid();
-            Row row = getTestRow(i, i + 1);
-            txs.add(new IgniteBiTuple<>(row, txId));
-
-            when(clo.index()).thenReturn(raftIndex.incrementAndGet());
-
-            when(clo.command()).thenReturn(new DeleteExactCommand(row, txId));
-
-            doAnswer(invocation -> {
-                boolean result = invocation.getArgument(0);
-
-                assertEquals(existed, result);
-
-                return null;
-            }).when(clo).result(any());
-        }));
-
-        txs.forEach(tuple -> versionedRowStore.commitWrite(tuple.getKey().keySlice(), tuple.getValue()));
-    }
-
-    /**
-     * Replaces rows.
-     *
-     * @param existed True if rows are existed, false otherwise.
-     */
-    private void replaceValues(boolean existed) {
-        List<IgniteBiTuple<Row, UUID>> txs = new ArrayList<>();
-
-        commandListener.onWrite(iterator((i, clo) -> {
-            UUID txId = Timestamp.nextVersion().toUuid();
-            Row row = getTestRow(i, i);
-            txs.add(new IgniteBiTuple<>(row, txId));
-
-            when(clo.index()).thenReturn(raftIndex.incrementAndGet());
-
-            when(clo.command()).thenReturn(new ReplaceCommand(row, getTestRow(i, i + 1), txId));
-
-            doAnswer(invocation -> {
-                assertTrue(invocation.getArgument(0) instanceof Boolean);
-
-                boolean result = invocation.getArgument(0);
-
-                assertEquals(existed, result);
-
-                return null;
-            }).when(clo).result(any());
-        }));
-
-        txs.forEach(tuple -> versionedRowStore.commitWrite(tuple.getKey().keySlice(), tuple.getValue()));
+        txs.forEach(tuple -> mvPartitionStorage.commitWrite(primaryIndex.get(tuple.getKey().keySlice()), CLOCK.now()));
     }
 
     /**

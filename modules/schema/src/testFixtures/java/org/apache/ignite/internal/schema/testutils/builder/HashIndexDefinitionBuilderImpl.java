@@ -23,7 +23,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.schema.testutils.definition.index.HashIndexDefinition;
 import org.apache.ignite.internal.schema.testutils.definition.index.HashIndexDefinitionImpl;
-import org.apache.ignite.internal.util.IgniteObjectName;
+import org.apache.ignite.internal.util.IgniteNameUtils;
 
 /**
  * Hash index builder.
@@ -44,7 +44,7 @@ class HashIndexDefinitionBuilderImpl extends AbstractIndexBuilder implements Has
     /** {@inheritDoc} */
     @Override
     public HashIndexDefinitionBuilder withColumns(List<String> columns) {
-        this.columns = columns.stream().map(IgniteObjectName::parse).collect(Collectors.toList());
+        this.columns = columns.stream().map(IgniteNameUtils::parseSimpleName).collect(Collectors.toList());
 
         return this;
     }
@@ -52,7 +52,7 @@ class HashIndexDefinitionBuilderImpl extends AbstractIndexBuilder implements Has
     /** {@inheritDoc} */
     @Override
     public HashIndexDefinitionBuilder withColumns(String... columns) {
-        this.columns = Arrays.stream(columns).map(IgniteObjectName::parse).collect(Collectors.toList());
+        this.columns = Arrays.stream(columns).map(IgniteNameUtils::parseSimpleName).collect(Collectors.toList());
 
         return this;
     }

@@ -224,7 +224,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         public BigInteger GetNumber(int index) => Seek(index) switch
         {
             { IsEmpty: true } => default,
-            var s => new BigInteger(s)
+            var s => new BigInteger(s, isBigEndian: true)
         };
 
         /// <summary>
@@ -268,7 +268,41 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         public Instant GetTimestamp(int index) => Seek(index) switch
         {
             { IsEmpty: true } => default,
-            var s => ReadTimestamp(s)
+            var s => Instant
+                .FromUnixTimeSeconds(BinaryPrimitives.ReadInt64LittleEndian(s))
+                .PlusNanoseconds(s.Length == 8 ? 0 : BinaryPrimitives.ReadInt32LittleEndian(s[8..]))
+        };
+
+        /// <summary>
+        /// Gets a duration value.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <returns>Value.</returns>
+        public Duration GetDuration(int index) => Seek(index) switch
+        {
+            { IsEmpty: true } => default,
+            var s => Duration
+                .FromSeconds(BinaryPrimitives.ReadInt64LittleEndian(s))
+                .Plus(Duration.FromNanoseconds(s.Length == 8 ? 0 : BinaryPrimitives.ReadInt32LittleEndian(s[8..])))
+        };
+
+        /// <summary>
+        /// Gets a period value.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <returns>Value.</returns>
+        public Period GetPeriod(int index) => Seek(index) switch
+        {
+            { IsEmpty: true } => Period.Zero,
+            { Length: 3 } s => Period.FromYears(unchecked((sbyte)s[0])) +
+                               Period.FromMonths(unchecked((sbyte)s[1])) +
+                               Period.FromDays(unchecked((sbyte)s[2])),
+            { Length: 6 } s => Period.FromYears(BinaryPrimitives.ReadInt16LittleEndian(s)) +
+                               Period.FromMonths(BinaryPrimitives.ReadInt16LittleEndian(s[2..])) +
+                               Period.FromDays(BinaryPrimitives.ReadInt16LittleEndian(s[4..])),
+            var s => Period.FromYears(BinaryPrimitives.ReadInt32LittleEndian(s)) +
+                     Period.FromMonths(BinaryPrimitives.ReadInt32LittleEndian(s[4..])) +
+                     Period.FromDays(BinaryPrimitives.ReadInt32LittleEndian(s[8..]))
         };
 
         /// <summary>
@@ -289,7 +323,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="columnType">Column type.</param>
         /// <param name="scale">Column decimal scale.</param>
         /// <returns>Value.</returns>
-        public object? GetObject(int index, ClientDataType columnType, int scale)
+        public object? GetObject(int index, ClientDataType columnType, int scale = 0)
         {
             if (IsNull(index))
             {
@@ -318,18 +352,22 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             };
         }
 
-        private static Instant ReadTimestamp(ReadOnlySpan<byte> span)
+        /// <summary>
+        /// Gets an object value according to the type code at the specified index.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <returns>Value.</returns>
+        public object? GetObject(int index)
         {
-            var len = span.Length;
-            if (len == 0)
+            if (IsNull(index))
             {
-                return default;
+                return null;
             }
 
-            long seconds = BinaryPrimitives.ReadInt64LittleEndian(span);
-            int nanos = len == 8 ? 0 : BinaryPrimitives.ReadInt32LittleEndian(span[8..]);
+            var type = (ClientDataType)GetInt(index);
+            var scale = GetInt(index + 1);
 
-            return Instant.FromUnixTimeSeconds(seconds).PlusNanoseconds(nanos);
+            return GetObject(index + 2, type, scale);
         }
 
         private static LocalDate ReadDate(ReadOnlySpan<byte> span)
@@ -380,7 +418,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
         private static decimal ReadDecimal(ReadOnlySpan<byte> span, int scale)
         {
-            var unscaled = new BigInteger(span);
+            var unscaled = new BigInteger(span, isBigEndian: true);
             var res = (decimal)unscaled;
 
             if (scale > 0)

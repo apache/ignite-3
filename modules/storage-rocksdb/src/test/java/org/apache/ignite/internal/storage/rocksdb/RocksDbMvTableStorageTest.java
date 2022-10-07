@@ -28,19 +28,13 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import java.nio.file.Path;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
-import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.storage.AbstractMvTableStorageTest;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
-import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -57,14 +51,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(ConfigurationExtension.class)
 public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
     @InjectConfiguration(
-            polymorphicExtensions = {
-                    RocksDbDataStorageConfigurationSchema.class,
-                    UnknownDataStorageConfigurationSchema.class,
-                    HashIndexConfigurationSchema.class,
-                    SortedIndexConfigurationSchema.class,
-                    NullValueDefaultConfigurationSchema.class,
-                    UnlimitedBudgetConfigurationSchema.class
-            },
             value = "mock.tables.foo{ partitions = 512, dataStorage.name = " + RocksDbStorageEngine.ENGINE_NAME + "}"
     )
     private TablesConfiguration tablesConfig;
@@ -109,24 +95,28 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
 
         UUID txId = UUID.randomUUID();
 
-        MvPartitionStorage partitionStorage0 = tableStorage.getOrCreateMvPartition(42);
+        MvPartitionStorage partitionStorage0 = tableStorage.getOrCreateMvPartition(PARTITION_ID_0);
 
-        RowId rowId0 = partitionStorage0.runConsistently(() -> partitionStorage0.insert(testData, txId));
+        RowId rowId0 = new RowId(PARTITION_ID_0);
 
-        MvPartitionStorage partitionStorage1 = tableStorage.getOrCreateMvPartition(1 << 8);
+        partitionStorage0.runConsistently(() -> partitionStorage0.addWrite(rowId0, testData, txId, UUID.randomUUID(), 0));
 
-        RowId rowId1 = partitionStorage1.runConsistently(() -> partitionStorage1.insert(testData, txId));
+        MvPartitionStorage partitionStorage1 = tableStorage.getOrCreateMvPartition(PARTITION_ID_1);
 
-        CompletableFuture<Void> destroyFuture = tableStorage.destroyPartition(42);
+        RowId rowId1 = new RowId(PARTITION_ID_1);
+
+        partitionStorage1.runConsistently(() -> partitionStorage1.addWrite(rowId1, testData, txId, UUID.randomUUID(), 0));
+
+        CompletableFuture<Void> destroyFuture = tableStorage.destroyPartition(PARTITION_ID_0);
 
         // Partition destruction doesn't enforce flush.
         ((RocksDbTableStorage) tableStorage).awaitFlush(true);
 
         assertThat(destroyFuture, willCompleteSuccessfully());
 
-        assertThat(tableStorage.getMvPartition(42), is(nullValue()));
-        assertThat(tableStorage.getOrCreateMvPartition(42).read(rowId0, txId), is(nullValue()));
-        assertThat(unwrap(tableStorage.getMvPartition(1 << 8).read(rowId1, txId)), is(equalTo(unwrap(testData))));
+        assertThat(tableStorage.getMvPartition(PARTITION_ID_0), is(nullValue()));
+        assertThat(tableStorage.getOrCreateMvPartition(PARTITION_ID_0).read(rowId0, txId), is(nullValue()));
+        assertThat(unwrap(tableStorage.getMvPartition(PARTITION_ID_1).read(rowId1, txId)), is(equalTo(unwrap(testData))));
     }
 
     /**
@@ -138,9 +128,11 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
 
         UUID txId = UUID.randomUUID();
 
-        MvPartitionStorage partitionStorage0 = tableStorage.getOrCreateMvPartition(0);
+        MvPartitionStorage partitionStorage0 = tableStorage.getOrCreateMvPartition(PARTITION_ID);
 
-        RowId rowId0 = partitionStorage0.runConsistently(() -> partitionStorage0.insert(testData, txId));
+        RowId rowId0 = new RowId(PARTITION_ID);
+
+        partitionStorage0.runConsistently(() -> partitionStorage0.addWrite(rowId0, testData, txId, UUID.randomUUID(), 0));
 
         tableStorage.stop();
 
@@ -148,9 +140,10 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
 
         tableStorage.start();
 
-        assertThat(tableStorage.getMvPartition(0), is(notNullValue()));
-        assertThat(tableStorage.getMvPartition(1), is(nullValue()));
-        assertThat(unwrap(tableStorage.getMvPartition(0).read(rowId0, txId)), is(equalTo(unwrap(testData))));
+        assertThat(tableStorage.getMvPartition(PARTITION_ID), is(notNullValue()));
+        assertThat(tableStorage.getMvPartition(PARTITION_ID_0), is(nullValue()));
+        assertThat(tableStorage.getMvPartition(PARTITION_ID_1), is(nullValue()));
+        assertThat(unwrap(tableStorage.getMvPartition(PARTITION_ID).read(rowId0, txId)), is(equalTo(unwrap(testData))));
     }
 
     @Test

@@ -28,7 +28,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.metastorage.common.ConditionType;
@@ -81,7 +80,6 @@ import org.apache.ignite.internal.metastorage.server.ValueCondition;
 import org.apache.ignite.internal.metastorage.server.WatchEvent;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.ReadCommand;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.apache.ignite.raft.client.service.CommandClosure;
@@ -421,11 +419,6 @@ public class MetaStorageListener implements RaftGroupListener {
         } catch (Exception e) {
             throw new MetaStorageException(CLOSING_STORAGE_ERR, "Failed to close storage: " + e.getMessage(), e);
         }
-    }
-
-    /** {@inheritDoc} */
-    @Override public @Nullable CompletableFuture<Void> onBeforeApply(Command command) {
-        return null;
     }
 
     /**

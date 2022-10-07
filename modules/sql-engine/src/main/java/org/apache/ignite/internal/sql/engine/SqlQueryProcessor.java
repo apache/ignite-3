@@ -98,6 +98,9 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** Session expiration check period in milliseconds. */
     public static final long SESSION_EXPIRE_CHECK_PERIOD = TimeUnit.SECONDS.toMillis(1);
 
+    /** Name of the default schema. */
+    public static final String DEFAULT_SCHEMA_NAME = "PUBLIC";
+
     private final List<LifecycleAware> services = new ArrayList<>();
 
     private final ClusterService clusterSrvc;
@@ -401,7 +404,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
                                 // Transactional DDL is not supported as well as RO transactions, hence
                                 // only DML requiring RW transaction is covered
-                                boolean implicitTxRequired = plan.type() == Type.DML && outerTx == null;
+                                boolean implicitTxRequired = (plan.type() == Type.DML || plan.type() == Type.QUERY) && outerTx == null;
                                 InternalTransaction implicitTx = implicitTxRequired ? txManager.begin() : null;
 
                                 BaseQueryContext enrichedContext =
@@ -531,7 +534,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         public CompletableFuture<Boolean> notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
             return schemaHolder.onTableCreated(
                     // TODO: https://issues.apache.org/jira/browse/IGNITE-17694 Hardcoded schemas
-                    "PUBLIC",
+                    DEFAULT_SCHEMA_NAME,
                     parameters.table(),
                     parameters.causalityToken()
                 )
@@ -551,7 +554,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         public CompletableFuture<Boolean> notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
             return schemaHolder.onTableUpdated(
                     // TODO: https://issues.apache.org/jira/browse/IGNITE-17694 Hardcoded schemas
-                    "PUBLIC",
+                    DEFAULT_SCHEMA_NAME,
                     parameters.table(),
                     parameters.causalityToken()
                 )
@@ -571,7 +574,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         public CompletableFuture<Boolean> notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
             return schemaHolder.onTableDropped(
                     // TODO: https://issues.apache.org/jira/browse/IGNITE-17694 Hardcoded schemas
-                    "PUBLIC",
+                    DEFAULT_SCHEMA_NAME,
                     parameters.tableName(),
                     parameters.causalityToken()
                 )
@@ -588,11 +591,11 @@ public class SqlQueryProcessor implements QueryProcessor {
         @Override
         public CompletableFuture<Boolean> notify(@NotNull IndexEventParameters parameters, @Nullable Throwable exception) {
             return schemaHolder.onIndexDropped(
-                            // TODO: https://issues.apache.org/jira/browse/IGNITE-17694 Hardcoded schemas
-                            "PUBLIC",
-                            parameters.indexId(),
-                            parameters.causalityToken()
-                    )
+                    // TODO: https://issues.apache.org/jira/browse/IGNITE-17694 Hardcoded schemas
+                    DEFAULT_SCHEMA_NAME,
+                    parameters.indexId(),
+                    parameters.causalityToken()
+            )
                     .thenApply(v -> false);
         }
     }

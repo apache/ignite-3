@@ -27,10 +27,12 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.Period;
 import java.util.BitSet;
 import java.util.Random;
 import java.util.UUID;
@@ -629,6 +631,50 @@ public class BinaryTupleTest {
             BinaryTupleReader reader = new BinaryTupleReader(1, bytes);
             assertEquals(value, reader.timestampValue(0));
         }
+    }
+
+    /**
+     * Test Duration value encoding.
+     */
+    @Test
+    public void durationTest() {
+        durationTest(Duration.ZERO);
+        durationTest(Duration.ofSeconds(Long.MAX_VALUE));
+        durationTest(Duration.ofSeconds(Long.MIN_VALUE));
+        durationTest(Duration.ofSeconds(Long.MAX_VALUE - 10, Integer.MAX_VALUE));
+        durationTest(Duration.ofSeconds(Long.MIN_VALUE + 10, Integer.MIN_VALUE));
+    }
+
+    /** Test duration value roundtrip. */
+    private static void durationTest(Duration value) {
+        BinaryTupleBuilder builder = new BinaryTupleBuilder(1, false);
+        ByteBuffer bytes = builder.appendDuration(value).build();
+
+        BinaryTupleReader reader = new BinaryTupleReader(1, bytes);
+        assertEquals(value, reader.durationValue(0));
+    }
+
+    /**
+     * Test Period value encoding.
+     */
+    @Test
+    public void periodTest() {
+        periodTest(Period.ZERO);
+        periodTest(Period.of(1, 2, 3));
+        periodTest(Period.of(-1, 2, -3));
+        periodTest(Period.of(Integer.MAX_VALUE, Integer.MAX_VALUE, Integer.MAX_VALUE));
+        periodTest(Period.of(Integer.MIN_VALUE, Integer.MIN_VALUE, Integer.MIN_VALUE));
+        periodTest(Period.of(Short.MAX_VALUE, Short.MAX_VALUE, Short.MAX_VALUE));
+        periodTest(Period.of(Short.MIN_VALUE, Short.MIN_VALUE, Short.MIN_VALUE));
+    }
+
+    /** Test period value roundtrip. */
+    private static void periodTest(Period value) {
+        BinaryTupleBuilder builder = new BinaryTupleBuilder(1, false);
+        ByteBuffer bytes = builder.appendPeriod(value).build();
+
+        BinaryTupleReader reader = new BinaryTupleReader(1, bytes);
+        assertEquals(value, reader.periodValue(0));
     }
 
     /** Get a pseudo-random number generator. */

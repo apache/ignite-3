@@ -25,7 +25,7 @@ import org.apache.ignite.internal.schema.testutils.definition.ColumnDefinition;
 import org.apache.ignite.internal.schema.testutils.definition.PrimaryKeyDefinition;
 import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
 import org.apache.ignite.internal.schema.testutils.definition.TableDefinitionImpl;
-import org.apache.ignite.internal.util.IgniteObjectName;
+import org.apache.ignite.internal.util.IgniteNameUtils;
 
 /**
  * Table builder.
@@ -50,8 +50,8 @@ class TableDefinitionBuilderImpl implements TableDefinitionBuilder {
      * @param tableName Table name.
      */
     public TableDefinitionBuilderImpl(String schemaName, String tableName) {
-        this.schemaName = IgniteObjectName.parse(schemaName);
-        this.tableName = IgniteObjectName.parse(tableName);
+        this.schemaName = IgniteNameUtils.parseSimpleName(schemaName);
+        this.tableName = IgniteNameUtils.parseSimpleName(tableName);
     }
 
     /** {@inheritDoc} */
@@ -75,7 +75,7 @@ class TableDefinitionBuilderImpl implements TableDefinitionBuilder {
     /** {@inheritDoc} */
     @Override
     public TableDefinitionBuilder withPrimaryKey(String colName) {
-        primaryKeyDefinition = SchemaBuilders.primaryKey().withColumns(IgniteObjectName.parse(colName)).build();
+        primaryKeyDefinition = SchemaBuilders.primaryKey().withColumns(IgniteNameUtils.parseSimpleName(colName)).build();
 
         return this;
     }

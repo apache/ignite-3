@@ -30,7 +30,7 @@ NodeConnection::NodeConnection(
 
 NodeConnection::~NodeConnection() {
     for (auto &handler : m_requestHandlers) {
-        auto handlingRes = ignite_result<void>::of_operation([&]() {
+        auto handlingRes = result_of_operation<void>([&]() {
             auto res = handler.second->setError(ignite_error("Connection closed before response was received"));
             if (res.has_error())
                 m_logger->logError(
@@ -46,10 +46,10 @@ bool NodeConnection::handshake() {
 
     std::vector<std::byte> message;
     {
-        protocol::BufferAdapter buffer(message);
-        buffer.writeRawData(bytes_view(protocol::MAGIC_BYTES.data(), protocol::MAGIC_BYTES.size()));
+        protocol::buffer_adapter buffer(message);
+        buffer.write_raw(bytes_view(protocol::MAGIC_BYTES.data(), protocol::MAGIC_BYTES.size()));
 
-        protocol::Writer::writeMessageToBuffer(buffer, [&context = m_protocolContext](protocol::Writer &writer) {
+        protocol::write_message_to_buffer(buffer, [&context = m_protocolContext](protocol::writer &writer) {
             auto ver = context.getVersion();
 
             writer.write(ver.getMajor());
@@ -59,10 +59,10 @@ bool NodeConnection::handshake() {
             writer.write(CLIENT_TYPE);
 
             // Features.
-            writer.writeBinaryEmpty();
+            writer.write_binary_empty();
 
             // Extensions.
-            writer.writeMapEmpty();
+            writer.write_map_empty();
         });
     }
 
@@ -70,14 +70,14 @@ bool NodeConnection::handshake() {
 }
 
 void NodeConnection::processMessage(bytes_view msg) {
-    protocol::Reader reader(msg);
-    auto responseType = reader.readInt32();
+    protocol::reader reader(msg);
+    auto responseType = reader.read_int32();
     if (MessageType(responseType) != MessageType::RESPONSE) {
         m_logger->logWarning("Unsupported message type: " + std::to_string(responseType));
         return;
     }
 
-    auto reqId = reader.readInt64();
+    auto reqId = reader.read_int64();
     auto handler = getAndRemoveHandler(reqId);
 
     if (!handler) {
@@ -85,7 +85,7 @@ void NodeConnection::processMessage(bytes_view msg) {
         return;
     }
 
-    auto err = protocol::readError(reader);
+    auto err = protocol::read_error(reader);
     if (err) {
         m_logger->logError("Error: " + err->what_str());
         auto res = handler->setError(std::move(err.value()));
@@ -103,11 +103,11 @@ void NodeConnection::processMessage(bytes_view msg) {
 ignite_result<void> NodeConnection::processHandshakeRsp(bytes_view msg) {
     m_logger->logDebug("Got handshake response");
 
-    protocol::Reader reader(msg);
+    protocol::reader reader(msg);
 
-    auto verMajor = reader.readInt16();
-    auto verMinor = reader.readInt16();
-    auto verPatch = reader.readInt16();
+    auto verMajor = reader.read_int16();
+    auto verMinor = reader.read_int16();
+    auto verPatch = reader.read_int16();
 
     ProtocolVersion ver(verMajor, verMinor, verPatch);
     m_logger->logDebug("Server-side protocol version: " + ver.toString());
@@ -116,13 +116,13 @@ ignite_result<void> NodeConnection::processHandshakeRsp(bytes_view msg) {
     if (ver != ProtocolContext::CURRENT_VERSION)
         return {ignite_error("Unsupported server version: " + ver.toString())};
 
-    auto err = protocol::readError(reader);
+    auto err = protocol::read_error(reader);
     if (err)
         return {ignite_error(err.value())};
 
-    (void)reader.readInt64(); // TODO: IGNITE-17606 Implement heartbeats
-    (void)reader.readStringNullable(); // Cluster node ID. Needed for partition-aware compute.
-    (void)reader.readStringNullable(); // Cluster node name. Needed for partition-aware compute.
+    (void)reader.read_int64(); // TODO: IGNITE-17606 Implement heartbeats
+    (void)reader.read_string_nullable(); // Cluster node ID. Needed for partition-aware compute.
+    (void)reader.read_string_nullable(); // Cluster node name. Needed for partition-aware compute.
 
     reader.skip(); // Features.
     reader.skip(); // Extensions.

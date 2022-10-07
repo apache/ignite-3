@@ -39,7 +39,7 @@
 
 namespace ignite::protocol {
 
-class Reader;
+class reader;
 
 }
 
@@ -86,8 +86,6 @@ public:
 
     /**
      * Stop connection.
-     *
-     * @return Future representing finishing of the connection process.
      */
     void stop();
 
@@ -97,11 +95,10 @@ public:
      * @tparam T Result type.
      * @param op Operation code.
      * @param wr Writer function.
-     * @param rd Reader function.
-     * @return Future result.
+     * @param handler Response handler.
      */
     template <typename T>
-    void performRequest(ClientOperation op, const std::function<void(protocol::Writer &)> &wr,
+    void performRequest(ClientOperation op, const std::function<void(protocol::writer &)> &wr,
         std::shared_ptr<ResponseHandlerImpl<T>> handler) {
         while (true) {
             auto channel = getRandomChannel();
@@ -112,6 +109,19 @@ public:
             if (res)
                 return;
         }
+    }
+
+    /**
+     * Perform request.
+     *
+     * @tparam T Result type.
+     * @param op Operation code.
+     * @param handler Response handler.
+     */
+    template <typename T>
+    void performRequest(ClientOperation op, std::shared_ptr<ResponseHandlerImpl<T>> handler) {
+        performRequest(
+            op, [](protocol::writer &) {}, std::move(handler));
     }
 
 private:
