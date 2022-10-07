@@ -76,16 +76,6 @@ public class HybridClock {
     }
 
     /**
-     * Creates a timestamp for a received event.
-     *
-     * @param requestTime Timestamp from request.
-     * @return The hybrid timestamp.
-     */
-    public HybridTimestamp update(HybridTimestamp requestTime) {
-        return update(requestTime, true);
-    }
-
-    /**
      * Synchronizes this timestamp with a timestamp from request.
      *
      * @param requestTime Timestamp from request.
@@ -93,6 +83,16 @@ public class HybridClock {
      */
     public HybridTimestamp sync(HybridTimestamp requestTime) {
         return update(requestTime, false);
+    }
+
+    /**
+     * Creates a timestamp for a received event.
+     *
+     * @param requestTime Timestamp from request.
+     * @return The hybrid timestamp.
+     */
+    public HybridTimestamp update(HybridTimestamp requestTime) {
+        return update(requestTime, true);
     }
 
     /**
