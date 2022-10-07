@@ -87,6 +87,10 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
 
     private int curPartIdx;
 
+    private @Nullable BinaryTuple lowerBound;
+
+    private @Nullable BinaryTuple upperBound;
+
     /**
      * Constructor.
      *
@@ -161,6 +165,8 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
         requested = 0;
         waiting = 0;
         curPartIdx = 0;
+        lowerBound = null;
+        upperBound = null;
 
         if (activeSubscription != null) {
             activeSubscription.cancel();
@@ -241,23 +247,33 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
             subscription.request(waiting);
         } else if (curPartIdx < parts.length) {
             if (schemaIndex.type() == Type.SORTED) {
-                //TODO: Introduce new publisher using merge-sort algo to merge partition index publishers.
+                //TODO: https://issues.apache.org/jira/browse/IGNITE-17813
+                // Introduce new publisher using merge-sort algo to merge partition index publishers.
+                if (lowerBound == null && upperBound == null) {
+                    lowerBound = toBinaryTuplePrefix(lowerCond);
+                    upperBound = toBinaryTuplePrefix(upperCond);
+                }
+
                 ((SortedIndex) schemaIndex.index()).scan(
                         parts[curPartIdx++],
                         context().transaction(),
-                        toBinaryTuplePrefix(lowerCond),
-                        toBinaryTuplePrefix(upperCond),
+                        lowerBound,
+                        upperBound,
                         flags,
                         requiredColumns
                 ).subscribe(new SubscriberImpl());
             } else {
                 assert schemaIndex.type() == Type.HASH;
-                assert lowerCond == upperCond; //TODO: fix me.
+                assert lowerCond == upperCond;
+
+                if (lowerBound == null) {
+                    lowerBound = toBinaryTuple(lowerCond);
+                }
 
                 schemaIndex.index().scan(
                         parts[curPartIdx++],
                         context().transaction(),
-                        toBinaryTuple(lowerCond),
+                        lowerBound,
                         requiredColumns
                 ).subscribe(new SubscriberImpl());
             }
@@ -314,15 +330,6 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
                 push();
             }, IndexScanNode.this::onError);
         }
-    }
-
-    private BinaryTupleSchema buildIndexTupleSchema(IndexDescriptor indexDesc, TableDescriptor tableDescriptor) {
-        Element[] elements = indexDesc.columns().stream()
-                .map(colName -> tableDescriptor.columnDescriptor(colName))
-                .map(colDesc -> new Element(colDesc.physicalType(), colDesc.nullable()))
-                .toArray(Element[]::new);
-
-        return BinaryTupleSchema.create(elements);
     }
 
     @Contract("null -> null")

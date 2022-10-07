@@ -29,7 +29,7 @@ import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 
 /**
- * Hepler class provides method to convert binary tuple to rows and vice-versa.
+ * Helper class provides method to convert binary tuple to rows and vice-versa.
  */
 public final class RowConverter {
     /**

@@ -28,6 +28,7 @@ import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
+import org.apache.ignite.internal.binarytuple.BinaryTupleFormatException;
 import org.apache.ignite.internal.binarytuple.BinaryTupleParser;
 import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.schema.row.Row;
@@ -330,11 +331,10 @@ public class BinaryConverter {
      * @param value Value to add.
      * @return Binary tuple builder.
      */
-    //TODO: Copy-pasted from BinaryTupleRowSerializer test class. Re-use it in serializer or make serializer to sources.
-    public static BinaryTupleBuilder appendValue(BinaryTupleBuilder builder, Element element, Object value) {
+    public static BinaryTupleBuilder appendValue(BinaryTupleBuilder builder, Element element, @Nullable Object value) {
         if (value == null) {
             if (!element.nullable()) {
-                throw new SchemaMismatchException("NULL value for non-nullable column in binary tuple builder.");
+                throw new BinaryTupleFormatException("NULL value for non-nullable column in binary tuple builder.");
             }
             return builder.appendNull();
         }
