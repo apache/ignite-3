@@ -17,7 +17,8 @@
 
 package org.apache.ignite.internal.storage.index;
 
-import static org.apache.ignite.internal.binarytuple.BinaryTupleCommon.isPrefix;
+import static org.apache.ignite.internal.binarytuple.BinaryTupleCommon.EQUALITY_FLAG;
+import static org.apache.ignite.internal.binarytuple.BinaryTupleCommon.PREFIX_FLAG;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -52,10 +53,8 @@ public class BinaryTupleComparator implements Comparator<ByteBuffer> {
         assert buffer1.order() == ByteOrder.LITTLE_ENDIAN;
         assert buffer2.order() == ByteOrder.LITTLE_ENDIAN;
 
-        boolean isBuffer1Prefix = isPrefix(buffer1);
-        boolean isBuffer2Prefix = isPrefix(buffer2);
-
-        assert !(isBuffer1Prefix && isBuffer2Prefix);
+        boolean isBuffer1Prefix = isFlagSet(buffer1, PREFIX_FLAG);
+        boolean isBuffer2Prefix = isFlagSet(buffer2, PREFIX_FLAG);
 
         BinaryTupleSchema schema = descriptor.binaryTupleSchema();
 
@@ -76,7 +75,16 @@ public class BinaryTupleComparator implements Comparator<ByteBuffer> {
             }
         }
 
-        return 0;
+        // We use the EQUALITY FLAG to determine the outcome of the comparison operation: if the flag is set, the prefix is considered
+        // larger than the tuple and if the flag is not set, the prefix is considered smaller than the tuple. This is needed to include
+        // or exclude the scan bounds.
+        if (isBuffer1Prefix == isBuffer2Prefix) {
+            return 0;
+        } else if (isBuffer1Prefix) {
+            return equalityFlag(buffer1);
+        } else {
+            return -equalityFlag(buffer2);
+        }
     }
 
     /**
@@ -140,5 +148,13 @@ public class BinaryTupleComparator implements Comparator<ByteBuffer> {
                         columnDescriptor.name(), columnDescriptor.type()
                 ));
         }
+    }
+
+    private static boolean isFlagSet(ByteBuffer tuple, int flag) {
+        return (tuple.get(0) & flag) != 0;
+    }
+
+    private static int equalityFlag(ByteBuffer tuple) {
+        return isFlagSet(tuple, EQUALITY_FLAG) ? 1 : -1;
     }
 }

@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.storage.pagememory.index.sorted.io;
 
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
-import static org.apache.ignite.internal.binarytuple.BinaryTupleCommon.isPrefix;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.getLong;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putLong;
 import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.PARTITIONLESS_LINK_SIZE_BYTES;
@@ -132,8 +131,7 @@ public interface SortedIndexTreeIo {
 
         int cmp = binaryTupleComparator.compare(firstBinaryTupleBuffer, secondBinaryTupleBuffer);
 
-        // Binary Tuple Prefixes don't have row IDs, so they can't be compared.
-        if (cmp != 0 || isPrefix(secondBinaryTupleBuffer)) {
+        if (cmp != 0) {
             return cmp;
         }
 

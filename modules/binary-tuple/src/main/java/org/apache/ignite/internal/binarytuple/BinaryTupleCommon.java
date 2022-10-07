@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.binarytuple;
 
-import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -38,14 +37,22 @@ public class BinaryTupleCommon {
     public static final int VARSIZE_MASK = 0b011;
 
     /** Flag that indicates null map presence. */
-    public static final int NULLMAP_FLAG = 0b100;
+    public static final int NULLMAP_FLAG = 1 << 2;
 
     /**
      * Flag that indicates that a Binary Tuple is instead a Binary Tuple Prefix.
      *
      * @see BinaryTuplePrefixBuilder
      */
-    public static final int PREFIX_FLAG = 0b1000;
+    public static final int PREFIX_FLAG = 1 << 3;
+
+    /**
+     * Flag, which indicates how to interpret situations when Binary Tuple Prefix columns are equal to
+     * first N columns of a Binary Tuple (where N is the length of the prefix).
+     *
+     * <p>This flag is used by some index implementations for internal optimizations.
+     */
+    public static final int EQUALITY_FLAG = 1 << 4;
 
     /** Default value for UUID elements. */
     public static final UUID DEFAULT_UUID = new UUID(0, 0);
@@ -125,18 +132,5 @@ public class BinaryTupleCommon {
      */
     public static byte nullMask(int index) {
         return (byte) (1 << (index % 8));
-    }
-
-    /**
-     * Returns {@code true} if the given {@code buffer} represents a Binary Tuple Prefix.
-     *
-     * @param buffer Buffer containing a serialized Binary Tuple or Binary Tuple Prefix.
-     * @return {@code true} if the given {@code buffer} represents a Binary Tuple Prefix or {@code false} otherwise.
-     * @see BinaryTuplePrefixBuilder
-     */
-    public static boolean isPrefix(ByteBuffer buffer) {
-        byte flags = buffer.get(0);
-
-        return (flags & PREFIX_FLAG) != 0;
     }
 }
