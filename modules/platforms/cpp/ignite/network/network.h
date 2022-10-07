@@ -15,27 +15,21 @@
  * limitations under the License.
  */
 
-#ifdef WIN32
-# include "detail/win_process.h"
-#else
-# include "detail/linux_process.h"
-#endif
+#pragma once
 
-#include "cmd_process.h"
+#include <ignite/network/async_client_pool.h>
+#include <ignite/network/data_filter.h>
 
-#include <filesystem>
-#include <utility>
-#include <vector>
+#include <string>
 
-namespace ignite {
+namespace ignite::network {
 
-std::unique_ptr<CmdProcess> CmdProcess::make(std::string command, std::vector<std::string> args, std::string workDir) {
-#ifdef WIN32
-    return std::unique_ptr<CmdProcess>(new detail::WinProcess(std::move(command), std::move(args), std::move(workDir)));
-#else
-    return std::unique_ptr<CmdProcess>(
-        new detail::LinuxProcess(std::move(command), std::move(args), std::move(workDir)));
-#endif
-}
+/**
+ * Make asynchronous client pool.
+ *
+ * @param filters Filters.
+ * @return Async client pool.
+ */
+std::shared_ptr<AsyncClientPool> makeAsyncClientPool(DataFilters filters);
 
-} // namespace ignite
+} // namespace ignite::network

@@ -15,27 +15,31 @@
  * limitations under the License.
  */
 
-#ifdef WIN32
-# include "detail/win_process.h"
-#else
-# include "detail/linux_process.h"
+#include "../utils.h"
+
+#include <windows.h>
+
+// Using NULLs as specified by WinAPI
+#ifdef __JETBRAINS_IDE__
+# pragma ide diagnostic ignored "modernize-use-nullptr"
 #endif
 
-#include "cmd_process.h"
+namespace ignite::network::detail {
 
-#include <filesystem>
-#include <utility>
-#include <vector>
+std::string getLastSystemError() {
+    DWORD errorCode = GetLastError();
 
-namespace ignite {
+    std::string errorDetails;
+    if (errorCode != ERROR_SUCCESS) {
+        char errBuf[1024] = {};
 
-std::unique_ptr<CmdProcess> CmdProcess::make(std::string command, std::vector<std::string> args, std::string workDir) {
-#ifdef WIN32
-    return std::unique_ptr<CmdProcess>(new detail::WinProcess(std::move(command), std::move(args), std::move(workDir)));
-#else
-    return std::unique_ptr<CmdProcess>(
-        new detail::LinuxProcess(std::move(command), std::move(args), std::move(workDir)));
-#endif
+        FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, errorCode,
+            MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US), errBuf, sizeof(errBuf), NULL);
+
+        errorDetails.assign(errBuf);
+    }
+
+    return errorDetails;
 }
 
-} // namespace ignite
+} // namespace ignite::network::detail

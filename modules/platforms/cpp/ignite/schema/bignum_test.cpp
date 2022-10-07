@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
-#include "big_integer.h"
 #include "big_decimal.h"
+#include "big_integer.h"
 
 #include <gtest/gtest.h>
 
@@ -69,7 +69,7 @@ void CheckDoubleCast(double val) {
     EXPECT_NEAR(val, dec.ToDouble(), 1E-10);
 }
 
-TEST(bignum,  TestMultiplyBigIntegerArguments) {
+TEST(bignum, TestMultiplyBigIntegerArguments) {
     big_integer bigInt(12345);
 
     big_integer res;
@@ -122,7 +122,7 @@ TEST(bignum,  TestMultiplyBigIntegerArguments) {
     }
 }
 
-TEST(bignum,  TestMultiplyBigIntegerBigger) {
+TEST(bignum, TestMultiplyBigIntegerBigger) {
     big_integer bigInt(12345);
 
     // 152399025
@@ -162,7 +162,7 @@ TEST(bignum,  TestMultiplyBigIntegerBigger) {
     }
 }
 
-TEST(bignum,  TestPowBigInteger) {
+TEST(bignum, TestPowBigInteger) {
     big_integer bigInt(12345);
 
     {
@@ -272,7 +272,7 @@ TEST(bignum,  TestPowBigInteger) {
     EXPECT_EQ(bigInt.to_int64(), -2048);
 }
 
-TEST(bignum,  TestMultiplyDivideSimple) {
+TEST(bignum, TestMultiplyDivideSimple) {
     big_integer val;
     big_integer res;
     big_integer rem;
@@ -379,7 +379,7 @@ TEST(bignum,  TestMultiplyDivideSimple) {
     EXPECT_EQ(val, big_integer(0));
 }
 
-TEST(bignum,  TestDivideBigger) {
+TEST(bignum, TestDivideBigger) {
     big_integer res;
     big_integer rem;
 
@@ -413,8 +413,7 @@ TEST(bignum,  TestDivideBigger) {
             big_integer("197290846190263940610876503491586943095983984894898998999751636576150263056012501"), res, rem);
 
     EXPECT_EQ(res, big_integer("-544977512069001243499439196429495600701"));
-    EXPECT_EQ(
-        rem, big_integer("-66382358009926062210728796777352226675944219851838448875365359123421443108985378"));
+    EXPECT_EQ(rem, big_integer("-66382358009926062210728796777352226675944219851838448875365359123421443108985378"));
 
     big_integer("9739565432896546050040656034658762836457836886868678345021405632645902354063045608267340568346582")
         .divide(big_integer("8263050146508634250640862503465899340625908694088569038"), res);
@@ -422,7 +421,7 @@ TEST(bignum,  TestDivideBigger) {
     EXPECT_EQ(res, big_integer("1178688893351540421358600789386475098289416"));
 }
 
-TEST(bignum,  TestOutputSimpleBigInteger) {
+TEST(bignum, TestOutputSimpleBigInteger) {
     CheckOutputSimple<big_integer>(0);
 
     CheckOutputSimple<big_integer>(1);
@@ -484,7 +483,7 @@ TEST(bignum,  TestOutputSimpleBigInteger) {
     CheckOutputSimple<big_integer>(INT64_MIN);
 }
 
-TEST(bignum,  TestOutputSimpleDecimal) {
+TEST(bignum, TestOutputSimpleDecimal) {
     CheckOutputSimple<big_decimal>(0);
 
     CheckOutputSimple<big_decimal>(1);
@@ -545,7 +544,7 @@ TEST(bignum,  TestOutputSimpleDecimal) {
     CheckOutputSimple<big_decimal>(-1000000005000000000L);
     CheckOutputSimple<big_decimal>(INT64_MIN);
 }
-TEST(bignum,  TestInputOutputSimpleBigInteger) {
+TEST(bignum, TestInputOutputSimpleBigInteger) {
     CheckInputOutput<big_integer>("0");
     CheckInputOutput<big_integer>("1");
     CheckInputOutput<big_integer>("2");
@@ -588,7 +587,7 @@ TEST(bignum,  TestInputOutputSimpleBigInteger) {
         "-9999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999");
 }
 
-TEST(bignum,  TestInputOutputSimpleDecimal) {
+TEST(bignum, TestInputOutputSimpleDecimal) {
     CheckInputOutput<big_decimal>("0");
     CheckInputOutput<big_decimal>("1");
     CheckInputOutput<big_decimal>("2");
@@ -789,7 +788,7 @@ TEST(bignum,  TestInputOutputSimpleDecimal) {
                                   "12017054126750641065780784583204650763485718064875683468568360506340563042567");
 }
 
-TEST(bignum,  TestInputSimpleDecimal) {
+TEST(bignum, TestInputSimpleDecimal) {
     CheckOutputInput(big_decimal(0));
 
     CheckOutputInput(big_decimal(1));
@@ -851,7 +850,7 @@ TEST(bignum,  TestInputSimpleDecimal) {
     CheckOutputInput(big_decimal(INT64_MIN));
 }
 
-TEST(bignum,  TestScalingSmall) {
+TEST(bignum, TestScalingSmall) {
     big_decimal decimal(12345, 2);
     EXPECT_EQ(decimal.get_precision(), 5);
 
@@ -862,7 +861,7 @@ TEST(bignum,  TestScalingSmall) {
     EXPECT_EQ(decimal.to_int64(), 123);
 }
 
-TEST(bignum,  TestScalingBig) {
+TEST(bignum, TestScalingBig) {
     big_integer bigInt(69213205262741);
 
     big_decimal decimal;
@@ -917,7 +916,7 @@ TEST(bignum,  TestScalingBig) {
     EXPECT_EQ(decimal.to_int64(), 63647190455381106L);
 }
 
-TEST(bignum,  TestPrecisionSimple) {
+TEST(bignum, TestPrecisionSimple) {
     big_decimal test(1);
 
     EXPECT_EQ(big_decimal(-9).get_precision(), 1);
@@ -952,7 +951,7 @@ TEST(bignum,  TestPrecisionSimple) {
     EXPECT_EQ(big_decimal(-9223372036854775807L).get_precision(), 19); // -2^63 + 1:  19 digits
 }
 
-TEST(bignum,  TestPrecisionChange) {
+TEST(bignum, TestPrecisionChange) {
     big_integer bigInt(32421);
 
     // 75946938183
@@ -983,7 +982,7 @@ TEST(bignum,  TestPrecisionChange) {
     }
 }
 
-TEST(bignum,  TestDoubleCast) {
+TEST(bignum, TestDoubleCast) {
     CheckDoubleCast(100000000000000.0);
     CheckDoubleCast(10000000000000.0);
     CheckDoubleCast(1000000000000.0);

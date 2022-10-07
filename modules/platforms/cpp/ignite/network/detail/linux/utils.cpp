@@ -15,27 +15,25 @@
  * limitations under the License.
  */
 
-#ifdef WIN32
-# include "detail/win_process.h"
-#else
-# include "detail/linux_process.h"
-#endif
+#include "../utils.h"
 
-#include "cmd_process.h"
+#include <cstring>
 
-#include <filesystem>
-#include <utility>
-#include <vector>
+namespace ignite::network::detail {
 
-namespace ignite {
+std::string getLastSystemError() {
+    int errorCode = errno;
 
-std::unique_ptr<CmdProcess> CmdProcess::make(std::string command, std::vector<std::string> args, std::string workDir) {
-#ifdef WIN32
-    return std::unique_ptr<CmdProcess>(new detail::WinProcess(std::move(command), std::move(args), std::move(workDir)));
-#else
-    return std::unique_ptr<CmdProcess>(
-        new detail::LinuxProcess(std::move(command), std::move(args), std::move(workDir)));
-#endif
+    std::string errorDetails;
+    if (errorCode != 0) {
+        char errBuf[1024] = {0};
+
+        const char *res = strerror_r(errorCode, errBuf, sizeof(errBuf));
+        if (res)
+            errorDetails.assign(res);
+    }
+
+    return errorDetails;
 }
 
-} // namespace ignite
+} // namespace ignite::network::detail

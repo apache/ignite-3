@@ -15,27 +15,25 @@
  * limitations under the License.
  */
 
-#ifdef WIN32
-# include "detail/win_process.h"
-#else
-# include "detail/linux_process.h"
+#include "network.h"
+
+#include "async_client_pool_adapter.h"
+
+#include <ignite/common/config.h>
+
+#ifdef _WIN32
+# include "detail/win/win_async_client_pool.h"
+#else // Other. Assume Linux
+# include "detail/linux/linux_async_client_pool.h"
 #endif
 
-#include "cmd_process.h"
+namespace ignite::network {
 
-#include <filesystem>
-#include <utility>
-#include <vector>
+std::shared_ptr<AsyncClientPool> makeAsyncClientPool(DataFilters filters) {
+    auto platformPool =
+        std::make_shared<IGNITE_SWITCH_WIN_OTHER(detail::WinAsyncClientPool, detail::LinuxAsyncClientPool)>();
 
-namespace ignite {
-
-std::unique_ptr<CmdProcess> CmdProcess::make(std::string command, std::vector<std::string> args, std::string workDir) {
-#ifdef WIN32
-    return std::unique_ptr<CmdProcess>(new detail::WinProcess(std::move(command), std::move(args), std::move(workDir)));
-#else
-    return std::unique_ptr<CmdProcess>(
-        new detail::LinuxProcess(std::move(command), std::move(args), std::move(workDir)));
-#endif
+    return std::make_shared<AsyncClientPoolAdapter>(std::move(filters), std::move(platformPool));
 }
 
-} // namespace ignite
+} // namespace ignite::network

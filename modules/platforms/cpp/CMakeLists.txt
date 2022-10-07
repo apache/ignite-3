@@ -100,8 +100,8 @@ add_subdirectory(ignite/schema)
 # Add client libraries.
 if (${ENABLE_CLIENT})
     add_subdirectory(ignite/protocol)
-    add_subdirectory(network)
-    add_subdirectory(client)
+    add_subdirectory(ignite/network)
+    add_subdirectory(ignite/client)
 endif()
 
 # Add integration tests.
