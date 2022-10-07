@@ -251,7 +251,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
         }
 
         return connectionManager.channel(recipientConsistentId, addr)
-                .thenCompose(sender -> sender.send(new OutNetworkObject(message, descriptors)));
+                .thenComposeToCompletable(sender -> sender.send(new OutNetworkObject(message, descriptors)));
     }
 
     private List<ClassDescriptorMessage> beforeRead(NetworkMessage msg) throws Exception {

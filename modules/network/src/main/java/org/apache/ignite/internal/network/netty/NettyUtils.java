@@ -23,7 +23,6 @@ import io.netty.util.concurrent.Future;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import org.apache.ignite.internal.future.OrderedCompletableFuture;
 import org.jetbrains.annotations.Async.Execute;
 import org.jetbrains.annotations.Async.Schedule;
 
@@ -91,13 +90,12 @@ public class NettyUtils {
     }
 
     /**
-     * Convert a Netty {@link ChannelFuture} to a {@link CompletableFuture}. The returned future is ordered (that is,
-     * all its dependents will be resolved in the same order in which they were registered).
+     * Convert a Netty {@link ChannelFuture} to a {@link CompletableFuture}.
      *
      * @param channelFuture Channel future.
      * @return CompletableFuture.
      */
     public static CompletableFuture<Channel> toChannelCompletableFuture(ChannelFuture channelFuture) {
-        return toCompletableFuture(channelFuture, ChannelFuture::channel, OrderedCompletableFuture::new);
+        return toCompletableFuture(channelFuture, ChannelFuture::channel, CompletableFuture::new);
     }
 }

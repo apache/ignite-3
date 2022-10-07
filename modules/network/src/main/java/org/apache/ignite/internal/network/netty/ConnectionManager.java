@@ -32,6 +32,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.schemas.network.NetworkView;
+import org.apache.ignite.internal.future.OrderingFuture;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
@@ -203,7 +204,7 @@ public class ConnectionManager {
      * @param address      Another node's address.
      * @return Sender.
      */
-    public CompletableFuture<NettySender> channel(@Nullable String consistentId, SocketAddress address) {
+    public OrderingFuture<NettySender> channel(@Nullable String consistentId, SocketAddress address) {
         if (consistentId != null) {
             // If consistent id is known, try looking up a channel by consistent id. There can be an outbound connection
             // or an inbound connection associated with that consistent id.
@@ -213,7 +214,7 @@ public class ConnectionManager {
             );
 
             if (channel != null) {
-                return CompletableFuture.completedFuture(channel);
+                return OrderingFuture.completedFuture(channel);
             }
         }
 

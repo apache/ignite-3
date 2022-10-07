@@ -19,14 +19,11 @@ package org.apache.ignite.network;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
-import static org.hamcrest.Matchers.instanceOf;
-import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -34,7 +31,6 @@ import org.apache.ignite.configuration.schemas.network.InboundView;
 import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
 import org.apache.ignite.configuration.schemas.network.NetworkView;
 import org.apache.ignite.configuration.schemas.network.OutboundView;
-import org.apache.ignite.internal.future.OrderedCompletableFuture;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.messages.TestMessage;
 import org.apache.ignite.internal.network.messages.TestMessageSerializationFactory;
@@ -134,17 +130,6 @@ class DefaultMessagingServiceTest {
             assertTrue(messagesDeliveredLatch.await(1, TimeUnit.SECONDS));
 
             assertThat(payloads, contains("one", "two"));
-        }
-    }
-
-    @Test
-    void messageSendFutureIsOrdered() throws Exception {
-        configureSender();
-
-        try (Services senderServices = createMessagingService("sender", "sender-network", senderNetworkConfig, () -> {})) {
-            CompletableFuture<Void> sendFuture = senderServices.messagingService.send(receiverNode, testMessage("one"));
-
-            assertThat(sendFuture, is(instanceOf(OrderedCompletableFuture.class)));
         }
     }
 
