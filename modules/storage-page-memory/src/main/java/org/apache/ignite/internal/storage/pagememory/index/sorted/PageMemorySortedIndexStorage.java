@@ -159,16 +159,8 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
 
     @Nullable
     private SortedIndexRowKey createUpperBound(@Nullable BinaryTuplePrefix bound, boolean include) {
-        if (bound == null) {
-            return null;
-        }
-
-        // Include the upper bound, if needed.
-        if (include) {
-            setEqualityFlag(bound);
-        }
-
-        return toSortedIndexRowKey(bound);
+        // Upper bound is skipped by default, so we need to invert the condition
+        return createLowerBound(bound, !include);
     }
 
     private SortedIndexRowKey toSortedIndexRowKey(BinaryTuplePrefix binaryTuple) {
