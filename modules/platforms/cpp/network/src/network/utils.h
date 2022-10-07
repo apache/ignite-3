@@ -17,11 +17,11 @@
 
 #pragma once
 
+#include <ignite/common/ignite_error.h>
+
 #include <sstream>
 #include <string>
 #include <string_view>
-
-#include "common/ignite_error.h"
 
 namespace ignite::network {
 

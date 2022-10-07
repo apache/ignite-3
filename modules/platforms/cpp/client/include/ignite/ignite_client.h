@@ -17,14 +17,14 @@
 
 #pragma once
 
-#include <functional>
-#include <memory>
-
-#include "common/config.h"
-#include "common/ignite_result.h"
-
 #include "ignite/ignite_client_configuration.h"
 #include "ignite/table/tables.h"
+
+#include <ignite/common/config.h>
+#include <ignite/common/ignite_result.h>
+
+#include <functional>
+#include <memory>
 
 namespace ignite {
 

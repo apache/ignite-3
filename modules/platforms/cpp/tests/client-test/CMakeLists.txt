@@ -15,11 +15,20 @@
 # limitations under the License.
 #
 
-[requires]
-msgpack-c/4.0.0
-gtest/1.12.1
+project(ignite-client-test)
 
-[generators]
-cmake_find_package
-cmake_paths
-cmake
+set(TARGET ${PROJECT_NAME})
+
+set(SOURCES
+    gtest_logger.h
+    ignite_client_test.cpp
+    ignite_runner_suite.h
+    main.cpp
+    tables_test.cpp
+)
+
+add_executable(${TARGET} ${SOURCES})
+target_link_libraries(${TARGET} ignite-test-common ignite-client GTest::gtest)
+
+set(TEST_TARGET IgniteClientTest)
+add_test(NAME ${TEST_TARGET} COMMAND ${TARGET})

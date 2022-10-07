@@ -17,19 +17,18 @@
 
 #pragma once
 
-#include <cstdint>
-#include <map>
-#include <memory>
-#include <mutex>
-
-#include "common/ignite_error.h"
-
+#include <ignite/common/ignite_error.h>
 #include <ignite/network/async_client_pool.h>
 #include <ignite/network/async_handler.h>
 #include <ignite/network/tcp_range.h>
 
 #include "network/linux_async_client.h"
 #include "network/linux_async_worker_thread.h"
+
+#include <cstdint>
+#include <map>
+#include <memory>
+#include <mutex>
 
 namespace ignite::network {
 

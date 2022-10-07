@@ -17,40 +17,41 @@
 
 #pragma once
 
-#include <ignite/common/factory.h>
 #include <ignite/common/ignite_error.h>
-#include <ignite/network/data_buffer.h>
 
-namespace ignite::network {
+#include <future>
+#include <memory>
+#include <utility>
+
+namespace ignite {
 
 /**
- * Codec class.
- * Encodes and decodes data.
+ * Make future error.
+ *
+ * @tparam T Value type.
+ * @param err Error.
+ * @return Failed future with the specified error.
  */
-class Codec {
-public:
-    // Default
-    virtual ~Codec() = default;
+template <typename T>
+std::future<T> make_future_error(ignite_error err) {
+    std::promise<T> promise;
+    promise.set_exception(std::make_exception_ptr(std::move(err)));
 
-    /**
-     * Encode provided data.
-     *
-     * @param data Data to encode.
-     * @return Encoded data. Returning null is ok.
-     *
-     * @throw ignite_error on error.
-     */
-    virtual DataBufferOwning encode(DataBufferOwning &data) = 0;
+    return promise.get_future();
+}
+/**
+ * Make future value.
+ *
+ * @tparam T Value type.
+ * @param value Value.
+ * @return Failed future with the specified error.
+ */
+template <typename T>
+std::future<T> make_future_value(T value) {
+    std::promise<T> promise;
+    promise.set_value(std::move(value));
 
-    /**
-     * Decode provided data.
-     *
-     * @param data Data to decode.
-     * @return Decoded data. Returning null means data is not yet ready.
-     *
-     * @throw ignite_error on error.
-     */
-    virtual DataBufferRef decode(DataBufferRef &data) = 0;
-};
+    return promise.get_future();
+}
 
-} // namespace ignite::network
+} // namespace ignite

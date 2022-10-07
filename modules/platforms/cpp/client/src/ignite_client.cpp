@@ -15,11 +15,12 @@
  * limitations under the License.
  */
 
-#include <thread>
-
-#include "common/ignite_error.h"
 #include "ignite/ignite_client.h"
 #include "ignite_client_impl.h"
+
+#include <ignite/common/ignite_error.h>
+
+#include <thread>
 
 namespace ignite {
 

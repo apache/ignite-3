@@ -17,11 +17,11 @@
 
 #pragma once
 
+#include <ignite/common/config.h>
+
 #include <future>
 #include <memory>
 #include <utility>
-
-#include "common/config.h"
 
 namespace ignite {
 

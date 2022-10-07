@@ -15,16 +15,16 @@
  * limitations under the License.
  */
 
+#pragma once
+
+#include <ignite/common/ignite_error.h>
+#include <ignite/common/ignite_result.h>
+#include <ignite/protocol/reader.h>
+
 #include <functional>
 #include <future>
 #include <memory>
 #include <tuple>
-
-#include "common/ignite_error.h"
-#include "common/ignite_result.h"
-#include "ignite/protocol/reader.h"
-
-#pragma once
 
 namespace ignite::detail {
 

@@ -17,22 +17,22 @@
 
 #pragma once
 
+#include "client_operation.h"
+#include "protocol_context.h"
+#include "response_handler.h"
+
+#include "ignite/ignite_client_configuration.h"
+
+#include <ignite/common/utils.h>
+#include <ignite/network/async_client_pool.h>
+#include <ignite/protocol/reader.h>
+#include <ignite/protocol/writer.h>
+
 #include <atomic>
 #include <future>
 #include <memory>
 #include <mutex>
 #include <unordered_map>
-
-#include "common/utils.h"
-
-#include "ignite/ignite_client_configuration.h"
-#include "ignite/network/async_client_pool.h"
-#include "ignite/protocol/reader.h"
-#include "ignite/protocol/writer.h"
-
-#include "client_operation.h"
-#include "protocol_context.h"
-#include "response_handler.h"
 
 namespace ignite::detail {
 

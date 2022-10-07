@@ -19,7 +19,7 @@
 
 #include <cstdint>
 
-#include <common/ignite_error.h>
+#include <ignite/common/ignite_error.h>
 #include <ignite/network/data_buffer.h>
 #include <ignite/network/end_point.h>
 

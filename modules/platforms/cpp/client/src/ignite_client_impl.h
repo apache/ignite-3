@@ -17,14 +17,14 @@
 
 #pragma once
 
-#include <future>
-#include <memory>
-
-#include "common/ignite_result.h"
-#include "ignite/ignite_client_configuration.h"
-
 #include "cluster_connection.h"
 #include "table/tables_impl.h"
+
+#include <ignite/common/ignite_result.h>
+#include <ignite/ignite_client_configuration.h>
+
+#include <future>
+#include <memory>
 
 namespace ignite::detail {
 

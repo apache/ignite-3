@@ -17,11 +17,12 @@
 
 #pragma once
 
+#include <ignite/ignite_logger.h>
+
 #include <initializer_list>
+#include <memory>
 #include <string>
 #include <vector>
-
-#include <ignite/ignite_logger.h>
 
 namespace ignite {
 

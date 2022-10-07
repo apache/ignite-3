@@ -17,12 +17,11 @@
 
 #pragma once
 
+#include <ignite/common/ignite_error.h>
+#include <ignite/network/codec.h>
+
 #include <cstddef>
 #include <vector>
-
-#include <common/ignite_error.h>
-
-#include <ignite/network/codec.h>
 
 namespace ignite::network {
 

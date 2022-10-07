@@ -17,6 +17,17 @@
 
 #pragma once
 
+#include "client_operation.h"
+#include "ignite/ignite_client_configuration.h"
+#include "node_connection.h"
+#include "protocol_context.h"
+#include "response_handler.h"
+
+#include <ignite/common/ignite_result.h>
+#include <ignite/network/async_client_pool.h>
+#include <ignite/protocol/reader.h>
+#include <ignite/protocol/writer.h>
+
 #include <array>
 #include <functional>
 #include <future>
@@ -24,18 +35,6 @@
 #include <mutex>
 #include <random>
 #include <unordered_map>
-
-#include "common/ignite_result.h"
-
-#include "ignite/network/async_client_pool.h"
-#include "ignite/protocol/reader.h"
-#include "ignite/protocol/writer.h"
-
-#include "client_operation.h"
-#include "ignite/ignite_client_configuration.h"
-#include "node_connection.h"
-#include "protocol_context.h"
-#include "response_handler.h"
 
 namespace ignite::protocol {
 

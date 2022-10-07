@@ -17,12 +17,12 @@
 
 #pragma once
 
+#include <ignite/common/types.h>
+
 #include <cassert>
 #include <cstdint>
 #include <memory>
 #include <vector>
-
-#include "common/types.h"
 
 namespace ignite::network {
 

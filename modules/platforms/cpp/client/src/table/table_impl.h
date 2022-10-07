@@ -17,11 +17,11 @@
 
 #pragma once
 
+#include <ignite/common/uuid.h>
+
 #include <future>
 #include <memory>
 #include <utility>
-
-#include "common/uuid.h"
 
 namespace ignite::detail {
 

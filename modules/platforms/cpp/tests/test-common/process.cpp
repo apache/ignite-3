@@ -15,33 +15,26 @@
  * limitations under the License.
  */
 
-#include "table/tables_impl.h"
+#ifdef WIN32
+# include "detail/win_process.h"
+#else
+# include "detail/linux_process.h"
+#endif
 
-#include <ignite/common/utils.h>
-#include <ignite/table/tables.h>
+#include "cmd_process.h"
 
+#include <filesystem>
 #include <utility>
+#include <vector>
 
 namespace ignite {
 
-void Tables::getTableAsync(const std::string &name, ignite_callback<std::optional<Table>> callback) {
-    getImpl().getTableAsync(name, std::move(callback));
-}
-
-void Tables::getTablesAsync(ignite_callback<std::vector<Table>> callback) {
-    getImpl().getTablesAsync(std::move(callback));
-}
-
-Tables::Tables(std::shared_ptr<void> impl)
-    : m_impl(std::move(impl)) {
-}
-
-detail::TablesImpl &Tables::getImpl() {
-    return *((detail::TablesImpl *)(m_impl.get()));
-}
-
-const detail::TablesImpl &Tables::getImpl() const {
-    return *((detail::TablesImpl *)(m_impl.get()));
+std::unique_ptr<CmdProcess> CmdProcess::make(std::string command, std::vector<std::string> args, std::string workDir) {
+#ifdef WIN32
+    return std::unique_ptr<CmdProcess>(new detail::WinProcess(std::move(command), std::move(args), std::move(workDir)));
+#else
+    return std::unique_ptr<CmdProcess>(new detail::LinuxProcess(std::move(command), std::move(args), std::move(workDir)));
+#endif
 }
 
 } // namespace ignite

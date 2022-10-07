@@ -48,7 +48,7 @@ option(ENABLE_CLIENT "Build Ignite.C++ Client module" ON)
 option(ENABLE_TESTS "Build Ignite.C++ tests" OFF)
 option(WARNINGS_AS_ERRORS "Treat warning as errors" OFF)
 
-# Turn on DLL export directives
+# Turn on DLL export directives.
 add_definitions(-DIGNITE_IMPL)
 
 if (MSVC)
@@ -82,26 +82,30 @@ if (${WARNINGS_AS_ERRORS})
     endif()
 endif()
 
-enable_testing()
+# Setup gtest for unit & integration tests.
+if (${ENABLE_TESTS})
+    find_package(GTest REQUIRED)
+    include(GoogleTest)
+    enable_testing()
+endif()
 
-add_subdirectory(common)
-add_subdirectory(schema)
+# Add common libraries along with their unit tests if any.
+add_subdirectory(ignite/common)
+add_subdirectory(ignite/schema)
 
+# Add client libraries.
 if (${ENABLE_CLIENT})
-    add_subdirectory(protocol)
+    add_subdirectory(ignite/protocol)
     add_subdirectory(network)
     add_subdirectory(client)
 endif()
 
+# Add integration tests.
 if (${ENABLE_TESTS})
     add_subdirectory(tests)
-    if (${ENABLE_CLIENT})
-        add_subdirectory(test-common)
-        add_subdirectory(client-test)
-    endif()
 endif()
 
-# Source code formatting with clang-format
+# Source code formatting with clang-format.
 # TODO: require clang-format version 13 or higher
 find_program(CLANG_FORMAT_BIN clang-format)
 if (CLANG_FORMAT_BIN)

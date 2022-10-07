@@ -15,11 +15,28 @@
 # limitations under the License.
 #
 
-[requires]
-msgpack-c/4.0.0
-gtest/1.12.1
+project(ignite-schema)
 
-[generators]
-cmake_find_package
-cmake_paths
-cmake
+set(TARGET ${PROJECT_NAME})
+
+add_library(${TARGET} STATIC
+    big_decimal.cpp big_decimal.h
+    big_integer.cpp big_integer.h
+    binary_tuple_builder.cpp binary_tuple_builder.h
+    binary_tuple_header.h
+    binary_tuple_parser.cpp binary_tuple_parser.h
+    binary_tuple_schema.h
+    column_info.h
+    ignite_date.h
+    ignite_date_time.h
+    ignite_time.h
+    ignite_timestamp.h
+    ignite_type.cpp ignite_type.h)
+
+target_link_libraries(${TARGET} ignite-common)
+
+if (${ENABLE_TESTS})
+    add_executable(bignum_test bignum_test.cpp)
+    target_link_libraries(bignum_test ${TARGET} GTest::gtest_main)
+    gtest_discover_tests(bignum_test)
+endif()

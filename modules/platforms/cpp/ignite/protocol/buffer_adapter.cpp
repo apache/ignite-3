@@ -15,42 +15,21 @@
  * limitations under the License.
  */
 
-#pragma once
+#include "ignite/protocol/buffer_adapter.h"
 
-#include <ignite/common/factory.h>
+#include <ignite/common/bytes.h>
 #include <ignite/common/ignite_error.h>
-#include <ignite/network/data_buffer.h>
+#include <ignite/protocol/utils.h>
 
-namespace ignite::network {
+namespace ignite::protocol {
 
-/**
- * Codec class.
- * Encodes and decodes data.
- */
-class Codec {
-public:
-    // Default
-    virtual ~Codec() = default;
+void buffer_adapter::write_length_header() {
+    if (m_length_pos == std::numeric_limits<std::size_t>::max() || m_length_pos + LENGTH_HEADER_SIZE > m_buffer.size())
+        throw ignite_error("Length header was not reserved properly in buffer");
 
-    /**
-     * Encode provided data.
-     *
-     * @param data Data to encode.
-     * @return Encoded data. Returning null is ok.
-     *
-     * @throw ignite_error on error.
-     */
-    virtual DataBufferOwning encode(DataBufferOwning &data) = 0;
+    auto length = std::int32_t(m_buffer.size() - (m_length_pos + LENGTH_HEADER_SIZE));
 
-    /**
-     * Decode provided data.
-     *
-     * @param data Data to decode.
-     * @return Decoded data. Returning null means data is not yet ready.
-     *
-     * @throw ignite_error on error.
-     */
-    virtual DataBufferRef decode(DataBufferRef &data) = 0;
-};
+    bytes::store<Endian::LITTLE, int32_t>(m_buffer.data() + m_length_pos, length);
+}
 
-} // namespace ignite::network
+} // namespace ignite::protocol

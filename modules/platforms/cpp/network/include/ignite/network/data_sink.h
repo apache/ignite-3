@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include <common/ignite_error.h>
+#include <ignite/common/ignite_error.h>
 #include <ignite/network/data_buffer.h>
 
 namespace ignite::network {

@@ -17,8 +17,8 @@
 
 #include "ignite/network/length_prefix_codec.h"
 
-#include "common/bytes.h"
-#include "ignite/protocol/utils.h"
+#include <ignite/common/bytes.h>
+#include <ignite/protocol/utils.h>
 
 namespace ignite::network {
 
