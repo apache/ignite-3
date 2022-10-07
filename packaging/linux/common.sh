@@ -17,19 +17,19 @@
 #
 
 source_user_group() {
-  USERNAME='@USERNAME@'
-  GROUPNAME='@GROUPNAME@'
+  USERNAME="@USERNAME@"
+  GROUPNAME="@GROUPNAME@"
 
-  if [ "$(/usr/bin/getent passwd "${USERNAME}" >/dev/null)" ]; then
+  if [ ! "$(getent passwd ${USERNAME})" ]; then
     /usr/sbin/useradd "${USERNAME}"
   fi
 
-  if [ "$(/usr/bin/getent group "${GROUPNAME}" >/dev/null)" ]; then
+  if [ ! "$(getent group ${GROUPNAME})" ]; then
     sudo groupadd "${GROUPNAME}"
     sudo usermod -a -G "${GROUPNAME}" "${USERNAME}"
   fi
 
-  if [ -f '@CONF_DIR@/vars.env' ]; then . '@CONF_DIR@/@VARS_FILE_NAME@'; fi
+  if [ -f "@CONF_DIR@/@VARS_FILE_NAME@" ]; then . "@CONF_DIR@/@VARS_FILE_NAME@"; fi
 }
 
 pre_uninstall() {

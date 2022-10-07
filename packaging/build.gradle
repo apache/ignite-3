@@ -66,9 +66,9 @@ distributions {
                 from ("$rootDir/assembly/README.md")
             }
             into('etc') {
-                from ("$rootDir/packaging/scripts/bootstrap-config")
-                from ("$rootDir/packaging/config/ignite-config.conf")
-                from ("$rootDir/packaging/config/ignite.java.util.logging.properties")
+                from ("${buildDir}/scripts/bootstrap-config")
+                from ("${buildDir}/config/ignite-config.conf")
+                from ("${buildDir}/config/ignite.java.util.logging.properties")
             }
             into('bin') {
                 fileMode 0755
@@ -138,34 +138,40 @@ def tokens = [
         IGNITE_WORK_DIR         : '/usr/share/ignite3db/work'
 ]
 
-task replaceScriptVars(type: Copy) {
-    from("${rootDir}/packaging/linux")
+task replaceConfigVars(type: Copy) {
+    from("${projectDir}/config")
     filter(ReplaceTokens, tokens: tokens)
-    into("${buildDir}/packaging/linux")
+    into("${buildDir}/config")
+}
+
+task replaceScriptVars(type: Copy) {
+    from("${projectDir}/linux")
+    filter(ReplaceTokens, tokens: tokens)
+    into("${buildDir}/linux")
 }
 
 buildRpm {
-    dependsOn replaceScriptVars
+    dependsOn replaceScriptVars, replaceConfigVars
     configurationFile = "/etc/ignite3/vars.env"
 
-    installUtils file("${buildDir}/packaging/linux/service/vars.env")
-    installUtils file("${buildDir}/packaging/linux/common.sh")
-    preInstall file("${buildDir}/packaging/linux/preInstall.sh")
-    postInstall file("${buildDir}/packaging/linux/postInstall.sh")
-    preUninstall file("${buildDir}/packaging/linux/rpm/preUninstall.sh")
-    postUninstall file("${buildDir}/packaging/linux/rpm/postUninstall.sh")
+    installUtils file("${buildDir}/linux/service/vars.env")
+    installUtils file("${buildDir}/linux/common.sh")
+    preInstall file("${buildDir}/linux/preInstall.sh")
+    postInstall file("${buildDir}/linux/postInstall.sh")
+    preUninstall file("${buildDir}/linux/rpm/preUninstall.sh")
+    postUninstall file("${buildDir}/linux/rpm/postUninstall.sh")
 }
 
 buildDeb {
-    dependsOn replaceScriptVars
+    dependsOn replaceScriptVars, replaceConfigVars
     configurationFile = "/etc/ignite3/vars.env"
 
-    installUtils file("${buildDir}/packaging/linux/service/vars.env")
-    installUtils file("${buildDir}/packaging/linux/common.sh")
-    preInstall file("${buildDir}/packaging/linux/preInstall.sh")
-    postInstall file("${buildDir}/packaging/linux/postInstall.sh")
-    preUninstall file("${buildDir}/packaging/linux/deb/preUninstall.sh")
-    postUninstall file("${buildDir}/packaging/linux/deb/postUninstall.sh")
+    installUtils file("${buildDir}/linux/service/vars.env")
+    installUtils file("${buildDir}/linux/common.sh")
+    preInstall file("${buildDir}/linux/preInstall.sh")
+    postInstall file("${buildDir}/linux/postInstall.sh")
+    preUninstall file("${buildDir}/linux/deb/preUninstall.sh")
+    postUninstall file("${buildDir}/linux/deb/postUninstall.sh")
 }
 
 ospackage {
@@ -179,9 +185,9 @@ ospackage {
 
     into(tokens.INSTALL_DIR) {
         into("") {
-            from "${buildDir}/packaging/linux/service/ignite3db.service"
-            from "${buildDir}/packaging/linux/service/ignite3db.conf"
-            from("${buildDir}/packaging/linux/start.sh") {
+            from "${buildDir}/linux/service/ignite3db.service"
+            from "${buildDir}/linux/service/ignite3db.conf"
+            from("${buildDir}/linux/start.sh") {
                 fileMode 0755
             }
         }
@@ -192,9 +198,9 @@ ospackage {
 
         into("etc") {
             fileType CONFIG
-            from "${buildDir}/packaging/linux/service/vars.env"
-            from "${rootDir}/packaging/config/ignite.java.util.logging.properties"
-            from "${rootDir}/packaging/config/ignite-config.conf"
+            from "${buildDir}/linux/service/vars.env"
+            from "${buildDir}/config/ignite.java.util.logging.properties"
+            from "${buildDir}/config/ignite-config.conf"
         }
 
         into("etc") {
