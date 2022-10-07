@@ -46,8 +46,7 @@ public abstract class BplusLeafIo<L> extends BplusIo<L> {
             int srcIdx,
             int dstIdx,
             int cnt,
-            boolean cpLeft,
-            int pageId
+            boolean cpLeft
     ) {
         assert srcIdx != dstIdx || srcPageAddr != dstPageAddr;
 

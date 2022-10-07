@@ -52,7 +52,7 @@ public class PartitionlessLinks {
         int tag = getShort(pageAddr, offset) & 0xFFFF;
         int pageIdx = getInt(pageAddr, offset + Short.BYTES);
 
-        // NULL_LINK is stored as zeroes. This is fine, because no real link can be like this. Page with index 0 is never a data page.
+        // NULL_LINK is stored as zeroes. This is fine, because no real link can be like this. Page with index 0 is meta page.
         if (pageIdx == 0) {
             assert tag == 0 : tag;
 

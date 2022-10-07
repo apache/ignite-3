@@ -68,12 +68,6 @@ public class PartitionlessLinksTest {
             assertEquals(PARTITIONLESS_LINK_SIZE_BYTES, writePartitionless(addr + offset, pageId));
 
             assertEquals(pageId, readPartitionless(partitionId, addr, offset));
-
-            pageId = pageId(partitionId, FLAG_DATA, 3, 1);
-
-            assertEquals(PARTITIONLESS_LINK_SIZE_BYTES, writePartitionless(addr + offset, pageId));
-
-            assertEquals(pageId, readPartitionless(partitionId, addr, offset));
         });
     }
 
