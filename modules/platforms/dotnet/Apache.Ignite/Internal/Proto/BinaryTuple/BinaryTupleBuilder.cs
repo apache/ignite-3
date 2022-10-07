@@ -527,109 +527,90 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             switch (value)
             {
                 case null:
-                    AppendNull();
-                    AppendNull();
-                    AppendNull();
+                    AppendNull(); // Type.
+                    AppendNull(); // Scale.
+                    AppendNull(); // Value.
                     break;
 
                 case int i32:
-                    AppendInt((int)ClientDataType.Int32);
-                    AppendInt(0);
+                    AppendTypeAndScale(ClientDataType.Int32);
                     AppendInt(i32);
                     break;
 
                 case long i64:
-                    AppendInt((int)ClientDataType.Int64);
-                    AppendInt(0);
+                    AppendTypeAndScale(ClientDataType.Int64);
                     AppendLong(i64);
                     break;
 
                 case string str:
-                    AppendInt((int)ClientDataType.String);
-                    AppendInt(0);
+                    AppendTypeAndScale(ClientDataType.String);
                     AppendString(str);
                     break;
 
                 case Guid uuid:
-                    AppendInt((int)ClientDataType.Uuid);
-                    AppendInt(0);
+                    AppendTypeAndScale(ClientDataType.Uuid);
                     AppendGuid(uuid);
                     break;
 
                 case sbyte i8:
-                    AppendInt((int)ClientDataType.Int8);
-                    AppendInt(0);
+                    AppendTypeAndScale(ClientDataType.Int8);
                     AppendByte(i8);
                     break;
 
                 case short i16:
-                    AppendInt((int)ClientDataType.Int16);
-                    AppendInt(0);
+                    AppendTypeAndScale(ClientDataType.Int16);
                     AppendShort(i16);
                     break;
 
                 case float f32:
-                    AppendInt((int)ClientDataType.Float);
-                    AppendInt(0);
+                    AppendTypeAndScale(ClientDataType.Float);
                     AppendFloat(f32);
                     break;
 
                 case double f64:
-                    AppendInt((int)ClientDataType.Double);
-                    AppendInt(0);
+                    AppendTypeAndScale(ClientDataType.Double);
                     AppendDouble(f64);
                     break;
 
                 case byte[] bytes:
-                    AppendInt((int)ClientDataType.Bytes);
-                    AppendInt(0);
+                    AppendTypeAndScale(ClientDataType.Bytes);
                     AppendBytes(bytes);
                     break;
 
                 case decimal dec:
-                    AppendInt((int)ClientDataType.Decimal);
-
                     var (unscaled, scale) = DeconstructDecimal(dec);
-
-                    AppendInt(scale);
-
+                    AppendTypeAndScale(ClientDataType.Decimal, scale);
                     PutDecimal(scale, unscaled, scale);
                     OnWrite();
                     break;
 
                 case BigInteger bigInt:
-                    AppendInt((int)ClientDataType.Number);
-                    AppendInt(0);
+                    AppendTypeAndScale(ClientDataType.Number);
                     AppendNumber(bigInt);
                     break;
 
                 case LocalDate localDate:
-                    AppendInt((int)ClientDataType.Date);
-                    AppendInt(0);
+                    AppendTypeAndScale(ClientDataType.Date);
                     AppendDate(localDate);
                     break;
 
                 case LocalTime localTime:
-                    AppendInt((int)ClientDataType.Time);
-                    AppendInt(0);
+                    AppendTypeAndScale(ClientDataType.Time);
                     AppendTime(localTime);
                     break;
 
                 case LocalDateTime localDateTime:
-                    AppendInt((int)ClientDataType.DateTime);
-                    AppendInt(0);
+                    AppendTypeAndScale(ClientDataType.DateTime);
                     AppendDateTime(localDateTime);
                     break;
 
                 case Instant instant:
-                    AppendInt((int)ClientDataType.Timestamp);
-                    AppendInt(0);
+                    AppendTypeAndScale(ClientDataType.Timestamp);
                     AppendTimestamp(instant);
                     break;
 
                 case BitArray bitArray:
-                    AppendInt((int)ClientDataType.BitMask);
-                    AppendInt(0);
+                    AppendTypeAndScale(ClientDataType.BitMask);
                     AppendBitmask(bitArray);
                     break;
 
@@ -901,9 +882,12 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             buf[1..].CopyTo(GetSpan(3));
         }
 
-        /// <summary>
-        /// Proceed to the next tuple element.
-        /// </summary>
+        private void AppendTypeAndScale(ClientDataType type, int scale = 0)
+        {
+            AppendInt((int)type);
+            AppendInt(0);
+        }
+
         private void OnWrite()
         {
             Debug.Assert(_elementIndex < _numElements, "_elementIndex < _numElements");
