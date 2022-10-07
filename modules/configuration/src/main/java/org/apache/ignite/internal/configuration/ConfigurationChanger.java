@@ -325,7 +325,17 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
                     + escape(keyPathNode.key);
 
             // Data from the storage.
-            Serializable resolvedName = get(storage.readLatest(unresolvedNameKey));
+            CompletableFuture<Serializable> asyncFut = new CompletableFuture<>();
+
+            storage.readLatest(unresolvedNameKey).whenCompleteAsync((serializable, throwable) -> {
+                if (throwable != null) {
+                    asyncFut.completeExceptionally(throwable);
+                } else {
+                    asyncFut.complete(serializable);
+                }
+            });
+
+            Serializable resolvedName = get(asyncFut);
 
             if (resolvedName == null) {
                 throw new NoSuchElementException(prefixJoiner + KEY_SEPARATOR + escape(keyPathNode.key));
