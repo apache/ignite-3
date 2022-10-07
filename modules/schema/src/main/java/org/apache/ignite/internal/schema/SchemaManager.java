@@ -22,21 +22,22 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.SortedMap;
+import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import org.apache.ignite.configuration.ConfigurationProperty;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.configuration.schemas.table.ColumnView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.causality.VersionedValue;
-import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.manager.Producer;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -105,6 +106,31 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
     /** {@inheritDoc} */
     @Override
     public void start() {
+        for (String tblName : tablesCfg.tables().value().namedListKeys()) {
+            ExtendedTableConfiguration tblCfg = ((ExtendedTableConfiguration) tablesCfg.tables().get(tblName));
+            UUID tblId = tblCfg.id().value();
+
+            Map<Integer, byte[]> schemas = collectAllSchemas(tblId);
+
+            byte[] serialized;
+
+            if (schemas.size() > 1) {
+                for (Map.Entry<Integer, byte[]> ent : schemas.entrySet()) {
+                    serialized = ent.getValue();
+
+                    SchemaDescriptor desc = SchemaSerializerImpl.INSTANCE.deserialize(serialized);
+
+                    createSchema(0, tblId, tblName, desc).join();
+                }
+
+                registriesVv.complete(0);
+            } else {
+                serialized = schemas.get(INITIAL_SCHEMA_VERSION);
+
+                assert serialized != null;
+            }
+        }
+
         tablesCfg.tables().any().columns().listen(this::onSchemaChange);
     }
 
@@ -130,12 +156,15 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
 
             SchemaDescriptor schemaDescFromUpdate = SchemaUtils.prepareSchemaDescriptor(verFromUpdate, tblCfg);
 
-            byte[] curSchemaDesc = schemaById(metastorageMgr, tblId, verFromUpdate);
+            if (searchSchemaByVersion(tblId, schemaDescFromUpdate.version()) != null) {
+                return completedFuture(null);
+            }
+
+            byte[] curSchemaDesc = schemaById(tblId, verFromUpdate);
 
             if (verFromUpdate != INITIAL_SCHEMA_VERSION) {
-                byte[] oldSchemaSerialized = schemaById(metastorageMgr, tblId, verFromUpdate - 1);
-                assert oldSchemaSerialized != null;
-                SchemaDescriptor oldSchema = SchemaSerializerImpl.INSTANCE.deserialize(oldSchemaSerialized);
+                SchemaDescriptor oldSchema = searchSchemaByVersion(tblId, verFromUpdate - 1);
+                assert oldSchema != null;
 
                 NamedListView<ColumnView> oldCols = ctx.oldValue();
                 NamedListView<ColumnView> newCols = ctx.newValue();
@@ -262,7 +291,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
             }
 
             try {
-                return latestSchemaVersion(metastorageMgr, tableId);
+                return latestSchemaVersion(tableId);
             } finally {
                 busyLock.leaveBusy();
             }
@@ -348,7 +377,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
     private SchemaDescriptor searchSchemaByVersion(UUID tblId, int schemaVer) {
         SchemaRegistry registry = registriesVv.latest().get(tblId);
 
-        if (registry != null && schemaVer < registry.lastSchemaVersion()) {
+        if (registry != null && schemaVer <= registry.lastSchemaVersion()) {
             return registry.schema(schemaVer);
         } else {
             return null;
@@ -433,26 +462,12 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
     }
 
     /**
-     * Gets a direct accessor for the configuration distributed property.
-     * If the metadata access only locally configured the method will return local property accessor.
-     *
-     * @param property Distributed configuration property to receive direct access.
-     * @param <T> Type of the property accessor.
-     * @return An accessor for distributive property.
-     * @see #getMetadataLocallyOnly
-     */
-    private <T extends ConfigurationProperty<?>> T directProxy(T property) {
-        return getMetadataLocallyOnly ? property : ConfigurationUtil.directProxy(property);
-    }
-
-    /**
      * Gets the latest version of the table schema which available in Metastore.
      *
      * @param tblId Table id.
-     * @param metastorageMgr Metastorage manager.
      * @return The latest schema version.
      */
-    public static int latestSchemaVersion(MetaStorageManager metastorageMgr, UUID tblId) {
+    private int latestSchemaVersion(UUID tblId) {
         try {
             Cursor<Entry> cur = metastorageMgr.prefix(schemaHistPredicate(tblId));
 
@@ -460,11 +475,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
 
             for (Entry ent : cur) {
                 String key = ent.key().toString();
-                int pos = key.indexOf(':');
-                assert pos != -1 : "Unexpected key: " + key;
-
-                key = key.substring(pos + 1);
-                int descVer = Integer.parseInt(key);
+                int descVer = extractVerFromSchemaKey(key);
 
                 if (descVer > lastVer) {
                     lastVer = descVer;
@@ -482,13 +493,41 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
     }
 
     /**
+     * Collect all schemes for appropriate table.
+     *
+     * @param tblId Table id.
+     * @return Sorted by key collection of schemes.
+     */
+    private SortedMap<Integer, byte[]> collectAllSchemas(UUID tblId) {
+        try {
+            Cursor<Entry> cur = metastorageMgr.prefix(schemaHistPredicate(tblId));
+
+            SortedMap<Integer, byte[]> schemes = new TreeMap<>();
+
+            for (Entry ent : cur) {
+                String key = ent.key().toString();
+                int descVer = extractVerFromSchemaKey(key);
+
+                schemes.put(descVer, ent.value());
+            }
+
+            return schemes;
+        } catch (NoSuchElementException e) {
+            assert false : "Table must exist. [tableId=" + tblId + ']';
+
+            return Collections.emptySortedMap();
+        } catch (NodeStoppingException e) {
+            throw new IgniteException(e.traceId(), e.code(), e.getMessage(), e);
+        }
+    }
+
+    /**
      * Gets the latest serialized schema of the table which available in Metastore.
      *
      * @param tblId Table id.
-     * @param metastorageMgr Metastorage manager.
      * @return The latest schema version or {@code null} if not found.
      */
-    public static @Nullable byte[] schemaById(MetaStorageManager metastorageMgr, UUID tblId, int ver) {
+    private @Nullable byte[] schemaById(UUID tblId, int ver) {
         try {
             Cursor<Entry> cur = metastorageMgr.prefix(schemaHistPredicate(tblId));
 
@@ -497,11 +536,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
 
             for (Entry ent : cur) {
                 String key = ent.key().toString();
-                int pos = key.indexOf(':');
-                assert pos != -1 : "Unexpected key: " + key;
-
-                key = key.substring(pos + 1);
-                int descVer = Integer.parseInt(key);
+                int descVer = extractVerFromSchemaKey(key);
 
                 if (ver != -1) {
                     if (ver == descVer) {
@@ -521,6 +556,14 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
         } catch (NodeStoppingException e) {
             throw new IgniteException(e.traceId(), e.code(), e.getMessage(), e);
         }
+    }
+
+    private int extractVerFromSchemaKey(String key) {
+        int pos = key.indexOf(':');
+        assert pos != -1 : "Unexpected key: " + key;
+
+        key = key.substring(pos + 1);
+        return Integer.parseInt(key);
     }
 
     /**
