@@ -17,9 +17,11 @@
 
 package org.apache.ignite.internal.sql.engine.externalize;
 
+import java.util.List;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelInput;
+import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 
 /**
  * Extension to the {@link RelInput} interface.
@@ -41,4 +43,12 @@ public interface RelInputEx extends RelInput {
      * @return A table with given id.
      */
     RelOptTable getTableById();
+
+    /**
+     * Returns search bounds.
+     *
+     * @param tag Tag.
+     * @return Search bounds.
+     */
+    List<SearchBounds> getSearchBounds(String tag);
 }

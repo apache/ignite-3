@@ -29,6 +29,7 @@ import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RuntimeHashIndex;
 import org.apache.ignite.internal.sql.engine.exec.RuntimeIndex;
 import org.apache.ignite.internal.sql.engine.exec.RuntimeSortedIndex;
+import org.apache.ignite.internal.sql.engine.exec.exp.RangeIterable;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -172,8 +173,7 @@ public class IndexSpoolNode<RowT> extends AbstractNode<RowT> implements SingleNo
             RelCollation collation,
             Comparator<RowT> comp,
             Predicate<RowT> filter,
-            Supplier<RowT> lowerIdxBound,
-            Supplier<RowT> upperIdxBound
+            RangeIterable<RowT> ranges
     ) {
         RuntimeSortedIndex<RowT> idx = new RuntimeSortedIndex<>(ctx, collation, comp);
 
@@ -184,8 +184,7 @@ public class IndexSpoolNode<RowT> extends AbstractNode<RowT> implements SingleNo
                         ctx,
                         rowType,
                         filter,
-                        lowerIdxBound,
-                        upperIdxBound
+                        ranges
                 )
         );
 

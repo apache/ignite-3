@@ -21,12 +21,15 @@ import static java.util.Collections.singletonList;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.function.Predicate;
 import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
+import org.apache.ignite.internal.sql.engine.exec.exp.RangeIterable;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
@@ -122,8 +125,7 @@ public class SortedIndexSpoolExecutionTest extends AbstractExecutionTest {
                     RelCollations.of(ImmutableIntList.of(0)),
                     (o1, o2) -> o1[0] != null ? ((Comparable) o1[0]).compareTo(o2[0]) : 0,
                     testFilter,
-                    () -> lower,
-                    () -> upper
+                    new StaticRangeIterable(lower, upper)
             );
 
             spool.register(singletonList(scan));
@@ -184,6 +186,51 @@ public class SortedIndexSpoolExecutionTest extends AbstractExecutionTest {
             this.lower = lower;
             this.upper = upper;
             this.expectedResultSize = expectedResultSize;
+        }
+    }
+
+    private static class StaticRangeIterable implements RangeIterable<Object[]> {
+        private final Object[] lower;
+
+        private final Object[] upper;
+
+        private StaticRangeIterable(Object[] lower, Object[] upper) {
+            this.lower = lower;
+            this.upper = upper;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public int size() {
+            return 1;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public Iterator<RangeCondition<Object[]>> iterator() {
+            RangeCondition<Object[]> range = new RangeCondition<Object[]>() {
+                @Override
+                public Object[] lower() {
+                    return lower;
+                }
+
+                @Override
+                public Object[] upper() {
+                    return upper;
+                }
+
+                @Override
+                public boolean lowerInclude() {
+                    return true;
+                }
+
+                @Override
+                public boolean upperInclude() {
+                    return true;
+                }
+            };
+
+            return Collections.singleton(range).iterator();
         }
     }
 }

@@ -15,24 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.exec;
-
-import org.apache.ignite.internal.util.Cursor;
+package org.apache.ignite.internal.sql.engine.exec.exp;
 
 /**
- * Tree index interface.
+ * A range condition is a search condition which represents a comparison predicate or a BETWEEN predicate.
  *
- * @param <R> Indexing row type.
+ * <p>Used to define bounds of a range scan.
  */
-public interface TreeIndex<R> {
-    /**
-     * Index lookup method.
-     *
-     * @param lower Lower bound.
-     * @param upper Upper bound.
-     * @param lowerInclude Inclusive lower bound.
-     * @param upperInclude Inclusive upper bound.
-     * @return Cursor over the rows within bounds.
-     */
-    Cursor<R> find(R lower, R upper, boolean lowerInclude, boolean upperInclude);
+public interface RangeCondition<RowT> {
+    /** Lower search row. */
+    public RowT lower();
+
+    /** Upper search row. */
+    public RowT upper();
+
+    /** Inlusive search by lower row. */
+    public boolean lowerInclude();
+
+    /** Inlusive search by upper row. */
+    public boolean upperInclude();
 }
