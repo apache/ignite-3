@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.future;
 
-import java.util.ArrayDeque;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -43,7 +43,7 @@ public class OrderingFuture<T> {
     private T result;
     private Throwable exception;
 
-    private Queue<DependentAction<T>> dependents = new ArrayDeque<>();
+    private Queue<DependentAction<T>> dependents = new ConcurrentLinkedQueue<>();
     private final CountDownLatch resolveLatch = new CountDownLatch(1);
 
     private final Lock readLock;
