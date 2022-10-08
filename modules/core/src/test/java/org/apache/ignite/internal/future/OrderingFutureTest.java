@@ -102,7 +102,7 @@ class OrderingFutureTest {
     }
 
     @Test
-    void exceptionalCompletionIsPropagatedThrowAdapt() {
+    void exceptionalCompletionIsPropagatedThroughAdapter() {
         CompletableFuture<Integer> adaptee = new CompletableFuture<>();
         OrderingFuture<Integer> adaptor = OrderingFuture.adapt(adaptee);
 
@@ -161,6 +161,15 @@ class OrderingFutureTest {
         OrderingFuture<Integer> future = OrderingFuture.failedFuture(cause);
 
         future.completeExceptionally(new Exception("Another cause"));
+
+        assertThatFutureIsCompletedWithOurException(future);
+    }
+
+    @Test
+    void completionWithCompletionExceptionDoesNotDuplicateCompletionException() {
+        OrderingFuture<Integer> future = new OrderingFuture<>();
+
+        future.completeExceptionally(new CompletionException(cause));
 
         assertThatFutureIsCompletedWithOurException(future);
     }

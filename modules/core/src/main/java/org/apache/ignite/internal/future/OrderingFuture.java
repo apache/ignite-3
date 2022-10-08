@@ -135,7 +135,7 @@ public class OrderingFuture<T> {
 
             resolved = true;
             this.result = result;
-            this.exception = ex;
+            this.exception = (ex instanceof CompletionException) && ex.getCause() != null ? ex.getCause() : ex;
 
             resolveDependents();
         } finally {
