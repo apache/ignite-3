@@ -449,19 +449,8 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
     /** {@inheritDoc} */
     @Override
-    public @Nullable BinaryRow read(RowId rowId, UUID txId) throws TxIdMismatchException, StorageException {
-        return read(rowId, null, txId).binaryRow();
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public ReadResult read(RowId rowId, HybridTimestamp timestamp) throws StorageException {
-        return read(rowId, timestamp, null);
-    }
-
-    private ReadResult read(RowId rowId, @Nullable HybridTimestamp timestamp, @Nullable UUID txId)
-            throws TxIdMismatchException, StorageException {
-        assert timestamp == null ^ txId == null;
+        assert timestamp != null;
 
         if (rowId.partitionId() != partitionId) {
             throw new IllegalArgumentException(
@@ -481,46 +470,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                         ? writeBatch.newIteratorWithBase(cf, baseIterator)
                         : baseIterator
         ) {
-            if (timestamp == null) {
-                ByteBuffer keyBuf = prepareHeapKeyBuf(rowId);
-
-                // Seek to the first appearance of row id if timestamp isn't set.
-                // Since timestamps are sorted from newest to oldest, first occurrence will always be the latest version.
-                // Unfortunately, copy here is unavoidable with current API.
-                assert keyBuf.position() == ROW_PREFIX_SIZE;
-                seekIterator.seek(copyOf(keyBuf.array(), ROW_PREFIX_SIZE));
-
-                if (invalid(seekIterator)) {
-                    // No data at all.
-                    return ReadResult.EMPTY;
-                }
-
-                ByteBuffer readKeyBuf = MV_KEY_BUFFER.get().position(0).limit(MAX_KEY_SIZE);
-
-                int keyLength = seekIterator.key(readKeyBuf);
-
-                if (!matches(rowId, readKeyBuf)) {
-                    // Wrong row id.
-                    return ReadResult.EMPTY;
-                }
-
-                boolean isWriteIntent = keyLength == ROW_PREFIX_SIZE;
-
-                byte[] valueBytes = seekIterator.value();
-
-                if (!isWriteIntent) {
-                    // There is no write-intent, return latest committed row.
-                    return wrapCommittedValue(valueBytes);
-                }
-
-                assert valueBytes != null;
-
-                validateTxId(valueBytes, txId);
-
-                return wrapUncommittedValue(valueBytes, null);
-            } else {
-                return readByTimestamp(seekIterator, rowId, timestamp);
-            }
+            return readByTimestamp(seekIterator, rowId, timestamp);
         }
     }
 
@@ -692,135 +642,6 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                 super.close();
 
                 IgniteUtils.closeAll(options, upperBound);
-            }
-        };
-    }
-
-    //TODO IGNITE-16914 Play with prefix settings and benchmark results.
-    /** {@inheritDoc} */
-    @Override
-    public Cursor<BinaryRow> scan(Predicate<BinaryRow> keyFilter, UUID txId) throws TxIdMismatchException, StorageException {
-        assert txId != null;
-
-        RocksIterator it = db.newIterator(cf, scanReadOptions);
-
-        // Seek iterator to the beginning of the partition.
-        it.seek(partitionStartPrefix());
-
-        // Here's seek buffer itself. Originally it contains a valid partition id, row id payload that's filled with zeroes, and maybe
-        // a timestamp value. Zero row id guarantees that it's lexicographically less than or equal to any other row id stored in the
-        // partition.
-        // Byte buffer from a thread-local field can't be used here, because of two reasons:
-        //  - no one guarantees that there will only be a single cursor;
-        //  - no one guarantees that returned cursor will not be used by other threads.
-        // The thing is, we need this buffer to preserve its content between invocations of "hasNext" method.
-        ByteBuffer seekKeyBuf = ByteBuffer.allocate(ROW_PREFIX_SIZE).order(KEY_BYTE_ORDER).putShort((short) partitionId);
-
-        return new Cursor<>() {
-            /** Cached value for {@link #next()} method. Also optimizes the code of {@link #hasNext()}. */
-            private BinaryRow next;
-
-            /** {@inheritDoc} */
-            @Override
-            public boolean hasNext() {
-                // Fast-path for consecutive invocations.
-                if (next != null) {
-                    return true;
-                }
-
-                // Prepare direct buffer slice to read keys from the iterator.
-                ByteBuffer directBuffer = MV_KEY_BUFFER.get().position(0);
-
-                while (true) {
-                    // We should do after each seek. Here in particular it means one of two things:
-                    //  - partition is empty;
-                    //  - iterator exhausted all the data in partition.
-                    if (invalid(it)) {
-                        return false;
-                    }
-
-                    // At this point, seekKeyBuf should contain row id that's above the one we already scanned, but not greater than any
-                    // other row id in partition. When we start, row id is filled with zeroes. Value during the iteration is described later
-                    // in this code. Now let's describe what we'll find, assuming that iterator found something:
-                    //  - if timestamp is null:
-                    //      - this seek will find the newest version of the next row in iterator. Exactly what we need.
-                    //  - if timestamp is not null:
-                    //      - suppose that seek key buffer has the following value: "| P0 | R0 | T0 |" (partition, row id, timestamp)
-                    //        and iterator finds something, let's denote it as "| P0 | R1 | T1 |" (partition must match). Again, there are
-                    //        few possibilities here:
-                    //          - R1 == R0, this means a match. By the rules of ordering we derive that T1 >= T0. Timestamps are stored in
-                    //            descending order, this means that we found exactly what's needed.
-                    //          - R1 > R0, this means that we found next row and T1 is either missing (pending row) or represents the latest
-                    //            version of the row. It doesn't matter in this case, because this row id will be reused to find its value
-                    //            at time T0. Additional "seek" will be required to do it.
-                    it.seek(seekKeyBuf.array());
-
-                    // Finish scan if nothing was found.
-                    if (invalid(it)) {
-                        return false;
-                    }
-
-                    // Read the actual key into a direct buffer.
-                    int keyLength = it.key(directBuffer.limit(MAX_KEY_SIZE));
-
-                    boolean isWriteIntent = keyLength == ROW_PREFIX_SIZE;
-
-                    directBuffer.limit(ROW_PREFIX_SIZE);
-
-                    // Copy actual row id into a "seekKeyBuf" buffer.
-                    seekKeyBuf.putLong(ROW_ID_OFFSET, directBuffer.getLong(ROW_ID_OFFSET));
-                    seekKeyBuf.putLong(ROW_ID_OFFSET + Long.BYTES, directBuffer.getLong(ROW_ID_OFFSET + Long.BYTES));
-
-                    // This one might look tricky. We finished processing next row. There are three options:
-                    //  - "found" flag is false - there's no fitting version of the row. We'll continue to next iteration;
-                    //  - value is empty, we found a tombstone. We'll continue to next iteration as well;
-                    //  - value is not empty and everything's good. We'll cache it and return from method.
-                    // In all three cases we need to prepare the value of "seekKeyBuf" so that it has not-yet-scanned row id in it.
-                    // the only valid way to do so is to treat row id payload as one big unsigned integer in Big Endian and increment it.
-                    // It's important to note that increment may overflow. In this case "carry flag" will go into incrementing partition id.
-                    // This is fine for three reasons:
-                    //  - iterator has an upper bound, following "seek" will result in invalid iterator state.
-                    //  - partition id itself cannot be overflown, because it's limited with a constant less than 0xFFFF.
-                    // It's something like 65500, I think.
-                    //  - "seekKeyBuf" buffer value will not be used after that, so it's ok if we corrupt its data (in every other instance,
-                    //    buffer starts with a valid partition id, which is set during buffer's initialization).
-                    incrementRowId(seekKeyBuf);
-
-                    // Cache row and return "true" if it's found and not a tombstone.
-                    byte[] valueBytes = it.value();
-
-                    BinaryRow binaryRow = wrapValueIntoBinaryRow(valueBytes, isWriteIntent);
-
-                    if (binaryRow != null && (keyFilter == null || keyFilter.test(binaryRow))) {
-                        if (isWriteIntent) {
-                            validateTxId(valueBytes, txId);
-                        }
-
-                        next = binaryRow;
-
-                        return true;
-                    }
-                }
-            }
-
-            /** {@inheritDoc} */
-            @Override
-            public BinaryRow next() {
-                if (!hasNext()) {
-                    throw new NoSuchElementException();
-                }
-
-                BinaryRow res = next;
-
-                next = null;
-
-                return res;
-            }
-
-            /** {@inheritDoc} */
-            @Override
-            public void close() throws Exception {
-                IgniteUtils.closeAll(it);
             }
         };
     }

@@ -87,18 +87,6 @@ public interface MvPartitionStorage extends AutoCloseable {
     long persistedIndex();
 
     /**
-     * Reads either the committed value from the storage or the uncommitted value belonging to given transaction.
-     *
-     * @param rowId Row id.
-     * @param txId Transaction id.
-     * @return Read result that corresponds to the key or {@code null} if value is not found.
-     * @throws TxIdMismatchException If there's another pending update associated with different transaction id.
-     * @throws StorageException If failed to read data from the storage.
-     */
-    @Nullable
-    BinaryRow read(RowId rowId, UUID txId) throws TxIdMismatchException, StorageException;
-
-    /**
      * Reads the value from the storage as it was at the given timestamp.
      * If there is a row with specified row id and timestamp - return it.
      * If there are multiple versions of row with specified row id:
@@ -160,17 +148,6 @@ public interface MvPartitionStorage extends AutoCloseable {
      * @param rowId Row id.
      */
     Cursor<BinaryRow> scanVersions(RowId rowId) throws StorageException;
-
-    /**
-     * Scans the partition and returns a cursor of values. All filtered values must either be uncommitted in the current transaction
-     * or already committed in a different transaction.
-     *
-     * @param keyFilter Key filter. Binary rows passed to the filter may or may not have a value, filter should only check keys.
-     * @param txId Transaction id.
-     * @return Cursor.
-     * @throws StorageException If failed to read data from the storage.
-     */
-    Cursor<BinaryRow> scan(Predicate<BinaryRow> keyFilter, UUID txId) throws TxIdMismatchException, StorageException;
 
     /**
      * Scans the partition and returns a cursor of values at the given timestamp.
