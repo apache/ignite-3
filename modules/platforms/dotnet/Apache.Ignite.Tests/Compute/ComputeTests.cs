@@ -53,6 +53,8 @@ namespace Apache.Ignite.Tests.Compute
 
         private const string DropTableJob = PlatformTestNodeRunner + "$DropTableJob";
 
+        private const string ExceptionJob = PlatformTestNodeRunner + "$ExceptionJob";
+
         [Test]
         public async Task TestGetClusterNodes()
         {
@@ -274,6 +276,12 @@ namespace Apache.Ignite.Tests.Compute
             {
                 await Client.Compute.ExecuteAsync<string>(nodes, DropTableJob, tableName);
             }
+        }
+
+        [Test]
+        public async Task TestExceptionInJobWithSendServerExceptionStackTraceToClientPropagatesToClientWithStackTrace()
+        {
+            await Client.Compute.ExecuteAsync<object>(await GetNodeAsync(1), ExceptionJob);
         }
 
         private async Task<List<IClusterNode>> GetNodeAsync(int index) =>
