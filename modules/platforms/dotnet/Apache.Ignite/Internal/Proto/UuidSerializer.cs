@@ -37,15 +37,17 @@ namespace Apache.Ignite.Internal.Proto
             var written = guid.TryWriteBytes(span);
             Debug.Assert(written, "written");
 
-            // Reverse endianness of the first part.
-            var a = BinaryPrimitives.ReverseEndianness(MemoryMarshal.Read<int>(span));
-            MemoryMarshal.Write(span, ref a);
+            // Reverse first part order: abc -> cba. Parts are little-endian on any system.
+            var a = MemoryMarshal.Read<int>(span);
+            var b = MemoryMarshal.Read<short>(span[4..]);
+            var c = MemoryMarshal.Read<short>(span[6..]);
 
-            var b = BinaryPrimitives.ReverseEndianness(MemoryMarshal.Read<short>(span[4..]));
-            MemoryMarshal.Write(span[4..], ref b);
+            MemoryMarshal.Write(span[4..8], ref a);
+            MemoryMarshal.Write(span[2..4], ref b);
+            MemoryMarshal.Write(span[..2], ref c);
 
-            var c = BinaryPrimitives.ReverseEndianness(MemoryMarshal.Read<short>(span[6..]));
-            MemoryMarshal.Write(span[6..], ref c);
+            // Reverse second part order: defghijk -> kjihgfed.
+            span[8..16].Reverse();
         }
 
         /// <summary>
