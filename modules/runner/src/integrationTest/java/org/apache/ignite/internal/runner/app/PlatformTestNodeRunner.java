@@ -223,4 +223,15 @@ public class PlatformTestNodeRunner {
             return tableName;
         }
     }
+
+    /**
+     * Compute job that throws an exception.
+     */
+    @SuppressWarnings({"unused"}) // Used by platform tests.
+    private static class ExceptionJob implements ComputeJob<String> {
+        @Override
+        public String execute(JobExecutionContext context, Object... args) {
+            throw new RuntimeException("Test exception: " + args[0]);
+        }
+    }
 }
