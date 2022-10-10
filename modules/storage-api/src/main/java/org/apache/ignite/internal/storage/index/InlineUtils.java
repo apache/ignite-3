@@ -19,8 +19,6 @@ package org.apache.ignite.internal.storage.index;
 
 import static org.apache.ignite.internal.util.Constants.KiB;
 
-import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.util.List;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -33,25 +31,17 @@ import org.apache.ignite.internal.storage.index.IndexDescriptor.ColumnDescriptor
  * Helper class for index inlining.
  */
 public class InlineUtils {
-    /** Inline size of an undefined (not set by the user) variable length column in bytes. */
-    static final int UNDEFINED_VARLEN_INLINE_SIZE = 10;
-
-    /** Inline size for large numbers ({@link BigDecimal} and {@link BigInteger}) in bytes. */
-    static final int BIG_NUMBER_INLINE_SIZE = 4;
-
     /** Maximum inline size for a {@link BinaryTuple}, in bytes. */
-    static final int MAX_BINARY_TUPLE_INLINE_SIZE = 2 * KiB;
-
-    /** {@link BinaryTuple} size class in bytes. */
-    static final int BINARY_TUPLE_SIZE_CLASS = 2;
+    public static final int MAX_BINARY_TUPLE_INLINE_SIZE = 2 * KiB;
 
     /**
      * Calculates inline size for column.
      *
      * @param nativeType Column type.
+     * @param undefinedVarlenInlineSize Inline size of an undefined (not set by the user) variable length column in bytes.
      * @return Inline size in bytes.
      */
-    static int inlineSize(NativeType nativeType) {
+    static int inlineSize(NativeType nativeType, int undefinedVarlenInlineSize) {
         NativeTypeSpec spec = nativeType.spec();
 
         if (spec.fixedLength()) {
@@ -64,18 +54,23 @@ public class InlineUtils {
             case STRING: {
                 int length = ((VarlenNativeType) nativeType).length();
 
-                return length == Integer.MAX_VALUE ? UNDEFINED_VARLEN_INLINE_SIZE : length * 2;
+                // * 2 because characters take up 2 bytes (char).
+                return length == Integer.MAX_VALUE ? undefinedVarlenInlineSize : length * 2;
             }
 
             case BYTES: {
                 int length = ((VarlenNativeType) nativeType).length();
 
-                return length == Integer.MAX_VALUE ? UNDEFINED_VARLEN_INLINE_SIZE : length;
+                return length == Integer.MAX_VALUE ? undefinedVarlenInlineSize : length;
             }
 
             case DECIMAL:
+                // It can be converted to float for greater or lesser comparisons.
+                return Float.BYTES;
+
             case NUMBER:
-                return BIG_NUMBER_INLINE_SIZE;
+                // It can be converted to int for greater or lesser comparisons.
+                return Integer.BYTES;
 
             default:
                 throw new IllegalArgumentException("Unknown type " + spec);
@@ -93,12 +88,14 @@ public class InlineUtils {
 
         boolean hasNullColumns = columns.stream().anyMatch(ColumnDescriptor::nullable);
 
+        // TODO: IGNITE-17855 вот тут надо подумать что если все колонки фиксированного размера, то можно класс ее посчиать получше
+
         int inlineSize = BinaryTupleCommon.HEADER_SIZE
                 + (hasNullColumns ? BinaryTupleCommon.nullMapSize(columns.size()) : 0)
-                + columns.size() * BINARY_TUPLE_SIZE_CLASS;
+                + columns.size() * 2; // 2-byte size class covers most cases.
 
         for (int i = 0; i < columns.size() && inlineSize < MAX_BINARY_TUPLE_INLINE_SIZE; i++) {
-            inlineSize += inlineSize(columns.get(i).type());
+            inlineSize += inlineSize(columns.get(i).type(), 10);
         }
 
         return Math.min(inlineSize, MAX_BINARY_TUPLE_INLINE_SIZE);

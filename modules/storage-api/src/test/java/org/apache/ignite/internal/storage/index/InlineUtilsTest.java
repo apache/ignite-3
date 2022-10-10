@@ -17,9 +17,7 @@
 
 package org.apache.ignite.internal.storage.index;
 
-import static org.apache.ignite.internal.storage.index.InlineUtils.BIG_NUMBER_INLINE_SIZE;
 import static org.apache.ignite.internal.storage.index.InlineUtils.MAX_BINARY_TUPLE_INLINE_SIZE;
-import static org.apache.ignite.internal.storage.index.InlineUtils.UNDEFINED_VARLEN_INLINE_SIZE;
 import static org.apache.ignite.internal.storage.index.InlineUtils.binaryTupleInlineSize;
 import static org.apache.ignite.internal.storage.index.InlineUtils.inlineSize;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -48,66 +46,68 @@ public class InlineUtilsTest {
 
         NativeType nativeType = NativeTypes.INT8;
 
-        assertEquals(1, inlineSize(nativeType));
+        int undefVarlenInlineSize = 10;
+
+        assertEquals(1, inlineSize(nativeType, undefVarlenInlineSize));
         nativeTypeSpecs.remove(nativeType.spec());
 
-        assertEquals(2, inlineSize(nativeType = NativeTypes.INT16));
+        assertEquals(2, inlineSize(nativeType = NativeTypes.INT16, undefVarlenInlineSize));
         nativeTypeSpecs.remove(nativeType.spec());
 
-        assertEquals(4, inlineSize(nativeType = NativeTypes.INT32));
+        assertEquals(4, inlineSize(nativeType = NativeTypes.INT32, undefVarlenInlineSize));
         nativeTypeSpecs.remove(nativeType.spec());
 
-        assertEquals(8, inlineSize(nativeType = NativeTypes.INT64));
+        assertEquals(8, inlineSize(nativeType = NativeTypes.INT64, undefVarlenInlineSize));
         nativeTypeSpecs.remove(nativeType.spec());
 
-        assertEquals(4, inlineSize(nativeType = NativeTypes.FLOAT));
+        assertEquals(4, inlineSize(nativeType = NativeTypes.FLOAT, undefVarlenInlineSize));
         nativeTypeSpecs.remove(nativeType.spec());
 
-        assertEquals(8, inlineSize(nativeType = NativeTypes.DOUBLE));
+        assertEquals(8, inlineSize(nativeType = NativeTypes.DOUBLE, undefVarlenInlineSize));
         nativeTypeSpecs.remove(nativeType.spec());
 
-        assertEquals(16, inlineSize(nativeType = NativeTypes.UUID));
+        assertEquals(16, inlineSize(nativeType = NativeTypes.UUID, undefVarlenInlineSize));
         nativeTypeSpecs.remove(nativeType.spec());
 
-        assertEquals(1, inlineSize(nativeType = NativeTypes.bitmaskOf(8)));
+        assertEquals(1, inlineSize(nativeType = NativeTypes.bitmaskOf(8), undefVarlenInlineSize));
         nativeTypeSpecs.remove(nativeType.spec());
 
-        assertEquals(3, inlineSize(nativeType = NativeTypes.DATE));
+        assertEquals(3, inlineSize(nativeType = NativeTypes.DATE, undefVarlenInlineSize));
         nativeTypeSpecs.remove(nativeType.spec());
 
-        assertEquals(4, inlineSize(nativeType = NativeTypes.time()));
+        assertEquals(4, inlineSize(nativeType = NativeTypes.time(), undefVarlenInlineSize));
         nativeTypeSpecs.remove(nativeType.spec());
 
-        assertEquals(9, inlineSize(nativeType = NativeTypes.datetime()));
+        assertEquals(9, inlineSize(nativeType = NativeTypes.datetime(), undefVarlenInlineSize));
         nativeTypeSpecs.remove(nativeType.spec());
 
-        assertEquals(12, inlineSize(nativeType = NativeTypes.timestamp()));
+        assertEquals(12, inlineSize(nativeType = NativeTypes.timestamp(), undefVarlenInlineSize));
         nativeTypeSpecs.remove(nativeType.spec());
 
         // Variable length type checking.
 
-        assertEquals(BIG_NUMBER_INLINE_SIZE, inlineSize(nativeType = NativeTypes.decimalOf(1, 1)));
+        assertEquals(4, inlineSize(nativeType = NativeTypes.decimalOf(1, 1), undefVarlenInlineSize));
         nativeTypeSpecs.remove(nativeType.spec());
 
-        assertEquals(BIG_NUMBER_INLINE_SIZE, inlineSize(nativeType = NativeTypes.decimalOf(100, 1)));
+        assertEquals(4, inlineSize(nativeType = NativeTypes.decimalOf(100, 1), undefVarlenInlineSize));
         nativeTypeSpecs.remove(nativeType.spec());
 
-        assertEquals(14, inlineSize(nativeType = NativeTypes.stringOf(7)));
+        assertEquals(14, inlineSize(nativeType = NativeTypes.stringOf(7), undefVarlenInlineSize));
         nativeTypeSpecs.remove(nativeType.spec());
 
-        assertEquals(UNDEFINED_VARLEN_INLINE_SIZE, inlineSize(nativeType = NativeTypes.stringOf(Integer.MAX_VALUE)));
+        assertEquals(undefVarlenInlineSize, inlineSize(nativeType = NativeTypes.stringOf(Integer.MAX_VALUE), undefVarlenInlineSize));
         nativeTypeSpecs.remove(nativeType.spec());
 
-        assertEquals(9, inlineSize(nativeType = NativeTypes.blobOf(9)));
+        assertEquals(9, inlineSize(nativeType = NativeTypes.blobOf(9), undefVarlenInlineSize));
         nativeTypeSpecs.remove(nativeType.spec());
 
-        assertEquals(UNDEFINED_VARLEN_INLINE_SIZE, inlineSize(nativeType = NativeTypes.blobOf(Integer.MAX_VALUE)));
+        assertEquals(undefVarlenInlineSize, inlineSize(nativeType = NativeTypes.blobOf(Integer.MAX_VALUE), undefVarlenInlineSize));
         nativeTypeSpecs.remove(nativeType.spec());
 
-        assertEquals(BIG_NUMBER_INLINE_SIZE, inlineSize(nativeType = NativeTypes.numberOf(1)));
+        assertEquals(4, inlineSize(nativeType = NativeTypes.numberOf(1), undefVarlenInlineSize));
         nativeTypeSpecs.remove(nativeType.spec());
 
-        assertEquals(BIG_NUMBER_INLINE_SIZE, inlineSize(nativeType = NativeTypes.numberOf(100)));
+        assertEquals(4, inlineSize(nativeType = NativeTypes.numberOf(100), undefVarlenInlineSize));
         nativeTypeSpecs.remove(nativeType.spec());
 
         // Let's check that all types have been checked.
