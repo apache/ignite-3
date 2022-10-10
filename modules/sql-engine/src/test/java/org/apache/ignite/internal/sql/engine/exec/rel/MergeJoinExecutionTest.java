@@ -42,8 +42,6 @@ import org.junit.jupiter.api.Test;
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class MergeJoinExecutionTest extends AbstractExecutionTest {
-    public static final Object[][] EMPTY = new Object[0][];
-
     @Test
     public void joinEmptyTables() {
         verifyJoin(EMPTY, EMPTY, INNER, EMPTY);
