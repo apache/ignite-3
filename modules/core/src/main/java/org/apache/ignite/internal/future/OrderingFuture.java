@@ -17,16 +17,18 @@
 
 package org.apache.ignite.internal.future;
 
-import java.util.Queue;
+import static java.util.concurrent.atomic.AtomicReferenceFieldUpdater.newUpdater;
+
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 import org.jetbrains.annotations.Nullable;
@@ -39,24 +41,30 @@ import org.jetbrains.annotations.Nullable;
  * @see CompletableFuture
  */
 public class OrderingFuture<T> {
-    private boolean resolved;
-    private T result;
-    private Throwable exception;
+    @SuppressWarnings("rawtypes")
+    private static final AtomicReferenceFieldUpdater<OrderingFuture, State> STATE = newUpdater(OrderingFuture.class, State.class, "state");
 
-    private Queue<DependentAction<T>> dependents = new ConcurrentLinkedQueue<>();
-    private final CountDownLatch resolveLatch = new CountDownLatch(1);
+    /**
+     * Stores all the state of this future: whether it is completed, normal completion result (if any), cause
+     * of exceptional completion (if any), dependents. The State class and all of its components are immutable.
+     * We change the state using compare-and-set approach, next state is built from previous one.
+     */
+    private volatile State<T> state = State.empty();
 
-    private final Lock readLock;
-    private final Lock writeLock;
+    /**
+     * Used to make sure that at most one thread executes completion code.
+     */
+    private final AtomicBoolean completionStarted = new AtomicBoolean(false);
+
+    /**
+     * Used by {@link #get(long, TimeUnit)} to wait for completion.
+     */
+    private final CountDownLatch completionLatch = new CountDownLatch(1);
 
     /**
      * Creates an incomplete future.
      */
     public OrderingFuture() {
-        ReentrantReadWriteLock readWriteLock = new ReentrantReadWriteLock();
-
-        readLock = readWriteLock.readLock();
-        writeLock = readWriteLock.writeLock();
     }
 
     /**
@@ -125,36 +133,70 @@ public class OrderingFuture<T> {
         completeInternal(null, ex);
     }
 
-    private void completeInternal(T result, Throwable ex) {
-        writeLock.lock();
+    private void completeInternal(@Nullable T result, @Nullable Throwable ex) {
+        assert ex == null || result == null;
 
-        try {
-            if (resolved) {
+        if (!completionStarted.compareAndSet(false, true)) {
+            // Someone has already started the completion. We must leave as the following code can produce duplicate
+            // notifications of dependents if executed by more than one thread.
+            return;
+        }
+
+        State<T> prevState;
+        ListNode<T> lastNotifiedNode = null;
+
+        while (true) {
+            prevState = state;
+
+            if (state.completed) {
                 return;
             }
 
-            resolved = true;
-            this.result = result;
-            this.exception = (ex instanceof CompletionException) && ex.getCause() != null ? ex.getCause() : ex;
+            State<T> newState = new State<>(true, result, ex, null);
 
-            resolveDependents();
-        } finally {
-            writeLock.unlock();
-        }
-    }
+            // We produce side-effects inside the retry loop, but it's ok as the queue can only grow, the queue
+            // state we see is always a prefix of a queue changed by a competitor (we only compete with operations
+            // that enqueue elements to the queue as competition with other completers is ruled out with AtomicBoolean)
+            // and we track what dependents have already been notified by us.
+            notifyDependents(result, ex, prevState.dependentsQueueTail, lastNotifiedNode);
+            lastNotifiedNode = prevState.dependentsQueueTail;
 
-    private void resolveDependents() {
-        for (DependentAction<T> action : dependents) {
-            try {
-                action.onResolved(result, exception);
-            } catch (Exception e) {
-                // ignore
+            if (replaceState(prevState, newState)) {
+                break;
             }
         }
 
-        dependents = null;
+        completionLatch.countDown();
+    }
 
-        resolveLatch.countDown();
+    /**
+     * Replaces state with compare-and-set semantics.
+     *
+     * @param prevState State that we expect to see.
+     * @param newState  New state we want to set.
+     * @return {@code true} if CAS was successful.
+     */
+    private boolean replaceState(State<T> prevState, State<T> newState) {
+        return STATE.compareAndSet(this, prevState, newState);
+    }
+
+    /**
+     * Notifies dependents about completion of this future. Does NOT notify notifiedDependents closest to the head of the queue.
+     *
+     * @param result           Normal completion result.
+     * @param ex               Exceptional completion cause.
+     * @param dependents       Dependents queue.
+     * @param lastNotifiedNode Node that was notified last on preceding iterations of while loop.
+     */
+    private void notifyDependents(
+            @Nullable T result,
+            @Nullable Throwable ex,
+            @Nullable ListNode<T> dependents,
+            ListNode<T> lastNotifiedNode
+    ) {
+        if (dependents != null) {
+            dependents.notifyBackwards(result, ex, lastNotifiedNode);
+        }
     }
 
     /**
@@ -163,13 +205,7 @@ public class OrderingFuture<T> {
      * @return {@code true} if this future is completed exceptionally, {@code false} if completed normally or not completed
      */
     public boolean isCompletedExceptionally() {
-        readLock.lock();
-
-        try {
-            return exception != null;
-        } finally {
-            readLock.unlock();
-        }
+        return state.exception != null;
     }
 
     /**
@@ -181,16 +217,24 @@ public class OrderingFuture<T> {
      * @param action Action to execute.
      */
     public void whenComplete(BiConsumer<? super T, ? super Throwable> action) {
-        readLock.lock();
+        WhenComplete<T> dependent = null;
 
-        try {
-            if (resolved) {
-                acceptQuietly(action, result, exception);
-            } else {
-                dependents.add(new WhenComplete<>(action));
+        while (true) {
+            State<T> prevState = state;
+
+            if (prevState.completed) {
+                acceptQuietly(action, prevState.result, prevState.exception);
+                return;
             }
-        } finally {
-            readLock.unlock();
+
+            if (dependent == null) {
+                dependent = new WhenComplete<>(action);
+            }
+            State<T> newState = prevState.enqueueDependent(dependent);
+
+            if (replaceState(prevState, newState)) {
+                return;
+            }
         }
     }
 
@@ -211,23 +255,32 @@ public class OrderingFuture<T> {
      * @see CompletableFuture#thenCompose(Function)
      */
     public <U> CompletableFuture<U> thenComposeToCompletable(Function<? super T, ? extends CompletableFuture<U>> mapper) {
-        readLock.lock();
+        ThenComposeToCompletable<T, U> dependent = null;
 
-        try {
-            if (resolved) {
-                if (exception != null) {
-                    return CompletableFuture.failedFuture(new CompletionException(exception));
+        while (true) {
+            State<T> prevState = state;
+
+            if (prevState.completed) {
+                if (prevState.exception != null) {
+                    return CompletableFuture.failedFuture(wrapWithCompletionException(prevState.exception));
+                } else {
+                    return applyMapper(mapper, prevState.result);
                 }
-
-                return applyMapper(mapper, result);
-            } else {
-                CompletableFuture<U> resultFuture = new CompletableFuture<>();
-                dependents.add(new ThenCompose<>(resultFuture, mapper));
-                return resultFuture;
             }
-        } finally {
-            readLock.unlock();
+
+            if (dependent == null) {
+                dependent = new ThenComposeToCompletable<>(new CompletableFuture<>(), mapper);
+            }
+            State<T> newState = prevState.enqueueDependent(dependent);
+
+            if (replaceState(prevState, newState)) {
+                return dependent.resultFuture;
+            }
         }
+    }
+
+    private static CompletionException wrapWithCompletionException(Throwable ex) {
+        return ex instanceof CompletionException ? (CompletionException) ex : new CompletionException(ex);
     }
 
     private static <T, U> CompletableFuture<U> applyMapper(Function<? super T, ? extends CompletableFuture<U>> mapper, T result) {
@@ -248,20 +301,16 @@ public class OrderingFuture<T> {
      * @see CompletableFuture#getNow(Object)
      */
     public T getNow(T valueIfAbsent) {
-        readLock.lock();
+        State<T> currentState = state;
 
-        try {
-            if (resolved) {
-                if (exception != null) {
-                    throw new CompletionException(exception);
-                } else {
-                    return result;
-                }
+        if (currentState.completed) {
+            if (currentState.exception != null) {
+                throw wrapWithCompletionException(currentState.exception);
             } else {
-                return valueIfAbsent;
+                return currentState.result;
             }
-        } finally {
-            readLock.unlock();
+        } else {
+            return valueIfAbsent;
         }
     }
 
@@ -279,22 +328,28 @@ public class OrderingFuture<T> {
      * @see CompletableFuture#get(long, TimeUnit)
      */
     public T get(long timeout, TimeUnit unit) throws InterruptedException, TimeoutException, ExecutionException {
-        boolean resolvedInTime = resolveLatch.await(timeout, unit);
-        if (!resolvedInTime) {
+        boolean completedInTime = completionLatch.await(timeout, unit);
+        if (!completedInTime) {
             throw new TimeoutException();
         }
 
-        readLock.lock();
+        State<T> currentState = state;
 
-        try {
-            if (exception != null) {
-                throw new ExecutionException(exception);
-            } else {
-                return result;
-            }
-        } finally {
-            readLock.unlock();
+        if (currentState.exception != null) {
+            throw  encodeWithExecutionException(currentState);
+        } else {
+            return currentState.result;
         }
+    }
+
+    private ExecutionException encodeWithExecutionException(State<T> currentState) {
+        Throwable unwrapped = currentState.exception;
+        Throwable cause = unwrapped.getCause();
+        if (cause != null) {
+            unwrapped = cause;
+        }
+
+        return new ExecutionException(unwrapped);
     }
 
     /**
@@ -320,18 +375,18 @@ public class OrderingFuture<T> {
     }
 
     /**
-     * Dependent action that gets resolved when this future is completed.
+     * Dependent action that gets notified when this future is completed.
      *
      * @param <T> Payload type.
      */
     private interface DependentAction<T> {
         /**
-         * Informs that dependent that the host future is resolved.
+         * Informs that dependent that the host future is completed.
          *
          * @param result Normal completion result ({@code null} if completed exceptionally, but might be {@code null} for normal completion.
          * @param ex     Exceptional completion cause ({@code null} if completed normally).
          */
-        void onResolved(T result, Throwable ex);
+        void onCompletion(T result, Throwable ex);
     }
 
     private static class WhenComplete<T> implements DependentAction<T> {
@@ -342,22 +397,22 @@ public class OrderingFuture<T> {
         }
 
         @Override
-        public void onResolved(T result, Throwable ex) {
+        public void onCompletion(T result, Throwable ex) {
             acceptQuietly(action, result, ex);
         }
     }
 
-    private static class ThenCompose<T, U> implements DependentAction<T> {
+    private static class ThenComposeToCompletable<T, U> implements DependentAction<T> {
         private final CompletableFuture<U> resultFuture;
         private final Function<? super T, ? extends CompletableFuture<U>> mapper;
 
-        private ThenCompose(CompletableFuture<U> resultFuture, Function<? super T, ? extends CompletableFuture<U>> mapper) {
+        private ThenComposeToCompletable(CompletableFuture<U> resultFuture, Function<? super T, ? extends CompletableFuture<U>> mapper) {
             this.resultFuture = resultFuture;
             this.mapper = mapper;
         }
 
         @Override
-        public void onResolved(T result, Throwable ex) {
+        public void onCompletion(T result, Throwable ex) {
             if (ex != null) {
                 resultFuture.completeExceptionally(ex);
                 return;
@@ -369,6 +424,60 @@ public class OrderingFuture<T> {
                 mapResult.whenComplete((mapRes, mapEx) -> completeCompletableFuture(resultFuture, mapRes, mapEx));
             } catch (Throwable e) {
                 resultFuture.completeExceptionally(e);
+            }
+        }
+    }
+
+    private static class State<T> {
+        private static final State<?> EMPTY_STATE = new State<>(false, null, null, null);
+
+        private final boolean completed;
+        private final T result;
+        private final Throwable exception;
+        private final ListNode<T> dependentsQueueTail;
+
+        private State(boolean completed, T result, Throwable exception, ListNode<T> dependentsQueueTail) {
+            this.completed = completed;
+            this.result = result;
+            this.exception = exception;
+            this.dependentsQueueTail = dependentsQueueTail;
+        }
+
+        @SuppressWarnings("unchecked")
+        private static <T> State<T> empty() {
+            return (State<T>) EMPTY_STATE;
+        }
+
+        public State<T> enqueueDependent(DependentAction<T> dependent) {
+            return new State<>(completed, result, exception, new ListNode<>(dependent, dependentsQueueTail));
+        }
+    }
+
+    private static class ListNode<T> {
+        private final DependentAction<T> dependent;
+        private final ListNode<T> next;
+
+        private ListNode(DependentAction<T> dependent, ListNode<T> next) {
+            this.dependent = dependent;
+            this.next = next;
+        }
+
+        public void notifyBackwards(T result, Throwable exception, ListNode<T> lastNotifiedNode) {
+            Deque<ListNode<T>> stack = new ArrayDeque<>();
+
+            for (ListNode<T> node = this; node != null && node != lastNotifiedNode; node = node.next) {
+                stack.addFirst(node);
+            }
+
+            // Notify those dependents that are not notified yet.
+            while (!stack.isEmpty()) {
+                ListNode<T> node = stack.removeFirst();
+
+                try {
+                    node.dependent.onCompletion(result, exception);
+                } catch (Exception e) {
+                    // ignore
+                }
             }
         }
     }

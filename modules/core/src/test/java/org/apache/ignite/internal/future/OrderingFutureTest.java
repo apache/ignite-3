@@ -130,12 +130,38 @@ class OrderingFutureTest {
     }
 
     @Test
+    void completeDoesDoesNotInvokeCallbacksSecondTimeOnCompletedFuture() {
+        OrderingFuture<Integer> future = OrderingFuture.completedFuture(1);
+
+        AtomicInteger completionCount = new AtomicInteger();
+
+        future.whenComplete((res, ex) -> completionCount.incrementAndGet());
+
+        future.complete(2);
+
+        assertThat(completionCount.get(), is(1));
+    }
+
+    @Test
     void completeDoesNothingWithFailedFuture() {
         OrderingFuture<Integer> future = OrderingFuture.failedFuture(cause);
 
         future.complete(2);
 
         assertThatFutureIsCompletedWithOurException(future);
+    }
+
+    @Test
+    void completeExceptionallyDoesDoesNotInvokeCallbacksSecondTimeOnCompletedFuture() {
+        OrderingFuture<Integer> future = OrderingFuture.completedFuture(1);
+
+        AtomicInteger completionCount = new AtomicInteger();
+
+        future.whenComplete((res, ex) -> completionCount.incrementAndGet());
+
+        future.completeExceptionally(cause);
+
+        assertThat(completionCount.get(), is(1));
     }
 
     @Test
@@ -419,6 +445,14 @@ class OrderingFutureTest {
         OrderingFuture<Integer> future = new OrderingFuture<>();
 
         new Thread(() -> future.completeExceptionally(cause)).start();
+
+        ExecutionException ex = assertThrows(ExecutionException.class, () -> future.get(1, TimeUnit.SECONDS));
+        assertThat(ex.getCause(), is(sameInstance(cause)));
+    }
+
+    @Test
+    void getWithTimeoutUnwrapsCompletionExceptionWhenThrowsExecutionException() {
+        OrderingFuture<Void> future = OrderingFuture.failedFuture(new CompletionException(cause));
 
         ExecutionException ex = assertThrows(ExecutionException.class, () -> future.get(1, TimeUnit.SECONDS));
         assertThat(ex.getCause(), is(sameInstance(cause)));
