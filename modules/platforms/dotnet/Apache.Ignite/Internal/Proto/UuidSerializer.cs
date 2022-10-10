@@ -57,18 +57,18 @@ namespace Apache.Ignite.Internal.Proto
         /// <returns>Guid.</returns>
         public static Guid Read(ReadOnlySpan<byte> span)
         {
-            // Hoist bounds checks.
-            var k = span[15];
-            var a = BinaryPrimitives.ReverseEndianness(MemoryMarshal.Read<int>(span));
-            var b = BinaryPrimitives.ReverseEndianness(MemoryMarshal.Read<short>(span[4..]));
-            var c = BinaryPrimitives.ReverseEndianness(MemoryMarshal.Read<short>(span[6..]));
-            var d = span[8];
-            var e = span[9];
-            var f = span[10];
-            var g = span[11];
-            var h = span[12];
-            var i = span[13];
-            var j = span[14];
+            var d = span[15];
+            var e = span[14];
+            var f = span[13];
+            var g = span[12];
+            var h = span[11];
+            var i = span[10];
+            var j = span[9];
+            var k = span[8];
+
+            var a = MemoryMarshal.Read<int>(span[4..8]);
+            var b = MemoryMarshal.Read<short>(span[2..4]);
+            var c = MemoryMarshal.Read<short>(span[..2]);
 
             return new Guid(a, b, c, d, e, f, g, h, i, j, k);
         }
