@@ -196,7 +196,7 @@ public class OrderingFuture<T> {
             ListNode<T> lastNotifiedNode
     ) {
         if (dependents != null) {
-            dependents.notifyBackwards(result, ex, lastNotifiedNode);
+            dependents.notifyHeadToTail(result, ex, lastNotifiedNode);
         }
     }
 
@@ -465,7 +465,7 @@ public class OrderingFuture<T> {
             this.next = next;
         }
 
-        public void notifyBackwards(T result, Throwable exception, ListNode<T> lastNotifiedNode) {
+        public void notifyHeadToTail(T result, Throwable exception, ListNode<T> lastNotifiedNode) {
             Deque<ListNode<T>> stack = new ArrayDeque<>();
 
             for (ListNode<T> node = this; node != null && node != lastNotifiedNode; node = node.next) {
