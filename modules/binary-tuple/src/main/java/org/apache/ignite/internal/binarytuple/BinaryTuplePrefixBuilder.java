@@ -55,6 +55,8 @@ public class BinaryTuplePrefixBuilder extends BinaryTupleBuilder {
     public BinaryTuplePrefixBuilder(int prefixNumElements, int fullNumElements, int totalValueSize) {
         super(fullNumElements, true, totalValueSize);
 
+        assert fullNumElements >= prefixNumElements;
+
         this.prefixNumElements = prefixNumElements;
     }
 

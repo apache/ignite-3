@@ -20,8 +20,9 @@ package org.apache.ignite.internal.index;
 import java.util.BitSet;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.internal.schema.BinaryTuple;
-import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.tx.InternalTransaction;
 
 /**
  * An object that represents a hash index.
@@ -70,7 +71,7 @@ public class HashIndex implements Index<IndexDescriptor> {
 
     /** {@inheritDoc} */
     @Override
-    public Cursor<BinaryTuple> scan(BinaryTuple key, BitSet columns) {
+    public Publisher<BinaryTuple> scan(int partId, InternalTransaction tx, BinaryTuple key, BitSet columns) {
         throw new UnsupportedOperationException("Index scan is not implemented yet");
     }
 }
