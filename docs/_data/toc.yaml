@@ -40,10 +40,18 @@
   url: compute/compute
 - title: Data Region Configuration
   url: config/data-region
+- title: Storage Configuration
+  url: storage/persistent
+  items:
+    - title: Persistent Storage
+      url: storage/persistent
+    - title: Volatile Storage
+      url: storage/volatile
+    - title: RocksDB Storage
+      url: storage/rocksdb
 - title: Binary Client Protocol
   url: binary-protocol
-- title: Native Persistence
-  url: persistence
+
 - title: Data Rebalancing
   url: rebalance
 - title: Performing Transactions
