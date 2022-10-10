@@ -37,15 +37,17 @@ namespace Apache.Ignite.Internal.Proto
             var written = guid.TryWriteBytes(span);
             Debug.Assert(written, "written");
 
-            // Reverse endianness of the first part.
-            var a = BinaryPrimitives.ReverseEndianness(MemoryMarshal.Read<int>(span));
-            MemoryMarshal.Write(span, ref a);
+            // Reverse first part order: abc -> cba. Parts are little-endian on any system.
+            var a = MemoryMarshal.Read<int>(span);
+            var b = MemoryMarshal.Read<short>(span[4..]);
+            var c = MemoryMarshal.Read<short>(span[6..]);
 
-            var b = BinaryPrimitives.ReverseEndianness(MemoryMarshal.Read<short>(span[4..]));
-            MemoryMarshal.Write(span[4..], ref b);
+            MemoryMarshal.Write(span[4..8], ref a);
+            MemoryMarshal.Write(span[2..4], ref b);
+            MemoryMarshal.Write(span[..2], ref c);
 
-            var c = BinaryPrimitives.ReverseEndianness(MemoryMarshal.Read<short>(span[6..]));
-            MemoryMarshal.Write(span[6..], ref c);
+            // Reverse second part order: defghijk -> kjihgfed.
+            span[8..16].Reverse();
         }
 
         /// <summary>
@@ -55,18 +57,18 @@ namespace Apache.Ignite.Internal.Proto
         /// <returns>Guid.</returns>
         public static Guid Read(ReadOnlySpan<byte> span)
         {
-            // Hoist bounds checks.
-            var k = span[15];
-            var a = BinaryPrimitives.ReverseEndianness(MemoryMarshal.Read<int>(span));
-            var b = BinaryPrimitives.ReverseEndianness(MemoryMarshal.Read<short>(span[4..]));
-            var c = BinaryPrimitives.ReverseEndianness(MemoryMarshal.Read<short>(span[6..]));
-            var d = span[8];
-            var e = span[9];
-            var f = span[10];
-            var g = span[11];
-            var h = span[12];
-            var i = span[13];
-            var j = span[14];
+            var d = span[15];
+            var e = span[14];
+            var f = span[13];
+            var g = span[12];
+            var h = span[11];
+            var i = span[10];
+            var j = span[9];
+            var k = span[8];
+
+            var a = BinaryPrimitives.ReadInt32LittleEndian(span[4..8]);
+            var b = BinaryPrimitives.ReadInt16LittleEndian(span[2..4]);
+            var c = BinaryPrimitives.ReadInt16LittleEndian(span[..2]);
 
             return new Guid(a, b, c, d, e, f, g, h, i, j, k);
         }
