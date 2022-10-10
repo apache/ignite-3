@@ -261,6 +261,15 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         }
     }
 
+    /**
+     * Reads either the committed value from the storage or the uncommitted value belonging to given transaction.
+     *
+     * @param rowId Row id.
+     * @param txId Transaction id.
+     * @return Read result that corresponds to the key or {@code null} if value is not found.
+     * @throws TxIdMismatchException If there's another pending update associated with different transaction id.
+     * @throws StorageException If failed to read data from the storage.
+     */
     // TODO: IGNITE-17864 Optimize scan(HybridTimestamp.MAX_VALUE) and read(HybridTimestamp.MAX_VALUE)
     @Deprecated
     public @Nullable BinaryRow read(RowId rowId, UUID txId) throws TxIdMismatchException, StorageException {
@@ -638,6 +647,15 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         }
     }
 
+    /**
+     * Scans the partition and returns a cursor of values. All filtered values must either be uncommitted in the current transaction
+     * or already committed in a different transaction.
+     *
+     * @param keyFilter Key filter. Binary rows passed to the filter may or may not have a value, filter should only check keys.
+     * @param txId Transaction id.
+     * @return Cursor.
+     * @throws StorageException If failed to read data from the storage.
+     */
     // TODO: IGNITE-17864 Optimize scan(HybridTimestamp.MAX_VALUE) and read(HybridTimestamp.MAX_VALUE)
     @Deprecated
     public Cursor<BinaryRow> scan(Predicate<BinaryRow> keyFilter, UUID txId) throws TxIdMismatchException, StorageException {

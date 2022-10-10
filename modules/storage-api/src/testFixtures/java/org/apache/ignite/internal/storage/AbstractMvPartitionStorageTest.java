@@ -425,13 +425,6 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
     }
 
     @Test
-    void readOfUncommittedRowWithDifferentTransactionIdThrows() {
-        RowId rowId = insert(binaryRow, txId);
-
-        assertThrows(TxIdMismatchException.class, () -> read(rowId, HybridTimestamp.MAX_VALUE));
-    }
-
-    @Test
     void readOfCommittedRowWithAnyTransactionIdReturnsTheRow() {
         RowId rowId = insert(binaryRow, txId);
         commitWrite(rowId, clock.now());
@@ -733,15 +726,6 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
         BinaryRow returnedRow = abortWrite(rowId);
 
         assertRowMatches(returnedRow, binaryRow);
-    }
-
-    @Test
-    void scanWithTxIdThrowsWhenOtherTransactionHasUncommittedChanges() {
-        insert(binaryRow, txId);
-
-        PartitionTimestampCursor cursor = scan(row -> true, HybridTimestamp.MAX_VALUE);
-
-        assertThrows(TxIdMismatchException.class, cursor::next);
     }
 
     @Test
