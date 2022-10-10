@@ -702,7 +702,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                     continue;
                 }
 
-                if (!keyFilter.test(res.binaryRow())) {
+                if (keyFilter != null && !keyFilter.test(res.binaryRow())) {
                     continue;
                 }
 

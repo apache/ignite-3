@@ -739,7 +739,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                         continue;
                     }
 
-                    if (!keyFilter.test(readResult.binaryRow())) {
+                    if (keyFilter != null && !keyFilter.test(readResult.binaryRow())) {
                         continue;
                     }
 
