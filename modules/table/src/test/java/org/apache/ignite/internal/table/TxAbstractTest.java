@@ -1699,6 +1699,8 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     /**
+     * Transfers money between accounts.
+     *
      * @param balance1 First account initial balance.
      * @param balance2 Second account initial balance.
      * @param delta Delta.
@@ -1717,8 +1719,9 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
                         double prev = val1.doubleValue("balance");
                         double balance = prev - delta;
 
-                        if (balance < 0)
+                        if (balance < 0) {
                             return tx.rollbackAsync().thenApply(ignored -> null);
+                        }
 
                         return view.upsertAsync(tx, makeValue(1, balance)).thenApply(ignored -> prev);
                     });

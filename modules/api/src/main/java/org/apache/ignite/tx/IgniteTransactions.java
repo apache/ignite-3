@@ -85,6 +85,7 @@ public interface IgniteTransactions {
      * Executes a closure within a transaction.
      *
      * <p>Please make sure all asynchronous operations are enlisted into the transaction before returning from the callback.
+     *
      * <p>If the closure is executed normally (no exceptions) the transaction is automatically committed.
      *
      * @param clo The closure.
@@ -102,6 +103,7 @@ public interface IgniteTransactions {
      * Executes a closure within a transaction and returns a result.
      *
      * <p>Please make sure all asynchronous operations are enlisted into the transaction before returning from the callback.
+     *
      * <p>If the closure is executed normally (no exceptions) the transaction is automatically committed.
      *
      * @param clo The closure.
@@ -136,6 +138,7 @@ public interface IgniteTransactions {
      *
      * <p>A returned future must be the last in the asynchronous chain. This means all transaction operations happen before the future
      * is completed.
+     *
      * <p>If the asynchronous chain resulted in no exception, the commitAsync will be automatically called.
      *
      * @param clo The closure.
