@@ -15,11 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.index;
+package org.apache.ignite.internal.storage.pagememory.index;
 
-import static org.apache.ignite.internal.storage.index.InlineUtils.MAX_BINARY_TUPLE_INLINE_SIZE;
-import static org.apache.ignite.internal.storage.index.InlineUtils.binaryTupleInlineSize;
-import static org.apache.ignite.internal.storage.index.InlineUtils.inlineSize;
+import static org.apache.ignite.internal.storage.pagememory.index.InlineUtils.MAX_BINARY_TUPLE_INLINE_SIZE;
+import static org.apache.ignite.internal.storage.pagememory.index.InlineUtils.binaryTupleBplusIoInlineSize;
+import static org.apache.ignite.internal.storage.pagememory.index.InlineUtils.binaryTupleInlineSize;
+import static org.apache.ignite.internal.storage.pagememory.index.InlineUtils.inlineSize;
+import static org.apache.ignite.internal.util.Constants.KiB;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -31,6 +33,7 @@ import java.util.List;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.NativeTypes;
+import org.apache.ignite.internal.storage.index.IndexDescriptor;
 import org.apache.ignite.internal.storage.index.IndexDescriptor.ColumnDescriptor;
 import org.junit.jupiter.api.Test;
 
@@ -46,68 +49,68 @@ public class InlineUtilsTest {
 
         NativeType nativeType = NativeTypes.INT8;
 
-        int undefVarlenInlineSize = 10;
+        int maxVarlenInlineSize = 10;
 
-        assertEquals(1, inlineSize(nativeType, undefVarlenInlineSize));
+        assertEquals(1, inlineSize(nativeType, maxVarlenInlineSize));
         nativeTypeSpecs.remove(nativeType.spec());
 
-        assertEquals(2, inlineSize(nativeType = NativeTypes.INT16, undefVarlenInlineSize));
+        assertEquals(2, inlineSize(nativeType = NativeTypes.INT16, maxVarlenInlineSize));
         nativeTypeSpecs.remove(nativeType.spec());
 
-        assertEquals(4, inlineSize(nativeType = NativeTypes.INT32, undefVarlenInlineSize));
+        assertEquals(4, inlineSize(nativeType = NativeTypes.INT32, maxVarlenInlineSize));
         nativeTypeSpecs.remove(nativeType.spec());
 
-        assertEquals(8, inlineSize(nativeType = NativeTypes.INT64, undefVarlenInlineSize));
+        assertEquals(8, inlineSize(nativeType = NativeTypes.INT64, maxVarlenInlineSize));
         nativeTypeSpecs.remove(nativeType.spec());
 
-        assertEquals(4, inlineSize(nativeType = NativeTypes.FLOAT, undefVarlenInlineSize));
+        assertEquals(4, inlineSize(nativeType = NativeTypes.FLOAT, maxVarlenInlineSize));
         nativeTypeSpecs.remove(nativeType.spec());
 
-        assertEquals(8, inlineSize(nativeType = NativeTypes.DOUBLE, undefVarlenInlineSize));
+        assertEquals(8, inlineSize(nativeType = NativeTypes.DOUBLE, maxVarlenInlineSize));
         nativeTypeSpecs.remove(nativeType.spec());
 
-        assertEquals(16, inlineSize(nativeType = NativeTypes.UUID, undefVarlenInlineSize));
+        assertEquals(16, inlineSize(nativeType = NativeTypes.UUID, maxVarlenInlineSize));
         nativeTypeSpecs.remove(nativeType.spec());
 
-        assertEquals(1, inlineSize(nativeType = NativeTypes.bitmaskOf(8), undefVarlenInlineSize));
+        assertEquals(1, inlineSize(nativeType = NativeTypes.bitmaskOf(8), maxVarlenInlineSize));
         nativeTypeSpecs.remove(nativeType.spec());
 
-        assertEquals(3, inlineSize(nativeType = NativeTypes.DATE, undefVarlenInlineSize));
+        assertEquals(3, inlineSize(nativeType = NativeTypes.DATE, maxVarlenInlineSize));
         nativeTypeSpecs.remove(nativeType.spec());
 
-        assertEquals(4, inlineSize(nativeType = NativeTypes.time(), undefVarlenInlineSize));
+        assertEquals(4, inlineSize(nativeType = NativeTypes.time(), maxVarlenInlineSize));
         nativeTypeSpecs.remove(nativeType.spec());
 
-        assertEquals(9, inlineSize(nativeType = NativeTypes.datetime(), undefVarlenInlineSize));
+        assertEquals(9, inlineSize(nativeType = NativeTypes.datetime(), maxVarlenInlineSize));
         nativeTypeSpecs.remove(nativeType.spec());
 
-        assertEquals(12, inlineSize(nativeType = NativeTypes.timestamp(), undefVarlenInlineSize));
+        assertEquals(12, inlineSize(nativeType = NativeTypes.timestamp(), maxVarlenInlineSize));
         nativeTypeSpecs.remove(nativeType.spec());
 
         // Variable length type checking.
 
-        assertEquals(4, inlineSize(nativeType = NativeTypes.decimalOf(1, 1), undefVarlenInlineSize));
+        assertEquals(4, inlineSize(nativeType = NativeTypes.decimalOf(1, 1), maxVarlenInlineSize));
         nativeTypeSpecs.remove(nativeType.spec());
 
-        assertEquals(4, inlineSize(nativeType = NativeTypes.decimalOf(100, 1), undefVarlenInlineSize));
+        assertEquals(4, inlineSize(nativeType = NativeTypes.decimalOf(100, 1), maxVarlenInlineSize));
         nativeTypeSpecs.remove(nativeType.spec());
 
-        assertEquals(14, inlineSize(nativeType = NativeTypes.stringOf(7), undefVarlenInlineSize));
+        assertEquals(7, inlineSize(nativeType = NativeTypes.stringOf(7), maxVarlenInlineSize));
         nativeTypeSpecs.remove(nativeType.spec());
 
-        assertEquals(undefVarlenInlineSize, inlineSize(nativeType = NativeTypes.stringOf(Integer.MAX_VALUE), undefVarlenInlineSize));
+        assertEquals(maxVarlenInlineSize, inlineSize(nativeType = NativeTypes.stringOf(Integer.MAX_VALUE), maxVarlenInlineSize));
         nativeTypeSpecs.remove(nativeType.spec());
 
-        assertEquals(9, inlineSize(nativeType = NativeTypes.blobOf(9), undefVarlenInlineSize));
+        assertEquals(9, inlineSize(nativeType = NativeTypes.blobOf(9), maxVarlenInlineSize));
         nativeTypeSpecs.remove(nativeType.spec());
 
-        assertEquals(undefVarlenInlineSize, inlineSize(nativeType = NativeTypes.blobOf(Integer.MAX_VALUE), undefVarlenInlineSize));
+        assertEquals(maxVarlenInlineSize, inlineSize(nativeType = NativeTypes.blobOf(Integer.MAX_VALUE), maxVarlenInlineSize));
         nativeTypeSpecs.remove(nativeType.spec());
 
-        assertEquals(4, inlineSize(nativeType = NativeTypes.numberOf(1), undefVarlenInlineSize));
+        assertEquals(4, inlineSize(nativeType = NativeTypes.numberOf(1), maxVarlenInlineSize));
         nativeTypeSpecs.remove(nativeType.spec());
 
-        assertEquals(4, inlineSize(nativeType = NativeTypes.numberOf(100), undefVarlenInlineSize));
+        assertEquals(4, inlineSize(nativeType = NativeTypes.numberOf(100), maxVarlenInlineSize));
         nativeTypeSpecs.remove(nativeType.spec());
 
         // Let's check that all types have been checked.
@@ -118,21 +121,23 @@ public class InlineUtilsTest {
     void testInlineSizeForBinaryTuple() {
         IndexDescriptor indexDescriptor = testIndexDescriptor();
 
-        assertEquals(1, binaryTupleInlineSize(indexDescriptor));
+        int maxVarlenInlineSize = 10;
+
+        assertEquals(1, binaryTupleInlineSize(indexDescriptor, maxVarlenInlineSize));
 
         indexDescriptor = testIndexDescriptor(
                 testColumnDescriptor(NativeTypes.INT8, false),
                 testColumnDescriptor(NativeTypes.UUID, false)
         );
 
-        assertEquals(22, binaryTupleInlineSize(indexDescriptor));
+        assertEquals(20, binaryTupleInlineSize(indexDescriptor, maxVarlenInlineSize));
 
         indexDescriptor = testIndexDescriptor(
                 testColumnDescriptor(NativeTypes.INT8, true),
                 testColumnDescriptor(NativeTypes.UUID, false)
         );
 
-        assertEquals(23, binaryTupleInlineSize(indexDescriptor));
+        assertEquals(21, binaryTupleInlineSize(indexDescriptor, maxVarlenInlineSize));
 
         indexDescriptor = testIndexDescriptor(
                 testColumnDescriptor(NativeTypes.INT8, true),
@@ -140,21 +145,44 @@ public class InlineUtilsTest {
                 testColumnDescriptor(NativeTypes.INT64, true)
         );
 
-        assertEquals(217, binaryTupleInlineSize(indexDescriptor));
+        assertEquals(27, binaryTupleInlineSize(indexDescriptor, maxVarlenInlineSize));
 
         indexDescriptor = testIndexDescriptor(
                 testColumnDescriptor(NativeTypes.stringOf(MAX_BINARY_TUPLE_INLINE_SIZE), false),
                 testColumnDescriptor(NativeTypes.stringOf(MAX_BINARY_TUPLE_INLINE_SIZE), false)
         );
 
-        assertEquals(MAX_BINARY_TUPLE_INLINE_SIZE, binaryTupleInlineSize(indexDescriptor));
+        assertEquals(MAX_BINARY_TUPLE_INLINE_SIZE, binaryTupleInlineSize(indexDescriptor, 4 * KiB));
 
         indexDescriptor = testIndexDescriptor(
                 testColumnDescriptor(NativeTypes.stringOf(MAX_BINARY_TUPLE_INLINE_SIZE), true),
                 testColumnDescriptor(NativeTypes.stringOf(MAX_BINARY_TUPLE_INLINE_SIZE), false)
         );
 
-        assertEquals(MAX_BINARY_TUPLE_INLINE_SIZE, binaryTupleInlineSize(indexDescriptor));
+        assertEquals(MAX_BINARY_TUPLE_INLINE_SIZE, binaryTupleInlineSize(indexDescriptor, 4 * KiB));
+    }
+
+    @Test
+    void testBinaryTupleBplusIoInlineSize() {
+        IndexDescriptor indexDescriptor = testIndexDescriptor(testColumnDescriptor(NativeTypes.INT8, true));
+
+        assertEquals(4, binaryTupleBplusIoInlineSize(100, 5, indexDescriptor, 10));
+
+        indexDescriptor = testIndexDescriptor(
+                testColumnDescriptor(NativeTypes.INT8, true),
+                testColumnDescriptor(NativeTypes.stringOf(5), true)
+        );
+
+        assertEquals(8, binaryTupleBplusIoInlineSize(100, 5, indexDescriptor, 10));
+
+        assertEquals(12, binaryTupleBplusIoInlineSize(200, 5, indexDescriptor, 10));
+
+        indexDescriptor = testIndexDescriptor(
+                testColumnDescriptor(NativeTypes.stringOf(64), true),
+                testColumnDescriptor(NativeTypes.stringOf(49), true)
+        );
+
+        assertEquals(122, binaryTupleBplusIoInlineSize(462, 5, indexDescriptor, 64));
     }
 
     private static IndexDescriptor testIndexDescriptor(ColumnDescriptor... columnDescriptors) {
