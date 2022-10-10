@@ -21,6 +21,7 @@ import static java.util.concurrent.atomic.AtomicReferenceFieldUpdater.newUpdater
 
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CountDownLatch;
@@ -335,14 +336,16 @@ public class OrderingFuture<T> {
 
         State<T> currentState = state;
 
-        if (currentState.exception != null) {
-            throw  encodeWithExecutionException(currentState);
+        if (currentState.exception instanceof CancellationException) {
+            throw (CancellationException) currentState.exception;
+        } else if (currentState.exception != null) {
+            throw exceptionForThrowingFromGet(currentState);
         } else {
             return currentState.result;
         }
     }
 
-    private ExecutionException encodeWithExecutionException(State<T> currentState) {
+    private ExecutionException exceptionForThrowingFromGet(State<T> currentState) {
         Throwable unwrapped = currentState.exception;
         Throwable cause = unwrapped.getCause();
         if (cause != null) {
@@ -414,7 +417,7 @@ public class OrderingFuture<T> {
         @Override
         public void onCompletion(T result, Throwable ex) {
             if (ex != null) {
-                resultFuture.completeExceptionally(ex);
+                resultFuture.completeExceptionally(wrapWithCompletionException(ex));
                 return;
             }
 

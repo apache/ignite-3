@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.future;
 
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
 import static org.hamcrest.Matchers.sameInstance;
@@ -26,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CountDownLatch;
@@ -360,6 +362,20 @@ class OrderingFutureTest {
     }
 
     @Test
+    void composeToCompletableWrapsCancellationExceptionInCompletionException() {
+        AtomicReference<Throwable> causeRef = new AtomicReference<>();
+
+        OrderingFuture<Integer> future = new OrderingFuture<>();
+        future.thenComposeToCompletable(x -> CompletableFuture.completedFuture(null)).whenComplete((res, ex) -> causeRef.set(ex));
+
+        CancellationException cancellationException = new CancellationException("Oops");
+        future.completeExceptionally(cancellationException);
+
+        assertThat(causeRef.get(), is(instanceOf(CompletionException.class)));
+        assertThat(causeRef.get().getCause(), is(cancellationException));
+    }
+
+    @Test
     void getNowReturnsCompletionValueFromCompletedFuture() {
         OrderingFuture<Integer> future = OrderingFuture.completedFuture(1);
 
@@ -456,6 +472,15 @@ class OrderingFutureTest {
 
         ExecutionException ex = assertThrows(ExecutionException.class, () -> future.get(1, TimeUnit.SECONDS));
         assertThat(ex.getCause(), is(sameInstance(cause)));
+    }
+
+    @Test
+    void getWithTimeoutDoesNotWrapCancellationExceptionInExecutionException() {
+        CancellationException cancellationException = new CancellationException();
+        OrderingFuture<Void> future = OrderingFuture.failedFuture(cancellationException);
+
+        CancellationException ex = assertThrows(CancellationException.class, () -> future.get(1, TimeUnit.NANOSECONDS));
+        assertThat(ex, is(cancellationException));
     }
 
     @Test
