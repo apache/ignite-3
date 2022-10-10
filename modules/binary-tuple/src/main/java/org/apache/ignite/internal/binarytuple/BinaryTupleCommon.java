@@ -47,8 +47,8 @@ public class BinaryTupleCommon {
     public static final int PREFIX_FLAG = 1 << 3;
 
     /**
-     * Flag, which indicates how to interpret situations when Binary Tuple Prefix columns are equal to
-     * first N columns of a Binary Tuple (where N is the length of the prefix).
+     * Flag, which indicates how to interpret situations when Binary Tuple Prefix columns are equal to first N columns of a Binary Tuple
+     * (where N is the length of the prefix).
      *
      * <p>This flag is used by some index implementations for internal optimizations.
      */
@@ -132,5 +132,27 @@ public class BinaryTupleCommon {
      */
     public static byte nullMask(int index) {
         return (byte) (1 << (index % 8));
+    }
+
+    /**
+     * Calculates the size of entry in variable-length offset table.
+     *
+     * @param size Variable-length area size.
+     * @return Size in bytes.
+     */
+    public static int valueSizeToEntrySize(long size) {
+        if (size <= 0xff) {
+            return 1;
+        }
+
+        if (size <= 0xffff) {
+            return 2;
+        }
+
+        if (size <= Integer.MAX_VALUE) {
+            return 4;
+        }
+
+        throw new IgniteInternalException("Too big binary tuple size");
     }
 }
