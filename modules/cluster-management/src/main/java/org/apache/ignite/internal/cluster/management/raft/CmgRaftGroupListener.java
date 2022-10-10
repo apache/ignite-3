@@ -23,7 +23,6 @@ import java.io.Serializable;
 import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.raft.commands.InitCmgStateCommand;
@@ -38,7 +37,6 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.ReadCommand;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.apache.ignite.raft.client.service.CommandClosure;
@@ -92,15 +90,9 @@ public class CmgRaftGroupListener implements RaftGroupListener {
 
                 clo.result(response.isValid() ? null : new ValidationErrorResponse(response.errorDescription()));
             } else if (command instanceof JoinReadyCommand) {
-                ValidationResult response = validationManager.completeValidation(((JoinReadyCommand) command).node());
+                Serializable response = completeValidation((JoinReadyCommand) command);
 
-                if (response.isValid()) {
-                    addNodeToLogicalTopology((JoinReadyCommand) command);
-
-                    clo.result(null);
-                } else {
-                    clo.result(new ValidationErrorResponse(response.errorDescription()));
-                }
+                clo.result(response);
             } else if (command instanceof NodesLeaveCommand) {
                 removeNodesFromLogicalTopology((NodesLeaveCommand) command);
 
@@ -133,10 +125,21 @@ public class CmgRaftGroupListener implements RaftGroupListener {
         );
     }
 
-    private void addNodeToLogicalTopology(JoinReadyCommand command) {
-        storage.putLogicalTopologyNode(command.node());
+    @Nullable
+    private Serializable completeValidation(JoinReadyCommand command) {
+        ClusterNode node = command.node();
 
-        LOG.info("Node added to the logical topology [node={}]", command.node().name());
+        if (validationManager.isNodeValidated(node)) {
+            storage.putLogicalTopologyNode(node);
+
+            LOG.info("Node added to the logical topology [node={}]", node.name());
+
+            validationManager.completeValidation(node);
+
+            return null;
+        } else {
+            return new ValidationErrorResponse(String.format("Node \"%s\" has not yet passed the validation step", node));
+        }
     }
 
     private void removeNodesFromLogicalTopology(NodesLeaveCommand command) {
@@ -172,11 +175,6 @@ public class CmgRaftGroupListener implements RaftGroupListener {
     public void onShutdown() {
         // Raft storage lifecycle is managed by outside components.
         validationManager.close();
-    }
-
-    @Override
-    public @Nullable CompletableFuture<Void> onBeforeApply(Command command) {
-        return null;
     }
 
     @TestOnly

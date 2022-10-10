@@ -25,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -167,7 +168,7 @@ public class ClientSqlTest extends AbstractClientTableTest {
         assertEquals(1.4d, row.doubleValue(6));
         assertEquals(SqlColumnType.DOUBLE, meta.columns().get(6).type());
 
-        assertEquals(BigDecimal.valueOf(145), row.value(7));
+        assertEquals(BigDecimal.valueOf(145).setScale(2, RoundingMode.HALF_UP), row.value(7));
         ColumnMetadata decimalCol = meta.columns().get(7);
         assertEquals(SqlColumnType.DECIMAL, decimalCol.type());
         assertEquals(1, decimalCol.precision());

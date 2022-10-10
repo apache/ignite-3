@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metrics;
 
+import java.util.Collection;
 import java.util.Map;
 import java.util.ServiceLoader;
 import java.util.ServiceLoader.Provider;
@@ -197,6 +198,15 @@ public class MetricManager implements IgniteComponent {
     @NotNull
     public IgniteBiTuple<Map<String, MetricSet>, Long> metricSnapshot() {
         return registry.metricSnapshot();
+    }
+
+    /**
+     * Gets a collection of metric sources.
+     *
+     * @return collection of metric sources
+     */
+    public Collection<MetricSource> metricSources() {
+        return registry.metricSources();
     }
 
     private <T extends ExporterView> void checkAndStartExporter(

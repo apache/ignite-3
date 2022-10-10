@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.storage.rocksdb.index;
 
-import static org.apache.ignite.internal.binarytuple.BinaryTupleCommon.isPrefix;
-
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import org.apache.ignite.internal.storage.index.BinaryTupleComparator;
@@ -58,7 +56,7 @@ public class RocksDbBinaryTupleComparator extends AbstractComparator {
 
     @Override
     public int compare(ByteBuffer a, ByteBuffer b) {
-        int comparePartitionId = Short.compare(a.getShort(), b.getShort());
+        int comparePartitionId = Short.compareUnsigned(a.getShort(), b.getShort());
 
         if (comparePartitionId != 0) {
             return comparePartitionId;
@@ -69,18 +67,7 @@ public class RocksDbBinaryTupleComparator extends AbstractComparator {
 
         int compareTuples = comparator.compare(firstBinaryTupleBuffer, secondBinaryTupleBuffer);
 
-        if (compareTuples != 0) {
-            return compareTuples;
-        }
-
-        // Binary Tuple Prefixes don't have row IDs, so they can't be compared further.
-        if (isPrefix(firstBinaryTupleBuffer)) {
-            return -1;
-        } else if (isPrefix(secondBinaryTupleBuffer)) {
-            return 1;
-        } else {
-            return compareRowIds(a, b);
-        }
+        return compareTuples == 0 ? compareRowIds(a, b) : compareTuples;
     }
 
     private static int compareRowIds(ByteBuffer a, ByteBuffer b) {

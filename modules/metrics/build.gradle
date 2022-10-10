@@ -21,14 +21,18 @@ apply from: "$rootDir/buildscripts/java-integration-test.gradle"
 
 dependencies {
     annotationProcessor project(":ignite-configuration-annotation-processor")
+    annotationProcessor libs.micronaut.inject.annotation.processor
 
     implementation project(':ignite-core')
     implementation project(':ignite-configuration')
     implementation project(':ignite-configuration-api')
+    implementation project(':ignite-rest-api')
     implementation libs.jetbrains.annotations
+    implementation libs.micronaut.http.core
 
     testImplementation libs.hamcrest.core
     testImplementation libs.mockito.core
+    testImplementation project(':ignite-core')
 }
 
 description = 'ignite-metrics'

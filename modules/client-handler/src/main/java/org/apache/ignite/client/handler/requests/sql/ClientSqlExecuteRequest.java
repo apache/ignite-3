@@ -28,10 +28,11 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.client.handler.ClientResource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
+import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
+import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientSqlColumnTypeConverter;
-import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.sql.ColumnMetadata;
@@ -64,7 +65,7 @@ public class ClientSqlExecuteRequest {
         var tx = readTx(in, resources);
         Session session = readSession(in, sql);
         Statement statement = readStatement(in, sql);
-        Object[] arguments = readArguments(in);
+        Object[] arguments = in.unpackObjectArrayFromBinaryTuple();
 
         return session
                 .executeAsync(tx, statement, arguments)
@@ -143,33 +144,14 @@ public class ClientSqlExecuteRequest {
             sessionBuilder.idleTimeout(in.unpackLong(), TimeUnit.MILLISECONDS);
         }
 
-        var propCount = in.unpackMapHeader();
+        var propCount = in.unpackInt();
+        var reader = new BinaryTupleReader(propCount * 4, in.readBinaryUnsafe());
 
         for (int i = 0; i < propCount; i++) {
-            sessionBuilder.property(in.unpackString(), in.unpackObjectWithType());
+            sessionBuilder.property(reader.stringValue(i * 4), ClientBinaryTupleUtils.readObject(reader, i * 4 + 1));
         }
 
         return sessionBuilder.build();
-    }
-
-    private static Object[] readArguments(ClientMessageUnpacker in) {
-        if (in.tryUnpackNil()) {
-            return null;
-        }
-
-        int size = in.unpackArrayHeader();
-
-        if (size == 0) {
-            return ArrayUtils.OBJECT_EMPTY_ARRAY;
-        }
-
-        var res = new Object[size];
-
-        for (int i = 0; i < size; i++) {
-            res[i] = in.unpackObjectWithType();
-        }
-
-        return res;
     }
 
     private static void packMeta(ClientMessagePacker out, ResultSetMetadata meta) {

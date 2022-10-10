@@ -38,6 +38,7 @@ import java.util.function.Predicate;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
+import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -172,6 +173,9 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     /** Upper bound for scans and reads. */
     private final Slice upperBound;
 
+    /** Read options for scan iterators. */
+    private final ReadOptions scanReadOptions;
+
     /** Key to store applied index value in meta. */
     private final byte[] lastAppliedIndexKey;
 
@@ -197,6 +201,8 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         meta = tableStorage.metaCfHandle();
 
         upperBound = new Slice(partitionEndPrefix());
+
+        scanReadOptions = new ReadOptions().setIterateUpperBound(upperBound).setTotalOrderSeek(true);
 
         lastAppliedIndexKey = ("index" + partitionId).getBytes(StandardCharsets.UTF_8);
 
@@ -306,23 +312,6 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         }
 
         return appliedIndexBytes == null ? 0 : ByteUtils.bytesToLong(appliedIndexBytes);
-    }
-
-    /** {@inheritDoc} */
-    @Deprecated
-    @Override
-    public RowId insert(BinaryRow row, UUID txId) throws StorageException {
-        RowId rowId = new RowId(partitionId);
-
-        ByteBuffer keyBuf = prepareHeapKeyBuf(rowId);
-
-        try {
-            writeUnversioned(keyBuf.array(), row, txId, UUID.randomUUID(), partitionId);
-        } catch (RocksDBException e) {
-            throw new StorageException("Failed to insert new row into storage", e);
-        }
-
-        return rowId;
     }
 
     /** {@inheritDoc} */
@@ -713,10 +702,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     public Cursor<BinaryRow> scan(Predicate<BinaryRow> keyFilter, UUID txId) throws TxIdMismatchException, StorageException {
         assert txId != null;
 
-        // Set next partition as an upper bound.
-        ReadOptions options = new ReadOptions().setIterateUpperBound(upperBound).setTotalOrderSeek(true);
-
-        RocksIterator it = db.newIterator(cf, options);
+        RocksIterator it = db.newIterator(cf, scanReadOptions);
 
         // Seek iterator to the beginning of the partition.
         it.seek(partitionStartPrefix());
@@ -805,7 +791,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
                     BinaryRow binaryRow = wrapValueIntoBinaryRow(valueBytes, isWriteIntent);
 
-                    if (binaryRow != null && keyFilter.test(binaryRow)) {
+                    if (binaryRow != null && (keyFilter == null || keyFilter.test(binaryRow))) {
                         if (isWriteIntent) {
                             validateTxId(valueBytes, txId);
                         }
@@ -834,7 +820,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             /** {@inheritDoc} */
             @Override
             public void close() throws Exception {
-                IgniteUtils.closeAll(it, options);
+                IgniteUtils.closeAll(it);
             }
         };
     }
@@ -844,10 +830,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     public PartitionTimestampCursor scan(Predicate<BinaryRow> keyFilter, HybridTimestamp timestamp) throws StorageException {
         assert timestamp != null;
 
-        // Set next partition as an upper bound.
-        ReadOptions options = new ReadOptions().setIterateUpperBound(upperBound).setTotalOrderSeek(true);
-
-        RocksIterator it = db.newIterator(cf, options);
+        RocksIterator it = db.newIterator(cf, scanReadOptions);
 
         // You can see the motivation behind the usage of a separate (not thread-local) buffer in the transaction id
         // cursor code.
@@ -963,9 +946,34 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             /** {@inheritDoc} */
             @Override
             public void close() throws Exception {
-                IgniteUtils.closeAll(it, options);
+                IgniteUtils.closeAll(it);
             }
         };
+    }
+
+    @Override
+    public @Nullable RowId closestRowId(RowId lowerBound) throws StorageException {
+        ByteBuffer keyBuf = prepareHeapKeyBuf(lowerBound).position(0).limit(ROW_PREFIX_SIZE);
+
+        try (RocksIterator it = db.newIterator(cf, scanReadOptions)) {
+            it.seek(keyBuf);
+
+            if (!it.isValid()) {
+                RocksUtils.checkIterator(it);
+
+                return null;
+            }
+
+            ByteBuffer readKeyBuf = MV_KEY_BUFFER.get().position(0).limit(ROW_PREFIX_SIZE);
+
+            it.key(readKeyBuf);
+
+            readKeyBuf.position(ROW_ID_OFFSET);
+
+            return getRowId(readKeyBuf);
+        } finally {
+            keyBuf.limit(MAX_KEY_SIZE);
+        }
     }
 
     private void incrementRowId(ByteBuffer buf) {
@@ -1071,7 +1079,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     /** {@inheritDoc} */
     @Override
     public void close() throws Exception {
-        IgniteUtils.closeAll(persistedTierReadOpts, readOpts, writeOpts, upperBound);
+        IgniteUtils.closeAll(persistedTierReadOpts, readOpts, writeOpts, scanReadOptions, upperBound);
     }
 
     private static WriteBatchWithIndex requireWriteBatch() {

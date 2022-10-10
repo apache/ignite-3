@@ -70,6 +70,7 @@
         <module>modules/page-memory</module>
         <module>modules/raft</module>
         <module>modules/raft-client</module>
+        <module>modules/replicator</module>
         <module>modules/rest</module>
         <module>modules/rest-api</module>
         <module>modules/rocksdb-common</module>

@@ -17,10 +17,7 @@
 
 package org.apache.ignite.internal.util;
 
-import static org.apache.ignite.internal.util.CursorUtils.concat;
-import static org.apache.ignite.internal.util.CursorUtils.dropWhile;
 import static org.apache.ignite.internal.util.CursorUtils.map;
-import static org.apache.ignite.internal.util.CursorUtils.takeWhile;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.emptyIterable;
@@ -34,52 +31,12 @@ import org.junit.jupiter.api.Test;
  */
 public class CursorUtilsTest {
     @Test
-    public void testDropWhile() {
-        Cursor<Integer> actual = dropWhile(cursor(1, 2, 5, 14, 20, 1), i -> i < 10);
-
-        assertThat(actual, contains(14, 20, 1));
-
-        assertThat(dropWhile(cursor(), i -> i.hashCode() < 10), is(emptyIterable()));
-    }
-
-    @Test
-    public void testTakeWhile() {
-        Cursor<Integer> actual = takeWhile(cursor(1, 2, 5, 14, 20, 1), i -> i < 10);
-
-        assertThat(actual, contains(1, 2, 5));
-
-        assertThat(takeWhile(cursor(), i -> i.hashCode() < 10), is(emptyIterable()));
-    }
-
-    @Test
     public void testMap() {
         Cursor<String> actual = map(cursor(1, 2, 5, 14, 20), i -> "foo" + i);
 
         assertThat(actual, contains("foo1", "foo2", "foo5", "foo14", "foo20"));
 
         assertThat(map(cursor(), Object::toString), is(emptyIterable()));
-    }
-
-    @Test
-    public void testConcat() {
-        Cursor<Integer> actual = concat(cursor(1, 2, 5), cursor(5, 2, 1));
-
-        assertThat(actual, contains(1, 2, 5, 5, 2, 1));
-
-        assertThat(concat(cursor(), cursor()), is(emptyIterable()));
-    }
-
-    @Test
-    public void testCombination() {
-        Cursor<Integer> dropWhile = dropWhile(cursor(1, 5, 8, 10, 42), i -> i <= 8);
-
-        Cursor<Integer> takeWhile = takeWhile(dropWhile, i -> i >= 10);
-
-        Cursor<Integer> concat = concat(takeWhile, cursor(1, 2, 3));
-
-        Cursor<String> map = map(concat, String::valueOf);
-
-        assertThat(map, contains("10", "42", "1", "2", "3"));
     }
 
     @SafeVarargs

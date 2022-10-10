@@ -19,16 +19,15 @@ package org.apache.ignite.internal.cli.commands.node;
 
 import org.apache.ignite.cli.commands.node.version.NodeVersionCommand;
 import org.apache.ignite.internal.cli.commands.node.config.NodeConfigCommand;
+import org.apache.ignite.internal.cli.commands.node.metric.NodeMetricCommand;
 import org.apache.ignite.internal.cli.commands.node.status.NodeStatusCommand;
 import org.apache.ignite.internal.cli.deprecated.spec.NodeCommandSpec;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 
-/**
- * Node command.
- */
+/** Node command. */
 @Command(name = "node",
-        subcommands = {NodeConfigCommand.class, NodeStatusCommand.class, NodeVersionCommand.class},
+        subcommands = {NodeConfigCommand.class, NodeStatusCommand.class, NodeVersionCommand.class, NodeMetricCommand.class},
         description = "Node operations")
 public class NodeCommand {
     @Mixin

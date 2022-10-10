@@ -29,29 +29,30 @@ import static org.apache.ignite.internal.pagememory.util.PageUtils.putShort;
 import java.nio.ByteBuffer;
 
 /**
- * Handling of <em>partitionless links</em>, that is, page memory links from which partition ID is removed.
+ * Auxiliary class for working with links and page IDs without partition ID.
  *
  * <p>They are used to save storage space in cases when we know the partition ID from the context.
  *
  * @see PageIdUtils#link(long, int)
+ * @see PageIdUtils#pageId(int, byte, int)
  */
 public class PartitionlessLinks {
     /** Number of bytes a partitionless link takes in storage. */
     public static final int PARTITIONLESS_LINK_SIZE_BYTES = 6;
 
     /**
-     * Reads a partitionless link from the memory.
+     * Reads a partitionless link or page ID from the memory.
      *
      * @param partitionId Partition ID.
      * @param pageAddr Page address.
      * @param offset Data offset.
-     * @return Partitionless link.
+     * @return Link or page ID with partition ID.
      */
-    public static long readPartitionlessLink(int partitionId, long pageAddr, int offset) {
+    public static long readPartitionless(int partitionId, long pageAddr, int offset) {
         int tag = getShort(pageAddr, offset) & 0xFFFF;
         int pageIdx = getInt(pageAddr, offset + Short.BYTES);
 
-        // NULL_LINK is stored as zeroes. This is fine, because no real link can be like this. Page with index 0 is never a data page.
+        // NULL_LINK is stored as zeroes. This is fine, because no real link can be like this. Page with index 0 is meta page.
         if (pageIdx == 0) {
             assert tag == 0 : tag;
 
@@ -67,13 +68,13 @@ public class PartitionlessLinks {
     }
 
     /**
-     * Writes a partitionless link to memory: first high 2 bytes, then low 4 bytes.
+     * Writes a partitionless link or page ID to memory: first high 2 bytes, then low 4 bytes.
      *
      * @param addr Address in memory where to start.
-     * @param link The link to write.
+     * @param link Link or page ID.
      * @return Number of bytes written (equal to {@link #PARTITIONLESS_LINK_SIZE_BYTES}).
      */
-    public static long writePartitionlessLink(long addr, long link) {
+    public static long writePartitionless(long addr, long link) {
         putShort(addr, 0, (short) tag(link));
 
         putInt(addr + Short.BYTES, 0, pageIndex(link));

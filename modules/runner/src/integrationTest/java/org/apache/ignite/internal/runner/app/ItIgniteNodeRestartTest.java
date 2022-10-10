@@ -50,6 +50,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
+import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
@@ -73,17 +74,18 @@ import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
 import org.apache.ignite.internal.recovery.ConfigurationCatchUpListener;
 import org.apache.ignite.internal.recovery.RecoveryCompletionFutureFactory;
+import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
-import org.apache.ignite.internal.table.distributed.TableTxManagerImpl;
-import org.apache.ignite.internal.table.message.TableMessagesSerializationRegistryInitializer;
+import org.apache.ignite.internal.table.distributed.TableMessagesSerializationRegistryInitializer;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessagesSerializationRegistryInitializer;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -113,6 +115,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * These tests check node restart scenarios.
  */
 @WithSystemProperty(key = CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY, value = "0")
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-17302")
 @ExtendWith(ConfigurationExtension.class)
 public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     /** Default node port. */
@@ -225,9 +228,11 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 nettyBootstrapFactory
         );
 
-        var raftMgr = new Loza(clusterSvc, raftConfiguration, dir);
+        HybridClock hybridClock = new HybridClock();
 
-        var txManager = new TableTxManagerImpl(clusterSvc, new HeapLockManager());
+        var raftMgr = new Loza(clusterSvc, raftConfiguration, dir, hybridClock);
+
+        var txManager = new TxManagerImpl(null, new HeapLockManager(), hybridClock);
 
         var cmgManager = new ClusterManagementGroupManager(
                 vault,
@@ -259,12 +264,14 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         DataStorageModules dataStorageModules = new DataStorageModules(ServiceLoader.load(DataStorageModule.class));
 
+        Path storagePath = getPartitionsStorePath(dir);
+
         DataStorageManager dataStorageManager = new DataStorageManager(
                 clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY),
                 dataStorageModules.createStorageEngines(
                         name,
                         clusterCfgMgr.configurationRegistry(),
-                        getPartitionsStorePath(dir),
+                        storagePath,
                         null
                 )
         );
@@ -273,18 +280,27 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         SchemaManager schemaManager = new SchemaManager(registry, tblCfg);
 
+        ReplicaService replicaSvc = new ReplicaService(
+                clusterSvc.messagingService(),
+                null);
+
         TableManager tableManager = new TableManager(
                 name,
                 registry,
                 tblCfg,
                 raftMgr,
+                null,
+                null,
+                replicaSvc,
                 mock(BaselineManager.class),
                 clusterSvc.topologyService(),
                 txManager,
                 dataStorageManager,
+                storagePath,
                 metaStorageMgr,
                 schemaManager,
-                view -> new LocalLogStorageFactory()
+                view -> new LocalLogStorageFactory(),
+                null
         );
 
         // Preparing the result map.

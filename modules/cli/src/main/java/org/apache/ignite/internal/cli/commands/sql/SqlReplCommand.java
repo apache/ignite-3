@@ -80,7 +80,8 @@ public class SqlReplCommand extends BaseCommand implements Runnable {
     @Override
     public void run() {
         try (SqlManager sqlManager = new SqlManager(jdbc)) {
-            if (execOptions == null) {
+            // When passing white space to this command, picocli will treat it as a positional argument
+            if (execOptions == null || execOptions.command.isBlank()) {
                 replExecutorProvider.get().execute(Repl.builder()
                         .withPromptProvider(() -> "sql-cli> ")
                         .withCompleter(new SqlCompleter(new SqlSchemaProvider(sqlManager::getMetadata)))

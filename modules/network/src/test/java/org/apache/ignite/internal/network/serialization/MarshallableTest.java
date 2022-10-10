@@ -236,9 +236,8 @@ public class MarshallableTest {
             }
         }
 
-        @SuppressWarnings("unchecked")
         @Override
-        public <T> @Nullable T unmarshal(byte[] bytes, DescriptorRegistry mergedDescriptors) {
+        public <T> @Nullable T unmarshal(byte[] bytes, Object mergedDescriptors) {
             try (var bais = new ByteArrayInputStream(bytes); var ois = new ObjectInputStream(bais)) {
                 return (T) ois.readObject();
             } catch (Exception e) {

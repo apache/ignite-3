@@ -115,61 +115,50 @@ class ValidationManager implements AutoCloseable {
             IgniteProductVersion version,
             ClusterTag clusterTag
     ) {
-        if (storage.isNodeValidated(node.id())) {
+        if (isNodeValidated(node)) {
             return ValidationResult.successfulResult();
-        }
-
-        if (state == null) {
+        } else if (state == null) {
             return ValidationResult.errorResult("Cluster has not been initialized yet");
-        }
-
-        if (!state.igniteVersion().equals(version)) {
+        } else if (!state.igniteVersion().equals(version)) {
             return ValidationResult.errorResult(String.format(
                     "Ignite versions do not match. Version: %s, version stored in CMG: %s",
                     version, state.igniteVersion()
             ));
-        }
-
-        if (!state.clusterTag().equals(clusterTag)) {
+        } else if (!state.clusterTag().equals(clusterTag)) {
             return ValidationResult.errorResult(String.format(
                     "Cluster tags do not match. Cluster tag: %s, cluster tag stored in CMG: %s",
                     clusterTag, state.clusterTag()
             ));
+        } else {
+            putValidatedNode(node);
+
+            return ValidationResult.successfulResult();
         }
+    }
 
-        putValidatedNode(node.id());
-
-        return ValidationResult.successfulResult();
+    boolean isNodeValidated(ClusterNode node) {
+        return storage.isNodeValidated(node.id()) || storage.isNodeInLogicalTopology(node);
     }
 
     /**
      * Checks and removes the node from the list of validated nodes thus completing the validation procedure.
      *
      * @param node Node that wishes to join the logical topology.
-     * @return {@code null} if the tokens match or {@link ValidationErrorResponse} otherwise.
      */
-    ValidationResult completeValidation(ClusterNode node) {
-        String nodeId = node.id();
-
-        if (!storage.isNodeValidated(nodeId) && !storage.isNodeInLogicalTopology(node)) {
-            return ValidationResult.errorResult(String.format("Node \"%s\" has not yet passed the validation step", node));
-        }
-
-        Future<?> cleanupFuture = cleanupFutures.remove(nodeId);
+    void completeValidation(ClusterNode node) {
+        Future<?> cleanupFuture = cleanupFutures.remove(node.id());
 
         if (cleanupFuture != null) {
             cleanupFuture.cancel(false);
         }
 
-        storage.removeValidatedNode(nodeId);
-
-        return ValidationResult.successfulResult();
+        storage.removeValidatedNode(node.id());
     }
 
-    private void putValidatedNode(String nodeId) {
-        storage.putValidatedNode(nodeId);
+    private void putValidatedNode(ClusterNode node) {
+        storage.putValidatedNode(node.id());
 
-        scheduleValidatedNodeRemoval(nodeId);
+        scheduleValidatedNodeRemoval(node.id());
     }
 
     private void scheduleValidatedNodeRemoval(String nodeId) {

@@ -18,12 +18,11 @@
 package org.apache.ignite.internal.storage.pagememory.index.sorted.io;
 
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
-import static org.apache.ignite.internal.binarytuple.BinaryTupleCommon.isPrefix;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.getLong;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putLong;
 import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.PARTITIONLESS_LINK_SIZE_BYTES;
-import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.readPartitionlessLink;
-import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.writePartitionlessLink;
+import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.readPartitionless;
+import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.writePartitionless;
 
 import java.nio.ByteBuffer;
 import java.util.UUID;
@@ -90,7 +89,7 @@ public interface SortedIndexTreeIo {
 
         SortedIndexRow sortedIndexRow = (SortedIndexRow) rowKey;
 
-        writePartitionlessLink(pageAddr + off + INDEX_COLUMNS_LINK_OFFSET, sortedIndexRow.indexColumns().link());
+        writePartitionless(pageAddr + off + INDEX_COLUMNS_LINK_OFFSET, sortedIndexRow.indexColumns().link());
 
         RowId rowId = sortedIndexRow.rowId();
 
@@ -120,7 +119,7 @@ public interface SortedIndexTreeIo {
     ) throws IgniteInternalCheckedException {
         int off = offset(idx);
 
-        long link = readPartitionlessLink(partitionId, pageAddr, off + INDEX_COLUMNS_LINK_OFFSET);
+        long link = readPartitionless(partitionId, pageAddr, off + INDEX_COLUMNS_LINK_OFFSET);
 
         //TODO Add in-place compare in IGNITE-17671
         ReadIndexColumnsValue indexColumnsTraversal = new ReadIndexColumnsValue();
@@ -132,8 +131,7 @@ public interface SortedIndexTreeIo {
 
         int cmp = binaryTupleComparator.compare(firstBinaryTupleBuffer, secondBinaryTupleBuffer);
 
-        // Binary Tuple Prefixes don't have row IDs, so they can't be compared.
-        if (cmp != 0 || isPrefix(secondBinaryTupleBuffer)) {
+        if (cmp != 0) {
             return cmp;
         }
 
@@ -168,7 +166,7 @@ public interface SortedIndexTreeIo {
             throws IgniteInternalCheckedException {
         int off = offset(idx);
 
-        long link = readPartitionlessLink(partitionId, pageAddr, off + INDEX_COLUMNS_LINK_OFFSET);
+        long link = readPartitionless(partitionId, pageAddr, off + INDEX_COLUMNS_LINK_OFFSET);
 
         ReadIndexColumnsValue indexColumnsTraversal = new ReadIndexColumnsValue();
 

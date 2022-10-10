@@ -36,6 +36,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinReadyCommand;
@@ -80,11 +81,11 @@ public class ItCmgRaftServiceTest {
 
         private final Loza raftManager;
 
-        private final ClusterStateStorage raftStorage = new ConcurrentMapClusterStateStorage();
+        private final ClusterStateStorage raftStorage = new TestClusterStateStorage();
 
         Node(TestInfo testInfo, NetworkAddress addr, NodeFinder nodeFinder, Path workDir) {
             this.clusterService = clusterService(testInfo, addr.port(), nodeFinder);
-            this.raftManager = new Loza(clusterService, raftConfiguration, workDir);
+            this.raftManager = new Loza(clusterService, raftConfiguration, workDir, new HybridClock());
         }
 
         void start() {

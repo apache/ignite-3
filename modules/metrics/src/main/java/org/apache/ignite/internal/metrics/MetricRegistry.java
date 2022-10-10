@@ -21,7 +21,9 @@ import static java.util.Collections.emptyMap;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
 
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.locks.ReentrantLock;
@@ -193,7 +195,7 @@ public class MetricRegistry {
             MetricSource src = sources.get(srcName);
 
             if (src == null) {
-                throw new IllegalStateException("Metrics source with given name doesn't exists: " + srcName);
+                throw new IllegalStateException("Metrics source with given name doesn't exist: " + srcName);
             }
 
             if (!src.enabled()) {
@@ -289,5 +291,19 @@ public class MetricRegistry {
      */
     public IgniteBiTuple<Map<String, MetricSet>, Long> metricSnapshot() {
         return metricSnapshot;
+    }
+
+    /**
+     * Gets a collection of registered metric sources.
+     *
+     * @return Metric sources.
+     */
+    public Collection<MetricSource> metricSources() {
+        lock.lock();
+        try {
+            return List.copyOf(sources.values());
+        } finally {
+            lock.unlock();
+        }
     }
 }

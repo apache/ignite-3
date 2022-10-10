@@ -97,7 +97,7 @@ public class JdbcBatchPreparedStmntRequest implements ClientMessage {
         packer.packArrayHeader(args.size());
 
         for (Object[] arg : args) {
-            packer.packObjectArray(arg);
+            packer.packObjectArrayAsBinaryTuple(arg);
         }
     }
 
@@ -113,7 +113,7 @@ public class JdbcBatchPreparedStmntRequest implements ClientMessage {
         args = new ArrayList<>(n);
 
         for (int i = 0; i < n; ++i) {
-            args.add(unpacker.unpackObjectArray());
+            args.add(unpacker.unpackObjectArrayFromBinaryTuple());
         }
     }
 

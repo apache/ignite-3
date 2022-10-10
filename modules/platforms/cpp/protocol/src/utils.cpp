@@ -15,28 +15,57 @@
  * limitations under the License.
  */
 
-#include <mutex>
-#include <random>
-#include <sstream>
+#include "ignite/protocol/utils.h"
+#include "ignite/protocol/reader.h"
 
 #include <msgpack.h>
 
-#include "ignite/protocol/reader.h"
-#include "ignite/protocol/utils.h"
+#include <limits>
+#include <mutex>
+#include <random>
+#include <sstream>
+#include <type_traits>
 
 namespace ignite::protocol {
 
-template<>
-int64_t unpack_object(const msgpack_object &object) {
+template <typename T>
+T unpack_int(const msgpack_object &object) {
+    static_assert(
+        std::numeric_limits<T>::is_integer && std::numeric_limits<T>::is_signed, "Type T is not a signed integer type");
+
+    auto i64_val = unpack_object<std::int64_t>(object);
+
+    // TODO: maybe disable these checks on non-debug builds
+    if (i64_val > std::int64_t(std::numeric_limits<T>::max()))
+        throw ignite_error("The number in stream is too large to fit in type: " + std::to_string(i64_val));
+
+    if (i64_val < std::int64_t(std::numeric_limits<T>::min()))
+        throw ignite_error("The number in stream is too small to fit in type: " + std::to_string(i64_val));
+
+    return T(i64_val);
+}
+
+template <>
+std::int64_t unpack_object(const msgpack_object &object) {
     if (object.type != MSGPACK_OBJECT_NEGATIVE_INTEGER && object.type != MSGPACK_OBJECT_POSITIVE_INTEGER)
         throw ignite_error("The value in stream is not an integer number");
 
     return object.via.i64;
 }
 
-template<>
+template <>
+std::int32_t unpack_object(const msgpack_object &object) {
+    return unpack_int<std::int32_t>(object);
+}
+
+template <>
+std::int16_t unpack_object(const msgpack_object &object) {
+    return unpack_int<std::int16_t>(object);
+}
+
+template <>
 uuid unpack_object(const msgpack_object &object) {
-    if (object.type != MSGPACK_OBJECT_EXT && object.via.ext.type != std::int8_t(ExtensionTypes::UUID))
+    if (object.type != MSGPACK_OBJECT_EXT && object.via.ext.type != std::int8_t(extension_type::UUID))
         throw ignite_error("The value in stream is not a UUID");
 
     if (object.via.ext.size != 16)
@@ -50,7 +79,7 @@ uuid unpack_object(const msgpack_object &object) {
     return {msb, lsb};
 }
 
-template<>
+template <>
 std::string unpack_object(const msgpack_object &object) {
     if (object.type != MSGPACK_OBJECT_STR)
         throw ignite_error("The value in stream is not a string");
@@ -58,7 +87,7 @@ std::string unpack_object(const msgpack_object &object) {
     return {object.via.str.ptr, object.via.str.size};
 }
 
-uuid makeRandomUuid() {
+uuid make_random_uuid() {
     static std::mutex randomMutex;
     static std::random_device rd;
     static std::mt19937 gen(rd());
@@ -70,18 +99,18 @@ uuid makeRandomUuid() {
     return {distrib(gen), distrib(gen)};
 }
 
-std::optional<ignite_error> readError(Reader &reader) {
-    if (reader.tryReadNil())
+std::optional<ignite_error> read_error(reader &reader) {
+    if (reader.try_read_nil())
         return std::nullopt;
 
-    uuid traceId = reader.tryReadNil() ? makeRandomUuid() : reader.readUuid();
-    int32_t code = reader.tryReadNil() ? 65537 : reader.readInt32();
-    std::string className = reader.readString();
-    std::string message = reader.readString();
+    auto trace_id = reader.try_read_nil() ? make_random_uuid() : reader.read_uuid();
+    auto code = reader.read_object_or_default<std::int32_t>(65537);
+    auto class_name = reader.read_string();
+    auto message = reader.read_string();
 
     std::stringstream errMsgBuilder;
 
-    errMsgBuilder << className << ": " << message << " (" << code << ", " << traceId << ")";
+    errMsgBuilder << class_name << ": " << message << " (" << code << ", " << trace_id << ")";
 
     return {ignite_error(status_code(code), errMsgBuilder.str())};
 }
