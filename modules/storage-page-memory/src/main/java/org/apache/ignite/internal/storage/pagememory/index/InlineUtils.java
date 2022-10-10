@@ -35,8 +35,6 @@ import org.apache.ignite.internal.storage.index.IndexDescriptor.ColumnDescriptor
 
 /**
  * Helper class for index inlining.
- *
- * 
  */
 public class InlineUtils {
     /** Maximum inline size for a {@link BinaryTuple}, in bytes. */
