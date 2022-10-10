@@ -659,6 +659,7 @@ public class RexUtils {
      * AsBound.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
+    @Deprecated(forRemoval = true)
     public static List<RexNode> asBound(RelOptCluster cluster, Iterable<RexNode> idxCond, RelDataType rowType,
             @Nullable Mappings.TargetMapping mapping) {
         if (nullOrEmpty(idxCond)) {

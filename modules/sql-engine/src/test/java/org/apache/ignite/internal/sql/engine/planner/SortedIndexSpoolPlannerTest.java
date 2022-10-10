@@ -194,7 +194,7 @@ public class SortedIndexSpoolPlannerTest extends AbstractPlannerTest {
                         .addIndex("t0_jid_idx", 1),
                 createTable("T1", 100, IgniteDistributions.affinity(0, "T1", "hash"),
                         "ID", Integer.class, "JID", Integer.class, "VAL", String.class)
-                        .addIndex(RelCollations.of(TraitUtils.createFieldCollation(1, ColumnCollation.DESC_NULLS_FIRST)), "t1_jid_idx")
+                        .addIndex(RelCollations.of(TraitUtils.createFieldCollation(1, ColumnCollation.DESC_NULLS_LAST)), "t1_jid_idx")
         );
 
         String sql = "select * "
