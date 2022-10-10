@@ -15,14 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cluster.management.raft;
+package org.apache.ignite.internal.cli.commands.node.metric;
 
-/**
- * Test class for {@link ConcurrentMapClusterStateStorage}.
- */
-public class ConcurrentMapClusterStateStorageTest extends AbstractClusterStateStorageTest {
-    @Override
-    ClusterStateStorage createStorage() {
-        return new ConcurrentMapClusterStateStorage();
-    }
+import org.apache.ignite.internal.cli.commands.BaseCommand;
+import picocli.CommandLine.Command;
+
+/** Node metric command in REPL. */
+@Command(name = "metric",
+        subcommands = {NodeMetricEnableReplCommand.class, NodeMetricDisableReplCommand.class, NodeMetricListReplCommand.class},
+        description = "Node metric operations")
+public class NodeMetricReplCommand extends BaseCommand {
 }

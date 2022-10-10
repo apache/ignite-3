@@ -15,25 +15,14 @@
  * limitations under the License.
  */
 
-#pragma once
+package org.apache.ignite.internal.cli.commands.node.metric;
 
-namespace ignite::platform {
+import org.apache.ignite.internal.cli.commands.BaseCommand;
+import picocli.CommandLine.Command;
 
-/**
- * Byte order utility class.
- */
-class ByteOrder {
-private:
-    static constexpr uint32_t fourBytes = 0x01020304;
-    static constexpr uint8_t lesserByte = (const uint8_t &)fourBytes;
-
-public:
-    ByteOrder() = delete;
-
-    static constexpr bool littleEndian = lesserByte == 0x04;
-    static constexpr bool bigEndian = lesserByte == 0x01;
-
-    static_assert(littleEndian || bigEndian, "Unknown byte order");
-};
-
-} // ignite::platform
+/** Node metric command. */
+@Command(name = "metric",
+        subcommands = {NodeMetricEnableCommand.class, NodeMetricDisableCommand.class, NodeMetricListCommand.class},
+        description = "Node metric operations")
+public class NodeMetricCommand extends BaseCommand {
+}

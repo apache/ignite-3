@@ -39,7 +39,7 @@ import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
-import org.apache.ignite.internal.cluster.management.raft.ConcurrentMapClusterStateStorage;
+import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorageListener;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -124,7 +124,7 @@ public class ItDistributedConfigurationPropertiesTest {
                     vaultManager,
                     clusterService,
                     raftManager,
-                    new ConcurrentMapClusterStateStorage()
+                    new TestClusterStateStorage()
             );
 
             metaStorageManager = new MetaStorageManager(

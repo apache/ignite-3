@@ -55,6 +55,8 @@ import org.junit.jupiter.api.BeforeEach;
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class AbstractExecutionTest extends IgniteAbstractTest {
+    public static final Object[][] EMPTY = new Object[0][];
+
     private Throwable lastE;
 
     private QueryTaskExecutorImpl taskExecutor;

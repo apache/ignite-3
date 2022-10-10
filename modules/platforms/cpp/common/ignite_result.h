@@ -23,8 +23,8 @@
 #include <functional>
 #include <future>
 #include <optional>
-#include <variant>
 #include <string>
+#include <variant>
 
 namespace ignite {
 
@@ -211,7 +211,6 @@ public:
      */
     explicit operator bool() const noexcept { return !has_error(); }
 
-
 private:
     /** Error. */
     std::optional<ignite_error> m_error;
@@ -244,7 +243,7 @@ ignite_result<T> result_of_operation(const std::function<T()> &operation) noexce
         return {ignite_error(status_code::GENERIC, msg, std::current_exception())};
     } catch (...) {
         return {ignite_error(status_code::UNKNOWN, "Unknown error is encountered when processing network event",
-                             std::current_exception())};
+            std::current_exception())};
     }
 }
 
@@ -277,8 +276,7 @@ void result_set_promise(std::promise<T> &pr, ignite_result<T> &&res) {
 template <typename T>
 std::function<void(ignite_result<T>)> result_promise_setter(std::shared_ptr<std::promise<T>> pr) {
     // TODO: IGNITE-17760 Move to common once it's re-factored
-    return [pr = std::move(pr)](
-            ignite_result<T> &&res) mutable { result_set_promise<T>(*pr, std::move(res)); };
+    return [pr = std::move(pr)](ignite_result<T> &&res) mutable { result_set_promise<T>(*pr, std::move(res)); };
 }
 
 } // namespace ignite

@@ -18,14 +18,17 @@
 namespace Apache.Ignite.Tests.Compute
 {
     using System;
+    using System.Collections;
     using System.Collections.Generic;
     using System.Linq;
     using System.Net;
+    using System.Numerics;
     using System.Threading.Tasks;
     using Ignite.Compute;
     using Ignite.Table;
     using Internal.Network;
     using Network;
+    using NodaTime;
     using NUnit.Framework;
     using Table;
 
@@ -49,6 +52,8 @@ namespace Apache.Ignite.Tests.Compute
         private const string CreateTableJob = PlatformTestNodeRunner + "$CreateTableJob";
 
         private const string DropTableJob = PlatformTestNodeRunner + "$DropTableJob";
+
+        private const string ExceptionJob = PlatformTestNodeRunner + "$ExceptionJob";
 
         [Test]
         public async Task TestGetClusterNodes()
@@ -138,7 +143,7 @@ namespace Apache.Ignite.Tests.Compute
 
             StringAssert.Contains("Custom job error", ex!.Message);
 
-            Assert.AreEqual(
+            StringAssert.StartsWith(
                 "org.apache.ignite.internal.runner.app.client.ItThinClientComputeTest$CustomException",
                 ex.InnerException!.Message);
 
@@ -159,38 +164,54 @@ namespace Apache.Ignite.Tests.Compute
             StringAssert.Contains("Specified node is not present in the cluster: y", ex!.Message);
         }
 
-        // TODO IGNITE-17777 Thin 3.0: use BinaryTuple for Compute and SQL results and arguments
         [Test]
         public async Task TestAllSupportedArgTypes()
         {
-            await Test(byte.MinValue);
-            await Test(byte.MaxValue, -1);
             await Test(sbyte.MinValue);
             await Test(sbyte.MaxValue);
             await Test(short.MinValue);
             await Test(short.MaxValue);
-            await Test(ushort.MinValue);
-            await Test(ushort.MaxValue, -1);
             await Test(int.MinValue);
             await Test(int.MaxValue);
-            await Test(uint.MinValue);
-            await Test(uint.MaxValue, -1);
             await Test(long.MinValue);
             await Test(long.MaxValue);
-            await Test(ulong.MinValue);
-            await Test(ulong.MaxValue, -1);
             await Test(float.MinValue);
             await Test(float.MaxValue);
             await Test(double.MinValue);
             await Test(double.MaxValue);
+
+            await Test(123.456m);
+            await Test(-123.456m);
+            await Test(decimal.MinValue);
+            await Test(decimal.MaxValue);
+
+            await Test(new byte[] { 1, 255 });
             await Test("Ignite 🔥");
-            await Test(Guid.NewGuid());
+            await Test(new BitArray(new[] { byte.MaxValue }), "{0, 1, 2, 3, 4, 5, 6, 7}");
+            await Test(LocalDate.MinIsoValue, "-9998-01-01");
+            await Test(LocalTime.Noon, "12:00");
+            await Test(LocalDateTime.MaxIsoValue, "9999-12-31T23:59:59.999999999");
+            await Test(Instant.FromUtc(2001, 3, 4, 5, 6));
 
-            async Task Test(object val, object? expected = null)
+            await Test(BigInteger.One);
+            await Test(BigInteger.Zero);
+            await Test(BigInteger.MinusOne);
+            await Test(new BigInteger(123456));
+            await Test(BigInteger.Pow(1234, 56));
+
+            await Test(Guid.Empty);
+
+            // TODO IGNITE-17830 String representation should be the same in Java and C#.
+            await Test(
+                new Guid(new byte[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 }), "07080506-0102-0304-100f-0e0d0c0b0a09");
+
+            async Task Test(object val, string? expectedStr = null)
             {
-                var res = await Client.Compute.ExecuteAsync<object>(await Client.GetClusterNodesAsync(), EchoJob, val);
+                var nodes = await Client.GetClusterNodesAsync();
+                var str = expectedStr ?? val.ToString()!.Replace("E+", "E");
+                var res = await Client.Compute.ExecuteAsync<object>(nodes, EchoJob, val, str);
 
-                Assert.AreEqual(expected ?? val, res);
+                Assert.AreEqual(val, res);
             }
         }
 
@@ -255,6 +276,22 @@ namespace Apache.Ignite.Tests.Compute
             {
                 await Client.Compute.ExecuteAsync<string>(nodes, DropTableJob, tableName);
             }
+        }
+
+        [Test]
+        public void TestExceptionInJobWithSendServerExceptionStackTraceToClientPropagatesToClientWithStackTrace()
+        {
+            var ex = Assert.ThrowsAsync<IgniteException>(async () =>
+                await Client.Compute.ExecuteAsync<object>(await GetNodeAsync(1), ExceptionJob, "foo-bar"));
+
+            Assert.AreEqual("Test exception: foo-bar", ex!.Message);
+            Assert.IsNotNull(ex.InnerException);
+
+            var str = ex.ToString();
+            StringAssert.Contains(" ---> Apache.Ignite.IgniteException: java.lang.RuntimeException: Test exception: foo-bar", str);
+            StringAssert.Contains(
+                "at org.apache.ignite.internal.runner.app.PlatformTestNodeRunner$ExceptionJob.execute(PlatformTestNodeRunner.java:",
+                str);
         }
 
         private async Task<List<IClusterNode>> GetNodeAsync(int index) =>

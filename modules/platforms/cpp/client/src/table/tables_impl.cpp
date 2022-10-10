@@ -15,18 +15,19 @@
  * limitations under the License.
  */
 
+#include "tables_impl.h"
+
 #include "ignite/protocol/reader.h"
 #include "ignite/protocol/writer.h"
-#include "table/tables_impl.h"
 
 namespace ignite::detail {
 
 void TablesImpl::getTableAsync(const std::string &name, ignite_callback<std::optional<Table>> callback) {
-    auto readerFunc = [name](protocol::Reader &reader) -> std::optional<Table> {
-        if (reader.tryReadNil())
+    auto readerFunc = [name](protocol::reader &reader) -> std::optional<Table> {
+        if (reader.try_read_nil())
             return std::nullopt;
 
-        auto id = reader.readUuid();
+        auto id = reader.read_uuid();
         auto tableImpl = std::make_shared<TableImpl>(name, id);
 
         return std::make_optional(Table(tableImpl));
@@ -36,23 +37,23 @@ void TablesImpl::getTableAsync(const std::string &name, ignite_callback<std::opt
         std::make_shared<ResponseHandlerImpl<std::optional<Table>>>(std::move(readerFunc), std::move(callback));
 
     m_connection->performRequest(
-        ClientOperation::TABLE_GET, [&name](protocol::Writer &writer) { writer.write(name); }, std::move(handler));
+        ClientOperation::TABLE_GET, [&name](protocol::writer &writer) { writer.write(name); }, std::move(handler));
 }
 
 void TablesImpl::getTablesAsync(ignite_callback<std::vector<Table>> callback) {
-    auto readerFunc = [](protocol::Reader &reader) -> std::vector<Table> {
-        if (reader.tryReadNil())
+    auto readerFunc = [](protocol::reader &reader) -> std::vector<Table> {
+        if (reader.try_read_nil())
             return {};
 
         std::vector<Table> tables;
-        tables.reserve(reader.readMapSize());
+        tables.reserve(reader.read_map_size());
 
-        reader.readMap<uuid, std::string>([&tables] (auto&& id, auto&& name) {
+        reader.read_map<uuid, std::string>([&tables](auto &&id, auto &&name) {
             auto tableImpl = std::make_shared<TableImpl>(std::forward<std::string>(name), std::forward<uuid>(id));
             tables.push_back(Table{tableImpl});
         });
 
-        return std::move(tables);
+        return tables;
     };
 
     auto handler =

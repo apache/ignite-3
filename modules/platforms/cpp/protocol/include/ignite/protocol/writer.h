@@ -17,49 +17,41 @@
 
 #pragma once
 
+#include "common/types.h"
+#include "ignite/protocol/buffer_adapter.h"
+
+#include <msgpack.h>
+
 #include <cstdint>
 #include <functional>
 #include <memory>
 #include <string_view>
-
-#include <msgpack.h>
-
-#include "common/types.h"
-#include "ignite/protocol/buffer_adapter.h"
 
 namespace ignite::protocol {
 
 /**
  * Writer.
  */
-class Writer {
+class writer {
 public:
     // Default
-    ~Writer() = default;
+    ~writer() = default;
 
     // Deleted
-    Writer() = delete;
-    Writer(Writer &&) = delete;
-    Writer(const Writer &) = delete;
-    Writer &operator=(Writer &&) = delete;
-    Writer &operator=(const Writer &) = delete;
-
-    /**
-     * Write message to buffer.
-     *
-     * @param buffer Buffer to use.
-     * @param script Function.
-     */
-    static void writeMessageToBuffer(BufferAdapter &buffer, const std::function<void(Writer &)> &script);
+    writer() = delete;
+    writer(writer &&) = delete;
+    writer(const writer &) = delete;
+    writer &operator=(writer &&) = delete;
+    writer &operator=(const writer &) = delete;
 
     /**
      * Constructor.
      *
      * @param buffer Buffer.
      */
-    explicit Writer(BufferAdapter &buffer)
+    explicit writer(buffer_adapter &buffer)
         : m_buffer(buffer)
-        , m_packer(msgpack_packer_new(&m_buffer, writeCallback), msgpack_packer_free) {
+        , m_packer(msgpack_packer_new(&m_buffer, write_callback), msgpack_packer_free) {
         assert(m_packer.get());
     }
 
@@ -68,28 +60,28 @@ public:
      *
      * @param value Value to write.
      */
-    void write(int8_t value) { msgpack_pack_int8(m_packer.get(), value); }
+    void write(std::int8_t value) { msgpack_pack_int8(m_packer.get(), value); }
 
     /**
      * Write int value.
      *
      * @param value Value to write.
      */
-    void write(int16_t value) { msgpack_pack_int16(m_packer.get(), value); }
+    void write(std::int16_t value) { msgpack_pack_int16(m_packer.get(), value); }
 
     /**
      * Write int value.
      *
      * @param value Value to write.
      */
-    void write(int32_t value) { msgpack_pack_int32(m_packer.get(), value); }
+    void write(std::int32_t value) { msgpack_pack_int32(m_packer.get(), value); }
 
     /**
      * Write int value.
      *
      * @param value Value to write.
      */
-    void write(int64_t value) { msgpack_pack_int64(m_packer.get(), value); }
+    void write(std::int64_t value) { msgpack_pack_int64(m_packer.get(), value); }
 
     /**
      * Write string value.
@@ -101,12 +93,12 @@ public:
     /**
      * Write empty binary data.
      */
-    void writeBinaryEmpty() { msgpack_pack_bin(m_packer.get(), 0); }
+    void write_binary_empty() { msgpack_pack_bin(m_packer.get(), 0); }
 
     /**
      * Write empty map.
      */
-    void writeMapEmpty() { msgpack_pack_map(m_packer.get(), 0); }
+    void write_map_empty() { msgpack_pack_map(m_packer.get(), 0); }
 
 private:
     /**
@@ -117,13 +109,28 @@ private:
      * @param len Data length.
      * @return Write result.
      */
-    static int writeCallback(void *data, const char *buf, size_t len);
+    static int write_callback(void *data, const char *buf, size_t len);
 
     /** Buffer adapter. */
-    BufferAdapter &m_buffer;
+    buffer_adapter &m_buffer;
 
     /** Packer. */
     std::unique_ptr<msgpack_packer, void (*)(msgpack_packer *)> m_packer;
 };
+
+/**
+ * Write message to buffer.
+ *
+ * @param buffer Buffer to use.
+ * @param func Function.
+ */
+inline void write_message_to_buffer(buffer_adapter &buffer, const std::function<void(writer &)> &func) {
+    buffer.reserve_length_header();
+
+    protocol::writer writer(buffer);
+    func(writer);
+
+    buffer.write_length_header();
+}
 
 } // namespace ignite::protocol
