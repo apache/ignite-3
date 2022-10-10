@@ -706,7 +706,7 @@ public class ClientMessageUnpacker implements AutoCloseable {
             throw new MessageSizeException("Expected 16 bytes for UUID extension, but got " + len, len);
         }
 
-        return new UUID(buf.readLong(), buf.readLong());
+        return new UUID(buf.readLongLE(), buf.readLongLE());
     }
 
     /**
