@@ -73,3 +73,18 @@ The following table describes some properties of javadoc:org.apache.ignite.confi
 |maxSize|`256 * 1024 * 1024`| Sets the maximum space that can be allocated to the data region.
 |replacementMode|`CLOCK`| Sets the page replacement algorithm.
 |===
+
+
+== Configuration Example
+
+The example below shows how to configure one data region that uses Ignite persistence:
+
+----
+ignite config set --type cluster \
+"{
+    aipersist.regions: [{
+        name: btree_persistent_region,
+        maxSize: 256000000
+    }]
+}"
+----

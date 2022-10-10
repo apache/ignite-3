@@ -34,3 +34,19 @@ Below is the list of properties for link:https://rocksdb.org/[RocksDB,window=_bl
 |cache| `lru` | The type of the cache to use. Currently only lru is supported. Using `clock` cache is not recommended.
 |numShardBits| `-1` | The number of parts the cache is sharded to.
 |===
+
+
+== Configuration Example
+
+The example below shows how to configure a data region with RocksDB storage:
+
+----
+ignite config set --type cluster \
+"{
+    rocksDb.regions: [{
+        name: lsm_region,
+        size: 256000000,
+        cache: lru
+    }]
+}"
+----
