@@ -73,7 +73,7 @@ struct TcpRange {
      *
      * @return String representation.
      */
-    [[nodiscard]] std::string toString() const {
+    [[nodiscard]] std::string to_string() const {
         return host + ':' + std::to_string(port) + ".." + std::to_string(port + range);
     }
 

@@ -17,8 +17,8 @@
 
 #include "ignite_runner_suite.h"
 
-#include "ignite/ignite_client.h"
-#include "ignite/ignite_client_configuration.h"
+#include <ignite/client/ignite_client.h>
+#include <ignite/client/ignite_client_configuration.h>
 
 #include <gtest/gtest.h>
 
@@ -34,28 +34,28 @@ using namespace ignite;
 class tables_test : public ignite_runner_suite { };
 
 TEST_F(tables_test, tables_get_table_async_promises) {
-    IgniteClientConfiguration cfg{NODE_ADDRS};
-    cfg.setLogger(get_logger());
+    ignite_client_configuration cfg{NODE_ADDRS};
+    cfg.set_logger(get_logger());
 
-    auto clientPromise = std::make_shared<std::promise<IgniteClient>>();
-    IgniteClient::startAsync(cfg, std::chrono::seconds(5), result_promise_setter(clientPromise));
+    auto clientPromise = std::make_shared<std::promise<ignite_client>>();
+    ignite_client::start_async(cfg, std::chrono::seconds(5), result_promise_setter(clientPromise));
 
     auto client = clientPromise->get_future().get();
 
-    auto tables = client.getTables();
+    auto tables = client.get_tables();
 
-    auto tablePromise = std::make_shared<std::promise<std::optional<Table>>>();
-    tables.getTableAsync("PUB.some_unknown", result_promise_setter(tablePromise));
+    auto tablePromise = std::make_shared<std::promise<std::optional<table>>>();
+    tables.get_table_async("PUB.some_unknown", result_promise_setter(tablePromise));
 
     auto tableUnknown = tablePromise->get_future().get();
     EXPECT_FALSE(tableUnknown.has_value());
 
-    tablePromise = std::make_shared<std::promise<std::optional<Table>>>();
-    tables.getTableAsync("PUB.tbl1", result_promise_setter(tablePromise));
+    tablePromise = std::make_shared<std::promise<std::optional<table>>>();
+    tables.get_table_async("PUB.tbl1", result_promise_setter(tablePromise));
 
     auto table = tablePromise->get_future().get();
     ASSERT_TRUE(table.has_value());
-    EXPECT_EQ(table->getName(), "PUB.tbl1");
+    EXPECT_EQ(table->name(), "PUB.tbl1");
 }
 
 template <typename T>
@@ -76,20 +76,20 @@ TEST_F(tables_test, tables_get_table_async_callbacks) {
     auto operation1 = std::make_shared<std::promise<void>>();
     auto operation2 = std::make_shared<std::promise<void>>();
 
-    IgniteClientConfiguration cfg{NODE_ADDRS};
-    cfg.setLogger(get_logger());
+    ignite_client_configuration cfg{NODE_ADDRS};
+    cfg.set_logger(get_logger());
 
-    IgniteClient client;
+    ignite_client client;
 
-    IgniteClient::startAsync(cfg, std::chrono::seconds(5), [&](ignite_result<IgniteClient> clientRes) {
+    ignite_client::start_async(cfg, std::chrono::seconds(5), [&](ignite_result<ignite_client> clientRes) {
         if (!check_and_set_operation_error(*operation0, clientRes))
             return;
 
         client = std::move(clientRes).value();
-        auto tables = client.getTables();
+        auto tables = client.get_tables();
 
         operation0->set_value();
-        tables.getTableAsync("PUB.some_unknown", [&](auto tableRes) {
+        tables.get_table_async("PUB.some_unknown", [&](auto tableRes) {
             if (!check_and_set_operation_error(*operation1, tableRes))
                 return;
 
@@ -102,7 +102,7 @@ TEST_F(tables_test, tables_get_table_async_callbacks) {
             operation1->set_value();
         });
 
-        tables.getTableAsync("PUB.tbl1", [&](auto tableRes) {
+        tables.get_table_async("PUB.tbl1", [&](auto tableRes) {
             if (!check_and_set_operation_error(*operation2, tableRes))
                 return;
 
@@ -111,9 +111,9 @@ TEST_F(tables_test, tables_get_table_async_callbacks) {
                 operation2->set_exception(std::make_exception_ptr(ignite_error("Table should not be null")));
                 return;
             }
-            if (table->getName() != "PUB.tbl1") {
+            if (table->name() != "PUB.tbl1") {
                 operation2->set_exception(
-                    std::make_exception_ptr(ignite_error("Table has unexpected name: " + table->getName())));
+                    std::make_exception_ptr(ignite_error("Table has unexpected name: " + table->name())));
                 return;
             }
 
@@ -128,20 +128,20 @@ TEST_F(tables_test, tables_get_table_async_callbacks) {
 }
 
 TEST_F(tables_test, tables_get_tables_async_promises) {
-    IgniteClientConfiguration cfg{NODE_ADDRS};
-    cfg.setLogger(get_logger());
+    ignite_client_configuration cfg{NODE_ADDRS};
+    cfg.set_logger(get_logger());
 
-    auto client = IgniteClient::start(cfg, std::chrono::seconds(5));
+    auto client = ignite_client::start(cfg, std::chrono::seconds(5));
 
-    auto tablesApi = client.getTables();
+    auto tablesApi = client.get_tables();
 
-    auto tablesPromise = std::make_shared<std::promise<std::vector<Table>>>();
-    tablesApi.getTablesAsync(result_promise_setter(tablesPromise));
+    auto tablesPromise = std::make_shared<std::promise<std::vector<table>>>();
+    tablesApi.get_tables_async(result_promise_setter(tablesPromise));
 
     auto tables = tablesPromise->get_future().get();
     ASSERT_GT(tables.size(), 0);
 
-    auto it = std::find_if(tables.begin(), tables.end(), [](auto &table) { return table.getName() == "PUB.TBL1"; });
+    auto it = std::find_if(tables.begin(), tables.end(), [](auto &table) { return table.name() == "PUB.TBL1"; });
 
     ASSERT_NE(it, tables.end());
 }

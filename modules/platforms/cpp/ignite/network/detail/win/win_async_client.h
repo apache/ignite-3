@@ -133,7 +133,7 @@ public:
      *
      * @return Client ID.
      */
-    [[nodiscard]] uint64_t getId() const { return m_id; }
+    [[nodiscard]] uint64_t id() const { return m_id; }
 
     /**
      * Set ID.

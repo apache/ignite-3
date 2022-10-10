@@ -17,11 +17,11 @@
 
 #pragma once
 
-#include "client_operation.h"
-#include "ignite/ignite_client_configuration.h"
-#include "node_connection.h"
-#include "protocol_context.h"
-#include "response_handler.h"
+#include <ignite/client/detail/client_operation.h>
+#include <ignite/client/detail/node_connection.h>
+#include <ignite/client/detail/protocol_context.h>
+#include <ignite/client/detail/response_handler.h>
+#include <ignite/client/ignite_client_configuration.h>
 
 #include <ignite/common/ignite_result.h>
 #include <ignite/network/async_client_pool.h>
@@ -40,7 +40,7 @@ namespace ignite::protocol {
 
 class reader;
 
-}
+} // namespace ignite::protocol
 
 namespace ignite::detail {
 
@@ -49,7 +49,7 @@ namespace ignite::detail {
  *
  * Considered established while there is connection to at least one server.
  */
-class ClusterConnection : public std::enable_shared_from_this<ClusterConnection>, public network::AsyncHandler {
+class cluster_connection : public std::enable_shared_from_this<cluster_connection>, public network::AsyncHandler {
 public:
     /** Default TCP port. */
     static constexpr uint16_t DEFAULT_TCP_PORT = 10800;
@@ -60,28 +60,28 @@ public:
      * @param configuration Configuration.
      * @return New instance.
      */
-    static std::shared_ptr<ClusterConnection> create(IgniteClientConfiguration configuration) {
-        return std::shared_ptr<ClusterConnection>(new ClusterConnection(std::move(configuration)));
+    static std::shared_ptr<cluster_connection> create(ignite_client_configuration configuration) {
+        return std::shared_ptr<cluster_connection>(new cluster_connection(std::move(configuration)));
     }
 
     // Deleted
-    ClusterConnection() = delete;
-    ClusterConnection(ClusterConnection &&) = delete;
-    ClusterConnection(const ClusterConnection &) = delete;
-    ClusterConnection &operator=(ClusterConnection &&) = delete;
-    ClusterConnection &operator=(const ClusterConnection &) = delete;
+    cluster_connection() = delete;
+    cluster_connection(cluster_connection &&) = delete;
+    cluster_connection(const cluster_connection &) = delete;
+    cluster_connection &operator=(cluster_connection &&) = delete;
+    cluster_connection &operator=(const cluster_connection &) = delete;
 
     /**
      * Destructor.
      */
-    ~ClusterConnection() override { stop(); }
+    ~cluster_connection() override { stop(); }
 
     /**
      * Start establishing connection.
      *
      * @param callback Callback.
      */
-    void startAsync(std::function<void(ignite_result<void>)> callback);
+    void start_async(std::function<void(ignite_result<void>)> callback);
 
     /**
      * Stop connection.
@@ -97,14 +97,14 @@ public:
      * @param handler Response handler.
      */
     template <typename T>
-    void performRequest(ClientOperation op, const std::function<void(protocol::writer &)> &wr,
-        std::shared_ptr<ResponseHandlerImpl<T>> handler) {
+    void perform_request(client_operation op, const std::function<void(protocol::writer &)> &wr,
+        std::shared_ptr<response_handler_impl<T>> handler) {
         while (true) {
-            auto channel = getRandomChannel();
+            auto channel = get_random_channel();
             if (!channel)
                 throw ignite_error("No nodes connected");
 
-            auto res = channel->performRequest(op, wr, std::move(handler));
+            auto res = channel->perform_request(op, wr, std::move(handler));
             if (res)
                 return;
         }
@@ -118,8 +118,8 @@ public:
      * @param handler Response handler.
      */
     template <typename T>
-    void performRequest(ClientOperation op, std::shared_ptr<ResponseHandlerImpl<T>> handler) {
-        performRequest(
+    void perform_request(client_operation op, std::shared_ptr<response_handler_impl<T>> handler) {
+        perform_request(
             op, [](protocol::writer &) {}, std::move(handler));
     }
 
@@ -129,14 +129,14 @@ private:
      *
      * @return Random node connection or nullptr if there are no active connections.
      */
-    std::shared_ptr<NodeConnection> getRandomChannel();
+    std::shared_ptr<node_connection> get_random_channel();
 
     /**
      * Constructor.
      *
      * @param configuration Configuration.
      */
-    explicit ClusterConnection(IgniteClientConfiguration configuration);
+    explicit cluster_connection(ignite_client_configuration configuration);
 
     /**
      * Callback that called on successful connection establishment.
@@ -144,7 +144,7 @@ private:
      * @param addr Address of the new connection.
      * @param id Connection ID.
      */
-    void onConnectionSuccess(const network::EndPoint &addr, uint64_t id) override;
+    void on_connection_success(const network::EndPoint &addr, uint64_t id) override;
 
     /**
      * Callback that called on error during connection establishment.
@@ -152,7 +152,7 @@ private:
      * @param addr Connection address.
      * @param err Error.
      */
-    void onConnectionError(const network::EndPoint &addr, ignite_error err) override;
+    void on_connection_error(const network::EndPoint &addr, ignite_error err) override;
 
     /**
      * Callback that called on error during connection establishment.
@@ -160,7 +160,7 @@ private:
      * @param id Async client ID.
      * @param err Error. Can be null if connection closed without error.
      */
-    void onConnectionClosed(uint64_t id, std::optional<ignite_error> err) override;
+    void on_connection_closed(uint64_t id, std::optional<ignite_error> err) override;
 
     /**
      * Callback that called when new message is received.
@@ -168,28 +168,28 @@ private:
      * @param id Async client ID.
      * @param msg Received message.
      */
-    void onMessageReceived(uint64_t id, bytes_view msg) override;
+    void on_message_received(uint64_t id, bytes_view msg) override;
 
     /**
      * Callback that called when message is sent.
      *
      * @param id Async client ID.
      */
-    void onMessageSent(uint64_t id) override;
+    void on_message_sent(uint64_t id) override;
 
     /**
      * Remove client.
      *
      * @param id Connection ID.
      */
-    void removeClient(uint64_t id);
+    void remove_client(uint64_t id);
 
     /**
      * Handle initial connection result.
      *
      * @param res Connect result.
      */
-    void initialConnectResult(ignite_result<void> &&res);
+    void initial_connect_result(ignite_result<void> &&res);
 
     /**
      * Find and return client.
@@ -197,28 +197,28 @@ private:
      * @param id Client ID.
      * @return Client if found and nullptr otherwise.
      */
-    [[nodiscard]] std::shared_ptr<NodeConnection> findClient(uint64_t id);
+    [[nodiscard]] std::shared_ptr<node_connection> find_client(uint64_t id);
 
     /** Configuration. */
-    const IgniteClientConfiguration m_configuration;
+    const ignite_client_configuration m_configuration;
 
     /** Callback to call on initial connect. */
-    std::function<void(ignite_result<void>)> m_onInitialConnect;
+    std::function<void(ignite_result<void>)> m_on_initial_connect;
 
     /** Initial connect mutex. */
-    std::mutex m_onInitialConnectMutex;
+    std::mutex m_on_initial_connect_mutex;
 
     /** Connection pool. */
     std::shared_ptr<network::AsyncClientPool> m_pool;
 
     /** Logger. */
-    std::shared_ptr<IgniteLogger> m_logger;
+    std::shared_ptr<ignite_logger> m_logger;
 
     /** Node connections. */
-    std::unordered_map<uint64_t, std::shared_ptr<NodeConnection>> m_connections;
+    std::unordered_map<uint64_t, std::shared_ptr<node_connection>> m_connections;
 
     /** Connections mutex. */
-    std::recursive_mutex m_connectionsMutex;
+    std::recursive_mutex m_connections_mutex;
 
     /** Generator. */
     std::mt19937 m_generator;

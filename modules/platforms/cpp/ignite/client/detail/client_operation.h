@@ -17,37 +17,34 @@
 
 #pragma once
 
-#include "protocol_version.h"
-
 namespace ignite::detail {
 
 /**
- * Represents connection to the cluster.
- *
- * Considered established while there is connection to at least one server.
+ * Client operation code.
  */
-class ProtocolContext {
-public:
-    /** The latest currently supported version. */
-    static constexpr ProtocolVersion CURRENT_VERSION{3, 0, 0};
+enum class client_operation {
+    /** Get all tables. */
+    TABLES_GET = 3,
 
-    /**
-     * Get protocol version.
-     *
-     * @return protocol version.
-     */
-    [[nodiscard]] ProtocolVersion getVersion() const { return m_version; }
+    /** Get table. */
+    TABLE_GET = 4,
 
-    /**
-     * Set version.
-     *
-     * @param ver Version to set.
-     */
-    void setVersion(ProtocolVersion ver) { m_version = ver; }
+    /** Upsert tuple. */
+    TUPLE_UPSERT = 10,
 
-private:
-    /** Protocol version. */
-    ProtocolVersion m_version{CURRENT_VERSION};
+    /** Get tuple. */
+    TUPLE_GET = 12,
+};
+
+/**
+ * Message type.
+ */
+enum class message_type {
+    /** Response. */
+    RESPONSE = 0,
+
+    /** Notification. */
+    NOTIFICATION = 1,
 };
 
 } // namespace ignite::detail

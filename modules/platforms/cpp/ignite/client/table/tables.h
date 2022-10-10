@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include <ignite/table/table.h>
+#include <ignite/client/table/table.h>
 
 #include <ignite/common/config.h>
 #include <ignite/common/ignite_result.h>
@@ -29,27 +29,29 @@
 namespace ignite {
 
 namespace detail {
-class TablesImpl;
-}
 
-class IgniteClient;
+class tables_impl;
+
+} // namespace
+
+class ignite_client;
 
 /**
  * Table management.
  */
-class Tables {
-    friend class IgniteClient;
+class tables {
+    friend class ignite_client;
 
 public:
-    // Deleted
-    Tables(const Tables &) = delete;
-    Tables &operator=(const Tables &) = delete;
-
     // Default
-    Tables() = default;
-    ~Tables() = default;
-    Tables(Tables &&) = default;
-    Tables &operator=(Tables &&) = default;
+    tables() = default;
+    ~tables() = default;
+    tables(tables &&) = default;
+    tables &operator=(tables &&) = default;
+
+    // Deleted
+    tables(const tables &) = delete;
+    tables &operator=(const tables &) = delete;
 
     /**
      * Gets a table by name, if it was created before.
@@ -62,7 +64,7 @@ public:
      *    an instance of the table with corresponding name or @c std::nullopt if the table does not exist.
      * @throw ignite_error In case of error while trying to send a request.
      */
-    IGNITE_API void getTableAsync(const std::string &name, ignite_callback<std::optional<Table>> callback);
+    IGNITE_API void get_table_async(const std::string &name, ignite_callback<std::optional<table>> callback);
 
     /**
      * Gets all tables.
@@ -71,7 +73,7 @@ public:
      *    a vector of all tables.
      * @throw ignite_error In case of error while trying to send a request.
      */
-    IGNITE_API void getTablesAsync(ignite_callback<std::vector<Table>> callback);
+    IGNITE_API void get_tables_async(ignite_callback<std::vector<table>> callback);
 
 private:
     /**
@@ -79,24 +81,25 @@ private:
      *
      * @param impl Implementation
      */
-    explicit Tables(std::shared_ptr<void> impl);
+    explicit tables(std::shared_ptr<detail::tables_impl> impl)
+        : m_impl(std::move(impl)) { }
 
     /**
      * Get implementation reference.
      *
      * @return Implementation reference.
      */
-    [[nodiscard]] detail::TablesImpl &getImpl();
+    [[nodiscard]] detail::tables_impl &impl() { return *m_impl; }
 
     /**
      * Get implementation reference.
      *
      * @return Implementation reference.
      */
-    [[nodiscard]] const detail::TablesImpl &getImpl() const;
+    [[nodiscard]] const detail::tables_impl &impl() const { return *m_impl; }
 
     /** Implementation. */
-    std::shared_ptr<void> m_impl;
+    std::shared_ptr<detail::tables_impl> m_impl;
 };
 
 } // namespace ignite

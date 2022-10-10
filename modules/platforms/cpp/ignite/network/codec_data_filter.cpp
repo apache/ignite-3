@@ -44,7 +44,7 @@ bool CodecDataFilter::send(uint64_t id, std::vector<std::byte> &&data) {
     return true;
 }
 
-void CodecDataFilter::onConnectionSuccess(const EndPoint &addr, uint64_t id) {
+void CodecDataFilter::on_connection_success(const EndPoint &addr, uint64_t id) {
     {
         std::lock_guard<std::mutex> lock(m_codecsMutex);
 
@@ -52,20 +52,20 @@ void CodecDataFilter::onConnectionSuccess(const EndPoint &addr, uint64_t id) {
         m_codecs.insert(std::make_pair(id, codec));
     }
 
-    DataFilterAdapter::onConnectionSuccess(addr, id);
+    DataFilterAdapter::on_connection_success(addr, id);
 }
 
-void CodecDataFilter::onConnectionClosed(uint64_t id, std::optional<ignite_error> err) {
+void CodecDataFilter::on_connection_closed(uint64_t id, std::optional<ignite_error> err) {
     {
         std::lock_guard<std::mutex> lock(m_codecsMutex);
 
         m_codecs.erase(id);
     }
 
-    DataFilterAdapter::onConnectionClosed(id, std::move(err));
+    DataFilterAdapter::on_connection_closed(id, std::move(err));
 }
 
-void CodecDataFilter::onMessageReceived(uint64_t id, bytes_view msg) {
+void CodecDataFilter::on_message_received(uint64_t id, bytes_view msg) {
     std::shared_ptr<Codec> codec = FindCodec(id);
     if (!codec)
         return;
@@ -77,7 +77,7 @@ void CodecDataFilter::onMessageReceived(uint64_t id, bytes_view msg) {
         if (out.isEmpty())
             break;
 
-        DataFilterAdapter::onMessageReceived(id, out.getBytesView());
+        DataFilterAdapter::on_message_received(id, out.getBytesView());
     }
 }
 

@@ -160,7 +160,7 @@ private:
      * @param id Client ID.
      * @return Client. Null pointer if is not found.
      */
-    [[nodiscard]] std::shared_ptr<WinAsyncClient> findClient(uint64_t id) const;
+    [[nodiscard]] std::shared_ptr<WinAsyncClient> find_client(uint64_t id) const;
 
     /**
      * Find client by ID.

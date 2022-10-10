@@ -15,36 +15,14 @@
  * limitations under the License.
  */
 
-#pragma once
+#include "table.h"
 
-namespace ignite::detail {
+#include <ignite/client/detail/table/table_impl.h>
 
-/**
- * Client operation code.
- */
-enum class ClientOperation {
-    /** Get all tables. */
-    TABLES_GET = 3,
+namespace ignite {
 
-    /** Get table. */
-    TABLE_GET = 4,
+const std::string &table::name() const noexcept {
+    return impl().name();
+}
 
-    /** Upsert tuple. */
-    TUPLE_UPSERT = 10,
-
-    /** Get tuple. */
-    TUPLE_GET = 12,
-};
-
-/**
- * Message type.
- */
-enum class MessageType {
-    /** Response. */
-    RESPONSE = 0,
-
-    /** Notification. */
-    NOTIFICATION = 1
-};
-
-} // namespace ignite::detail
+} // namespace ignite

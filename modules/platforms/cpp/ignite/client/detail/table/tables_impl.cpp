@@ -17,49 +17,49 @@
 
 #include "tables_impl.h"
 
-#include "ignite/protocol/reader.h"
-#include "ignite/protocol/writer.h"
+#include <ignite/protocol/reader.h>
+#include <ignite/protocol/writer.h>
 
 namespace ignite::detail {
 
-void TablesImpl::getTableAsync(const std::string &name, ignite_callback<std::optional<Table>> callback) {
-    auto readerFunc = [name](protocol::reader &reader) -> std::optional<Table> {
+void tables_impl::get_table_async(const std::string &name, ignite_callback<std::optional<table>> callback) {
+    auto reader_func = [name](protocol::reader &reader) -> std::optional<table> {
         if (reader.try_read_nil())
             return std::nullopt;
 
         auto id = reader.read_uuid();
-        auto tableImpl = std::make_shared<TableImpl>(name, id);
+        auto tableImpl = std::make_shared<table_impl>(name, id);
 
-        return std::make_optional(Table(tableImpl));
+        return std::make_optional(table(tableImpl));
     };
 
     auto handler =
-        std::make_shared<ResponseHandlerImpl<std::optional<Table>>>(std::move(readerFunc), std::move(callback));
+        std::make_shared<response_handler_impl<std::optional<table>>>(std::move(reader_func), std::move(callback));
 
-    m_connection->performRequest(
-        ClientOperation::TABLE_GET, [&name](protocol::writer &writer) { writer.write(name); }, std::move(handler));
+    m_connection->perform_request(
+        client_operation::TABLE_GET, [&name](protocol::writer &writer) { writer.write(name); }, std::move(handler));
 }
 
-void TablesImpl::getTablesAsync(ignite_callback<std::vector<Table>> callback) {
-    auto readerFunc = [](protocol::reader &reader) -> std::vector<Table> {
+void tables_impl::get_tables_async(ignite_callback<std::vector<table>> callback) {
+    auto reader_func = [](protocol::reader &reader) -> std::vector<table> {
         if (reader.try_read_nil())
             return {};
 
-        std::vector<Table> tables;
+        std::vector<table> tables;
         tables.reserve(reader.read_map_size());
 
         reader.read_map<uuid, std::string>([&tables](auto &&id, auto &&name) {
-            auto tableImpl = std::make_shared<TableImpl>(std::forward<std::string>(name), std::forward<uuid>(id));
-            tables.push_back(Table{tableImpl});
+            auto tableImpl = std::make_shared<table_impl>(std::forward<std::string>(name), std::forward<uuid>(id));
+            tables.push_back(table{tableImpl});
         });
 
         return tables;
     };
 
     auto handler =
-        std::make_shared<ResponseHandlerImpl<std::vector<Table>>>(std::move(readerFunc), std::move(callback));
+        std::make_shared<response_handler_impl<std::vector<table>>>(std::move(reader_func), std::move(callback));
 
-    m_connection->performRequest(ClientOperation::TABLES_GET, std::move(handler));
+    m_connection->perform_request(client_operation::TABLES_GET, std::move(handler));
 }
 
 } // namespace ignite::detail

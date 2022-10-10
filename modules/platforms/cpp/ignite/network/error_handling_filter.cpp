@@ -19,32 +19,32 @@
 
 namespace ignite::network {
 
-void ErrorHandlingFilter::onConnectionSuccess(const EndPoint &addr, uint64_t id) {
-    closeConnectionOnException(id, [this, &addr, id] { DataFilterAdapter::onConnectionSuccess(addr, id); });
+void ErrorHandlingFilter::on_connection_success(const EndPoint &addr, uint64_t id) {
+    closeConnectionOnException(id, [this, &addr, id] { DataFilterAdapter::on_connection_success(addr, id); });
 }
 
-void ErrorHandlingFilter::onConnectionError(const EndPoint &addr, ignite_error err) {
+void ErrorHandlingFilter::on_connection_error(const EndPoint &addr, ignite_error err) {
     try {
-        DataFilterAdapter::onConnectionError(addr, std::move(err));
+        DataFilterAdapter::on_connection_error(addr, std::move(err));
     } catch (...) {
         // No-op.
     }
 }
 
-void ErrorHandlingFilter::onConnectionClosed(uint64_t id, std::optional<ignite_error> err) {
+void ErrorHandlingFilter::on_connection_closed(uint64_t id, std::optional<ignite_error> err) {
     try {
-        DataFilterAdapter::onConnectionClosed(id, std::move(err));
+        DataFilterAdapter::on_connection_closed(id, std::move(err));
     } catch (...) {
         // No-op.
     }
 }
 
-void ErrorHandlingFilter::onMessageReceived(uint64_t id, bytes_view data) {
-    closeConnectionOnException(id, [this, id, &data] { DataFilterAdapter::onMessageReceived(id, data); });
+void ErrorHandlingFilter::on_message_received(uint64_t id, bytes_view data) {
+    closeConnectionOnException(id, [this, id, &data] { DataFilterAdapter::on_message_received(id, data); });
 }
 
-void ErrorHandlingFilter::onMessageSent(uint64_t id) {
-    closeConnectionOnException(id, [this, id] { DataFilterAdapter::onMessageSent(id); });
+void ErrorHandlingFilter::on_message_sent(uint64_t id) {
+    closeConnectionOnException(id, [this, id] { DataFilterAdapter::on_message_sent(id); });
 }
 
 void ErrorHandlingFilter::closeConnectionOnException(uint64_t id, const std::function<void()> &func) {

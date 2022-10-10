@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
-#include "sockets.h"
 #include "win_async_client.h"
+#include "sockets.h"
 
 #include "../utils.h"
 

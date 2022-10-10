@@ -17,9 +17,9 @@
 
 #include "win_async_connecting_thread.h"
 
+#include "../utils.h"
 #include "sockets.h"
 #include "win_async_client_pool.h"
-#include "../utils.h"
 
 #include <cassert>
 #include <random>

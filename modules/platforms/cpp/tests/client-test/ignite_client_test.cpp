@@ -17,8 +17,8 @@
 
 #include "ignite_runner_suite.h"
 
-#include "ignite/ignite_client.h"
-#include "ignite/ignite_client_configuration.h"
+#include <ignite/client/ignite_client.h>
+#include <ignite/client/ignite_client_configuration.h>
 
 #include <gtest/gtest.h>
 
@@ -32,14 +32,14 @@ using namespace ignite;
 class client_test : public ignite_runner_suite { };
 
 TEST_F(client_test, get_configuration) {
-    IgniteClientConfiguration cfg{NODE_ADDRS};
-    cfg.setLogger(get_logger());
-    cfg.setConnectionLimit(42);
+    ignite_client_configuration cfg{NODE_ADDRS};
+    cfg.set_logger(get_logger());
+    cfg.set_connection_limit(42);
 
-    auto client = IgniteClient::start(cfg, std::chrono::seconds(5));
+    auto client = ignite_client::start(cfg, std::chrono::seconds(5));
 
-    const auto &cfg2 = client.getConfiguration();
+    const auto &cfg2 = client.configuration();
 
-    EXPECT_EQ(cfg.getEndpoints(), cfg2.getEndpoints());
-    EXPECT_EQ(cfg.getConnectionLimit(), cfg2.getConnectionLimit());
+    EXPECT_EQ(cfg.get_endpoints(), cfg2.get_endpoints());
+    EXPECT_EQ(cfg.get_connection_limit(), cfg2.get_connection_limit());
 }

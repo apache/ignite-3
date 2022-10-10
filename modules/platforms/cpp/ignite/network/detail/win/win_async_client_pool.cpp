@@ -17,8 +17,8 @@
 
 #include "win_async_client_pool.h"
 
-#include "sockets.h"
 #include "../utils.h"
+#include "sockets.h"
 
 #include <algorithm>
 
@@ -124,38 +124,38 @@ bool WinAsyncClientPool::addClient(const std::shared_ptr<WinAsyncClient> &client
 void WinAsyncClientPool::handleConnectionError(const EndPoint &addr, const ignite_error &err) {
     auto asyncHandler0 = m_asyncHandler.lock();
     if (asyncHandler0)
-        asyncHandler0->onConnectionError(addr, err);
+        asyncHandler0->on_connection_error(addr, err);
 }
 
 void WinAsyncClientPool::handleConnectionSuccess(const EndPoint &addr, uint64_t id) {
     auto asyncHandler0 = m_asyncHandler.lock();
     if (asyncHandler0)
-        asyncHandler0->onConnectionSuccess(addr, id);
+        asyncHandler0->on_connection_success(addr, id);
 }
 
 void WinAsyncClientPool::handleConnectionClosed(uint64_t id, std::optional<ignite_error> err) {
     auto asyncHandler0 = m_asyncHandler.lock();
     if (asyncHandler0)
-        asyncHandler0->onConnectionClosed(id, std::move(err));
+        asyncHandler0->on_connection_closed(id, std::move(err));
 }
 
 void WinAsyncClientPool::handleMessageReceived(uint64_t id, bytes_view msg) {
     auto asyncHandler0 = m_asyncHandler.lock();
     if (asyncHandler0)
-        asyncHandler0->onMessageReceived(id, msg);
+        asyncHandler0->on_message_received(id, msg);
 }
 
 void WinAsyncClientPool::handleMessageSent(uint64_t id) {
     auto asyncHandler0 = m_asyncHandler.lock();
     if (asyncHandler0)
-        asyncHandler0->onMessageSent(id);
+        asyncHandler0->on_message_sent(id);
 }
 
 bool WinAsyncClientPool::send(uint64_t id, std::vector<std::byte> &&data) {
     if (m_stopping)
         return false;
 
-    auto client = findClient(id);
+    auto client = find_client(id);
     if (!client)
         return false;
 
@@ -192,12 +192,12 @@ void WinAsyncClientPool::closeAndRelease(uint64_t id, std::optional<ignite_error
 }
 
 void WinAsyncClientPool::close(uint64_t id, std::optional<ignite_error> err) {
-    auto client = findClient(id);
+    auto client = find_client(id);
     if (client && !client->isClosed())
         client->shutdown(std::move(err));
 }
 
-std::shared_ptr<WinAsyncClient> WinAsyncClientPool::findClient(uint64_t id) const {
+std::shared_ptr<WinAsyncClient> WinAsyncClientPool::find_client(uint64_t id) const {
     std::lock_guard<std::mutex> lock(m_clientsMutex);
 
     return findClientLocked(id);

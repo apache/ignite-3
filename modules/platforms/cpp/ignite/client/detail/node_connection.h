@@ -17,11 +17,10 @@
 
 #pragma once
 
-#include "client_operation.h"
-#include "protocol_context.h"
-#include "response_handler.h"
-
-#include "ignite/ignite_client_configuration.h"
+#include <ignite/client/detail/client_operation.h>
+#include <ignite/client/detail/protocol_context.h>
+#include <ignite/client/detail/response_handler.h>
+#include <ignite/client/ignite_client_configuration.h>
 
 #include <ignite/common/utils.h>
 #include <ignite/network/async_client_pool.h>
@@ -36,28 +35,28 @@
 
 namespace ignite::detail {
 
-class ClusterConnection;
+class cluster_connection;
 
 /**
  * Represents connection to the cluster.
  *
  * Considered established while there is connection to at least one server.
  */
-class NodeConnection {
-    friend class ClusterConnection;
+class node_connection {
+    friend class cluster_connection;
 
 public:
     // Deleted
-    NodeConnection() = delete;
-    NodeConnection(NodeConnection &&) = delete;
-    NodeConnection(const NodeConnection &) = delete;
-    NodeConnection &operator=(NodeConnection &&) = delete;
-    NodeConnection &operator=(const NodeConnection &) = delete;
+    node_connection() = delete;
+    node_connection(node_connection &&) = delete;
+    node_connection(const node_connection &) = delete;
+    node_connection &operator=(node_connection &&) = delete;
+    node_connection &operator=(const node_connection &) = delete;
 
     /**
      * Destructor.
      */
-    ~NodeConnection();
+    ~node_connection();
 
     /**
      * Constructor.
@@ -66,21 +65,21 @@ public:
      * @param pool Connection pool.
      * @param logger Logger.
      */
-    NodeConnection(uint64_t id, std::shared_ptr<network::AsyncClientPool> pool, std::shared_ptr<IgniteLogger> logger);
+    node_connection(uint64_t id, std::shared_ptr<network::AsyncClientPool> pool, std::shared_ptr<ignite_logger> logger);
 
     /**
      * Get connection ID.
      *
      * @return ID.
      */
-    [[nodiscard]] uint64_t getId() const { return m_id; }
+    [[nodiscard]] uint64_t id() const { return m_id; }
 
     /**
      * Check whether handshake complete.
      *
      * @return @c true if the handshake complete.
      */
-    [[nodiscard]] bool isHandshakeComplete() const { return m_handshakeComplete; }
+    [[nodiscard]] bool is_handshake_complete() const { return m_handshake_complete; }
 
     /**
      * Send request.
@@ -92,9 +91,9 @@ public:
      * @return @c true on success and @c false otherwise.
      */
     template <typename T>
-    bool performRequest(ClientOperation op, const std::function<void(protocol::writer &)> &wr,
-        std::shared_ptr<ResponseHandlerImpl<T>> handler) {
-        auto reqId = generateRequestId();
+    bool perform_request(client_operation op, const std::function<void(protocol::writer &)> &wr,
+        std::shared_ptr<response_handler_impl<T>> handler) {
+        auto reqId = generate_request_id();
         std::vector<std::byte> message;
         {
             protocol::buffer_adapter buffer(message);
@@ -108,15 +107,15 @@ public:
             buffer.write_length_header();
 
             {
-                std::lock_guard<std::mutex> lock(m_requestHandlersMutex);
-                m_requestHandlers[reqId] = std::move(handler);
+                std::lock_guard<std::mutex> lock(m_request_handlers_mutex);
+                m_request_handlers[reqId] = std::move(handler);
             }
         }
 
         bool sent = m_pool->send(m_id, std::move(message));
         if (!sent) {
-            std::lock_guard<std::mutex> lock(m_requestHandlersMutex);
-            getAndRemoveHandler(reqId);
+            std::lock_guard<std::mutex> lock(m_request_handlers_mutex);
+            get_and_remove_handler(reqId);
 
             return false;
         }
@@ -135,14 +134,14 @@ public:
      *
      * @param msg Received message.
      */
-    void processMessage(bytes_view msg);
+    void process_message(bytes_view msg);
 
     /**
      * Process handshake response.
      *
      * @param msg Handshake response message.
      */
-    ignite_result<void> processHandshakeRsp(bytes_view msg);
+    ignite_result<void> process_handshake_rsp(bytes_view msg);
 
 private:
     /**
@@ -150,7 +149,7 @@ private:
      *
      * @return New request ID.
      */
-    [[nodiscard]] int64_t generateRequestId() { return m_reqIdGen.fetch_add(1, std::memory_order_relaxed); }
+    [[nodiscard]] int64_t generate_request_id() { return m_req_id_gen.fetch_add(1, std::memory_order_relaxed); }
 
     /**
      * Get and remove request handler.
@@ -158,13 +157,13 @@ private:
      * @param reqId Request ID.
      * @return Handler.
      */
-    std::shared_ptr<ResponseHandler> getAndRemoveHandler(int64_t reqId);
+    std::shared_ptr<response_handler> get_and_remove_handler(int64_t req_id);
 
     /** Handshake complete. */
-    bool m_handshakeComplete{false};
+    bool m_handshake_complete{false};
 
     /** Protocol context. */
-    ProtocolContext m_protocolContext;
+    protocol_context m_protocol_context;
 
     /** Connection ID. */
     uint64_t m_id{0};
@@ -173,16 +172,16 @@ private:
     std::shared_ptr<network::AsyncClientPool> m_pool;
 
     /** Request ID generator. */
-    std::atomic_int64_t m_reqIdGen{0};
+    std::atomic_int64_t m_req_id_gen{0};
 
     /** Pending request handlers. */
-    std::unordered_map<int64_t, std::shared_ptr<ResponseHandler>> m_requestHandlers;
+    std::unordered_map<int64_t, std::shared_ptr<response_handler>> m_request_handlers;
 
     /** Handlers map mutex. */
-    std::mutex m_requestHandlersMutex;
+    std::mutex m_request_handlers_mutex;
 
     /** Logger. */
-    std::shared_ptr<IgniteLogger> m_logger;
+    std::shared_ptr<ignite_logger> m_logger;
 };
 
 } // namespace ignite::detail

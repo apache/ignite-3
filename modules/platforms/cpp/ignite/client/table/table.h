@@ -26,33 +26,35 @@
 namespace ignite {
 
 namespace detail {
-class TableImpl;
-class TablesImpl;
-}
+
+class table_impl;
+class tables_impl;
+
+} // namespace
 
 /**
  * Table view.
  */
-class Table {
-    friend class detail::TablesImpl;
+class table {
+    friend class detail::tables_impl;
 
 public:
-    // Deleted
-    Table(const Table &) = delete;
-    Table &operator=(const Table &) = delete;
-
     // Default
-    Table() = default;
-    ~Table() = default;
-    Table(Table &&) = default;
-    Table &operator=(Table &&) = default;
+    table() = default;
+    ~table() = default;
+    table(table &&) = default;
+    table &operator=(table &&) = default;
+
+    // Deleted
+    table(const table &) = delete;
+    table &operator=(const table &) = delete;
 
     /**
      * Get table name.
      *
      * @return Table name.
      */
-    [[nodiscard]] IGNITE_API const std::string &getName() const noexcept;
+    [[nodiscard]] IGNITE_API const std::string &name() const noexcept;
 
 private:
     /**
@@ -60,7 +62,7 @@ private:
      *
      * @param impl Implementation
      */
-    explicit Table(std::shared_ptr<void> impl)
+    explicit table(std::shared_ptr<detail::table_impl> impl)
         : m_impl(std::move(impl)) { }
 
     /**
@@ -68,17 +70,17 @@ private:
      *
      * @return Implementation reference.
      */
-    [[nodiscard]] detail::TableImpl &getImpl() noexcept;
+    [[nodiscard]] detail::table_impl &impl() noexcept { return *m_impl; }
 
     /**
      * Get implementation reference.
      *
      * @return Implementation reference.
      */
-    [[nodiscard]] const detail::TableImpl &getImpl() const noexcept;
+    [[nodiscard]] const detail::table_impl &impl() const noexcept { return *m_impl; }
 
     /** Implementation. */
-    std::shared_ptr<void> m_impl;
+    std::shared_ptr<detail::table_impl> m_impl;
 };
 
 } // namespace ignite

@@ -19,15 +19,21 @@ project(ignite-client)
 
 set(TARGET ${PROJECT_NAME})
 
-include_directories(include src)
-
 set(SOURCES
-    src/table/table.cpp
-    src/table/tables.cpp
-    src/table/tables_impl.cpp
-    src/cluster_connection.cpp
-    src/ignite_client.cpp
-    src/node_connection.cpp
+    ignite_client.cpp
+    table/table.cpp
+    table/tables.cpp
+    detail/cluster_connection.cpp
+    detail/node_connection.cpp
+    detail/table/tables_impl.cpp
+)
+
+set(PUBLIC_HEADERS
+    ignite_client.h
+    ignite_client_configuration.h
+    ignite_logger.h
+    table/table.h
+    table/tables.h
 )
 
 add_library(${TARGET} SHARED ${SOURCES})
@@ -38,18 +44,12 @@ if (WIN32)
     set_target_properties(${TARGET} PROPERTIES OUTPUT_NAME "ignite-client")
 endif()
 
-if (WIN32)
-    add_definitions(-DIGNITE_EXPORTS)
-endif()
-
 target_link_libraries(${TARGET} ignite-common ignite-network ignite-protocol)
 
-target_include_directories(${TARGET} INTERFACE include)
-
-install(TARGETS ${TARGET} 
+install(TARGETS ${TARGET}
     RUNTIME DESTINATION bin
     ARCHIVE DESTINATION lib
     LIBRARY DESTINATION lib
 )
 
-install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_PREFIX}/include FILES_MATCHING PATTERN "*.h*")
+install(FILES ${PUBLIC_HEADERS} DESTINATION ${CMAKE_INSTALL_PREFIX}/include)

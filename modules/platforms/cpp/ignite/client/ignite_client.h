@@ -17,8 +17,8 @@
 
 #pragma once
 
-#include "ignite/ignite_client_configuration.h"
-#include "ignite/table/tables.h"
+#include <ignite/client/ignite_client_configuration.h>
+#include <ignite/client/table/tables.h>
 
 #include <ignite/common/config.h>
 #include <ignite/common/ignite_result.h>
@@ -29,23 +29,25 @@
 namespace ignite {
 
 namespace detail {
-class IgniteClientImpl;
-}
+
+class ignite_client_impl;
+
+} // namespace
 
 /**
  * Ignite client.
  */
-class IgniteClient {
+class ignite_client {
 public:
-    // Deleted
-    IgniteClient(const IgniteClient &) = delete;
-    IgniteClient &operator=(const IgniteClient &) = delete;
-
     // Default
-    IgniteClient() = default;
-    ~IgniteClient() = default;
-    IgniteClient(IgniteClient &&) = default;
-    IgniteClient &operator=(IgniteClient &&) = default;
+    ignite_client() = default;
+    ~ignite_client() = default;
+    ignite_client(ignite_client &&) = default;
+    ignite_client &operator=(ignite_client &&) = default;
+
+    // Deleted
+    ignite_client(const ignite_client &) = delete;
+    ignite_client &operator=(const ignite_client &) = delete;
 
     /**
      * Start client asynchronously.
@@ -61,39 +63,39 @@ public:
      *
      * Client considered connected to a cluster when there is at least one
      * connection to any node of the cluster. Upon this event, future will be set
-     * with a usable IgniteClient instance.
+     * with a usable ignite_client instance.
      *
      * @param configuration Client configuration.
      * @param timeout Operation timeout.
      * @param callback Callback to be called once operation is complete.
      */
-    IGNITE_API static void startAsync(IgniteClientConfiguration configuration, std::chrono::milliseconds timeout,
-        ignite_callback<IgniteClient> callback);
+    IGNITE_API static void start_async(ignite_client_configuration configuration, std::chrono::milliseconds timeout,
+        ignite_callback<ignite_client> callback);
 
     /**
      * Start client synchronously.
      *
-     * @see startAsync for details.
+     * @see start_async for details.
      *
      * @param configuration Client configuration.
      * @param timeout Operation timeout.
-     * @return IgniteClient instance.
+     * @return ignite_client instance.
      */
-    IGNITE_API static IgniteClient start(IgniteClientConfiguration configuration, std::chrono::milliseconds timeout);
+    IGNITE_API static ignite_client start(ignite_client_configuration configuration, std::chrono::milliseconds timeout);
 
     /**
      * Get client configuration.
      *
      * @return Configuration.
      */
-    [[nodiscard]] IGNITE_API const IgniteClientConfiguration &getConfiguration() const noexcept;
+    [[nodiscard]] IGNITE_API const ignite_client_configuration &configuration() const noexcept;
 
     /**
      * Get the table API.
      *
      * @return Table API.
      */
-    [[nodiscard]] IGNITE_API Tables getTables() const noexcept;
+    [[nodiscard]] IGNITE_API tables get_tables() const noexcept;
 
 private:
     /**
@@ -101,21 +103,21 @@ private:
      *
      * @param impl Implementation
      */
-    explicit IgniteClient(std::shared_ptr<void> impl);
+    explicit ignite_client(std::shared_ptr<void> impl);
 
     /**
      * Get implementation reference.
      *
      * @return Implementation reference.
      */
-    [[nodiscard]] detail::IgniteClientImpl &getImpl() noexcept;
+    [[nodiscard]] detail::ignite_client_impl &impl() noexcept;
 
     /**
      * Get implementation reference.
      *
      * @return Implementation reference.
      */
-    [[nodiscard]] const detail::IgniteClientImpl &getImpl() const noexcept;
+    [[nodiscard]] const detail::ignite_client_impl &impl() const noexcept;
 
     /** Implementation. */
     std::shared_ptr<void> m_impl;

@@ -15,8 +15,9 @@
  * limitations under the License.
  */
 
-#include "ignite/ignite_client.h"
-#include "ignite_client_impl.h"
+#include "ignite_client.h"
+
+#include "detail/ignite_client_impl.h"
 
 #include <ignite/common/ignite_error.h>
 
@@ -24,17 +25,18 @@
 
 namespace ignite {
 
-void IgniteClient::startAsync(IgniteClientConfiguration configuration, std::chrono::milliseconds timeout,
-    ignite_callback<IgniteClient> callback) {
+void ignite_client::start_async(ignite_client_configuration configuration, std::chrono::milliseconds timeout,
+    ignite_callback<ignite_client> callback) {
     // TODO: IGNITE-17762 Async start should not require starting thread internally. Replace with async timer.
     (void)std::async([cfg = std::move(configuration), timeout, callback = std::move(callback)]() mutable {
-        auto res = result_of_operation<IgniteClient>([cfg = std::move(cfg), timeout]() { return start(cfg, timeout); });
+        auto res =
+            result_of_operation<ignite_client>([cfg = std::move(cfg), timeout]() { return start(cfg, timeout); });
         callback(std::move(res));
     });
 }
 
-IgniteClient IgniteClient::start(IgniteClientConfiguration configuration, std::chrono::milliseconds timeout) {
-    auto impl = std::make_shared<detail::IgniteClientImpl>(std::move(configuration));
+ignite_client ignite_client::start(ignite_client_configuration configuration, std::chrono::milliseconds timeout) {
+    auto impl = std::make_shared<detail::ignite_client_impl>(std::move(configuration));
 
     auto promise = std::make_shared<std::promise<void>>();
     auto future = promise->get_future();
@@ -53,27 +55,27 @@ IgniteClient IgniteClient::start(IgniteClientConfiguration configuration, std::c
         throw ignite_error("Can not establish connection within timeout");
     }
 
-    return IgniteClient(std::move(impl));
+    return ignite_client(std::move(impl));
 }
 
-IgniteClient::IgniteClient(std::shared_ptr<void> impl)
+ignite_client::ignite_client(std::shared_ptr<void> impl)
     : m_impl(std::move(impl)) {
 }
 
-const IgniteClientConfiguration &IgniteClient::getConfiguration() const noexcept {
-    return getImpl().getConfiguration();
+const ignite_client_configuration &ignite_client::configuration() const noexcept {
+    return impl().configuration();
 }
 
-Tables IgniteClient::getTables() const noexcept {
-    return Tables(getImpl().getTablesImpl());
+tables ignite_client::get_tables() const noexcept {
+    return tables(impl().get_tables_impl());
 }
 
-detail::IgniteClientImpl &IgniteClient::getImpl() noexcept {
-    return *((detail::IgniteClientImpl *)(m_impl.get()));
+detail::ignite_client_impl &ignite_client::impl() noexcept {
+    return *((detail::ignite_client_impl *)(m_impl.get()));
 }
 
-const detail::IgniteClientImpl &IgniteClient::getImpl() const noexcept {
-    return *((detail::IgniteClientImpl *)(m_impl.get()));
+const detail::ignite_client_impl &ignite_client::impl() const noexcept {
+    return *((detail::ignite_client_impl *)(m_impl.get()));
 }
 
 } // namespace ignite

@@ -26,36 +26,38 @@ namespace ignite {
  *
  * User can implement this class to use preferred logger with Ignite client.
  */
-class IgniteLogger {
+class ignite_logger {
 public:
     // Default
-    IgniteLogger() = default;
-    virtual ~IgniteLogger() = default;
-    IgniteLogger(IgniteLogger &&) = default;
-    IgniteLogger(const IgniteLogger &) = default;
-    IgniteLogger &operator=(IgniteLogger &&) = default;
-    IgniteLogger &operator=(const IgniteLogger &) = default;
+    ignite_logger() = default;
+    virtual ~ignite_logger() = default;
+
+    // Deleted.
+    ignite_logger(ignite_logger &&) = delete;
+    ignite_logger(const ignite_logger &) = delete;
+    ignite_logger &operator=(ignite_logger &&) = delete;
+    ignite_logger &operator=(const ignite_logger &) = delete;
 
     /**
      * Used to log error messages.
      *
      * @param message Error message.
      */
-    virtual void logError(std::string_view message) = 0;
+    virtual void log_error(std::string_view message) = 0;
 
     /**
      * Used to log warning messages.
      *
      * @param message Warning message.
      */
-    virtual void logWarning(std::string_view message) = 0;
+    virtual void log_warning(std::string_view message) = 0;
 
     /**
      * Used to log info messages.
      *
      * @param message Info message.
      */
-    virtual void logInfo(std::string_view message) = 0;
+    virtual void log_info(std::string_view message) = 0;
 
     /**
      * Used to log debug messages.
@@ -64,7 +66,7 @@ public:
      *
      * @param message Debug message.
      */
-    virtual void logDebug(std::string_view message) = 0;
+    virtual void log_debug(std::string_view message) = 0;
 };
 
 } // namespace ignite

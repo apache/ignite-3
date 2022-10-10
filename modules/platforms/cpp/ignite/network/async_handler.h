@@ -41,7 +41,7 @@ public:
      * @param addr Address of the new connection.
      * @param id Connection ID.
      */
-    virtual void onConnectionSuccess(const EndPoint &addr, uint64_t id) = 0;
+    virtual void on_connection_success(const EndPoint &addr, uint64_t id) = 0;
 
     /**
      * Callback that called on error during connection establishment.
@@ -49,7 +49,7 @@ public:
      * @param addr Connection address.
      * @param err Error.
      */
-    virtual void onConnectionError(const EndPoint &addr, ignite_error err) = 0;
+    virtual void on_connection_error(const EndPoint &addr, ignite_error err) = 0;
 
     /**
      * Callback that called on error during connection establishment.
@@ -57,7 +57,7 @@ public:
      * @param id Async client ID.
      * @param err Error. Can be null if connection closed without error.
      */
-    virtual void onConnectionClosed(uint64_t id, std::optional<ignite_error> err) = 0;
+    virtual void on_connection_closed(uint64_t id, std::optional<ignite_error> err) = 0;
 
     /**
      * Callback that called when new message is received.
@@ -65,14 +65,14 @@ public:
      * @param id Async client ID.
      * @param msg Received message.
      */
-    virtual void onMessageReceived(uint64_t id, bytes_view msg) = 0;
+    virtual void on_message_received(uint64_t id, bytes_view msg) = 0;
 
     /**
      * Callback that called when message is sent.
      *
      * @param id Async client ID.
      */
-    virtual void onMessageSent(uint64_t id) = 0;
+    virtual void on_message_sent(uint64_t id) = 0;
 };
 
 } // namespace ignite::network

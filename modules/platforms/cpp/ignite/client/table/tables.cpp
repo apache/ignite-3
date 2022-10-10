@@ -15,33 +15,22 @@
  * limitations under the License.
  */
 
-#include "table/tables_impl.h"
+#include "tables.h"
+
+#include "../detail/table/tables_impl.h"
 
 #include <ignite/common/utils.h>
-#include <ignite/table/tables.h>
 
 #include <utility>
 
 namespace ignite {
 
-void Tables::getTableAsync(const std::string &name, ignite_callback<std::optional<Table>> callback) {
-    getImpl().getTableAsync(name, std::move(callback));
+void tables::get_table_async(const std::string &name, ignite_callback<std::optional<table>> callback) {
+    impl().get_table_async(name, std::move(callback));
 }
 
-void Tables::getTablesAsync(ignite_callback<std::vector<Table>> callback) {
-    getImpl().getTablesAsync(std::move(callback));
-}
-
-Tables::Tables(std::shared_ptr<void> impl)
-    : m_impl(std::move(impl)) {
-}
-
-detail::TablesImpl &Tables::getImpl() {
-    return *((detail::TablesImpl *)(m_impl.get()));
-}
-
-const detail::TablesImpl &Tables::getImpl() const {
-    return *((detail::TablesImpl *)(m_impl.get()));
+void tables::get_tables_async(ignite_callback<std::vector<table>> callback) {
+    impl().get_tables_async(std::move(callback));
 }
 
 } // namespace ignite

@@ -161,7 +161,7 @@ private:
      * @param id Client ID.
      * @return Client. Null pointer if is not found.
      */
-    std::shared_ptr<LinuxAsyncClient> findClient(uint64_t id) const;
+    std::shared_ptr<LinuxAsyncClient> find_client(uint64_t id) const;
 
     /** Flag indicating that pool is stopping. */
     volatile bool m_stopping;

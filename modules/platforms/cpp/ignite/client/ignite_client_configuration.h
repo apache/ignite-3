@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include <ignite/ignite_logger.h>
+#include <ignite/client/ignite_logger.h>
 
 #include <initializer_list>
 #include <memory>
@@ -29,7 +29,7 @@ namespace ignite {
 /**
  * Ignite client configuration.
  */
-class IgniteClientConfiguration {
+class ignite_client_configuration {
 public:
     /**
      * TCP port used by client by default if not specified explicitly.
@@ -37,24 +37,24 @@ public:
     static constexpr uint16_t DEFAULT_PORT = 10800;
 
     // Default
-    IgniteClientConfiguration() = default;
+    ignite_client_configuration() = default;
 
     /**
      * Constructor.
      *
      * @param endpoint Endpoints list.
      */
-    IgniteClientConfiguration(std::initializer_list<std::string_view> endpoints)
+    ignite_client_configuration(std::initializer_list<std::string_view> endpoints)
         : m_endpoints(endpoints.begin(), endpoints.end()) { }
 
     /**
      * Get endpoints.
      *
-     * @see setEndpoints() for more detailed description.
+     * @see set_endpoints() for more detailed description.
      *
      * @return Endpoints.
      */
-    [[nodiscard]] const std::vector<std::string> &getEndpoints() const { return m_endpoints; }
+    [[nodiscard]] const std::vector<std::string> &get_endpoints() const { return m_endpoints; }
 
     /**
      * Set endpoints.
@@ -72,8 +72,8 @@ public:
      *
      * @param endpoints Endpoints.
      */
-    void setEndpoints(std::initializer_list<std::string_view> endpoints) {
-        IgniteClientConfiguration::m_endpoints.assign(endpoints.begin(), endpoints.end());
+    void set_endpoints(std::initializer_list<std::string_view> endpoints) {
+        ignite_client_configuration::m_endpoints.assign(endpoints.begin(), endpoints.end());
     }
 
     /**
@@ -81,7 +81,7 @@ public:
      *
      * @return Current logger.
      */
-    [[nodiscard]] const std::shared_ptr<IgniteLogger> &getLogger() const { return m_logger; }
+    [[nodiscard]] const std::shared_ptr<ignite_logger> &get_logger() const { return m_logger; }
 
     /**
      * Set logger to be used by client.
@@ -90,7 +90,7 @@ public:
      *
      * @param logger Logger to use.
      */
-    void setLogger(std::shared_ptr<IgniteLogger> logger) { m_logger = std::move(logger); }
+    void set_logger(std::shared_ptr<ignite_logger> logger) { m_logger = std::move(logger); }
 
     /**
      * Get connection limit.
@@ -105,7 +105,7 @@ public:
      *
      * @return Active connection limit.
      */
-    [[nodiscard]] uint32_t getConnectionLimit() const { return m_connectionsLimit; }
+    [[nodiscard]] uint32_t get_connection_limit() const { return m_connection_limit; }
 
     /**
      * Set connection limit.
@@ -114,17 +114,17 @@ public:
      *
      * @param connectionsLimit Connections limit to set.
      */
-    void setConnectionLimit(uint32_t limit) { m_connectionsLimit = limit; }
+    void set_connection_limit(uint32_t limit) { m_connection_limit = limit; }
 
 private:
     /** Endpoints. */
     std::vector<std::string> m_endpoints{"localhost"};
 
     /** Logger. */
-    std::shared_ptr<IgniteLogger> m_logger{};
+    std::shared_ptr<ignite_logger> m_logger{};
 
     /** Active connections limit. */
-    uint32_t m_connectionsLimit{0};
+    uint32_t m_connection_limit{0};
 };
 
 } // namespace ignite

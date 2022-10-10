@@ -17,9 +17,9 @@
 
 #pragma once
 
-#include "cluster_connection.h"
-#include "ignite/table/table.h"
-#include "table/table_impl.h"
+#include <ignite/client/detail/cluster_connection.h>
+#include <ignite/client/detail/table/table_impl.h>
+#include <ignite/client/table/table.h>
 
 #include <future>
 #include <memory>
@@ -29,25 +29,31 @@ namespace ignite::detail {
 /**
  * Table management.
  */
-class TablesImpl {
+class tables_impl {
 public:
+    // Deleted
+    tables_impl(tables_impl &&) = delete;
+    tables_impl(const tables_impl &) = delete;
+    tables_impl &operator=(tables_impl &&) = delete;
+    tables_impl &operator=(const tables_impl &) = delete;
+
     /**
      * Constructor.
      *
      * @param connection Connection.
      */
-    explicit TablesImpl(std::shared_ptr<ClusterConnection> connection)
+    explicit tables_impl(std::shared_ptr<cluster_connection> connection)
         : m_connection(std::move(connection)) { }
 
     /**
      * Gets a table by name.
-     * See Table::getTableAsync() for details.
+     * See Table::get_table_async() for details.
      *
      * @param name Table name.
      * @param callback Callback.
      * @throw ignite_error In case of error while trying to send a request.
      */
-    void getTableAsync(const std::string &name, ignite_callback<std::optional<Table>> callback);
+    void get_table_async(const std::string &name, ignite_callback<std::optional<table>> callback);
 
     /**
      * Gets all tables.
@@ -56,11 +62,11 @@ public:
      *    a vector of all tables.
      * @throw ignite_error In case of error while trying to send a request.
      */
-    void getTablesAsync(ignite_callback<std::vector<Table>> callback);
+    void get_tables_async(ignite_callback<std::vector<table>> callback);
 
 private:
     /** Cluster connection. */
-    std::shared_ptr<ClusterConnection> m_connection;
+    std::shared_ptr<cluster_connection> m_connection;
 };
 
 } // namespace ignite::detail

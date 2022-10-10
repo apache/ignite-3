@@ -17,11 +17,11 @@
 
 #pragma once
 
-#include "cluster_connection.h"
-#include "table/tables_impl.h"
+#include <ignite/client/detail/cluster_connection.h>
+#include <ignite/client/detail/table/tables_impl.h>
+#include <ignite/client/ignite_client_configuration.h>
 
 #include <ignite/common/ignite_result.h>
-#include <ignite/ignite_client_configuration.h>
 
 #include <future>
 #include <memory>
@@ -31,29 +31,29 @@ namespace ignite::detail {
 /**
  * Ignite client implementation.
  */
-class IgniteClientImpl {
+class ignite_client_impl {
 public:
     // Deleted
-    IgniteClientImpl() = delete;
-    IgniteClientImpl(IgniteClientImpl &&) = delete;
-    IgniteClientImpl(const IgniteClientImpl &) = delete;
-    IgniteClientImpl &operator=(IgniteClientImpl &&) = delete;
-    IgniteClientImpl &operator=(const IgniteClientImpl &) = delete;
+    ignite_client_impl() = delete;
+    ignite_client_impl(ignite_client_impl &&) = delete;
+    ignite_client_impl(const ignite_client_impl &) = delete;
+    ignite_client_impl &operator=(ignite_client_impl &&) = delete;
+    ignite_client_impl &operator=(const ignite_client_impl &) = delete;
 
     /**
      * Constructor.
      *
      * @param configuration Configuration.
      */
-    explicit IgniteClientImpl(IgniteClientConfiguration configuration)
+    explicit ignite_client_impl(ignite_client_configuration configuration)
         : m_configuration(std::move(configuration))
-        , m_connection(ClusterConnection::create(m_configuration))
-        , m_tables(std::make_shared<TablesImpl>(m_connection)) { }
+        , m_connection(cluster_connection::create(m_configuration))
+        , m_tables(std::make_shared<tables_impl>(m_connection)) { }
 
     /**
      * Destructor.
      */
-    ~IgniteClientImpl() { stop(); }
+    ~ignite_client_impl() { stop(); }
 
     /**
      * Start client.
@@ -61,7 +61,7 @@ public:
      * @param timeout Timeout.
      * @param callback Callback.
      */
-    void start(std::function<void(ignite_result<void>)> callback) { m_connection->startAsync(std::move(callback)); }
+    void start(std::function<void(ignite_result<void>)> callback) { m_connection->start_async(std::move(callback)); }
 
     /**
      * Stop client.
@@ -73,24 +73,24 @@ public:
      *
      * @return Configuration.
      */
-    [[nodiscard]] const IgniteClientConfiguration &getConfiguration() const { return m_configuration; }
+    [[nodiscard]] const ignite_client_configuration &configuration() const { return m_configuration; }
 
     /**
      * Get table management API implementation.
      *
      * @return Table management API implementation.
      */
-    [[nodiscard]] std::shared_ptr<TablesImpl> getTablesImpl() const { return m_tables; }
+    [[nodiscard]] std::shared_ptr<tables_impl> get_tables_impl() const { return m_tables; }
 
 private:
     /** Configuration. */
-    const IgniteClientConfiguration m_configuration;
+    const ignite_client_configuration m_configuration;
 
     /** Cluster connection. */
-    std::shared_ptr<ClusterConnection> m_connection;
+    std::shared_ptr<cluster_connection> m_connection;
 
     /** Tables. */
-    std::shared_ptr<TablesImpl> m_tables;
+    std::shared_ptr<tables_impl> m_tables;
 };
 
 } // namespace ignite::detail

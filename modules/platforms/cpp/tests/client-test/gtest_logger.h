@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "ignite/ignite_logger.h"
+#include <ignite/client/ignite_logger.h>
 
 #include <gtest/gtest.h>
 
@@ -30,7 +30,7 @@ namespace ignite {
 /**
  * Test logger.
  */
-class gtest_logger : public IgniteLogger {
+class gtest_logger : public ignite_logger {
 public:
     /**
      * Construct.
@@ -42,19 +42,19 @@ public:
         : m_includeTs(includeTs)
         , m_debug(debug) { }
 
-    void logError(std::string_view message) override {
+    void log_error(std::string_view message) override {
         std::cout << "[          ] [ ERROR ]   " + get_timestamp() + std::string(message) + '\n' << std::flush;
     }
 
-    void logWarning(std::string_view message) override {
+    void log_warning(std::string_view message) override {
         std::cout << "[          ] [ WARNING ] " + get_timestamp() + std::string(message) + '\n' << std::flush;
     }
 
-    void logInfo(std::string_view message) override {
+    void log_info(std::string_view message) override {
         std::cout << "[          ] [ INFO ]    " + get_timestamp() + std::string(message) + '\n' << std::flush;
     }
 
-    void logDebug(std::string_view message) override {
+    void log_debug(std::string_view message) override {
         if (m_debug)
             std::cout << "[          ] [ DEBUG ]   " + get_timestamp() + std::string(message) + '\n' << std::flush;
     }

@@ -17,52 +17,37 @@
 
 #pragma once
 
-#include <ignite/common/uuid.h>
-
-#include <future>
-#include <memory>
-#include <utility>
+#include "protocol_version.h"
 
 namespace ignite::detail {
 
 /**
- * Table view implementation.
+ * Represents connection to the cluster.
+ *
+ * Considered established while there is connection to at least one server.
  */
-class TableImpl {
+class protocol_context {
 public:
-    // Deleted
-    TableImpl(const TableImpl &) = delete;
-    TableImpl &operator=(const TableImpl &) = delete;
-
-    // Default
-    TableImpl() = default;
-    ~TableImpl() = default;
-    TableImpl(TableImpl &&) = default;
-    TableImpl &operator=(TableImpl &&) = default;
+    /** The latest currently supported version. */
+    static constexpr protocol_version CURRENT_VERSION{3, 0, 0};
 
     /**
-     * Constructor.
+     * Get protocol version.
      *
-     * @param name Name.
-     * @param id ID.
+     * @return protocol version.
      */
-    TableImpl(std::string name, uuid id)
-        : m_name(std::move(name))
-        , m_id(id) { }
+    [[nodiscard]] protocol_version get_version() const { return m_version; }
 
     /**
-     * Get table name.
+     * Set version.
      *
-     * @return Table name.
+     * @param ver Version to set.
      */
-    [[nodiscard]] const std::string &getName() const { return m_name; }
+    void set_version(protocol_version ver) { m_version = ver; }
 
 private:
-    /** Table name. */
-    std::string m_name;
-
-    /** Table ID. */
-    uuid m_id;
+    /** Protocol version. */
+    protocol_version m_version{CURRENT_VERSION};
 };
 
 } // namespace ignite::detail

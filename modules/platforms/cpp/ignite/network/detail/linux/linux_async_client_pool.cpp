@@ -61,7 +61,7 @@ bool LinuxAsyncClientPool::send(uint64_t id, std::vector<std::byte> &&data) {
     if (m_stopping)
         return false;
 
-    auto client = findClient(id);
+    auto client = find_client(id);
     if (!client)
         return false;
 
@@ -72,7 +72,7 @@ void LinuxAsyncClientPool::close(uint64_t id, std::optional<ignite_error> err) {
     if (m_stopping)
         return;
 
-    std::shared_ptr<LinuxAsyncClient> client = findClient(id);
+    std::shared_ptr<LinuxAsyncClient> client = find_client(id);
     if (client && !client->isClosed())
         client->shutdown(std::move(err));
 }
@@ -130,31 +130,31 @@ bool LinuxAsyncClientPool::addClient(std::shared_ptr<LinuxAsyncClient> client) {
 void LinuxAsyncClientPool::handleConnectionError(const EndPoint &addr, ignite_error err) {
     auto asyncHandler0 = m_asyncHandler.lock();
     if (asyncHandler0)
-        asyncHandler0->onConnectionError(addr, std::move(err));
+        asyncHandler0->on_connection_error(addr, std::move(err));
 }
 
 void LinuxAsyncClientPool::handleConnectionSuccess(const EndPoint &addr, uint64_t id) {
     auto asyncHandler0 = m_asyncHandler.lock();
     if (asyncHandler0)
-        asyncHandler0->onConnectionSuccess(addr, id);
+        asyncHandler0->on_connection_success(addr, id);
 }
 
 void LinuxAsyncClientPool::handleConnectionClosed(uint64_t id, std::optional<ignite_error> err) {
     auto asyncHandler0 = m_asyncHandler.lock();
     if (asyncHandler0)
-        asyncHandler0->onConnectionClosed(id, std::move(err));
+        asyncHandler0->on_connection_closed(id, std::move(err));
 }
 
 void LinuxAsyncClientPool::handleMessageReceived(uint64_t id, bytes_view msg) {
     auto asyncHandler0 = m_asyncHandler.lock();
     if (asyncHandler0)
-        asyncHandler0->onMessageReceived(id, msg);
+        asyncHandler0->on_message_received(id, msg);
 }
 
 void LinuxAsyncClientPool::handleMessageSent(uint64_t id) {
     auto asyncHandler0 = m_asyncHandler.lock();
     if (asyncHandler0)
-        asyncHandler0->onMessageSent(id);
+        asyncHandler0->on_message_sent(id);
 }
 
 void LinuxAsyncClientPool::internalStop() {
@@ -166,14 +166,14 @@ void LinuxAsyncClientPool::internalStop() {
 
         for (auto [_, client] : m_clientIdMap) {
             ignite_error err("Client stopped");
-            handleConnectionClosed(client->getId(), err);
+            handleConnectionClosed(client->id(), err);
         }
 
         m_clientIdMap.clear();
     }
 }
 
-std::shared_ptr<LinuxAsyncClient> LinuxAsyncClientPool::findClient(uint64_t id) const {
+std::shared_ptr<LinuxAsyncClient> LinuxAsyncClientPool::find_client(uint64_t id) const {
     std::lock_guard<std::mutex> lock(m_clientsMutex);
 
     auto it = m_clientIdMap.find(id);

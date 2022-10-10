@@ -149,7 +149,7 @@ void LinuxAsyncWorkerThread::handleNewConnections() {
         addr = m_currentConnection->next();
         if (!addr) {
             m_currentConnection.reset();
-            reportConnectionError(EndPoint(), "Can not resolve a single address from range: " + range.toString());
+            reportConnectionError(EndPoint(), "Can not resolve a single address from range: " + range.to_string());
             ++m_failedAttempts;
 
             return;
@@ -235,7 +235,7 @@ void LinuxAsyncWorkerThread::handleConnectionEvents() {
                 continue;
             }
 
-            m_clientPool.handleMessageReceived(client->getId(), msg);
+            m_clientPool.handleMessageReceived(client->id(), msg);
         }
 
         if (currentEvent.events & EPOLLOUT) {
@@ -246,7 +246,7 @@ void LinuxAsyncWorkerThread::handleConnectionEvents() {
                 continue;
             }
 
-            m_clientPool.handleMessageSent(client->getId());
+            m_clientPool.handleMessageSent(client->id());
         }
     }
 }
@@ -273,7 +273,7 @@ void LinuxAsyncWorkerThread::handleConnectionClosed(LinuxAsyncClient *client) {
 
     m_nonConnected.push_back(client->getRange());
 
-    m_clientPool.closeAndRelease(client->getId(), std::nullopt);
+    m_clientPool.closeAndRelease(client->id(), std::nullopt);
 }
 
 void LinuxAsyncWorkerThread::handleConnectionSuccess(LinuxAsyncClient *client) {

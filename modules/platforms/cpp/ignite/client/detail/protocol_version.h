@@ -18,14 +18,13 @@
 #pragma once
 
 #include <cstdint>
-
 #include <sstream>
 #include <string>
 
 namespace ignite::detail {
 
 /** Protocol version. */
-class ProtocolVersion {
+class protocol_version {
 public:
     /**
      * Constructor.
@@ -34,7 +33,7 @@ public:
      * @param vminor Minor version part.
      * @param vpatch Patch version part.
      */
-    constexpr ProtocolVersion(int16_t vmajor, int16_t vminor, int16_t vpatch)
+    constexpr protocol_version(int16_t vmajor, int16_t vminor, int16_t vpatch)
         : m_major(vmajor)
         , m_minor(vminor)
         , m_patch(vpatch) { }
@@ -44,21 +43,21 @@ public:
      *
      * @return Major part.
      */
-    [[nodiscard]] int16_t getMajor() const { return m_major; }
+    [[nodiscard]] int16_t major() const { return m_major; }
 
     /**
      * Get minor part.
      *
      * @return Minor part.
      */
-    [[nodiscard]] int16_t getMinor() const { return m_minor; }
+    [[nodiscard]] int16_t minor() const { return m_minor; }
 
     /**
      * Get patch version part.
      *
      * @return Patch version part.
      */
-    [[nodiscard]] int16_t getPatch() const { return m_patch; }
+    [[nodiscard]] int16_t patch() const { return m_patch; }
 
     /**
      * Compare to another value.
@@ -66,7 +65,7 @@ public:
      * @param other Instance to compare to.
      * @return Zero if equals, negative number if less and positive if more.
      */
-    [[nodiscard]] int32_t compare(const ProtocolVersion &other) const {
+    [[nodiscard]] int32_t compare(const protocol_version &other) const {
         int32_t res = m_major - other.m_major;
         if (res != 0)
             return res;
@@ -83,7 +82,7 @@ public:
      *
      * @return Protocol version.
      */
-    [[nodiscard]] std::string toString() const {
+    [[nodiscard]] std::string to_string() const {
         std::stringstream buf;
         buf << m_major << '.' << m_minor << '.' << m_patch;
 
@@ -108,7 +107,7 @@ private:
  * @param val2 Second value.
  * @return True if equal.
  */
-inline bool operator==(const ProtocolVersion &val1, const ProtocolVersion &val2) {
+inline bool operator==(const protocol_version &val1, const protocol_version &val2) {
     return val1.compare(val2) == 0;
 }
 
@@ -119,7 +118,7 @@ inline bool operator==(const ProtocolVersion &val1, const ProtocolVersion &val2)
  * @param val2 Second value.
  * @return True if not equal.
  */
-inline bool operator!=(const ProtocolVersion &val1, const ProtocolVersion &val2) {
+inline bool operator!=(const protocol_version &val1, const protocol_version &val2) {
     return val1.compare(val2) != 0;
 }
 
@@ -130,7 +129,7 @@ inline bool operator!=(const ProtocolVersion &val1, const ProtocolVersion &val2)
  * @param val2 Second value.
  * @return True if less.
  */
-inline bool operator<(const ProtocolVersion &val1, const ProtocolVersion &val2) {
+inline bool operator<(const protocol_version &val1, const protocol_version &val2) {
     return val1.compare(val2) < 0;
 }
 
@@ -141,7 +140,7 @@ inline bool operator<(const ProtocolVersion &val1, const ProtocolVersion &val2) 
  * @param val2 Second value.
  * @return True if less or equal.
  */
-inline bool operator<=(const ProtocolVersion &val1, const ProtocolVersion &val2) {
+inline bool operator<=(const protocol_version &val1, const protocol_version &val2) {
     return val1.compare(val2) <= 0;
 }
 
@@ -152,7 +151,7 @@ inline bool operator<=(const ProtocolVersion &val1, const ProtocolVersion &val2)
  * @param val2 Second value.
  * @return True if greater.
  */
-inline bool operator>(const ProtocolVersion &val1, const ProtocolVersion &val2) {
+inline bool operator>(const protocol_version &val1, const protocol_version &val2) {
     return val1.compare(val2) > 0;
 }
 
@@ -163,7 +162,7 @@ inline bool operator>(const ProtocolVersion &val1, const ProtocolVersion &val2) 
  * @param val2 Second value.
  * @return True if greater or equal.
  */
-inline bool operator>=(const ProtocolVersion &val1, const ProtocolVersion &val2) {
+inline bool operator>=(const protocol_version &val1, const protocol_version &val2) {
     return val1.compare(val2) >= 0;
 }
 

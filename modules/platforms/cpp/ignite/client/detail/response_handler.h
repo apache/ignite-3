@@ -31,17 +31,17 @@ namespace ignite::detail {
 /**
  * Response handler.
  */
-class ResponseHandler {
+class response_handler {
 public:
     // Default
-    ResponseHandler() = default;
-    virtual ~ResponseHandler() = default;
-    ResponseHandler &operator=(ResponseHandler &&) = default;
-    ResponseHandler &operator=(const ResponseHandler &) = default;
+    response_handler() = default;
+    virtual ~response_handler() = default;
 
-    // Delete
-    ResponseHandler(ResponseHandler &&) = delete;
-    ResponseHandler(const ResponseHandler &) = delete;
+    // Deleted
+    response_handler(response_handler &&) = delete;
+    response_handler(const response_handler &) = delete;
+    response_handler &operator=(response_handler &&) = delete;
+    response_handler &operator=(const response_handler &) = delete;
 
     /**
      * Handle response.
@@ -51,32 +51,25 @@ public:
     /**
      * Set error.
      */
-    [[nodiscard]] virtual ignite_result<void> setError(ignite_error) = 0;
+    [[nodiscard]] virtual ignite_result<void> set_error(ignite_error) = 0;
 };
 
 /**
  * Response handler implementation for specific type.
  */
 template <typename T>
-class ResponseHandlerImpl : public ResponseHandler {
+class response_handler_impl final : public response_handler {
 public:
     // Default
-    ResponseHandlerImpl() = default;
-    ~ResponseHandlerImpl() override = default;
-    ResponseHandlerImpl(ResponseHandlerImpl &&) noexcept = default;
-    ResponseHandlerImpl &operator=(ResponseHandlerImpl &&) noexcept = default;
-
-    // Delete
-    ResponseHandlerImpl(const ResponseHandlerImpl &) = delete;
-    ResponseHandlerImpl &operator=(const ResponseHandlerImpl &) = delete;
+    response_handler_impl() = default;
 
     /**
      * Constructor.
      *
      * @param func Function.
      */
-    explicit ResponseHandlerImpl(std::function<T(protocol::reader &)> readFunc, ignite_callback<T> callback)
-        : m_readFunc(std::move(readFunc))
+    explicit response_handler_impl(std::function<T(protocol::reader &)> readFunc, ignite_callback<T> callback)
+        : m_read_func(std::move(readFunc))
         , m_callback(std::move(callback))
         , m_mutex() { }
 
@@ -86,11 +79,11 @@ public:
      * @param reader Reader to be used to read response.
      */
     [[nodiscard]] ignite_result<void> handle(protocol::reader &reader) final {
-        ignite_callback<T> callback = removeCallback();
+        ignite_callback<T> callback = remove_callback();
         if (!callback)
             return {};
 
-        auto res = result_of_operation<T>([&]() { return m_readFunc(reader); });
+        auto res = result_of_operation<T>([&]() { return m_read_func(reader); });
         return result_of_operation<void>([&]() { callback(std::move(res)); });
     }
 
@@ -99,8 +92,8 @@ public:
      *
      * @param err Error to set.
      */
-    [[nodiscard]] ignite_result<void> setError(ignite_error err) final {
-        ignite_callback<T> callback = removeCallback();
+    [[nodiscard]] ignite_result<void> set_error(ignite_error err) final {
+        ignite_callback<T> callback = remove_callback();
         if (!callback)
             return {};
 
@@ -113,7 +106,7 @@ private:
      *
      * @return Callback.
      */
-    ignite_callback<T> removeCallback() {
+    ignite_callback<T> remove_callback() {
         std::lock_guard<std::mutex> guard(m_mutex);
         ignite_callback<T> callback = {};
         std::swap(callback, m_callback);
@@ -121,7 +114,7 @@ private:
     }
 
     /** Read function. */
-    std::function<T(protocol::reader &)> m_readFunc;
+    std::function<T(protocol::reader &)> m_read_func;
 
     /** Promise. */
     ignite_callback<T> m_callback;

@@ -44,7 +44,7 @@ struct EndPoint {
      *
      * @return String form.
      */
-    [[nodiscard]] std::string toString() const { return host + ":" + std::to_string(port); }
+    [[nodiscard]] std::string to_string() const { return host + ":" + std::to_string(port); }
 
     /**
      * Compare to another instance.
