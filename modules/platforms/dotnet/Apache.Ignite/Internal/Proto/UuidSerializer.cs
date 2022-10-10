@@ -66,9 +66,9 @@ namespace Apache.Ignite.Internal.Proto
             var j = span[9];
             var k = span[8];
 
-            var a = MemoryMarshal.Read<int>(span[4..8]);
-            var b = MemoryMarshal.Read<short>(span[2..4]);
-            var c = MemoryMarshal.Read<short>(span[..2]);
+            var a = BinaryPrimitives.ReadInt32LittleEndian(span[4..8]);
+            var b = BinaryPrimitives.ReadInt16LittleEndian(span[2..4]);
+            var c = BinaryPrimitives.ReadInt16LittleEndian(span[..2]);
 
             return new Guid(a, b, c, d, e, f, g, h, i, j, k);
         }
