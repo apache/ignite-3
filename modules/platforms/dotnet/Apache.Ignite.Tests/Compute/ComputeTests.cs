@@ -279,9 +279,19 @@ namespace Apache.Ignite.Tests.Compute
         }
 
         [Test]
-        public async Task TestExceptionInJobWithSendServerExceptionStackTraceToClientPropagatesToClientWithStackTrace()
+        public void TestExceptionInJobWithSendServerExceptionStackTraceToClientPropagatesToClientWithStackTrace()
         {
-            await Client.Compute.ExecuteAsync<object>(await GetNodeAsync(1), ExceptionJob);
+            var ex = Assert.ThrowsAsync<IgniteException>(async () =>
+                await Client.Compute.ExecuteAsync<object>(await GetNodeAsync(1), ExceptionJob, "foo-bar"));
+
+            Assert.AreEqual("Test exception: foo-bar", ex!.Message);
+            Assert.IsNotNull(ex.InnerException);
+
+            var str = ex.ToString();
+            StringAssert.Contains(" ---> Apache.Ignite.IgniteException: java.lang.RuntimeException: Test exception: foo-bar", str);
+            StringAssert.Contains(
+                "at org.apache.ignite.internal.runner.app.PlatformTestNodeRunner$ExceptionJob.execute(PlatformTestNodeRunner.java:",
+                str);
         }
 
         private async Task<List<IClusterNode>> GetNodeAsync(int index) =>
