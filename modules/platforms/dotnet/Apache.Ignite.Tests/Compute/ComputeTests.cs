@@ -143,7 +143,7 @@ namespace Apache.Ignite.Tests.Compute
 
             StringAssert.Contains("Custom job error", ex!.Message);
 
-            Assert.AreEqual(
+            StringAssert.StartsWith(
                 "org.apache.ignite.internal.runner.app.client.ItThinClientComputeTest$CustomException",
                 ex.InnerException!.Message);
 
