@@ -381,12 +381,6 @@ public class RexUtils {
             }
 
             for (RexCall pred : collFldPreds) {
-                if (IgniteUtils.assertionsEnabled()) {
-                    RexNode cond = RexUtil.removeCast(pred.operands.get(1));
-
-                    assert idxOpSupports(cond) : cond;
-                }
-
                 if (pred.getOperator().kind != SqlKind.EQUALS) {
                     return List.of();
                 }
