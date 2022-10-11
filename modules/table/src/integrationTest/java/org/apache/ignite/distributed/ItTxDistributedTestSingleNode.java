@@ -40,6 +40,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.hlc.HybridClock;
+import org.apache.ignite.hlc.TrackableHybridClock;
 import org.apache.ignite.internal.affinity.RendezvousAffinityFunction;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -382,7 +383,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 ).thenAccept(
                         raftSvc -> {
                             try {
-                                HybridClock safeTimeClock = new HybridClock();
+                                TrackableHybridClock safeTimeClock = new TrackableHybridClock();
 
                                 replicaManagers.get(node).startReplica(
                                         grpId,
