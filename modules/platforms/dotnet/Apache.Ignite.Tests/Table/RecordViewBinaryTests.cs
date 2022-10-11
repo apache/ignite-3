@@ -566,23 +566,23 @@ namespace Apache.Ignite.Tests.Table
 
             await tupleView.UpsertAsync(null, tuple);
 
-            var res = await tupleView.GetAsync(null, tuple);
+            var res = (await tupleView.GetAsync(null, tuple)).Value;
 
-            Assert.AreEqual(tuple["Blob"], res.Value["Blob"]);
-            Assert.AreEqual(tuple["Date"], res.Value["Date"]);
-            Assert.AreEqual(tuple["Decimal"], res.Value["Decimal"]);
-            Assert.AreEqual(tuple["Double"], res.Value["Double"]);
-            Assert.AreEqual(tuple["Float"], res.Value["Float"]);
-            Assert.AreEqual(tuple["Int8"], res.Value["Int8"]);
-            Assert.AreEqual(tuple["Int16"], res.Value["Int16"]);
-            Assert.AreEqual(tuple["Int32"], res.Value["Int32"]);
-            Assert.AreEqual(tuple["Int64"], res.Value["Int64"]);
-            Assert.AreEqual(tuple["Str"], res.Value["Str"]);
-            Assert.AreEqual(tuple["Uuid"], res.Value["Uuid"]);
-            Assert.AreEqual(tuple["BitMask"], res.Value["BitMask"]);
-            Assert.AreEqual(tuple["Timestamp"], res.Value["Timestamp"]);
-            Assert.AreEqual(tuple["Time"], res.Value["Time"]);
-            Assert.AreEqual(tuple["DateTime"], res.Value["DateTime"]);
+            Assert.AreEqual(tuple["Blob"], res["Blob"]);
+            Assert.AreEqual(tuple["Date"], res["Date"]);
+            Assert.AreEqual(tuple["Decimal"], res["Decimal"]);
+            Assert.AreEqual(tuple["Double"], res["Double"]);
+            Assert.AreEqual(tuple["Float"], res["Float"]);
+            Assert.AreEqual(tuple["Int8"], res["Int8"]);
+            Assert.AreEqual(tuple["Int16"], res["Int16"]);
+            Assert.AreEqual(tuple["Int32"], res["Int32"]);
+            Assert.AreEqual(tuple["Int64"], res["Int64"]);
+            Assert.AreEqual(tuple["Str"], res["Str"]);
+            Assert.AreEqual(tuple["Uuid"], res["Uuid"]);
+            Assert.AreEqual(tuple["BitMask"], res["BitMask"]);
+            Assert.AreEqual(tuple["Timestamp"], res["Timestamp"]);
+            Assert.AreEqual(tuple["Time"], res["Time"]);
+            Assert.AreEqual(tuple["DateTime"], res["DateTime"]);
         }
     }
 }
