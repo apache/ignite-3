@@ -790,7 +790,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                             grpId,
                                                             tblId,
                                                             primaryIndex,
-                                                            clock,
                                                             safeTimeClock
                                                     )
                                             );
@@ -1771,7 +1770,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                             grpId,
                                             tblId,
                                             primaryIndex,
-                                            clock,
                                             safeTimeClock
                                     )
                             );

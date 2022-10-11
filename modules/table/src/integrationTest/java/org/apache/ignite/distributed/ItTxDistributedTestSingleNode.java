@@ -396,7 +396,6 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                                                 grpId,
                                                 tblId,
                                                 primaryIndex,
-                                                clocks.get(node),
                                                 safeTimeClock
                                         )
                                 );

@@ -35,7 +35,6 @@ import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
-import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.hlc.TrackableHybridClock;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
@@ -113,9 +112,6 @@ public class PartitionReplicaListener implements ReplicaListener {
     /** Dummy primary index. */
     private final ConcurrentHashMap<ByteBuffer, RowId> primaryIndex;
 
-    /** Hybrid clock. */
-    private final HybridClock hybridClock;
-
     /** Safe time clock. */
     private final TrackableHybridClock safeTimeClock;
 
@@ -134,7 +130,6 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param lockManager Lock manager.
      * @param tableId Table id.
      * @param primaryIndex Primary index.
-     * @param hybridClock Hybrid clock.
      * @param safeTimeClock Safe time clock.
      */
     public PartitionReplicaListener(
@@ -146,7 +141,6 @@ public class PartitionReplicaListener implements ReplicaListener {
             String replicationGroupId,
             UUID tableId,
             ConcurrentHashMap<ByteBuffer, RowId> primaryIndex,
-            HybridClock hybridClock,
             TrackableHybridClock safeTimeClock
     ) {
         this.mvDataStorage = mvDataStorage;
@@ -157,7 +151,6 @@ public class PartitionReplicaListener implements ReplicaListener {
         this.replicationGroupId = replicationGroupId;
         this.tableId = tableId;
         this.primaryIndex = primaryIndex;
-        this.hybridClock = hybridClock;
         this.safeTimeClock = safeTimeClock;
 
         //TODO: IGNITE-17479 Integrate indexes into replicaListener command handlers
