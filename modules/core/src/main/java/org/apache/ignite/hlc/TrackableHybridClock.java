@@ -112,7 +112,7 @@ public class TrackableHybridClock extends HybridClock {
             int res = timestamp.compareTo(tf.timestamp);
 
             if (res == 0) {
-                res = uuid.compareTo(tf.uuid);
+                return uuid.compareTo(tf.uuid);
             }
 
             return res;
