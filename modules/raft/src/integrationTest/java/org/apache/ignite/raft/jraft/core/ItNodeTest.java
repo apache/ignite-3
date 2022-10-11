@@ -3816,11 +3816,11 @@ public class ItNodeTest {
 
                     if (msg.entriesList() == null && msg.data() == null) {
                         heartbeatRequest.set(true);
-                        assertTrue(msg.timestamp() != null);
                     } else {
                         appendEntriesRequest.set(true);
-                        assertTrue(msg.timestamp() == null);
                     }
+
+                    assertTrue(msg.timestamp() != null);
                 } else if (msgs[0] instanceof AppendEntriesResponseImpl) {
                     AppendEntriesResponseImpl msg = (AppendEntriesResponseImpl) msgs[0];
                     if (msg.timestamp() == null) {
