@@ -17,7 +17,9 @@
 
 #pragma once
 
-#include <ignite/common/ignite_error.h>
+#include "ignite/network/detail/win/sockets.h"
+
+#include "ignite/common/ignite_error.h"
 
 #include <cstdint>
 #include <thread>

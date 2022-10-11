@@ -107,7 +107,7 @@ bool win_async_client::send_next_packet_locked() {
     if (m_send_packets.empty())
         return true;
 
-    auto dataView = m_send_packets.front().getBytesView();
+    auto dataView = m_send_packets.front().get_bytes_view();
     DWORD flags = 0;
 
     WSABUF buffer;

@@ -566,7 +566,7 @@ int64_t big_integer::to_int64() const {
 void big_integer::get_power_of_ten(int32_t pow, big_integer &res) {
     assert(pow >= 0);
 
-    constexpr auto n64 = std::numeric_limits<uint64_t>::digits10 + 1;
+    static constexpr auto n64 = std::numeric_limits<uint64_t>::digits10 + 1;
     if (pow < n64) {
         static const auto power10 = [] {
             std::array<std::uint64_t, n64> a;
