@@ -98,6 +98,9 @@ public interface MvPartitionStorage extends AutoCloseable {
      *     <li>There are commits but they're all newer than timestamp - return nothing.</li>
      * </ol>
      *
+     * <p>{@link ReadResult#newestCommitTimestamp()} is filled by this method for intents having preceding committed
+     * versions.
+     *
      * @param rowId Row id.
      * @param timestamp Timestamp.
      * @return Read result that corresponds to the key.
@@ -143,11 +146,29 @@ public interface MvPartitionStorage extends AutoCloseable {
     void commitWrite(RowId rowId, HybridTimestamp timestamp) throws StorageException;
 
     /**
-     * Scans all versions of a single row.
+     * Creates a committed version.
+     * In details:
+     * - if there is no uncommitted version, a new committed version is added
+     * - if there is an uncommitted version, this method may fail with a system exception (this method should not be called if there
+     *   is already something uncommitted for the given row).
      *
      * @param rowId Row id.
+     * @param row Binary row to update. Key only row means value removal.
+     * @param commitTimestamp Timestamp to associate with committed value.
+     * @throws StorageException If failed to write data to the storage.
      */
-    Cursor<BinaryRow> scanVersions(RowId rowId) throws StorageException;
+    void addWriteCommitted(RowId rowId, BinaryRow row, HybridTimestamp commitTimestamp) throws StorageException;
+
+    /**
+     * Scans all versions of a single row.
+     *
+     * <p>{@link ReadResult#newestCommitTimestamp()} is NOT filled by this method for intents having preceding committed
+     * versions.
+     *
+     * @param rowId Row id.
+     * @return Cursor of results including both rows data and transaction-related context. The versions are ordered from newest to oldest.
+     */
+    Cursor<ReadResult> scanVersions(RowId rowId) throws StorageException;
 
     /**
      * Scans the partition and returns a cursor of values at the given timestamp.

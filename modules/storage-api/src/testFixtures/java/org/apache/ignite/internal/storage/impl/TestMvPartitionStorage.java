@@ -177,6 +177,18 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     /** {@inheritDoc} */
     @Override
+    public void addWriteCommitted(RowId rowId, BinaryRow row, HybridTimestamp commitTimestamp) throws StorageException {
+        map.compute(rowId, (ignored, versionChain) -> {
+            if (versionChain != null && versionChain.isWriteIntent()) {
+                throw new StorageException("Write intent exists for " + rowId);
+            }
+
+            return new VersionChain(row, commitTimestamp, null, null, ReadResult.UNDEFINED_COMMIT_PARTITION_ID, versionChain);
+        });
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public ReadResult read(RowId rowId, @Nullable HybridTimestamp timestamp) {
         if (rowId.partitionId() != partitionId) {
             throw new IllegalArgumentException(
@@ -211,9 +223,8 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
         if (timestamp == null) {
             // Search by transaction id.
-            BinaryRow binaryRow = versionChain.row;
 
-            if (filter != null && !filter.test(binaryRow)) {
+            if (filter != null && !filter.test(versionChain.row)) {
                 return ReadResult.EMPTY;
             }
 
@@ -221,24 +232,12 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
                 throw new TxIdMismatchException(txId, versionChain.txId);
             }
 
-            boolean isWriteIntent = versionChain.ts == null;
-
-            if (isWriteIntent) {
-                return ReadResult.createFromWriteIntent(
-                        binaryRow,
-                        versionChain.txId,
-                        versionChain.commitTableId,
-                        versionChain.next != null ? versionChain.next.ts : null,
-                        versionChain.commitPartitionId
-                );
-            }
-
-            return ReadResult.createFromCommitted(binaryRow);
+            return versionChainToReadResult(versionChain, true);
         }
 
         VersionChain cur = versionChain;
 
-        if (cur.ts == null) {
+        if (cur.isWriteIntent()) {
             // We have a write-intent.
             if (cur.next == null) {
                 // We *only* have a write-intent, return it.
@@ -248,8 +247,8 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
                     return ReadResult.EMPTY;
                 }
 
-                return ReadResult.createFromWriteIntent(binaryRow, cur.txId, cur.commitTableId, null,
-                        cur.commitPartitionId);
+                return ReadResult.createFromWriteIntent(binaryRow, cur.txId, cur.commitTableId, cur.commitPartitionId, null
+                );
             }
 
             // Move to first commit.
@@ -257,6 +256,19 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         }
 
         return walkVersionChain(versionChain, timestamp, filter, cur);
+    }
+
+    private static ReadResult versionChainToReadResult(VersionChain versionChain, boolean fillLastCommittedTs) {
+        if (versionChain.isWriteIntent()) {
+            return ReadResult.createFromWriteIntent(
+                    versionChain.row,
+                    versionChain.txId,
+                    versionChain.commitTableId,
+                    versionChain.commitPartitionId, fillLastCommittedTs && versionChain.next != null ? versionChain.next.ts : null
+            );
+        }
+
+        return ReadResult.createFromCommitted(versionChain.row, versionChain.ts);
     }
 
     /**
@@ -281,8 +293,9 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
                 return ReadResult.EMPTY;
             }
 
-            return ReadResult.createFromWriteIntent(binaryRow, chainHead.txId, chainHead.commitTableId, firstCommit.ts,
-                    chainHead.commitPartitionId);
+            return ReadResult.createFromWriteIntent(binaryRow, chainHead.txId, chainHead.commitTableId, chainHead.commitPartitionId,
+                    firstCommit.ts
+            );
         }
 
         VersionChain cur = firstCommit;
@@ -298,7 +311,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
                     return ReadResult.EMPTY;
                 }
 
-                return ReadResult.createFromCommitted(binaryRow);
+                return ReadResult.createFromCommitted(binaryRow, cur.ts);
             }
 
             cur = cur.next;
@@ -308,8 +321,12 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
-    public Cursor<BinaryRow> scanVersions(RowId rowId) throws StorageException {
-        return Cursor.fromIterator(Stream.iterate(map.get(rowId), Objects::nonNull, vc -> vc.next).map(vc -> vc.row).iterator());
+    public Cursor<ReadResult> scanVersions(RowId rowId) throws StorageException {
+        return Cursor.fromIterator(
+                Stream.iterate(map.get(rowId), Objects::nonNull, vc -> vc.next)
+                        .map((VersionChain versionChain) -> versionChainToReadResult(versionChain, false))
+                        .iterator()
+        );
     }
 
     /** {@inheritDoc} */

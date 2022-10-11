@@ -30,7 +30,7 @@ public class ReadResult {
     public static final int UNDEFINED_COMMIT_PARTITION_ID = -1;
 
     /** Empty read result. */
-    public static final ReadResult EMPTY = new ReadResult(null, null, null, null, UNDEFINED_COMMIT_PARTITION_ID);
+    public static final ReadResult EMPTY = new ReadResult(null, null, null, null, null, UNDEFINED_COMMIT_PARTITION_ID);
 
     /** Data. */
     private final @Nullable BinaryRow binaryRow;
@@ -45,13 +45,26 @@ public class ReadResult {
     private final int commitPartitionId;
 
     /**
-     * Timestamp of the newest commit of the data. Not {@code null} iff committed version exists, this is a
+     * Commit timestamp of this version (of exists). Non-null for committed versions, {@code null} for write intents.
+     */
+    private final @Nullable HybridTimestamp commitTs;
+
+    /**
+     * Timestamp of the newest commit of the data. Not {@code null} if committed version exists, this is a
      * write-intent and read was made with a timestamp.
+     * Might be {@code null} for {@link MvPartitionStorage#scanVersions(RowId)} even for write intents having
+     * a preceding committed version.
      */
     private final @Nullable HybridTimestamp newestCommitTs;
 
-    private ReadResult(BinaryRow binaryRow, @Nullable UUID transactionId, @Nullable UUID commitTableId,
-            @Nullable HybridTimestamp newestCommitTs, int commitPartitionId) {
+    private ReadResult(
+            @Nullable BinaryRow binaryRow,
+            @Nullable UUID transactionId,
+            @Nullable UUID commitTableId,
+            @Nullable HybridTimestamp commitTs,
+            @Nullable HybridTimestamp newestCommitTs,
+            int commitPartitionId
+    ) {
         this.binaryRow = binaryRow;
 
         // If transaction is not null, then commitTableId and commitPartitionId should be defined.
@@ -62,17 +75,18 @@ public class ReadResult {
 
         this.transactionId = transactionId;
         this.commitTableId = commitTableId;
+        this.commitTs = commitTs;
         this.newestCommitTs = newestCommitTs;
         this.commitPartitionId = commitPartitionId;
     }
 
     public static ReadResult createFromWriteIntent(BinaryRow binaryRow, UUID transactionId, UUID commitTableId,
-            @Nullable HybridTimestamp lastCommittedTimestamp, int commitPartitionId) {
-        return new ReadResult(binaryRow, transactionId, commitTableId, lastCommittedTimestamp, commitPartitionId);
+            int commitPartitionId, @Nullable HybridTimestamp lastCommittedTimestamp) {
+        return new ReadResult(binaryRow, transactionId, commitTableId, null, lastCommittedTimestamp, commitPartitionId);
     }
 
-    public static ReadResult createFromCommitted(BinaryRow binaryRow) {
-        return new ReadResult(binaryRow, null, null, null, UNDEFINED_COMMIT_PARTITION_ID);
+    public static ReadResult createFromCommitted(BinaryRow binaryRow, HybridTimestamp commitTs) {
+        return new ReadResult(binaryRow, null, null, commitTs, null, UNDEFINED_COMMIT_PARTITION_ID);
     }
 
     /**
@@ -107,7 +121,17 @@ public class ReadResult {
     }
 
     /**
-     * Returns timestamp of the most recent commit of the row.
+     * Returns commit timestamp of this version (of exists). Non-null for committed versions, {@code null} for write intents.
+     *
+     * @return Commit timestamp of this version (of exists). Non-null for committed versions, {@code null} for write intents.
+     */
+    public @Nullable HybridTimestamp commitTimestamp() {
+        return commitTs;
+    }
+
+    /**
+     * Returns timestamp of the most recent commit of the row. Might be {@code null} for {@link MvPartitionStorage#scanVersions(RowId)}
+     * even for write intents having a preceding committed version.
      *
      * @return Timestamp of the most recent commit of the row.
      */

@@ -41,6 +41,7 @@ import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
+import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -73,6 +74,8 @@ public class ItInternalTableScanTest {
 
     /** Internal table to test. */
     private InternalTable internalTbl;
+
+    private final HybridClock clock = new HybridClock();
 
     /**
      * Prepare test environment using DummyInternalTableImpl and Mocked storage.
@@ -379,7 +382,7 @@ public class ItInternalTableScanTest {
             when(cursor.hasNext()).thenAnswer(hnInvocation -> cursorTouchCnt.get() < submittedItems.size());
 
             when(cursor.next()).thenAnswer(ninvocation ->
-                    ReadResult.createFromCommitted(submittedItems.get(cursorTouchCnt.getAndIncrement())));
+                    ReadResult.createFromCommitted(submittedItems.get(cursorTouchCnt.getAndIncrement()), clock.now()));
 
             return cursor;
         });
