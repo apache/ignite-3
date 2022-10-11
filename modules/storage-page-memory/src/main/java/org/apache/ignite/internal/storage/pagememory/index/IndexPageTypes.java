@@ -45,11 +45,11 @@ public interface IndexPageTypes {
     // TODO: IGNITE-17671 Need to implement for sorted indexes
 
     /** Sorted index tree meta IO type. */
-    short T_SORTED_INDEX_META_IO = 10_003;
+    short T_SORTED_INDEX_META_IO = 105;
 
     /** Sorted index tree inner IO type. */
-    short T_SORTED_INDEX_INNER_IO = 10_004;
+    short T_SORTED_INDEX_INNER_IO = 106;
 
     /** Sorted index tree meta IO type. */
-    short T_SORTED_INDEX_LEAF_IO = 10_005;
+    short T_SORTED_INDEX_LEAF_IO = 107;
 }
