@@ -18,9 +18,7 @@
 package org.apache.ignite.internal.storage.pagememory.index.hash.io;
 
 import static org.apache.ignite.internal.pagememory.util.PageUtils.getInt;
-import static org.apache.ignite.internal.pagememory.util.PageUtils.getLong;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putInt;
-import static org.apache.ignite.internal.pagememory.util.PageUtils.putLong;
 import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.PARTITIONLESS_LINK_SIZE_BYTES;
 import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.readPartitionless;
 import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.writePartitionless;
@@ -106,16 +104,22 @@ public interface HashIndexTreeIo {
     default void storeByOffset(long pageAddr, int off, HashIndexRowKey rowKey) {
         assert rowKey instanceof HashIndexRow;
 
-        HashIndexRow hashIndexRow = (HashIndexRow) rowKey;
+        HashIndexRow row = (HashIndexRow) rowKey;
 
-        putInt(pageAddr, off + INDEX_COLUMNS_HASH_OFFSET, hashIndexRow.indexColumnsHash());
+        putInt(pageAddr, off + INDEX_COLUMNS_HASH_OFFSET, row.indexColumnsHash());
 
-        writePartitionless(pageAddr + off + INDEX_COLUMNS_LINK_OFFSET, hashIndexRow.indexColumns().link());
+        IndexColumns indexColumns = row.indexColumns();
 
-        RowId rowId = hashIndexRow.rowId();
+        // TODO: IGNITE-17536 вот тут вся магия будет.
 
-        putLong(pageAddr, off + ROW_ID_MSB_OFFSET, rowId.mostSignificantBits());
-        putLong(pageAddr, off + ROW_ID_LSB_OFFSET, rowId.leastSignificantBits());
+        // Так вот тут что делаем то? нам нужно записать размер, тупл, линк, ровИд
+
+        writePartitionless(pageAddr + off + INDEX_COLUMNS_LINK_OFFSET, indexColumns.link());
+
+        RowId rowId = row.rowId();
+
+        //        putLong(pageAddr, off + ROW_ID_MSB_OFFSET, rowId.mostSignificantBits());
+        //        putLong(pageAddr, off + ROW_ID_LSB_OFFSET, rowId.leastSignificantBits());
     }
 
     /**
@@ -140,6 +144,8 @@ public interface HashIndexTreeIo {
             return cmp;
         }
 
+        // TODO: IGNITE-17536 вот тут вся магия будет.
+
         long link = readPartitionless(partitionId, pageAddr, off + INDEX_COLUMNS_LINK_OFFSET);
 
         //TODO Add in-place compare in IGNITE-17536
@@ -155,17 +161,19 @@ public interface HashIndexTreeIo {
             return cmp;
         }
 
-        long rowIdMsb = getLong(pageAddr, off + ROW_ID_MSB_OFFSET);
+        //        long rowIdMsb = getLong(pageAddr, off + ROW_ID_MSB_OFFSET);
+        //
+        //        cmp = Long.compare(rowIdMsb, hashIndexRow.rowId().mostSignificantBits());
+        //
+        //        if (cmp != 0) {
+        //            return cmp;
+        //        }
+        //
+        //        long rowIdLsb = getLong(pageAddr, off + ROW_ID_LSB_OFFSET);
+        //
+        //        return Long.compare(rowIdLsb, hashIndexRow.rowId().leastSignificantBits());
 
-        cmp = Long.compare(rowIdMsb, hashIndexRow.rowId().mostSignificantBits());
-
-        if (cmp != 0) {
-            return cmp;
-        }
-
-        long rowIdLsb = getLong(pageAddr, off + ROW_ID_LSB_OFFSET);
-
-        return Long.compare(rowIdLsb, hashIndexRow.rowId().leastSignificantBits());
+        return 0;
     }
 
     /**
@@ -184,6 +192,8 @@ public interface HashIndexTreeIo {
 
         int hash = getInt(pageAddr, off + INDEX_COLUMNS_HASH_OFFSET);
 
+        // TODO: IGNITE-17536 вот тут вся магия будет.
+
         long link = readPartitionless(partitionId, pageAddr, off + INDEX_COLUMNS_LINK_OFFSET);
 
         ReadIndexColumnsValue indexColumnsTraversal = new ReadIndexColumnsValue();
@@ -194,11 +204,20 @@ public interface HashIndexTreeIo {
 
         IndexColumns indexColumns = new IndexColumns(partitionId, link, indexColumnsBuffer);
 
-        long rowIdMsb = getLong(pageAddr, off + ROW_ID_MSB_OFFSET);
-        long rowIdLsb = getLong(pageAddr, off + ROW_ID_LSB_OFFSET);
+        //        long rowIdMsb = getLong(pageAddr, off + ROW_ID_MSB_OFFSET);
+        //        long rowIdLsb = getLong(pageAddr, off + ROW_ID_LSB_OFFSET);
+        //
+        //        RowId rowId = new RowId(partitionId, rowIdMsb, rowIdLsb);
 
-        RowId rowId = new RowId(partitionId, rowIdMsb, rowIdLsb);
+        RowId rowId = new RowId(partitionId, 0, 0);
 
         return new HashIndexRow(hash, indexColumns, rowId);
+    }
+
+    /**
+     * Returns the inline size for index columns in bytes.
+     */
+    default int indexColumnsInlineSize() {
+        return getItemSize() - ITEM_SIZE_WITHOUT_COLUMNS;
     }
 }
