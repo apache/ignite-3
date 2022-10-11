@@ -28,7 +28,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ThreadLocalRandom;
@@ -49,9 +48,9 @@ public class TrackableHybridClockTest {
         HybridTimestamp ts2 = new HybridTimestamp(ts.getPhysical() + 2_000_000, 0);
         HybridTimestamp ts3 = new HybridTimestamp(ts.getPhysical() + 3_000_000, 0);
 
-        CompletableFuture<Void> f0 = clock.waitFor(ts2, UUID.randomUUID());
-        CompletableFuture<Void> f1 = clock.waitFor(ts2, UUID.randomUUID());
-        CompletableFuture<Void> f2 = clock.waitFor(ts3, UUID.randomUUID());
+        CompletableFuture<Void> f0 = clock.waitFor(ts2);
+        CompletableFuture<Void> f1 = clock.waitFor(ts2);
+        CompletableFuture<Void> f2 = clock.waitFor(ts3);
 
         assertFalse(f0.isDone());
         assertFalse(f1.isDone());
@@ -93,7 +92,7 @@ public class TrackableHybridClockTest {
                         HybridTimestamp timestampToWait =
                             new HybridTimestamp(now.getPhysical() + 1, now.getLogical() + random.nextInt(1000));
 
-                        CompletableFuture<Void> future = clock.waitFor(timestampToWait, UUID.randomUUID());
+                        CompletableFuture<Void> future = clock.waitFor(timestampToWait);
 
                         IgniteBiTuple<CompletableFuture<Void>, HybridTimestamp> pair = new IgniteBiTuple<>(future, timestampToWait);
 

@@ -61,16 +61,15 @@ public class TrackableHybridClock extends HybridClock {
      * Provides the future that is completed when this clock's latest timestamp becomes higher or equal to the given one.
      *
      * @param timestamp Timestamp to wait.
-     * @param uuid Unique uuid.
      * @return Future.
      */
-    public CompletableFuture<Void> waitFor(HybridTimestamp timestamp, UUID uuid) {
+    public CompletableFuture<Void> waitFor(HybridTimestamp timestamp) {
         if (latestTime.compareTo(timestamp) >= 0) {
             return completedFuture(null);
         }
 
         CompletableFuture<Void> future = new CompletableFuture<>();
-        TimestampFuture timestampFuture = new TimestampFuture(timestamp, future, uuid);
+        TimestampFuture timestampFuture = new TimestampFuture(timestamp, future);
         timestampFutures.add(timestampFuture);
 
         if (latestTime.compareTo(timestamp) >= 0) {
@@ -92,13 +91,12 @@ public class TrackableHybridClock extends HybridClock {
         /** Internal future. */
         private final CompletableFuture<Void> future;
 
-        /** Unique uuid. */
-        private final UUID uuid;
+        /** Unique uuid, for identifying timestamp futures in case of identical timestamps. */
+        private final UUID uuid = UUID.randomUUID();
 
-        public TimestampFuture(HybridTimestamp timestamp, CompletableFuture<Void> future, UUID uuid) {
+        public TimestampFuture(HybridTimestamp timestamp, CompletableFuture<Void> future) {
             this.timestamp = timestamp;
             this.future = future;
-            this.uuid = uuid;
         }
 
         public HybridTimestamp timestamp() {

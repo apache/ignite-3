@@ -230,15 +230,17 @@ public class PartitionReplicaListener implements ReplicaListener {
         PartitionTimestampCursor cursor = cursors.computeIfAbsent(cursorId,
                 id -> mvDataStorage.scan(row -> true, HybridTimestamp.MAX_VALUE));
 
-        while (batchRows.size() < batchCount && cursor.hasNext()) {
-            BinaryRow resolvedReadResult = resolveReadResult(cursor.next(), null);
+        return safeTimeClock.waitFor(request.timestamp()).thenApply(v -> {
+            while (batchRows.size() < batchCount && cursor.hasNext()) {
+                BinaryRow resolvedReadResult = resolveReadResult(cursor.next(), null);
 
-            if (resolvedReadResult != null) {
-                batchRows.add(resolvedReadResult);
+                if (resolvedReadResult != null) {
+                    batchRows.add(resolvedReadResult);
+                }
             }
-        }
 
-        return CompletableFuture.completedFuture(batchRows);
+            return batchRows;
+        });
     }
 
     /**
@@ -260,9 +262,8 @@ public class PartitionReplicaListener implements ReplicaListener {
         //TODO: IGNITE-17868 Integrate indexes into rowIds resolution along with proper lock management on search rows.
         RowId rowId = rowIdByKey(indexId, searchKey);
 
-        BinaryRow result = rowId != null ? resolveReadResult(mvDataStorage.read(rowId, request.timestamp()), null) : null;
-
-        return CompletableFuture.completedFuture(result);
+        return safeTimeClock.waitFor(request.timestamp())
+            .thenApply(v -> rowId != null ? resolveReadResult(mvDataStorage.read(rowId, request.timestamp()), null) : null);
     }
 
     /**
@@ -282,16 +283,18 @@ public class PartitionReplicaListener implements ReplicaListener {
                     IgniteStringFormatter.format("Unknown single request [actionType={}]", request.requestType()));
         }
 
-        ArrayList<BinaryRow> result = new ArrayList<>(keyRows.size());
+        return safeTimeClock.waitFor(request.timestamp()).thenApply(v -> {
+            ArrayList<BinaryRow> result = new ArrayList<>(keyRows.size());
 
-        for (ByteBuffer searchKey : keyRows) {
-            //TODO: IGNITE-17868 Integrate indexes into rowIds resolution along with proper lock management on search rows.
-            RowId rowId = rowIdByKey(indexId, searchKey);
+            for (ByteBuffer searchKey : keyRows) {
+                //TODO: IGNITE-17868 Integrate indexes into rowIds resolution along with proper lock management on search rows.
+                RowId rowId = rowIdByKey(indexId, searchKey);
 
-            result.add(rowId != null ? resolveReadResult(mvDataStorage.read(rowId, request.timestamp()), null) : null);
-        }
+                result.add(rowId != null ? resolveReadResult(mvDataStorage.read(rowId, request.timestamp()), null) : null);
+            }
 
-        return CompletableFuture.completedFuture(result);
+            return result;
+        });
     }
 
     /**
@@ -365,23 +368,25 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         IgniteUuid cursorId = new IgniteUuid(txId, request.scanId());
 
-        return lockManager.acquire(txId, new LockKey(tableId), LockMode.S).thenCompose(tblLock -> {
-            ArrayList<BinaryRow> batchRows = new ArrayList<>(batchCount);
+        return safeTimeClock
+                .waitFor(request.timestamp())
+                .thenCompose(v -> lockManager.acquire(txId, new LockKey(tableId), LockMode.S).thenCompose(tblLock -> {
+                    ArrayList<BinaryRow> batchRows = new ArrayList<>(batchCount);
 
-            //TODO: IGNITE-17849 Remove this always true filter after the storage API will be changed.
-            PartitionTimestampCursor cursor = cursors.computeIfAbsent(cursorId,
-                    id -> mvDataStorage.scan(row -> true, HybridTimestamp.MAX_VALUE));
+                    //TODO: IGNITE-17849 Remove this always true filter after the storage API will be changed.
+                    PartitionTimestampCursor cursor = cursors.computeIfAbsent(cursorId,
+                        id -> mvDataStorage.scan(row -> true, HybridTimestamp.MAX_VALUE));
 
-            while (batchRows.size() < batchCount && cursor.hasNext()) {
-                BinaryRow resolvedReadResult = resolveReadResult(cursor.next(), txId);
+                    while (batchRows.size() < batchCount && cursor.hasNext()) {
+                        BinaryRow resolvedReadResult = resolveReadResult(cursor.next(), txId);
 
-                if (resolvedReadResult != null) {
-                    batchRows.add(resolvedReadResult);
-                }
-            }
+                        if (resolvedReadResult != null) {
+                            batchRows.add(resolvedReadResult);
+                        }
+                    }
 
-            return completedFuture(batchRows);
-        });
+                    return completedFuture(batchRows);
+                }));
     }
 
     /**
