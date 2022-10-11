@@ -29,7 +29,7 @@
 
 namespace ignite::network::detail {
 
-std::string getSocketErrorMessage(HRESULT error) {
+std::string get_socket_error_message(HRESULT error) {
     std::stringstream res;
 
     res << "error_code=" << error;
@@ -66,24 +66,24 @@ std::string getSocketErrorMessage(HRESULT error) {
     return res.str();
 }
 
-std::string getLastSocketErrorMessage() {
-    HRESULT lastError = WSAGetLastError();
+std::string get_last_socket_error_message() {
+    HRESULT last_error = WSAGetLastError();
 
-    return getSocketErrorMessage(lastError);
+    return get_socket_error_message(last_error);
 }
 
-void trySetSocketOptions(SOCKET socket, int bufSize, BOOL noDelay, BOOL outOfBand, BOOL keepAlive) {
-    setsockopt(socket, SOL_SOCKET, SO_SNDBUF, reinterpret_cast<char *>(&bufSize), sizeof(bufSize));
-    setsockopt(socket, SOL_SOCKET, SO_RCVBUF, reinterpret_cast<char *>(&bufSize), sizeof(bufSize));
+void try_set_socket_options(SOCKET socket, int buf_size, BOOL no_delay, BOOL out_of_band, BOOL keep_alive) {
+    setsockopt(socket, SOL_SOCKET, SO_SNDBUF, reinterpret_cast<char *>(&buf_size), sizeof(buf_size));
+    setsockopt(socket, SOL_SOCKET, SO_RCVBUF, reinterpret_cast<char *>(&buf_size), sizeof(buf_size));
 
-    setsockopt(socket, IPPROTO_TCP, TCP_NODELAY, reinterpret_cast<char *>(&noDelay), sizeof(noDelay));
+    setsockopt(socket, IPPROTO_TCP, TCP_NODELAY, reinterpret_cast<char *>(&no_delay), sizeof(no_delay));
 
-    setsockopt(socket, SOL_SOCKET, SO_OOBINLINE, reinterpret_cast<char *>(&outOfBand), sizeof(outOfBand));
+    setsockopt(socket, SOL_SOCKET, SO_OOBINLINE, reinterpret_cast<char *>(&out_of_band), sizeof(out_of_band));
 
-    int res = setsockopt(socket, SOL_SOCKET, SO_KEEPALIVE, reinterpret_cast<char *>(&keepAlive), sizeof(keepAlive));
+    int res = setsockopt(socket, SOL_SOCKET, SO_KEEPALIVE, reinterpret_cast<char *>(&keep_alive), sizeof(keep_alive));
 
     // TODO: IGNITE-17606 Disable keep-alive once heartbeats are implemented.
-    if (keepAlive) {
+    if (keep_alive) {
         if (SOCKET_ERROR == res) {
             // There is no sense in configuring keep alive params if we failed to set up keep alive mode.
             return;
@@ -123,20 +123,20 @@ void trySetSocketOptions(SOCKET socket, int bufSize, BOOL noDelay, BOOL outOfBan
     }
 }
 
-void InitWsa() {
-    static std::mutex initMutex;
-    static bool networkInited = false;
+void init_wsa() {
+    static std::mutex init_mutex;
+    static bool network_inited = false;
 
-    if (!networkInited) {
-        std::lock_guard<std::mutex> lock(initMutex);
-        if (!networkInited) {
+    if (!network_inited) {
+        std::lock_guard<std::mutex> lock(init_mutex);
+        if (!network_inited) {
             WSADATA wsaData;
 
-            networkInited = WSAStartup(MAKEWORD(2, 2), &wsaData) == 0;
+            network_inited = WSAStartup(MAKEWORD(2, 2), &wsaData) == 0;
 
-            if (!networkInited)
+            if (!network_inited)
                 throw ignite_error(
-                    status_code::NETWORK, "Networking initialisation failed: " + getLastSocketErrorMessage());
+                    status_code::NETWORK, "Networking initialisation failed: " + get_last_socket_error_message());
         }
     }
 }

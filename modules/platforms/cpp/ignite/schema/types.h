@@ -17,10 +17,10 @@
 
 #pragma once
 
-#include <cstddef>
+#include <ignite/common/bytes_view.h>
+
 #include <cstdint>
 #include <optional>
-#include <string_view>
 #include <vector>
 
 namespace ignite {
@@ -33,24 +33,6 @@ using SizeT = uint32_t;
 
 /** Non-existent column/element number. */
 static constexpr IntT NO_NUM = -1;
-
-/** A slice of raw bytes. */
-struct bytes_view : std::basic_string_view<std::byte> {
-    using Base = std::basic_string_view<std::byte>;
-
-    constexpr bytes_view() noexcept = default;
-
-    constexpr bytes_view(const std::byte *data, std::size_t size) noexcept
-        : Base(data, size) { }
-
-    constexpr bytes_view(const Base &v) noexcept // NOLINT(google-explicit-constructor)
-        : Base(v.data(), v.size()) { }
-
-    bytes_view(const std::vector<std::byte> &v) noexcept // NOLINT(google-explicit-constructor)
-        : Base(v.data(), v.size()) { }
-
-    explicit operator std::vector<std::byte>() const { return {begin(), end()}; }
-};
 
 /** Binary value for a potentially nullable column. */
 using element_view = std::optional<bytes_view>;

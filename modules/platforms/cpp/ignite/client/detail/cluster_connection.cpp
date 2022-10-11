@@ -40,25 +40,25 @@ void cluster_connection::start_async(std::function<void(ignite_result<void>)> ca
     if (m_pool)
         throw ignite_error("Client is already started");
 
-    std::vector<TcpRange> addrs;
+    std::vector<tcp_range> addrs;
     addrs.reserve(m_configuration.get_endpoints().size());
-    for (const auto &strAddr : m_configuration.get_endpoints()) {
-        std::optional<TcpRange> ep = TcpRange::parse(strAddr, DEFAULT_TCP_PORT);
+    for (const auto &str_addr : m_configuration.get_endpoints()) {
+        std::optional<tcp_range> ep = tcp_range::parse(str_addr, DEFAULT_TCP_PORT);
         if (!ep)
-            throw ignite_error("Can not parse address range: " + strAddr);
+            throw ignite_error("Can not parse address range: " + str_addr);
 
         addrs.push_back(std::move(ep.value()));
     }
 
-    DataFilters filters;
+    data_filters filters;
 
-    std::shared_ptr<factory<Codec>> codecFactory = std::make_shared<LengthPrefixCodecFactory>();
-    std::shared_ptr<CodecDataFilter> codecFilter(new network::CodecDataFilter(codecFactory));
-    filters.push_back(codecFilter);
+    std::shared_ptr<factory<codec>> codec_factory = std::make_shared<length_prefix_codec_factory>();
+    std::shared_ptr<codec_data_filter> codec_filter(new network::codec_data_filter(codec_factory));
+    filters.push_back(codec_filter);
 
-    m_pool = network::makeAsyncClientPool(filters);
+    m_pool = network::make_async_client_pool(filters);
 
-    m_pool->setHandler(shared_from_this());
+    m_pool->set_handler(shared_from_this());
 
     m_on_initial_connect = std::move(callback);
 
@@ -71,7 +71,7 @@ void cluster_connection::stop() {
         pool->stop();
 }
 
-void cluster_connection::on_connection_success(const network::EndPoint &addr, uint64_t id) {
+void cluster_connection::on_connection_success(const network::end_point &addr, uint64_t id) {
     m_logger->log_info("Established connection with remote host " + addr.to_string());
     m_logger->log_debug("Connection ID: " + std::to_string(id));
 
@@ -79,8 +79,8 @@ void cluster_connection::on_connection_success(const network::EndPoint &addr, ui
     {
         [[maybe_unused]] std::unique_lock<std::recursive_mutex> lock(m_connections_mutex);
 
-        auto [_it, wasNew] = m_connections.insert_or_assign(id, connection);
-        if (!wasNew)
+        auto [_it, was_new] = m_connections.insert_or_assign(id, connection);
+        if (!was_new)
             m_logger->log_error(
                 "Unknown error: connecting is already in progress. Connection ID: " + std::to_string(id));
     }
@@ -99,7 +99,7 @@ void cluster_connection::on_connection_success(const network::EndPoint &addr, ui
     }
 }
 
-void cluster_connection::on_connection_error(const network::EndPoint &addr, ignite_error err) {
+void cluster_connection::on_connection_error(const network::end_point &addr, ignite_error err) {
     m_logger->log_warning(
         "Failed to establish connection with remote host " + addr.to_string() + ", reason: " + err.what());
 

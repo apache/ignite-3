@@ -20,12 +20,14 @@
 #include <ignite/network/async_client_pool.h>
 #include <ignite/network/data_filter.h>
 
+#include <optional>
+
 namespace ignite::network {
 
 /**
  * Asynchronous client pool adapter.
  */
-class AsyncClientPoolAdapter : public AsyncClientPool {
+class async_client_pool_adapter : public async_client_pool {
 public:
     /**
      * Constructor.
@@ -33,7 +35,7 @@ public:
      * @param filters Filters.
      * @param pool Client pool.
      */
-    AsyncClientPoolAdapter(DataFilters filters, std::shared_ptr<AsyncClientPool> pool);
+    async_client_pool_adapter(data_filters filters, std::shared_ptr<async_client_pool> pool);
 
     /**
      * Start internal thread that establishes connections to provided addresses and asynchronously sends and
@@ -41,11 +43,11 @@ public:
      * established or failure happened.
      *
      * @param addrs Addresses to connect to.
-     * @param connLimit Connection upper limit. Zero means limit is disabled.
+     * @param conn_limit Connection upper limit. Zero means limit is disabled.
      *
      * @throw IgniteError on error.
      */
-    void start(std::vector<TcpRange> addrs, uint32_t connLimit) override;
+    void start(std::vector<tcp_range> addrs, uint32_t conn_limit) override;
 
     /**
      * Close all established connections and stops handling threads.
@@ -57,7 +59,7 @@ public:
      *
      * @param handler Handler to set.
      */
-    void setHandler(std::weak_ptr<AsyncHandler> handler) override;
+    void set_handler(std::weak_ptr<async_handler> handler) override;
 
     /**
      * Send data to specific established connection.
@@ -80,13 +82,13 @@ public:
 
 private:
     /** Filters. */
-    DataFilters m_filters;
+    data_filters m_filters;
 
     /** Underlying pool. */
-    std::shared_ptr<AsyncClientPool> m_pool;
+    std::shared_ptr<async_client_pool> m_pool;
 
     /** Lower level data sink. */
-    DataSink *m_sink;
+    data_sink *m_sink;
 };
 
 } // namespace ignite::network

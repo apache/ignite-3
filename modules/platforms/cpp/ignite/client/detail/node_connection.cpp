@@ -22,7 +22,7 @@
 namespace ignite::detail {
 
 node_connection::node_connection(
-    uint64_t id, std::shared_ptr<network::AsyncClientPool> pool, std::shared_ptr<ignite_logger> logger)
+    uint64_t id, std::shared_ptr<network::async_client_pool> pool, std::shared_ptr<ignite_logger> logger)
     : m_id(id)
     , m_pool(std::move(pool))
     , m_logger(std::move(logger)) {

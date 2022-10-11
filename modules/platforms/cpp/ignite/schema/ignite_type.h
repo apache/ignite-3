@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include <ignite/common/types.h>
+#include "types.h"
 
 #include <ostream>
 

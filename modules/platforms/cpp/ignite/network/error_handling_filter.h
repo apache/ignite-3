@@ -26,18 +26,15 @@ namespace ignite::network {
 /**
  * Filter that handles exceptions thrown by upper level handlers.
  */
-class ErrorHandlingFilter : public DataFilterAdapter {
+class error_handling_filter : public data_filter_adapter {
 public:
-    // Default
-    ~ErrorHandlingFilter() override = default;
-
     /**
      * Callback that called on successful connection establishment.
      *
      * @param addr Address of the new connection.
      * @param id Connection ID.
      */
-    void on_connection_success(const EndPoint &addr, uint64_t id) override;
+    void on_connection_success(const end_point &addr, uint64_t id) override;
 
     /**
      * Callback that called on error during connection establishment.
@@ -45,7 +42,7 @@ public:
      * @param addr Connection address.
      * @param err Error.
      */
-    void on_connection_error(const EndPoint &addr, ignite_error err) override;
+    void on_connection_error(const end_point &addr, ignite_error err) override;
 
     /**
      * Callback that called on error during connection establishment.
@@ -77,7 +74,7 @@ private:
      * @param id Async client ID.
      * @param func Function to handle;
      */
-    void closeConnectionOnException(uint64_t id, const std::function<void()> &func);
+    void close_connection_on_exception(uint64_t id, const std::function<void()> &func);
 };
 
 } // namespace ignite::network

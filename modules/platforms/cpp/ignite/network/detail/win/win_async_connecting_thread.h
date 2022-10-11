@@ -31,12 +31,12 @@
 
 namespace ignite::network::detail {
 
-class WinAsyncClientPool;
+class win_async_client_pool;
 
 /**
  * Async pool connecting thread.
  */
-class WinAsyncConnectingThread {
+class win_async_connecting_thread {
     /** Send and receive buffers size. */
     static constexpr size_t BUFFER_SIZE = 0x10000;
 
@@ -44,7 +44,7 @@ public:
     /**
      * Constructor.
      */
-    WinAsyncConnectingThread();
+    win_async_connecting_thread();
 
     /**
      * Start thread.
@@ -53,7 +53,7 @@ public:
      * @param limit Connection limit.
      * @param addrs Addresses.
      */
-    void start(WinAsyncClientPool &clientPool, size_t limit, std::vector<TcpRange> addrs);
+    void start(win_async_client_pool &clientPool, size_t limit, std::vector<tcp_range> addrs);
 
     /**
      * Stop thread.
@@ -65,7 +65,7 @@ public:
      *
      * @param range Address range.
      */
-    void notifyFreeAddress(const TcpRange &range);
+    void notify_free_address(const tcp_range &range);
 
 private:
     /**
@@ -78,14 +78,14 @@ private:
      * @param range TCP range.
      * @return New client.
      */
-    std::shared_ptr<WinAsyncClient> tryConnect(const TcpRange &range);
+    std::shared_ptr<win_async_client> try_connect(const tcp_range &range);
 
     /**
      * Try establish connection to address.
      * @param addr Address.
      * @return Socket.
      */
-    static SOCKET tryConnect(const EndPoint &addr);
+    static SOCKET try_connect(const end_point &addr);
 
     /**
      * Get next address.
@@ -93,34 +93,34 @@ private:
      * @warning Will block if no addresses are available for connect.
      * @return @c true if a new connection should be established.
      */
-    TcpRange getNextAddress() const;
+    tcp_range get_next_address() const;
 
     /** Thread. */
     std::thread m_thread;
 
     /** Client pool. */
-    WinAsyncClientPool *m_clientPool;
+    win_async_client_pool *m_client_pool;
 
     /** Flag to signal that thread is stopping. */
     volatile bool m_stopping;
 
     /** Failed connection attempts. */
-    size_t m_failedAttempts;
+    size_t m_failed_attempts;
 
     /** Minimal number of addresses. */
-    size_t m_minAddrs;
+    size_t m_min_addrs;
 
     /** Addresses critical section. */
-    mutable std::mutex m_addrsMutex;
+    mutable std::mutex m_addrs_mutex;
 
     /** Condition variable, which signalled when new connect is needed. */
-    mutable std::condition_variable m_connectNeeded;
+    mutable std::condition_variable m_connect_needed;
 
     /** Addresses to use for connection establishment. */
-    std::vector<TcpRange> m_nonConnected;
+    std::vector<tcp_range> m_non_connected;
 
     /** Position seed. */
-    mutable size_t m_addrPositionSeed;
+    mutable size_t m_addr_position_seed;
 };
 
 } // namespace ignite::network::detail

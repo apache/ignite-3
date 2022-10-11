@@ -34,11 +34,11 @@ namespace ignite::network::detail {
 /**
  * Linux-specific implementation of async network client.
  */
-class LinuxAsyncClient {
+class linux_async_client {
     /**
      * State.
      */
-    enum class State {
+    enum class state {
         CONNECTED,
 
         SHUTDOWN,
@@ -56,7 +56,7 @@ public:
      * @param addr Address.
      * @param range Range.
      */
-    LinuxAsyncClient(int fd, EndPoint addr, TcpRange range);
+    linux_async_client(int fd, end_point addr, tcp_range range);
 
     /**
      * Destructor.
@@ -64,7 +64,7 @@ public:
      * Should not be destructed from external threads.
      * Can be destructed from WorkerThread.
      */
-    ~LinuxAsyncClient();
+    ~linux_async_client();
 
     /**
      * Shutdown client.
@@ -107,7 +107,7 @@ public:
      *
      * @return @c true on success.
      */
-    bool processSent();
+    bool process_sent();
 
     /**
      * Start monitoring client.
@@ -115,22 +115,22 @@ public:
      * @param epoll Epoll file descriptor.
      * @return @c true on success.
      */
-    bool startMonitoring(int epoll);
+    bool start_monitoring(int epoll);
 
     /**
      * Stop monitoring client.
      */
-    void stopMonitoring();
+    void stop_monitoring();
 
     /**
      * Enable epoll notifications.
      */
-    void enableSendNotifications();
+    void enable_send_notifications();
 
     /**
      * Disable epoll notifications.
      */
-    void disableSendNotifications();
+    void disable_send_notifications();
 
     /**
      * Get client ID.
@@ -144,47 +144,47 @@ public:
      *
      * @param id ID to set.
      */
-    void setId(uint64_t id) { m_id = id; }
+    void set_id(uint64_t id) { m_id = id; }
 
     /**
      * Get address.
      *
      * @return Address.
      */
-    [[nodiscard]] const EndPoint &getAddress() const { return m_addr; }
+    [[nodiscard]] const end_point &address() const { return m_addr; }
 
     /**
      * Get range.
      *
      * @return Range.
      */
-    [[nodiscard]] const TcpRange &getRange() const { return m_range; }
+    [[nodiscard]] const tcp_range &get_range() const { return m_range; }
 
     /**
      * Check whether client is closed.
      *
      * @return @c true if closed.
      */
-    [[nodiscard]] bool isClosed() const { return m_state == State::CLOSED; }
+    [[nodiscard]] bool is_closed() const { return m_state == state::CLOSED; }
 
     /**
      * Get closing error for the connection. Can be IGNITE_SUCCESS.
      *
      * @return Connection error.
      */
-    [[nodiscard]] const ignite_error &getCloseError() const { return m_closeErr; }
+    [[nodiscard]] const ignite_error &get_close_error() const { return m_close_err; }
 
 private:
     /**
      * Send next packet in queue.
      *
-     * @warning Can only be called when holding m_sendMutex lock.
+     * @warning Can only be called when holding m_send_mutex lock.
      * @return @c true on success.
      */
-    bool sendNextPacketLocked();
+    bool send_next_packet_locked();
 
     /** State. */
-    State m_state;
+    state m_state;
 
     /** Socket file descriptor. */
     int m_fd;
@@ -196,22 +196,22 @@ private:
     uint64_t m_id;
 
     /** Server end point. */
-    EndPoint m_addr;
+    end_point m_addr;
 
     /** Address range associated with current connection. */
-    TcpRange m_range;
+    tcp_range m_range;
 
     /** Packets that should be sent. */
-    std::deque<DataBufferOwning> m_sendPackets;
+    std::deque<data_buffer_owning> m_send_packets;
 
     /** Send critical section. */
-    std::mutex m_sendMutex;
+    std::mutex m_send_mutex;
 
     /** Packet that is currently received. */
-    std::vector<std::byte> m_recvPacket;
+    std::vector<std::byte> m_recv_packet;
 
     /** Closing error. */
-    ignite_error m_closeErr;
+    ignite_error m_close_err;
 };
 
 } // namespace ignite::network::detail

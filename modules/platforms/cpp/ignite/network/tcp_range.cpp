@@ -30,89 +30,89 @@ uint16_t parsePort(std::string_view value) {
     if (begin == std::string_view::npos || end == std::string_view::npos)
         return 0;
 
-    std::string_view port = value.substr(begin, end - begin + 1);
-    if (port.empty())
+    std::string_view port_str = value.substr(begin, end - begin + 1);
+    if (port_str.empty())
         return 0;
 
     // Checking that all chars are digits
-    if (port.find_first_not_of("1234567890") != std::string_view::npos)
+    if (port_str.find_first_not_of("1234567890") != std::string_view::npos)
         return 0;
 
     // Checking that number is not too big
-    if (port.size() >= sizeof("65535"))
+    if (port_str.size() >= sizeof("65535"))
         return 0;
 
-    int intPort;
-    auto res = std::from_chars(port.data(), port.data() + port.size(), intPort);
+    int port;
+    auto res = std::from_chars(port_str.data(), port_str.data() + port_str.size(), port);
     if (res.ec != std::errc())
         return 0;
 
     // Checking that number is within TCP port range
-    if (intPort <= 0 || intPort > 0xFFFF)
+    if (port <= 0 || port > 0xFFFF)
         return 0;
 
-    return static_cast<uint16_t>(intPort);
+    return static_cast<uint16_t>(port);
 }
 
 } // namespace
 
 namespace ignite::network {
 
-std::optional<TcpRange> TcpRange::parse(std::string_view str, uint16_t defPort) {
-    TcpRange res;
-    size_t colonNum = std::count(str.begin(), str.end(), ':');
+std::optional<tcp_range> tcp_range::parse(std::string_view str, uint16_t def_port) {
+    tcp_range res;
+    size_t colon_num = std::count(str.begin(), str.end(), ':');
 
-    if (colonNum == 0) {
+    if (colon_num == 0) {
         res.host = str;
-        res.port = defPort;
+        res.port = def_port;
         res.range = 0;
 
         return {std::move(res)};
     }
 
-    if (colonNum != 1)
+    if (colon_num != 1)
         return std::nullopt;
 
-    size_t colonPos = str.find(':');
+    size_t colon_pos = str.find(':');
 
-    res.host = str.substr(0, colonPos);
+    res.host = str.substr(0, colon_pos);
 
-    if (colonPos == str.size() - 1)
+    if (colon_pos == str.size() - 1)
         return std::nullopt;
 
-    std::string_view portRange = str.substr(colonPos + 1);
+    std::string_view port_range = str.substr(colon_pos + 1);
 
-    size_t sepPos = portRange.find('.');
+    size_t sepPos = port_range.find('.');
     if (sepPos == std::string::npos) {
         res.range = 0;
-        res.port = parsePort(portRange);
+        res.port = parsePort(port_range);
 
         if (!res.port)
             return std::nullopt;
         return {std::move(res)};
     }
 
-    if (sepPos + 2 > portRange.size() || portRange[sepPos + 1] != '.')
+    if (sepPos + 2 > port_range.size() || port_range[sepPos + 1] != '.')
         return std::nullopt;
 
-    uint16_t rangeBegin = parsePort(portRange.substr(0, sepPos));
-    if (!rangeBegin)
+    uint16_t range_begin = parsePort(port_range.substr(0, sepPos));
+    if (!range_begin)
         return std::nullopt;
 
-    uint16_t rangeEnd = parsePort(portRange.substr(sepPos + 2));
-    if (!rangeEnd)
+    uint16_t range_end = parsePort(port_range.substr(sepPos + 2));
+    if (!range_end)
         return std::nullopt;
 
-    if (rangeEnd < rangeBegin)
+    if (range_end < range_begin)
         return std::nullopt;
 
-    res.port = rangeBegin;
-    res.range = rangeEnd - rangeBegin;
+    res.port = range_begin;
+    res.range = range_end - range_begin;
 
     return {std::move(res)};
 }
 
-int TcpRange::compare(const TcpRange &other) const {
+int tcp_range::compare(const tcp_range &other) const {
     if (port < other.port)
         return -1;
 

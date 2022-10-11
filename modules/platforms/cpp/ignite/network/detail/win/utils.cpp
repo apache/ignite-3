@@ -26,20 +26,20 @@
 
 namespace ignite::network::detail {
 
-std::string getLastSystemError() {
-    DWORD errorCode = GetLastError();
+std::string get_last_system_error() {
+    DWORD error_code = GetLastError();
 
-    std::string errorDetails;
-    if (errorCode != ERROR_SUCCESS) {
+    std::string error_details;
+    if (error_code != ERROR_SUCCESS) {
         char errBuf[1024] = {};
 
-        FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, errorCode,
+        FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, error_code,
             MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US), errBuf, sizeof(errBuf), NULL);
 
-        errorDetails.assign(errBuf);
+        error_details.assign(errBuf);
     }
 
-    return errorDetails;
+    return error_details;
 }
 
 } // namespace ignite::network::detail

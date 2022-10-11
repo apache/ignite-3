@@ -19,24 +19,24 @@
 
 namespace ignite::network {
 
-CodecDataFilter::CodecDataFilter(std::shared_ptr<factory<Codec>> factory)
-    : m_codecFactory(std::move(factory))
+codec_data_filter::codec_data_filter(std::shared_ptr<factory<codec>> factory)
+    : m_codec_factory(std::move(factory))
     , m_codecs()
-    , m_codecsMutex() {
+    , m_codecs_mutex() {
 }
 
-bool CodecDataFilter::send(uint64_t id, std::vector<std::byte> &&data) {
-    std::shared_ptr<Codec> codec = FindCodec(id);
+bool codec_data_filter::send(uint64_t id, std::vector<std::byte> &&data) {
+    std::shared_ptr<codec> codec = find_codec(id);
     if (!codec)
         return false;
 
-    DataBufferOwning data0(std::move(data));
+    data_buffer_owning data0(std::move(data));
     while (true) {
         auto out = codec->encode(data0);
-        if (out.isEmpty())
+        if (out.empty())
             break;
 
-        bool res = DataFilterAdapter::send(id, std::move(out).extractData());
+        bool res = data_filter_adapter::send(id, std::move(out).extract_data());
         if (!res)
             return res;
     }
@@ -44,45 +44,45 @@ bool CodecDataFilter::send(uint64_t id, std::vector<std::byte> &&data) {
     return true;
 }
 
-void CodecDataFilter::on_connection_success(const EndPoint &addr, uint64_t id) {
+void codec_data_filter::on_connection_success(const end_point &addr, uint64_t id) {
     {
-        std::lock_guard<std::mutex> lock(m_codecsMutex);
+        std::lock_guard<std::mutex> lock(m_codecs_mutex);
 
-        std::shared_ptr<Codec> codec(m_codecFactory->build());
+        std::shared_ptr<codec> codec(m_codec_factory->build());
         m_codecs.insert(std::make_pair(id, codec));
     }
 
-    DataFilterAdapter::on_connection_success(addr, id);
+    data_filter_adapter::on_connection_success(addr, id);
 }
 
-void CodecDataFilter::on_connection_closed(uint64_t id, std::optional<ignite_error> err) {
+void codec_data_filter::on_connection_closed(uint64_t id, std::optional<ignite_error> err) {
     {
-        std::lock_guard<std::mutex> lock(m_codecsMutex);
+        std::lock_guard<std::mutex> lock(m_codecs_mutex);
 
         m_codecs.erase(id);
     }
 
-    DataFilterAdapter::on_connection_closed(id, std::move(err));
+    data_filter_adapter::on_connection_closed(id, std::move(err));
 }
 
-void CodecDataFilter::on_message_received(uint64_t id, bytes_view msg) {
-    std::shared_ptr<Codec> codec = FindCodec(id);
+void codec_data_filter::on_message_received(uint64_t id, bytes_view msg) {
+    std::shared_ptr<codec> codec = find_codec(id);
     if (!codec)
         return;
 
-    DataBufferRef msg0(msg);
+    data_buffer_ref msg0(msg);
     while (true) {
-        DataBufferRef out = codec->decode(msg0);
+        data_buffer_ref out = codec->decode(msg0);
 
-        if (out.isEmpty())
+        if (out.empty())
             break;
 
-        DataFilterAdapter::on_message_received(id, out.getBytesView());
+        data_filter_adapter::on_message_received(id, out.get_bytes_view());
     }
 }
 
-std::shared_ptr<Codec> CodecDataFilter::FindCodec(uint64_t id) {
-    std::lock_guard<std::mutex> lock(m_codecsMutex);
+std::shared_ptr<codec> codec_data_filter::find_codec(uint64_t id) {
+    std::lock_guard<std::mutex> lock(m_codecs_mutex);
 
     auto it = m_codecs.find(id);
     if (it == m_codecs.end())

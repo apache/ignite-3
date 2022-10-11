@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include <ignite/common/types.h>
+#include <ignite/common/bytes_view.h>
 #include <ignite/protocol/buffer_adapter.h>
 
 #include <msgpack.h>

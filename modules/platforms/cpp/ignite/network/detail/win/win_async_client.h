@@ -34,7 +34,7 @@ namespace ignite::network::detail {
 /**
  * Operation kind.
  */
-enum class IoOperationKind {
+enum class io_operation_kind {
     SEND,
 
     RECEIVE,
@@ -44,23 +44,23 @@ enum class IoOperationKind {
  * Represents single IO operation.
  * Needed to be able to distinguish one operation from another.
  */
-struct IoOperation {
+struct io_operation {
     /** Overlapped structure that should be passed to every IO operation. */
     WSAOVERLAPPED overlapped;
 
     /** Operation type. */
-    IoOperationKind kind;
+    io_operation_kind kind;
 };
 
 /**
  * Windows-specific implementation of async network client.
  */
-class WinAsyncClient {
+class win_async_client {
 public:
     /**
-     * State.
+     * state.
      */
-    enum class State {
+    enum class state {
         CONNECTED,
 
         IN_POOL,
@@ -78,12 +78,12 @@ public:
      * @param range Range.
      * @param m_bufLen Buffer length.
      */
-    WinAsyncClient(SOCKET m_socket, EndPoint addr, TcpRange range, int32_t m_bufLen);
+    win_async_client(SOCKET m_socket, end_point addr, tcp_range range, int32_t m_bufLen);
 
     /**
      * Destructor.
      */
-    ~WinAsyncClient();
+    ~win_async_client();
 
     /**
      * Shutdown client.
@@ -111,7 +111,7 @@ public:
      *
      * @return IOCP handle on success and NULL otherwise.
      */
-    HANDLE addToIocp(HANDLE m_iocp);
+    HANDLE add_to_iocp(HANDLE iocp);
 
     /**
      * Send packet using client.
@@ -140,28 +140,28 @@ public:
      *
      * @param id ID to set.
      */
-    void setId(uint64_t id) { m_id = id; }
+    void set_id(uint64_t id) { m_id = id; }
 
     /**
      * Get address.
      *
      * @return Address.
      */
-    [[nodiscard]] const EndPoint &getAddress() const { return m_addr; }
+    [[nodiscard]] const end_point &address() const { return m_addr; }
 
     /**
      * Get range.
      *
      * @return Range.
      */
-    [[nodiscard]] const TcpRange &getRange() const { return m_range; }
+    [[nodiscard]] const tcp_range &get_range() const { return m_range; }
 
     /**
      * Check whether client is closed.
      *
      * @return @c true if closed.
      */
-    [[nodiscard]] bool isClosed() const { return m_socket == NULL; }
+    [[nodiscard]] bool is_closed() const { return m_socket == NULL; }
 
     /**
      * Process sent data.
@@ -169,21 +169,21 @@ public:
      * @param bytes Bytes.
      * @return @c true on success.
      */
-    bool processSent(size_t bytes);
+    bool process_sent(size_t bytes);
 
     /**
      * Process received bytes.
      *
      * @param bytes Number of received bytes.
      */
-    bytes_view processReceived(size_t bytes);
+    bytes_view process_received(size_t bytes);
 
     /**
      * Get closing error for the connection. Can be IGNITE_SUCCESS.
      *
      * @return Connection error.
      */
-    [[nodiscard]] const ignite_error &getCloseError() const { return m_closeErr; }
+    [[nodiscard]] const ignite_error &get_close_error() const { return m_close_err; }
 
 private:
     /**
@@ -191,21 +191,21 @@ private:
      *
      * @return Data received so far.
      */
-    void clearReceiveBuffer();
+    void clear_receive_buffer();
 
     /**
      * Send next packet in queue.
      *
-     * @warning Can only be called when holding m_sendMutex lock.
+     * @warning Can only be called when holding m_send_mutex lock.
      * @return @c true on success.
      */
-    bool sendNextPacketLocked();
+    bool send_next_packet_locked();
 
     /** Buffer length. */
     const int32_t m_bufLen;
 
     /** Client state. */
-    State m_state;
+    state m_state;
 
     /** Socket. */
     SOCKET m_socket;
@@ -214,28 +214,28 @@ private:
     uint64_t m_id;
 
     /** Server end point. */
-    EndPoint m_addr;
+    end_point m_addr;
 
     /** Address range associated with current connection. */
-    TcpRange m_range;
+    tcp_range m_range;
 
     /** Current send operation. */
-    IoOperation m_currentSend{};
+    io_operation m_current_send{};
 
     /** Packets that should be sent. */
-    std::deque<DataBufferOwning> m_sendPackets;
+    std::deque<data_buffer_owning> m_send_packets;
 
     /** Send critical section. */
-    std::mutex m_sendMutex;
+    std::mutex m_send_mutex;
 
     /** Current receive operation. */
-    IoOperation m_currentRecv{};
+    io_operation m_current_recv{};
 
     /** Packet that is currently received. */
-    std::vector<std::byte> m_recvPacket;
+    std::vector<std::byte> m_recv_packet;
 
     /** Closing error. */
-    ignite_error m_closeErr;
+    ignite_error m_close_err;
 };
 
 } // namespace ignite::network::detail

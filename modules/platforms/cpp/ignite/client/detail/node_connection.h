@@ -65,7 +65,7 @@ public:
      * @param pool Connection pool.
      * @param logger Logger.
      */
-    node_connection(uint64_t id, std::shared_ptr<network::AsyncClientPool> pool, std::shared_ptr<ignite_logger> logger);
+    node_connection(uint64_t id, std::shared_ptr<network::async_client_pool> pool, std::shared_ptr<ignite_logger> logger);
 
     /**
      * Get connection ID.
@@ -169,7 +169,7 @@ private:
     uint64_t m_id{0};
 
     /** Connection pool. */
-    std::shared_ptr<network::AsyncClientPool> m_pool;
+    std::shared_ptr<network::async_client_pool> m_pool;
 
     /** Request ID generator. */
     std::atomic_int64_t m_req_id_gen{0};

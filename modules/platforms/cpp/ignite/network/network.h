@@ -30,6 +30,6 @@ namespace ignite::network {
  * @param filters Filters.
  * @return Async client pool.
  */
-std::shared_ptr<AsyncClientPool> makeAsyncClientPool(DataFilters filters);
+std::shared_ptr<async_client_pool> make_async_client_pool(data_filters filters);
 
 } // namespace ignite::network

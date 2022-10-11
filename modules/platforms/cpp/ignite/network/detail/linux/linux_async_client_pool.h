@@ -35,19 +35,19 @@ namespace ignite::network::detail {
 /**
  * Linux-specific implementation of asynchronous client pool.
  */
-class LinuxAsyncClientPool : public AsyncClientPool {
+class linux_async_client_pool : public async_client_pool {
 public:
     /**
      * Constructor
      *
      * @param handler Upper level event handler.
      */
-    LinuxAsyncClientPool();
+    linux_async_client_pool();
 
     /**
      * Destructor.
      */
-    ~LinuxAsyncClientPool() override;
+    ~linux_async_client_pool() override;
 
     /**
      * Start internal thread that establishes connections to provided addresses and asynchronously sends and
@@ -55,11 +55,11 @@ public:
      * established or failure happened.
      *
      * @param addrs Addresses to connect to.
-     * @param connLimit Connection upper limit. Zero means limit is disabled.
+     * @param conn_limit Connection upper limit. Zero means limit is disabled.
      *
      * @throw IgniteError on error.
      */
-    void start(std::vector<TcpRange> addrs, uint32_t connLimit) override;
+    void start(std::vector<tcp_range> addrs, uint32_t conn_limit) override;
 
     /**
      * Close all established connections and stops handling thread.
@@ -71,7 +71,7 @@ public:
      *
      * @param handler Handler to set.
      */
-    void setHandler(std::weak_ptr<AsyncHandler> handler) override { m_asyncHandler = std::move(handler); }
+    void set_handler(std::weak_ptr<async_handler> handler) override { m_async_handler = std::move(handler); }
 
     /**
      * Send data to specific established connection.
@@ -100,7 +100,7 @@ public:
      * @param err Error to report. May be null.
      * @return @c true if connection with specified ID was found.
      */
-    void closeAndRelease(uint64_t id, std::optional<ignite_error> err);
+    void close_and_release(uint64_t id, std::optional<ignite_error> err);
 
     /**
      * Add client to connection map. Notify user.
@@ -108,7 +108,7 @@ public:
      * @param client Client.
      * @return Client ID.
      */
-    bool addClient(std::shared_ptr<LinuxAsyncClient> client);
+    bool add_client(std::shared_ptr<linux_async_client> client);
 
     /**
      * Handle error during connection establishment.
@@ -116,7 +116,7 @@ public:
      * @param addr Connection address.
      * @param err Error.
      */
-    void handleConnectionError(const EndPoint &addr, ignite_error err);
+    void handle_connection_error(const end_point &addr, ignite_error err);
 
     /**
      * Handle successful connection establishment.
@@ -124,7 +124,7 @@ public:
      * @param addr Address of the new connection.
      * @param id Connection ID.
      */
-    void handleConnectionSuccess(const EndPoint &addr, uint64_t id);
+    void handle_connection_success(const end_point &addr, uint64_t id);
 
     /**
      * Handle error during connection establishment.
@@ -132,7 +132,7 @@ public:
      * @param id Async client ID.
      * @param err Error. Can be null if connection closed without error.
      */
-    void handleConnectionClosed(uint64_t id, std::optional<ignite_error> err);
+    void handle_connection_closed(uint64_t id, std::optional<ignite_error> err);
 
     /**
      * Handle new message.
@@ -140,20 +140,20 @@ public:
      * @param id Async client ID.
      * @param msg Received message.
      */
-    void handleMessageReceived(uint64_t id, bytes_view msg);
+    void handle_nessage_received(uint64_t id, bytes_view msg);
 
     /**
      * Handle sent message event.
      *
      * @param id Async client ID.
      */
-    void handleMessageSent(uint64_t id);
+    void handle_message_sent(uint64_t id);
 
 private:
     /**
      * Close all established connections and stops handling threads.
      */
-    void internalStop();
+    void internal_stop();
 
     /**
      * Find client by ID.
@@ -161,25 +161,25 @@ private:
      * @param id Client ID.
      * @return Client. Null pointer if is not found.
      */
-    std::shared_ptr<LinuxAsyncClient> find_client(uint64_t id) const;
+    std::shared_ptr<linux_async_client> find_client(uint64_t id) const;
 
     /** Flag indicating that pool is stopping. */
     volatile bool m_stopping;
 
     /** Event handler. */
-    std::weak_ptr<AsyncHandler> m_asyncHandler;
+    std::weak_ptr<async_handler> m_async_handler;
 
     /** Worker thread. */
-    LinuxAsyncWorkerThread m_workerThread;
+    linux_async_worker_thread m_worker_thread;
 
     /** ID counter. */
-    uint64_t m_idGen;
+    uint64_t m_id_gen;
 
     /** Clients critical section. */
-    mutable std::mutex m_clientsMutex;
+    mutable std::mutex m_clients_mutex;
 
     /** Client mapping ID -> client */
-    std::map<uint64_t, std::shared_ptr<LinuxAsyncClient>> m_clientIdMap;
+    std::map<uint64_t, std::shared_ptr<linux_async_client>> m_client_id_map;
 };
 
 } // namespace ignite::network::detail

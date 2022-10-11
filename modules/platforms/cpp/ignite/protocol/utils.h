@@ -18,8 +18,8 @@
 #pragma once
 
 #include <ignite/common/bytes.h>
+#include <ignite/common/bytes_view.h>
 #include <ignite/common/ignite_error.h>
-#include <ignite/common/types.h>
 #include <ignite/common/uuid.h>
 #include <ignite/protocol/extension_types.h>
 

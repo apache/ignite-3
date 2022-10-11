@@ -15,25 +15,30 @@
  * limitations under the License.
  */
 
-#include "network.h"
+#pragma once
 
-#include "async_client_pool_adapter.h"
+#include <cstddef>
+#include <string_view>
+#include <vector>
 
-#include <ignite/common/config.h>
+namespace ignite {
 
-#ifdef _WIN32
-# include "detail/win/win_async_client_pool.h"
-#else // Other. Assume Linux
-# include "detail/linux/linux_async_client_pool.h"
-#endif
+/** A slice of raw bytes. */
+struct bytes_view : std::basic_string_view<std::byte> {
+    using Base = std::basic_string_view<std::byte>;
 
-namespace ignite::network {
+    constexpr bytes_view() noexcept = default;
 
-std::shared_ptr<async_client_pool> make_async_client_pool(data_filters filters) {
-    auto pool =
-        std::make_shared<IGNITE_SWITCH_WIN_OTHER(detail::win_async_client_pool, detail::linux_async_client_pool)>();
+    constexpr bytes_view(const std::byte *data, std::size_t size) noexcept
+        : Base(data, size) { }
 
-    return std::make_shared<async_client_pool_adapter>(std::move(filters), std::move(pool));
-}
+    constexpr bytes_view(const Base &v) noexcept // NOLINT(google-explicit-constructor)
+        : Base(v.data(), v.size()) { }
 
-} // namespace ignite::network
+    bytes_view(const std::vector<std::byte> &v) noexcept // NOLINT(google-explicit-constructor)
+        : Base(v.data(), v.size()) { }
+
+    explicit operator std::vector<std::byte>() const { return {begin(), end()}; }
+};
+
+} // namespace ignite

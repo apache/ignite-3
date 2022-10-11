@@ -27,10 +27,10 @@ namespace ignite::network {
  * Codec class.
  * Encodes and decodes data.
  */
-class Codec {
+class codec {
 public:
     // Default
-    virtual ~Codec() = default;
+    virtual ~codec() = default;
 
     /**
      * Encode provided data.
@@ -40,7 +40,7 @@ public:
      *
      * @throw ignite_error on error.
      */
-    virtual DataBufferOwning encode(DataBufferOwning &data) = 0;
+    virtual data_buffer_owning encode(data_buffer_owning &data) = 0;
 
     /**
      * Decode provided data.
@@ -50,7 +50,7 @@ public:
      *
      * @throw ignite_error on error.
      */
-    virtual DataBufferRef decode(DataBufferRef &data) = 0;
+    virtual data_buffer_ref decode(data_buffer_ref &data) = 0;
 };
 
 } // namespace ignite::network

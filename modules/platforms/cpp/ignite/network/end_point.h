@@ -25,9 +25,9 @@ namespace ignite::network {
 /**
  * Connection end point structure.
  */
-struct EndPoint {
+struct end_point {
     // Default
-    EndPoint() = default;
+    end_point() = default;
 
     /**
      * Constructor.
@@ -35,7 +35,7 @@ struct EndPoint {
      * @param host Host.
      * @param port Port.
      */
-    EndPoint(std::string host, uint16_t port)
+    end_point(std::string host, uint16_t port)
         : host(std::move(host))
         , port(port) { }
 
@@ -53,7 +53,7 @@ struct EndPoint {
      * @return Negative value if less, positive if larger and zero, if equals
      *   another instance.
      */
-    [[nodiscard]] int compare(const EndPoint &other) const {
+    [[nodiscard]] int compare(const end_point &other) const {
         if (port < other.port)
             return -1;
 
@@ -77,7 +77,7 @@ struct EndPoint {
  * @param val2 Second value.
  * @return True if equal.
  */
-inline bool operator==(const EndPoint &val1, const EndPoint &val2) {
+inline bool operator==(const end_point &val1, const end_point &val2) {
     return val1.port == val2.port && val1.host == val2.host;
 }
 
@@ -88,7 +88,7 @@ inline bool operator==(const EndPoint &val1, const EndPoint &val2) {
  * @param val2 Second value.
  * @return True if not equal.
  */
-inline bool operator!=(const EndPoint &val1, const EndPoint &val2) {
+inline bool operator!=(const end_point &val1, const end_point &val2) {
     return !(val1 == val2);
 }
 
@@ -99,7 +99,7 @@ inline bool operator!=(const EndPoint &val1, const EndPoint &val2) {
  * @param val2 Second value.
  * @return True if less.
  */
-inline bool operator<(const EndPoint &val1, const EndPoint &val2) {
+inline bool operator<(const end_point &val1, const end_point &val2) {
     return val1.compare(val2) < 0;
 }
 
@@ -110,7 +110,7 @@ inline bool operator<(const EndPoint &val1, const EndPoint &val2) {
  * @param val2 Second value.
  * @return True if less or equal.
  */
-inline bool operator<=(const EndPoint &val1, const EndPoint &val2) {
+inline bool operator<=(const end_point &val1, const end_point &val2) {
     return val1.compare(val2) <= 0;
 }
 
@@ -121,7 +121,7 @@ inline bool operator<=(const EndPoint &val1, const EndPoint &val2) {
  * @param val2 Second value.
  * @return True if greater.
  */
-inline bool operator>(const EndPoint &val1, const EndPoint &val2) {
+inline bool operator>(const end_point &val1, const end_point &val2) {
     return val1.compare(val2) > 0;
 }
 
@@ -132,7 +132,7 @@ inline bool operator>(const EndPoint &val1, const EndPoint &val2) {
  * @param val2 Second value.
  * @return True if greater or equal.
  */
-inline bool operator>=(const EndPoint &val1, const EndPoint &val2) {
+inline bool operator>=(const end_point &val1, const end_point &val2) {
     return val1.compare(val2) >= 0;
 }
 

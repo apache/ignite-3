@@ -32,21 +32,21 @@ namespace ignite::network::detail {
 /**
  * Connecting context.
  */
-class ConnectingContext {
+class connecting_context {
 public:
     // Default
-    ConnectingContext(ConnectingContext &&) = default;
-    ConnectingContext &operator=(ConnectingContext &&) = default;
+    connecting_context(connecting_context &&) = default;
+    connecting_context &operator=(connecting_context &&) = default;
 
     /**
      * Constructor.
      */
-    explicit ConnectingContext(TcpRange range);
+    explicit connecting_context(tcp_range range);
 
     /**
      * Destructor.
      */
-    ~ConnectingContext();
+    ~connecting_context();
 
     /**
      * Reset connection context to it's initial state.
@@ -65,7 +65,7 @@ public:
      *
      * @return Address.
      */
-    EndPoint getAddress() const;
+    end_point current_address() const;
 
     /**
      * Make client.
@@ -73,20 +73,20 @@ public:
      * @param fd Socket file descriptor.
      * @return Client instance from current internal state.
      */
-    std::shared_ptr<LinuxAsyncClient> toClient(int fd);
+    std::shared_ptr<linux_async_client> to_client(int fd);
 
 private:
     /** Range. */
-    TcpRange m_range;
+    tcp_range m_range;
 
     /** Next port. */
-    uint16_t m_nextPort;
+    uint16_t m_next_port;
 
     /** Current address info. */
     addrinfo *m_info;
 
     /** Address info which is currently used for connection */
-    addrinfo *m_currentInfo;
+    addrinfo *m_current_info;
 };
 
 } // namespace ignite::network::detail

@@ -25,10 +25,10 @@ namespace ignite::network {
 /**
  * Data sink. Can consume data.
  */
-class DataSink {
+class data_sink {
 public:
     // Default.
-    virtual ~DataSink() = default;
+    virtual ~data_sink() = default;
 
     /**
      * Send data to specific established connection.

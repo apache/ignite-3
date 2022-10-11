@@ -19,8 +19,9 @@
 
 #include "binary_tuple_header.h"
 #include "column_info.h"
+#include "types.h"
 
-#include <ignite/common/types.h>
+#include <ignite/common/bytes_view.h>
 
 #include <iterator>
 #include <vector>

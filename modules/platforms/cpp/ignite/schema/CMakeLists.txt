@@ -31,7 +31,8 @@ add_library(${TARGET} STATIC
     ignite_date_time.h
     ignite_time.h
     ignite_timestamp.h
-    ignite_type.cpp ignite_type.h)
+    ignite_type.cpp ignite_type.h
+    types.h)
 
 target_link_libraries(${TARGET} ignite-common)
 

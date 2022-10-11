@@ -29,31 +29,31 @@ namespace ignite::network::detail {
  * @param error Error code.
  * @return Socket error message string.
  */
-std::string getSocketErrorMessage(int error);
+std::string get_socket_error_message(int error);
 
 /**
  * Get last socket error message.
  * @return Last socket error message string.
  */
-std::string getLastSocketErrorMessage();
+std::string get_last_socket_error_message();
 
 /**
  * Try and set socket options.
  *
- * @param socketFd Socket file descriptor.
- * @param bufSize Buffer size.
- * @param noDelay Set no-delay mode.
- * @param outOfBand Set out-of-Band mode.
- * @param keepAlive Keep alive mode.
+ * @param socket_fd Socket file descriptor.
+ * @param buf_size Buffer size.
+ * @param no_delay Set no-delay mode.
+ * @param out_of_band Set out-of-Band mode.
+ * @param keep_alive Keep alive mode.
  */
-void trySetSocketOptions(int socketFd, int bufSize, bool noDelay, bool outOfBand, bool keepAlive);
+void try_set_socket_options(int socket_fd, int buf_size, bool no_delay, bool out_of_band, bool keep_alive);
 
 /**
  * Set non blocking mode for socket.
  *
- * @param socketFd Socket file descriptor.
- * @param nonBlocking Non-blocking mode.
+ * @param socket_fd Socket file descriptor.
+ * @param non_blocking Non-blocking mode.
  */
-bool setNonBlockingMode(int socketFd, bool nonBlocking);
+bool set_non_blocking_mode(int socket_fd, bool non_blocking);
 
 } // namespace ignite::network::detail

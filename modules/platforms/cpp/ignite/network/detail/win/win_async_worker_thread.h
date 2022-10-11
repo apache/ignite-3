@@ -25,17 +25,17 @@
 namespace ignite::network::detail {
 
 /** Windows async client pool. */
-class WinAsyncClientPool;
+class win_async_client_pool;
 
 /**
  * Async pool worker thread.
  */
-class WinAsyncWorkerThread {
+class win_async_worker_thread {
 public:
     /**
      * Constructor.
      */
-    WinAsyncWorkerThread();
+    win_async_worker_thread();
 
     /**
      * Start thread.
@@ -43,7 +43,7 @@ public:
      * @param clientPool Client pool.
      * @param iocp Valid IOCP instance handle.
      */
-    void start(WinAsyncClientPool &clientPool, HANDLE iocp);
+    void start(win_async_client_pool &clientPool, HANDLE iocp);
 
     /**
      * Stop thread.
@@ -63,7 +63,7 @@ private:
     volatile bool m_stopping;
 
     /** Client pool. */
-    WinAsyncClientPool *m_clientPool;
+    win_async_client_pool *m_client_pool;
 
     /** IO Completion Port. Windows-specific primitive for asynchronous IO. */
     HANDLE m_iocp;

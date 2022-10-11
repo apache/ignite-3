@@ -30,10 +30,10 @@ namespace ignite::network {
 /**
  * Asynchronous client pool.
  */
-class AsyncClientPool : public DataSink {
+class async_client_pool : public data_sink {
 public:
     // Default
-    ~AsyncClientPool() override = default;
+    ~async_client_pool() override = default;
 
     /**
      * Start internal thread that establishes connections to provided addresses and asynchronously sends and
@@ -41,11 +41,11 @@ public:
      * established or failure happened.
      *
      * @param addrs Addresses to connect to.
-     * @param connLimit Connection upper limit. Zero means limit is disabled.
+     * @param conn_limit Connection upper limit. Zero means limit is disabled.
      *
      * @throw ignite_error on error.
      */
-    virtual void start(std::vector<TcpRange> addrs, uint32_t connLimit) = 0;
+    virtual void start(std::vector<tcp_range> addrs, uint32_t conn_limit) = 0;
 
     /**
      * Close all established connections and stops handling threads.
@@ -57,7 +57,7 @@ public:
      *
      * @param handler Handler to set.
      */
-    virtual void setHandler(std::weak_ptr<AsyncHandler> handler) = 0;
+    virtual void set_handler(std::weak_ptr<async_handler> handler) = 0;
 };
 
 } // namespace ignite::network

@@ -28,44 +28,44 @@ namespace ignite::network {
 /**
  * Data buffer.
  */
-class DataFilter : public DataSink, public AsyncHandler {
+class data_filter : public data_sink, public async_handler {
 public:
     /**
      * Set sink.
      *
      * @param sink Data sink
      */
-    void setSink(DataSink *sink) { m_sink = sink; }
+    void set_sink(data_sink *sink) { m_sink = sink; }
 
     /**
      * Get sink.
      *
      * @return Data sink.
      */
-    DataSink *getSink() { return m_sink; }
+    data_sink *get_sink() { return m_sink; }
 
     /**
      * Set handler.
      *
      * @param handler Event handler.
      */
-    void setHandler(std::weak_ptr<AsyncHandler> handler) { m_handler = std::move(handler); }
+    void set_handler(std::weak_ptr<async_handler> handler) { m_handler = std::move(handler); }
 
     /**
      * Get handler.
      *
      * @return Event handler.
      */
-    std::shared_ptr<AsyncHandler> getHandler() { return m_handler.lock(); }
+    std::shared_ptr<async_handler> get_handler() { return m_handler.lock(); }
 
 protected:
     /** Sink. */
-    DataSink *m_sink{nullptr};
+    data_sink *m_sink{nullptr};
 
     /** Handler. */
-    std::weak_ptr<AsyncHandler> m_handler{};
+    std::weak_ptr<async_handler> m_handler{};
 };
 
-typedef std::vector<std::shared_ptr<DataFilter>> DataFilters;
+typedef std::vector<std::shared_ptr<data_filter>> data_filters;
 
 } // namespace ignite::network

@@ -22,20 +22,21 @@
 
 #include <map>
 #include <mutex>
+#include <optional>
 
 namespace ignite::network {
 
 /**
  * Data filter that uses codecs inside to encode/decode data.
  */
-class CodecDataFilter : public DataFilterAdapter {
+class codec_data_filter : public data_filter_adapter {
 public:
     /**
      * Constructor.
      *
      * @param factory Codec factory.
      */
-    explicit CodecDataFilter(std::shared_ptr<factory<Codec>> factory);
+    explicit codec_data_filter(std::shared_ptr<factory<codec>> factory);
 
     /**
      * Send data to specific established connection.
@@ -54,7 +55,7 @@ public:
      * @param addr Address of the new connection.
      * @param id Connection ID.
      */
-    void on_connection_success(const EndPoint &addr, uint64_t id) override;
+    void on_connection_success(const end_point &addr, uint64_t id) override;
 
     /**
      * Callback that called on error during connection establishment.
@@ -79,16 +80,16 @@ private:
      * @param id Connection ID.
      * @return Codec if found or null.
      */
-    std::shared_ptr<Codec> FindCodec(uint64_t id);
+    std::shared_ptr<codec> find_codec(uint64_t id);
 
     /** Codec factory. */
-    std::shared_ptr<factory<Codec>> m_codecFactory;
+    std::shared_ptr<factory<codec>> m_codec_factory;
 
     /** Codecs. */
-    std::map<uint64_t, std::shared_ptr<Codec>> m_codecs;
+    std::map<uint64_t, std::shared_ptr<codec>> m_codecs;
 
     /** Mutex for secure access to codecs map. */
-    std::mutex m_codecsMutex;
+    std::mutex m_codecs_mutex;
 };
 
 } // namespace ignite::network

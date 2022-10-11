@@ -22,18 +22,19 @@
 #include <ignite/network/end_point.h>
 
 #include <cstdint>
+#include <optional>
 
 namespace ignite::network {
 
 /**
  * Asynchronous events handler.
  */
-class AsyncHandler {
+class async_handler {
 public:
     /**
      * Destructor.
      */
-    virtual ~AsyncHandler() = default;
+    virtual ~async_handler() = default;
 
     /**
      * Callback that called on successful connection establishment.
@@ -41,7 +42,7 @@ public:
      * @param addr Address of the new connection.
      * @param id Connection ID.
      */
-    virtual void on_connection_success(const EndPoint &addr, uint64_t id) = 0;
+    virtual void on_connection_success(const end_point &addr, uint64_t id) = 0;
 
     /**
      * Callback that called on error during connection establishment.
@@ -49,7 +50,7 @@ public:
      * @param addr Connection address.
      * @param err Error.
      */
-    virtual void on_connection_error(const EndPoint &addr, ignite_error err) = 0;
+    virtual void on_connection_error(const end_point &addr, ignite_error err) = 0;
 
     /**
      * Callback that called on error during connection establishment.

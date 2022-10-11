@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include <ignite/common/types.h>
+#include <ignite/common/bytes_view.h>
 
 #include <cassert>
 #include <cstdint>
@@ -31,17 +31,17 @@ namespace ignite::network {
  *
  * Represents a consumable chunk of data. Does not hold data ownership.
  */
-class DataBufferRef {
+class data_buffer_ref {
 public:
     // Default
-    DataBufferRef() = default;
+    data_buffer_ref() = default;
 
     /**
      * Constructor.
      *
      * @param data Data.
      */
-    explicit DataBufferRef(bytes_view data)
+    explicit data_buffer_ref(bytes_view data)
         : m_data(data) { }
 
     /**
@@ -51,7 +51,7 @@ public:
      * @param pos Start of data.
      * @param len Length.
      */
-    DataBufferRef(bytes_view data, size_t pos, size_t len)
+    data_buffer_ref(bytes_view data, size_t pos, size_t len)
         : m_data(data.substr(pos, len)) { }
 
     /**
@@ -60,7 +60,7 @@ public:
      * @param dst Vector to append data to.
      * @param bytes Number of bytes to consume.
      */
-    void consumeBy(std::vector<std::byte> &dst, size_t bytes) {
+    void consume_by(std::vector<std::byte> &dst, size_t bytes) {
         if (bytes > m_data.size())
             bytes = m_data.size();
 
@@ -73,15 +73,15 @@ public:
      *
      * @return @c true if the buffer is empty and @c false otherwise.
      */
-    [[nodiscard]] bool isEmpty() const { return m_data.empty(); }
+    [[nodiscard]] bool empty() const { return m_data.empty(); }
 
     /**
      * Consume the whole buffer.
      *
      * @return Buffer containing consumed data.
      */
-    DataBufferRef consumeEntirely() {
-        DataBufferRef res(*this);
+    data_buffer_ref consume_entirely() {
+        data_buffer_ref res(*this);
         m_data = {};
 
         return res;
@@ -104,7 +104,7 @@ public:
      *
      * @return Bytes view.
      */
-    [[nodiscard]] bytes_view getBytesView() const { return m_data; }
+    [[nodiscard]] bytes_view get_bytes_view() const { return m_data; }
 
 private:
     /** Data. */
@@ -116,7 +116,7 @@ private:
  *
  * Represents a consumable chunk of data. Holds data ownership.
  */
-class DataBufferOwning {
+class data_buffer_owning {
 public:
     /**
      * Constructor.
@@ -124,7 +124,7 @@ public:
      * @param data Data.
      * @param pos Position.
      */
-    explicit DataBufferOwning(std::vector<std::byte> &&data, size_t pos = 0)
+    explicit data_buffer_owning(std::vector<std::byte> &&data, size_t pos = 0)
         : m_memory(std::move(data))
         , m_pos(pos) { }
 
@@ -134,7 +134,7 @@ public:
      * @param dst Vector to append data to.
      * @param bytes Number of bytes to consume.
      */
-    void consumeBy(std::vector<std::byte> &dst, size_t bytes) {
+    void consume_by(std::vector<std::byte> &dst, size_t bytes) {
         bytes = std::min(m_memory.size() - m_pos, bytes);
 
         dst.insert(dst.end(), m_memory.data() + m_pos, m_memory.data() + m_pos + bytes);
@@ -146,16 +146,16 @@ public:
      *
      * @return @c true if the buffer is empty and @c false otherwise.
      */
-    [[nodiscard]] bool isEmpty() const { return getSize() == 0; }
+    [[nodiscard]] bool empty() const { return size() == 0; }
 
     /**
      * Consume the whole buffer.
      *
      * @return Buffer containing consumed data.
      */
-    DataBufferOwning consumeEntirely() {
-        DataBufferOwning copy(*this);
-        skip(getSize());
+    data_buffer_owning consume_entirely() {
+        data_buffer_owning copy(*this);
+        skip(size());
         return copy;
     }
 
@@ -164,21 +164,21 @@ public:
      *
      * @param bytes Bytes to skip.
      */
-    void skip(size_t bytes) { m_pos += std::min(bytes, getSize()); }
+    void skip(size_t bytes) { m_pos += std::min(bytes, size()); }
 
     /**
      * Get bytes view.
      *
      * @return Bytes view.
      */
-    [[nodiscard]] bytes_view getBytesView() const { return {m_memory.data() + m_pos, getSize()}; }
+    [[nodiscard]] bytes_view get_bytes_view() const { return {m_memory.data() + m_pos, size()}; }
 
     /**
      * Convert to underlying data.
      *
      * @return Data vector.
      */
-    [[nodiscard]] std::vector<std::byte> extractData() && {
+    [[nodiscard]] std::vector<std::byte> extract_data() && {
         if (m_pos) {
             m_memory.erase(m_memory.begin(), m_memory.begin() + ptrdiff_t(m_pos));
             m_pos = 0;
@@ -192,7 +192,7 @@ private:
      *
      * @return Size.
      */
-    [[nodiscard]] size_t getSize() const {
+    [[nodiscard]] size_t size() const {
         assert(m_memory.size() >= m_pos);
         return m_memory.size() - m_pos;
     }

@@ -31,23 +31,23 @@
 
 namespace ignite::network::detail {
 
-WinAsyncWorkerThread::WinAsyncWorkerThread()
+win_async_worker_thread::win_async_worker_thread()
     : m_thread()
     , m_stopping(false)
-    , m_clientPool(nullptr)
+    , m_client_pool(nullptr)
     , m_iocp(NULL) {
 }
 
-void WinAsyncWorkerThread::start(WinAsyncClientPool &clientPool0, HANDLE iocp0) {
+void win_async_worker_thread::start(win_async_client_pool &clientPool0, HANDLE iocp0) {
     assert(iocp0 != NULL);
     m_iocp = iocp0;
-    m_clientPool = &clientPool0;
+    m_client_pool = &clientPool0;
 
-    m_thread = std::thread(&WinAsyncWorkerThread::run, this);
+    m_thread = std::thread(&win_async_worker_thread::run, this);
 }
 
-void WinAsyncWorkerThread::run() {
-    assert(m_clientPool != nullptr);
+void win_async_worker_thread::run() {
+    assert(m_client_pool != nullptr);
 
     while (!m_stopping) {
         DWORD bytesTransferred = 0;
@@ -62,49 +62,49 @@ void WinAsyncWorkerThread::run() {
         if (!key)
             continue;
 
-        auto client = reinterpret_cast<WinAsyncClient *>(key);
+        auto client = reinterpret_cast<win_async_client *>(key);
 
         if (!ok || (NULL != overlapped && 0 == bytesTransferred)) {
-            m_clientPool->closeAndRelease(client->id(), std::nullopt);
+            m_client_pool->close_and_release(client->id(), std::nullopt);
 
             continue;
         }
 
         if (!overlapped) {
             // This mean new client is connected.
-            m_clientPool->handleConnectionSuccess(client->getAddress(), client->id());
+            m_client_pool->handle_connection_success(client->address(), client->id());
 
             bool success = client->receive();
             if (!success)
-                m_clientPool->closeAndRelease(client->id(), std::nullopt);
+                m_client_pool->close_and_release(client->id(), std::nullopt);
 
             continue;
         }
 
         try {
-            auto operation = reinterpret_cast<IoOperation *>(overlapped);
+            auto operation = reinterpret_cast<io_operation *>(overlapped);
             switch (operation->kind) {
-                case IoOperationKind::SEND: {
-                    bool success = client->processSent(bytesTransferred);
+                case io_operation_kind::SEND: {
+                    bool success = client->process_sent(bytesTransferred);
 
                     if (!success)
-                        m_clientPool->closeAndRelease(client->id(), std::nullopt);
+                        m_client_pool->close_and_release(client->id(), std::nullopt);
 
-                    m_clientPool->handleMessageSent(client->id());
+                    m_client_pool->handle_message_sent(client->id());
 
                     break;
                 }
 
-                case IoOperationKind::RECEIVE: {
-                    auto data = client->processReceived(bytesTransferred);
+                case io_operation_kind::RECEIVE: {
+                    auto data = client->process_received(bytesTransferred);
 
                     if (!data.empty())
-                        m_clientPool->handleMessageReceived(client->id(), data);
+                        m_client_pool->handle_nessage_received(client->id(), data);
 
                     bool success = client->receive();
 
                     if (!success)
-                        m_clientPool->closeAndRelease(client->id(), std::nullopt);
+                        m_client_pool->close_and_release(client->id(), std::nullopt);
 
                     break;
                 }
@@ -113,12 +113,12 @@ void WinAsyncWorkerThread::run() {
                     break;
             }
         } catch (const ignite_error &err) {
-            m_clientPool->closeAndRelease(client->id(), err);
+            m_client_pool->close_and_release(client->id(), err);
         }
     }
 }
 
-void WinAsyncWorkerThread::stop() {
+void win_async_worker_thread::stop() {
     if (m_stopping)
         return;
 

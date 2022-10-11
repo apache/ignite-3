@@ -19,12 +19,14 @@
 
 #include <ignite/network/data_filter.h>
 
+#include <optional>
+
 namespace ignite::network {
 
 /**
  * Data filter adapter.
  */
-class DataFilterAdapter : public DataFilter {
+class data_filter_adapter : public data_filter {
 public:
     /**
      * Send data to specific established connection.
@@ -36,9 +38,8 @@ public:
      * @throw IgniteError on error.
      */
     bool send(uint64_t id, std::vector<std::byte> &&data) override {
-        DataSink *sink = m_sink;
-        if (sink)
-            return sink->send(id, std::move(data));
+        if (m_sink)
+            return m_sink->send(id, std::move(data));
 
         return false;
     }
@@ -50,9 +51,8 @@ public:
      * @param id Client ID.
      */
     void close(uint64_t id, std::optional<ignite_error> err) override {
-        DataSink *sink = m_sink;
-        if (sink)
-            sink->close(id, std::move(err));
+        if (m_sink)
+            m_sink->close(id, std::move(err));
     }
 
     /**
@@ -61,9 +61,8 @@ public:
      * @param addr Address of the new connection.
      * @param id Connection ID.
      */
-    void on_connection_success(const EndPoint &addr, uint64_t id) override {
-        auto handler = m_handler.lock();
-        if (handler)
+    void on_connection_success(const end_point &addr, uint64_t id) override {
+        if (auto handler = m_handler.lock())
             handler->on_connection_success(addr, id);
     }
 
@@ -73,9 +72,8 @@ public:
      * @param addr Connection address.
      * @param err Error.
      */
-    void on_connection_error(const EndPoint &addr, ignite_error err) override {
-        auto handler = m_handler.lock();
-        if (handler)
+    void on_connection_error(const end_point &addr, ignite_error err) override {
+        if (auto handler = m_handler.lock())
             handler->on_connection_error(addr, std::move(err));
     }
 
@@ -86,8 +84,7 @@ public:
      * @param err Error. Can be null if connection closed without error.
      */
     void on_connection_closed(uint64_t id, std::optional<ignite_error> err) override {
-        auto handler = m_handler.lock();
-        if (handler)
+        if (auto handler = m_handler.lock())
             handler->on_connection_closed(id, std::move(err));
     }
 
@@ -98,8 +95,7 @@ public:
      * @param msg Received message.
      */
     void on_message_received(uint64_t id, bytes_view msg) override {
-        auto handler = m_handler.lock();
-        if (handler)
+        if (auto handler = m_handler.lock())
             handler->on_message_received(id, msg);
     }
 
@@ -109,8 +105,7 @@ public:
      * @param id Async client ID.
      */
     void on_message_sent(uint64_t id) override {
-        auto handler = m_handler.lock();
-        if (handler)
+        if (auto handler = m_handler.lock())
             handler->on_message_sent(id);
     }
 };

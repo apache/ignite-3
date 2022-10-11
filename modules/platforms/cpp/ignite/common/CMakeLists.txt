@@ -22,11 +22,11 @@ set(TARGET ${PROJECT_NAME})
 set(HEADERS
     bits.h
     bytes.h
+    bytes_view.h
     config.h
     guid.h
     ignite_error.h
     ignite_result.h
-    types.h
     uuid.h)
 
 add_library(${TARGET} INTERFACE)

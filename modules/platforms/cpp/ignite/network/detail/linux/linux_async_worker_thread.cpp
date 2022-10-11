@@ -34,38 +34,38 @@ namespace ignite::network::detail {
 
 namespace {
 
-FibonacciSequence<10> fibonacci10;
+fibonacci_sequence<10> fibonacci10;
 
 } // ignite::network::detail
 
-LinuxAsyncWorkerThread::LinuxAsyncWorkerThread(LinuxAsyncClientPool &clientPool)
-    : m_clientPool(clientPool)
+linux_async_worker_thread::linux_async_worker_thread(linux_async_client_pool &client_pool)
+    : m_client_pool(client_pool)
     , m_stopping(true)
     , m_epoll(-1)
-    , m_stopEvent(-1)
-    , m_nonConnected()
-    , m_currentConnection()
-    , m_currentClient()
-    , m_failedAttempts(0)
-    , m_lastConnectionTime()
-    , m_minAddrs(0)
+    , m_stop_event(-1)
+    , m_non_connected()
+    , m_current_connection()
+    , m_current_client()
+    , m_failed_attempts(0)
+    , m_last_connection_time()
+    , m_min_addrs(0)
     , m_thread() {
-    memset(&m_lastConnectionTime, 0, sizeof(m_lastConnectionTime));
+    memset(&m_last_connection_time, 0, sizeof(m_last_connection_time));
 }
 
-LinuxAsyncWorkerThread::~LinuxAsyncWorkerThread() {
+linux_async_worker_thread::~linux_async_worker_thread() {
     stop();
 }
 
-void LinuxAsyncWorkerThread::start(size_t limit, std::vector<TcpRange> addrs) {
+void linux_async_worker_thread::start(size_t limit, std::vector<tcp_range> addrs) {
     m_epoll = epoll_create(1);
     if (m_epoll < 0)
-        throwLastSystemError("Failed to create epoll instance");
+        throw_last_system_error("Failed to create epoll instance");
 
-    m_stopEvent = eventfd(0, EFD_NONBLOCK);
-    if (m_stopEvent < 0) {
-        std::string msg = getLastSystemError("Failed to create stop event instance", "");
-        close(m_stopEvent);
+    m_stop_event = eventfd(0, EFD_NONBLOCK);
+    if (m_stop_event < 0) {
+        std::string msg = get_last_system_error("Failed to create stop event instance", "");
+        close(m_stop_event);
         throw ignite_error(status_code::OS, msg);
     }
 
@@ -74,131 +74,127 @@ void LinuxAsyncWorkerThread::start(size_t limit, std::vector<TcpRange> addrs) {
 
     event.events = EPOLLIN;
 
-    int res = epoll_ctl(m_epoll, EPOLL_CTL_ADD, m_stopEvent, &event);
+    int res = epoll_ctl(m_epoll, EPOLL_CTL_ADD, m_stop_event, &event);
     if (res < 0) {
-        std::string msg = getLastSystemError("Failed to create stop event instance", "");
-        close(m_stopEvent);
+        std::string msg = get_last_system_error("Failed to create stop event instance", "");
+        close(m_stop_event);
         close(m_epoll);
         throw ignite_error(status_code::OS, msg);
     }
 
     m_stopping = false;
-    m_failedAttempts = 0;
-    m_nonConnected = std::move(addrs);
+    m_failed_attempts = 0;
+    m_non_connected = std::move(addrs);
 
-    m_currentConnection.reset();
-    m_currentClient.reset();
+    m_current_connection.reset();
+    m_current_client.reset();
 
-    if (!limit || limit > m_nonConnected.size())
-        m_minAddrs = 0;
+    if (!limit || limit > m_non_connected.size())
+        m_min_addrs = 0;
     else
-        m_minAddrs = m_nonConnected.size() - limit;
+        m_min_addrs = m_non_connected.size() - limit;
 
-    m_thread = std::thread(&LinuxAsyncWorkerThread::run, this);
+    m_thread = std::thread(&linux_async_worker_thread::run, this);
 }
 
-void LinuxAsyncWorkerThread::stop() {
+void linux_async_worker_thread::stop() {
     if (m_stopping)
         return;
 
     m_stopping = true;
 
     int64_t value = 1;
-    ssize_t res = write(m_stopEvent, &value, sizeof(value));
+    ssize_t res = write(m_stop_event, &value, sizeof(value));
 
     (void)res;
     assert(res == sizeof(value));
 
     m_thread.join();
 
-    close(m_stopEvent);
+    close(m_stop_event);
     close(m_epoll);
 
-    m_nonConnected.clear();
-    m_currentConnection.reset();
+    m_non_connected.clear();
+    m_current_connection.reset();
 }
 
-void LinuxAsyncWorkerThread::run() {
+void linux_async_worker_thread::run() {
     while (!m_stopping) {
-        handleNewConnections();
+        handle_new_connections();
 
         if (m_stopping)
             break;
 
-        handleConnectionEvents();
+        handle_connection_events();
     }
 }
 
-void LinuxAsyncWorkerThread::handleNewConnections() {
-    if (!shouldInitiateNewConnection())
+void linux_async_worker_thread::handle_new_connections() {
+    if (!should_initiate_new_connection())
         return;
 
-    if (calculateConnectionTimeout() > 0)
+    if (calculate_connection_timeout() > 0)
         return;
 
     addrinfo *addr = nullptr;
-    if (m_currentConnection)
-        addr = m_currentConnection->next();
+    if (m_current_connection)
+        addr = m_current_connection->next();
 
     if (!addr) {
         // TODO: Use round-robin instead.
-        size_t idx = rand() % m_nonConnected.size();
-        const TcpRange &range = m_nonConnected.at(idx);
+        size_t idx = rand() % m_non_connected.size();
+        const tcp_range &range = m_non_connected.at(idx);
 
-        m_currentConnection = std::make_unique<ConnectingContext>(range);
-        addr = m_currentConnection->next();
+        m_current_connection = std::make_unique<connecting_context>(range);
+        addr = m_current_connection->next();
         if (!addr) {
-            m_currentConnection.reset();
-            reportConnectionError(EndPoint(), "Can not resolve a single address from range: " + range.to_string());
-            ++m_failedAttempts;
-
+            m_current_connection.reset();
+            report_connection_error(end_point(), "Can not resolve a single address from range: " + range.to_string());
+            ++m_failed_attempts;
             return;
         }
     }
 
     // Create a socket for connecting to server
-    int socketFd = socket(addr->ai_family, addr->ai_socktype, addr->ai_protocol);
-    if (SOCKET_ERROR == socketFd) {
-        reportConnectionError(
-            m_currentConnection->getAddress(), "Socket creation failed: " + getLastSocketErrorMessage());
-
+    int socket_fd = socket(addr->ai_family, addr->ai_socktype, addr->ai_protocol);
+    if (SOCKET_ERROR == socket_fd) {
+        report_connection_error(
+            m_current_connection->current_address(), "Socket creation failed: " + get_last_socket_error_message());
         return;
     }
 
-    trySetSocketOptions(socketFd, LinuxAsyncClient::BUFFER_SIZE, true, true, true);
-    bool success = setNonBlockingMode(socketFd, true);
+    try_set_socket_options(socket_fd, linux_async_client::BUFFER_SIZE, true, true, true);
+    bool success = set_non_blocking_mode(socket_fd, true);
     if (!success) {
-        reportConnectionError(
-            m_currentConnection->getAddress(), "Can not make non-blocking socket: " + getLastSocketErrorMessage());
-
+        report_connection_error(
+            m_current_connection->current_address(), "Can not make non-blocking socket: " + get_last_socket_error_message());
         return;
     }
 
-    m_currentClient = m_currentConnection->toClient(socketFd);
-    bool ok = m_currentClient->startMonitoring(m_epoll);
+    m_current_client = m_current_connection->to_client(socket_fd);
+    bool ok = m_current_client->start_monitoring(m_epoll);
     if (!ok)
-        throwLastSystemError("Can not add file descriptor to epoll");
+        throw_last_system_error("Can not add file descriptor to epoll");
 
     // Connect to server.
-    int res = connect(socketFd, addr->ai_addr, addr->ai_addrlen);
+    int res = connect(socket_fd, addr->ai_addr, addr->ai_addrlen);
     if (SOCKET_ERROR == res) {
-        int lastError = errno;
+        int last_error = errno;
 
-        clock_gettime(CLOCK_MONOTONIC, &m_lastConnectionTime);
+        clock_gettime(CLOCK_MONOTONIC, &m_last_connection_time);
 
-        if (lastError != EWOULDBLOCK && lastError != EINPROGRESS) {
-            handleConnectionFailed("Failed to establish connection with the host: " + getSocketErrorMessage(lastError));
-
+        if (last_error != EWOULDBLOCK && last_error != EINPROGRESS) {
+            handle_connection_failed("Failed to establish connection with the host: " + get_socket_error_message(last_error));
             return;
         }
     }
 }
 
-void LinuxAsyncWorkerThread::handleConnectionEvents() {
+void linux_async_worker_thread::handle_connection_events() {
     enum { MAX_EVENTS = 16 };
     epoll_event events[MAX_EVENTS];
 
-    int timeout = calculateConnectionTimeout();
+    int timeout = calculate_connection_timeout();
 
     int res = epoll_wait(m_epoll, events, MAX_EVENTS, timeout);
 
@@ -206,103 +202,99 @@ void LinuxAsyncWorkerThread::handleConnectionEvents() {
         return;
 
     for (int i = 0; i < res; ++i) {
-        epoll_event &currentEvent = events[i];
-        auto client = static_cast<LinuxAsyncClient *>(currentEvent.data.ptr);
+        epoll_event &current_event = events[i];
+        auto client = static_cast<linux_async_client *>(current_event.data.ptr);
         if (!client)
             continue;
 
-        if (client == m_currentClient.get()) {
-            if (currentEvent.events & (EPOLLRDHUP | EPOLLERR)) {
-                handleConnectionFailed("Can not establish connection");
-
+        if (client == m_current_client.get()) {
+            if (current_event.events & (EPOLLRDHUP | EPOLLERR)) {
+                handle_connection_failed("Can not establish connection");
                 continue;
             }
 
-            handleConnectionSuccess(client);
+            handle_connection_success(client);
         }
 
-        if (currentEvent.events & (EPOLLRDHUP | EPOLLERR | EPOLLHUP)) {
-            handleConnectionClosed(client);
-
+        if (current_event.events & (EPOLLRDHUP | EPOLLERR | EPOLLHUP)) {
+            handle_connection_closed(client);
             continue;
         }
 
-        if (currentEvent.events & EPOLLIN) {
+        if (current_event.events & EPOLLIN) {
             auto msg = client->receive();
             if (msg.empty()) {
-                handleConnectionClosed(client);
-
+                handle_connection_closed(client);
                 continue;
             }
 
-            m_clientPool.handleMessageReceived(client->id(), msg);
+            m_client_pool.handle_nessage_received(client->id(), msg);
         }
 
-        if (currentEvent.events & EPOLLOUT) {
-            bool ok = client->processSent();
+        if (current_event.events & EPOLLOUT) {
+            bool ok = client->process_sent();
             if (!ok) {
-                handleConnectionClosed(client);
-
+                handle_connection_closed(client);
                 continue;
             }
 
-            m_clientPool.handleMessageSent(client->id());
+            m_client_pool.handle_message_sent(client->id());
         }
     }
 }
 
-void LinuxAsyncWorkerThread::reportConnectionError(const EndPoint &addr, std::string msg) {
+void linux_async_worker_thread::report_connection_error(const end_point &addr, std::string msg) {
     ignite_error err(status_code::NETWORK, std::move(msg));
-    m_clientPool.handleConnectionError(addr, err);
+    m_client_pool.handle_connection_error(addr, err);
 }
 
-void LinuxAsyncWorkerThread::handleConnectionFailed(std::string msg) {
-    assert(m_currentClient);
+void linux_async_worker_thread::handle_connection_failed(std::string msg) {
+    assert(m_current_client);
 
-    m_currentClient->stopMonitoring();
-    m_currentClient->close();
+    m_current_client->stop_monitoring();
+    m_current_client->close();
 
-    reportConnectionError(m_currentClient->getAddress(), std::move(msg));
+    report_connection_error(m_current_client->address(), std::move(msg));
 
-    m_currentClient.reset();
-    ++m_failedAttempts;
+    m_current_client.reset();
+    ++m_failed_attempts;
 }
 
-void LinuxAsyncWorkerThread::handleConnectionClosed(LinuxAsyncClient *client) {
-    client->stopMonitoring();
+void linux_async_worker_thread::handle_connection_closed(linux_async_client *client) {
+    client->stop_monitoring();
 
-    m_nonConnected.push_back(client->getRange());
+    m_non_connected.push_back(client->get_range());
 
-    m_clientPool.closeAndRelease(client->id(), std::nullopt);
+    m_client_pool.close_and_release(client->id(), std::nullopt);
 }
 
-void LinuxAsyncWorkerThread::handleConnectionSuccess(LinuxAsyncClient *client) {
-    m_nonConnected.erase(std::find(m_nonConnected.begin(), m_nonConnected.end(), client->getRange()));
+void linux_async_worker_thread::handle_connection_success(linux_async_client *client) {
+    m_non_connected.erase(std::find(m_non_connected.begin(), m_non_connected.end(), client->get_range()));
 
-    m_clientPool.addClient(std::move(m_currentClient));
+    m_client_pool.add_client(std::move(m_current_client));
 
-    m_currentClient.reset();
-    m_currentConnection.reset();
+    m_current_client.reset();
+    m_current_connection.reset();
 
-    m_failedAttempts = 0;
+    m_failed_attempts = 0;
 
-    clock_gettime(CLOCK_MONOTONIC, &m_lastConnectionTime);
+    clock_gettime(CLOCK_MONOTONIC, &m_last_connection_time);
 }
 
-int LinuxAsyncWorkerThread::calculateConnectionTimeout() const {
-    if (!shouldInitiateNewConnection())
+int linux_async_worker_thread::calculate_connection_timeout() const {
+    if (!should_initiate_new_connection())
         return -1;
 
-    if (m_lastConnectionTime.tv_sec == 0)
+    if (m_last_connection_time.tv_sec == 0)
         return 0;
 
-    int timeout = int(fibonacci10.getValue(m_failedAttempts) * 1000);
+    int timeout = int(fibonacci10.get_value(m_failed_attempts) * 1000);
 
     timespec now{};
     clock_gettime(CLOCK_MONOTONIC, &now);
 
     int passed =
-        int((now.tv_sec - m_lastConnectionTime.tv_sec) * 1000 + (now.tv_nsec - m_lastConnectionTime.tv_nsec) / 1000000);
+        int((now.tv_sec - m_last_connection_time.tv_sec) * 1000 + (now.tv_nsec - m_last_connection_time.tv_nsec) / 1000000);
 
     timeout -= passed;
     if (timeout < 0)
@@ -311,8 +303,8 @@ int LinuxAsyncWorkerThread::calculateConnectionTimeout() const {
     return timeout;
 }
 
-bool LinuxAsyncWorkerThread::shouldInitiateNewConnection() const {
-    return !m_currentClient && m_nonConnected.size() > m_minAddrs;
+bool linux_async_worker_thread::should_initiate_new_connection() const {
+    return !m_current_client && m_non_connected.size() > m_min_addrs;
 }
 
 } // namespace ignite::network::detail

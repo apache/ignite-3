@@ -28,7 +28,7 @@
 
 namespace ignite::network::detail {
 
-std::string getSocketErrorMessage(int error) {
+std::string get_socket_error_message(int error) {
     std::stringstream res;
 
     res << "error_code=" << error;
@@ -36,33 +36,33 @@ std::string getSocketErrorMessage(int error) {
     if (error == 0)
         return res.str();
 
-    char errBuf[1024] = {0};
+    char err_buf[1024] = {0};
 
-    const char *errStr = strerror_r(error, errBuf, sizeof(errBuf));
-    if (errStr)
-        res << ", msg=" << errStr;
+    const char *err_str = strerror_r(error, err_buf, sizeof(err_buf));
+    if (err_str)
+        res << ", msg=" << err_str;
 
     return res.str();
 }
 
-std::string getLastSocketErrorMessage() {
-    int lastError = errno;
+std::string get_last_socket_error_message() {
+    int last_error = errno;
 
-    return getSocketErrorMessage(lastError);
+    return get_socket_error_message(last_error);
 }
 
-void trySetSocketOptions(int socketFd, int bufSize, bool noDelay, bool outOfBand, bool keepAlive) {
-    setsockopt(socketFd, SOL_SOCKET, SO_SNDBUF, reinterpret_cast<char *>(&bufSize), sizeof(bufSize));
-    setsockopt(socketFd, SOL_SOCKET, SO_RCVBUF, reinterpret_cast<char *>(&bufSize), sizeof(bufSize));
+void try_set_socket_options(int socket_fd, int buf_size, bool no_delay, bool out_of_band, bool keep_alive) {
+    setsockopt(socket_fd, SOL_SOCKET, SO_SNDBUF, reinterpret_cast<char *>(&buf_size), sizeof(buf_size));
+    setsockopt(socket_fd, SOL_SOCKET, SO_RCVBUF, reinterpret_cast<char *>(&buf_size), sizeof(buf_size));
 
-    int iNoDelay = noDelay ? 1 : 0;
-    setsockopt(socketFd, IPPROTO_TCP, TCP_NODELAY, reinterpret_cast<char *>(&iNoDelay), sizeof(iNoDelay));
+    int iNoDelay = no_delay ? 1 : 0;
+    setsockopt(socket_fd, IPPROTO_TCP, TCP_NODELAY, reinterpret_cast<char *>(&iNoDelay), sizeof(iNoDelay));
 
-    int iOutOfBand = outOfBand ? 1 : 0;
-    setsockopt(socketFd, SOL_SOCKET, SO_OOBINLINE, reinterpret_cast<char *>(&iOutOfBand), sizeof(iOutOfBand));
+    int iOutOfBand = out_of_band ? 1 : 0;
+    setsockopt(socket_fd, SOL_SOCKET, SO_OOBINLINE, reinterpret_cast<char *>(&iOutOfBand), sizeof(iOutOfBand));
 
-    int iKeepAlive = keepAlive ? 1 : 0;
-    int res = setsockopt(socketFd, SOL_SOCKET, SO_KEEPALIVE, reinterpret_cast<char *>(&iKeepAlive), sizeof(iKeepAlive));
+    int iKeepAlive = keep_alive ? 1 : 0;
+    int res = setsockopt(socket_fd, SOL_SOCKET, SO_KEEPALIVE, reinterpret_cast<char *>(&iKeepAlive), sizeof(iKeepAlive));
 
     if (SOCKET_ERROR == res) {
         // There is no sense in configuring keep alive params if we failed to set up keep alive mode.
@@ -75,28 +75,28 @@ void trySetSocketOptions(int socketFd, int bufSize, bool noDelay, bool outOfBand
     // The time in seconds between individual keepalive probes.
     enum { KEEP_ALIVE_PROBES_PERIOD = 1 };
 
-    int idleOpt = KEEP_ALIVE_IDLE_TIME;
-    int idleRetryOpt = KEEP_ALIVE_PROBES_PERIOD;
+    int idle_opt = KEEP_ALIVE_IDLE_TIME;
+    int idle_retry_opt = KEEP_ALIVE_PROBES_PERIOD;
 #ifdef __APPLE__
-    setsockopt(socketFd, IPPROTO_TCP, TCP_KEEPALIVE, reinterpret_cast<char *>(&idleOpt), sizeof(idleOpt));
+    setsockopt(socket_fd, IPPROTO_TCP, TCP_KEEPALIVE, reinterpret_cast<char *>(&idle_opt), sizeof(idle_opt));
 #else
-    setsockopt(socketFd, IPPROTO_TCP, TCP_KEEPIDLE, reinterpret_cast<char *>(&idleOpt), sizeof(idleOpt));
+    setsockopt(socket_fd, IPPROTO_TCP, TCP_KEEPIDLE, reinterpret_cast<char *>(&idle_opt), sizeof(idle_opt));
 #endif
 
-    setsockopt(socketFd, IPPROTO_TCP, TCP_KEEPINTVL, reinterpret_cast<char *>(&idleRetryOpt), sizeof(idleRetryOpt));
+    setsockopt(socket_fd, IPPROTO_TCP, TCP_KEEPINTVL, reinterpret_cast<char *>(&idle_retry_opt), sizeof(idle_retry_opt));
 }
 
-bool setNonBlockingMode(int socketFd, bool nonBlocking) {
-    int flags = fcntl(socketFd, F_GETFL, 0);
+bool set_non_blocking_mode(int socket_fd, bool non_blocking) {
+    int flags = fcntl(socket_fd, F_GETFL, 0);
     if (flags == -1)
         return false;
 
-    bool currentNonBlocking = flags & O_NONBLOCK;
-    if (nonBlocking == currentNonBlocking)
+    bool current_non_blocking = flags & O_NONBLOCK;
+    if (non_blocking == current_non_blocking)
         return true;
 
     flags ^= O_NONBLOCK;
-    int res = fcntl(socketFd, F_SETFL, flags);
+    int res = fcntl(socket_fd, F_SETFL, flags);
 
     return res != -1;
 }

@@ -32,22 +32,22 @@
 
 namespace ignite::network::detail {
 
-class LinuxAsyncClientPool;
+class linux_async_client_pool;
 
 /**
  * Async pool working thread.
  */
-class LinuxAsyncWorkerThread {
+class linux_async_worker_thread {
 public:
     /**
      * Default constructor.
      */
-    explicit LinuxAsyncWorkerThread(LinuxAsyncClientPool &clientPool);
+    explicit linux_async_worker_thread(linux_async_client_pool &client_pool);
 
     /**
      * Destructor.
      */
-    ~LinuxAsyncWorkerThread();
+    ~linux_async_worker_thread();
 
     /**
      * Start worker thread.
@@ -55,7 +55,7 @@ public:
      * @param limit Connection limit.
      * @param addrs Addresses to connect to.
      */
-    void start(size_t limit, std::vector<TcpRange> addrs);
+    void start(size_t limit, std::vector<tcp_range> addrs);
 
     /**
      * Stop thread.
@@ -71,12 +71,12 @@ private:
     /**
      * Initiate new connection process if needed.
      */
-    void handleNewConnections();
+    void handle_new_connections();
 
     /**
      * Handle epoll events.
      */
-    void handleConnectionEvents();
+    void handle_connection_events();
 
     /**
      * Handle network error during connection establishment.
@@ -84,45 +84,45 @@ private:
      * @param addr End point.
      * @param msg Error message.
      */
-    void reportConnectionError(const EndPoint &addr, std::string msg);
+    void report_connection_error(const end_point &addr, std::string msg);
 
     /**
      * Handle failed connection.
      *
      * @param msg Error message.
      */
-    void handleConnectionFailed(std::string msg);
+    void handle_connection_failed(std::string msg);
 
     /**
      * Handle network error on established connection.
      *
      * @param client Client instance.
      */
-    void handleConnectionClosed(LinuxAsyncClient *client);
+    void handle_connection_closed(linux_async_client *client);
 
     /**
      * Handle successfully established connection.
      *
      * @param client Client instance.
      */
-    void handleConnectionSuccess(LinuxAsyncClient *client);
+    void handle_connection_success(linux_async_client *client);
 
     /**
      * Calculate connection timeout.
      *
      * @return Connection timeout.
      */
-    [[nodiscard]] int calculateConnectionTimeout() const;
+    [[nodiscard]] int calculate_connection_timeout() const;
 
     /**
      * Check whether new connection should be initiated.
      *
      * @return @c true if new connection should be initiated.
      */
-    [[nodiscard]] bool shouldInitiateNewConnection() const;
+    [[nodiscard]] bool should_initiate_new_connection() const;
 
     /** Client pool. */
-    LinuxAsyncClientPool &m_clientPool;
+    linux_async_client_pool &m_client_pool;
 
     /** Flag indicating that thread is stopping. */
     volatile bool m_stopping;
@@ -131,25 +131,25 @@ private:
     int m_epoll;
 
     /** Stop event file descriptor. */
-    int m_stopEvent;
+    int m_stop_event;
 
     /** Addresses to use for connection establishment. */
-    std::vector<TcpRange> m_nonConnected;
+    std::vector<tcp_range> m_non_connected;
 
     /** Connection which is currently in connecting process. */
-    std::unique_ptr<ConnectingContext> m_currentConnection;
+    std::unique_ptr<connecting_context> m_current_connection;
 
     /** Currently connected client. */
-    std::shared_ptr<LinuxAsyncClient> m_currentClient;
+    std::shared_ptr<linux_async_client> m_current_client;
 
     /** Failed connection attempts. */
-    size_t m_failedAttempts;
+    size_t m_failed_attempts;
 
     /** Last connection time. */
-    timespec m_lastConnectionTime;
+    timespec m_last_connection_time;
 
     /** Minimal number of addresses. */
-    size_t m_minAddrs;
+    size_t m_min_addrs;
 
     /** Thread. */
     std::thread m_thread;

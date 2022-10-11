@@ -34,19 +34,19 @@ namespace ignite::network::detail {
 /**
  * Windows-specific implementation of asynchronous client pool.
  */
-class WinAsyncClientPool : public AsyncClientPool {
+class win_async_client_pool : public async_client_pool {
 public:
     /**
      * Constructor
      *
      * @param handler Upper level event handler.
      */
-    WinAsyncClientPool();
+    win_async_client_pool();
 
     /**
      * Destructor.
      */
-    ~WinAsyncClientPool() override;
+    ~win_async_client_pool() override;
 
     /**
      * Start internal thread that establishes connections to provided addresses and asynchronously sends and
@@ -58,7 +58,7 @@ public:
      *
      * @throw ignite_error on error.
      */
-    void start(std::vector<TcpRange> addrs, uint32_t connLimit) override;
+    void start(std::vector<tcp_range> addrs, uint32_t connLimit) override;
 
     /**
      * Close all established connections and stops handling thread.
@@ -70,7 +70,7 @@ public:
      *
      * @param handler Handler to set.
      */
-    void setHandler(std::weak_ptr<AsyncHandler> handler) override;
+    void set_handler(std::weak_ptr<async_handler> handler) override;
 
     /**
      * Send data to specific established connection.
@@ -99,7 +99,7 @@ public:
      * @param err Error to report. May be null.
      * @return @c true if connection with specified ID was found.
      */
-    void closeAndRelease(uint64_t id, std::optional<ignite_error> err);
+    void close_and_release(uint64_t id, std::optional<ignite_error> err);
 
     /**
      * Add client to connection map. Notify user.
@@ -107,7 +107,7 @@ public:
      * @param client Client.
      * @return Client ID.
      */
-    bool addClient(const std::shared_ptr<WinAsyncClient> &client);
+    bool add_client(const std::shared_ptr<win_async_client> &client);
 
     /**
      * Handle error during connection establishment.
@@ -115,7 +115,7 @@ public:
      * @param addr Connection address.
      * @param err Error.
      */
-    void handleConnectionError(const EndPoint &addr, const ignite_error &err);
+    void handle_connection_error(const end_point &addr, const ignite_error &err);
 
     /**
      * Handle successful connection establishment.
@@ -123,7 +123,7 @@ public:
      * @param addr Address of the new connection.
      * @param id Connection ID.
      */
-    void handleConnectionSuccess(const EndPoint &addr, uint64_t id);
+    void handle_connection_success(const end_point &addr, uint64_t id);
 
     /**
      * Handle error during connection establishment.
@@ -131,7 +131,7 @@ public:
      * @param id Async client ID.
      * @param err Error. Can be null if connection closed without error.
      */
-    void handleConnectionClosed(uint64_t id, std::optional<ignite_error> err);
+    void handle_connection_closed(uint64_t id, std::optional<ignite_error> err);
 
     /**
      * Handle new message.
@@ -139,20 +139,20 @@ public:
      * @param id Async client ID.
      * @param msg Received message.
      */
-    void handleMessageReceived(uint64_t id, bytes_view msg);
+    void handle_nessage_received(uint64_t id, bytes_view msg);
 
     /**
      * Handle sent message event.
      *
      * @param id Async client ID.
      */
-    void handleMessageSent(uint64_t id);
+    void handle_message_sent(uint64_t id);
 
 private:
     /**
      * Close all established connections and stops handling threads.
      */
-    void internalStop();
+    void internal_stop();
 
     /**
      * Find client by ID.
@@ -160,40 +160,40 @@ private:
      * @param id Client ID.
      * @return Client. Null pointer if is not found.
      */
-    [[nodiscard]] std::shared_ptr<WinAsyncClient> find_client(uint64_t id) const;
+    [[nodiscard]] std::shared_ptr<win_async_client> find_client(uint64_t id) const;
 
     /**
      * Find client by ID.
      *
-     * @warning Should only be called with m_clientsMutex lock held.
+     * @warning Should only be called with m_clients_mutex lock held.
      * @param id Client ID.
      * @return Client. Null pointer if is not found.
      */
-    [[nodiscard]] std::shared_ptr<WinAsyncClient> findClientLocked(uint64_t id) const;
+    [[nodiscard]] std::shared_ptr<win_async_client> find_client_locked(uint64_t id) const;
 
     /** Flag indicating that pool is stopping. */
     volatile bool m_stopping;
 
     /** Event handler. */
-    std::weak_ptr<AsyncHandler> m_asyncHandler;
+    std::weak_ptr<async_handler> m_async_handler;
 
     /** Connecting thread. */
-    WinAsyncConnectingThread m_connectingThread;
+    win_async_connecting_thread m_connecting_thread;
 
     /** Internal thread. */
-    WinAsyncWorkerThread m_workerThread;
+    win_async_worker_thread m_worker_thread;
 
     /** ID counter. */
-    uint64_t m_idGen;
+    uint64_t m_id_gen;
 
     /** IO Completion Port. Windows-specific primitive for asynchronous IO. */
     HANDLE m_iocp;
 
     /** Clients critical section. */
-    mutable std::mutex m_clientsMutex;
+    mutable std::mutex m_clients_mutex;
 
     /** Client mapping ID -> client */
-    std::map<uint64_t, std::shared_ptr<WinAsyncClient>> m_clientIdMap;
+    std::map<uint64_t, std::shared_ptr<win_async_client>> m_client_id_map;
 };
 
 } // namespace ignite::network::detail

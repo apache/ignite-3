@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include <ignite/common/types.h>
+#include <ignite/common/bytes_view.h>
 
 #include <limits>
 

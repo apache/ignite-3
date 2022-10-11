@@ -28,18 +28,15 @@ namespace ignite::network {
 /**
  * Codec that decodes messages prefixed with int32 length.
  */
-class LengthPrefixCodec : public Codec {
+class length_prefix_codec : public codec {
 public:
     /** Packet header size in bytes. */
     static constexpr size_t PACKET_HEADER_SIZE = 4;
 
-    // Default
-    ~LengthPrefixCodec() override = default;
-
     /**
      * Constructor.
      */
-    LengthPrefixCodec();
+    length_prefix_codec();
 
     /**
      * Encode provided data.
@@ -49,7 +46,7 @@ public:
      *
      * @throw ignite_error on error.
      */
-    DataBufferOwning encode(DataBufferOwning &data) override;
+    data_buffer_owning encode(data_buffer_owning &data) override;
 
     /**
      * Decode provided data.
@@ -59,7 +56,7 @@ public:
      *
      * @throw ignite_error on error.
      */
-    DataBufferRef decode(DataBufferRef &data) override;
+    data_buffer_ref decode(data_buffer_ref &data) override;
 
 private:
     /**
@@ -68,24 +65,24 @@ private:
      * @param data Data to consume.
      * @param desired Desired resulting size of packet.
      */
-    void consume(DataBufferRef &data, size_t desired);
+    void consume(data_buffer_ref &data, size_t desired);
 
     /**
      * Reset packet buffer.
      */
-    void resetBuffer();
+    void reset_buffer();
 
     /** Size of the current packet. */
-    int32_t m_packetSize;
+    int32_t m_packet_size;
 
     /** Current packet. */
     std::vector<std::byte> m_packet;
 
     /** Magic bytes received. */
-    bool m_magicReceived;
+    bool m_magic_received;
 };
 
-/** Factory for LengthPrefixCodec. */
-typedef basic_factory<Codec, LengthPrefixCodec> LengthPrefixCodecFactory;
+/** Factory for length_prefix_codec. */
+typedef basic_factory<codec, length_prefix_codec> length_prefix_codec_factory;
 
 } // namespace ignite::network

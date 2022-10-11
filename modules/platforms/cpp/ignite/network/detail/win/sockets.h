@@ -36,30 +36,30 @@ namespace ignite::network::detail {
  * @param error Error code.
  * @return Socket error message string.
  */
-std::string getSocketErrorMessage(HRESULT error);
+std::string get_socket_error_message(HRESULT error);
 
 /**
  * Get last socket error message.
  * @return Last socket error message string.
  */
-std::string getLastSocketErrorMessage();
+std::string get_last_socket_error_message();
 
 /**
  * Try and set socket options.
  *
  * @param socket Socket.
- * @param bufSize Buffer size.
- * @param noDelay Set no-delay mode.
- * @param outOfBand Set out-of-Band mode.
- * @param keepAlive Keep alive mode.
+ * @param buf_size Buffer size.
+ * @param no_delay Set no-delay mode.
+ * @param out_of_band Set out-of-Band mode.
+ * @param keep_alive Keep alive mode.
  */
-void trySetSocketOptions(SOCKET socket, int bufSize, BOOL noDelay, BOOL outOfBand, BOOL keepAlive);
+void try_set_socket_options(SOCKET socket, int buf_size, BOOL no_delay, BOOL out_of_band, BOOL keep_alive);
 
 /**
  * Init windows sockets.
  *
  * Thread-safe.
  */
-void InitWsa();
+void init_wsa();
 
 } // namespace ignite::network::detail

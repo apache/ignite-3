@@ -21,19 +21,19 @@
 
 namespace ignite::network::detail {
 
-std::string getLastSystemError() {
-    int errorCode = errno;
+std::string get_last_system_error() {
+    int error_code = errno;
 
-    std::string errorDetails;
-    if (errorCode != 0) {
-        char errBuf[1024] = {0};
+    std::string error_details;
+    if (error_code != 0) {
+        char err_buf[1024] = {0};
 
-        const char *res = strerror_r(errorCode, errBuf, sizeof(errBuf));
+        const char *res = strerror_r(error_code, err_buf, sizeof(err_buf));
         if (res)
-            errorDetails.assign(res);
+            error_details.assign(res);
     }
 
-    return errorDetails;
+    return error_details;
 }
 
 } // namespace ignite::network::detail

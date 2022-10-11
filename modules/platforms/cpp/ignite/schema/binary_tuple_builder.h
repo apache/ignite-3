@@ -26,7 +26,7 @@
 #include "ignite_timestamp.h"
 
 #include <ignite/common/bytes.h>
-#include <ignite/common/types.h>
+#include <ignite/common/bytes_view.h>
 #include <ignite/common/uuid.h>
 
 #include <cassert>

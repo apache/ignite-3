@@ -22,25 +22,25 @@
 
 namespace ignite::network {
 
-LengthPrefixCodec::LengthPrefixCodec()
-    : m_packetSize(-1)
+length_prefix_codec::length_prefix_codec()
+    : m_packet_size(-1)
     , m_packet()
-    , m_magicReceived(false) {
+    , m_magic_received(false) {
 }
 
-DataBufferOwning LengthPrefixCodec::encode(DataBufferOwning &data) {
+data_buffer_owning length_prefix_codec::encode(data_buffer_owning &data) {
     // Just pass data as is, because we encode message size in
     // the application to avoid unnecessary re-allocations and copying.
-    return std::move(data.consumeEntirely());
+    return std::move(data.consume_entirely());
 }
 
-void LengthPrefixCodec::resetBuffer() {
-    m_packetSize = -1;
+void length_prefix_codec::reset_buffer() {
+    m_packet_size = -1;
     m_packet.clear();
 }
 
-DataBufferRef LengthPrefixCodec::decode(DataBufferRef &data) {
-    if (!m_magicReceived) {
+data_buffer_ref length_prefix_codec::decode(data_buffer_ref &data) {
+    if (!m_magic_received) {
         consume(data, int32_t(protocol::MAGIC_BYTES.size()));
 
         if (m_packet.size() < protocol::MAGIC_BYTES.size())
@@ -49,36 +49,36 @@ DataBufferRef LengthPrefixCodec::decode(DataBufferRef &data) {
         if (!std::equal(protocol::MAGIC_BYTES.begin(), protocol::MAGIC_BYTES.end(), m_packet.begin(), m_packet.end()))
             throw ignite_error("Unknown protocol response");
 
-        resetBuffer();
-        m_magicReceived = true;
+        reset_buffer();
+        m_magic_received = true;
     }
 
-    if (m_packet.empty() || m_packet.size() == (PACKET_HEADER_SIZE + m_packetSize))
-        resetBuffer();
+    if (m_packet.empty() || m_packet.size() == (PACKET_HEADER_SIZE + m_packet_size))
+        reset_buffer();
 
-    if (m_packetSize < 0) {
+    if (m_packet_size < 0) {
         consume(data, PACKET_HEADER_SIZE);
 
         if (m_packet.size() < PACKET_HEADER_SIZE)
             return {};
 
-        m_packetSize = bytes::load<Endian::LITTLE, int32_t>(m_packet.data());
+        m_packet_size = bytes::load<Endian::LITTLE, int32_t>(m_packet.data());
     }
 
-    consume(data, m_packetSize + PACKET_HEADER_SIZE);
+    consume(data, m_packet_size + PACKET_HEADER_SIZE);
 
-    if (m_packet.size() == m_packetSize + PACKET_HEADER_SIZE)
-        return {m_packet, PACKET_HEADER_SIZE, m_packetSize + PACKET_HEADER_SIZE};
+    if (m_packet.size() == m_packet_size + PACKET_HEADER_SIZE)
+        return {m_packet, PACKET_HEADER_SIZE, m_packet_size + PACKET_HEADER_SIZE};
 
     return {};
 }
 
-void LengthPrefixCodec::consume(DataBufferRef &data, size_t desired) {
-    auto toCopy = desired - m_packet.size();
-    if (toCopy <= 0)
+void length_prefix_codec::consume(data_buffer_ref &data, size_t desired) {
+    auto to_copy = desired - m_packet.size();
+    if (to_copy <= 0)
         return;
 
-    data.consumeBy(m_packet, size_t(toCopy));
+    data.consume_by(m_packet, size_t(to_copy));
 }
 
 } // namespace ignite::network

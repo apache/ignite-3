@@ -49,7 +49,7 @@ namespace ignite::detail {
  *
  * Considered established while there is connection to at least one server.
  */
-class cluster_connection : public std::enable_shared_from_this<cluster_connection>, public network::AsyncHandler {
+class cluster_connection : public std::enable_shared_from_this<cluster_connection>, public network::async_handler {
 public:
     /** Default TCP port. */
     static constexpr uint16_t DEFAULT_TCP_PORT = 10800;
@@ -144,7 +144,7 @@ private:
      * @param addr Address of the new connection.
      * @param id Connection ID.
      */
-    void on_connection_success(const network::EndPoint &addr, uint64_t id) override;
+    void on_connection_success(const network::end_point &addr, uint64_t id) override;
 
     /**
      * Callback that called on error during connection establishment.
@@ -152,7 +152,7 @@ private:
      * @param addr Connection address.
      * @param err Error.
      */
-    void on_connection_error(const network::EndPoint &addr, ignite_error err) override;
+    void on_connection_error(const network::end_point &addr, ignite_error err) override;
 
     /**
      * Callback that called on error during connection establishment.
@@ -209,7 +209,7 @@ private:
     std::mutex m_on_initial_connect_mutex;
 
     /** Connection pool. */
-    std::shared_ptr<network::AsyncClientPool> m_pool;
+    std::shared_ptr<network::async_client_pool> m_pool;
 
     /** Logger. */
     std::shared_ptr<ignite_logger> m_logger;
