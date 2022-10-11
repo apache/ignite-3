@@ -15,7 +15,6 @@
 
 = Persistent Storage
 
-//:javaFile: {javaCodeDir}/IgnitePersistence.java
 
 == Overview
 
@@ -26,27 +25,10 @@ The Native Persistence functionality is based on the following features:
 
 * Storing data partitions on disk
 * Checkpointing
-* Usage of OS swap
 
 When persistence is enabled, Apache Ignite stores each partition in a separate file on disk. In addition to data partitions, Apache Ignite stores indexes and metadata.
 
 //image::images/persistent_store_structure.png[]
-
-== Enabling Persistent Storage
-
-To enable Ignite persistence, specify the  `aipersist` engine in the data region configuration.
-You can have in-memory data regions and data regions with persistence at the same time.
-
-The following example shows how to enable persistent storage for the default data region.
-
-[tabs]
---
-tab:Java[]
-[source, java]
-----
-include::{javaFile}[tags=cfg;!storage-path,indent=0]
-----
---
 
 == Checkpointing
 
