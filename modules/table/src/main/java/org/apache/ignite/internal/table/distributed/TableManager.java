@@ -1668,15 +1668,15 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         return true;
                     }
 
-                    int part = extractPartitionNumber(pendingAssignmentsWatchEvent.key());
+                    int partId = extractPartitionNumber(pendingAssignmentsWatchEvent.key());
                     UUID tblId = extractTableId(pendingAssignmentsWatchEvent.key(), PENDING_ASSIGNMENTS_PREFIX);
 
-                    String partId = partitionRaftGroupName(tblId, part);
+                    String grpId = partitionRaftGroupName(tblId, partId);
 
                     // Assignments of the pending rebalance that we received through the meta storage watch mechanism.
                     Set<ClusterNode> newPeers = ByteUtils.fromBytes(pendingAssignmentsWatchEvent.value());
 
-                    var pendingAssignments = metaStorageMgr.get(pendingPartAssignmentsKey(partId)).join();
+                    var pendingAssignments = metaStorageMgr.get(pendingPartAssignmentsKey(grpId)).join();
 
                     assert pendingAssignmentsWatchEvent.revision() <= pendingAssignments.revision()
                             : "Meta Storage watch cannot notify about an event with the revision that is more than the actual revision.";
@@ -1691,12 +1691,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                     + tbl.internalTable().storage().getClass().getName();
 
                     // Stable assignments from the meta store, which revision is bounded by the current pending event.
-                    byte[] stableAssignments = metaStorageMgr.get(stablePartAssignmentsKey(partId),
+                    byte[] stableAssignments = metaStorageMgr.get(stablePartAssignmentsKey(grpId),
                             pendingAssignmentsWatchEvent.revision()).join().value();
 
                     Set<ClusterNode> assignments = stableAssignments == null
                             // This is for the case when the first rebalance occurs.
-                            ? ((List<Set<ClusterNode>>) ByteUtils.fromBytes(tblCfg.assignments().value())).get(part)
+                            ? ((List<Set<ClusterNode>>) ByteUtils.fromBytes(tblCfg.assignments().value())).get(partId)
                             : ByteUtils.fromBytes(stableAssignments);
 
                     ClusterNode localMember = raftMgr.topologyService().localMember();
@@ -1710,10 +1710,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     try {
                         LOG.info("Received update on pending assignments. Check if new raft group should be started"
                                         + " [key={}, partition={}, table={}, localMemberAddress={}]",
-                                pendingAssignmentsWatchEvent.key(), part, tbl.name(), localMember.address());
+                                pendingAssignmentsWatchEvent.key(), partId, tbl.name(), localMember.address());
 
                         if (raftMgr.shouldHaveRaftGroupLocally(deltaPeers)) {
-                            MvPartitionStorage partitionStorage = tbl.internalTable().storage().getOrCreateMvPartition(part);
+                            MvPartitionStorage partitionStorage = tbl.internalTable().storage().getOrCreateMvPartition(partId);
 
                             RaftGroupOptions groupOptions = groupOptionsForPartition(
                                     tbl.internalTable(),
@@ -1724,7 +1724,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                             RaftGroupListener raftGrpLsnr = new PartitionListener(
                                     partitionStorage,
-                                    tbl.internalTable().txStateStorage().getOrCreateTxStateStorage(part),
+                                    tbl.internalTable().txStateStorage().getOrCreateTxStateStorage(partId),
                                     txManager,
                                     primaryIndex
                             );
@@ -1732,16 +1732,16 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             RaftGroupEventsListener raftGrpEvtsLsnr = new RebalanceRaftGroupEventsListener(
                                     metaStorageMgr,
                                     tblCfg,
+                                    grpId,
                                     partId,
-                                    part,
                                     busyLock,
-                                    movePartition(() -> tbl.internalTable().partitionRaftGroupService(part)),
+                                    movePartition(() -> tbl.internalTable().partitionRaftGroupService(partId)),
                                     TableManager.this::calculateAssignments,
                                     rebalanceScheduler
                             );
 
                             raftMgr.startRaftGroupNode(
-                                    partId,
+                                    grpId,
                                     assignments,
                                     raftGrpLsnr,
                                     raftGrpEvtsLsnr,
@@ -1750,16 +1750,16 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         }
 
                         if (replicaMgr.shouldHaveReplicationGroupLocally(deltaPeers)) {
-                            MvPartitionStorage partitionStorage = tbl.internalTable().storage().getOrCreateMvPartition(part);
+                            MvPartitionStorage partitionStorage = tbl.internalTable().storage().getOrCreateMvPartition(partId);
 
-                            replicaMgr.startReplica(partId,
+                            replicaMgr.startReplica(grpId,
                                     new PartitionReplicaListener(
                                             partitionStorage,
-                                            tbl.internalTable().partitionRaftGroupService(part),
+                                            tbl.internalTable().partitionRaftGroupService(partId),
                                             txManager,
                                             lockMgr,
-                                            part,
                                             partId,
+                                            grpId,
                                             tblId,
                                             primaryIndex,
                                             clock
@@ -1778,7 +1778,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                     var newNodes = newPeers.stream().map(n -> new Peer(n.address())).collect(Collectors.toList());
 
-                    RaftGroupService partGrpSvc = tbl.internalTable().partitionRaftGroupService(part);
+                    RaftGroupService partGrpSvc = tbl.internalTable().partitionRaftGroupService(partId);
 
                     IgniteBiTuple<Peer, Long> leaderWithTerm = partGrpSvc.refreshAndGetLeaderWithTerm().join();
 
@@ -1786,7 +1786,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     if (localMember.address().equals(leaderWithTerm.get1().address())) {
                         LOG.info("Current node={} is the leader of partition raft group={}. "
                                         + "Initiate rebalance process for partition={}, table={}",
-                                localMember.address(), partId, part, tbl.name());
+                                localMember.address(), grpId, partId, tbl.name());
 
                         partGrpSvc.changePeersAsync(newNodes, leaderWithTerm.get2()).join();
                     }

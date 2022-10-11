@@ -24,6 +24,10 @@
 
   . $IGNITE_HOME/etc/bootstrap-config
 
+  # Export these variables so that IgniteCliRunner can use them as default values
+  export IGNITE_NODE_NAME=$NODE_NAME
+  export IGNITE_WORK_DIR=$WORK_PATH
+  export IGNITE_CONFIG_PATH=$IGNITE_CONFIG_FILE
 
 
 start() {
@@ -42,10 +46,7 @@ start() {
   --add-opens java.base/jdk.internal.misc=ALL-UNNAMED \
   -Dio.netty.tryReflectionSetAccessible=true \
   -Djava.util.logging.config.file=$CONFIG_PATH/ignite.java.util.logging.properties \
-  -classpath $LIBS_PATH/ignite-runner.jar:$LIBS_PATH/* org.apache.ignite.app.IgniteCliRunner \
-  --config-path $IGNITE_CONFIG_FILE \
-  --work-dir $WORK_PATH \
-  $NODE_NAME"
+  -classpath $LIBS_PATH/ignite-runner.jar:$LIBS_PATH/* org.apache.ignite.app.IgniteCliRunner"
 
   ############# STAGE 3: RUN CMD, REPORT ###############
   exec ${CMD} >>${LOG_OUT_FILE:-/dev/null} 2>&1 < /dev/null & jobs -p > ${IGNITE_HOME}/pid
