@@ -18,12 +18,15 @@
 package org.apache.ignite.internal.storage.pagememory.index;
 
 import static org.apache.ignite.internal.binarytuple.BinaryTupleCommon.valueSizeToEntrySize;
+import static org.apache.ignite.internal.pagememory.tree.io.BplusInnerIo.CHILD_LINK_SIZE;
 import static org.apache.ignite.internal.util.Constants.KiB;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.List;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
+import org.apache.ignite.internal.pagememory.freelist.FreeList;
+import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.tree.io.BplusInnerIo;
 import org.apache.ignite.internal.pagememory.tree.io.BplusLeafIo;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -35,6 +38,9 @@ import org.apache.ignite.internal.storage.index.IndexDescriptor.ColumnDescriptor
 
 /**
  * Helper class for index inlining.
+ *
+ * <p>Index inlining is an optimization that allows index rows (or prefix) to be compared in a {@link BplusTree} without loading them from a
+ * {@link FreeList}.
  */
 public class InlineUtils {
     /** Maximum inline size for a {@link BinaryTuple}, in bytes. */
@@ -50,7 +56,7 @@ public class InlineUtils {
      * Minimum number of items in a {@link BplusInnerIo} so that the search in the B+tree does not lose much in performance due to its rapid
      * growth.
      */
-    static final int MIN_INNER_NODE_ITEM_COUNT = 2;
+    static final int MIN_INNER_PAGE_ITEM_COUNT = 2;
 
     /** Heuristic maximum inline size for {@link BigDecimal} and {@link BigInteger} column in bytes. */
     static final int BIG_NUMBER_INLINE_SIZE = 4;
@@ -77,7 +83,7 @@ public class InlineUtils {
 
             case DECIMAL:
             case NUMBER:
-                return 4;
+                return BIG_NUMBER_INLINE_SIZE;
 
             default:
                 throw new IllegalArgumentException("Unknown type " + spec);
@@ -93,9 +99,11 @@ public class InlineUtils {
     static int binaryTupleInlineSize(IndexDescriptor indexDescriptor) {
         List<? extends ColumnDescriptor> columns = indexDescriptor.columns();
 
+        assert !columns.isEmpty();
+
         boolean hasNullColumns = columns.stream().anyMatch(ColumnDescriptor::nullable);
 
-        // First, let's calculate the inline size for all columns.
+        // Let's calculate the inline size for all columns.
         int columnsInlineSize = columns.stream().map(ColumnDescriptor::type).mapToInt(InlineUtils::inlineSize).sum();
 
         int inlineSize = BinaryTupleCommon.HEADER_SIZE
@@ -115,12 +123,12 @@ public class InlineUtils {
      * @return Inline size in bytes, no more than {@link #MAX_BINARY_TUPLE_INLINE_SIZE}.
      */
     public static int binaryTupleInlineSize(int pageSize, int itemHeaderSize, IndexDescriptor indexDescriptor) {
-        int maxInnerNodeItemSize = (innerNodePayloadSize(pageSize) / MIN_INNER_NODE_ITEM_COUNT) - BplusInnerIo.CHILD_LINK_SIZE;
+        int maxInnerNodeItemSize = ((innerNodePayloadSize(pageSize) - CHILD_LINK_SIZE) / MIN_INNER_PAGE_ITEM_COUNT) - CHILD_LINK_SIZE;
 
         int binaryTupleInlineSize = Math.min(maxInnerNodeItemSize - itemHeaderSize, binaryTupleInlineSize(indexDescriptor));
 
         if (binaryTupleInlineSize >= MAX_BINARY_TUPLE_INLINE_SIZE) {
-            return binaryTupleInlineSize;
+            return MAX_BINARY_TUPLE_INLINE_SIZE;
         }
 
         // If we have variable length columns and there is enough unused space in the innerNodes and leafNodes, then we can try increasing
@@ -134,11 +142,11 @@ public class InlineUtils {
             int itemSize = binaryTupleInlineSize + itemHeaderSize;
 
             // Let's calculate whether to remain a place in the BplusInnerIo and the BplusLeafIo.
-            int remainingInnerNodePayloadSize = innerNodePayloadSize(pageSize) % (itemSize + BplusInnerIo.CHILD_LINK_SIZE);
+            int remainingInnerNodePayloadSize = (innerNodePayloadSize(pageSize) - CHILD_LINK_SIZE) % (itemSize + CHILD_LINK_SIZE);
             int remainingLeafNodePayloadSize = leafNodePayloadSize(pageSize) % itemSize;
 
             if (remainingInnerNodePayloadSize > 0 && remainingLeafNodePayloadSize > 0) {
-                int innerNodeItemCount = innerNodePayloadSize(pageSize) / (itemSize + BplusInnerIo.CHILD_LINK_SIZE);
+                int innerNodeItemCount = (innerNodePayloadSize(pageSize) - CHILD_LINK_SIZE) / (itemSize + CHILD_LINK_SIZE);
                 int leafNodeItemCount = leafNodePayloadSize(pageSize) / itemSize;
 
                 // Let's calculate how many additional bytes can be added for each item of the BplusInnerIo and the BplusLeafIo.
@@ -146,14 +154,11 @@ public class InlineUtils {
                 int additionalLeafNodeItemBytes = remainingLeafNodePayloadSize / leafNodeItemCount;
 
                 if (additionalInnerNodeItemBytes > 0 && additionalLeafNodeItemBytes > 0) {
-                    int minAdditionalItemBytes = Math.min(additionalInnerNodeItemBytes, additionalLeafNodeItemBytes);
+                    itemSize += Math.min(additionalInnerNodeItemBytes, additionalLeafNodeItemBytes);
 
-                    // We need to make sure that by increasing the itemSize we do not reduce the number of items in the BplusLeafIo, this
-                    // may affect its density (holes in one item may appear).
+                    assert leafNodePayloadSize(pageSize) / itemSize == leafNodeItemCount;
 
-                    if (leafNodePayloadSize(pageSize) / (itemSize + minAdditionalItemBytes) == leafNodeItemCount) {
-                        binaryTupleInlineSize = (itemSize + minAdditionalItemBytes) - itemHeaderSize;
-                    }
+                    binaryTupleInlineSize = itemSize - itemHeaderSize;
                 }
             }
         }
@@ -167,7 +172,7 @@ public class InlineUtils {
      * @param pageSize Page size in bytes.
      */
     static int innerNodePayloadSize(int pageSize) {
-        return pageSize - BplusInnerIo.HEADER_SIZE - BplusInnerIo.CHILD_LINK_SIZE;
+        return pageSize - BplusInnerIo.HEADER_SIZE;
     }
 
     /**

@@ -41,11 +41,11 @@ public abstract class BplusInnerIo<L> extends BplusIo<L> {
     /** Offset of the link. */
     private static final int SHIFT_LINK = SHIFT_LEFT + PARTITIONLESS_LINK_SIZE_BYTES;
 
-    /** Offset of the right page ID of the item. */
-    private final int shiftRight = SHIFT_LINK + itemSize;
-
     /** Number of bytes a child link takes in storage. */
     public static final int CHILD_LINK_SIZE = PARTITIONLESS_LINK_SIZE_BYTES;
+
+    /** Offset of the right page ID of the item. */
+    private final int shiftRight = SHIFT_LINK + itemSize;
 
     /**
      * Constructor.

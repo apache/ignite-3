@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage.pagememory.index;
 
+import static org.apache.ignite.internal.pagememory.tree.io.BplusInnerIo.CHILD_LINK_SIZE;
 import static org.apache.ignite.internal.storage.pagememory.index.InlineUtils.BIG_NUMBER_INLINE_SIZE;
 import static org.apache.ignite.internal.storage.pagememory.index.InlineUtils.MAX_BINARY_TUPLE_INLINE_SIZE;
 import static org.apache.ignite.internal.storage.pagememory.index.InlineUtils.MAX_VARLEN_INLINE_SIZE;
@@ -102,10 +103,16 @@ public class InlineUtilsTest {
         assertEquals(7, inlineSize(nativeType = NativeTypes.stringOf(7)));
         nativeTypeSpecs.remove(nativeType.spec());
 
+        assertEquals(MAX_VARLEN_INLINE_SIZE, inlineSize(nativeType = NativeTypes.stringOf(256)));
+        nativeTypeSpecs.remove(nativeType.spec());
+
         assertEquals(MAX_VARLEN_INLINE_SIZE, inlineSize(nativeType = NativeTypes.stringOf(Integer.MAX_VALUE)));
         nativeTypeSpecs.remove(nativeType.spec());
 
         assertEquals(9, inlineSize(nativeType = NativeTypes.blobOf(9)));
+        nativeTypeSpecs.remove(nativeType.spec());
+
+        assertEquals(MAX_VARLEN_INLINE_SIZE, inlineSize(nativeType = NativeTypes.blobOf(256)));
         nativeTypeSpecs.remove(nativeType.spec());
 
         assertEquals(MAX_VARLEN_INLINE_SIZE, inlineSize(nativeType = NativeTypes.blobOf(Integer.MAX_VALUE)));
@@ -123,11 +130,7 @@ public class InlineUtilsTest {
 
     @Test
     void testBinaryTupleInlineSize() {
-        IndexDescriptor indexDescriptor = testIndexDescriptor();
-
-        assertEquals(BinaryTupleCommon.HEADER_SIZE, binaryTupleInlineSize(indexDescriptor));
-
-        indexDescriptor = testIndexDescriptor(testColumnDescriptor(NativeTypes.INT8, false));
+        IndexDescriptor indexDescriptor = testIndexDescriptor(testColumnDescriptor(NativeTypes.INT8, false));
 
         assertEquals(
                 BinaryTupleCommon.HEADER_SIZE + 1 + NativeTypes.INT8.sizeInBytes(), // Without a nullMap card.
@@ -194,11 +197,11 @@ public class InlineUtilsTest {
     void testInnerNodePayloadSize() {
         int pageSize = 1024;
 
-        assertEquals(pageSize - BplusInnerIo.HEADER_SIZE - BplusInnerIo.CHILD_LINK_SIZE, innerNodePayloadSize(pageSize));
+        assertEquals(pageSize - BplusInnerIo.HEADER_SIZE, innerNodePayloadSize(pageSize));
 
         pageSize = 128;
 
-        assertEquals(pageSize - BplusInnerIo.HEADER_SIZE - BplusInnerIo.CHILD_LINK_SIZE, innerNodePayloadSize(pageSize));
+        assertEquals(pageSize - BplusInnerIo.HEADER_SIZE, innerNodePayloadSize(pageSize));
     }
 
     @Test
@@ -217,13 +220,9 @@ public class InlineUtilsTest {
         int pageSize = 1024;
         int itemHeaderSize = 6;
 
-        IndexDescriptor indexDescriptor = testIndexDescriptor();
-
-        assertEquals(BinaryTupleCommon.HEADER_SIZE, binaryTupleInlineSize(pageSize, itemHeaderSize, indexDescriptor));
-
         // Let's check without variable length columns.
 
-        indexDescriptor = testIndexDescriptor(
+        IndexDescriptor indexDescriptor = testIndexDescriptor(
                 testColumnDescriptor(NativeTypes.INT64, false),
                 testColumnDescriptor(NativeTypes.UUID, false)
         );
@@ -242,7 +241,7 @@ public class InlineUtilsTest {
         );
 
         assertEquals(
-                ((innerNodePayloadSize(128) / 2) - BplusInnerIo.CHILD_LINK_SIZE) - itemHeaderSize,
+                (((innerNodePayloadSize(128) - CHILD_LINK_SIZE) / 2) - CHILD_LINK_SIZE) - itemHeaderSize,
                 binaryTupleInlineSize(128, itemHeaderSize, indexDescriptor)
         );
 
@@ -253,7 +252,7 @@ public class InlineUtilsTest {
         );
 
         assertEquals(
-                ((innerNodePayloadSize(128) / 2) - BplusInnerIo.CHILD_LINK_SIZE) - itemHeaderSize,
+                (((innerNodePayloadSize(128) - CHILD_LINK_SIZE) / 2) - CHILD_LINK_SIZE) - itemHeaderSize,
                 binaryTupleInlineSize(128, itemHeaderSize, indexDescriptor)
         );
 
