@@ -54,6 +54,23 @@ namespace Apache.Ignite.Tests.Table
         }
 
         [Test]
+        public async Task TestUpsertGetValueType()
+        {
+            var pocoView = Table.GetRecordView<PocoStruct>();
+
+            await pocoView.UpsertAsync(null, new PocoStruct(1, "foo"));
+
+            var keyTuple = new PocoStruct(1, null);
+            var (resTuple, hasValue) = await pocoView.GetAsync(null, keyTuple);
+
+            Assert.IsTrue(hasValue);
+            Assert.AreEqual(1L, resTuple.Key);
+            Assert.AreEqual("foo", resTuple.Val);
+
+            Assert.IsNull(resTuple.UnmappedStr);
+        }
+
+        [Test]
         public async Task TestUpsertOverridesPreviousValue()
         {
             var key = GetPoco(1);

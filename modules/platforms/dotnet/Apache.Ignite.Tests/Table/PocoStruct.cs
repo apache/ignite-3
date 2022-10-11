@@ -20,4 +20,4 @@ namespace Apache.Ignite.Tests.Table;
 /// <summary>
 /// Test user struct.
 /// </summary>
-public record struct PocoStruct(long Key, string? Val);
+public record struct PocoStruct(long Key, string? Val, string? UnmappedStr = null);
