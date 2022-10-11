@@ -66,7 +66,20 @@ namespace Apache.Ignite.Tests.Table
             Assert.IsTrue(hasValue);
             Assert.AreEqual(1L, resTuple.Key);
             Assert.AreEqual("foo", resTuple.Val);
+            Assert.IsNull(resTuple.UnmappedStr);
+        }
 
+        [Test]
+        public async Task TestGetMissingRowValueType()
+        {
+            var pocoView = Table.GetRecordView<PocoStruct>();
+
+            var keyTuple = new PocoStruct(1, null);
+            var (resTuple, hasValue) = await pocoView.GetAsync(null, keyTuple);
+
+            Assert.IsFalse(hasValue);
+            Assert.AreEqual(0L, resTuple.Key);
+            Assert.IsNull(resTuple.Val);
             Assert.IsNull(resTuple.UnmappedStr);
         }
 
