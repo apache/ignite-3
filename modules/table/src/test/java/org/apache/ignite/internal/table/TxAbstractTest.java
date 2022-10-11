@@ -322,6 +322,56 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         assertEquals(balance2, view.get(null, makeKey(2)).doubleValue("balance"));
     }
 
+    /**
+     * Tests uncaught exception in the closure.
+     */
+    @Test
+    public void testTxClosureUncaughtExceptionAsync() {
+        double balance = 10.;
+        double delta = 50.;
+
+        RecordView<Tuple> view = accounts.recordView();
+        view.upsert(null, makeValue(1, balance));
+
+        CompletableFuture<Double> fut0 = igniteTransactions.runInTransactionAsync(tx -> {
+            CompletableFuture<Double> fut = view.getAsync(tx, makeKey(1))
+                    .thenCompose(val2 -> {
+                        double prev = val2.doubleValue("balance");
+                        return view.upsertAsync(tx, makeValue(1, delta + 20)).thenApply(ignored -> prev);
+                    });
+
+            fut.join();
+
+            if (true)
+                throw new IllegalArgumentException();
+
+            return fut;
+        });
+
+        var err = assertThrows(CompletionException.class, fut0::join);
+        assertEquals(IllegalArgumentException.class, err.getCause().getClass());
+        assertEquals(balance, view.get(null, makeKey(1)).doubleValue("balance"));
+    }
+
+    /**
+     * Tests uncaught exception in the chain.
+     */
+    @Test
+    public void testTxClosureUncaughtExceptionInChainAsync() {
+        RecordView<Tuple> view = accounts.recordView();
+
+        CompletableFuture<Double> fut0 = igniteTransactions.runInTransactionAsync(tx -> {
+            return view.getAsync(tx, makeKey(2))
+                    .thenCompose(val2 -> {
+                        double prev = val2.doubleValue("balance"); // val2 is null - NPE is thrown here
+                        return view.upsertAsync(tx, makeValue(1, 100)).thenApply(ignored -> prev);
+                    });
+        });
+
+        var err = assertThrows(CompletionException.class, fut0::join);
+        assertEquals(NullPointerException.class, err.getCause().getClass());
+    }
+
     @Test
     public void testBatchPutConcurrently() {
         Transaction tx = igniteTransactions.begin();
