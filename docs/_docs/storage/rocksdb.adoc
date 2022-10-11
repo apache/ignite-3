@@ -17,7 +17,7 @@
 
 RocksDB is a persistent storage engine based on LSM tree. It is best used in environments with a large number of write requests.
 
-When it is enabled for the link:config/data-region[data region], Ignite stores all the data on disk, and loads as much data as it can into RAM for processing.
+When the link:config/data-region[data region] is configured to use it, Ignite stores all the data on disk, and loads as much data as it can into RAM for processing.
 
 
 == Configuration Properties

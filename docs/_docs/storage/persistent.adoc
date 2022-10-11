@@ -20,7 +20,7 @@
 == Overview
 
 Ignite Persistence is designed to provide a quick and responsive persistent storage.
-When it is enabled for the link:config/data-region[data region], Ignite stores all the data on disk, and loads as much data as it can into RAM for processing.
+When the link:config/data-region[data region] is configured to use  Ignite persistence, Ignite stores all the data on disk, and loads as much data as it can into RAM for processing.
 
 The Native Persistence functionality is based on the following features:
 
@@ -34,8 +34,7 @@ When persistence is enabled, Apache Ignite stores each partition in a separate f
 
 == Enabling Persistent Storage
 
-Native Persistence is configured per link:config/data-region[data region].
-To enable native persistent storage, set the data region to `aipersist`.
+To enable Ignite persistence, specify the  `aipersist` engine in the data region configuration.
 You can have in-memory data regions and data regions with persistence at the same time.
 
 The following example shows how to enable persistent storage for the default data region.
