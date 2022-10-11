@@ -109,7 +109,7 @@ namespace Apache.Ignite.Tests.Table
         [Test]
         public async Task TestGetAndDeleteNonExistentRecordReturnsNull()
         {
-            IIgniteTuple? res = await TupleView.GetAndDeleteAsync(null, GetTuple(2, "2"));
+            Option<IIgniteTuple> res = await TupleView.GetAndDeleteAsync(null, GetTuple(2, "2"));
 
             Assert.IsNull(res);
             Assert.IsNull(await TupleView.GetAsync(null, GetTuple(2)));
@@ -119,11 +119,11 @@ namespace Apache.Ignite.Tests.Table
         public async Task TestGetAndDeleteExistingRecordRemovesAndReturns()
         {
             await TupleView.UpsertAsync(null, GetTuple(2, "2"));
-            IIgniteTuple? res = await TupleView.GetAndDeleteAsync(null, GetTuple(2));
+            Option<IIgniteTuple> res = await TupleView.GetAndDeleteAsync(null, GetTuple(2));
 
             Assert.IsNotNull(res);
-            Assert.AreEqual(2, res![0]);
-            Assert.AreEqual("2", res[1]);
+            Assert.AreEqual(2, res.Value[0]);
+            Assert.AreEqual("2", res.Value[1]);
             Assert.IsNull(await TupleView.GetAsync(null, GetTuple(2)));
         }
 
@@ -133,7 +133,7 @@ namespace Apache.Ignite.Tests.Table
             var res = await TupleView.InsertAsync(null, GetTuple(1, "1"));
 
             Assert.IsTrue(res);
-            Assert.IsTrue(await TupleView.GetAsync(null, GetTuple(1)) != null);
+            Assert.IsTrue((await TupleView.GetAsync(null, GetTuple(1))).HasValue);
         }
 
         [Test]
@@ -143,7 +143,7 @@ namespace Apache.Ignite.Tests.Table
             var res = await TupleView.InsertAsync(null, GetTuple(1, "2"));
 
             Assert.IsFalse(res);
-            Assert.AreEqual("1", (await TupleView.GetAsync(null, GetTuple(1)))![1]);
+            Assert.AreEqual("1", (await TupleView.GetAsync(null, GetTuple(1))).Value[1]);
         }
 
         [Test]
@@ -202,13 +202,13 @@ namespace Apache.Ignite.Tests.Table
             bool res = await TupleView.ReplaceAsync(null, GetTuple(1, "2"));
 
             Assert.IsTrue(res);
-            Assert.AreEqual("2", (await TupleView.GetAsync(null, GetTuple(1)))![1]);
+            Assert.AreEqual("2", (await TupleView.GetAsync(null, GetTuple(1))).Value[1]);
         }
 
         [Test]
         public async Task TestGetAndReplaceNonExistentRecordReturnsNullDoesNotCreateRecord()
         {
-            IIgniteTuple? res = await TupleView.GetAndReplaceAsync(null, GetTuple(1, "1"));
+            Option<IIgniteTuple> res = await TupleView.GetAndReplaceAsync(null, GetTuple(1, "1"));
 
             Assert.IsNull(res);
             Assert.IsNull(await TupleView.GetAsync(null, GetTuple(1)));
@@ -218,11 +218,11 @@ namespace Apache.Ignite.Tests.Table
         public async Task TestGetAndReplaceExistingRecordReturnsOldOverwrites()
         {
             await TupleView.UpsertAsync(null, GetTuple(1, "1"));
-            IIgniteTuple? res = await TupleView.GetAndReplaceAsync(null, GetTuple(1, "2"));
+            Option<IIgniteTuple> res = await TupleView.GetAndReplaceAsync(null, GetTuple(1, "2"));
 
             Assert.IsNotNull(res);
-            Assert.AreEqual("1", res![1]);
-            Assert.AreEqual("2", (await TupleView.GetAsync(null, GetTuple(1)))![1]);
+            Assert.AreEqual("1", res.Value[1]);
+            Assert.AreEqual("2", (await TupleView.GetAsync(null, GetTuple(1))).Value[1]);
         }
 
         [Test]
@@ -241,7 +241,7 @@ namespace Apache.Ignite.Tests.Table
             bool res = await TupleView.ReplaceAsync(null, GetTuple(1, "11"), GetTuple(1, "22"));
 
             Assert.IsFalse(res);
-            Assert.AreEqual("1", (await TupleView.GetAsync(null, GetTuple(1)))![1]);
+            Assert.AreEqual("1", (await TupleView.GetAsync(null, GetTuple(1))).Value[1]);
         }
 
         [Test]
@@ -251,7 +251,7 @@ namespace Apache.Ignite.Tests.Table
             bool res = await TupleView.ReplaceAsync(null, GetTuple(1, "1"), GetTuple(1, "22"));
 
             Assert.IsTrue(res);
-            Assert.AreEqual("22", (await TupleView.GetAsync(null, GetTuple(1)))![1]);
+            Assert.AreEqual("22", (await TupleView.GetAsync(null, GetTuple(1))).Value[1]);
         }
 
         [Test]
@@ -265,7 +265,7 @@ namespace Apache.Ignite.Tests.Table
             foreach (var id in ids)
             {
                 var res = await TupleView.GetAsync(null, GetTuple(id));
-                Assert.AreEqual(id.ToString(CultureInfo.InvariantCulture), res![1]);
+                Assert.AreEqual(id.ToString(CultureInfo.InvariantCulture), res.Value[1]);
             }
         }
 
@@ -283,7 +283,7 @@ namespace Apache.Ignite.Tests.Table
             foreach (var id in ids)
             {
                 var res = await TupleView.GetAsync(null, GetTuple(id));
-                Assert.AreEqual(id.ToString(CultureInfo.InvariantCulture), res![1]);
+                Assert.AreEqual(id.ToString(CultureInfo.InvariantCulture), res.Value[1]);
             }
         }
 
@@ -300,7 +300,7 @@ namespace Apache.Ignite.Tests.Table
             foreach (var id in ids)
             {
                 var res = await TupleView.GetAsync(null, GetTuple(id));
-                Assert.AreEqual(id.ToString(CultureInfo.InvariantCulture), res![1]);
+                Assert.AreEqual(id.ToString(CultureInfo.InvariantCulture), res.Value[1]);
             }
         }
 
@@ -327,13 +327,13 @@ namespace Apache.Ignite.Tests.Table
             {
                 var res = await TupleView.GetAsync(null, GetTuple(id));
 
-                if (existing.TryGetValue(res![0]!, out var old))
+                if (existing.TryGetValue(res.Value[0]!, out var old))
                 {
-                    Assert.AreEqual(old[1], res[1]);
+                    Assert.AreEqual(old[1], res.Value[1]);
                 }
                 else
                 {
-                    Assert.AreEqual(id.ToString(CultureInfo.InvariantCulture), res[1]);
+                    Assert.AreEqual(id.ToString(CultureInfo.InvariantCulture), res.Value[1]);
                 }
             }
         }
@@ -362,15 +362,15 @@ namespace Apache.Ignite.Tests.Table
 
             // TODO: Key order should be preserved by the server (IGNITE-16004).
             var res = await TupleView.GetAllAsync(null, Enumerable.Range(9, 4).Select(x => GetTuple(x)));
-            var resArr = res.OrderBy(x => x?[0]).ToArray();
+            var resArr = res.OrderBy(x => x.Value[0]).ToArray();
 
             Assert.AreEqual(2, res.Count);
 
-            Assert.AreEqual(9, resArr[0]![0]);
-            Assert.AreEqual("9", resArr[0]![1]);
+            Assert.AreEqual(9, resArr[0].Value[0]);
+            Assert.AreEqual("9", resArr[0].Value[1]);
 
-            Assert.AreEqual(10, resArr[1]![0]);
-            Assert.AreEqual("10", resArr[1]![1]);
+            Assert.AreEqual(10, resArr[1].Value[0]);
+            Assert.AreEqual("10", resArr[1].Value[1]);
         }
 
         [Test]
@@ -529,12 +529,12 @@ namespace Apache.Ignite.Tests.Table
             await TupleView.UpsertAsync(null, tuple);
 
             var keyTuple = new IgniteTuple { [KeyCol] = key };
-            var resTuple = (await TupleView.GetAsync(null, keyTuple))!;
+            var resTuple = (await TupleView.GetAsync(null, keyTuple));
 
             Assert.IsNotNull(resTuple);
-            Assert.AreEqual(2, resTuple.FieldCount);
-            Assert.AreEqual(key, resTuple["key"]);
-            Assert.AreEqual(val, resTuple["val"]);
+            Assert.AreEqual(2, resTuple.Value.FieldCount);
+            Assert.AreEqual(key, resTuple.Value["key"]);
+            Assert.AreEqual(val, resTuple.Value["val"]);
         }
 
         [Test]
@@ -568,21 +568,21 @@ namespace Apache.Ignite.Tests.Table
 
             var res = await tupleView.GetAsync(null, tuple);
 
-            Assert.AreEqual(tuple["Blob"], res!["Blob"]);
-            Assert.AreEqual(tuple["Date"], res["Date"]);
-            Assert.AreEqual(tuple["Decimal"], res["Decimal"]);
-            Assert.AreEqual(tuple["Double"], res["Double"]);
-            Assert.AreEqual(tuple["Float"], res["Float"]);
-            Assert.AreEqual(tuple["Int8"], res["Int8"]);
-            Assert.AreEqual(tuple["Int16"], res["Int16"]);
-            Assert.AreEqual(tuple["Int32"], res["Int32"]);
-            Assert.AreEqual(tuple["Int64"], res["Int64"]);
-            Assert.AreEqual(tuple["Str"], res["Str"]);
-            Assert.AreEqual(tuple["Uuid"], res["Uuid"]);
-            Assert.AreEqual(tuple["BitMask"], res["BitMask"]);
-            Assert.AreEqual(tuple["Timestamp"], res["Timestamp"]);
-            Assert.AreEqual(tuple["Time"], res["Time"]);
-            Assert.AreEqual(tuple["DateTime"], res["DateTime"]);
+            Assert.AreEqual(tuple["Blob"], res.Value["Blob"]);
+            Assert.AreEqual(tuple["Date"], res.Value["Date"]);
+            Assert.AreEqual(tuple["Decimal"], res.Value["Decimal"]);
+            Assert.AreEqual(tuple["Double"], res.Value["Double"]);
+            Assert.AreEqual(tuple["Float"], res.Value["Float"]);
+            Assert.AreEqual(tuple["Int8"], res.Value["Int8"]);
+            Assert.AreEqual(tuple["Int16"], res.Value["Int16"]);
+            Assert.AreEqual(tuple["Int32"], res.Value["Int32"]);
+            Assert.AreEqual(tuple["Int64"], res.Value["Int64"]);
+            Assert.AreEqual(tuple["Str"], res.Value["Str"]);
+            Assert.AreEqual(tuple["Uuid"], res.Value["Uuid"]);
+            Assert.AreEqual(tuple["BitMask"], res.Value["BitMask"]);
+            Assert.AreEqual(tuple["Timestamp"], res.Value["Timestamp"]);
+            Assert.AreEqual(tuple["Time"], res.Value["Time"]);
+            Assert.AreEqual(tuple["DateTime"], res.Value["DateTime"]);
         }
     }
 }
