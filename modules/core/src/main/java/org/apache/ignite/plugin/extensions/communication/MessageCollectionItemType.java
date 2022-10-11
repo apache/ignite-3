@@ -77,6 +77,9 @@ public enum MessageCollectionItemType {
     /** Bit set. */
     BIT_SET,
 
+    /** Byte buffer. */
+    BYTE_BUFFER,
+
     /** UUID. */
     UUID,
 

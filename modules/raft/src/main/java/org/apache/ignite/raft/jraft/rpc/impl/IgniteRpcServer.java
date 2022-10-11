@@ -74,7 +74,6 @@ public class IgniteRpcServer implements RpcServer<Void> {
     private final Map<String, RpcProcessor> processors = new ConcurrentHashMap<>();
 
     /**
-     * @param lockManager The lock manager.
      * @param service The cluster service.
      * @param nodeManager The node manager.
      * @param raftMessagesFactory Message factory.

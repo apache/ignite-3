@@ -18,8 +18,10 @@
 package org.apache.ignite.internal.network.messages;
 
 import java.io.Serializable;
+import java.nio.ByteBuffer;
 import java.util.BitSet;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.apache.ignite.lang.IgniteUuid;
@@ -78,4 +80,8 @@ public interface AllTypesMessage extends NetworkMessage, Serializable {
     Collection<NetworkMessage> netMsgCollW();
 
     Map<String, NetworkMessage> newMsgMapX();
+
+    List<NetworkMessage> netMsgListY();
+
+    ByteBuffer byteBufferZ();
 }

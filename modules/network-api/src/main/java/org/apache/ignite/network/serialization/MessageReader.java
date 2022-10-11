@@ -21,6 +21,7 @@ import java.nio.ByteBuffer;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.apache.ignite.lang.IgniteUuid;
@@ -214,6 +215,14 @@ public interface MessageReader {
     public BitSet readBitSet(String name);
 
     /**
+     * Reads a {@link ByteBuffer}.
+     *
+     * @param name Field name.
+     * @return {@link ByteBuffer}.
+     */
+    ByteBuffer readByteBuffer(String name);
+
+    /**
      * Reads an {@link UUID}.
      *
      * @param name Field name.
@@ -258,6 +267,16 @@ public interface MessageReader {
      * @return Collection.
      */
     public <C extends Collection<?>> C readCollection(String name, MessageCollectionItemType itemType);
+
+    /**
+     * Reads a list.
+     *
+     * @param <C>      Type of collection.
+     * @param name     Field name.
+     * @param itemType An item type of the Collection.
+     * @return Collection.
+     */
+    public <C extends List<?>> C readList(String name, MessageCollectionItemType itemType);
 
     /**
      * Reads a map.

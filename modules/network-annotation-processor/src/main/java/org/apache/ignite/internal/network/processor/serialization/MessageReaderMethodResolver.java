@@ -75,6 +75,8 @@ class MessageReaderMethodResolver {
                 return resolveReadObjectArray((ArrayType) parameterType, parameterName);
             case "Collection":
                 return resolveReadCollection((DeclaredType) parameterType, parameterName);
+            case "List":
+                return resolveReadList((DeclaredType) parameterType, parameterName);
             case "Map":
                 return resolveReadMap((DeclaredType) parameterType, parameterName);
             default:
@@ -111,6 +113,22 @@ class MessageReaderMethodResolver {
                         parameterName,
                         MessageCollectionItemType.class,
                         typeConverter.fromTypeMirror(collectionGenericType)
+                )
+                .build();
+    }
+
+    /**
+     * Creates a {@link MessageReader#readList(String, MessageCollectionItemType)} method call.
+     */
+    private CodeBlock resolveReadList(DeclaredType parameterType, String parameterName) {
+        TypeMirror listGenericType = parameterType.getTypeArguments().get(0);
+
+        return CodeBlock.builder()
+                .add(
+                        "readList($S, $T.$L)",
+                        parameterName,
+                        MessageCollectionItemType.class,
+                        typeConverter.fromTypeMirror(listGenericType)
                 )
                 .build();
     }
