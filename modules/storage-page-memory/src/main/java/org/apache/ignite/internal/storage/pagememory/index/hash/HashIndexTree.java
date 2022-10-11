@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.storage.pagememory.index.hash;
 
-import static org.apache.ignite.internal.storage.pagememory.index.InlineUtils.ioVersions;
-
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.datapage.DataPageReader;
@@ -26,10 +24,7 @@ import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.tree.io.BplusIo;
 import org.apache.ignite.internal.pagememory.util.PageLockListener;
-import org.apache.ignite.internal.storage.pagememory.index.hash.io.HashIndexTreeInnerIo;
 import org.apache.ignite.internal.storage.pagememory.index.hash.io.HashIndexTreeIo;
-import org.apache.ignite.internal.storage.pagememory.index.hash.io.HashIndexTreeLeafIo;
-import org.apache.ignite.internal.storage.pagememory.index.hash.io.HashIndexTreeMetaIo;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 
@@ -71,11 +66,12 @@ public class HashIndexTree extends BplusTree<HashIndexRowKey, HashIndexRow> {
     ) throws IgniteInternalCheckedException {
         super("HashIndexTree_" + grpId, grpId, grpName, partId, pageMem, lockLsnr, globalRmvId, metaPageId, reuseList);
 
-        setIos(
-                ioVersions(HashIndexTreeInnerIo.VERSIONS, inlineSize),
-                ioVersions(HashIndexTreeLeafIo.VERSIONS, inlineSize),
-                HashIndexTreeMetaIo.VERSIONS
-        );
+        // TODO: IGNITE-17536 исправить
+        //        setIos(
+        //                ioVersions(HashIndexTreeInnerIo.VERSIONS, inlineSize),
+        //                ioVersions(HashIndexTreeLeafIo.VERSIONS, inlineSize),
+        //                HashIndexTreeMetaIo.VERSIONS
+        //        );
 
         dataPageReader = new DataPageReader(pageMem, grpId, statisticsHolder());
 

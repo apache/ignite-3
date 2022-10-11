@@ -19,7 +19,7 @@ package org.apache.ignite.internal.storage.pagememory.mv;
 
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.getByInternalId;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
-import static org.apache.ignite.internal.storage.pagememory.index.InlineUtils.calculateBinaryTupleInlineSize;
+import static org.apache.ignite.internal.storage.pagememory.index.InlineUtils.binaryTupleInlineSize;
 
 import java.nio.ByteBuffer;
 import java.util.NoSuchElementException;
@@ -199,7 +199,9 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
             String tableName = tableStorage.configuration().value().name();
 
-            int inlineSize = initNew ? calculateBinaryTupleInlineSize(indexDescriptor) : indexMeta.inlineSize();
+            int inlineSize = initNew
+                    ? binaryTupleInlineSize(pageMemory.pageSize(), 12, indexDescriptor)
+                    : indexMeta.inlineSize();
 
             HashIndexTree hashIndexTree = new HashIndexTree(
                     groupId,

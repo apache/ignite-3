@@ -19,7 +19,7 @@ package org.apache.ignite.internal.storage.pagememory.index.hash.io;
 
 import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.ignite.internal.storage.pagememory.index.IndexPageTypes.T_HASH_INDEX_INNER_IO_START;
-import static org.apache.ignite.internal.storage.pagememory.index.InlineUtils.MAX_INLINE_SIZE;
+import static org.apache.ignite.internal.storage.pagememory.index.InlineUtils.MAX_BINARY_TUPLE_INLINE_SIZE;
 
 import java.util.List;
 import java.util.stream.IntStream;
@@ -37,7 +37,7 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
  */
 public class HashIndexTreeInnerIo extends BplusInnerIo<HashIndexRowKey> implements HashIndexTreeIo {
     /** IO versions for each inline {@link BinaryTuple} size in bytes, starting at {@code 1} byte. */
-    public static final List<IoVersions<HashIndexTreeInnerIo>> VERSIONS = IntStream.range(1, MAX_INLINE_SIZE)
+    public static final List<IoVersions<HashIndexTreeInnerIo>> VERSIONS = IntStream.range(1, MAX_BINARY_TUPLE_INLINE_SIZE)
             .mapToObj(i -> new IoVersions<>(new HashIndexTreeInnerIo(1, i)))
             .collect(toUnmodifiableList());
 
