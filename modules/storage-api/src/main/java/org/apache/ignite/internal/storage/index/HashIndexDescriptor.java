@@ -38,34 +38,40 @@ import org.apache.ignite.internal.tostring.S;
  *
  * @see HashIndexStorage
  */
-public class HashIndexDescriptor implements IndexDescriptor {
+public class HashIndexDescriptor {
     /**
      * Descriptor of a Hash Index column.
      */
-    public static class HashIndexColumnDescriptor implements ColumnDescriptor {
+    public static class ColumnDescriptor {
         private final String name;
 
         private final NativeType type;
 
         private final boolean nullable;
 
-        HashIndexColumnDescriptor(ColumnView tableColumnView) {
+        ColumnDescriptor(ColumnView tableColumnView) {
             this.name = tableColumnView.name();
             this.type = ConfigurationToSchemaDescriptorConverter.convert(tableColumnView.type());
             this.nullable = tableColumnView.nullable();
         }
 
-        @Override
+        /**
+         * Returns the name of an index column.
+         */
         public String name() {
             return name;
         }
 
-        @Override
+        /**
+         * Returns a column type.
+         */
         public NativeType type() {
             return type;
         }
 
-        @Override
+        /**
+         * Returns {@code true} if this column can contain null values or {@code false} otherwise.
+         */
         public boolean nullable() {
             return nullable;
         }
@@ -78,7 +84,7 @@ public class HashIndexDescriptor implements IndexDescriptor {
 
     private final UUID id;
 
-    private final List<HashIndexColumnDescriptor> columns;
+    private final List<ColumnDescriptor> columns;
 
     /**
      * Creates an Index Descriptor from a given Table Configuration.
@@ -108,24 +114,30 @@ public class HashIndexDescriptor implements IndexDescriptor {
 
         this.id = indexId;
 
-        this.columns = Arrays.stream(((HashIndexView) indexConfig).columnNames())
+        String[] indexColumns = ((HashIndexView) indexConfig).columnNames();
+
+        this.columns = Arrays.stream(indexColumns)
                 .map(columnName -> {
                     ColumnView columnView = tableConfig.columns().get(columnName);
 
                     assert columnView != null : "Incorrect index column configuration. " + columnName + " column does not exist";
 
-                    return new HashIndexColumnDescriptor(columnView);
+                    return new ColumnDescriptor(columnView);
                 })
                 .collect(toUnmodifiableList());
     }
 
-    @Override
+    /**
+     * Returns the ID of this Index.
+     */
     public UUID id() {
         return id;
     }
 
-    @Override
-    public List<HashIndexColumnDescriptor> columns() {
+    /**
+     * Returns the Column Descriptors that comprise a row of this index.
+     */
+    public List<ColumnDescriptor> indexColumns() {
         return columns;
     }
 }

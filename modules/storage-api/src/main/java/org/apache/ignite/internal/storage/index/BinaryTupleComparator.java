@@ -29,7 +29,7 @@ import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.row.InternalTuple;
-import org.apache.ignite.internal.storage.index.SortedIndexDescriptor.SortedIndexColumnDescriptor;
+import org.apache.ignite.internal.storage.index.SortedIndexDescriptor.ColumnDescriptor;
 
 /**
  * Comparator implementation for comparing {@link BinaryTuple}s on a per-column basis.
@@ -63,10 +63,10 @@ public class BinaryTupleComparator implements Comparator<ByteBuffer> {
 
         int columnsToCompare = Math.min(tuple1.count(), tuple2.count());
 
-        assert columnsToCompare <= descriptor.columns().size();
+        assert columnsToCompare <= descriptor.indexColumns().size();
 
         for (int i = 0; i < columnsToCompare; i++) {
-            SortedIndexColumnDescriptor columnDescriptor = descriptor.columns().get(i);
+            ColumnDescriptor columnDescriptor = descriptor.indexColumns().get(i);
 
             int compare = compareField(tuple1, tuple2, i);
 
@@ -102,7 +102,7 @@ public class BinaryTupleComparator implements Comparator<ByteBuffer> {
             return 1;
         }
 
-        SortedIndexColumnDescriptor columnDescriptor = descriptor.columns().get(index);
+        ColumnDescriptor columnDescriptor = descriptor.indexColumns().get(index);
 
         NativeTypeSpec typeSpec = columnDescriptor.type().spec();
 
