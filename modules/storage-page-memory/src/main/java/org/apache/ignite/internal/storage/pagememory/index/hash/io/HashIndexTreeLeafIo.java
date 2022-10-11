@@ -17,17 +17,11 @@
 
 package org.apache.ignite.internal.storage.pagememory.index.hash.io;
 
-import static java.util.stream.Collectors.toUnmodifiableList;
-import static org.apache.ignite.internal.storage.pagememory.index.IndexPageTypes.T_HASH_INDEX_LEAF_IO_START;
-import static org.apache.ignite.internal.storage.pagememory.index.InlineUtils.MAX_BINARY_TUPLE_INLINE_SIZE;
-
-import java.util.List;
-import java.util.stream.IntStream;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.tree.io.BplusIo;
 import org.apache.ignite.internal.pagememory.tree.io.BplusLeafIo;
-import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.storage.pagememory.index.IndexPageTypes;
 import org.apache.ignite.internal.storage.pagememory.index.hash.HashIndexRowKey;
 import org.apache.ignite.internal.storage.pagememory.index.hash.HashIndexTree;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
@@ -36,20 +30,16 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
  * {@link BplusLeafIo} implementation for {@link HashIndexTree}.
  */
 public class HashIndexTreeLeafIo extends BplusLeafIo<HashIndexRowKey> implements HashIndexTreeIo {
-    /** IO versions for each inline {@link BinaryTuple} size in bytes, starting at {@code 1} byte. */
-    public static final List<IoVersions<HashIndexTreeLeafIo>> VERSIONS = IntStream.range(1, MAX_BINARY_TUPLE_INLINE_SIZE)
-            .mapToObj(i -> new IoVersions<>(new HashIndexTreeLeafIo(1, i)))
-            .collect(toUnmodifiableList());
+    /** I/O versions. */
+    public static final IoVersions<HashIndexTreeLeafIo> VERSIONS = new IoVersions<>(new HashIndexTreeLeafIo(1));
 
     /**
      * Constructor.
      *
      * @param ver Page format version.
-     * @param binaryTupleInlineSize Size of the inline {@link BinaryTuple} in bytes.
      */
-    private HashIndexTreeLeafIo(int ver, int binaryTupleInlineSize) {
-        // TODO: IGNITE-17536 заменить SIZE_IN_BYTES на binaryTupleInlineSize
-        super(T_HASH_INDEX_LEAF_IO_START + binaryTupleInlineSize, ver, SIZE_IN_BYTES);
+    protected HashIndexTreeLeafIo(int ver) {
+        super(IndexPageTypes.T_HASH_INDEX_LEAF_IO, ver, SIZE_IN_BYTES);
     }
 
     @Override
