@@ -224,7 +224,7 @@ class ItComputeTest extends AbstractClusterIntegrationTest {
         IgniteImpl entryNode = node(0);
 
         String actualNodeName = entryNode.compute()
-                .executeColocated("PUBLIC.test", Tuple.create(Map.of("k", 1)), GetNodeNameJob.class)
+                .executeColocated("test", Tuple.create(Map.of("k", 1)), GetNodeNameJob.class)
                 .get(1, TimeUnit.SECONDS);
 
         assertThat(actualNodeName, in(allNodeNames()));
@@ -236,10 +236,10 @@ class ItComputeTest extends AbstractClusterIntegrationTest {
 
         var ex = assertThrows(CompletionException.class,
                 () -> entryNode.compute().executeColocated(
-                        "bad-table", Tuple.create(Map.of("k", 1)), GetNodeNameJob.class).join());
+                        "\"bad-table\"", Tuple.create(Map.of("k", 1)), GetNodeNameJob.class).join());
 
         assertInstanceOf(TableNotFoundException.class, ex.getCause());
-        assertThat(ex.getCause().getMessage(), containsString("The table does not exist [name=bad-table]"));
+        assertThat(ex.getCause().getMessage(), containsString("The table does not exist [name=\"PUBLIC\".\"bad-table\"]"));
     }
 
     private void createTestTableWithOneRow() {
@@ -261,7 +261,7 @@ class ItComputeTest extends AbstractClusterIntegrationTest {
         IgniteImpl entryNode = node(0);
 
         String actualNodeName = entryNode.compute()
-                .<String>executeColocated("PUBLIC.test", Tuple.create(Map.of("k", 1)), GetNodeNameJob.class.getName())
+                .<String>executeColocated("test", Tuple.create(Map.of("k", 1)), GetNodeNameJob.class.getName())
                 .get(1, TimeUnit.SECONDS);
 
         assertThat(actualNodeName, in(allNodeNames()));
@@ -274,7 +274,7 @@ class ItComputeTest extends AbstractClusterIntegrationTest {
         IgniteImpl entryNode = node(0);
 
         String actualNodeName = entryNode.compute()
-                .executeColocated("PUBLIC.test", 1, Mapper.of(Integer.class), GetNodeNameJob.class)
+                .executeColocated("test", 1, Mapper.of(Integer.class), GetNodeNameJob.class)
                 .get(1, TimeUnit.SECONDS);
 
         assertThat(actualNodeName, in(allNodeNames()));
@@ -287,7 +287,7 @@ class ItComputeTest extends AbstractClusterIntegrationTest {
         IgniteImpl entryNode = node(0);
 
         String actualNodeName = entryNode.compute()
-                .<Integer, String>executeColocated("PUBLIC.test", 1, Mapper.of(Integer.class), GetNodeNameJob.class.getName())
+                .<Integer, String>executeColocated("test", 1, Mapper.of(Integer.class), GetNodeNameJob.class.getName())
                 .get(1, TimeUnit.SECONDS);
 
         assertThat(actualNodeName, in(allNodeNames()));

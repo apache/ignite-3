@@ -18,49 +18,48 @@
 package org.apache.ignite.internal.tx;
 
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.jetbrains.annotations.TestOnly;
 
-/** Lock manager allows to acquire locks in shared and exclusive mode and supports deadlock prevention by transaction id ordering. */
+/** Lock manager allows to acquire locks and release locks and supports deadlock prevention by transaction id ordering. */
 public interface LockManager {
+
     /**
-     * Attempts to acquire a lock for the specified {@code key} in exclusive mode.
+     * Attempts to acquire a lock for the specified {@code lockKey} in specified {@code lockMode}.
      *
-     * @param key The key.
      * @param txId Transaction id.
-     * @return The future that will be completed when a lock is successfully acquired.
+     * @param lockKey The key.
+     * @param lockMode Lock mode, for example shared, exclusive, intention-shared etc.
+     * @return The future with gained lock that will be completed when a lock is successfully acquired.
      * @throws LockException When a lock can't be taken due to possible deadlock.
      */
-    public CompletableFuture<Void> tryAcquire(Object key, UUID txId);
+    public CompletableFuture<Lock> acquire(UUID txId, LockKey lockKey, LockMode lockMode);
 
     /**
-     * Attempts to release a lock for the specified {@code key} in exclusive mode.
+     * Attempts to release a lock for the specified {@code lockKey}.
      *
-     * @param key The key.
-     * @param txId Transaction id.
-     * @throws LockException If the unlock operation is invalid.
+     * @param lock Lock to release.
      */
-    public void tryRelease(Object key, UUID txId) throws LockException;
+    public void release(Lock lock);
 
     /**
-     * Attempts to acquire a lock for the specified {@code key} in shared mode.
+     * Attempts to downgrade a lock mode for the specified {@code lockKey}.
      *
-     * @param key The key.
-     * @param txId Transaction id.
-     * @return The future that will be completed when a lock is successfully acquired.
-     * @throws LockException When a lock can't be taken due to possible deadlock.
+     * @param lock Lock to downgrade.
+     * @param lockMode Lock mode.
+     * @throws LockException If the downgrade operation is invalid.
      */
-    public CompletableFuture<Void> tryAcquireShared(Object key, UUID txId);
+    public void downgrade(Lock lock, LockMode lockMode) throws LockException;
 
     /**
-     * Attempts to release a lock for the specified {@code key} in shared mode.
+     * Retrieves all locks for the specified transaction id.
      *
-     * @param key The key.
-     * @param txId Transaction id.
-     * @throws LockException If the unlock operation is invalid.
+     * @param txId Transaction Id.
+     * @return An iterator over a collection of locks.
      */
-    public void tryReleaseShared(Object key, UUID txId) throws LockException;
+    public Iterator<Lock> locks(UUID txId);
 
     /**
      * Returns a collection of transaction ids that is associated with the specified {@code key}.
@@ -69,7 +68,7 @@ public interface LockManager {
      * @return The waiters queue.
      */
     @TestOnly
-    public Collection<UUID> queue(Object key);
+    public Collection<UUID> queue(LockKey key);
 
     /**
      * Returns a waiter associated with the specified {@code key}.
@@ -79,7 +78,7 @@ public interface LockManager {
      * @return The waiter.
      */
     @TestOnly
-    public Waiter waiter(Object key, UUID txId);
+    public Waiter waiter(LockKey key, UUID txId);
 
     /**
      * Returns {@code true} if no locks have been held.

@@ -19,20 +19,18 @@ package org.apache.ignite.internal.client.sql;
 
 import static org.apache.ignite.lang.ErrorGroups.Sql.CURSOR_NO_MORE_PAGES_ERR;
 
-import java.time.Duration;
-import java.time.Period;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
+import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.CursorClosedException;
 import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSetMetadata;
-import org.apache.ignite.sql.SqlColumnType;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.async.AsyncResultSet;
@@ -133,7 +131,7 @@ class ClientAsyncResultSet implements AsyncResultSet {
 
     /** {@inheritDoc} */
     @Override
-    public CompletionStage<? extends AsyncResultSet> fetchNextPage() {
+    public CompletableFuture<? extends AsyncResultSet> fetchNextPage() {
         requireResultSet();
 
         if (closed) {
@@ -169,7 +167,7 @@ class ClientAsyncResultSet implements AsyncResultSet {
 
     /** {@inheritDoc} */
     @Override
-    public CompletionStage<Void> closeAsync() {
+    public CompletableFuture<Void> closeAsync() {
         if (resourceId == null || closed) {
             return CompletableFuture.completedFuture(null);
         }
@@ -193,10 +191,11 @@ class ClientAsyncResultSet implements AsyncResultSet {
 
         for (int i = 0; i < size; i++) {
             var row = new ArrayList<>(rowSize);
+            var tupleReader = new BinaryTupleReader(rowSize, in.readBinaryUnsafe());
 
             for (int j = 0; j < rowSize; j++) {
                 var col = metadata.columns().get(j);
-                row.add(readValue(in, col.type()));
+                row.add(readValue(tupleReader, j, col));
             }
 
             res.add(new ClientSqlRow(row, metadata));
@@ -205,71 +204,71 @@ class ClientAsyncResultSet implements AsyncResultSet {
         rows = Collections.unmodifiableList(res);
     }
 
-    private static Object readValue(ClientMessageUnpacker in, SqlColumnType colType) {
-        if (in.tryUnpackNil()) {
+    private static Object readValue(BinaryTupleReader in, int idx, ColumnMetadata col) {
+        if (in.hasNullValue(idx)) {
             return null;
         }
 
-        switch (colType) {
+        switch (col.type()) {
             case BOOLEAN:
-                return in.unpackBoolean();
+                return in.byteValue(idx) != 0;
 
             case INT8:
-                return in.unpackByte();
+                return in.byteValue(idx);
 
             case INT16:
-                return in.unpackShort();
+                return in.shortValue(idx);
 
             case INT32:
-                return in.unpackInt();
+                return in.intValue(idx);
 
             case INT64:
-                return in.unpackLong();
+                return in.longValue(idx);
 
             case FLOAT:
-                return in.unpackFloat();
+                return in.floatValue(idx);
 
             case DOUBLE:
-                return in.unpackDouble();
+                return in.doubleValue(idx);
 
             case DECIMAL:
-                return in.unpackDecimal();
+                return in.decimalValue(idx, col.scale());
 
             case DATE:
-                return in.unpackDate();
+                return in.dateValue(idx);
 
             case TIME:
-                return in.unpackTime();
+                return in.timeValue(idx);
 
             case DATETIME:
-                return in.unpackDateTime();
+                return in.dateTimeValue(idx);
 
             case TIMESTAMP:
-                return in.unpackTimestamp();
+                return in.timestampValue(idx);
 
             case UUID:
-                return in.unpackUuid();
+                return in.uuidValue(idx);
 
             case BITMASK:
-                return in.unpackBitSet();
+                return in.bitmaskValue(idx);
 
             case STRING:
-                return in.unpackString();
+                return in.stringValue(idx);
 
             case BYTE_ARRAY:
-                return in.readPayload(in.unpackBinaryHeader());
+                return in.bytesValue(idx);
 
             case PERIOD:
-                return Period.of(in.unpackInt(), in.unpackInt(), in.unpackInt());
+                return in.periodValue(idx);
 
             case DURATION:
-                return Duration.ofSeconds(in.unpackLong(), in.unpackInt());
+                return in.durationValue(idx);
 
             case NUMBER:
-                return in.unpackBigInteger();
+                return in.numberValue(idx);
 
             default:
-                throw new UnsupportedOperationException("Unsupported column type: " + colType);
+                throw new UnsupportedOperationException("Unsupported column type: " + col.type());
         }
     }
 }

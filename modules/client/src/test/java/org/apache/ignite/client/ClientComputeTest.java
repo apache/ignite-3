@@ -22,6 +22,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Arrays;
 import java.util.Set;
@@ -29,6 +30,7 @@ import java.util.concurrent.CompletionException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.client.fakes.FakeIgnite;
+import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.TableNotFoundException;
@@ -61,7 +63,7 @@ public class ClientComputeTest {
 
         // Provide same node multiple times to check this case as well.
         try (var client = getClient(server1, server2, server3, server1, server2)) {
-            IgniteTestUtils.waitForCondition(() -> client.connections().size() == 3, 3000);
+            assertTrue(IgniteTestUtils.waitForCondition(() -> client.connections().size() == 3, 3000));
 
             String res1 = client.compute().<String>execute(getClusterNodes("s1"), "job").join();
             String res2 = client.compute().<String>execute(getClusterNodes("s2"), "job").join();
@@ -130,7 +132,7 @@ public class ClientComputeTest {
                     () -> client.compute().<String>executeColocated("bad-tbl", key, "job").join());
 
             var tblNotFoundEx = (TableNotFoundException) ex.getCause();
-            assertThat(tblNotFoundEx.getMessage(), containsString("The table does not exist [name=bad-tbl]"));
+            assertThat(tblNotFoundEx.getMessage(), containsString("The table does not exist [name=\"PUBLIC\".\"bad-tbl\"]"));
             assertEquals(TABLE_NOT_FOUND_ERR, tblNotFoundEx.code());
         }
     }
@@ -140,7 +142,7 @@ public class ClientComputeTest {
         String tableName = "drop-me";
 
         initServers(reqId -> false);
-        ignite.tables().createTable(tableName, null);
+        ((FakeIgniteTables) ignite.tables()).createTable(tableName);
 
         try (var client = getClient(server3)) {
             Tuple key = Tuple.create().set("key", "k");
@@ -149,8 +151,8 @@ public class ClientComputeTest {
             assertEquals("s3", res1);
 
             // Drop table and create a new one with a different ID.
-            ignite.tables().dropTable(tableName);
-            ignite.tables().createTable(tableName, null);
+            ((FakeIgniteTables) ignite.tables()).dropTable(tableName);
+            ((FakeIgniteTables) ignite.tables()).createTable(tableName);
 
             String res2 = client.compute().<Long, String>executeColocated(tableName, 1L, Mapper.of(Long.class), "job").join();
             assertEquals("s3", res2);
@@ -169,7 +171,7 @@ public class ClientComputeTest {
 
     private void initServers(Function<Integer, Boolean> shouldDropConnection) {
         ignite = new FakeIgnite();
-        ignite.tables().createTable(TABLE_NAME, null);
+        ((FakeIgniteTables) ignite.tables()).createTable(TABLE_NAME);
 
         server1 = new TestServer(10900, 10, 0, ignite, shouldDropConnection, "s1");
         server2 = new TestServer(10910, 10, 0, ignite, shouldDropConnection, "s2");

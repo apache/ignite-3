@@ -391,7 +391,7 @@ namespace Apache.Ignite.Internal
             }
 
             throw new AggregateException(
-                "Failed to establish Ignite thin client connection, examine inner exceptions for details.", errors);
+                "Failed to establish Ignite thin client connection, examine inner exceptions for details.", errors!);
         }
 
         /// <summary>
@@ -441,7 +441,7 @@ namespace Apache.Ignite.Internal
         {
             try
             {
-                IPAddress ip;
+                IPAddress? ip;
 
                 // GetHostEntry accepts IPs, but TryParse is a more efficient shortcut.
                 return IPAddress.TryParse(host, out ip) ? new[] {ip} : Dns.GetHostEntry(host).AddressList;

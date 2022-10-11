@@ -48,11 +48,6 @@ class SchemaDistributedConfigurationModuleTest {
     }
 
     @Test
-    void hasNoConfigurationRoots() {
-        assertThat(module.rootKeys(), is(empty()));
-    }
-
-    @Test
     void providesTableValidator() {
         assertThat(module.validators(), hasEntry(is(TableValidator.class), hasItem(instanceOf(TableValidatorImpl.class))));
     }

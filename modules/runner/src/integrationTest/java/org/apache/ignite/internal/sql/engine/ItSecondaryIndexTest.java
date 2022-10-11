@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsUn
 import static org.hamcrest.CoreMatchers.anyOf;
 import static org.hamcrest.Matchers.not;
 
+import java.util.List;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -54,7 +55,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
         sql("CREATE INDEX " + NAME_DEPID_CITY_IDX + " ON developer (name DESC, depid DESC, city DESC)");
 
 
-        insertData("DEVELOPER", new String[]{"ID", "NAME", "DEPID", "CITY", "AGE"}, new Object[][]{
+        insertData("DEVELOPER", List.of("ID", "NAME", "DEPID", "CITY", "AGE"), new Object[][]{
                 {1, "Mozart", 3, "Vienna", 33},
                 {2, "Beethoven", 2, "Vienna", 44},
                 {3, "Bach", 1, "Leipzig", 55},
@@ -83,7 +84,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
         sql("CREATE TABLE unwrap_pk(f1 VARCHAR, f2 BIGINT, f3 BIGINT, f4 BIGINT, primary key(f2, f1))");
         sql("CREATE INDEX" + PK_IDX + " ON unwrap_pk(f2, f1)");
 
-        insertData("UNWRAP_PK", new String[]{"F1", "F2", "F3", "F4"}, new Object[][]{
+        insertData("UNWRAP_PK", List.of("F1", "F2", "F3", "F4"), new Object[][]{
                 {"Petr", 1L, 2L, 3L},
                 {"Ivan", 2L, 2L, 4L},
                 {"Ivan1", 21L, 2L, 4L},

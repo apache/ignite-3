@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.isPow2;
 
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -42,7 +43,6 @@ import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.pagememory.util.PageHandler;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.pagememory.util.PageLockListener;
-import org.apache.ignite.internal.util.IgniteCursor;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 
@@ -220,7 +220,7 @@ public abstract class AbstractFreeList<T extends Storable> extends PagesList imp
         }
     }
 
-    private final class WriteRowsHandler implements PageHandler<IgniteCursor<T>, Integer> {
+    private final class WriteRowsHandler implements PageHandler<CachedIterator<T>, Integer> {
         /** {@inheritDoc} */
         @Override
         public Integer run(
@@ -229,17 +229,19 @@ public abstract class AbstractFreeList<T extends Storable> extends PagesList imp
                 long page,
                 long pageAddr,
                 PageIo iox,
-                IgniteCursor<T> cur,
+                CachedIterator<T> it,
                 int written,
                 IoStatisticsHolder statHolder
         ) throws IgniteInternalCheckedException {
             AbstractDataPageIo<T> io = (AbstractDataPageIo<T>) iox;
 
             // Fill the page up to the end.
-            while (written != COMPLETE || (!evictionTracker.evictionRequired() && cur.next())) {
-                T row = cur.get();
+            while (written != COMPLETE || (!evictionTracker.evictionRequired() && it.hasNext())) {
+                T row = it.get();
 
                 if (written == COMPLETE) {
+                    row = it.next();
+
                     // If the data row was completely written without remainder, proceed to the next.
                     if ((written = writeWholePages(row, statHolder)) == COMPLETE) {
                         continue;
@@ -531,23 +533,23 @@ public abstract class AbstractFreeList<T extends Storable> extends PagesList imp
     @Override
     public void insertDataRows(Collection<T> rows, IoStatisticsHolder statHolder) throws IgniteInternalCheckedException {
         try {
-            IgniteCursor<T> cur = IgniteCursor.wrap(rows.iterator());
+            CachedIterator<T> it = new CachedIterator<>(rows.iterator());
 
             int written = COMPLETE;
 
-            while (written != COMPLETE || cur.next()) {
-                T row = cur.get();
-
+            while (written != COMPLETE || it.hasNext()) {
                 // If eviction is required - free up memory before locking the next page.
                 while (evictionTracker.evictionRequired()) {
                     evictionTracker.evictDataPage();
                 }
 
                 if (written == COMPLETE) {
-                    written = writeWholePages(row, statHolder);
+                    written = writeWholePages(it.next(), statHolder);
 
                     continue;
                 }
+
+                T row = it.get();
 
                 AbstractDataPageIo initIo = null;
 
@@ -559,12 +561,41 @@ public abstract class AbstractFreeList<T extends Storable> extends PagesList imp
                     initIo = row.ioVersions().latest();
                 }
 
-                written = write(pageId, writeRowsHnd, initIo, cur, written, FAIL_I, statHolder);
+                written = write(pageId, writeRowsHnd, initIo, it, written, FAIL_I, statHolder);
 
                 assert written != FAIL_I; // We can't fail here.
             }
         } catch (RuntimeException e) {
             throw new CorruptedFreeListException("Failed to insert data rows", e, grpId);
+        }
+    }
+
+    /**
+     * {@link Iterator} implementation that allows to access the current element multiple times.
+     */
+    private static class CachedIterator<T> implements Iterator<T> {
+        private final Iterator<T> it;
+
+        private T next;
+
+        CachedIterator(Iterator<T> it) {
+            this.it = it;
+        }
+
+        @Override
+        public boolean hasNext() {
+            return it.hasNext();
+        }
+
+        @Override
+        public T next() {
+            next = it.next();
+
+            return next;
+        }
+
+        T get() {
+            return next;
         }
     }
 
@@ -861,4 +892,3 @@ public abstract class AbstractFreeList<T extends Storable> extends PagesList imp
         return "FreeList [name=" + name() + ']';
     }
 }
-

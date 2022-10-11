@@ -27,10 +27,12 @@ import java.nio.charset.CharacterCodingException;
 import java.nio.charset.CharsetEncoder;
 import java.nio.charset.CoderResult;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.Period;
 import java.util.BitSet;
 import java.util.UUID;
 import org.jetbrains.annotations.Nullable;
@@ -296,7 +298,10 @@ public class BinaryTupleBuilder {
      * @return {@code this} for chaining.
      */
     public BinaryTupleBuilder appendNumberNotNull(BigInteger value) {
-        putBytes(value.toByteArray());
+        if (!value.equals(BigInteger.ZERO)) {
+            putBytes(value.toByteArray());
+        }
+
         return proceed();
     }
 
@@ -525,6 +530,78 @@ public class BinaryTupleBuilder {
     }
 
     /**
+     * Append a value for the current element.
+     *
+     * @param value Element value.
+     * @return {@code this} for chaining.
+     */
+    public BinaryTupleBuilder appendDurationNotNull(Duration value) {
+        if (value != BinaryTupleCommon.DEFAULT_DURATION) {
+            long seconds = value.getSeconds();
+            int nanos = value.getNano();
+            putLong(seconds);
+            if (nanos != 0) {
+                putInt(nanos);
+            }
+        }
+        return proceed();
+    }
+
+    /**
+     * Append a value for the current element.
+     *
+     * @param value Element value.
+     * @return {@code this} for chaining.
+     */
+    public BinaryTupleBuilder appendDuration(Duration value) {
+        return value == null ? appendNull() : appendDurationNotNull(value);
+    }
+
+    /**
+     * Append a value for the current element.
+     *
+     * @param value Element value.
+     * @return {@code this} for chaining.
+     */
+    public BinaryTupleBuilder appendPeriodNotNull(Period value) {
+        if (value != BinaryTupleCommon.DEFAULT_PERIOD) {
+            int years = value.getYears();
+            int months = value.getMonths();
+            int days = value.getDays();
+
+            if (Byte.MIN_VALUE <= years && years <= Byte.MAX_VALUE
+                    && Byte.MIN_VALUE <= months && months <= Byte.MAX_VALUE
+                    && Byte.MIN_VALUE <= days && days <= Byte.MAX_VALUE) {
+                putByte((byte) years);
+                putByte((byte) months);
+                putByte((byte) days);
+            } else if (Short.MIN_VALUE <= years && years <= Short.MAX_VALUE
+                    && Short.MIN_VALUE <= months && months <= Short.MAX_VALUE
+                    && Short.MIN_VALUE <= days && days <= Short.MAX_VALUE) {
+                putShort((short) years);
+                putShort((short) months);
+                putShort((short) days);
+            } else {
+                putInt(years);
+                putInt(months);
+                putInt(days);
+            }
+        }
+
+        return proceed();
+    }
+
+    /**
+     * Append a value for the current element.
+     *
+     * @param value Element value.
+     * @return {@code this} for chaining.
+     */
+    public BinaryTupleBuilder appendPeriod(Period value) {
+        return value == null ? appendNull() : appendPeriodNotNull(value);
+    }
+
+    /**
      * Append some arbitrary content as the current element.
      *
      * @param bytes Buffer with element raw bytes.
@@ -574,6 +651,10 @@ public class BinaryTupleBuilder {
      * @return Buffer with tuple bytes.
      */
     public ByteBuffer build() {
+        return buildInternal().slice().order(ByteOrder.LITTLE_ENDIAN);
+    }
+
+    protected ByteBuffer buildInternal() {
         int offset = 0;
 
         int valueSize = buffer.position() - valueBase;
@@ -628,7 +709,7 @@ public class BinaryTupleBuilder {
 
         buffer.put(offset, flags);
 
-        return buffer.flip().position(offset).slice().order(ByteOrder.LITTLE_ENDIAN);
+        return buffer.flip().position(offset);
     }
 
     /** Put a byte value to the buffer extending it if needed. */

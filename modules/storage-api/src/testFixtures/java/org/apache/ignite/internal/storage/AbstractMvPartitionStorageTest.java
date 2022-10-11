@@ -46,9 +46,7 @@ import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.lang.IgniteBiTuple;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -93,7 +91,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
     /**
      * Scans partition inside of consistency closure.
      */
-    protected Cursor<BinaryRow> scan(Predicate<BinaryRow> filter, HybridTimestamp timestamp) {
+    protected PartitionTimestampCursor scan(Predicate<BinaryRow> filter, HybridTimestamp timestamp) {
         return storage.runConsistently(() -> storage.scan(filter, timestamp));
     }
 
@@ -108,7 +106,11 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
      * Inserts a row inside of consistency closure.
      */
     protected RowId insert(BinaryRow binaryRow, UUID txId) {
-        return storage.runConsistently(() -> storage.insert(binaryRow, txId));
+        RowId rowId = new RowId(PARTITION_ID);
+
+        storage.runConsistently(() -> storage.addWrite(rowId, binaryRow, txId, UUID.randomUUID(), 0));
+
+        return rowId;
     }
 
     /**
@@ -159,7 +161,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
     @Test
     public void testScanOverEmpty() throws Exception {
         assertEquals(List.of(), convert(scan(row -> true, newTransactionId())));
-        assertEquals(List.of(), convert(scan(row -> true, clock.now())));
+        assertEquals(List.of(), convertTsCursor(scan(row -> true, clock.now())));
     }
 
     /**
@@ -312,17 +314,17 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
         HybridTimestamp ts5 = clock.now();
 
         // Full scan with various timestamp values.
-        assertEquals(List.of(), convert(scan(row -> true, ts1)));
+        assertEquals(List.of(), convertTsCursor(scan(row -> true, ts1)));
 
-        assertEquals(List.of(value1), convert(scan(row -> true, ts2)));
-        assertEquals(List.of(value1), convert(scan(row -> true, ts3)));
+        assertEquals(List.of(value1), convertTsCursor(scan(row -> true, ts2)));
+        assertEquals(List.of(value1), convertTsCursor(scan(row -> true, ts3)));
 
-        assertEquals(List.of(value1, value2), convert(scan(row -> true, ts4)));
-        assertEquals(List.of(value1, value2), convert(scan(row -> true, ts5)));
+        assertEquals(List.of(value1, value2), convertTsCursor(scan(row -> true, ts4)));
+        assertEquals(List.of(value1, value2), convertTsCursor(scan(row -> true, ts5)));
     }
 
     @Test
-    public void testScanCursorInvariants() {
+    public void testTransactionScanCursorInvariants() throws Exception {
         TestValue value1 = new TestValue(10, "xxx");
 
         TestValue value2 = new TestValue(20, "yyy");
@@ -333,32 +335,116 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
         RowId rowId2 = insert(binaryRow(new TestKey(2, "2"), value2), txId);
         commitWrite(rowId2, clock.now());
 
-        Cursor<BinaryRow> cursor = scan(row -> true, txId);
+        try (Cursor<BinaryRow> cursor = scan(row -> true, txId)) {
+            assertTrue(cursor.hasNext());
+            assertTrue(cursor.hasNext());
 
-        assertTrue(cursor.hasNext());
-        assertTrue(cursor.hasNext());
+            List<TestValue> res = new ArrayList<>();
 
-        List<TestValue> res = new ArrayList<>();
+            res.add(value(cursor.next()));
 
-        res.add(value(cursor.next()));
+            assertTrue(cursor.hasNext());
+            assertTrue(cursor.hasNext());
 
-        assertTrue(cursor.hasNext());
-        assertTrue(cursor.hasNext());
+            res.add(value(cursor.next()));
 
-        res.add(value(cursor.next()));
+            assertFalse(cursor.hasNext());
+            assertFalse(cursor.hasNext());
 
-        assertFalse(cursor.hasNext());
-        assertFalse(cursor.hasNext());
+            assertThrows(NoSuchElementException.class, () -> cursor.next());
 
-        assertThrows(NoSuchElementException.class, () -> cursor.next());
+            assertThat(res, hasItems(value1, value2));
+        }
+    }
 
-        assertThat(res, hasItems(value1, value2));
+    @Test
+    public void testTimestampScanCursorInvariants() throws Exception {
+        TestValue value11 = new TestValue(10, "xxx");
+        TestValue value12 = new TestValue(11, "xxx");
+
+        TestValue value21 = new TestValue(20, "yyy");
+        TestValue value22 = new TestValue(21, "yyy");
+
+        RowId rowId1 = new RowId(PARTITION_ID, 10, 10);
+        RowId rowId2 = new RowId(PARTITION_ID, 10, 20);
+
+        TestKey key1 = new TestKey(1, "1");
+        BinaryRow binaryRow11 = binaryRow(key1, value11);
+        BinaryRow binaryRow12 = binaryRow(key1, value12);
+
+        addWrite(rowId1, binaryRow11, txId);
+        HybridTimestamp commitTs1 = clock.now();
+        commitWrite(rowId1, commitTs1);
+
+        addWrite(rowId1, binaryRow12, newTransactionId());
+
+        TestKey key2 = new TestKey(2, "2");
+        BinaryRow binaryRow21 = binaryRow(key2, value21);
+        BinaryRow binaryRow22 = binaryRow(key2, value22);
+
+        addWrite(rowId2, binaryRow21, txId);
+        HybridTimestamp commitTs2 = clock.now();
+        commitWrite(rowId2, commitTs2);
+
+        addWrite(rowId2, binaryRow22, newTransactionId());
+
+        try (PartitionTimestampCursor cursor = scan(row -> true, clock.now())) {
+            assertThrows(IllegalStateException.class, () -> cursor.committed(commitTs1));
+
+            assertTrue(cursor.hasNext());
+            while (cursor.hasNext()) {
+                assertTrue(cursor.hasNext());
+
+                ReadResult res = cursor.next();
+
+                assertNotNull(res);
+                assertTrue(res.isWriteIntent());
+                assertFalse(res.isEmpty());
+
+                BinaryRow expectedRow1;
+                BinaryRow expectedRow2;
+                HybridTimestamp commitTs;
+
+                TestKey readKey = key(res.binaryRow());
+
+                if (readKey.equals(key1)) {
+                    expectedRow1 = binaryRow11;
+                    expectedRow2 = binaryRow12;
+                    commitTs = commitTs1;
+                } else {
+                    expectedRow1 = binaryRow21;
+                    expectedRow2 = binaryRow22;
+                    commitTs = commitTs2;
+                }
+
+                assertRowMatches(res.binaryRow(), expectedRow2);
+
+                BinaryRow previousRow = cursor.committed(commitTs);
+
+                assertNotNull(previousRow);
+                assertRowMatches(previousRow, expectedRow1);
+            }
+
+            assertFalse(cursor.hasNext());
+            assertFalse(cursor.hasNext());
+
+            assertThrows(IllegalStateException.class, () -> cursor.committed(commitTs1));
+        }
     }
 
     private List<TestValue> convert(Cursor<BinaryRow> cursor) throws Exception {
         try (cursor) {
             return cursor.stream()
                     .map(BaseMvStoragesTest::value)
+                    .sorted(Comparator.nullsFirst(Comparator.naturalOrder()))
+                    .collect(Collectors.toList());
+        }
+    }
+
+    private List<TestValue> convertTsCursor(PartitionTimestampCursor cursor) throws Exception {
+        try (cursor) {
+            return cursor.stream()
+                    .map((ReadResult rs) -> BaseMvStoragesTest.value(rs.binaryRow()))
                     .sorted(Comparator.nullsFirst(Comparator.naturalOrder()))
                     .collect(Collectors.toList());
         }
@@ -751,7 +837,9 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
 
     private RowId commitAbortAndAddUncommitted() {
         return storage.runConsistently(() -> {
-            RowId rowId = storage.insert(binaryRow, txId);
+            RowId rowId = new RowId(PARTITION_ID);
+
+            storage.addWrite(rowId, binaryRow, txId, UUID.randomUUID(), 0);
 
             commitWrite(rowId, clock.now());
 
@@ -765,12 +853,11 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17720")
     void scanByTimestampWorksCorrectlyAfterCommitAndAbortFollowedByUncommittedWrite() throws Exception {
         commitAbortAndAddUncommitted();
 
-        try (Cursor<BinaryRow> cursor = storage.scan(k -> true, clock.now())) {
-            BinaryRow foundRow = cursor.next();
+        try (Cursor<ReadResult> cursor = storage.scan(k -> true, clock.now())) {
+            BinaryRow foundRow = cursor.next().binaryRow();
 
             assertRowMatches(foundRow, binaryRow3);
 
@@ -894,7 +981,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
     void testReadingNothingWithLowerRowIdIfHigherRowIdWritesExist() {
         RowId rowId = commitAbortAndAddUncommitted();
 
-        RowId lowerRowId = getPreviousRowId(rowId);
+        RowId lowerRowId = decrement(rowId);
 
         assertNull(read(lowerRowId, clock.now()));
     }
@@ -902,7 +989,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
     @Test
     void testReadingNothingByTxIdWithLowerRowId() {
         RowId higherRowId = new RowId(PARTITION_ID);
-        RowId lowerRowId = getPreviousRowId(higherRowId);
+        RowId lowerRowId = decrement(higherRowId);
 
         UUID txId = UUID.randomUUID();
 
@@ -918,7 +1005,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
     @Test
     void testReadingCorrectWriteIntentByTimestampIfLowerRowIdWriteIntentExists() {
         RowId higherRowId = new RowId(PARTITION_ID);
-        RowId lowerRowId = getPreviousRowId(higherRowId);
+        RowId lowerRowId = decrement(higherRowId);
 
         storage.runConsistently(() -> {
             addWrite(lowerRowId, binaryRow2, newTransactionId());
@@ -935,7 +1022,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
     @Test
     void testReadingCorrectWriteIntentByTimestampIfHigherRowIdWriteIntentExists() {
         RowId higherRowId = new RowId(PARTITION_ID);
-        RowId lowerRowId = getPreviousRowId(higherRowId);
+        RowId lowerRowId = decrement(higherRowId);
 
         storage.runConsistently(() -> {
             addWrite(lowerRowId, binaryRow, newTransactionId());
@@ -1026,6 +1113,37 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
     }
 
     @Test
+    void testScanWithWriteIntent() throws Exception {
+        RowId rowId1 = new RowId(PARTITION_ID);
+
+        HybridTimestamp commit1ts = clock.now();
+
+        storage.runConsistently(() -> {
+            addWrite(rowId1, binaryRow, newTransactionId());
+
+            commitWrite(rowId1, commit1ts);
+
+            addWrite(rowId1, binaryRow2, newTransactionId());
+
+            return null;
+        });
+
+        try (PartitionTimestampCursor cursor = storage.scan(r -> true, clock.now())) {
+            assertTrue(cursor.hasNext());
+
+            ReadResult next = cursor.next();
+
+            assertTrue(next.isWriteIntent());
+
+            assertRowMatches(next.binaryRow(), binaryRow2);
+
+            BinaryRow committedRow = cursor.committed(next.newestCommitTimestamp());
+
+            assertRowMatches(committedRow, binaryRow);
+        }
+    }
+
+    @Test
     void testScanVersionsWithWriteIntent() throws Exception {
         RowId rowId = new RowId(PARTITION_ID, 100, 0);
 
@@ -1058,32 +1176,41 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
         assertEquals(value, list.get(1).getValue());
     }
 
+    @Test
+    void testClosestRowId() {
+        RowId rowId0 = new RowId(PARTITION_ID, 1, -1);
+        RowId rowId1 = new RowId(PARTITION_ID, 1, 0);
+        RowId rowId2 = new RowId(PARTITION_ID, 1, 1);
+
+        addWrite(rowId1, binaryRow, txId);
+        addWrite(rowId2, binaryRow2, txId);
+
+        assertEquals(rowId1, storage.closestRowId(rowId0));
+        assertEquals(rowId1, storage.closestRowId(rowId0.increment()));
+
+        assertEquals(rowId1, storage.closestRowId(rowId1));
+
+        assertEquals(rowId2, storage.closestRowId(rowId2));
+
+        assertNull(storage.closestRowId(rowId2.increment()));
+    }
+
     /**
      * Returns row id that is lexicographically smaller (by the value of one) than the argument.
      *
      * @param value Row id.
      * @return Row id value minus 1.
      */
-    private RowId getPreviousRowId(RowId value) {
-        Pair<Long, Long> previous128Uint = getPrevious128Uint(value.mostSignificantBits(), value.leastSignificantBits());
+    private RowId decrement(RowId value) {
+        long msb = value.mostSignificantBits();
+        long lsb = value.leastSignificantBits();
 
-        return new RowId(value.partitionId(), previous128Uint.getFirst(), previous128Uint.getSecond());
-    }
-
-    /**
-     * Performs a decrement operation on a 128-bit unsigned value that is represented by two longs.
-     *
-     * @param msb Most significant bytes of 128-bit unsigned integer.
-     * @param lsb Least significant bytes of 128-bit unsigned integer.
-     * @return Less by one value.
-     */
-    private Pair<Long, Long> getPrevious128Uint(long msb, long lsb) {
-        assert (msb | lsb) != 0L : "Cheer up! That was very unlikely";
-
-        if (lsb-- == 0L) {
-            --msb;
+        if (--lsb == Long.MAX_VALUE) {
+            if (--msb == Long.MAX_VALUE) {
+                throw new IllegalArgumentException();
+            }
         }
 
-        return new Pair<>(msb, lsb);
+        return new RowId(value.partitionId(), msb, lsb);
     }
 }

@@ -39,13 +39,4 @@ public interface SchemaObject {
     default String schemaName() {
         return DEFAULT_DATABASE_SCHEMA_NAME;
     }
-
-    /**
-     * Returns object`s canonical name.
-     *
-     * @return Canonical name.
-     */
-    default String canonicalName() {
-        return schemaName() + '.' + name();
-    }
 }

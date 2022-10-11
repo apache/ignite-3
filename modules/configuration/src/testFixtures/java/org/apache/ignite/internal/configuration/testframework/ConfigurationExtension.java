@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.configuration.testframework;
 
+import static java.lang.reflect.Modifier.isStatic;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
 import static org.apache.ignite.internal.configuration.notifications.ConfigurationNotifier.notifyListeners;
@@ -35,6 +36,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import java.util.ServiceLoader;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -42,7 +44,10 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import org.apache.ignite.configuration.RootKey;
+import org.apache.ignite.configuration.annotation.InternalConfiguration;
+import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.internal.configuration.ConfigurationListenerHolder;
+import org.apache.ignite.internal.configuration.ConfigurationModule;
 import org.apache.ignite.internal.configuration.DynamicConfiguration;
 import org.apache.ignite.internal.configuration.DynamicConfigurationChanger;
 import org.apache.ignite.internal.configuration.RootInnerNode;
@@ -61,6 +66,7 @@ import org.junit.jupiter.api.extension.BeforeAllCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.extension.ExtensionContext.Namespace;
+import org.junit.jupiter.api.extension.ExtensionContext.Store;
 import org.junit.jupiter.api.extension.ParameterContext;
 import org.junit.jupiter.api.extension.ParameterResolutionException;
 import org.junit.jupiter.api.extension.ParameterResolver;
@@ -84,58 +90,100 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
     /** Key to store {@link ExecutorService} in {@link ExtensionContext.Store}. */
     private static final Object POOL_KEY = new Object();
 
-    /** Key to store {@link StorageRevisionListenerHolderImpl} in {@link ExtensionContext.Store}. */
-    private static final Object REVISION_LISTENER_HOLDER_KEY = new Object();
+    /** Key to store {@link StorageRevisionListenerHolderImpl} in {@link ExtensionContext.Store} for all tests. */
+    private static final Object REVISION_LISTENER_ALL_TEST_HOLDER_KEY = new Object();
+
+    /** Key to store {@link StorageRevisionListenerHolderImpl} in {@link ExtensionContext.Store} for each test. */
+    private static final Object REVISION_LISTENER_PER_TEST_HOLDER_KEY = new Object();
+
+    /** All {@link InternalConfiguration} classes in classpath. */
+    private static final List<Class<?>> INTERNAL_EXTENSIONS;
+
+    /** All {@link PolymorphicConfigInstance} classes in classpath. */
+    private static final List<Class<?>> POLYMORPHIC_EXTENSIONS;
+
+    static {
+        // Automatically find all @InternalConfiguration and @PolymorphicConfigInstance classes
+        // to avoid configuring extensions manually in every test.
+        ServiceLoader<ConfigurationModule> modules = ServiceLoader.load(ConfigurationModule.class);
+
+        List<Class<?>> internalExtensions = new ArrayList<>();
+        List<Class<?>> polymorphicExtensions = new ArrayList<>();
+
+        modules.forEach(configurationModule -> {
+            internalExtensions.addAll(configurationModule.internalSchemaExtensions());
+            polymorphicExtensions.addAll(configurationModule.polymorphicSchemaExtensions());
+        });
+
+        INTERNAL_EXTENSIONS = List.copyOf(internalExtensions);
+        POLYMORPHIC_EXTENSIONS = List.copyOf(polymorphicExtensions);
+    }
 
     /** {@inheritDoc} */
     @Override
     public void beforeAll(ExtensionContext context) throws Exception {
+        context.getStore(NAMESPACE).put(CGEN_KEY, new ConfigurationAsmGenerator());
         context.getStore(NAMESPACE).put(POOL_KEY, newSingleThreadExecutor());
+
+        injectFields(context, true);
     }
 
     /** {@inheritDoc} */
     @Override
     public void afterAll(ExtensionContext context) throws Exception {
-        ExecutorService pool = context.getStore(NAMESPACE).remove(POOL_KEY, ExecutorService.class);
+        context.getStore(NAMESPACE).remove(CGEN_KEY);
 
-        pool.shutdownNow();
+        context.getStore(NAMESPACE).remove(POOL_KEY, ExecutorService.class).shutdownNow();
+
+        context.getStore(NAMESPACE).remove(REVISION_LISTENER_ALL_TEST_HOLDER_KEY);
     }
 
     /** {@inheritDoc} */
     @Override
     public void beforeEach(ExtensionContext context) throws Exception {
-        ConfigurationAsmGenerator cgen = new ConfigurationAsmGenerator();
+        injectFields(context, false);
+    }
 
-        context.getStore(NAMESPACE).put(CGEN_KEY, cgen);
+    private void injectFields(ExtensionContext context, boolean forStatic) throws Exception {
+        Class<?> testClass = context.getRequiredTestClass();
+        Object testInstance = context.getTestInstance().orElse(null);
 
-        Object testInstance = context.getRequiredTestInstance();
+        assert forStatic || testInstance != null;
 
-        ExecutorService pool = context.getStore(NAMESPACE).get(POOL_KEY, ExecutorService.class);
+        Store store = context.getStore(NAMESPACE);
+
+        ConfigurationAsmGenerator cgen = store.get(CGEN_KEY, ConfigurationAsmGenerator.class);
+        ExecutorService pool = store.get(POOL_KEY, ExecutorService.class);
 
         StorageRevisionListenerHolderImpl revisionListenerHolder = new StorageRevisionListenerHolderImpl();
 
-        context.getStore(NAMESPACE).put(REVISION_LISTENER_HOLDER_KEY, revisionListenerHolder);
+        if (forStatic) {
+            store.put(REVISION_LISTENER_ALL_TEST_HOLDER_KEY, revisionListenerHolder);
+        } else {
+            store.put(REVISION_LISTENER_PER_TEST_HOLDER_KEY, revisionListenerHolder);
+        }
 
-        for (Field field : getInjectConfigurationFields(testInstance.getClass())) {
+        for (Field field : getInjectConfigurationFields(testClass, forStatic)) {
             field.setAccessible(true);
 
             InjectConfiguration annotation = field.getAnnotation(InjectConfiguration.class);
 
-            field.set(testInstance, cfgValue(field.getType(), annotation, cgen, pool, revisionListenerHolder));
+            Object cfgValue = cfgValue(field.getType(), annotation, cgen, pool, revisionListenerHolder);
+
+            field.set(forStatic ? null : testInstance, cfgValue);
         }
 
-        for (Field field : getInjectRevisionListenerHolderFields(testInstance.getClass())) {
+        for (Field field : getInjectRevisionListenerHolderFields(testClass, forStatic)) {
             field.setAccessible(true);
 
-            field.set(testInstance, revisionListenerHolder);
+            field.set(forStatic ? null : testInstance, revisionListenerHolder);
         }
     }
 
     /** {@inheritDoc} */
     @Override
     public void afterEach(ExtensionContext context) throws Exception {
-        context.getStore(NAMESPACE).remove(CGEN_KEY);
-        context.getStore(NAMESPACE).remove(REVISION_LISTENER_HOLDER_KEY);
+        context.getStore(NAMESPACE).remove(REVISION_LISTENER_PER_TEST_HOLDER_KEY);
     }
 
     /** {@inheritDoc} */
@@ -162,8 +210,8 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
             ConfigurationAsmGenerator cgen =
                     extensionContext.getStore(NAMESPACE).get(CGEN_KEY, ConfigurationAsmGenerator.class);
 
-            StorageRevisionListenerHolderImpl revisionListenerHolder =
-                    extensionContext.getStore(NAMESPACE).get(REVISION_LISTENER_HOLDER_KEY, StorageRevisionListenerHolderImpl.class);
+            StorageRevisionListenerHolderImpl revisionListenerHolder = extensionContext.getStore(NAMESPACE)
+                    .get(REVISION_LISTENER_PER_TEST_HOLDER_KEY, StorageRevisionListenerHolderImpl.class);
 
             try {
                 ExecutorService pool = extensionContext.getStore(NAMESPACE).get(POOL_KEY, ExecutorService.class);
@@ -177,9 +225,9 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
                 );
             }
         } else if (parameterContext.isAnnotated(InjectRevisionListenerHolder.class)) {
-            return extensionContext.getStore(NAMESPACE).get(REVISION_LISTENER_HOLDER_KEY, StorageRevisionListenerHolderImpl.class);
+            return extensionContext.getStore(NAMESPACE).get(REVISION_LISTENER_PER_TEST_HOLDER_KEY, StorageRevisionListenerHolderImpl.class);
         } else {
-            throw new ParameterResolutionException("Unknown parametr:" + parameterContext.getParameter());
+            throw new ParameterResolutionException("Unknown parameter:" + parameterContext.getParameter());
         }
     }
 
@@ -205,10 +253,23 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
         // classes, extension is designed to mock actual configurations from public API to configure Ignite components.
         Class<?> schemaClass = Class.forName(type.getCanonicalName() + "Schema");
 
+        List<Class<?>> internalExtensions = INTERNAL_EXTENSIONS;
+        List<Class<?>> polymorphicExtensions = POLYMORPHIC_EXTENSIONS;
+
+        if (annotation.internalExtensions().length > 0) {
+            internalExtensions = new ArrayList<>(internalExtensions);
+            internalExtensions.addAll(List.of(annotation.internalExtensions()));
+        }
+
+        if (annotation.polymorphicExtensions().length > 0) {
+            polymorphicExtensions = new ArrayList<>(polymorphicExtensions);
+            polymorphicExtensions.addAll(List.of(annotation.polymorphicExtensions()));
+        }
+
         cgen.compileRootSchema(
                 schemaClass,
-                internalSchemaExtensions(List.of(annotation.internalExtensions())),
-                polymorphicSchemaExtensions(List.of(annotation.polymorphicExtensions()))
+                internalSchemaExtensions(internalExtensions),
+                polymorphicSchemaExtensions(polymorphicExtensions)
         );
 
         // RootKey must be mocked, there's no way to instantiate it using a public constructor.
@@ -300,20 +361,20 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
         return cfgRef.get();
     }
 
-    private static List<Field> getInjectConfigurationFields(Class<?> testClass) {
+    private static List<Field> getInjectConfigurationFields(Class<?> testClass, boolean forStatic) {
         return AnnotationSupport.findAnnotatedFields(
                 testClass,
                 InjectConfiguration.class,
-                field -> supportsAsConfigurationType(field.getType()),
+                field -> supportsAsConfigurationType(field.getType()) && (isStatic(field.getModifiers()) == forStatic),
                 HierarchyTraversalMode.TOP_DOWN
         );
     }
 
-    private static List<Field> getInjectRevisionListenerHolderFields(Class<?> testClass) {
+    private static List<Field> getInjectRevisionListenerHolderFields(Class<?> testClass, boolean forStatic) {
         return AnnotationSupport.findAnnotatedFields(
                 testClass,
                 InjectRevisionListenerHolder.class,
-                field -> isRevisionListenerHolder(field.getType()),
+                field -> isRevisionListenerHolder(field.getType()) && (isStatic(field.getModifiers()) == forStatic),
                 HierarchyTraversalMode.TOP_DOWN
         );
     }

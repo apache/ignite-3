@@ -35,6 +35,10 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
+import org.apache.ignite.hlc.HybridClock;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.network.ClusterNode;
@@ -54,12 +58,16 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Tests for {@link Loza} functionality.
  */
 @ExtendWith(WorkDirectoryExtension.class)
+@ExtendWith(ConfigurationExtension.class)
 public class ItLozaTest {
     /** Server port offset. */
     private static final int PORT = 20010;
 
     @WorkDirectory
     private Path dataPath;
+
+    @InjectConfiguration
+    private static RaftConfiguration raftConfiguration;
 
     /**
      * Starts a raft group service with a provided group id on a provided Loza instance.
@@ -116,7 +124,7 @@ public class ItLozaTest {
 
             CompletableFuture<NetworkMessage> exception = CompletableFuture.failedFuture(new IOException());
 
-            loza = new Loza(service, dataPath);
+            loza = new Loza(service, raftConfiguration, dataPath, new HybridClock());
 
             loza.start();
 

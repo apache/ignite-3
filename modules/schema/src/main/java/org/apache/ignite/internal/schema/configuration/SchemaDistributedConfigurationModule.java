@@ -22,13 +22,17 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.configuration.schemas.store.KnownDataStorage;
+import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.ColumnTypeValidator;
 import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.IndexValidator;
 import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableValidator;
+import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.configuration.ConfigurationModule;
 
@@ -42,10 +46,16 @@ public class SchemaDistributedConfigurationModule implements ConfigurationModule
         return ConfigurationType.DISTRIBUTED;
     }
 
+    @Override
+    public Collection<RootKey<?, ?>> rootKeys() {
+        return List.of(TablesConfiguration.KEY);
+    }
+
     /** {@inheritDoc} */
     @Override
     public Map<Class<? extends Annotation>, Set<Validator<? extends Annotation, ?>>> validators() {
         return Map.of(
+                KnownDataStorage.class, Set.of(new KnownDataStorageValidator()),
                 TableValidator.class, Set.of(TableValidatorImpl.INSTANCE),
                 ColumnTypeValidator.class, Set.of(ColumnTypeValidatorImpl.INSTANCE),
                 IndexValidator.class, Set.of(IndexValidatorImpl.INSTANCE)
@@ -56,6 +66,7 @@ public class SchemaDistributedConfigurationModule implements ConfigurationModule
     @Override
     public Collection<Class<?>> polymorphicSchemaExtensions() {
         return List.of(
+                UnknownDataStorageConfigurationSchema.class,
                 ConstantValueDefaultConfigurationSchema.class,
                 FunctionCallDefaultConfigurationSchema.class,
                 NullValueDefaultConfigurationSchema.class

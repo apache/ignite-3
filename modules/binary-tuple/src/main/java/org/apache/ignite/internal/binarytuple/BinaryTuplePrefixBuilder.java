@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.binarytuple;
 
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 
 /**
  * Class for build Binary Tuple Prefixes.
@@ -39,13 +40,28 @@ public class BinaryTuplePrefixBuilder extends BinaryTupleBuilder {
      * @param fullNumElements Number of elements in the Binary Tuple Schema.
      */
     public BinaryTuplePrefixBuilder(int prefixNumElements, int fullNumElements) {
-        super(fullNumElements + 1, true, -1);
+        super(fullNumElements, true);
+
+        this.prefixNumElements = prefixNumElements;
+    }
+
+    /**
+     * Creates a new builder.
+     *
+     * @param prefixNumElements Number of elements in the prefix.
+     * @param fullNumElements Number of elements in the Binary Tuple Schema.
+     * @param totalValueSize Total estimated length of non-NULL values, -1 if not known.
+     */
+    public BinaryTuplePrefixBuilder(int prefixNumElements, int fullNumElements, int totalValueSize) {
+        super(fullNumElements, true, totalValueSize);
+
+        assert fullNumElements >= prefixNumElements;
 
         this.prefixNumElements = prefixNumElements;
     }
 
     @Override
-    public ByteBuffer build() {
+    protected ByteBuffer buildInternal() {
         int elementIndex = elementIndex();
 
         if (elementIndex != prefixNumElements) {
@@ -58,20 +74,34 @@ public class BinaryTuplePrefixBuilder extends BinaryTupleBuilder {
         int numElements = numElements();
 
         // Use nulls instead of the missing elements.
-        while (elementIndex() < numElements - 1) {
+        while (elementIndex() < numElements) {
             appendNull();
         }
 
-        appendInt(prefixNumElements);
-
-        ByteBuffer tuple = super.build();
+        ByteBuffer tuple = super.buildInternal();
 
         // Set the flag indicating that this tuple is a prefix.
-        byte flags = tuple.get(0);
+        byte flags = tuple.get(tuple.position());
 
         flags |= BinaryTupleCommon.PREFIX_FLAG;
 
-        tuple.put(0, flags);
+        tuple.put(tuple.position(), flags);
+
+        // Append the number of elements to the end of the buffer.
+        // If we have enough space in the original buffer - use it, otherwise allocate a new sufficient buffer.
+        if (tuple.capacity() - tuple.limit() < Integer.BYTES) {
+            tuple = ByteBuffer.allocate(tuple.remaining() + Integer.BYTES)
+                    .order(ByteOrder.LITTLE_ENDIAN)
+                    .put(tuple)
+                    .putInt(prefixNumElements)
+                    .flip();
+        } else {
+            int prevLimit = tuple.limit();
+
+            tuple
+                    .limit(prevLimit + Integer.BYTES)
+                    .putInt(prevLimit, prefixNumElements);
+        }
 
         return tuple;
     }

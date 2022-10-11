@@ -39,6 +39,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
+import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.server.RaftGroupEventsListener;
@@ -168,7 +169,7 @@ public class TestCluster {
     }
 
     public boolean start(Endpoint addr, int priority) throws Exception {
-        return this.start(addr, false, 300, false, null, null, priority);
+        return this.start(addr, false, 300, false, null, null, priority, null);
     }
 
     public boolean startLearner(PeerId peer) throws Exception {
@@ -196,12 +197,20 @@ public class TestCluster {
         RaftOptions raftOptions) throws IOException {
 
         return this.start(listenAddr, emptyPeers, snapshotIntervalSecs, enableMetrics, snapshotThrottle, raftOptions,
-            ElectionPriority.Disabled);
+            ElectionPriority.Disabled, null);
     }
 
     public boolean start(Endpoint listenAddr, boolean emptyPeers, int snapshotIntervalSecs,
         boolean enableMetrics, SnapshotThrottle snapshotThrottle,
-        RaftOptions raftOptions, int priority) throws IOException {
+        RaftOptions raftOptions, HybridClock clock) throws IOException {
+
+        return this.start(listenAddr, emptyPeers, snapshotIntervalSecs, enableMetrics, snapshotThrottle, raftOptions,
+            ElectionPriority.Disabled, clock);
+    }
+
+    public boolean start(Endpoint listenAddr, boolean emptyPeers, int snapshotIntervalSecs,
+        boolean enableMetrics, SnapshotThrottle snapshotThrottle,
+        RaftOptions raftOptions, int priority, HybridClock clock) throws IOException {
 
         this.lock.lock();
         try {
@@ -219,6 +228,9 @@ public class TestCluster {
             nodeOptions.setSnapshotThrottle(snapshotThrottle);
             nodeOptions.setSnapshotIntervalSecs(snapshotIntervalSecs);
             nodeOptions.setServiceFactory(this.raftServiceFactory);
+            if (clock != null) {
+                nodeOptions.setClock(clock);
+            }
             if (raftOptions != null) {
                 nodeOptions.setRaftOptions(raftOptions);
             }

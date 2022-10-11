@@ -18,6 +18,7 @@ package org.apache.ignite.raft.jraft.option;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;
+import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.internal.raft.server.RaftGroupEventsListener;
 import org.apache.ignite.raft.jraft.JRaftServiceFactory;
 import org.apache.ignite.raft.jraft.StateMachine;
@@ -231,6 +232,9 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
      * Striped disruptor for Log manager service.
      */
     private StripedDisruptor<LogManagerImpl.StableClosureEvent> logManagerDisruptor;
+
+    /** A hybrid clock */
+    private HybridClock clock = new HybridClock();
 
     /**
      * Amount of Disruptors that will handle the RAFT server.
@@ -585,6 +589,14 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
         this.logManagerDisruptor = logManagerDisruptor;
     }
 
+    public HybridClock getClock() {
+        return clock;
+    }
+
+    public void setClock(HybridClock clock) {
+        this.clock = clock;
+    }
+
     @Override
     public NodeOptions copy() {
         final NodeOptions nodeOptions = new NodeOptions();
@@ -620,6 +632,7 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
         nodeOptions.setRpcDefaultTimeout(this.getRpcDefaultTimeout());
         nodeOptions.setRpcConnectTimeoutMs(this.getRpcConnectTimeoutMs());
         nodeOptions.setElectionTimeoutStrategy(this.getElectionTimeoutStrategy());
+        nodeOptions.setClock(this.getClock());
 
         return nodeOptions;
     }

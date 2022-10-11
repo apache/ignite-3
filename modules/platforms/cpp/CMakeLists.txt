@@ -18,33 +18,101 @@
 cmake_minimum_required(VERSION 3.10)
 project(Ignite.C++ VERSION 3 LANGUAGES CXX)
 
-find_package(Boost REQUIRED COMPONENTS unit_test_framework)
-
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-include(GNUInstallDirs)
+set(CMAKE_PROJECT_VERSION ${PROJECT_VERSION})
+
+if(EXISTS ${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
+    message(STATUS "Conan detected. Enabling...")
+    include(${CMAKE_BINARY_DIR}/conan_paths.cmake)
+    include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
+    conan_basic_setup()
+endif()
+
+if (WIN32)
+    add_definitions(-DNOMINMAX)
+    set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+else()
+    include(GNUInstallDirs)
+endif()
+
 set(INSTALL_INCLUDEDIR ${CMAKE_INSTALL_INCLUDEDIR}/ignite)
+message(STATUS "CMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}")
+message(STATUS "INSTALL_INCLUDEDIR=${INSTALL_INCLUDEDIR}")
 
 option(ENABLE_ADDRESS_SANITIZER "If address sanitizer is enabled" OFF)
 option(ENABLE_UB_SANITIZER "If undefined behavior sanitizer is enabled" OFF)
+option(ENABLE_CLIENT "Build Ignite.C++ Client module" ON)
+option(ENABLE_TESTS "Build Ignite.C++ tests" OFF)
+option(WARNINGS_AS_ERRORS "Treat warning as errors" OFF)
 
 # Turn on DLL export directives
-add_compile_definitions(IGNITE_IMPL)
+add_definitions(-DIGNITE_IMPL)
 
-if (ENABLE_ADDRESS_SANITIZER)
-    add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-fsanitize=address>)
-    add_link_options($<$<COMPILE_LANGUAGE:CXX>:-fsanitize=address>)
+if (MSVC)
+    add_compile_options(/source-charset:utf-8 /execution-charset:utf-8)
+    add_definitions(-D_CRT_SECURE_NO_WARNINGS -D_SCL_SECURE_NO_WARNINGS)
 endif()
 
-if (ENABLE_UB_SANITIZER)
-    add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-fsanitize=undefined>)
-    add_link_options($<$<COMPILE_LANGUAGE:CXX>:-fsanitize=undefined>)
+if (CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+    add_compile_options(-Wall -Wextra -Wno-variadic-macros)
+
+    if (ENABLE_ADDRESS_SANITIZER)
+        add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-fsanitize=address>)
+        add_link_options($<$<COMPILE_LANGUAGE:CXX>:-fsanitize=address>)
+    endif()
+
+    if (ENABLE_UB_SANITIZER)
+        add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-fsanitize=undefined>)
+        add_link_options($<$<COMPILE_LANGUAGE:CXX>:-fsanitize=undefined>)
+    endif()
 endif()
+
+if (CMAKE_BUILD_TYPE STREQUAL "Debug" AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    add_compile_options("-fstandalone-debug")
+endif()
+
+if (${WARNINGS_AS_ERRORS})
+    if (MSVC)
+        add_compile_options(/WX)
+    else()
+        add_compile_options(-Werror)
+    endif()
+endif()
+
+enable_testing()
 
 add_subdirectory(common)
 add_subdirectory(schema)
 
-enable_testing()
+if (${ENABLE_CLIENT})
+    add_subdirectory(protocol)
+    add_subdirectory(network)
+    add_subdirectory(client)
+endif()
 
-add_subdirectory(tests)
+if (${ENABLE_TESTS})
+    add_subdirectory(tests)
+    if (${ENABLE_CLIENT})
+        add_subdirectory(test-common)
+        add_subdirectory(client-test)
+    endif()
+endif()
+
+# Source code formatting with clang-format
+# TODO: require clang-format version 13 or higher
+find_program(CLANG_FORMAT_BIN clang-format)
+if (CLANG_FORMAT_BIN)
+    message(STATUS "Found clang-format: ${CLANG_FORMAT_BIN}")
+    message(STATUS "Add 'format' target to run clang-format for entire source code.")
+
+    file(GLOB_RECURSE ALL_SOURCE_FILES *.cpp *.h)
+
+    add_custom_target(format
+        COMMENT "Running clang-format to change files"
+        COMMAND ${CLANG_FORMAT_BIN} -i ${ALL_SOURCE_FILES})
+else()
+    message(STATUS "Failed to find clang-format. So there is no 'format' target now.")
+endif()

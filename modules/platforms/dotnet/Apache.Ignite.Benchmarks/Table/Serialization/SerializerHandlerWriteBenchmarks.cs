@@ -79,17 +79,5 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
             writer.Flush();
             VerifyWritten(pooledWriter);
         }
-
-        // [Benchmark]
-        public void WriteObjectOld()
-        {
-            using var pooledWriter = new PooledArrayBufferWriter();
-            var writer = pooledWriter.GetMessageWriter();
-
-            ObjectSerializerHandlerOld.Write(ref writer, Schema, Object);
-
-            writer.Flush();
-            VerifyWritten(pooledWriter);
-        }
     }
 }

@@ -23,7 +23,6 @@ import java.util.function.BiConsumer;
 import java.util.function.Predicate;
 import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
@@ -37,7 +36,8 @@ import org.jetbrains.annotations.Nullable;
  *
  * <p>All timestamps in the chain must go in decreasing order, giving us a N2O (newest to oldest) order of search.
  *
- * <p>Each MvPartitionStorage instance represents exactly one partition.
+ * <p>Each MvPartitionStorage instance represents exactly one partition. All RowIds within a partition are sorted consistently with the
+ * {@link RowId#compareTo} comparison order.
  */
 public interface MvPartitionStorage extends AutoCloseable {
     /**
@@ -87,21 +87,6 @@ public interface MvPartitionStorage extends AutoCloseable {
     long persistedIndex();
 
     /**
-     * Converts {@link Timestamp} to {@link HybridTimestamp} preserving local node time order.
-     *
-     * @deprecated Temporary method to support API compatibility.
-     */
-    @Deprecated
-    private static HybridTimestamp convertTimestamp(Timestamp timestamp) {
-        long ts = timestamp.getTimestamp();
-
-        // "timestamp" part consists of two sections:
-        // - a 48-bits number of milliseconds since the beginning of the epoch
-        // - a 16-bits counter
-        return new HybridTimestamp(ts >>> 16, (int) ts & 0xFFFF);
-    }
-
-    /**
      * Reads either the committed value from the storage or the uncommitted value belonging to given transaction.
      *
      * @param rowId Row id.
@@ -112,17 +97,6 @@ public interface MvPartitionStorage extends AutoCloseable {
      */
     @Nullable
     BinaryRow read(RowId rowId, UUID txId) throws TxIdMismatchException, StorageException;
-
-    /**
-     * Reads the value from the storage as it was at the given timestamp.
-     *
-     * @deprecated Use {@link #read(RowId, HybridTimestamp)}
-     */
-    @Nullable
-    @Deprecated
-    default ReadResult read(RowId rowId, Timestamp timestamp) throws StorageException {
-        return read(rowId, convertTimestamp(timestamp));
-    }
 
     /**
      * Reads the value from the storage as it was at the given timestamp.
@@ -141,20 +115,6 @@ public interface MvPartitionStorage extends AutoCloseable {
      * @return Read result that corresponds to the key.
      */
     ReadResult read(RowId rowId, HybridTimestamp timestamp) throws StorageException;
-
-    /**
-     * Creates an uncommitted version, assigning a new row id to it.
-     *
-     * @param binaryRow Binary row to insert. Not null.
-     * @param txId Transaction id.
-     * @return Row id.
-     * @throws StorageException If failed to write data into the storage.
-     *
-     * @deprecated Generates different ids for each replica. {@link #addWrite(RowId, BinaryRow, UUID, UUID, int)} with explicit replicated
-     *      id must be used instead.
-     */
-    @Deprecated
-    RowId insert(BinaryRow binaryRow, UUID txId) throws StorageException;
 
     /**
      * Creates (or replaces) an uncommitted (aka pending) version, assigned to the given transaction id.
@@ -186,16 +146,6 @@ public interface MvPartitionStorage extends AutoCloseable {
     @Nullable BinaryRow abortWrite(RowId rowId) throws StorageException;
 
     /**
-     * Commits a pending update of the ongoing transaction.
-     *
-     * @deprecated Use {@link #commitWrite(RowId, HybridTimestamp)}
-     */
-    @Deprecated
-    default void commitWrite(RowId rowId, Timestamp timestamp) throws StorageException {
-        commitWrite(rowId, convertTimestamp(timestamp));
-    }
-
-    /**
      * Commits a pending update of the ongoing transaction. Invoked during commit. Committed value will be versioned by the given timestamp.
      *
      * @param rowId Row id.
@@ -212,8 +162,8 @@ public interface MvPartitionStorage extends AutoCloseable {
     Cursor<BinaryRow> scanVersions(RowId rowId) throws StorageException;
 
     /**
-     * Scans the partition and returns a cursor of values. All filtered values must either be uncommitted in current transaction
-     * or already committed in different transaction.
+     * Scans the partition and returns a cursor of values. All filtered values must either be uncommitted in the current transaction
+     * or already committed in a different transaction.
      *
      * @param keyFilter Key filter. Binary rows passed to the filter may or may not have a value, filter should only check keys.
      * @param txId Transaction id.
@@ -225,23 +175,21 @@ public interface MvPartitionStorage extends AutoCloseable {
     /**
      * Scans the partition and returns a cursor of values at the given timestamp.
      *
-     * @deprecated Use {@link #scan(Predicate, HybridTimestamp)}
-     */
-    @Deprecated
-    default Cursor<BinaryRow> scan(Predicate<BinaryRow> keyFilter, Timestamp timestamp) throws StorageException {
-        return scan(keyFilter, convertTimestamp(timestamp));
-    }
-
-    /**
-     * Scans the partition and returns a cursor of values at the given timestamp.
-     *
      * @param keyFilter Key filter. Binary rows passed to the filter may or may not have a value, filter should only check keys.
      * @param timestamp Timestamp. Can't be {@code null}.
      * @return Cursor.
      * @throws TxIdMismatchException If there's another pending update associated with different transaction id.
      * @throws StorageException If failed to read data from the storage.
      */
-    Cursor<BinaryRow> scan(Predicate<BinaryRow> keyFilter, HybridTimestamp timestamp) throws StorageException;
+    PartitionTimestampCursor scan(Predicate<BinaryRow> keyFilter, HybridTimestamp timestamp) throws StorageException;
+
+    /**
+     * Returns a row id, existing in the storage, that's greater or equal than the lower bound. {@code null} if not found.
+     *
+     * @param lowerBound Lower bound.
+     * @throws StorageException If failed to read data from the storage.
+     */
+    @Nullable RowId closestRowId(RowId lowerBound) throws StorageException;
 
     /**
      * Returns rows count belongs to current storage.

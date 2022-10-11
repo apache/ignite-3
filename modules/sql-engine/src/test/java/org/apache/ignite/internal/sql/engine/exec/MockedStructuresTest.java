@@ -49,20 +49,11 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.EntryCountBudgetConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
-import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.notifications.ConfigurationStorageRevisionListenerHolder;
-import org.apache.ignite.internal.configuration.schema.ExtendedTableConfigurationSchema;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.testframework.InjectRevisionListenerHolder;
@@ -82,10 +73,10 @@ import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModules;
-import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapDataStorageModule;
-import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapStorageEngine;
-import org.apache.ignite.internal.storage.chm.schema.TestConcurrentHashMapDataStorageConfigurationSchema;
-import org.apache.ignite.internal.storage.chm.schema.TestConcurrentHashMapDataStorageView;
+import org.apache.ignite.internal.storage.impl.TestDataStorageModule;
+import org.apache.ignite.internal.storage.impl.TestStorageEngine;
+import org.apache.ignite.internal.storage.impl.schema.TestDataStorageConfigurationSchema;
+import org.apache.ignite.internal.storage.impl.schema.TestDataStorageView;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbDataStorageModule;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageView;
@@ -168,21 +159,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     private Consumer<Function<Long, CompletableFuture<?>>> revisionUpdater;
 
     /** Tables configuration. */
-    @InjectConfiguration(
-            internalExtensions = ExtendedTableConfigurationSchema.class,
-            polymorphicExtensions = {
-                    HashIndexConfigurationSchema.class,
-                    SortedIndexConfigurationSchema.class,
-                    UnknownDataStorageConfigurationSchema.class,
-                    RocksDbDataStorageConfigurationSchema.class,
-                    TestConcurrentHashMapDataStorageConfigurationSchema.class,
-                    ConstantValueDefaultConfigurationSchema.class,
-                    FunctionCallDefaultConfigurationSchema.class,
-                    NullValueDefaultConfigurationSchema.class,
-                    UnlimitedBudgetConfigurationSchema.class,
-                    EntryCountBudgetConfigurationSchema.class
-            }
-    )
+    @InjectConfiguration
     private TablesConfiguration tblsCfg;
 
     TableManager tblManager;
@@ -254,7 +231,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         DataStorageModules dataStorageModules = new DataStorageModules(List.of(
                 new RocksDbDataStorageModule(),
-                new TestConcurrentHashMapDataStorageModule()
+                new TestDataStorageModule()
         ));
 
         dataStorageManager = new DataStorageManager(
@@ -284,7 +261,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 tm,
                 () -> dataStorageModules.collectSchemasFields(List.of(
                         RocksDbDataStorageConfigurationSchema.class,
-                        TestConcurrentHashMapDataStorageConfigurationSchema.class
+                        TestDataStorageConfigurationSchema.class
                 ))
         );
 
@@ -334,7 +311,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         readFirst(queryProc.queryAsync("PUBLIC", newTblSql));
 
         assertTrue(tblManager.tables().stream().anyMatch(t -> t.name()
-                .equalsIgnoreCase("PUBLIC." + curMethodName)));
+                .equalsIgnoreCase(curMethodName)));
 
         String finalNewTblSql1 = newTblSql;
 
@@ -372,7 +349,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         readFirst(queryProc.queryAsync("PUBLIC", newTblSql));
 
         assertTrue(tblManager.tables().stream().anyMatch(t -> t.name()
-                .equalsIgnoreCase("PUBLIC." + curMethodName)));
+                .equalsIgnoreCase(curMethodName)));
     }
 
     /**
@@ -561,11 +538,11 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 String.format(
                         "CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) engine %s",
                         method + 1,
-                        TestConcurrentHashMapStorageEngine.ENGINE_NAME
+                        TestStorageEngine.ENGINE_NAME
                 )
         )));
 
-        assertThat(tableView(method + 1).dataStorage(), instanceOf(TestConcurrentHashMapDataStorageView.class));
+        assertThat(tableView(method + 1).dataStorage(), instanceOf(TestDataStorageView.class));
 
         // With existing engine in mixed case
         assertDoesNotThrow(() -> readFirst(queryProc.queryAsync(
@@ -781,13 +758,18 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 revisionUpdater,
                 tblsCfg,
                 rm,
+                null,
+                null,
+                null,
                 bm,
                 ts,
                 tm,
                 dataStorageManager,
+                workDir,
                 msm,
                 schemaManager,
-                view -> new LocalLogStorageFactory()
+                view -> new LocalLogStorageFactory(),
+                null
         );
 
         tableManager.start();
@@ -800,6 +782,6 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     }
 
     private @Nullable TableView tableView(String tableName) {
-        return tblsCfg.tables().value().get("PUBLIC." + tableName.toUpperCase());
+        return tblsCfg.tables().value().get(tableName.toUpperCase());
     }
 }

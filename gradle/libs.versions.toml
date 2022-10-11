@@ -50,14 +50,13 @@ hamcrest = "2.2"
 hamcrestOptional = "2.0.0"
 hamcrestPath = "1.0.1"
 scalecube = "2.6.12"
-calcite = "1.31.0"
+calcite = "1.32.0"
 value = "2.8.8"
 janino = "3.1.6"
 avatica = "1.22.0"
 jsonpath = "2.4.0"
 classgraph = "4.8.110"
 javassist = "3.28.0-GA"
-geometry = "2.2.0"
 checker = "3.10.0"
 rocksdb = "7.3.1"
 disruptor = "3.3.7"
@@ -85,6 +84,7 @@ shadow = "com.github.johnrengelman.shadow:7.1.2"
 cmake = "net.freudasoft.gradle-cmake-plugin:0.0.4"
 modernizer = "com.github.andygoossens.modernizer:1.6.2"
 nebula = "nebula.ospackage:9.1.1"
+docker = "com.palantir.docker:0.34.0"
 
 [libraries]
 assertj-core = { module = "org.assertj:assertj-core", version.ref = "assertj" }
@@ -220,7 +220,5 @@ janino-core = { module = "org.codehaus.janino:janino", version.ref = "janino" }
 janino-compiler = { module = "org.codehaus.janino:commons-compiler", version.ref = "janino" }
 
 javassist = { module = "org.javassist:javassist", version.ref = "javassist" }
-
-esri-geometry = { module = "com.esri.geometry:esri-geometry-api", version.ref = "geometry" }
 
 checker-qual = { module = "org.checkerframework:checker-qual", version.ref = "checker" }

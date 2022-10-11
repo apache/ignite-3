@@ -18,13 +18,18 @@
 namespace Apache.Ignite.Internal.Proto.BinaryTuple
 {
     using System;
+    using System.Buffers.Binary;
+    using System.Collections;
     using System.Diagnostics;
+    using System.Numerics;
+    using System.Runtime.InteropServices;
     using Buffers;
+    using NodaTime;
 
     /// <summary>
     /// Binary tuple builder.
     /// </summary>
-    internal ref struct BinaryTupleBuilder // TODO: Support all types (IGNITE-15431).
+    internal ref struct BinaryTupleBuilder
     {
         /** Number of elements in the tuple. */
         private readonly int _numElements;
@@ -76,7 +81,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
             _valueBase = baseOffset + _entrySize * numElements;
 
-            _buffer.GetSpan(_valueBase);
+            _buffer.GetSpan(_valueBase).Clear();
             _buffer.Advance(_valueBase);
         }
 
@@ -248,12 +253,11 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             if (value == null)
             {
                 AppendNull();
-                return;
             }
-
-            PutString(value);
-
-            OnWrite();
+            else
+            {
+                AppendString(value);
+            }
         }
 
         /// <summary>
@@ -265,6 +269,12 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             PutBytes(value);
             OnWrite();
         }
+
+        /// <summary>
+        /// Appends bytes.
+        /// </summary>
+        /// <param name="value">Value.</param>
+        public void AppendBytes(byte[] value) => AppendBytes(value.AsSpan());
 
         /// <summary>
         /// Appends a guid.
@@ -281,11 +291,155 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         }
 
         /// <summary>
+        /// Appends a bitmask.
+        /// </summary>
+        /// <param name="value">Value.</param>
+        public void AppendBitmask(BitArray value)
+        {
+            var size = (value.Length + 7) / 8; // Ceiling division.
+            var arr = ByteArrayPool.Rent(size);
+
+            try
+            {
+                value.CopyTo(arr, 0);
+                PutBytes(arr.AsSpan()[..size]);
+
+                OnWrite();
+            }
+            finally
+            {
+                ByteArrayPool.Return(arr);
+            }
+        }
+
+        /// <summary>
+        /// Appends a decimal.
+        /// </summary>
+        /// <param name="value">Value.</param>
+        /// <param name="scale">Decimal scale from schema.</param>
+        public void AppendDecimal(decimal value, int scale)
+        {
+            if (value != decimal.Zero)
+            {
+                var (unscaledValue, valueScale) = DeconstructDecimal(value);
+
+                PutDecimal(scale, unscaledValue, valueScale);
+            }
+
+            OnWrite();
+        }
+
+        /// <summary>
+        /// Appends a number.
+        /// </summary>
+        /// <param name="value">Value.</param>
+        public void AppendNumber(BigInteger value)
+        {
+            if (value != default)
+            {
+                var size = value.GetByteCount();
+                var destination = GetSpan(size);
+                var success = value.TryWriteBytes(destination, out int written, isBigEndian: true);
+
+                Debug.Assert(success, "success");
+                Debug.Assert(written == size, "written == size");
+            }
+
+            OnWrite();
+        }
+
+        /// <summary>
+        /// Appends a date.
+        /// </summary>
+        /// <param name="value">Value.</param>
+        public void AppendDate(LocalDate value)
+        {
+            if (value != default)
+            {
+                PutDate(value);
+            }
+
+            OnWrite();
+        }
+
+        /// <summary>
+        /// Appends a time.
+        /// </summary>
+        /// <param name="value">Value.</param>
+        public void AppendTime(LocalTime value)
+        {
+            if (value != default)
+            {
+                PutTime(value);
+            }
+
+            OnWrite();
+        }
+
+        /// <summary>
+        /// Appends a date and time.
+        /// </summary>
+        /// <param name="value">Value.</param>
+        public void AppendDateTime(LocalDateTime value)
+        {
+            if (value != default)
+            {
+                PutDate(value.Date);
+                PutTime(value.TimeOfDay);
+            }
+
+            OnWrite();
+        }
+
+        /// <summary>
+        /// Appends a timestamp (instant).
+        /// </summary>
+        /// <param name="value">Value.</param>
+        public void AppendTimestamp(Instant value)
+        {
+            if (value != default)
+            {
+                PutTimestamp(value);
+            }
+
+            OnWrite();
+        }
+
+        /// <summary>
+        /// Appends a duration.
+        /// </summary>
+        /// <param name="value">Value.</param>
+        public void AppendDuration(Duration value)
+        {
+            if (value != default)
+            {
+                PutDuration(value);
+            }
+
+            OnWrite();
+        }
+
+        /// <summary>
+        /// Appends a period.
+        /// </summary>
+        /// <param name="value">Value.</param>
+        public void AppendPeriod(Period value)
+        {
+            if (value != Period.Zero)
+            {
+                PutPeriod(value);
+            }
+
+            OnWrite();
+        }
+
+        /// <summary>
         /// Appends an object.
         /// </summary>
         /// <param name="value">Value.</param>
         /// <param name="colType">Column type.</param>
-        public void AppendObject(object? value, ClientDataType colType)
+        /// <param name="scale">Decimal scale.</param>
+        public void AppendObject(object? value, ClientDataType colType, int scale = 0)
         {
             if (value == null)
             {
@@ -332,10 +486,136 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                     break;
 
                 case ClientDataType.BitMask:
+                    AppendBitmask((BitArray)value);
+                    break;
+
                 case ClientDataType.Decimal:
+                    AppendDecimal((decimal)value, scale);
+                    break;
+
+                case ClientDataType.Number:
+                    AppendNumber((BigInteger)value);
+                    break;
+
+                case ClientDataType.Date:
+                    AppendDate((LocalDate)value);
+                    break;
+
+                case ClientDataType.Time:
+                    AppendTime((LocalTime)value);
+                    break;
+
+                case ClientDataType.DateTime:
+                    AppendDateTime((LocalDateTime)value);
+                    break;
+
+                case ClientDataType.Timestamp:
+                    AppendTimestamp((Instant)value);
+                    break;
+
                 default:
-                    // TODO: Support all types (IGNITE-15431).
                     throw new IgniteClientException(ErrorGroups.Client.Protocol, "Unsupported type: " + colType);
+            }
+        }
+
+        /// <summary>
+        /// Appends an object.
+        /// </summary>
+        /// <param name="value">Value.</param>
+        public void AppendObjectWithType(object? value)
+        {
+            switch (value)
+            {
+                case null:
+                    AppendNull(); // Type.
+                    AppendNull(); // Scale.
+                    AppendNull(); // Value.
+                    break;
+
+                case int i32:
+                    AppendTypeAndScale(ClientDataType.Int32);
+                    AppendInt(i32);
+                    break;
+
+                case long i64:
+                    AppendTypeAndScale(ClientDataType.Int64);
+                    AppendLong(i64);
+                    break;
+
+                case string str:
+                    AppendTypeAndScale(ClientDataType.String);
+                    AppendString(str);
+                    break;
+
+                case Guid uuid:
+                    AppendTypeAndScale(ClientDataType.Uuid);
+                    AppendGuid(uuid);
+                    break;
+
+                case sbyte i8:
+                    AppendTypeAndScale(ClientDataType.Int8);
+                    AppendByte(i8);
+                    break;
+
+                case short i16:
+                    AppendTypeAndScale(ClientDataType.Int16);
+                    AppendShort(i16);
+                    break;
+
+                case float f32:
+                    AppendTypeAndScale(ClientDataType.Float);
+                    AppendFloat(f32);
+                    break;
+
+                case double f64:
+                    AppendTypeAndScale(ClientDataType.Double);
+                    AppendDouble(f64);
+                    break;
+
+                case byte[] bytes:
+                    AppendTypeAndScale(ClientDataType.Bytes);
+                    AppendBytes(bytes);
+                    break;
+
+                case decimal dec:
+                    var (unscaled, scale) = DeconstructDecimal(dec);
+                    AppendTypeAndScale(ClientDataType.Decimal, scale);
+                    PutDecimal(scale, unscaled, scale);
+                    OnWrite();
+                    break;
+
+                case BigInteger bigInt:
+                    AppendTypeAndScale(ClientDataType.Number);
+                    AppendNumber(bigInt);
+                    break;
+
+                case LocalDate localDate:
+                    AppendTypeAndScale(ClientDataType.Date);
+                    AppendDate(localDate);
+                    break;
+
+                case LocalTime localTime:
+                    AppendTypeAndScale(ClientDataType.Time);
+                    AppendTime(localTime);
+                    break;
+
+                case LocalDateTime localDateTime:
+                    AppendTypeAndScale(ClientDataType.DateTime);
+                    AppendDateTime(localDateTime);
+                    break;
+
+                case Instant instant:
+                    AppendTypeAndScale(ClientDataType.Timestamp);
+                    AppendTimestamp(instant);
+                    break;
+
+                case BitArray bitArray:
+                    AppendTypeAndScale(ClientDataType.BitMask);
+                    AppendBitmask(bitArray);
+                    break;
+
+                default:
+                    throw new IgniteClientException(ErrorGroups.Client.Protocol, "Unsupported type: " + value.GetType());
             }
         }
 
@@ -422,6 +702,39 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             _buffer.Dispose();
         }
 
+        private static (BigInteger Unscaled, int Scale) DeconstructDecimal(decimal value)
+        {
+            Span<int> bits = stackalloc int[4];
+            decimal.GetBits(value, bits);
+
+            var scale = (bits[3] & 0x00FF0000) >> 16;
+            var sign = bits[3] >> 31;
+
+            var bytes = MemoryMarshal.Cast<int, byte>(bits[..3]);
+            var unscaled = new BigInteger(bytes, true);
+
+            return (sign < 0 ? -unscaled : unscaled, scale);
+        }
+
+        private void PutDecimal(int scale, BigInteger unscaledValue, int valueScale)
+        {
+            if (scale > valueScale)
+            {
+                unscaledValue *= BigInteger.Pow(new BigInteger(10), scale - valueScale);
+            }
+            else if (scale < valueScale)
+            {
+                unscaledValue /= BigInteger.Pow(new BigInteger(10), valueScale - scale);
+            }
+
+            var size = unscaledValue.GetByteCount();
+            var destination = GetSpan(size);
+            var success = unscaledValue.TryWriteBytes(destination, out int written, isBigEndian: true);
+
+            Debug.Assert(success, "success");
+            Debug.Assert(written == size, "written == size");
+        }
+
         private void PutByte(sbyte value) => _buffer.WriteByte(unchecked((byte)value));
 
         private void PutShort(short value) => _buffer.WriteShort(value);
@@ -451,9 +764,130 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             _buffer.Advance(actualBytes);
         }
 
-        /// <summary>
-        /// Proceed to the next tuple element.
-        /// </summary>
+        private void PutTimestamp(Instant value)
+        {
+            // Logic taken from
+            // https://github.com/nodatime/nodatime.serialization/blob/main/src/NodaTime.Serialization.Protobuf/NodaExtensions.cs#L69
+            // (Apache License).
+            // See discussion: https://github.com/nodatime/nodatime/issues/1644#issuecomment-1260524451
+            long seconds = value.ToUnixTimeSeconds();
+            Duration remainder = value - Instant.FromUnixTimeSeconds(seconds);
+            int nanos = (int)remainder.NanosecondOfDay;
+
+            PutLong(seconds);
+
+            if (nanos != 0)
+            {
+                PutInt(nanos);
+            }
+        }
+
+        private void PutDuration(Duration value)
+        {
+            // Logic taken from
+            // https://github.com/nodatime/nodatime.serialization/blob/main/src/NodaTime.Serialization.Protobuf/NodaExtensions.cs#L42
+            // (Apache License).
+            long days = value.Days;
+            long nanoOfDay = value.NanosecondOfDay;
+            long secondOfDay = nanoOfDay / NodaConstants.NanosecondsPerSecond;
+            long seconds = days * NodaConstants.SecondsPerDay + secondOfDay;
+            int nanos = value.SubsecondNanoseconds;
+
+            PutLong(seconds);
+
+            if (nanos != 0)
+            {
+                PutInt(nanos);
+            }
+        }
+
+        private void PutPeriod(Period value)
+        {
+            if (value.HasTimeComponent)
+            {
+                throw new NotSupportedException("Period with time component is not supported.");
+            }
+
+            if (value.Weeks != 0)
+            {
+                throw new NotSupportedException("Period with weeks component is not supported.");
+            }
+
+            int years = value.Years;
+            int months = value.Months;
+            int days = value.Days;
+
+            if (years is >= sbyte.MinValue and <= sbyte.MaxValue &&
+                months is >= sbyte.MinValue and <= sbyte.MaxValue &&
+                days is >= sbyte.MinValue and <= sbyte.MaxValue)
+            {
+                PutByte((sbyte) years);
+                PutByte((sbyte) months);
+                PutByte((sbyte) days);
+            }
+            else if (years is >= short.MinValue and <= short.MaxValue &&
+                     months is >= short.MinValue and <= short.MaxValue &&
+                     days is >= short.MinValue and <= short.MaxValue)
+            {
+                PutShort((short) years);
+                PutShort((short) months);
+                PutShort((short) days);
+            }
+            else
+            {
+                PutInt(years);
+                PutInt(months);
+                PutInt(days);
+            }
+        }
+
+        private void PutTime(LocalTime value)
+        {
+            long hour = value.Hour;
+            long minute = value.Minute;
+            long second = value.Second;
+            long nanos = value.NanosecondOfSecond;
+
+            if ((nanos % 1000) != 0)
+            {
+                long time = (hour << 42) | (minute << 36) | (second << 30) | nanos;
+                PutInt((int)time);
+                PutShort((short)(time >> 32));
+            }
+            else if ((nanos % 1000000) != 0)
+            {
+                long time = (hour << 32) | (minute << 26) | (second << 20) | (nanos / 1000);
+                PutInt((int)time);
+                PutByte((sbyte)(time >> 32));
+            }
+            else
+            {
+                long time = (hour << 22) | (minute << 16) | (second << 10) | (nanos / 1000000);
+                PutInt((int)time);
+            }
+        }
+
+        private void PutDate(LocalDate value)
+        {
+            int year = value.Year;
+            int month = value.Month;
+            int day = value.Day;
+
+            int date = (year << 9) | (month << 5) | day;
+
+            // Write int32 as 3 bytes, preserving sign.
+            Span<byte> buf = stackalloc byte[4];
+            BinaryPrimitives.WriteInt32LittleEndian(buf, date << 8);
+
+            buf[1..].CopyTo(GetSpan(3));
+        }
+
+        private void AppendTypeAndScale(ClientDataType type, int scale = 0)
+        {
+            AppendInt((int)type);
+            AppendInt(scale);
+        }
+
         private void OnWrite()
         {
             Debug.Assert(_elementIndex < _numElements, "_elementIndex < _numElements");

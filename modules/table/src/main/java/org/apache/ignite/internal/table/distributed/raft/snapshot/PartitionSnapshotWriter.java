@@ -49,7 +49,7 @@ class PartitionSnapshotWriter extends SnapshotWriter {
     /** {@inheritDoc} */
     @Override
     public String getPath() {
-        return snapshotStorage.snapshotUri;
+        return snapshotStorage.snapshotUri();
     }
 
     /** {@inheritDoc} */

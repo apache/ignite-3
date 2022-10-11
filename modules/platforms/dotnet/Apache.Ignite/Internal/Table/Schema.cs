@@ -15,9 +15,6 @@
  * limitations under the License.
  */
 
-// XMLDoc check fails on older SDKs: https://github.com/dotnet/roslyn/issues/44571.
-#pragma warning disable CS1572
-#pragma warning disable CS1573
 namespace Apache.Ignite.Internal.Table
 {
     using System.Collections.Generic;

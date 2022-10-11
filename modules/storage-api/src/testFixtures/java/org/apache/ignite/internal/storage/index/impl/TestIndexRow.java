@@ -24,7 +24,6 @@ import java.lang.reflect.Array;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Comparator;
-import java.util.Objects;
 import java.util.Random;
 import java.util.function.Function;
 import java.util.stream.IntStream;
@@ -165,24 +164,5 @@ public class TestIndexRow implements IndexRow, Comparable<TestIndexRow> {
                 .mapToObj(i -> Array.get(array, i))
                 .map(Comparable.class::cast)
                 .toArray(Comparable[]::new);
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        TestIndexRow that = (TestIndexRow) o;
-        return Arrays.equals(columns, that.columns) && row.rowId().equals(that.row.rowId());
-    }
-
-    @Override
-    public int hashCode() {
-        int result = Objects.hash(row.rowId());
-        result = 31 * result + Arrays.hashCode(columns);
-        return result;
     }
 }

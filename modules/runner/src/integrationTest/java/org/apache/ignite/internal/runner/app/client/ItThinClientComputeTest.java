@@ -183,7 +183,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     @ParameterizedTest
     @CsvSource({"1,3345", "2,3345", "3,3344", "4,3345"})
     void testExecuteColocatedRunsComputeJobOnKeyNode(int key, int port) {
-        var table = String.format("%s.%s", SCHEMA_NAME, TABLE_NAME);
+        var table = TABLE_NAME;
         var keyTuple = Tuple.create().set(COLUMN_KEY, key);
         var keyPojo = new TestPojo(key);
 
@@ -212,12 +212,11 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         testEchoArg(LocalTime.now());
         testEchoArg(LocalDateTime.now());
         testEchoArg(Instant.now());
-        testEchoArg(true);
         testEchoArg(BigInteger.TEN);
     }
 
     private void testEchoArg(Object arg) {
-        Object res = client().compute().execute(Set.of(node(0)), EchoJob.class, arg).join();
+        Object res = client().compute().execute(Set.of(node(0)), EchoJob.class, arg, arg.toString()).join();
 
         if (arg instanceof byte[]) {
             assertArrayEquals((byte[]) arg, (byte[]) res);
@@ -267,6 +266,14 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     private static class EchoJob implements ComputeJob<Object> {
         @Override
         public Object execute(JobExecutionContext context, Object... args) {
+            var value = args[0];
+
+            if (!(value instanceof byte[])) {
+                var expectedString = (String) args[1];
+                var valueString = value == null ? "null" : value.toString();
+                assertEquals(expectedString, valueString, "Unexpected string representation of value");
+            }
+
             return args[0];
         }
     }

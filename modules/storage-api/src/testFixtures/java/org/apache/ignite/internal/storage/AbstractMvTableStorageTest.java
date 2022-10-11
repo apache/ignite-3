@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
@@ -49,6 +50,7 @@ import org.apache.ignite.internal.schema.testutils.definition.index.IndexDefinit
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
+import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.util.Cursor;
 import org.junit.jupiter.api.Test;
 
@@ -60,7 +62,13 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
     private static final String HASH_INDEX_NAME = "HASH_IDX";
 
-    private static final int PARTITION_ID = 0;
+    protected static final int PARTITION_ID = 0;
+
+    /** Partition id for 0 storage. */
+    protected static final int PARTITION_ID_0 = 42;
+
+    /** Partition id for 1 storage. */
+    protected static final int PARTITION_ID_1 = 1 << 8;
 
     private MvTableStorage tableStorage;
 
@@ -104,28 +112,49 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
      */
     @Test
     void testPartitionIndependence() throws Exception {
-        MvPartitionStorage partitionStorage0 = tableStorage.getOrCreateMvPartition(42);
+        MvPartitionStorage partitionStorage0 = tableStorage.getOrCreateMvPartition(PARTITION_ID_0);
         // Using a shifted ID value to test a multibyte scenario.
-        MvPartitionStorage partitionStorage1 = tableStorage.getOrCreateMvPartition(1 << 8);
+        MvPartitionStorage partitionStorage1 = tableStorage.getOrCreateMvPartition(PARTITION_ID_1);
 
         var testData0 = binaryRow(new TestKey(1, "1"), new TestValue(10, "10"));
 
         UUID txId = UUID.randomUUID();
 
-        RowId rowId0 = partitionStorage0.runConsistently(() -> partitionStorage0.insert(testData0, txId));
+        RowId rowId0 = new RowId(PARTITION_ID_0);
+
+        partitionStorage0.runConsistently(() -> partitionStorage0.addWrite(rowId0, testData0, txId, UUID.randomUUID(), 0));
 
         assertThat(unwrap(partitionStorage0.read(rowId0, txId)), is(equalTo(unwrap(testData0))));
         assertThrows(IllegalArgumentException.class, () -> partitionStorage1.read(rowId0, txId));
 
         var testData1 = binaryRow(new TestKey(2, "2"), new TestValue(20, "20"));
 
-        RowId rowId1 = partitionStorage1.runConsistently(() -> partitionStorage1.insert(testData1, txId));
+        RowId rowId1 = new RowId(PARTITION_ID_1);
+
+        partitionStorage1.runConsistently(() -> partitionStorage1.addWrite(rowId1, testData1, txId, UUID.randomUUID(), 0));
 
         assertThrows(IllegalArgumentException.class, () -> partitionStorage0.read(rowId1, txId));
         assertThat(unwrap(partitionStorage1.read(rowId1, txId)), is(equalTo(unwrap(testData1))));
 
         assertThat(toList(partitionStorage0.scan(row -> true, txId)), contains(unwrap(testData0)));
         assertThat(toList(partitionStorage1.scan(row -> true, txId)), contains(unwrap(testData1)));
+    }
+
+    /**
+     * Tests the {@link MvTableStorage#getOrCreateIndex} method.
+     */
+    @Test
+    public void testCreateIndex() {
+        assertThrows(StorageException.class, () -> tableStorage.getOrCreateIndex(PARTITION_ID, sortedIdx.id()));
+        assertThrows(StorageException.class, () -> tableStorage.getOrCreateIndex(PARTITION_ID, hashIdx.id()));
+
+        // Index should only be available after the associated partition has been created.
+        tableStorage.getOrCreateMvPartition(PARTITION_ID);
+
+        assertThat(tableStorage.getOrCreateIndex(PARTITION_ID, sortedIdx.id()), is(instanceOf(SortedIndexStorage.class)));
+        assertThat(tableStorage.getOrCreateIndex(PARTITION_ID, hashIdx.id()), is(instanceOf(HashIndexStorage.class)));
+
+        assertThrows(StorageException.class, () -> tableStorage.getOrCreateIndex(PARTITION_ID, UUID.randomUUID()));
     }
 
     /**
@@ -216,8 +245,6 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         assertThat(getAll(storage1.get(tuple)), contains(rowId1));
         assertThat(getAll(storage2.get(tuple)), contains(rowId2));
-
-        assertThat(tableStorage.destroyIndex(sortedIdx.id()), willCompleteSuccessfully());
     }
 
     /**

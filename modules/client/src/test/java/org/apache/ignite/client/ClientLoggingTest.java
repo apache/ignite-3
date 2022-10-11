@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.ResourceBundle;
 import java.util.function.Supplier;
 import org.apache.ignite.client.fakes.FakeIgnite;
+import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.LoggerFactory;
 import org.junit.jupiter.api.AfterEach;
@@ -52,9 +53,9 @@ public class ClientLoggingTest {
     @Test
     public void loggersSetToDifferentClientsNotInterfereWithEachOther() throws Exception {
         FakeIgnite ignite1 = new FakeIgnite();
-        ignite1.tables().createTable("t", c -> {});
+        ((FakeIgniteTables) ignite1.tables()).createTable("t");
 
-        server = startServer(10900, ignite1);
+        server = startServer(10950, ignite1);
 
         var loggerFactory1 = new TestLoggerFactory("client1");
         var loggerFactory2 = new TestLoggerFactory("client2");
@@ -71,9 +72,9 @@ public class ClientLoggingTest {
         server.close();
 
         FakeIgnite ignite2 = new FakeIgnite();
-        ignite2.tables().createTable("t2", c -> {});
+        ((FakeIgniteTables) ignite2.tables()).createTable("t2");
 
-        server2 = startServer(10950, ignite2);
+        server2 = startServer(10951, ignite2);
 
         assertEquals("t2", client1.tables().tables().get(0).name());
         assertEquals("t2", client2.tables().tables().get(0).name());
@@ -96,8 +97,7 @@ public class ClientLoggingTest {
 
     private IgniteClient createClient(LoggerFactory loggerFactory) {
         return IgniteClient.builder()
-                .addresses("127.0.0.1:10900..10910", "127.0.0.1:10950..10960")
-                .retryPolicy(new RetryLimitPolicy().retryLimit(1))
+                .addresses("127.0.0.1:10950..10960")
                 .loggerFactory(loggerFactory)
                 .build();
     }

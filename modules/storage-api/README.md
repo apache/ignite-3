@@ -22,7 +22,7 @@ To add a new data storage you need:
     * Implementation of `org.apache.ignite.internal.storage.DataStorageModule`;
     * Implementation of `org.apache.ignite.internal.configuration.ConfigurationModule`.
 
-Take `org.apache.ignite.internal.storage.chm.TestConcurrentHashMapStorageEngine` as an example.
+Take `org.apache.ignite.internal.storage.impl.TestStorageEngine` as an example.
 
 ## Usage
 

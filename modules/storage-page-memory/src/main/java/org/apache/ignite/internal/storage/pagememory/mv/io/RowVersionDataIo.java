@@ -20,7 +20,7 @@ package org.apache.ignite.internal.storage.pagememory.mv.io;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putByteBuffer;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putInt;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putShort;
-import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.writePartitionlessLink;
+import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.writePartitionless;
 
 import java.nio.ByteBuffer;
 import org.apache.ignite.hlc.HybridTimestamp;
@@ -63,7 +63,7 @@ public class RowVersionDataIo extends AbstractDataPageIo<RowVersion> {
 
         addr += HybridTimestamps.writeTimestampToMemory(addr, 0, row.timestamp());
 
-        addr += writePartitionlessLink(addr, row.nextLink());
+        addr += writePartitionless(addr, row.nextLink());
 
         putInt(addr, 0, row.valueSize());
         addr += 4;

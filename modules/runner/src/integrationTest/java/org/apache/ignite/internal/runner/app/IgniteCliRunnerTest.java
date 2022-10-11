@@ -55,7 +55,7 @@ public class IgniteCliRunnerTest {
         CompletableFuture<Ignite> ign = IgniteCliRunner.start(
                 "--config-path", configPath.toAbsolutePath().toString(),
                 "--work-dir", workDir.resolve("node").toAbsolutePath().toString(),
-                NODE_NAME
+                "--node-name", NODE_NAME
         );
 
         IgnitionManager.init(NODE_NAME, List.of(NODE_NAME), "cluster");
@@ -67,7 +67,7 @@ public class IgniteCliRunnerTest {
     public void smokeTestArgsNullConfig() {
         CompletableFuture<Ignite> ign = IgniteCliRunner.start(
                 "--work-dir", workDir.resolve("node").toAbsolutePath().toString(),
-                NODE_NAME
+                "--node-name", NODE_NAME
         );
 
         IgnitionManager.init(NODE_NAME, List.of(NODE_NAME), "cluster");

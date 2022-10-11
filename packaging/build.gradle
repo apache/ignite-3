@@ -17,7 +17,8 @@
 
 plugins {
     id 'java'
-    id 'application'
+    id 'distribution'
+    alias(libs.plugins.docker)
     alias(libs.plugins.nebula)
 }
 
@@ -38,50 +39,50 @@ dependencies {
 // task that generates start script for cli
 task cliStartScript(type: CreateStartScripts) {
     // will be passed to exec "java ... <mainClassName>"
-    mainClassName = "org.apache.ignite.internal.cli.Main"
+    mainClass = "org.apache.ignite.internal.cli.Main"
     // forms a classpath string that will be passed to exec "java -cp <classpath> .."
     // it is expected to locate the "lib" dir together with "bin"
     classpath = files(new File("../lib/${project(':ignite-cli').name}-${project(':ignite-cli').version}.jar"), new File("../lib/*"))
-    outputDir = startScripts.outputDir
+    outputDir = file "$buildDir/scripts"
     applicationName = 'ignite3-cli'
+}
+
+def dbContents = spec -> {
+    // create empty dirs that are required to start Ignite
+    into('') {
+        File.createTempDir().with {
+            ["log", "etc", "work"].each {new File(absolutePath, it).mkdirs() }
+            from (absolutePath) {
+                includeEmptyDirs = true
+            }
+        }
+    }
+    into('') {
+        from ("$rootDir/LICENSE")
+        from ("$rootDir/NOTICE")
+        from ("$rootDir/assembly/README.md")
+    }
+    into('etc') {
+        from ("${buildDir}/scripts/bootstrap-config")
+        from ("${buildDir}/config/ignite-config.conf")
+        from ("${buildDir}/config/ignite.java.util.logging.properties")
+    }
+    into('bin') {
+        fileMode 0755
+        from ("$rootDir/packaging/scripts/ignite3-db.sh")
+    }
+    into('lib') {
+        from(configurations.dbArtifacts)
+    }
 }
 
 distributions {
     db {
-        startScripts.enabled = false
         distributionBaseName = 'ignite3-db'
-        contents {
-            // create empty dirs that are required to start Ignite
-            into('') {
-                File.createTempDir().with {
-                    ["log", "etc", "work"].each {new File(absolutePath, it).mkdirs() }
-                    from (absolutePath) {
-                        includeEmptyDirs = true
-                    }
-                }
-            }
-            into('') {
-                from ("$rootDir/LICENSE")
-                from ("$rootDir/NOTICE")
-                from ("$rootDir/assembly/README.md")
-            }
-            into('etc') {
-                from ("${buildDir}/scripts/bootstrap-config")
-                from ("${buildDir}/config/ignite-config.conf")
-                from ("${buildDir}/config/ignite.java.util.logging.properties")
-            }
-            into('bin') {
-                fileMode 0755
-                from ("$rootDir/packaging/scripts/ignite3-db.sh")
-            }
-            into('lib') {
-                from(configurations.dbArtifacts)
-            }
-        }
+        contents dbContents
     }
 
     cli {
-        startScripts.applicationName ='ignite3-cli'
         distributionBaseName = 'ignite3-cli'
         contents {
             into('') {
@@ -110,6 +111,16 @@ distributions {
     }
 }
 
+docker {
+    name 'apacheignite/ignite3'
+    dockerfile file('docker/Dockerfile')
+
+    copySpec.into 'dist', dbContents
+    copySpec.into('dist/bin') {
+        fileMode 0755
+        from('docker/docker-entrypoint.sh')
+    }
+}
 
 // create an uber zip with all distributions
 task allDistZip(type: Zip) {

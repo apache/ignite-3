@@ -94,7 +94,7 @@ public class RecordViewPojoExample {
             //--------------------------------------------------------------------------------------
 
             RecordView<Account> accounts = client.tables()
-                    .table("PUBLIC.accounts")
+                    .table("accounts")
                     .recordView(Account.class);
 
             //--------------------------------------------------------------------------------------

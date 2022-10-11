@@ -45,15 +45,8 @@ import java.util.concurrent.Flow;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.ignite.configuration.ConfigurationValue;
-import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.EntryCountBudgetConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
-import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.index.IndexManager;
@@ -136,15 +129,7 @@ public class StopCalciteModuleTest {
 
     TestRevisionRegister testRevisionRegister = new TestRevisionRegister();
 
-    @InjectConfiguration(polymorphicExtensions = {
-            HashIndexConfigurationSchema.class,
-            UnknownDataStorageConfigurationSchema.class,
-            ConstantValueDefaultConfigurationSchema.class,
-            FunctionCallDefaultConfigurationSchema.class,
-            NullValueDefaultConfigurationSchema.class,
-            UnlimitedBudgetConfigurationSchema.class,
-            EntryCountBudgetConfigurationSchema.class
-    })
+    @InjectConfiguration
     TablesConfiguration tablesConfig;
 
     /**
@@ -168,7 +153,7 @@ public class StopCalciteModuleTest {
 
         schemaReg = new SchemaRegistryImpl((v) -> schemaDesc, () -> INITIAL_SCHEMA_VERSION, schemaDesc);
 
-        when(tbl.name()).thenReturn("PUBLIC.TEST");
+        when(tbl.name()).thenReturn("TEST");
 
         when(schemaManager.schemaRegistry(anyLong(), any())).thenReturn(completedFuture(schemaReg));
 

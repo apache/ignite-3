@@ -120,7 +120,7 @@ public class RocksDbTableStorage implements MvTableStorage {
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
-    /** Prevents double stopping the component. */
+    /** Prevents double stopping of the component. */
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
     /**
@@ -177,6 +177,11 @@ public class RocksDbTableStorage implements MvTableStorage {
     @Override
     public TableConfiguration configuration() {
         return tableCfg;
+    }
+
+    @Override
+    public TablesConfiguration tablesConfiguration() {
+        return tablesCfg;
     }
 
     /** {@inheritDoc} */

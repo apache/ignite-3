@@ -20,6 +20,7 @@ package org.apache.ignite.internal.cluster.management.raft;
 import static org.apache.ignite.internal.rocksdb.snapshot.ColumnFamilyRange.fullRange;
 
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -105,6 +106,26 @@ public class RocksDbClusterStateStorage implements ClusterStateStorage {
             db.put(key, value);
         } catch (RocksDBException e) {
             throw new IgniteInternalException("Unable to put data into Rocks DB", e);
+        }
+    }
+
+    @Override
+    public void replaceAll(byte[] prefix, byte[] key, byte[] value) {
+        try (
+                var batch = new WriteBatch();
+                var options = new WriteOptions();
+        ) {
+            byte[] endKey = RocksUtils.incrementArray(prefix);
+
+            assert endKey != null : Arrays.toString(prefix);
+
+            batch.deleteRange(prefix, endKey);
+
+            batch.put(key, value);
+
+            db.write(options, batch);
+        } catch (RocksDBException e) {
+            throw new IgniteInternalException("Unable to replace data in Rocks DB", e);
         }
     }
 

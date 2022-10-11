@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import io.netty.util.ResourceLeakDetector;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.client.fakes.FakeIgnite;
+import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -71,13 +72,13 @@ public abstract class AbstractClientTest {
      * After each.
      */
     @BeforeEach
-    public void beforeEach() {
+    public void beforeEach() throws InterruptedException {
         dropTables(server);
     }
 
     protected void dropTables(Ignite ignite) {
         for (var t : ignite.tables().tables()) {
-            ignite.tables().dropTable(t.name());
+            ((FakeIgniteTables) ignite.tables()).dropTable(t.name());
         }
     }
 

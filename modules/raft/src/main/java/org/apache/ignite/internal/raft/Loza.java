@@ -28,9 +28,12 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import org.apache.ignite.configuration.schemas.table.VolatileRaftConfiguration;
+import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.RaftServer;
@@ -49,6 +52,7 @@ import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
+import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupServiceImpl;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.jetbrains.annotations.TestOnly;
@@ -90,37 +94,28 @@ public class Loza implements IgniteComponent {
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
-    /** Prevents double stopping the component. */
+    /** Prevents double stopping of the component. */
     private final AtomicBoolean stopGuard = new AtomicBoolean();
+
+    /** Raft configuration. */
+    private final RaftConfiguration raftConfiguration;
 
     /**
      * The constructor.
      *
      * @param clusterNetSvc Cluster network service.
      * @param dataPath      Data path.
+     * @param clock         A hybrid logical clock.
      */
-    public Loza(ClusterService clusterNetSvc, Path dataPath) {
+    public Loza(ClusterService clusterNetSvc, RaftConfiguration raftConfiguration, Path dataPath, HybridClock clock) {
         this.clusterNetSvc = clusterNetSvc;
+        this.raftConfiguration = raftConfiguration;
 
-        this.raftServer = new JraftServerImpl(clusterNetSvc, dataPath);
+        NodeOptions options = new NodeOptions();
 
-        this.executor = new ScheduledThreadPoolExecutor(CLIENT_POOL_SIZE,
-                new NamedThreadFactory(NamedThreadFactory.threadPrefix(clusterNetSvc.localConfiguration().getName(),
-                        CLIENT_POOL_NAME), LOG
-                )
-        );
-    }
+        options.setClock(clock);
 
-    /**
-     * The constructor. Used for testing purposes.
-     *
-     * @param srv Pre-started raft server.
-     */
-    @TestOnly
-    public Loza(JraftServerImpl srv) {
-        this.clusterNetSvc = srv.clusterService();
-
-        this.raftServer = srv;
+        this.raftServer = new JraftServerImpl(clusterNetSvc, dataPath, options);
 
         this.executor = new ScheduledThreadPoolExecutor(CLIENT_POOL_SIZE,
                 new NamedThreadFactory(NamedThreadFactory.threadPrefix(clusterNetSvc.localConfiguration().getName(),
@@ -162,8 +157,8 @@ public class Loza implements IgniteComponent {
      * Creates a raft group service providing operations on a raft group. If {@code nodes} contains the current node, then raft group starts
      * on the current node.
      *
-     * @param groupId      Raft group id.
-     * @param nodes        Raft group nodes.
+     * @param groupId Raft group id.
+     * @param nodes Raft group nodes.
      * @param lsnrSupplier Raft group listener supplier.
      * @param groupOptions Options to apply to the group.
      * @return Future representing pending completion of the operation.
@@ -175,12 +170,34 @@ public class Loza implements IgniteComponent {
             Supplier<RaftGroupListener> lsnrSupplier,
             RaftGroupOptions groupOptions
     ) throws NodeStoppingException {
+        return prepareRaftGroup(groupId, nodes, lsnrSupplier, () -> RaftGroupEventsListener.noopLsnr, groupOptions);
+    }
+
+    /**
+     * Creates a raft group service providing operations on a raft group. If {@code nodes} contains the current node, then raft group starts
+     * on the current node.
+     *
+     * @param groupId Raft group id.
+     * @param nodes Raft group nodes.
+     * @param lsnrSupplier Raft group listener supplier.
+     * @param raftGrpEvtsLsnrSupplier Raft group events listener supplier.
+     * @param groupOptions Options to apply to the group.
+     * @return Future representing pending completion of the operation.
+     * @throws NodeStoppingException If node stopping intention was detected.
+     */
+    public CompletableFuture<RaftGroupService> prepareRaftGroup(
+            String groupId,
+            List<ClusterNode> nodes,
+            Supplier<RaftGroupListener> lsnrSupplier,
+            Supplier<RaftGroupEventsListener> raftGrpEvtsLsnrSupplier,
+            RaftGroupOptions groupOptions
+    ) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
         }
 
         try {
-            return prepareRaftGroupInternal(groupId, nodes, lsnrSupplier, () -> RaftGroupEventsListener.noopLsnr, groupOptions);
+            return prepareRaftGroupInternal(groupId, nodes, lsnrSupplier, raftGrpEvtsLsnrSupplier, groupOptions);
         } finally {
             busyLock.leaveBusy();
         }
@@ -189,9 +206,9 @@ public class Loza implements IgniteComponent {
     /**
      * Internal method to a raft group creation.
      *
-     * @param groupId                 Raft group id.
-     * @param nodes                   Raft group nodes.
-     * @param lsnrSupplier            Raft group listener supplier.
+     * @param groupId Raft group id.
+     * @param nodes Raft group nodes.
+     * @param lsnrSupplier Raft group listener supplier.
      * @param raftGrpEvtsLsnrSupplier Raft group events listener supplier.
      * @param groupOptions Options to apply to the group.
      * @return Future representing pending completion of the operation.
@@ -343,6 +360,10 @@ public class Loza implements IgniteComponent {
      */
     public TopologyService topologyService() {
         return clusterNetSvc.topologyService();
+    }
+
+    public VolatileRaftConfiguration volatileRaft() {
+        return raftConfiguration.volatileRaft();
     }
 
     /**

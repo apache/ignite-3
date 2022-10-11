@@ -51,21 +51,9 @@ public class ItIndexManagerTest extends AbstractBasicIntegrationTest {
     public void eventsAreFiredWhenIndexesCreatedAndDropped() {
         Ignite ignite = CLUSTER_NODES.get(0);
 
-        TableImpl table = (TableImpl) ignite.tables().createTable("PUBLIC.TNAME", tableChange -> {
-            tableChange.changeColumns(columnsChange -> {
-                columnsChange.create("c1", columnChange ->
-                        columnChange.changeType(columnTypeChange -> columnTypeChange.changeType("INT32")));
-                columnsChange.create("c2", columnChange ->
-                        columnChange.changeType(columnTypeChange -> columnTypeChange.changeType("INT32")));
-                columnsChange.create("c3", columnChange ->
-                        columnChange.changeType(columnTypeChange -> columnTypeChange.changeType("INT32")));
-            });
+        sql("CREATE TABLE tname (c1 INT PRIMARY KEY, c2 INT, c3 INT)");
 
-            tableChange.changePrimaryKey(primaryKeyChange -> {
-                primaryKeyChange.changeColumns("c1");
-                primaryKeyChange.changeColocationColumns("c1");
-            });
-        });
+        TableImpl table = (TableImpl) ignite.tables().table("tname");
 
         IndexManager indexManager = ((IgniteImpl) ignite).indexManager();
 
@@ -84,14 +72,14 @@ public class ItIndexManagerTest extends AbstractBasicIntegrationTest {
         });
 
         indexManager.createIndexAsync("PUBLIC", "INAME", "TNAME", true, tableIndexChange ->
-                tableIndexChange.convert(HashIndexChange.class).changeColumnNames("c3", "c2")).join();
+                tableIndexChange.convert(HashIndexChange.class).changeColumnNames("C3", "C2")).join();
 
         Index<?> index = createEventParamHolder.get().index();
 
         assertThat(index, notNullValue());
         assertThat(index.tableId(), equalTo(table.tableId()));
-        assertThat(index.descriptor().columns(), hasItems("c3", "c2"));
-        assertThat(index.name(), equalTo("PUBLIC.INAME"));
+        assertThat(index.descriptor().columns(), hasItems("C3", "C2"));
+        assertThat(index.name(), equalTo("INAME"));
         assertThat(index.name(), equalTo(index.descriptor().name()));
         assertThat(createEventParamHolder.get(), notNullValue());
         assertThat(index, sameInstance(createEventParamHolder.get().index()));

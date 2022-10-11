@@ -306,8 +306,9 @@ namespace Apache.Ignite.Internal
             int code = reader.TryReadNil() ? 65537 : reader.ReadInt32();
             string className = reader.ReadString();
             string? message = reader.ReadString();
+            string? javaStackTrace = reader.ReadString();
 
-            return ExceptionMapper.GetException(traceId, code, className, message);
+            return ExceptionMapper.GetException(traceId, code, className, message, javaStackTrace);
         }
 
         private static async ValueTask<PooledBuffer> ReadResponseAsync(
@@ -509,7 +510,7 @@ namespace Apache.Ignite.Internal
 
                     // Invoke response handler in another thread to continue the receive loop.
                     // Response buffer should be disposed by the task handler.
-                    ThreadPool.QueueUserWorkItem(r => HandleResponse((PooledBuffer)r), response);
+                    ThreadPool.QueueUserWorkItem(r => HandleResponse((PooledBuffer)r!), response);
                 }
             }
             catch (Exception e)
@@ -603,7 +604,7 @@ namespace Apache.Ignite.Internal
             {
                 foreach (var reqId in _requests.Keys.ToArray())
                 {
-                    if (_requests.TryRemove(reqId, out var req) && req != null)
+                    if (_requests.TryRemove(reqId, out var req))
                     {
                         req.TrySetException(ex);
                     }

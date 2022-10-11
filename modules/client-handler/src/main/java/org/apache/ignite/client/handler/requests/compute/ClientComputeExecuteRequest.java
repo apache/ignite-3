@@ -17,8 +17,6 @@
 
 package org.apache.ignite.client.handler.requests.compute;
 
-import static org.apache.ignite.internal.util.ArrayUtils.OBJECT_EMPTY_ARRAY;
-
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.IgniteCompute;
@@ -60,7 +58,7 @@ public class ClientComputeExecuteRequest {
 
         Object[] args = unpackArgs(in);
 
-        return compute.execute(Set.of(node), jobClassName, args).thenAccept(out::packObjectWithType);
+        return compute.execute(Set.of(node), jobClassName, args).thenAccept(out::packObjectAsBinaryTuple);
     }
 
     /**
@@ -71,21 +69,6 @@ public class ClientComputeExecuteRequest {
      */
     @NotNull
     public static Object[] unpackArgs(ClientMessageUnpacker in) {
-        if (in.tryUnpackNil()) {
-            return OBJECT_EMPTY_ARRAY;
-        }
-
-        int argCnt = in.unpackArrayHeader();
-
-        if (argCnt == 0) {
-            return OBJECT_EMPTY_ARRAY;
-        }
-
-        Object[] args = new Object[argCnt];
-
-        for (int i = 0; i < argCnt; i++) {
-            args[i] = in.unpackObjectWithType();
-        }
-        return args;
+        return in.unpackObjectArrayFromBinaryTuple();
     }
 }

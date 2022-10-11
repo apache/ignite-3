@@ -18,10 +18,12 @@
 namespace Apache.Ignite.Tests.Table
 {
     using System;
+    using System.Collections;
     using System.Collections.Generic;
     using System.Globalization;
     using System.Linq;
     using System.Threading.Tasks;
+    using NodaTime;
     using NUnit.Framework;
 
     /// <summary>
@@ -536,7 +538,7 @@ namespace Apache.Ignite.Tests.Table
             using var deferDropTable = new DisposeAction(
                 () => Client.Sql.ExecuteAsync(null, "DROP TABLE TestBigPoco").GetAwaiter().GetResult());
 
-            var table = await Client.Tables.GetTableAsync("PUBLIC.TestBigPoco");
+            var table = await Client.Tables.GetTableAsync("TestBigPoco");
             var pocoView = table!.GetRecordView<Poco2>();
 
             var poco = new Poco2
@@ -569,5 +571,67 @@ namespace Apache.Ignite.Tests.Table
             Assert.AreEqual(poco.Prop9, res.Prop9);
             Assert.AreEqual(poco.Prop10, res.Prop10);
         }
+
+        [Test]
+        public async Task TestAllColumnsPoco()
+        {
+            var table = await Client.Tables.GetTableAsync(TableAllColumnsName);
+            var pocoView = table!.GetRecordView<PocoAllColumns>();
+
+            var dt = LocalDateTime.FromDateTime(DateTime.UtcNow);
+            var poco = new PocoAllColumns(
+                Key: 123,
+                Str: "str",
+                Int8: 8,
+                Int16: 16,
+                Int32: 32,
+                Int64: 64,
+                Float: 32.32f,
+                Double: 64.64,
+                Uuid: Guid.NewGuid(),
+                Date: dt.Date,
+                BitMask: new BitArray(new byte[] { 1 }),
+                Time: dt.TimeOfDay,
+                DateTime: dt,
+                Timestamp: Instant.FromDateTimeUtc(DateTime.UtcNow),
+                Blob: new byte[] { 1, 2, 3 },
+                Decimal: 123.456m);
+
+            await pocoView.UpsertAsync(null, poco);
+
+            var res = await pocoView.GetAsync(null, poco);
+
+            Assert.AreEqual(poco.Blob, res!.Blob);
+            Assert.AreEqual(poco.Date, res.Date);
+            Assert.AreEqual(poco.Decimal, res.Decimal);
+            Assert.AreEqual(poco.Double, res.Double);
+            Assert.AreEqual(poco.Float, res.Float);
+            Assert.AreEqual(poco.Int8, res.Int8);
+            Assert.AreEqual(poco.Int16, res.Int16);
+            Assert.AreEqual(poco.Int32, res.Int32);
+            Assert.AreEqual(poco.Int64, res.Int64);
+            Assert.AreEqual(poco.Str, res.Str);
+            Assert.AreEqual(poco.Uuid, res.Uuid);
+            Assert.AreEqual(poco.BitMask, res.BitMask);
+            Assert.AreEqual(poco.Timestamp, res.Timestamp);
+            Assert.AreEqual(poco.Time, res.Time);
+            Assert.AreEqual(poco.DateTime, res.DateTime);
+        }
+
+        [Test]
+        public async Task TestUnsupportedColumnTypeThrowsException()
+        {
+            var table = await Client.Tables.GetTableAsync(TableAllColumnsName);
+            var pocoView = table!.GetRecordView<UnsupportedByteType>();
+
+            var ex = Assert.ThrowsAsync<IgniteClientException>(async () => await pocoView.UpsertAsync(null, new UnsupportedByteType(1)));
+            Assert.AreEqual(
+                "Can't map field 'UnsupportedByteType.<Int8>k__BackingField' of type 'System.Byte' " +
+                "to column 'INT8' of type 'System.SByte' - types do not match.",
+                ex!.Message);
+        }
+
+        // ReSharper disable once NotAccessedPositionalProperty.Local
+        private record UnsupportedByteType(byte Int8);
     }
 }

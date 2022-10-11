@@ -29,13 +29,15 @@ namespace Apache.Ignite.Tests
     /// </summary>
     public class IgniteTestsBase
     {
-        protected const string TableName = "PUB.TBL1";
+        protected const string TableName = "TBL1";
+
+        protected const string TableAllColumnsName = "TBL_ALL_COLUMNS";
 
         protected const string KeyCol = "key";
 
         protected const string ValCol = "val";
 
-        protected static readonly TimeSpan ServerIdleTimeout = TimeSpan.FromMilliseconds(1000); // See PlatformTestNodeRunner.
+        protected static readonly TimeSpan ServerIdleTimeout = TimeSpan.FromMilliseconds(3000); // See PlatformTestNodeRunner.
 
         private static readonly JavaServer ServerNode;
 

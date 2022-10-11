@@ -109,7 +109,7 @@ namespace Apache.Ignite.Table
         }
 
         /// <inheritdoc />
-        public bool Equals(IgniteTuple other)
+        public bool Equals(IgniteTuple? other)
         {
             return IIgniteTuple.Equals(this, other);
         }

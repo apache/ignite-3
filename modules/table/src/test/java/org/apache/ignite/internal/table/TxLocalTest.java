@@ -18,13 +18,18 @@
 package org.apache.ignite.internal.table;
 
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
-import java.util.List;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.Function;
-import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapMvPartitionStorage;
-import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
-import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.hlc.HybridClock;
+import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.listener.ReplicaListener;
+import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.tx.LockManager;
@@ -37,7 +42,6 @@ import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
-import org.mockito.Mockito;
 
 /**
  * Local table tests.
@@ -53,41 +57,41 @@ public class TxLocalTest extends TxAbstractTest {
     @Override
     @BeforeEach
     public void before() {
-        ClusterService clusterService = Mockito.mock(ClusterService.class, RETURNS_DEEP_STUBS);
-        Mockito.when(clusterService.topologyService().localMember().address()).thenReturn(DummyInternalTableImpl.ADDR);
+        ClusterService clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
+        when(clusterService.topologyService().localMember().address()).thenReturn(DummyInternalTableImpl.ADDR);
 
         lockManager = new HeapLockManager();
 
-        txManager = new TxManagerImpl(clusterService, lockManager);
+        ReplicaService replicaSvc = mock(ReplicaService.class, RETURNS_DEEP_STUBS);
+
+        Map<String, DummyInternalTableImpl> tables = new HashMap<>();
+
+        lenient().doAnswer(
+            invocationOnMock -> {
+                    ReplicaRequest request = invocationOnMock.getArgument(1);
+                    ReplicaListener replicaListener = tables.get(request.groupId()).getReplicaListener();
+
+                    CompletableFuture<Object> invoke = replicaListener.invoke(request);
+                    return invoke;
+            }
+        ).when(replicaSvc).invoke(any(), any());
+
+        txManager = new TxManagerImpl(replicaSvc, lockManager, new HybridClock());
 
         igniteTransactions = new IgniteTransactionsImpl(txManager);
 
-        AtomicLong accountsRaftIndex = new AtomicLong();
-
-        DummyInternalTableImpl table = new DummyInternalTableImpl(
-                new VersionedRowStore(new TestConcurrentHashMapMvPartitionStorage(0), txManager),
-                txManager,
-                accountsRaftIndex
-        );
+        DummyInternalTableImpl table = new DummyInternalTableImpl(replicaSvc, txManager, true);
 
         accounts = new TableImpl(table, new DummySchemaManagerImpl(ACCOUNTS_SCHEMA));
 
-        AtomicLong customersRaftIndex = new AtomicLong();
-        DummyInternalTableImpl table2 = new DummyInternalTableImpl(
-                new VersionedRowStore(new TestConcurrentHashMapMvPartitionStorage(0), txManager),
-                txManager,
-                customersRaftIndex
-        );
+        DummyInternalTableImpl table2 = new DummyInternalTableImpl(replicaSvc, txManager, true);
 
         customers = new TableImpl(table2, new DummySchemaManagerImpl(CUSTOMERS_SCHEMA));
 
-        List<PartitionListener> partitionListeners = List.of(table.getPartitionListener(), table2.getPartitionListener());
+        when(clusterService.messagingService()).thenReturn(mock(MessagingService.class, RETURNS_DEEP_STUBS));
 
-        Function<PartitionListener, AtomicLong> raftIndexfactory = pl ->
-                pl == table.getPartitionListener() ? accountsRaftIndex : customersRaftIndex;
-
-        MessagingService messagingService = MessagingServiceTestUtils.mockMessagingService(txManager, partitionListeners, raftIndexfactory);
-        Mockito.when(clusterService.messagingService()).thenReturn(messagingService);
+        tables.put(table.groupId(), table);
+        tables.put(table2.groupId(), table2);
     }
 
     @Disabled
