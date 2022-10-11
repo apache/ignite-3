@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.storage.pagememory.index.InlineUtils.bi
 import static org.apache.ignite.internal.storage.pagememory.index.InlineUtils.inlineSize;
 import static org.apache.ignite.internal.storage.pagememory.index.InlineUtils.innerNodePayloadSize;
 import static org.apache.ignite.internal.storage.pagememory.index.InlineUtils.leafNodePayloadSize;
+import static org.apache.ignite.internal.storage.pagememory.index.InlineUtils.optimizeItemSize;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -268,6 +269,13 @@ public class InlineUtilsTest {
                 BinaryTupleCommon.HEADER_SIZE + 1 + 5 + NativeTypes.INT64.sizeInBytes() + 3 * NativeTypes.UUID.sizeInBytes() + 32 + 6,
                 binaryTupleInlineSize(pageSize, itemHeaderSize, indexDescriptor)
         );
+    }
+
+    @Test
+    void testOptimizeItemSize() {
+        assertEquals(100, optimizeItemSize(1000, 100));
+
+        assertEquals(333, optimizeItemSize(1000, 330));
     }
 
     private static IndexDescriptor testIndexDescriptor(ColumnDescriptor... columnDescriptors) {

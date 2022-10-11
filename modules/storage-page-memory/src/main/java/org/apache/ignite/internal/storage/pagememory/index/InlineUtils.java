@@ -141,33 +141,23 @@ public class InlineUtils {
         if (indexDescriptor.columns().stream().anyMatch(c -> !c.type().spec().fixedLength())) {
             int itemSize = binaryTupleInlineSize + itemHeaderSize;
 
-            // Let's calculate how much space remains in the BplusInnerIo and the BplusLeafIo.
-            int remainingInnerNodePayloadSize = (innerNodePayloadSize(pageSize) - CHILD_LINK_SIZE) % (itemSize + CHILD_LINK_SIZE);
-            int remainingLeafNodePayloadSize = leafNodePayloadSize(pageSize) % itemSize;
+            int innerNodeItemSize =
+                    optimizeItemSize(innerNodePayloadSize(pageSize) - CHILD_LINK_SIZE, itemSize + CHILD_LINK_SIZE) - CHILD_LINK_SIZE;
 
-            if (remainingInnerNodePayloadSize > 0 && remainingLeafNodePayloadSize > 0) {
-                int innerNodeItemCount = (innerNodePayloadSize(pageSize) - CHILD_LINK_SIZE) / (itemSize + CHILD_LINK_SIZE);
-                int leafNodeItemCount = leafNodePayloadSize(pageSize) / itemSize;
+            int leafNodeItemSize = optimizeItemSize(leafNodePayloadSize(pageSize), itemSize);
 
-                // Let's calculate how many additional bytes can be added for each item of the BplusInnerIo and the BplusLeafIo.
-                int additionalInnerNodeItemBytes = remainingInnerNodePayloadSize / innerNodeItemCount;
-                int additionalLeafNodeItemBytes = remainingLeafNodePayloadSize / leafNodeItemCount;
+            int optimizedItemSize = Math.min(innerNodeItemSize, leafNodeItemSize);
 
-                if (additionalInnerNodeItemBytes > 0 && additionalLeafNodeItemBytes > 0) {
-                    itemSize += Math.min(additionalInnerNodeItemBytes, additionalLeafNodeItemBytes);
+            assert leafNodePayloadSize(pageSize) / itemSize == leafNodePayloadSize(pageSize) / optimizedItemSize;
 
-                    assert leafNodePayloadSize(pageSize) / itemSize == leafNodeItemCount;
-
-                    binaryTupleInlineSize = itemSize - itemHeaderSize;
-                }
-            }
+            binaryTupleInlineSize = optimizedItemSize - itemHeaderSize;
         }
 
         return Math.min(binaryTupleInlineSize, MAX_BINARY_TUPLE_INLINE_SIZE);
     }
 
     /**
-     * Returns number of bytes that can be used to store items and references to child nodes in an inner node.
+     * Returns number of bytes that can be used to store items and links to child nodes in an inner node.
      *
      * @param pageSize Page size in bytes.
      */
@@ -182,5 +172,26 @@ public class InlineUtils {
      */
     static int leafNodePayloadSize(int pageSize) {
         return pageSize - BplusLeafIo.HEADER_SIZE;
+    }
+
+    /**
+     * Optimizes the item size for a {@link BplusInnerIo} or {@link BplusLeafIo} if there is free space for each item.
+     *
+     * <p>We try to use the available memory on the page as much as possible.
+     *
+     * @param nodePayloadSize Payload size of a {@link BplusInnerIo} or {@link BplusLeafIo}, in bytes.
+     * @param itemSize Size of the item in {@link BplusInnerIo} or {@link BplusLeafIo}, in bytes.
+     * @return Size in bytes.
+     */
+    static int optimizeItemSize(int nodePayloadSize, int itemSize) {
+        // Let's calculate how much space remains in the BplusInnerIo or the BplusLeafIo.
+        int remainingNodePayloadSize = nodePayloadSize % itemSize;
+
+        int nodeItemCount = nodePayloadSize / itemSize;
+
+        // Let's calculate how many additional bytes can be added for each item of the BplusInnerIo and the BplusLeafIo.
+        int additionalNodeItemBytes = remainingNodePayloadSize / nodeItemCount;
+
+        return itemSize + additionalNodeItemBytes;
     }
 }
