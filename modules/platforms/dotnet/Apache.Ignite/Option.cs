@@ -18,9 +18,9 @@
 namespace Apache.Ignite;
 
 using System;
+using System.Diagnostics.CodeAnalysis;
+using System.Text;
 
-// TODO: Make sure this does not clash with F# option.
-// TODO: Convenience methods and constructors, implicit casts.
 /// <summary>
 /// A wrapper that may or may not contain a value of type <typeparamref name="T"/>.
 /// </summary>
@@ -29,12 +29,15 @@ public readonly record struct Option<T>
 {
     private readonly T _value;
 
-    #pragma warning disable SA1642
     /// <summary>
     /// Initializes a new instance of the <see cref="Option{T}"/> struct.
     /// </summary>
     /// <param name="value">Value.</param>
     /// <param name="hasValue">Whether the value is present.</param>
+    [SuppressMessage(
+        "StyleCop.CSharp.DocumentationRules",
+        "SA1642:ConstructorSummaryDocumentationMustBeginWithStandardText",
+        Justification = "False positive.")]
     private Option(T value, bool hasValue)
     {
         _value = value;
@@ -76,5 +79,20 @@ public readonly record struct Option<T>
     {
         value = _value;
         hasValue = HasValue;
+    }
+
+    private bool PrintMembers(StringBuilder builder)
+    {
+        builder.Append("Value = ");
+
+        if (HasValue)
+        {
+            builder.Append(_value);
+        }
+
+        builder.Append(", HasValue = ");
+        builder.Append(HasValue);
+
+        return true;
     }
 }

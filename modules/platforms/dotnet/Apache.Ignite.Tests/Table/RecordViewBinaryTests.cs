@@ -174,7 +174,7 @@ namespace Apache.Ignite.Tests.Table
 
             Assert.IsFalse(await TupleView.DeleteExactAsync(null, GetTuple(1)));
             Assert.IsFalse(await TupleView.DeleteExactAsync(null, GetTuple(1, "2")));
-            Assert.IsFalse((await TupleView.GetAsync(null, GetTuple(1))).HasValue);
+            Assert.IsTrue((await TupleView.GetAsync(null, GetTuple(1))).HasValue);
         }
 
         [Test]
