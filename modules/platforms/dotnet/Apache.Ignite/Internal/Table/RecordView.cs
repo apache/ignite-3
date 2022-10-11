@@ -123,7 +123,7 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <inheritdoc/>
-        public async Task<T?> GetAndUpsertAsync(ITransaction? transaction, T record)
+        public async Task<Option<T>> GetAndUpsertAsync(ITransaction? transaction, T record)
         {
             IgniteArgumentCheck.NotNull(record, nameof(record));
 
@@ -192,7 +192,7 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <inheritdoc/>
-        public async Task<T?> GetAndReplaceAsync(ITransaction? transaction, T record)
+        public async Task<Option<T>> GetAndReplaceAsync(ITransaction? transaction, T record)
         {
             IgniteArgumentCheck.NotNull(record, nameof(record));
 

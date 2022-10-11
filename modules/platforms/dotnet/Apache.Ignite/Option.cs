@@ -22,7 +22,7 @@ using System;
 // TODO: Make sure this does not clash with F# option.
 // TODO: Convenience methods and constructors, implicit casts.
 /// <summary>
-/// A wrapper that may or may not contain a value of type <see cref="T"/>.
+/// A wrapper that may or may not contain a value of type <typeparamref name="T"/>.
 /// </summary>
 /// <typeparam name="T">Value type.</typeparam>
 public readonly record struct Option<T>
