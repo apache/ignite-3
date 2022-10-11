@@ -226,9 +226,13 @@ namespace Apache.Ignite.Tests.Compute
             var keyPoco = new Poco { Key = key };
             var resNodeName2 = await Client.Compute.ExecuteColocatedAsync<string, Poco>(TableName, keyPoco, NodeNameJob);
 
+            var keyPocoStruct = new PocoStruct(key, null);
+            var resNodeName3 = await Client.Compute.ExecuteColocatedAsync<string, PocoStruct>(TableName, keyPocoStruct, NodeNameJob);
+
             var expectedNodeName = PlatformTestNodeRunner + nodeName;
             Assert.AreEqual(expectedNodeName, resNodeName);
             Assert.AreEqual(expectedNodeName, resNodeName2);
+            Assert.AreEqual(expectedNodeName, resNodeName3);
         }
 
         [Test]
