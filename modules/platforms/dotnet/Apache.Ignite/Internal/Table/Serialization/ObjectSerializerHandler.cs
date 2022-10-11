@@ -244,6 +244,12 @@ namespace Apache.Ignite.Internal.Table.Serialization
             var readMethod = BinaryTupleMethods.GetReadMethod(fieldInfo.FieldType);
 
             il.Emit(OpCodes.Ldloc_0); // res
+
+            if (fieldInfo.DeclaringType!.IsValueType)
+            {
+                il.Emit(OpCodes.Unbox, fieldInfo.DeclaringType);
+            }
+
             il.Emit(OpCodes.Ldarg_0); // reader
             EmitLdcI4(il, elemIdx); // index
 
