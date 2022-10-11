@@ -88,7 +88,7 @@ namespace Apache.Ignite.Tests.Transactions
             await tx.CommitAsync();
 
             var res = await TupleView.GetAsync(null, GetTuple(1));
-            Assert.AreEqual("2", res![ValCol]);
+            Assert.AreEqual("2", res.Value[ValCol]);
         }
 
         [Test]
@@ -169,7 +169,7 @@ namespace Apache.Ignite.Tests.Transactions
                 await table!.RecordBinaryView.UpsertAsync(tx, GetTuple(1, "2"));
             }
 
-            Assert.AreEqual("1", (await TupleView.GetAsync(null, GetTuple(1)))![ValCol]);
+            Assert.AreEqual("1", (await TupleView.GetAsync(null, GetTuple(1))).Value[ValCol]);
         }
 
         [Test]
