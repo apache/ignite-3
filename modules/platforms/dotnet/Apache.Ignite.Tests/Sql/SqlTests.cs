@@ -168,7 +168,7 @@ namespace Apache.Ignite.Tests.Sql
             var table = await Client.Tables.GetTableAsync("TEST");
             var res = await table!.RecordBinaryView.GetAsync(null, new IgniteTuple { ["ID"] = 1 });
 
-            Assert.AreEqual("s-1", res!["VAL"]);
+            Assert.AreEqual("s-1", res.Value["VAL"]);
         }
 
         [Test]

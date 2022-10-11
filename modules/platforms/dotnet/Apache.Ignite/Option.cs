@@ -61,6 +61,13 @@ public readonly record struct Option<T>
     public static implicit operator Option<T>(T value) => new(value, true);
 
     /// <summary>
+    /// Unwraps an option.
+    /// </summary>
+    /// <param name="value">Option.</param>
+    /// <returns>Unwrapped value.</returns>
+    public static implicit operator T(Option<T> value) => value.Value;
+
+    /// <summary>
     /// Deconstructs this instance.
     /// </summary>
     /// <param name="value">Value.</param>

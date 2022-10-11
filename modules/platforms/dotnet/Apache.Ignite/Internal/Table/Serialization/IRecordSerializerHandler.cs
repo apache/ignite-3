@@ -42,7 +42,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// <param name="schema">Schema.</param>
         /// <param name="key">Key part.</param>
         /// <returns>Resulting record with key and value parts.</returns>
-        T? ReadValuePart(ref MessagePackReader reader, Schema schema, T key);
+        T ReadValuePart(ref MessagePackReader reader, Schema schema, T key);
 
         /// <summary>
         /// Writes a record.
