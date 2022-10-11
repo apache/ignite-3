@@ -25,7 +25,7 @@ using System.Text;
 /// A wrapper that may or may not contain a value of type <typeparamref name="T"/>.
 /// </summary>
 /// <typeparam name="T">Value type.</typeparam>
-public readonly record struct Option<T> // TODO: Tests, non-generic helper class.
+public readonly record struct Option<T>
 {
     private readonly T _value;
 
