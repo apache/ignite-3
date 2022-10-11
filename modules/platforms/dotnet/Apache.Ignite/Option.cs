@@ -65,7 +65,7 @@ public readonly record struct Option<T>
     /// </summary>
     /// <param name="value">Option.</param>
     /// <returns>Unwrapped value.</returns>
-    public static implicit operator T(Option<T> value) => value.Value;
+    public static implicit operator T(Option<T> value) => value.Value; // TODO IGNITE-16355 remove this?
 
     /// <summary>
     /// Deconstructs this instance.
