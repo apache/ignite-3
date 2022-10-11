@@ -119,11 +119,11 @@ namespace Apache.Ignite.Tests.Table
         public async Task TestGetAndDeleteExistingRecordRemovesAndReturns()
         {
             await TupleView.UpsertAsync(null, GetTuple(2, "2"));
-            Option<IIgniteTuple> res = await TupleView.GetAndDeleteAsync(null, GetTuple(2));
+            var (res, hasRes) = await TupleView.GetAndDeleteAsync(null, GetTuple(2));
 
-            Assert.IsNotNull(res);
-            Assert.AreEqual(2, res.Value[0]);
-            Assert.AreEqual("2", res.Value[1]);
+            Assert.IsTrue(hasRes);
+            Assert.AreEqual(2, res[0]);
+            Assert.AreEqual("2", res[1]);
             Assert.IsFalse((await TupleView.GetAsync(null, GetTuple(2))).HasValue);
         }
 
@@ -174,7 +174,7 @@ namespace Apache.Ignite.Tests.Table
 
             Assert.IsFalse(await TupleView.DeleteExactAsync(null, GetTuple(1)));
             Assert.IsFalse(await TupleView.DeleteExactAsync(null, GetTuple(1, "2")));
-            Assert.IsNotNull(await TupleView.GetAsync(null, GetTuple(1)));
+            Assert.IsFalse((await TupleView.GetAsync(null, GetTuple(1))).HasValue);
         }
 
         [Test]
@@ -220,7 +220,7 @@ namespace Apache.Ignite.Tests.Table
             await TupleView.UpsertAsync(null, GetTuple(1, "1"));
             Option<IIgniteTuple> res = await TupleView.GetAndReplaceAsync(null, GetTuple(1, "2"));
 
-            Assert.IsNotNull(res);
+            Assert.IsTrue(res.HasValue);
             Assert.AreEqual("1", res.Value[1]);
             Assert.AreEqual("2", (await TupleView.GetAsync(null, GetTuple(1))).Value[1]);
         }
@@ -529,12 +529,12 @@ namespace Apache.Ignite.Tests.Table
             await TupleView.UpsertAsync(null, tuple);
 
             var keyTuple = new IgniteTuple { [KeyCol] = key };
-            var resTuple = (await TupleView.GetAsync(null, keyTuple));
+            var (resTuple, resTupleHasValue) = await TupleView.GetAsync(null, keyTuple);
 
-            Assert.IsNotNull(resTuple);
-            Assert.AreEqual(2, resTuple.Value.FieldCount);
-            Assert.AreEqual(key, resTuple.Value["key"]);
-            Assert.AreEqual(val, resTuple.Value["val"]);
+            Assert.IsTrue(resTupleHasValue);
+            Assert.AreEqual(2, resTuple.FieldCount);
+            Assert.AreEqual(key, resTuple["key"]);
+            Assert.AreEqual(val, resTuple["val"]);
         }
 
         [Test]
