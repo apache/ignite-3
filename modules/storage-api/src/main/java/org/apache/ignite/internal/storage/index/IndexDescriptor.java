@@ -35,7 +35,7 @@ public interface IndexDescriptor {
         String name();
 
         /**
-         * Returns a column descriptor.
+         * Returns a column type.
          */
         NativeType type();
 

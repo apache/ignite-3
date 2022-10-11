@@ -141,7 +141,7 @@ public class InlineUtils {
         if (indexDescriptor.columns().stream().anyMatch(c -> !c.type().spec().fixedLength())) {
             int itemSize = binaryTupleInlineSize + itemHeaderSize;
 
-            // Let's calculate whether to remain a place in the BplusInnerIo and the BplusLeafIo.
+            // Let's calculate how much space remains in the BplusInnerIo and the BplusLeafIo.
             int remainingInnerNodePayloadSize = (innerNodePayloadSize(pageSize) - CHILD_LINK_SIZE) % (itemSize + CHILD_LINK_SIZE);
             int remainingLeafNodePayloadSize = leafNodePayloadSize(pageSize) % itemSize;
 
@@ -167,7 +167,7 @@ public class InlineUtils {
     }
 
     /**
-     * Returns number of bytes that can be used to store items and references to child nodes.
+     * Returns number of bytes that can be used to store items and references to child nodes in an inner node.
      *
      * @param pageSize Page size in bytes.
      */
@@ -176,7 +176,7 @@ public class InlineUtils {
     }
 
     /**
-     * Returns number of bytes that can be used to store items.
+     * Returns number of bytes that can be used to store items in a leaf node.
      *
      * @param pageSize Page size in bytes.
      */
