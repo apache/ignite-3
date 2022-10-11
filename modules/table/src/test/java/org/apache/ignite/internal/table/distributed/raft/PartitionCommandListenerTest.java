@@ -40,6 +40,7 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.ignite.hlc.HybridClock;
+import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
@@ -48,6 +49,7 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
@@ -432,9 +434,9 @@ public class PartitionCommandListenerTest {
             RowId rowId = primaryIndex.get(keyRow.keySlice());
 
             if (existed) {
-                BinaryRow binaryRow = mvPartitionStorage.read(rowId, UUID.randomUUID());
+                ReadResult readResult = mvPartitionStorage.read(rowId, HybridTimestamp.MAX_VALUE);
 
-                Row row = new Row(SCHEMA, binaryRow);
+                Row row = new Row(SCHEMA, readResult.binaryRow());
 
                 assertEquals(i, row.intValue(0));
                 assertEquals(keyValueMapper.apply(i), row.intValue(1));
