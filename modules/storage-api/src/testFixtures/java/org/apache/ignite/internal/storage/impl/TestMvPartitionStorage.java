@@ -177,19 +177,6 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     /** {@inheritDoc} */
     @Override
-    public @Nullable BinaryRow read(RowId rowId, UUID txId) throws TxIdMismatchException, StorageException {
-        if (rowId.partitionId() != partitionId) {
-            throw new IllegalArgumentException(
-                    String.format("RowId partition [%d] is not equal to storage partition [%d].", rowId.partitionId(), partitionId));
-        }
-
-        VersionChain versionChain = map.get(rowId);
-
-        return read(versionChain, null, txId, null).binaryRow();
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public ReadResult read(RowId rowId, @Nullable HybridTimestamp timestamp) {
         if (rowId.partitionId() != partitionId) {
             throw new IllegalArgumentException(
@@ -323,18 +310,6 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     @Override
     public Cursor<BinaryRow> scanVersions(RowId rowId) throws StorageException {
         return Cursor.fromIterator(Stream.iterate(map.get(rowId), Objects::nonNull, vc -> vc.next).map(vc -> vc.row).iterator());
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Cursor<BinaryRow> scan(Predicate<BinaryRow> filter, UUID txId) {
-        Iterator<BinaryRow> iterator = map.values().stream()
-                .map(versionChain -> read(versionChain, null, txId, filter))
-                .map(ReadResult::binaryRow)
-                .filter(Objects::nonNull)
-                .iterator();
-
-        return Cursor.fromIterator(iterator);
     }
 
     /** {@inheritDoc} */

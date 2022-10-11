@@ -31,6 +31,9 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
     /** Timestamp size in bytes. */
     public static final int HYBRID_TIMESTAMP_SIZE = Long.BYTES + Integer.BYTES;
 
+    /** A constant holding the maximum value a {@code HybridTimestamp} can have. */
+    public static final HybridTimestamp MAX_VALUE = new HybridTimestamp(Long.MAX_VALUE, Integer.MAX_VALUE);
+
     /** Physical clock. */
     private final long physical;
 

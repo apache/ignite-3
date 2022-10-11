@@ -20,11 +20,12 @@ package org.apache.ignite.internal.storage.pagememory.mv;
 import static java.util.stream.Collectors.joining;
 
 import java.util.stream.IntStream;
+import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.AbstractMvPartitionStorageTest;
+import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.util.Cursor;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -48,7 +49,7 @@ abstract class AbstractPageMemoryMvPartitionStorageTest extends AbstractMvPartit
 
         RowId rowId = insert(longRow, txId);
 
-        BinaryRow foundRow = read(rowId, txId);
+        BinaryRow foundRow = read(rowId, HybridTimestamp.MAX_VALUE);
 
         assertRowMatches(foundRow, longRow);
     }
@@ -85,8 +86,8 @@ abstract class AbstractPageMemoryMvPartitionStorageTest extends AbstractMvPartit
 
         insert(longRow, txId);
 
-        try (Cursor<BinaryRow> cursor = storage.scan(row -> true, txId)) {
-            BinaryRow foundRow = cursor.next();
+        try (PartitionTimestampCursor cursor = storage.scan(row -> true, HybridTimestamp.MAX_VALUE)) {
+            BinaryRow foundRow = cursor.next().binaryRow();
 
             assertRowMatches(foundRow, longRow);
         }
@@ -100,8 +101,8 @@ abstract class AbstractPageMemoryMvPartitionStorageTest extends AbstractMvPartit
 
         commitWrite(rowId, clock.now());
 
-        try (Cursor<BinaryRow> cursor = storage.scan(row -> true, txId)) {
-            BinaryRow foundRow = cursor.next();
+        try (PartitionTimestampCursor cursor = storage.scan(row -> true, HybridTimestamp.MAX_VALUE)) {
+            BinaryRow foundRow = cursor.next().binaryRow();
 
             assertRowMatches(foundRow, longRow);
         }
