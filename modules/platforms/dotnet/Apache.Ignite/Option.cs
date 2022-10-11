@@ -96,3 +96,24 @@ public readonly record struct Option<T> // TODO: Tests, non-generic helper class
         return true;
     }
 }
+
+/// <summary>
+/// Static helpers for <see cref="Option{T}"/>.
+/// </summary>
+public static class Option
+{
+    /// <summary>
+    /// Returns an option of the specified value.
+    /// </summary>
+    /// <param name="val">Value.</param>
+    /// <typeparam name="T">value type.</typeparam>
+    /// <returns>Option of T.</returns>
+    public static Option<T> Some<T>(T val) => val;
+
+    /// <summary>
+    /// Returns an option without a value.
+    /// </summary>
+    /// <typeparam name="T">value type.</typeparam>
+    /// <returns>Option of T.</returns>
+    public static Option<T> None<T>() => default;
+}
