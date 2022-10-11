@@ -20,6 +20,7 @@ apply from: "$rootDir/buildscripts/publishing-repos.gradle"
 publishing {
   publications {
     maven(MavenPublication) {
+      def a = components.java
       from components.java
     }
   }
