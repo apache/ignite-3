@@ -49,8 +49,7 @@ public class HashIndexTreeLeafIo extends BplusLeafIo<HashIndexRowKey> implements
      * @param binaryTupleInlineSize {@link BinaryTuple} inline size in bytes.
      */
     private HashIndexTreeLeafIo(int ver, int binaryTupleInlineSize) {
-        // TODO: IGNITE-17536 не забудь поменять itemSize
-        super(T_HASH_INDEX_LEAF_IO_START + binaryTupleInlineSize, ver, SIZE_IN_BYTES);
+        super(T_HASH_INDEX_LEAF_IO_START + binaryTupleInlineSize, ver, ITEM_SIZE_WITHOUT_COLUMNS + binaryTupleInlineSize);
     }
 
     @Override

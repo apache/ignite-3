@@ -49,8 +49,7 @@ public class HashIndexTreeInnerIo extends BplusInnerIo<HashIndexRowKey> implemen
      * @param binaryTupleInlineSize {@link BinaryTuple} inline size in bytes.
      */
     private HashIndexTreeInnerIo(int ver, int binaryTupleInlineSize) {
-        // TODO: IGNITE-17536 не забудь поменять itemSize
-        super(T_HASH_INDEX_INNER_IO_START + binaryTupleInlineSize, ver, true, SIZE_IN_BYTES);
+        super(T_HASH_INDEX_INNER_IO_START + binaryTupleInlineSize, ver, true, binaryTupleInlineSize + ITEM_SIZE_WITHOUT_COLUMNS);
     }
 
     @Override

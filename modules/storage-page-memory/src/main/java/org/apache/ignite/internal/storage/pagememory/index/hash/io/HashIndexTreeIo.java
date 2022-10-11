@@ -31,6 +31,7 @@ import org.apache.ignite.internal.pagememory.datapage.DataPageReader;
 import org.apache.ignite.internal.pagememory.tree.io.BplusIo;
 import org.apache.ignite.internal.pagememory.util.PageUtils;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.pagememory.index.InlineUtils;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.ReadIndexColumnsValue;
 import org.apache.ignite.internal.storage.pagememory.index.hash.HashIndexRow;
@@ -43,25 +44,40 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
  * <p>Defines a following data layout:
  * <ul>
  *     <li>Index columns hash - int (4 bytes);</li>
- *     <li>Index columns link - long (6 bytes);</li>
+ *     <li>Inlined index columns size - short (2 bytes), no more than the {@link InlineUtils#MAX_BINARY_TUPLE_INLINE_SIZE}, the most
+ *     significant (sign) bit is used to determine whether there is a link to the index columns;</li>
+ *     <li>Inlined index columns - N bytes;</li>
+ *     <li>Index columns link (optional)- 6 bytes, if the inlined index columns are the same size as the original index columns, no link is
+ *     needed;</li>
  *     <li>Row ID - {@link UUID} (16 bytes).</li>
  * </ul>
  */
+// TODO: IGNITE-17536 вот тут надо внести изменения
 public interface HashIndexTreeIo {
     /** Offset of the index columns hash (4 bytes). */
     int INDEX_COLUMNS_HASH_OFFSET = 0;
 
+    /** Offset of the size of inlined index columns (2 bytes). */
+    int INLINE_INDEX_COLUMNS_SIZE_OFFSET = INDEX_COLUMNS_HASH_OFFSET + Integer.BYTES;
+
+    /** Offset of inlined index columns. */
+    int INLINE_INDEX_COLUMNS_OFFSET = INLINE_INDEX_COLUMNS_SIZE_OFFSET + Short.BYTES;
+
     /** Offset of the index column link (6 bytes). */
     int INDEX_COLUMNS_LINK_OFFSET = INDEX_COLUMNS_HASH_OFFSET + Integer.BYTES;
 
-    /** Offset of rowId's most significant bits, 8 bytes. */
-    int ROW_ID_MSB_OFFSET = INDEX_COLUMNS_LINK_OFFSET + PARTITIONLESS_LINK_SIZE_BYTES;
+    /** Item size without index columns in bytes. */
+    int ITEM_SIZE_WITHOUT_COLUMNS = Integer.BYTES // Index columns hash.
+            + Short.SIZE // Inlined index columns size.
+            + PARTITIONLESS_LINK_SIZE_BYTES // Index column link.
+            + 2 * Long.BYTES; // Row ID.
 
-    /** Offset of rowId's least significant bits, 8 bytes. */
-    int ROW_ID_LSB_OFFSET = ROW_ID_MSB_OFFSET + Long.BYTES;
-
-    /** Payload size in bytes. */
-    int SIZE_IN_BYTES = ROW_ID_LSB_OFFSET + Long.BYTES;
+    /**
+     * Returns item size in bytes.
+     *
+     * @see BplusIo#getItemSize()
+     */
+    int getItemSize();
 
     /**
      * Returns an offset of the element inside the page.
@@ -79,7 +95,7 @@ public interface HashIndexTreeIo {
         int dstOffset = offset(dstIdx);
         int srcOffset = offset(srcIdx);
 
-        PageUtils.copyMemory(srcPageAddr, srcOffset, dstPageAddr, dstOffset, SIZE_IN_BYTES);
+        PageUtils.copyMemory(srcPageAddr, srcOffset, dstPageAddr, dstOffset, getItemSize());
     }
 
     /**
