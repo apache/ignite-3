@@ -58,10 +58,10 @@ namespace Apache.Ignite.Tests.Table
             var key = GetTuple(1);
 
             await TupleView.UpsertAsync(null, GetTuple(1, "foo"));
-            Assert.AreEqual("foo", (await TupleView.GetAsync(null, key))![1]);
+            Assert.AreEqual("foo", (await TupleView.GetAsync(null, key)).Value[1]);
 
             await TupleView.UpsertAsync(null, GetTuple(1, "bar"));
-            Assert.AreEqual("bar", (await TupleView.GetAsync(null, key))![1]);
+            Assert.AreEqual("bar", (await TupleView.GetAsync(null, key)).Value[1]);
         }
 
         [Test]
@@ -71,8 +71,8 @@ namespace Apache.Ignite.Tests.Table
 
             var res = await TupleView.GetAsync(null, GetTuple(CustomTestIgniteTuple.Key));
 
-            Assert.IsNotNull(res);
-            Assert.AreEqual(CustomTestIgniteTuple.Value, res![1]);
+            Assert.IsTrue(res.HasValue);
+            Assert.AreEqual(CustomTestIgniteTuple.Value, res.Value[1]);
         }
 
         [Test]
@@ -88,22 +88,22 @@ namespace Apache.Ignite.Tests.Table
         [Test]
         public async Task TestGetAndUpsertNonExistentRecordReturnsNull()
         {
-            IIgniteTuple? res = await TupleView.GetAndUpsertAsync(null, GetTuple(2, "2"));
+            Option<IIgniteTuple> res = await TupleView.GetAndUpsertAsync(null, GetTuple(2, "2"));
 
             Assert.IsNull(res);
-            Assert.AreEqual("2", (await TupleView.GetAsync(null, GetTuple(2)))![1]);
+            Assert.AreEqual("2", (await TupleView.GetAsync(null, GetTuple(2))).Value[1]);
         }
 
         [Test]
         public async Task TestGetAndUpsertExistingRecordOverwritesAndReturns()
         {
             await TupleView.UpsertAsync(null, GetTuple(2, "2"));
-            IIgniteTuple? res = await TupleView.GetAndUpsertAsync(null, GetTuple(2, "22"));
+            Option<IIgniteTuple> res = await TupleView.GetAndUpsertAsync(null, GetTuple(2, "22"));
 
-            Assert.IsNotNull(res);
-            Assert.AreEqual(2, res![0]);
-            Assert.AreEqual("2", res[1]);
-            Assert.AreEqual("22", (await TupleView.GetAsync(null, GetTuple(2)))![1]);
+            Assert.IsTrue(res.HasValue);
+            Assert.AreEqual(2, res.Value[0]);
+            Assert.AreEqual("2", res.Value[1]);
+            Assert.AreEqual("22", (await TupleView.GetAsync(null, GetTuple(2))).Value[1]);
         }
 
         [Test]
