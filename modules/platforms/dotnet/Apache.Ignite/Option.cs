@@ -54,6 +54,13 @@ public readonly record struct Option<T>
     public bool HasValue { get; }
 
     /// <summary>
+    /// Wraps a value into an option.
+    /// </summary>
+    /// <param name="value">Value.</param>
+    /// <returns>Wrapped value.</returns>
+    public static implicit operator Option<T>(T value) => new(value, true);
+
+    /// <summary>
     /// Deconstructs this instance.
     /// </summary>
     /// <param name="value">Value.</param>
