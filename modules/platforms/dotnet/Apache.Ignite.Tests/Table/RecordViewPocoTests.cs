@@ -43,8 +43,9 @@ namespace Apache.Ignite.Tests.Table
             await PocoView.UpsertAsync(null, GetPoco(1, "foo"));
 
             var keyTuple = GetPoco(1);
-            var resTuple = (await PocoView.GetAsync(null, keyTuple)).Value;
+            var (resTuple, hasValue) = await PocoView.GetAsync(null, keyTuple);
 
+            Assert.IsTrue(hasValue);
             Assert.AreEqual(1L, resTuple.Key);
             Assert.AreEqual("foo", resTuple.Val);
 

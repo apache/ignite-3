@@ -44,12 +44,12 @@ namespace Apache.Ignite.Tests.Table
             await TupleView.UpsertAsync(null, GetTuple(1, "foo"));
 
             var keyTuple = GetTuple(1);
-            var resTuple = await TupleView.GetAsync(null, keyTuple);
+            var (value, hasValue) = await TupleView.GetAsync(null, keyTuple);
 
-            Assert.IsTrue(resTuple.HasValue);
-            Assert.AreEqual(2, resTuple.Value.FieldCount);
-            Assert.AreEqual(1L, resTuple.Value["key"]);
-            Assert.AreEqual("foo", resTuple.Value["val"]);
+            Assert.IsTrue(hasValue);
+            Assert.AreEqual(2, value.FieldCount);
+            Assert.AreEqual(1L, value["key"]);
+            Assert.AreEqual("foo", value["val"]);
         }
 
         [Test]
