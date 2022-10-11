@@ -86,7 +86,7 @@ public class TrackableHybridClock extends HybridClock {
      * Future that contains a timestamp and should be completed when this clock reaches this timestamp.
      */
     private static class TimestampFuture implements Comparable<TimestampFuture> {
-        /** Timestamp */
+        /** Timestamp. */
         private final HybridTimestamp timestamp;
 
         /** Internal future. */

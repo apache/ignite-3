@@ -35,6 +35,9 @@ import java.util.concurrent.ThreadLocalRandom;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.junit.jupiter.api.Test;
 
+/**
+ * Test for {@link TrackableHybridClock}.
+ */
 public class TrackableHybridClockTest {
     @Test
     public void testSimpleWaitFor() {
