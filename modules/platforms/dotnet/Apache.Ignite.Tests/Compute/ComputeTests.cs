@@ -53,6 +53,8 @@ namespace Apache.Ignite.Tests.Compute
 
         private const string DropTableJob = PlatformTestNodeRunner + "$DropTableJob";
 
+        private const string ExceptionJob = PlatformTestNodeRunner + "$ExceptionJob";
+
         [Test]
         public async Task TestGetClusterNodes()
         {
@@ -141,7 +143,7 @@ namespace Apache.Ignite.Tests.Compute
 
             StringAssert.Contains("Custom job error", ex!.Message);
 
-            Assert.AreEqual(
+            StringAssert.StartsWith(
                 "org.apache.ignite.internal.runner.app.client.ItThinClientComputeTest$CustomException",
                 ex.InnerException!.Message);
 
@@ -198,10 +200,8 @@ namespace Apache.Ignite.Tests.Compute
             await Test(BigInteger.Pow(1234, 56));
 
             await Test(Guid.Empty);
-
-            // TODO IGNITE-17830 String representation should be the same in Java and C#.
-            await Test(
-                new Guid(new byte[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 }), "07080506-0102-0304-100f-0e0d0c0b0a09");
+            await Test(new Guid(new byte[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 }));
+            await Test(Guid.NewGuid());
 
             async Task Test(object val, string? expectedStr = null)
             {
@@ -274,6 +274,22 @@ namespace Apache.Ignite.Tests.Compute
             {
                 await Client.Compute.ExecuteAsync<string>(nodes, DropTableJob, tableName);
             }
+        }
+
+        [Test]
+        public void TestExceptionInJobWithSendServerExceptionStackTraceToClientPropagatesToClientWithStackTrace()
+        {
+            var ex = Assert.ThrowsAsync<IgniteException>(async () =>
+                await Client.Compute.ExecuteAsync<object>(await GetNodeAsync(1), ExceptionJob, "foo-bar"));
+
+            Assert.AreEqual("Test exception: foo-bar", ex!.Message);
+            Assert.IsNotNull(ex.InnerException);
+
+            var str = ex.ToString();
+            StringAssert.Contains(" ---> Apache.Ignite.IgniteException: java.lang.RuntimeException: Test exception: foo-bar", str);
+            StringAssert.Contains(
+                "at org.apache.ignite.internal.runner.app.PlatformTestNodeRunner$ExceptionJob.execute(PlatformTestNodeRunner.java:",
+                str);
         }
 
         private async Task<List<IClusterNode>> GetNodeAsync(int index) =>

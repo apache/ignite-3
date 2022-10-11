@@ -19,8 +19,9 @@ package org.apache.ignite.internal.index;
 
 import java.util.BitSet;
 import java.util.UUID;
+import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.internal.schema.BinaryTuple;
-import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.tx.InternalTransaction;
 
 /**
  * An object describing an abstract index.
@@ -39,5 +40,5 @@ public interface Index<DescriptorT extends IndexDescriptor> {
     DescriptorT descriptor();
 
     /** Returns cursor for the values corresponding to the given key. */
-    Cursor<BinaryTuple> scan(BinaryTuple key, BitSet columns);
+    Publisher<BinaryTuple> scan(int partId, InternalTransaction tx, BinaryTuple key, BitSet columns);
 }
