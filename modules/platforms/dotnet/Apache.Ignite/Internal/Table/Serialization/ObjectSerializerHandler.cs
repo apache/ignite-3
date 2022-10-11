@@ -158,7 +158,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 skipVisibility: true);
 
             var il = method.GetILGenerator();
-            il.DeclareLocal(type);
+            var local = il.DeclareLocal(type);
 
             il.Emit(OpCodes.Ldtoken, type);
             il.Emit(OpCodes.Call, ReflectionUtils.GetTypeFromHandleMethod);
@@ -174,7 +174,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 var col = columns[i];
                 var fieldInfo = type.GetFieldIgnoreCase(col.Name);
 
-                EmitFieldRead(fieldInfo, il, col, i);
+                EmitFieldRead(fieldInfo, il, col, i, local);
             }
 
             il.Emit(OpCodes.Ldloc_0); // res
@@ -195,13 +195,20 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 skipVisibility: true);
 
             var il = method.GetILGenerator();
-            il.DeclareLocal(type);
+            var local = il.DeclareLocal(type);
 
-            il.Emit(OpCodes.Ldtoken, type);
-            il.Emit(OpCodes.Call, ReflectionUtils.GetTypeFromHandleMethod);
-            il.Emit(OpCodes.Call, ReflectionUtils.GetUninitializedObjectMethod);
-
-            il.Emit(OpCodes.Stloc_0); // T res
+            if (type.IsValueType)
+            {
+                il.Emit(OpCodes.Ldloca_S, local);
+                il.Emit(OpCodes.Initobj, type);
+            }
+            else
+            {
+                il.Emit(OpCodes.Ldtoken, type);
+                il.Emit(OpCodes.Call, ReflectionUtils.GetTypeFromHandleMethod);
+                il.Emit(OpCodes.Call, ReflectionUtils.GetUninitializedObjectMethod);
+                il.Emit(OpCodes.Stloc_0); // T res
+            }
 
             var columns = schema.Columns;
 
@@ -214,7 +221,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 {
                     if (fieldInfo != null)
                     {
-                        il.Emit(OpCodes.Ldloc_0); // res
+                        il.Emit(type.IsValueType ? OpCodes.Ldloca_S : OpCodes.Ldloc, local); // res
                         il.Emit(OpCodes.Ldarg_1); // key
                         il.Emit(OpCodes.Ldfld, fieldInfo);
                         il.Emit(OpCodes.Stfld, fieldInfo);
@@ -223,7 +230,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                     continue;
                 }
 
-                EmitFieldRead(fieldInfo, il, col, i - schema.KeyColumnCount);
+                EmitFieldRead(fieldInfo, il, col, i - schema.KeyColumnCount, local);
             }
 
             il.Emit(OpCodes.Ldloc_0); // res
@@ -232,7 +239,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             return (ReadValuePartDelegate<T>)method.CreateDelegate(typeof(ReadValuePartDelegate<T>));
         }
 
-        private static void EmitFieldRead(FieldInfo? fieldInfo, ILGenerator il, Column col, int elemIdx)
+        private static void EmitFieldRead(FieldInfo? fieldInfo, ILGenerator il, Column col, int elemIdx, LocalBuilder local)
         {
             if (fieldInfo == null)
             {
@@ -243,13 +250,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
             var readMethod = BinaryTupleMethods.GetReadMethod(fieldInfo.FieldType);
 
-            il.Emit(OpCodes.Ldloc_0); // res
-
-            if (fieldInfo.DeclaringType!.IsValueType)
-            {
-                il.Emit(OpCodes.Unbox, fieldInfo.DeclaringType);
-            }
-
+            il.Emit(fieldInfo.DeclaringType!.IsValueType ? OpCodes.Ldloca_S : OpCodes.Ldloc, local); // res
             il.Emit(OpCodes.Ldarg_0); // reader
             EmitLdcI4(il, elemIdx); // index
 
