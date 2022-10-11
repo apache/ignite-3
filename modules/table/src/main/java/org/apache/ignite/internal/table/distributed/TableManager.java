@@ -728,7 +728,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                         return CompletableFuture.completedFuture(null);
                                     }
 
-                                    RaftGroupOptions groupOptions = groupOptionsForPartition(internalTbl, tblCfg, partitionStorage,
+                                    RaftGroupOptions groupOptions = groupOptionsForPartition(internalTbl, partitionStorage,
                                             newPartAssignment, safeTimeClock);
 
                                     try {
@@ -839,7 +839,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     private RaftGroupOptions groupOptionsForPartition(
             InternalTable internalTbl,
-            ExtendedTableConfiguration tableConfig,
             MvPartitionStorage partitionStorage,
             Set<ClusterNode> peers,
             HybridClock safeTimeClock
@@ -1724,7 +1723,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                             RaftGroupOptions groupOptions = groupOptionsForPartition(
                                     tbl.internalTable(),
-                                    tblCfg,
                                     partitionStorage,
                                     assignments,
                                     safeTimeClock
