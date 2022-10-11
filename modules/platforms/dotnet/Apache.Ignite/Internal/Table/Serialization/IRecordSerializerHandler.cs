@@ -24,7 +24,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
     /// </summary>
     /// <typeparam name="T">Record type.</typeparam>
     internal interface IRecordSerializerHandler<T>
-        where T : class
     {
         /// <summary>
         /// Reads a record.

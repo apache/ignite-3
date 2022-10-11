@@ -30,7 +30,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
     /// </summary>
     /// <typeparam name="T">Record type.</typeparam>
     internal class RecordSerializer<T>
-        where T : class
     {
         /** Table. */
         private readonly Table _table;

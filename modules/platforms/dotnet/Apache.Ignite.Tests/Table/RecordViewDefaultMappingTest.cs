@@ -75,7 +75,6 @@ namespace Apache.Ignite.Tests.Table
         }
 
         private T Get<T>(T key)
-            where T : class
         {
             return Table.GetRecordView<T>().GetAsync(null, key).GetAwaiter().GetResult();
         }
