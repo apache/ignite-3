@@ -1064,12 +1064,12 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     /**
-     * Resolves read result to an appropriate binary row. Following rules are used for read result resolution:
+     * Resolves read result to the corresponding binary row. Following rules are used for read result resolution:
      * <ol>
      *     <li>If txId is not null (RW request), assert that retrieved tx id matches proposed one or that retrieved tx id is null
      *     and return binary row. Currently it's only possible to retrieve write intents if they belong to the same transaction,
      *     locks prevent reading write intents created by others.</li>
-     *     <li>If txId is not null (RO request), perform write intent resolution if given readResult is a write intent iselft
+     *     <li>If txId is not null (RO request), perform write intent resolution if given readResult is a write intent itself
      *     or return binary row otherwise.</li>
      * </ol>
      *
