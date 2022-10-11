@@ -361,32 +361,6 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         IgniteUuid cursorId = new IgniteUuid(txId, request.scanId());
 
-        /*HybridTimestamp safeTimeNow = safeTimeClock.now();
-        if (safeTimeNow.compareTo(request.timestamp()) < 0) {
-            System.out.println("qqq replica read, safeTime=" + safeTimeNow + ", readTs=" + request.timestamp()
-                + ", going to wait for " + (request.timestamp().getPhysical() - safeTimeNow.getPhysical()));
-
-        }*/
-
-        /*return safeTimeClock
-                .waitFor(new HybridTimestamp(request.timestamp().getPhysical(), 0))
-                .thenCompose(v -> lockManager.acquire(txId, new LockKey(tableId), LockMode.S).thenCompose(tblLock -> {
-                    ArrayList<BinaryRow> batchRows = new ArrayList<>(batchCount);
-
-                    //TODO: IGNITE-17849 Remove this always true filter after the storage API will be changed.
-                    PartitionTimestampCursor cursor = cursors.computeIfAbsent(cursorId,
-                            id -> mvDataStorage.scan(row -> true, HybridTimestamp.MAX_VALUE));
-
-                    while (batchRows.size() < batchCount && cursor.hasNext()) {
-                        BinaryRow resolvedReadResult = resolveReadResult(cursor.next(), txId);
-
-                        if (resolvedReadResult != null) {
-                            batchRows.add(resolvedReadResult);
-                        }
-                    }
-
-                    return completedFuture(batchRows);
-                }));*/
         return lockManager.acquire(txId, new LockKey(tableId), LockMode.S).thenCompose(tblLock -> {
             ArrayList<BinaryRow> batchRows = new ArrayList<>(batchCount);
 
