@@ -79,6 +79,7 @@ import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.hlc.HybridClock;
+import org.apache.ignite.hlc.TrackableHybridClock;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.causality.VersionedValue;
@@ -683,7 +684,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 ConcurrentHashMap<ByteBuffer, RowId> primaryIndex = new ConcurrentHashMap<>();
 
-                HybridClock safeTimeClock = new HybridClock();
+                TrackableHybridClock safeTimeClock = new TrackableHybridClock();
 
                 if (raftMgr.shouldHaveRaftGroupLocally(nodes)) {
                     startGroupFut = CompletableFuture
@@ -1711,7 +1712,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                     ConcurrentHashMap<ByteBuffer, RowId> primaryIndex = new ConcurrentHashMap<>();
 
-                    HybridClock safeTimeClock = new HybridClock();
+                    TrackableHybridClock safeTimeClock = new TrackableHybridClock();
 
                     try {
                         LOG.info("Received update on pending assignments. Check if new raft group should be started"

@@ -40,7 +40,7 @@ public class HybridClock {
     }
 
     /** Latest timestamp. */
-    private volatile HybridTimestamp latestTime;
+    protected volatile HybridTimestamp latestTime;
 
     /**
      * The constructor which initializes the latest time to current time by system clock.
@@ -70,6 +70,8 @@ public class HybridClock {
             }
 
             if (LATEST_TIME.compareAndSet(this, latestTime, newLatestTime)) {
+                onUpdate(newLatestTime);
+
                 return newLatestTime;
             }
         }
@@ -114,9 +116,15 @@ public class HybridClock {
             HybridTimestamp newLatestTime = addTick ? maxLatestTime.addTicks(1) : maxLatestTime;
 
             if (LATEST_TIME.compareAndSet(this, latestTime, newLatestTime)) {
+                onUpdate(newLatestTime);
+
                 return newLatestTime;
             }
         }
+    }
+
+    protected void onUpdate(HybridTimestamp timestamp) {
+        // No-op.
     }
 
     /** {@inheritDoc} */

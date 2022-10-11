@@ -90,7 +90,6 @@ import org.apache.ignite.raft.jraft.rpc.RaftClientService;
 import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;
 import org.apache.ignite.raft.jraft.rpc.RaftServerService;
 import org.apache.ignite.raft.jraft.rpc.ReadIndexResponseBuilder;
-import org.apache.ignite.raft.jraft.rpc.RequestVoteResponseBuilder;
 import org.apache.ignite.raft.jraft.rpc.RpcRequestClosure;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesRequest;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesResponse;
@@ -1344,7 +1343,6 @@ public class NodeImpl implements Node, RaftServerService {
                             .term(electSelfTerm)
                             .lastLogIndex(lastLogId.getIndex())
                             .lastLogTerm(lastLogId.getTerm())
-                            .timestamp(clock.now())
                             .build();
                     this.rpcClientService.requestVote(peer.getEndpoint(), done.request, done);
                 });
@@ -1889,10 +1887,6 @@ public class NodeImpl implements Node, RaftServerService {
                 final LogId requestLastLogId = new LogId(request.lastLogIndex(), request.lastLogTerm());
                 granted = requestLastLogId.compareTo(lastLogId) >= 0;
 
-                if (request.timestamp() != null) {
-                    safeTimeClockSync(request.timestamp());
-                }
-
                 LOG.info(
                     "Node {} received PreVoteRequest from {}, term={}, currTerm={}, granted={}, requestLastLogId={}, lastLogId={}.",
                     getNodeId(), request.serverId(), request.term(), this.currTerm, granted, requestLastLogId,
@@ -2012,10 +2006,6 @@ public class NodeImpl implements Node, RaftServerService {
                     this.votedId = candidateId.copy();
                     this.metaStorage.setVotedFor(candidateId);
                 }
-
-                if (request.timestamp() != null) {
-                    safeTimeClockSync(request.timestamp());
-                }
             }
             while (false);
 
@@ -2123,24 +2113,25 @@ public class NodeImpl implements Node, RaftServerService {
                         "Parse serverId failed: %s.", request.serverId());
             }
 
+            HybridTimestamp timestampForResponse;
+
             if (request.timestamp() != null) {
+                timestampForResponse = clock.update(request.timestamp());
                 safeTimeClockSync(request.timestamp());
+            } else {
+                timestampForResponse = null;
             }
 
             // Check stale term
             if (request.term() < this.currTerm) {
                 LOG.warn("Node {} ignore stale AppendEntriesRequest from {}, term={}, currTerm={}.", getNodeId(),
                     request.serverId(), request.term(), this.currTerm);
-                AppendEntriesResponseBuilder rb = raftOptions.getRaftMessagesFactory()
+                return raftOptions.getRaftMessagesFactory()
                         .appendEntriesResponse()
                         .success(false)
-                        .term(this.currTerm);
-
-                if (request.timestamp() != null) {
-                    rb.timestamp(clock.update(request.timestamp()));
-                }
-
-                return rb.build();
+                        .term(this.currTerm)
+                        .timestamp(timestampForResponse)
+                        .build();
             }
 
             // Check term and state to step down
@@ -2152,16 +2143,12 @@ public class NodeImpl implements Node, RaftServerService {
                 // loss of split brain
                 stepDown(request.term() + 1, false, new Status(RaftError.ELEADERCONFLICT,
                     "More than one leader in the same term."));
-                AppendEntriesResponseBuilder rb = raftOptions.getRaftMessagesFactory()
+                return raftOptions.getRaftMessagesFactory()
                         .appendEntriesResponse()
                         .success(false) //
-                        .term(request.term() + 1);
-
-                if (request.timestamp() != null) {
-                    rb.timestamp(clock.update(request.timestamp()));
-                }
-
-                return rb.build();
+                        .term(request.term() + 1)
+                        .timestamp(timestampForResponse)
+                        .build();
             }
 
             updateLastLeaderTimestamp(Utils.monotonicMs());
@@ -2184,17 +2171,13 @@ public class NodeImpl implements Node, RaftServerService {
                     getNodeId(), request.serverId(), request.term(), prevLogIndex, prevLogTerm, localPrevLogTerm,
                     lastLogIndex, entriesCount);
 
-                AppendEntriesResponseBuilder rb = raftOptions.getRaftMessagesFactory()
+                return raftOptions.getRaftMessagesFactory()
                         .appendEntriesResponse()
                         .success(false)
                         .term(this.currTerm)
-                        .lastLogIndex(lastLogIndex);
-
-                if (request.timestamp() != null) {
-                    rb.timestamp(clock.update(request.timestamp()));
-                }
-
-                return rb.build();
+                        .lastLogIndex(lastLogIndex)
+                        .timestamp(timestampForResponse)
+                        .build();
             }
 
             if (entriesCount == 0) {
@@ -2203,10 +2186,8 @@ public class NodeImpl implements Node, RaftServerService {
                     .appendEntriesResponse()
                     .success(true)
                     .term(this.currTerm)
-                    .lastLogIndex(this.logManager.getLastLogIndex());
-                if (request.timestamp() != null) {
-                    respBuilder.timestamp(clock.update(request.timestamp()));
-                }
+                    .lastLogIndex(this.logManager.getLastLogIndex())
+                    .timestamp(timestampForResponse);
                 doUnlock = false;
                 this.writeLock.unlock();
                 // see the comments at FollowerStableClosure#run()
@@ -2955,7 +2936,6 @@ public class NodeImpl implements Node, RaftServerService {
                             .term(preVoteTerm + 1) // next term
                             .lastLogIndex(lastLogId.getIndex())
                             .lastLogTerm(lastLogId.getTerm())
-                            .timestamp(clock.now())
                             .build();
                     this.rpcClientService.preVote(peer.getEndpoint(), done.request, done);
                 });

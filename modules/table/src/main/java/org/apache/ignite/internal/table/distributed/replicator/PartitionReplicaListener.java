@@ -36,6 +36,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import org.apache.ignite.hlc.HybridClock;
+import org.apache.ignite.hlc.TrackableHybridClock;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
@@ -110,7 +111,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     private final HybridClock hybridClock;
 
     /** Safe time clock. */
-    private final HybridClock safeTimeClock;
+    private final TrackableHybridClock safeTimeClock;
 
     /**
      * Cursors map. The key of the map is internal Ignite uuid which consists of a transaction id ({@link UUID}) and a cursor id ({@link
@@ -140,7 +141,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             UUID tableId,
             ConcurrentHashMap<ByteBuffer, RowId> primaryIndex,
             HybridClock hybridClock,
-            HybridClock safeTimeClock
+            TrackableHybridClock safeTimeClock
     ) {
         this.mvDataStorage = mvDataStorage;
         this.raftClient = raftClient;
