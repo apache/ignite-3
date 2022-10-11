@@ -26,11 +26,14 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.message.Snapsh
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMvDataResponse.ResponseEntry;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotTxDataRequest;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotTxDataResponse;
+import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlyMultiRowReplicaRequest;
+import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlyScanRetrieveBatchReplicaRequest;
+import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlySingleRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteMultiRowReplicaRequest;
+import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteScanCloseReplicaRequest;
+import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteScanRetrieveBatchReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSwapRowReplicaRequest;
-import org.apache.ignite.internal.table.distributed.replication.request.ScanCloseReplicaRequest;
-import org.apache.ignite.internal.table.distributed.replication.request.ScanRetrieveBatchReplicaRequest;
 import org.apache.ignite.network.annotations.MessageGroup;
 
 /**
@@ -54,12 +57,12 @@ public interface TableMessageGroup {
     short RW_DUAL_ROW_REPLICA_REQUEST = 2;
 
     /**
-     * Message type for {@link ScanRetrieveBatchReplicaRequest}.
+     * Message type for {@link ReadWriteScanRetrieveBatchReplicaRequest}.
      */
     short RW_SCAN_RETRIEVE_BATCH_REPLICA_REQUEST = 3;
 
     /**
-     * Message type for {@link ScanCloseReplicaRequest}.
+     * Message type for {@link ReadWriteScanCloseReplicaRequest}.
      */
     short RW_SCAN_CLOSE_REPLICA_REQUEST = 4;
 
@@ -72,6 +75,21 @@ public interface TableMessageGroup {
      * Message type for {@link HasDataResponse}.
      */
     short HAS_DATA_RESPONSE = 6;
+
+    /**
+     * Message type for {@link ReadOnlySingleRowReplicaRequest}.
+     */
+    short RO_SINGLE_ROW_REPLICA_REQUEST = 7;
+
+    /**
+     * Message type for {@link ReadOnlyMultiRowReplicaRequest}.
+     */
+    short RO_MULTI_ROW_REPLICA_REQUEST = 8;
+
+    /**
+     * Message type for {@link ReadOnlyScanRetrieveBatchReplicaRequest}.
+     */
+    short RO_SCAN_RETRIEVE_BATCH_REPLICA_REQUEST = 9;
 
     /**
      * Message type for {@link SnapshotMetaRequest}.
