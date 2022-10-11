@@ -38,40 +38,34 @@ import org.apache.ignite.internal.tostring.S;
  *
  * @see HashIndexStorage
  */
-public class HashIndexDescriptor {
+public class HashIndexDescriptor implements IndexDescriptor {
     /**
      * Descriptor of a Hash Index column.
      */
-    public static class ColumnDescriptor {
+    public static class HashIndexColumnDescriptor implements ColumnDescriptor {
         private final String name;
 
         private final NativeType type;
 
         private final boolean nullable;
 
-        ColumnDescriptor(ColumnView tableColumnView) {
+        HashIndexColumnDescriptor(ColumnView tableColumnView) {
             this.name = tableColumnView.name();
             this.type = ConfigurationToSchemaDescriptorConverter.convert(tableColumnView.type());
             this.nullable = tableColumnView.nullable();
         }
 
-        /**
-         * Returns the name of an index column.
-         */
+        @Override
         public String name() {
             return name;
         }
 
-        /**
-         * Returns a column type.
-         */
+        @Override
         public NativeType type() {
             return type;
         }
 
-        /**
-         * Returns {@code true} if this column can contain null values or {@code false} otherwise.
-         */
+        @Override
         public boolean nullable() {
             return nullable;
         }
@@ -84,7 +78,7 @@ public class HashIndexDescriptor {
 
     private final UUID id;
 
-    private final List<ColumnDescriptor> columns;
+    private final List<HashIndexColumnDescriptor> columns;
 
     /**
      * Creates an Index Descriptor from a given Table Configuration.
@@ -122,22 +116,18 @@ public class HashIndexDescriptor {
 
                     assert columnView != null : "Incorrect index column configuration. " + columnName + " column does not exist";
 
-                    return new ColumnDescriptor(columnView);
+                    return new HashIndexColumnDescriptor(columnView);
                 })
                 .collect(toUnmodifiableList());
     }
 
-    /**
-     * Returns the ID of this Index.
-     */
+    @Override
     public UUID id() {
         return id;
     }
 
-    /**
-     * Returns the Column Descriptors that comprise a row of this index.
-     */
-    public List<ColumnDescriptor> indexColumns() {
+    @Override
+    public List<HashIndexColumnDescriptor> columns() {
         return columns;
     }
 }

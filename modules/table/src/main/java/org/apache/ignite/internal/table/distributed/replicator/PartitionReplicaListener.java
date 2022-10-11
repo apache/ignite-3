@@ -36,6 +36,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import org.apache.ignite.hlc.HybridClock;
+import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.hlc.TrackableHybridClock;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
@@ -45,17 +46,23 @@ import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.PartitionTimestampCursor;
+import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
 import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
+import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlyMultiRowReplicaRequest;
+import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlyScanRetrieveBatchReplicaRequest;
+import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlySingleRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteMultiRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteScanCloseReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteScanRetrieveBatchReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSwapRowReplicaRequest;
+import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
@@ -63,7 +70,6 @@ import org.apache.ignite.internal.tx.LockMode;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.message.TxCleanupReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
-import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.ErrorGroups.Replicator;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -117,7 +123,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * Cursors map. The key of the map is internal Ignite uuid which consists of a transaction id ({@link UUID}) and a cursor id ({@link
      * Long}).
      */
-    private final ConcurrentNavigableMap<IgniteUuid, Cursor<BinaryRow>> cursors;
+    private final ConcurrentNavigableMap<IgniteUuid, PartitionTimestampCursor> cursors;
 
     /**
      * The constructor.
@@ -194,10 +200,98 @@ public class PartitionReplicaListener implements ReplicaListener {
                         return processTxFinishAction((TxFinishReplicaRequest) request);
                     } else if (request instanceof TxCleanupReplicaRequest) {
                         return processTxCleanupAction((TxCleanupReplicaRequest) request);
+                    } else if (request instanceof ReadOnlySingleRowReplicaRequest) {
+                        return processReadOnlySingleEntryAction((ReadOnlySingleRowReplicaRequest) request);
+                    } else if (request instanceof ReadOnlyMultiRowReplicaRequest) {
+                        return processReadOnlyMultiEntryAction((ReadOnlyMultiRowReplicaRequest) request);
+                    } else if (request instanceof ReadOnlyScanRetrieveBatchReplicaRequest) {
+                        return processReadOnlyScanRetrieveBatchAction((ReadOnlyScanRetrieveBatchReplicaRequest) request);
                     } else {
                         throw new UnsupportedReplicaRequestException(request.getClass());
                     }
                 });
+    }
+
+    /**
+     * Processes retrieve batch for read only transaction.
+     *
+     * @param request Read only retrieve batch request.
+     * @return Result future.
+     */
+    private CompletableFuture<Object> processReadOnlyScanRetrieveBatchAction(ReadOnlyScanRetrieveBatchReplicaRequest request) {
+        UUID txId = request.transactionId();
+        int batchCount = request.batchSize();
+
+        IgniteUuid cursorId = new IgniteUuid(txId, request.scanId());
+
+        ArrayList<BinaryRow> batchRows = new ArrayList<>(batchCount);
+
+        //TODO: IGNITE-17849 Remove this always true filter after the storage API will be changed.
+        PartitionTimestampCursor cursor = cursors.computeIfAbsent(cursorId,
+                id -> mvDataStorage.scan(row -> true, HybridTimestamp.MAX_VALUE));
+
+        while (batchRows.size() < batchCount && cursor.hasNext()) {
+            BinaryRow resolvedReadResult = resolveReadResult(cursor.next(), null);
+
+            if (resolvedReadResult != null) {
+                batchRows.add(resolvedReadResult);
+            }
+        }
+
+        return CompletableFuture.completedFuture(batchRows);
+    }
+
+    /**
+     * Processes single entry request for read only transaction.
+     *
+     * @param request Read only single entry request.
+     * @return Result future.
+     */
+    private CompletableFuture<Object> processReadOnlySingleEntryAction(ReadOnlySingleRowReplicaRequest request) {
+        ByteBuffer searchKey = request.binaryRow().keySlice();
+
+        UUID indexId = indexIdOrDefault(indexScanId/*request.indexToUse()*/);
+
+        if (request.requestType() !=  RequestType.RO_GET) {
+            throw new IgniteInternalException(Replicator.REPLICA_COMMON_ERR,
+                    IgniteStringFormatter.format("Unknown single request [actionType={}]", request.requestType()));
+        }
+
+        //TODO: IGNITE-17868 Integrate indexes into rowIds resolution along with proper lock management on search rows.
+        RowId rowId = rowIdByKey(indexId, searchKey);
+
+        BinaryRow result = rowId != null ? resolveReadResult(mvDataStorage.read(rowId, request.timestamp()), null) : null;
+
+        return CompletableFuture.completedFuture(result);
+    }
+
+    /**
+     * Processes multiple entries request for read only transaction.
+     *
+     * @param request Read only multiple entries request.
+     * @return Result future.
+     */
+    private CompletableFuture<Object> processReadOnlyMultiEntryAction(ReadOnlyMultiRowReplicaRequest request) {
+        Collection<ByteBuffer> keyRows = request.binaryRows().stream().map(br -> br.keySlice()).collect(
+                Collectors.toList());
+
+        UUID indexId = indexIdOrDefault(indexScanId/*request.indexToUse()*/);
+
+        if (request.requestType() !=  RequestType.RO_GET_ALL) {
+            throw new IgniteInternalException(Replicator.REPLICA_COMMON_ERR,
+                    IgniteStringFormatter.format("Unknown single request [actionType={}]", request.requestType()));
+        }
+
+        ArrayList<BinaryRow> result = new ArrayList<>(keyRows.size());
+
+        for (ByteBuffer searchKey : keyRows) {
+            //TODO: IGNITE-17868 Integrate indexes into rowIds resolution along with proper lock management on search rows.
+            RowId rowId = rowIdByKey(indexId, searchKey);
+
+            result.add(rowId != null ? resolveReadResult(mvDataStorage.read(rowId, request.timestamp()), null) : null);
+        }
+
+        return CompletableFuture.completedFuture(result);
     }
 
     /**
@@ -210,11 +304,11 @@ public class PartitionReplicaListener implements ReplicaListener {
         var lowCursorId = new IgniteUuid(txId, Long.MIN_VALUE);
         var upperCursorId = new IgniteUuid(txId, Long.MAX_VALUE);
 
-        Map<IgniteUuid, Cursor<BinaryRow>> txCursors = cursors.subMap(lowCursorId, true, upperCursorId, true);
+        Map<IgniteUuid, PartitionTimestampCursor> txCursors = cursors.subMap(lowCursorId, true, upperCursorId, true);
 
         ReplicationException ex = null;
 
-        for (Cursor<BinaryRow> cursor : txCursors.values()) {
+        for (PartitionTimestampCursor cursor : txCursors.values()) {
             try {
                 cursor.close();
             } catch (Exception e) {
@@ -246,7 +340,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         IgniteUuid cursorId = new IgniteUuid(txId, request.scanId());
 
-        Cursor<BinaryRow> cursor = cursors.remove(cursorId);
+        PartitionTimestampCursor cursor = cursors.remove(cursorId);
 
         if (cursor != null) {
             try {
@@ -274,10 +368,16 @@ public class PartitionReplicaListener implements ReplicaListener {
         return lockManager.acquire(txId, new LockKey(tableId), LockMode.S).thenCompose(tblLock -> {
             ArrayList<BinaryRow> batchRows = new ArrayList<>(batchCount);
 
-            Cursor<BinaryRow> cursor = cursors.computeIfAbsent(cursorId, id -> mvDataStorage.scan(request.rowFilter(), txId));
+            //TODO: IGNITE-17849 Remove this always true filter after the storage API will be changed.
+            PartitionTimestampCursor cursor = cursors.computeIfAbsent(cursorId,
+                    id -> mvDataStorage.scan(row -> true, HybridTimestamp.MAX_VALUE));
 
-            for (int i = 0; i < batchCount && cursor.hasNext(); i++) {
-                batchRows.add(cursor.next());
+            while (batchRows.size() < batchCount && cursor.hasNext()) {
+                BinaryRow resolvedReadResult = resolveReadResult(cursor.next(), txId);
+
+                if (resolvedReadResult != null) {
+                    batchRows.add(resolvedReadResult);
+                }
             }
 
             return completedFuture(batchRows);
@@ -440,7 +540,9 @@ public class PartitionReplicaListener implements ReplicaListener {
                     for (int futNum = 0; futNum < request.binaryRows().size(); futNum++) {
                         RowId lockedRowId = getLockFuts[futNum].join();
 
-                        result.add(lockedRowId != null ? mvDataStorage.read(lockedRowId, txId) : null);
+                        result.add(lockedRowId != null
+                                ? resolveReadResult(mvDataStorage.read(lockedRowId, HybridTimestamp.MAX_VALUE), txId) : null
+                        );
                     }
 
                     return result;
@@ -624,7 +726,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                 CompletableFuture<RowId> lockFut = takeLocksForGet(searchKey, indexId, txId);
 
                 return lockFut.thenApply(lockedRowId -> {
-                    BinaryRow result = lockedRowId != null ? mvDataStorage.read(lockedRowId, txId) : null;
+                    BinaryRow result = lockedRowId != null
+                            ? resolveReadResult(mvDataStorage.read(lockedRowId, HybridTimestamp.MAX_VALUE), txId) : null;
 
                     return result;
                 });
@@ -645,7 +748,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                 CompletableFuture<RowId> lockFut = takeLocksForDelete(searchKey, indexId, txId);
 
                 return lockFut.thenCompose(lockedRowId -> {
-                    BinaryRow lockedRow = lockedRowId != null ? mvDataStorage.read(lockedRowId, txId) : null;
+                    BinaryRow lockedRow = lockedRowId != null
+                            ? resolveReadResult(mvDataStorage.read(lockedRowId, HybridTimestamp.MAX_VALUE), txId) : null;
 
                     CompletableFuture raftFut = lockedRowId != null ? applyCmdWithExceptionHandling(new UpdateCommand(lockedRowId, txId)) :
                             CompletableFuture.completedFuture(null);
@@ -702,7 +806,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                                                 : completedFuture(null);
 
                                         return rowLockFut.thenCompose(rowLock -> {
-                                            BinaryRow result = rowId != null ? mvDataStorage.read(rowId, txId) : null;
+                                            BinaryRow result = rowId != null
+                                                    ? resolveReadResult(mvDataStorage.read(rowId, HybridTimestamp.MAX_VALUE), txId) : null;
 
                                             CompletableFuture raftFut =
                                                     rowId != null ? applyCmdWithExceptionHandling(new UpdateCommand(rowId, searchRow, txId))
@@ -735,7 +840,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                 if (lockedRowId != null) {
                                     rowLockFut = lockManager.acquire(txId, new LockKey(tableId, lockedRowId), LockMode.X)
                                             .thenApply(rowLock -> // X lock on RowId
-                                                    mvDataStorage.read(lockedRowId, txId)
+                                                    resolveReadResult(mvDataStorage.read(lockedRowId, HybridTimestamp.MAX_VALUE), txId)
                                             );
                                 } else {
                                     rowLockFut = completedFuture(null);
@@ -867,7 +972,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         if (rowId != null) {
                             rowLockFut = lockManager.acquire(txId, new LockKey(tableId, rowId), LockMode.S) // S lock on RowId
                                     .thenCompose(sharedRowLock -> {
-                                        BinaryRow curVal = mvDataStorage.read(rowId, txId);
+                                        BinaryRow curVal = resolveReadResult(mvDataStorage.read(rowId, HybridTimestamp.MAX_VALUE), txId);
 
                                         if (equalValues(curVal, searchRow)) {
                                             return lockManager.acquire(txId, new LockKey(tableId, rowId),
@@ -903,7 +1008,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         if (rowId != null) {
                             return lockManager.acquire(txId, new LockKey(tableId, rowId), LockMode.S) // S lock on RowId
                                     .thenCompose(sharedRowLock -> {
-                                        BinaryRow curVal = mvDataStorage.read(rowId, txId);
+                                        BinaryRow curVal = resolveReadResult(mvDataStorage.read(rowId, HybridTimestamp.MAX_VALUE), txId);
 
                                         if (curVal != null) {
                                             return lockManager.acquire(txId, new LockKey(tableId, rowId),
@@ -1003,7 +1108,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         if (rowId != null) {
                             rowLockFut = lockManager.acquire(txId, new LockKey(tableId, rowId), LockMode.S) // S lock on RowId
                                     .thenCompose(sharedRowLock -> {
-                                        BinaryRow curVal = mvDataStorage.read(rowId, txId);
+                                        BinaryRow curVal = resolveReadResult(mvDataStorage.read(rowId, HybridTimestamp.MAX_VALUE), txId);
 
                                         if (equalValues(curVal, oldRow)) {
                                             return lockManager.acquire(txId, new LockKey(tableId, rowId),
@@ -1061,6 +1166,44 @@ public class PartitionReplicaListener implements ReplicaListener {
                     );
         } else {
             return completedFuture(null);
+        }
+    }
+
+    /**
+     * Resolves read result to the corresponding binary row. Following rules are used for read result resolution:
+     * <ol>
+     *     <li>If txId is not null (RW request), assert that retrieved tx id matches proposed one or that retrieved tx id is null
+     *     and return binary row. Currently it's only possible to retrieve write intents if they belong to the same transaction,
+     *     locks prevent reading write intents created by others.</li>
+     *     <li>If txId is not null (RO request), perform write intent resolution if given readResult is a write intent itself
+     *     or return binary row otherwise.</li>
+     * </ol>
+     *
+     * @param readResult Read result to resolve.
+     * @param txId Nullable transaction id, should be provided if resolution is performed within the context of RW transaction.
+     * @return Resolved binary row.
+     */
+    private BinaryRow resolveReadResult(ReadResult readResult, @Nullable UUID txId) {
+        if (readResult == null) {
+            return null;
+        } else {
+            if (txId != null) {
+                // RW request.
+                UUID retrievedResultTxId = readResult.transactionId();
+
+                if (retrievedResultTxId == null || txId.equals(retrievedResultTxId)) {
+                    // Same transaction - return retrieved value. It may be both writeIntent or regular value.
+                    return readResult.binaryRow();
+                } else {
+                    // Should never happen, currently, locks prevent reading another transaction intents during RW requests.
+                    throw new AssertionError("Mismatched transaction id, expectedTxId={" + txId + "},"
+                            + " actualTxId={" + retrievedResultTxId + '}');
+                }
+            } else {
+                // RO request.
+                // TODO: IGNITE-17637 Implement a commit partition path write intent resolution logic
+                return readResult.binaryRow();
+            }
         }
     }
 }

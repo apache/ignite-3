@@ -17,45 +17,112 @@
 
 package org.apache.ignite.internal.table.distributed;
 
+import org.apache.ignite.internal.table.distributed.message.HasDataRequest;
+import org.apache.ignite.internal.table.distributed.message.HasDataResponse;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMetaRequest;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMetaResponse;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMvDataRequest;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMvDataResponse;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMvDataResponse.ResponseEntry;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotTxDataRequest;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotTxDataResponse;
+import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlyMultiRowReplicaRequest;
+import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlyScanRetrieveBatchReplicaRequest;
+import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlySingleRowReplicaRequest;
+import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteMultiRowReplicaRequest;
+import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteScanCloseReplicaRequest;
+import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteScanRetrieveBatchReplicaRequest;
+import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest;
+import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSwapRowReplicaRequest;
 import org.apache.ignite.network.annotations.MessageGroup;
 
 /**
  * Message group for the table module.
  */
 @MessageGroup(groupType = 9, groupName = "TableMessages")
-public class TableMessageGroup {
+public interface TableMessageGroup {
     /**
-     * Message type for {@link org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest}.
+     * Message type for {@link ReadWriteSingleRowReplicaRequest}.
      */
-    public static final short RW_SINGLE_ROW_REPLICA_REQUEST = 0;
+    short RW_SINGLE_ROW_REPLICA_REQUEST = 0;
 
     /**
-     * Message type for {@link org.apache.ignite.internal.table.distributed.replication.request.ReadWriteMultiRowReplicaRequest}.
+     * Message type for {@link ReadWriteMultiRowReplicaRequest}.
      */
-    public static final short RW_MULTI_ROW_REPLICA_REQUEST = 1;
+    short RW_MULTI_ROW_REPLICA_REQUEST = 1;
 
     /**
-     * Message type for {@link org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSwapRowReplicaRequest}.
+     * Message type for {@link ReadWriteSwapRowReplicaRequest}.
      */
-    public static final short RW_DUAL_ROW_REPLICA_REQUEST = 2;
+    short RW_DUAL_ROW_REPLICA_REQUEST = 2;
 
     /**
-     * Message type for {@link org.apache.ignite.internal.table.distributed.replication.request.ScanRetrieveBatchReplicaRequest}.
+     * Message type for {@link ReadWriteScanRetrieveBatchReplicaRequest}.
      */
-    public static final short RW_SCAN_RETRIEVE_BATCH_REPLICA_REQUEST = 3;
+    short RW_SCAN_RETRIEVE_BATCH_REPLICA_REQUEST = 3;
 
     /**
-     * Message type for {@link org.apache.ignite.internal.table.distributed.replication.request.ScanCloseReplicaRequest}.
+     * Message type for {@link ReadWriteScanCloseReplicaRequest}.
      */
-    public static final short RW_SCAN_CLOSE_REPLICA_REQUEST = 4;
+    short RW_SCAN_CLOSE_REPLICA_REQUEST = 4;
 
     /**
-     * Message type for {@link org.apache.ignite.internal.table.distributed.message.HasDataRequest}.
+     * Message type for {@link HasDataRequest}.
      */
-    public static final int HAS_DATA_REQUEST = 5;
+    short HAS_DATA_REQUEST = 5;
 
     /**
-     * Message type for {@link org.apache.ignite.internal.table.distributed.message.HasDataResponse}.
+     * Message type for {@link HasDataResponse}.
      */
-    public static final int HAS_DATA_RESPONSE = 6;
+    short HAS_DATA_RESPONSE = 6;
+
+    /**
+     * Message type for {@link ReadOnlySingleRowReplicaRequest}.
+     */
+    short RO_SINGLE_ROW_REPLICA_REQUEST = 7;
+
+    /**
+     * Message type for {@link ReadOnlyMultiRowReplicaRequest}.
+     */
+    short RO_MULTI_ROW_REPLICA_REQUEST = 8;
+
+    /**
+     * Message type for {@link ReadOnlyScanRetrieveBatchReplicaRequest}.
+     */
+    short RO_SCAN_RETRIEVE_BATCH_REPLICA_REQUEST = 9;
+
+    /**
+     * Message type for {@link SnapshotMetaRequest}.
+     */
+    short SNAPSHOT_META_REQUEST = 10;
+
+    /**
+     * Message type for {@link SnapshotMetaResponse}.
+     */
+    short SNAPSHOT_META_RESPONSE = 11;
+
+    /**
+     * Message type for {@link SnapshotMvDataRequest}.
+     */
+    short SNAPSHOT_MV_DATA_REQUEST = 12;
+
+    /**
+     * Message type for {@link ResponseEntry}.
+     */
+    short SNAPSHOT_MV_DATA_RESPONSE_ENTRY = 13;
+
+    /**
+     * Message type for {@link SnapshotMvDataResponse}.
+     */
+    short SNAPSHOT_MV_DATA_RESPONSE = 14;
+
+    /**
+     * Message type for {@link SnapshotTxDataRequest}.
+     */
+    short SNAPSHOT_TX_DATA_REQUEST = 15;
+
+    /**
+     * Message type for {@link SnapshotTxDataResponse}.
+     */
+    short SNAPSHOT_TX_DATA_RESPONSE = 16;
 }

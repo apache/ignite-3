@@ -35,7 +35,7 @@ namespace Apache.Ignite.Tests.Proto
         /** Byte representation of the UUID above, serialized by Java ClientMessagePacker. */
         private static readonly sbyte[] JavaUuidBytes =
         {
-            -40, 3, 111, 36, 20, 106, 36, 74, 64, 24, -93, 108, 62, -100, -11, -76, 32, -126
+            -40, 3, 24, 64, 74, 36, 106, 20, 36, 111, -126, 32, -76, -11, -100, 62, 108, -93
         };
 
         private static readonly string?[] TestStrings =
@@ -127,33 +127,6 @@ namespace Apache.Ignite.Tests.Proto
         }
 
         [Test]
-        public void TestNoValue()
-        {
-            var res1 = WriteRead(
-                buf =>
-                {
-                    var w = buf.GetMessageWriter();
-
-                    w.Write(3);
-                    w.WriteNoValue();
-                    w.Write("abc");
-
-                    w.Flush();
-                },
-                m =>
-                {
-                    var r = new MessagePackReader(m);
-
-                    return (r.TryReadNoValue(), r.ReadInt32(), r.TryReadNoValue(), r.ReadString());
-                });
-
-            Assert.IsFalse(res1.Item1);
-            Assert.AreEqual(3, res1.Item2);
-            Assert.IsTrue(res1.Item3);
-            Assert.AreEqual("abc", res1.Item4);
-        }
-
-        [Test]
         public void TestTryReadInt()
         {
             WriteRead(
@@ -164,7 +137,6 @@ namespace Apache.Ignite.Tests.Proto
                     w.Write(3);
                     w.Write(short.MaxValue);
                     w.Write(int.MaxValue);
-                    w.WriteNoValue();
                     w.Write("abc");
 
                     w.Flush();
@@ -182,9 +154,6 @@ namespace Apache.Ignite.Tests.Proto
 
                     Assert.IsTrue(r.TryReadInt(out i));
                     Assert.AreEqual(int.MaxValue, i);
-
-                    Assert.IsFalse(r.TryReadInt(out i));
-                    Assert.IsTrue(r.TryReadNoValue());
 
                     Assert.IsFalse(r.TryReadInt(out i));
                     Assert.AreEqual("abc", r.ReadString());

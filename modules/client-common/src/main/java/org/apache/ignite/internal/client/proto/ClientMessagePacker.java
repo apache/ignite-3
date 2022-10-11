@@ -18,21 +18,11 @@
 package org.apache.ignite.internal.client.proto;
 
 import static org.apache.ignite.internal.client.proto.ClientMessageCommon.HEADER_SIZE;
-import static org.apache.ignite.internal.client.proto.ClientMessageCommon.NO_VALUE;
 import static org.msgpack.core.MessagePack.Code;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufUtil;
-import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.nio.ByteBuffer;
-import java.sql.Date;
-import java.sql.Time;
-import java.sql.Timestamp;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
@@ -81,17 +71,6 @@ public class ClientMessagePacker implements AutoCloseable {
         assert !closed : "Packer is closed";
 
         buf.writeByte(Code.NIL);
-    }
-
-    /**
-     * Writes a "no value" value.
-     */
-    public void packNoValue() {
-        assert !closed : "Packer is closed";
-
-        buf.writeByte(Code.FIXEXT1);
-        buf.writeByte(ClientMsgPackType.NO_VALUE);
-        buf.writeByte(0);
     }
 
     /**
@@ -186,6 +165,19 @@ public class ClientMessagePacker implements AutoCloseable {
     }
 
     /**
+     * Writes an int value.
+     *
+     * @param i the value to be written.
+     */
+    public void packIntNullable(Integer i) {
+        if (i == null) {
+            packNil();
+        } else {
+            packInt(i);
+        }
+    }
+
+    /**
      * Writes a long value.
      *
      * @param v the value to be written.
@@ -236,21 +228,15 @@ public class ClientMessagePacker implements AutoCloseable {
     }
 
     /**
-     * Writes a big integer value.
+     * Writes a long value.
      *
-     * @param bi the value to be written.
+     * @param v the value to be written.
      */
-    public void packBigInteger(BigInteger bi) {
-        assert !closed : "Packer is closed";
-
-        if (bi.bitLength() <= 63) {
-            packLong(bi.longValue());
-        } else if (bi.bitLength() == 64 && bi.signum() == 1) {
-            buf.writeByte(Code.UINT64);
-            buf.writeLong(bi.longValue());
+    public void packLongNullable(Long v) {
+        if (v == null) {
+            packNil();
         } else {
-            throw new IllegalArgumentException(
-                    "MessagePack cannot serialize BigInteger larger than 2^64-1");
+            packLong(v);
         }
     }
 
@@ -285,6 +271,11 @@ public class ClientMessagePacker implements AutoCloseable {
      */
     public void packString(String s) {
         assert !closed : "Packer is closed";
+
+        if (s == null) {
+            packNil();
+            return;
+        }
 
         // Header is a varint.
         // Use pessimistic utf8MaxBytes to reserve bytes for the header.
@@ -510,73 +501,8 @@ public class ClientMessagePacker implements AutoCloseable {
 
         packExtensionTypeHeader(ClientMsgPackType.UUID, 16);
 
-        buf.writeLong(val.getMostSignificantBits());
-        buf.writeLong(val.getLeastSignificantBits());
-    }
-
-    /**
-     * Writes a decimal.
-     *
-     * @param val Decimal value.
-     */
-    public void packDecimal(BigDecimal val) {
-        assert !closed : "Packer is closed";
-
-        byte[] unscaledValue = val.unscaledValue().toByteArray();
-
-        // Pack scale as varint.
-        int scale = val.scale();
-
-        int scaleBytes = 5;
-
-        if (scale < (1 << 7)) {
-            scaleBytes = 1;
-        } else if (scale < (1 << 8)) {
-            scaleBytes = 2;
-        } else if (scale < (1 << 16)) {
-            scaleBytes = 3;
-        }
-
-        int payloadLen = scaleBytes + unscaledValue.length;
-
-        packExtensionTypeHeader(ClientMsgPackType.DECIMAL, payloadLen);
-
-        switch (scaleBytes) {
-            case 1:
-                buf.writeByte(scale);
-                break;
-
-            case 2:
-                buf.writeByte(Code.UINT8);
-                buf.writeByte(scale);
-                break;
-
-            case 3:
-                buf.writeByte(Code.UINT16);
-                buf.writeShort(scale);
-                break;
-
-            default:
-                buf.writeByte(Code.UINT32);
-                buf.writeInt(scale);
-        }
-
-        buf.writeBytes(unscaledValue);
-    }
-
-    /**
-     * Writes a decimal.
-     *
-     * @param val Decimal value.
-     */
-    public void packNumber(BigInteger val) {
-        assert !closed : "Packer is closed";
-
-        byte[] data = val.toByteArray();
-
-        packExtensionTypeHeader(ClientMsgPackType.NUMBER, data.length);
-
-        buf.writeBytes(data);
+        buf.writeLongLE(val.getMostSignificantBits());
+        buf.writeLongLE(val.getLeastSignificantBits());
     }
 
     /**
@@ -616,288 +542,52 @@ public class ClientMessagePacker implements AutoCloseable {
     }
 
     /**
-     * Writes a date.
+     * Packs an array of objects in BinaryTuple format.
      *
-     * @param val Date value.
+     * @param vals Object array.
      */
-    public void packDate(LocalDate val) {
+    public void packObjectArrayAsBinaryTuple(Object[] vals) {
         assert !closed : "Packer is closed";
 
-        packExtensionTypeHeader(ClientMsgPackType.DATE, 6);
+        if (vals == null) {
+            packNil();
 
-        buf.writeInt(val.getYear());
-        buf.writeByte(val.getMonthValue());
-        buf.writeByte(val.getDayOfMonth());
+            return;
+        }
+
+        packInt(vals.length);
+
+        // Builder with inline schema.
+        // Every element in vals is represented by 3 tuple elements: type, scale, value.
+        var builder = new BinaryTupleBuilder(vals.length * 3, true);
+
+        for (Object arg : vals) {
+            ClientBinaryTupleUtils.appendObject(builder, arg);
+        }
+
+        packBinaryTuple(builder);
     }
 
     /**
-     * Writes a time.
+     * Packs an objects in BinaryTuple format.
      *
-     * @param val Time value.
+     * @param val Object array.
      */
-    public void packTime(LocalTime val) {
+    public void packObjectAsBinaryTuple(Object val) {
         assert !closed : "Packer is closed";
 
-        packExtensionTypeHeader(ClientMsgPackType.TIME, 7);
-
-        buf.writeByte(val.getHour());
-        buf.writeByte(val.getMinute());
-        buf.writeByte(val.getSecond());
-        buf.writeInt(val.getNano());
-    }
-
-    /**
-     * Writes a datetime.
-     *
-     * @param val Datetime value.
-     */
-    public void packDateTime(LocalDateTime val) {
-        assert !closed : "Packer is closed";
-
-        packExtensionTypeHeader(ClientMsgPackType.DATETIME, 13);
-
-        buf.writeInt(val.getYear());
-        buf.writeByte(val.getMonthValue());
-        buf.writeByte(val.getDayOfMonth());
-        buf.writeByte(val.getHour());
-        buf.writeByte(val.getMinute());
-        buf.writeByte(val.getSecond());
-        buf.writeInt(val.getNano());
-    }
-
-    /**
-     * Writes a timestamp.
-     *
-     * @param val Timestamp value.
-     */
-    public void packTimestamp(Instant val) {
-        assert !closed : "Packer is closed";
-
-        packExtensionTypeHeader(ClientMsgPackType.TIMESTAMP, 12);
-
-        buf.writeLong(val.getEpochSecond());
-        buf.writeInt(val.getNano());
-    }
-
-    /**
-     * Packs an object.
-     *
-     * @param val Object value.
-     * @throws UnsupportedOperationException When type is not supported.
-     */
-    public void packObject(Object val) {
         if (val == null) {
             packNil();
 
             return;
         }
 
-        if (val == NO_VALUE) {
-            packNoValue();
+        // Builder with inline schema.
+        // Value is represented by 3 tuple elements: type, scale, value.
+        var builder = new BinaryTupleBuilder(3, false, 3);
+        ClientBinaryTupleUtils.appendObject(builder, val);
 
-            return;
-        }
-
-        if (val instanceof Byte) {
-            packByte((byte) val);
-
-            return;
-        }
-
-        if (val instanceof Short) {
-            packShort((short) val);
-
-            return;
-        }
-
-        if (val instanceof Integer) {
-            packInt((int) val);
-
-            return;
-        }
-
-        if (val instanceof Long) {
-            packLong((long) val);
-
-            return;
-        }
-
-        if (val instanceof Float) {
-            packFloat((float) val);
-
-            return;
-        }
-
-        if (val instanceof Double) {
-            packDouble((double) val);
-
-            return;
-        }
-
-        if (val instanceof UUID) {
-            packUuid((UUID) val);
-
-            return;
-        }
-
-        if (val instanceof String) {
-            packString((String) val);
-
-            return;
-        }
-
-        if (val instanceof byte[]) {
-            byte[] bytes = (byte[]) val;
-            packBinaryHeader(bytes.length);
-            writePayload(bytes);
-
-            return;
-        }
-
-        if (val instanceof BigDecimal) {
-            packDecimal((BigDecimal) val);
-
-            return;
-        }
-
-        if (val instanceof BigInteger) {
-            packNumber((BigInteger) val);
-
-            return;
-        }
-
-        if (val instanceof BitSet) {
-            packBitSet((BitSet) val);
-
-            return;
-        }
-
-        if (val instanceof LocalDate) {
-            packDate((LocalDate) val);
-
-            return;
-        }
-
-        if (val instanceof LocalTime) {
-            packTime((LocalTime) val);
-
-            return;
-        }
-
-        if (val instanceof LocalDateTime) {
-            packDateTime((LocalDateTime) val);
-
-            return;
-        }
-
-        if (val instanceof Instant) {
-            packTimestamp((Instant) val);
-
-            return;
-        }
-
-        throw new UnsupportedOperationException(
-                "Unsupported type, can't serialize: " + val.getClass());
-    }
-
-    /**
-     * Packs object type ({@link ClientDataType}) and value.
-     *
-     * @param obj Object.
-     */
-    public void packObjectWithType(Object obj) {
-        if (obj == null) {
-            packNil();
-
-            return;
-        }
-
-        Class<?> cls = obj.getClass();
-
-        if (cls == Byte.class) {
-            packInt(ClientDataType.INT8);
-            packByte((Byte) obj);
-        } else if (cls == Short.class) {
-            packInt(ClientDataType.INT16);
-            packShort((Short) obj);
-        } else if (cls == Integer.class) {
-            packInt(ClientDataType.INT32);
-            packInt((Integer) obj);
-        } else if (cls == Long.class) {
-            packInt(ClientDataType.INT64);
-            packLong((Long) obj);
-        } else if (cls == Float.class) {
-            packInt(ClientDataType.FLOAT);
-            packFloat((Float) obj);
-        } else if (cls == Double.class) {
-            packInt(ClientDataType.DOUBLE);
-            packDouble((Double) obj);
-        } else if (cls == String.class) {
-            packInt(ClientDataType.STRING);
-            packString((String) obj);
-        } else if (cls == UUID.class) {
-            packInt(ClientDataType.UUID);
-            packUuid((UUID) obj);
-        } else if (cls == LocalDate.class) {
-            packInt(ClientDataType.DATE);
-            packDate((LocalDate) obj);
-        } else if (cls == LocalTime.class) {
-            packInt(ClientDataType.TIME);
-            packTime((LocalTime) obj);
-        } else if (cls == LocalDateTime.class) {
-            packInt(ClientDataType.DATETIME);
-            packDateTime((LocalDateTime) obj);
-        } else if (cls == Instant.class) {
-            packInt(ClientDataType.TIMESTAMP);
-            packTimestamp((Instant) obj);
-        } else if (cls == byte[].class) {
-            packInt(ClientDataType.BYTES);
-
-            packBinaryHeader(((byte[]) obj).length);
-            writePayload((byte[]) obj);
-        } else if (cls == Date.class) {
-            packInt(ClientDataType.DATE);
-            packDate(((Date) obj).toLocalDate());
-        } else if (cls == Time.class) {
-            packInt(ClientDataType.TIME);
-            packTime(((Time) obj).toLocalTime());
-        } else if (cls == Timestamp.class) {
-            packInt(ClientDataType.TIMESTAMP);
-            packTimestamp(((java.util.Date) obj).toInstant());
-        } else if (cls == BigDecimal.class) {
-            packInt(ClientDataType.DECIMAL);
-            packDecimal(((BigDecimal) obj));
-        } else if (cls == BigInteger.class) {
-            packInt(ClientDataType.BIGINTEGER);
-            packBigInteger(((BigInteger) obj));
-        } else if (cls == BitSet.class) {
-            packInt(ClientDataType.BITMASK);
-            packBitSet((BitSet) obj);
-        } else {
-            throw new UnsupportedOperationException("Custom objects are not supported: " + cls);
-        }
-    }
-
-    /**
-     * Packs an array of different objects.
-     *
-     * @param args Object array.
-     * @throws UnsupportedOperationException in case of unknown type.
-     */
-    public void packObjectArray(Object[] args) {
-        assert !closed : "Packer is closed";
-
-        if (args == null) {
-            packNil();
-
-            return;
-        }
-
-        packArrayHeader(args.length);
-
-        for (Object arg : args) {
-            packObjectWithType(arg);
-        }
+        packBinaryTuple(builder);
     }
 
     /**
@@ -909,6 +599,18 @@ public class ClientMessagePacker implements AutoCloseable {
     public void packBinaryTuple(BinaryTupleBuilder builder, BitSet noValueSet) {
         packBitSet(noValueSet);
 
+        // TODO IGNITE-17821 Thin 3.0 Perf: Implement BinaryTupleReader and Builder over ByteBuf.
+        var buf = builder.build();
+        packBinaryHeader(buf.limit() - buf.position());
+        writePayload(buf);
+    }
+
+    /**
+     * Packs binary tuple.
+     *
+     * @param builder Builder.
+     */
+    public void packBinaryTuple(BinaryTupleBuilder builder) {
         var buf = builder.build();
         packBinaryHeader(buf.limit() - buf.position());
         writePayload(buf);

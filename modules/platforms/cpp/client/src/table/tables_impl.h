@@ -17,13 +17,12 @@
 
 #pragma once
 
+#include "cluster_connection.h"
+#include "ignite/table/table.h"
+#include "table/table_impl.h"
+
 #include <future>
 #include <memory>
-
-#include "ignite/table/table.h"
-
-#include "cluster_connection.h"
-#include "table/table_impl.h"
 
 namespace ignite::detail {
 

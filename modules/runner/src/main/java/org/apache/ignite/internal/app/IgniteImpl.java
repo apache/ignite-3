@@ -63,6 +63,7 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
+import org.apache.ignite.internal.metrics.rest.MetricRestFactory;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageFactoryCreator;
@@ -328,14 +329,7 @@ public class IgniteImpl implements Ignite {
 
         metricManager.configure(clusterCfgMgr.configurationRegistry().getConfiguration(MetricConfiguration.KEY));
 
-        RestFactory presentationsFactory = new PresentationsFactory(nodeCfgMgr, clusterCfgMgr);
-        RestFactory clusterManagementRestFactory = new ClusterManagementRestFactory(clusterSvc, cmgMgr);
-        RestFactory nodeManagementRestFactory = new NodeManagementRestFactory(lifecycleManager, () -> name);
-        RestConfiguration restConfiguration = nodeCfgMgr.configurationRegistry().getConfiguration(RestConfiguration.KEY);
-        restComponent = new RestComponent(
-                List.of(presentationsFactory, clusterManagementRestFactory, nodeManagementRestFactory),
-                restConfiguration
-        );
+        restComponent = createRestComponent(name);
 
         baselineMgr = new BaselineManager(
                 clusterCfgMgr,
@@ -413,6 +407,21 @@ public class IgniteImpl implements Ignite {
                 clusterSvc,
                 nettyBootstrapFactory,
                 sql
+        );
+    }
+
+    private RestComponent createRestComponent(String name) {
+        RestFactory presentationsFactory = new PresentationsFactory(nodeCfgMgr, clusterCfgMgr);
+        RestFactory clusterManagementRestFactory = new ClusterManagementRestFactory(clusterSvc, cmgMgr);
+        RestFactory nodeManagementRestFactory = new NodeManagementRestFactory(lifecycleManager, () -> name);
+        RestFactory nodeMetricRestFactory = new MetricRestFactory(metricManager);
+        RestConfiguration restConfiguration = nodeCfgMgr.configurationRegistry().getConfiguration(RestConfiguration.KEY);
+        return new RestComponent(
+                List.of(presentationsFactory,
+                        clusterManagementRestFactory,
+                        nodeManagementRestFactory,
+                        nodeMetricRestFactory),
+                restConfiguration
         );
     }
 

@@ -164,7 +164,7 @@ public class JdbcQuerySingleResult extends Response {
         packer.packArrayHeader(items.size());
 
         for (List<Object> item : items) {
-            packer.packObjectArray(item.toArray());
+            packer.packObjectArrayAsBinaryTuple(item.toArray());
         }
     }
 
@@ -191,7 +191,7 @@ public class JdbcQuerySingleResult extends Response {
         items = new ArrayList<>(size);
 
         for (int i = 0; i < size; i++) {
-            items.add(Arrays.asList(unpacker.unpackObjectArray()));
+            items.add(Arrays.asList(unpacker.unpackObjectArrayFromBinaryTuple()));
         }
     }
 

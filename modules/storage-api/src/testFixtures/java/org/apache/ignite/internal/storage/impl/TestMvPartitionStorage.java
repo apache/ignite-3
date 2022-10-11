@@ -23,7 +23,7 @@ import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.function.BiConsumer;
 import java.util.function.Predicate;
@@ -43,7 +43,7 @@ import org.jetbrains.annotations.Nullable;
  * Test implementation of MV partition storage.
  */
 public class TestMvPartitionStorage implements MvPartitionStorage {
-    private final ConcurrentMap<RowId, VersionChain> map = new ConcurrentSkipListMap<>();
+    private final ConcurrentNavigableMap<RowId, VersionChain> map = new ConcurrentSkipListMap<>();
 
     private long lastAppliedIndex = 0;
 
@@ -173,19 +173,6 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
             return VersionChain.forCommitted(timestamp, versionChain);
         });
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public @Nullable BinaryRow read(RowId rowId, UUID txId) throws TxIdMismatchException, StorageException {
-        if (rowId.partitionId() != partitionId) {
-            throw new IllegalArgumentException(
-                    String.format("RowId partition [%d] is not equal to storage partition [%d].", rowId.partitionId(), partitionId));
-        }
-
-        VersionChain versionChain = map.get(rowId);
-
-        return read(versionChain, null, txId, null).binaryRow();
     }
 
     /** {@inheritDoc} */
@@ -327,18 +314,6 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     /** {@inheritDoc} */
     @Override
-    public Cursor<BinaryRow> scan(Predicate<BinaryRow> filter, UUID txId) {
-        Iterator<BinaryRow> iterator = map.values().stream()
-                .map(versionChain -> read(versionChain, null, txId, filter))
-                .map(ReadResult::binaryRow)
-                .filter(Objects::nonNull)
-                .iterator();
-
-        return Cursor.fromIterator(iterator);
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public PartitionTimestampCursor scan(Predicate<BinaryRow> filter, HybridTimestamp timestamp) {
         Iterator<VersionChain> iterator = map.values().iterator();
 
@@ -406,6 +381,11 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
                 return res;
             }
         };
+    }
+
+    @Override
+    public @Nullable RowId closestRowId(RowId lowerBound) throws StorageException {
+        return map.ceilingKey(lowerBound);
     }
 
     /** {@inheritDoc} */

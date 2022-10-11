@@ -101,7 +101,7 @@ public class NativeTypes {
     /**
      * Creates a STRING type with maximal length is <code>len</code>.
      *
-     * @param len Maximum length of the string.
+     * @param len Maximum length of the string, {@link Integer#MAX_VALUE} if not defined.
      * @return Native type.
      */
     public static NativeType stringOf(int len) {
@@ -111,7 +111,7 @@ public class NativeTypes {
     /**
      * Creates a BYTES type with maximal length is <code>len</code>.
      *
-     * @param len Maximum length of the byte array.
+     * @param len Maximum length of the byte array, {@link Integer#MAX_VALUE} if not defined.
      * @return Native type.
      */
     public static NativeType blobOf(int len) {

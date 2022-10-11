@@ -18,21 +18,17 @@
 package org.apache.ignite.internal.storage.rocksdb.index;
 
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
-import static org.apache.ignite.internal.util.CursorUtils.concat;
-import static org.apache.ignite.internal.util.CursorUtils.dropWhile;
 import static org.apache.ignite.internal.util.CursorUtils.map;
-import static org.apache.ignite.internal.util.CursorUtils.takeWhile;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.util.function.Predicate;
+import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.index.BinaryTupleComparator;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
@@ -135,36 +131,33 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
             boolean includeLower,
             boolean includeUpper
     ) {
-        byte[] lowerBoundBytes = lowerBound == null ? null : rocksPrefix(lowerBound);
+        byte[] lowerBoundBytes;
+
+        if (lowerBound == null) {
+            lowerBoundBytes = null;
+        } else {
+            lowerBoundBytes = rocksPrefix(lowerBound);
+
+            // Skip the lower bound, if needed (RocksDB includes the lower bound by default).
+            if (!includeLower) {
+                setEqualityFlag(lowerBoundBytes);
+            }
+        }
 
         byte[] upperBoundBytes;
 
         if (upperBound == null) {
             upperBoundBytes = null;
-        } else if (lowerBound == upperBound) {
-            upperBoundBytes = lowerBoundBytes;
         } else {
             upperBoundBytes = rocksPrefix(upperBound);
+
+            // Include the upper bound, if needed (RocksDB excludes the upper bound by default).
+            if (includeUpper) {
+                setEqualityFlag(upperBoundBytes);
+            }
         }
 
-        Cursor<ByteBuffer> cursor = createScanCursor(lowerBoundBytes, upperBoundBytes);
-
-        // Skip the lower bound, if needed (RocksDB includes the lower bound by default).
-        if (!includeLower && lowerBound != null) {
-            cursor = dropWhile(cursor, startsWith(lowerBound));
-        }
-
-        // Include the upper bound, if needed (RocksDB excludes the upper bound by default).
-        if (includeUpper && upperBound != null) {
-            Cursor<ByteBuffer> upperBoundCursor = takeWhile(
-                    createScanCursor(upperBoundBytes, null),
-                    startsWith(upperBound)
-            );
-
-            cursor = concat(cursor, upperBoundCursor);
-        }
-
-        return cursor;
+        return createScanCursor(lowerBoundBytes, upperBoundBytes);
     }
 
     private Cursor<ByteBuffer> createScanCursor(byte @Nullable [] lowerBound, byte @Nullable [] upperBound) {
@@ -193,6 +186,13 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
                 IgniteUtils.closeAll(options, upperBoundSlice);
             }
         };
+    }
+
+    private static void setEqualityFlag(byte[] prefix) {
+        // Flags start after the partition ID.
+        byte flags = prefix[Short.BYTES];
+
+        prefix[Short.BYTES] = (byte) (flags | BinaryTupleCommon.EQUALITY_FLAG);
     }
 
     private IndexRow decodeRow(ByteBuffer bytes) {
@@ -231,24 +231,6 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
                 .putLong(row.rowId().mostSignificantBits())
                 .putLong(row.rowId().leastSignificantBits())
                 .array();
-    }
-
-    private Predicate<ByteBuffer> startsWith(BinaryTuplePrefix prefix) {
-        var comparator = new BinaryTupleComparator(descriptor);
-
-        ByteBuffer prefixBuffer = prefix.byteBuffer();
-
-        return key -> {
-            // First, compare the partitionIDs.
-            boolean partitionIdCompare = key.getShort(0) == partitionStorage.partitionId();
-
-            if (!partitionIdCompare) {
-                return false;
-            }
-
-            // Finally, compare the remaining parts of the tuples.
-            return comparator.compare(prefixBuffer, binaryTupleSlice(key)) == 0;
-        };
     }
 
     private static ByteBuffer binaryTupleSlice(ByteBuffer key) {

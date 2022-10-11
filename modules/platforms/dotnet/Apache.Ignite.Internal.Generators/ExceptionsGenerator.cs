@@ -107,16 +107,16 @@ namespace Apache.Ignite.Internal.Generators
             sb.AppendLine();
             sb.AppendLine("    internal static class ExceptionMapper");
             sb.AppendLine("    {");
-            sb.AppendLine("        public static IgniteException GetException(Guid traceId, int code, string javaClass, string? message) =>");
+            sb.AppendLine("        public static IgniteException GetException(Guid traceId, int code, string javaClass, string? message, string? javaStackTrace) =>");
             sb.AppendLine("            javaClass switch");
             sb.AppendLine("            {");
 
             foreach (var (javaClass, dotNetClass) in classMap)
             {
-                sb.AppendLine($"                \"{javaClass}\" => new {dotNetClass}(traceId, code, message, new IgniteException(traceId, code, javaClass)),");
+                sb.AppendLine($"                \"{javaClass}\" => new {dotNetClass}(traceId, code, message, new IgniteException(traceId, code, javaStackTrace ?? javaClass)),");
             }
 
-            sb.AppendLine("                _ => new IgniteException(traceId, code, message, new IgniteException(traceId, code, javaClass))");
+            sb.AppendLine("                _ => new IgniteException(traceId, code, message, new IgniteException(traceId, code, javaStackTrace ?? javaClass))");
             sb.AppendLine("            };");
             sb.AppendLine("    }");
             sb.AppendLine("}");

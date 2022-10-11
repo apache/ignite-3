@@ -24,12 +24,15 @@ import org.jetbrains.annotations.Nullable;
 /**
  * A hybrid timestamp that combines physical clock and logical clock.
  */
-public class HybridTimestamp implements Comparable<HybridTimestamp>, Serializable {
+public final class HybridTimestamp implements Comparable<HybridTimestamp>, Serializable {
     /** Serial version UID. */
     private static final long serialVersionUID = 2459861612869605904L;
 
     /** Timestamp size in bytes. */
     public static final int HYBRID_TIMESTAMP_SIZE = Long.BYTES + Integer.BYTES;
+
+    /** A constant holding the maximum value a {@code HybridTimestamp} can have. */
+    public static final HybridTimestamp MAX_VALUE = new HybridTimestamp(Long.MAX_VALUE, Integer.MAX_VALUE);
 
     /** Physical clock. */
     private final long physical;

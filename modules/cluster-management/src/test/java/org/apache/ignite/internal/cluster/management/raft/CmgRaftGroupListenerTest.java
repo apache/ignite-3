@@ -44,7 +44,7 @@ import org.junit.jupiter.api.Test;
  * Tests for the {@link CmgRaftGroupListener}.
  */
 public class CmgRaftGroupListenerTest {
-    private final ClusterStateStorage storage = new ConcurrentMapClusterStateStorage();
+    private final ClusterStateStorage storage = new TestClusterStateStorage();
 
     private final CmgRaftGroupListener listener = new CmgRaftGroupListener(storage);
 

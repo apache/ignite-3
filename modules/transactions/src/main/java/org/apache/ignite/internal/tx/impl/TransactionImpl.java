@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -54,10 +55,10 @@ public class TransactionImpl implements InternalTransaction {
     private final TxManager txManager;
 
     /** Enlisted replication groups: replication group id -> (primary replica node, raft term). */
-    private Map<String, IgniteBiTuple<ClusterNode, Long>> enlisted = new ConcurrentSkipListMap<>();
+    private final Map<String, IgniteBiTuple<ClusterNode, Long>> enlisted = new ConcurrentSkipListMap<>();
 
     /** Enlisted operation futures in this transaction. */
-    private volatile List<CompletableFuture<?>>  enlistedResults = new ArrayList<>();
+    private final List<CompletableFuture<?>> enlistedResults = new CopyOnWriteArrayList<>();
 
     /**
      * The constructor.
