@@ -49,7 +49,8 @@ public sealed class OptionTests
     [Test]
     public void TestEquality()
     {
-        Assert.Fail("TODO");
+        Assert.AreEqual(Option.Some(123), (Option<int>)123);
+        Assert.AreNotEqual(Option.Some(123), Option.Some(124));
     }
 
     [Test]
