@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Tests;
 
+using System;
 using NUnit.Framework;
 
 /// <summary>
@@ -35,44 +36,67 @@ public sealed class OptionTests
     }
 
     [Test]
+    public void TestNoneValueThrows()
+    {
+        var ex = Assert.Throws<InvalidOperationException>(() =>
+        {
+            _ = Option.None<int>().Value;
+        });
+
+        Assert.AreEqual("Value is not present. Check HasValue property before accessing Value.", ex!.Message);
+    }
+
+    [Test]
     public void TestEquality()
     {
         Assert.Fail("TODO");
     }
 
     [Test]
-    public void TestReferenceType()
+    public void TestSomeReferenceTypeDeconstruct()
     {
-        Assert.Fail("TODO");
+        var (val, hasVal) = Option.Some("abc");
+
+        Assert.IsTrue(hasVal);
+        Assert.AreEqual("abc", val);
     }
 
     [Test]
-    public void TestValueType()
+    public void TestNoneReferenceTypeDeconstruct()
     {
-        Assert.Fail("TODO");
+        var (val, hasVal) = Option.None<string>();
+
+        Assert.IsFalse(hasVal);
+        Assert.IsNull(val);
     }
 
     [Test]
-    public void TestReferenceTypeDeconstruct()
+    public void TestSomeValueTypeDeconstruct()
     {
-        Assert.Fail("TODO");
+        var (val, hasVal) = Option.Some(123L);
+
+        Assert.IsTrue(hasVal);
+        Assert.AreEqual(123L, val);
     }
 
     [Test]
-    public void TestValueTypeDeconstruct()
+    public void TestNoneValueTypeDeconstruct()
     {
-        Assert.Fail("TODO");
+        var (val, hasVal) = Option.None<long>();
+
+        Assert.IsFalse(hasVal);
+        Assert.AreEqual(0L, val);
     }
 
     [Test]
-    public void TestToStringNone()
+    public void TestNoneToString()
     {
         Assert.AreEqual("Option { Value = , HasValue = False }", Option.None<int>().ToString());
         Assert.AreEqual("Option { Value = , HasValue = False }", Option.None<string>().ToString());
     }
 
     [Test]
-    public void TestToStringSome()
+    public void TestSomeToString()
     {
         Assert.AreEqual("Option { Value = 123, HasValue = True }", Option.Some(123).ToString());
         Assert.AreEqual("Option { Value = Foo, HasValue = True }", Option.Some("Foo").ToString());
