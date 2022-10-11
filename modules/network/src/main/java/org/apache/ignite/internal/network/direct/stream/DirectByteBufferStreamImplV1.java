@@ -546,7 +546,9 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
                 //noinspection fallthrough
             case 1:
-                writeInt(val.position());
+                if ((byteBufferFlag & 4) == 0) {
+                    writeInt(val.position());
+                }
 
                 if (!lastFinished || val == null) {
                     return;
@@ -556,7 +558,9 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
                 //noinspection fallthrough
             case 2:
-                writeInt(val.limit());
+                if ((byteBufferFlag & 8) != 0) {
+                    writeInt(val.limit());
+                }
 
                 if (!lastFinished || val == null) {
                     return;
