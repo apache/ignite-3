@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Tests.Table;
 
+using System.Linq;
 using System.Threading.Tasks;
 using NUnit.Framework;
 
@@ -32,7 +33,9 @@ public class RecordViewPrimitiveTests : IgniteTestsBase
 
         await recordView.UpsertAsync(null, 123);
         var (res, _) = await recordView.GetAsync(null, 123);
+        var res2 = await recordView.GetAllAsync(null, new long[] { 1, 2, 123 });
 
         Assert.AreEqual(123, res);
+        Assert.AreEqual(123, res2.Single().Value);
     }
 }
