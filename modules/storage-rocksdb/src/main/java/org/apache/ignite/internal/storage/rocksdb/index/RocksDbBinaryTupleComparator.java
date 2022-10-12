@@ -69,7 +69,7 @@ public class RocksDbBinaryTupleComparator extends AbstractComparator {
         if (!firstBinaryTupleBuffer.hasRemaining()) {
             return -1;
         }
-        
+
         if (!secondBinaryTupleBuffer.hasRemaining()) {
             return 1;
         }
