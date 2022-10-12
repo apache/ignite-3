@@ -55,10 +55,10 @@ public class ConnectCall implements Call<ConnectCallInput, String> {
     public CallOutput<String> execute(ConnectCallInput input) {
         try {
             String nodeUrl = input.getNodeUrl();
+            String configuration = fetchNodeConfiguration(nodeUrl);
+            session.setNodeName(fetchNodeName(nodeUrl));
             session.setNodeUrl(nodeUrl);
             stateConfigProvider.get().setProperty(ConfigConstants.LAST_CONNECTED_URL, nodeUrl);
-            session.setNodeName(fetchNodeName(input));
-            String configuration = fetchNodeConfiguration(input);
             session.setJdbcUrl(constructJdbcUrl(configuration, nodeUrl));
             session.setConnectedToNode(true);
 
@@ -70,12 +70,12 @@ public class ConnectCall implements Call<ConnectCallInput, String> {
         }
     }
 
-    private String fetchNodeName(ConnectCallInput input) throws ApiException {
-        return new NodeManagementApi(Configuration.getDefaultApiClient().setBasePath(input.getNodeUrl())).nodeState().getName();
+    private String fetchNodeName(String nodeUrl) throws ApiException {
+        return new NodeManagementApi(Configuration.getDefaultApiClient().setBasePath(nodeUrl)).nodeState().getName();
     }
 
-    private String fetchNodeConfiguration(ConnectCallInput input) throws ApiException {
-        return new NodeConfigurationApi(Configuration.getDefaultApiClient().setBasePath(input.getNodeUrl())).getNodeConfiguration();
+    private String fetchNodeConfiguration(String nodeUrl) throws ApiException {
+        return new NodeConfigurationApi(Configuration.getDefaultApiClient().setBasePath(nodeUrl)).getNodeConfiguration();
     }
 
     private String constructJdbcUrl(String configuration, String nodeUrl) {

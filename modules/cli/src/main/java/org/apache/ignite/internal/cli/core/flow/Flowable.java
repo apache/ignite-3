@@ -81,6 +81,8 @@ public interface Flowable<T> {
     static <T> Flowable<T> process(Supplier<T> supplier) {
         try {
             return success(supplier.get());
+        } catch (FlowInterruptException e) {
+            throw e;
         } catch (Exception e) {
             return failure(e);
         }

@@ -70,6 +70,11 @@ public class FlowBuilderImpl<I, O> implements FlowBuilder<I, O> {
     }
 
     @Override
+    public <OT> FlowBuilder<I, OT> flatMap(Function<O, FlowBuilder<O, OT>> mapper) {
+        return then(it -> mapper.apply(it.value()).build().start(it));
+    }
+
+    @Override
     public <OT> FlowBuilder<I, O> ifThen(Predicate<O> tester, Flow<O, OT> flow) {
         return then(input -> {
             if (tester.test(input.value())) {
@@ -114,7 +119,11 @@ public class FlowBuilderImpl<I, O> implements FlowBuilder<I, O> {
 
     @Override
     public void start() {
-        run(Flowable.empty());
+        try {
+            run(Flowable.empty());
+        } catch (FlowInterruptException ignored) {
+            // FlowInterruptException is an internal exception and shouldn't be exposed to users
+        }
     }
 
     /**
@@ -124,11 +133,7 @@ public class FlowBuilderImpl<I, O> implements FlowBuilder<I, O> {
      * @return output flowable
      */
     private Flowable<O> run(Flowable<I> input) {
-        try {
-            return flow.start(input);
-        } catch (FlowInterruptException e) {
-            return Flowable.empty();
-        }
+        return flow.start(input);
     }
 
     /**

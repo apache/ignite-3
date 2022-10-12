@@ -33,7 +33,7 @@ import java.nio.channels.ClosedChannelException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
+import org.apache.ignite.internal.future.OrderingFuture;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.NetworkMessage;
@@ -64,7 +64,7 @@ public class NettyClientTest {
      * @throws Exception If failed.
      */
     @Test
-    public void testSuccessfulConnect() throws InterruptedException, ExecutionException, TimeoutException {
+    public void testSuccessfulConnect() throws Exception {
         var channel = new EmbeddedChannel();
 
         ClientAndSender tuple = createClientAndSenderFromChannelFuture(channel.newSucceededFuture());
@@ -83,11 +83,9 @@ public class NettyClientTest {
 
     /**
      * Tests a scenario where NettyClient fails to connect.
-     *
-     * @throws Exception If failed.
      */
     @Test
-    public void testFailedToConnect() throws InterruptedException, ExecutionException, TimeoutException {
+    public void testFailedToConnect() {
         var channel = new EmbeddedChannel();
 
         ClientAndSender tuple = createClientAndSenderFromChannelFuture(channel.newFailedFuture(new ClosedChannelException()));
@@ -134,11 +132,9 @@ public class NettyClientTest {
 
     /**
      * Tests a scenario where a connection is established successfully after a client has been stopped.
-     *
-     * @throws Exception If failed.
      */
     @Test
-    public void testStoppedBeforeStarted() throws Exception {
+    public void testStoppedBeforeStarted() {
         var channel = new EmbeddedChannel();
 
         var future = channel.newPromise();
@@ -161,11 +157,9 @@ public class NettyClientTest {
 
     /**
      * Tests that a {@link NettyClient#start} method can be called only once.
-     *
-     * @throws Exception If failed.
      */
     @Test
-    public void testStartTwice() throws Exception {
+    public void testStartTwice() {
         var channel = new EmbeddedChannel();
 
         Bootstrap bootstrap = mockBootstrap();
@@ -230,7 +224,7 @@ public class NettyClientTest {
     private static class ClientAndSender {
         private final NettyClient client;
 
-        private final CompletableFuture<NettySender> sender;
+        private final OrderingFuture<NettySender> sender;
 
         /**
          * Constructor.
@@ -238,7 +232,7 @@ public class NettyClientTest {
          * @param client Netty client.
          * @param sender Netty sender.
          */
-        private ClientAndSender(NettyClient client, CompletableFuture<NettySender> sender) {
+        private ClientAndSender(NettyClient client, OrderingFuture<NettySender> sender) {
             this.client = client;
             this.sender = sender;
         }
