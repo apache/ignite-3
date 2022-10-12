@@ -17,11 +17,19 @@
 
 package org.apache.ignite.internal.storage.pagememory.index.hash.io;
 
+import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
+import static org.apache.ignite.internal.pagememory.util.PageUtils.getBytes;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.getInt;
+import static org.apache.ignite.internal.pagememory.util.PageUtils.getLong;
+import static org.apache.ignite.internal.pagememory.util.PageUtils.getShort;
+import static org.apache.ignite.internal.pagememory.util.PageUtils.putByteBuffer;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putInt;
+import static org.apache.ignite.internal.pagememory.util.PageUtils.putLong;
+import static org.apache.ignite.internal.pagememory.util.PageUtils.putShort;
 import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.PARTITIONLESS_LINK_SIZE_BYTES;
 import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.readPartitionless;
 import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.writePartitionless;
+import static org.apache.ignite.internal.util.GridUnsafe.wrapPointer;
 
 import java.nio.ByteBuffer;
 import java.util.UUID;
@@ -50,20 +58,7 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
  *     <li>Row ID - {@link UUID} (16 bytes).</li>
  * </ul>
  */
-// TODO: IGNITE-17536 вот тут надо внести изменения
 public interface HashIndexTreeIo {
-    /** Offset of the index columns hash (4 bytes). */
-    int INDEX_COLUMNS_HASH_OFFSET = 0;
-
-    /** Offset of the size of inlined index columns (2 bytes). */
-    int INLINE_INDEX_COLUMNS_SIZE_OFFSET = INDEX_COLUMNS_HASH_OFFSET + Integer.BYTES;
-
-    /** Offset of inlined index columns. */
-    int INLINE_INDEX_COLUMNS_OFFSET = INLINE_INDEX_COLUMNS_SIZE_OFFSET + Short.BYTES;
-
-    /** Offset of the index column link (6 bytes). */
-    int INDEX_COLUMNS_LINK_OFFSET = INDEX_COLUMNS_HASH_OFFSET + Integer.BYTES;
-
     /** Item size without index columns in bytes. */
     int ITEM_SIZE_WITHOUT_COLUMNS = Integer.BYTES // Index columns hash.
             + Short.SIZE // Inlined index columns size.
@@ -106,20 +101,38 @@ public interface HashIndexTreeIo {
 
         HashIndexRow row = (HashIndexRow) rowKey;
 
-        putInt(pageAddr, off + INDEX_COLUMNS_HASH_OFFSET, row.indexColumnsHash());
+        putInt(pageAddr, off, row.indexColumnsHash());
+        off += Integer.BYTES;
 
         IndexColumns indexColumns = row.indexColumns();
 
-        // TODO: IGNITE-17536 вот тут вся магия будет.
+        if (indexColumns.valueSize() <= indexColumnsInlineSize() + PARTITIONLESS_LINK_SIZE_BYTES) {
+            // TODO: IGNITE-17536 вот тут надо будет проверить что линки нет!
 
-        // Так вот тут что делаем то? нам нужно записать размер, тупл, линк, ровИд
+            putShort(pageAddr, off, (short) -indexColumns.valueSize());
+            off += Short.BYTES;
 
-        writePartitionless(pageAddr + off + INDEX_COLUMNS_LINK_OFFSET, indexColumns.link());
+            putByteBuffer(pageAddr, off, indexColumns.valueBuffer().rewind());
+
+            off += indexColumns.valueSize();
+        } else {
+            putShort(pageAddr, off, (short) indexColumnsInlineSize());
+            off += Short.BYTES;
+
+            putByteBuffer(pageAddr, off, indexColumns.valueBuffer().rewind().slice().limit(indexColumnsInlineSize()));
+            off += indexColumnsInlineSize();
+
+            writePartitionless(pageAddr + off, indexColumns.link());
+            off += PARTITIONLESS_LINK_SIZE_BYTES;
+        }
 
         RowId rowId = row.rowId();
 
-        //        putLong(pageAddr, off + ROW_ID_MSB_OFFSET, rowId.mostSignificantBits());
-        //        putLong(pageAddr, off + ROW_ID_LSB_OFFSET, rowId.leastSignificantBits());
+        putLong(pageAddr, off, rowId.mostSignificantBits());
+        off += Long.BYTES;
+
+        putLong(pageAddr, off, rowId.leastSignificantBits());
+        off += Long.BYTES;
     }
 
     /**
@@ -134,46 +147,60 @@ public interface HashIndexTreeIo {
             throws IgniteInternalCheckedException {
         assert rowKey instanceof HashIndexRow;
 
-        HashIndexRow hashIndexRow = (HashIndexRow) rowKey;
+        HashIndexRow row = (HashIndexRow) rowKey;
 
         int off = offset(idx);
 
-        int cmp = Integer.compare(getInt(pageAddr, off + INDEX_COLUMNS_HASH_OFFSET), hashIndexRow.indexColumnsHash());
+        int cmp = Integer.compare(getInt(pageAddr, off), row.indexColumnsHash());
+        off += Integer.BYTES;
 
         if (cmp != 0) {
             return cmp;
         }
 
-        // TODO: IGNITE-17536 вот тут вся магия будет.
+        short indexColumnsSize = getShort(pageAddr, off);
+        off += Short.BYTES;
 
-        long link = readPartitionless(partitionId, pageAddr, off + INDEX_COLUMNS_LINK_OFFSET);
+        if (indexColumnsSize < 0) {
+            ByteBuffer indexColumnsBuffer = wrapPointer(pageAddr + off, -indexColumnsSize);
+            off += -indexColumnsSize;
 
-        //TODO Add in-place compare in IGNITE-17536
-        ReadIndexColumnsValue indexColumnsTraversal = new ReadIndexColumnsValue();
+            cmp = indexColumnsBuffer.compareTo(row.indexColumns().valueBuffer());
 
-        dataPageReader.traverse(link, indexColumnsTraversal, null);
+            if (cmp != 0) {
+                return cmp;
+            }
+        } else {
+            long link = readPartitionless(partitionId, pageAddr, off += indexColumnsSize);
+            off += PARTITIONLESS_LINK_SIZE_BYTES;
 
-        ByteBuffer indexColumnsBuffer = ByteBuffer.wrap(indexColumnsTraversal.result());
+            //TODO Add in-place compare in IGNITE-17536
+            ReadIndexColumnsValue indexColumnsTraversal = new ReadIndexColumnsValue();
 
-        cmp = indexColumnsBuffer.compareTo(hashIndexRow.indexColumns().valueBuffer());
+            dataPageReader.traverse(link, indexColumnsTraversal, null);
+
+            ByteBuffer indexColumnsBuffer = ByteBuffer.wrap(indexColumnsTraversal.result());
+
+            cmp = indexColumnsBuffer.compareTo(row.indexColumns().valueBuffer());
+
+            if (cmp != 0) {
+                return cmp;
+            }
+        }
+
+        long rowIdMsb = getLong(pageAddr, off);
+        off += Long.BYTES;
+
+        cmp = Long.compare(rowIdMsb, row.rowId().mostSignificantBits());
 
         if (cmp != 0) {
             return cmp;
         }
 
-        //        long rowIdMsb = getLong(pageAddr, off + ROW_ID_MSB_OFFSET);
-        //
-        //        cmp = Long.compare(rowIdMsb, hashIndexRow.rowId().mostSignificantBits());
-        //
-        //        if (cmp != 0) {
-        //            return cmp;
-        //        }
-        //
-        //        long rowIdLsb = getLong(pageAddr, off + ROW_ID_LSB_OFFSET);
-        //
-        //        return Long.compare(rowIdLsb, hashIndexRow.rowId().leastSignificantBits());
+        long rowIdLsb = getLong(pageAddr, off);
+        off += Long.BYTES;
 
-        return 0;
+        return Long.compare(rowIdLsb, row.rowId().leastSignificantBits());
     }
 
     /**
@@ -190,26 +217,41 @@ public interface HashIndexTreeIo {
             throws IgniteInternalCheckedException {
         int off = offset(idx);
 
-        int hash = getInt(pageAddr, off + INDEX_COLUMNS_HASH_OFFSET);
+        int hash = getInt(pageAddr, off);
+        off += Integer.BYTES;
 
-        // TODO: IGNITE-17536 вот тут вся магия будет.
+        short indexColumnsSize = getShort(pageAddr, off);
+        off += Short.BYTES;
 
-        long link = readPartitionless(partitionId, pageAddr, off + INDEX_COLUMNS_LINK_OFFSET);
+        ByteBuffer indexColumnsBuffer;
 
-        ReadIndexColumnsValue indexColumnsTraversal = new ReadIndexColumnsValue();
+        long link;
 
-        dataPageReader.traverse(link, indexColumnsTraversal, null);
+        if (indexColumnsSize < 0) {
+            indexColumnsBuffer = ByteBuffer.wrap(getBytes(pageAddr, off, -indexColumnsSize));
+            off += -indexColumnsSize;
 
-        ByteBuffer indexColumnsBuffer = ByteBuffer.wrap(indexColumnsTraversal.result());
+            link = NULL_LINK;
+        } else {
+            link = readPartitionless(partitionId, pageAddr, off += indexColumnsSize);
+            off += PARTITIONLESS_LINK_SIZE_BYTES;
+
+            ReadIndexColumnsValue indexColumnsTraversal = new ReadIndexColumnsValue();
+
+            dataPageReader.traverse(link, indexColumnsTraversal, null);
+
+            indexColumnsBuffer = ByteBuffer.wrap(indexColumnsTraversal.result());
+        }
 
         IndexColumns indexColumns = new IndexColumns(partitionId, link, indexColumnsBuffer);
 
-        //        long rowIdMsb = getLong(pageAddr, off + ROW_ID_MSB_OFFSET);
-        //        long rowIdLsb = getLong(pageAddr, off + ROW_ID_LSB_OFFSET);
-        //
-        //        RowId rowId = new RowId(partitionId, rowIdMsb, rowIdLsb);
+        long rowIdMsb = getLong(pageAddr, off);
+        off += Long.BYTES;
 
-        RowId rowId = new RowId(partitionId, 0, 0);
+        long rowIdLsb = getLong(pageAddr, off);
+        off += Long.BYTES;
+
+        RowId rowId = new RowId(partitionId, rowIdMsb, rowIdLsb);
 
         return new HashIndexRow(hash, indexColumns, rowId);
     }
