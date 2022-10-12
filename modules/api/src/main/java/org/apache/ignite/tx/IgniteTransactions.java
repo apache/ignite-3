@@ -94,8 +94,8 @@ public interface IgniteTransactions {
      * igniteTransactions.runInTransaction(tx -> {
      *     var key = Tuple.create().set("accountId", 1);
      *     Tuple acc = view.get(tx, key);
-     *        view.upsertAsync(tx, Tuple.create().set("accountId", 1).set("balance", acc.longValue("balance") + 100));
-     *     });
+     *     view.upsertAsync(tx, Tuple.create().set("accountId", 1).set("balance", acc.longValue("balance") + 100));
+     * });
      * }
      * </pre>
      *
@@ -105,7 +105,7 @@ public interface IgniteTransactions {
      * igniteTransactions.runInTransaction(tx -> {
      *     view.getAsync(tx, Tuple.create().set("accountId", 1)).thenCompose(acc ->
      *         view.upsertAsync(tx, Tuple.create().set("accountId", 1).set("balance", acc.longValue("balance") + 100))).join();
-     *     });
+     * });
      * }
      * </pre>
      *
@@ -135,8 +135,8 @@ public interface IgniteTransactions {
      * igniteTransactions.runInTransaction(tx -> {
      *     var key = Tuple.create().set("accountId", 1);
      *     Tuple acc = view.get(tx, key);
-     *        view.upsertAsync(tx, Tuple.create().set("accountId", 1).set("balance", acc.longValue("balance") + 100));
-     *     });
+     *     view.upsertAsync(tx, Tuple.create().set("accountId", 1).set("balance", acc.longValue("balance") + 100));
+     * });
      * }
      * </pre>
      *
@@ -146,7 +146,7 @@ public interface IgniteTransactions {
      * igniteTransactions.runInTransaction(tx -> {
      *     view.getAsync(tx, Tuple.create().set("accountId", 1)).thenCompose(acc ->
      *         view.upsertAsync(tx, Tuple.create().set("accountId", 1).set("balance", acc.longValue("balance") + 100))).join();
-     *     });
+     * });
      * }
      * </pre>
      *
