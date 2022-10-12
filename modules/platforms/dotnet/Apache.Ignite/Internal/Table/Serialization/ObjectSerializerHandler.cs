@@ -170,10 +170,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             // TODO IGNITE-17876 Handle all primitives
             if (type == typeof(long))
             {
-                return (ref BinaryTupleReader reader) =>
-                {
-                    return (T)(object)reader.GetLong(0);
-                };
+                return (ref BinaryTupleReader reader) => (T)(object)reader.GetLong(0);
             }
 
             var method = new DynamicMethod(
@@ -212,6 +209,12 @@ namespace Apache.Ignite.Internal.Table.Serialization
         private static ReadValuePartDelegate<T> EmitValuePartReader(Schema schema)
         {
             var type = typeof(T);
+
+            // TODO IGNITE-17876 Handle all primitives
+            if (type == typeof(long))
+            {
+                return (ref BinaryTupleReader _, T key) => key;
+            }
 
             var method = new DynamicMethod(
                 name: "ReadValuePart" + type.Name,
