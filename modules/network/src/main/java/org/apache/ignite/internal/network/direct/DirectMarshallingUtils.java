@@ -31,31 +31,19 @@ public class DirectMarshallingUtils {
      * @return Direct message type.
      */
     public static short getShort(ByteBuffer buffer) {
-        int primShift = 0;
-        int prim = 0;
+        byte b0 = buffer.get();
+        byte b1 = buffer.get();
 
-        short val = 0;
+        return asShort(b0, b1);
+    }
 
-        while (buffer.hasRemaining()) {
-            byte b = buffer.get();
-
-            prim |= ((int) b & 0x7F) << (7 * primShift);
-
-            if ((b & 0x80) == 0) {
-                val = (short) prim;
-
-                if (val == Short.MIN_VALUE) {
-                    val = Short.MAX_VALUE;
-                } else {
-                    val--;
-                }
-
-                return val;
-            } else {
-                primShift++;
-            }
-        }
-
-        throw new RuntimeException();
+    /**
+     * Concatenates the two parameter bytes to form a {@code short}.
+     *
+     * @param b0 The first byte.
+     * @param b1 The second byte.
+     */
+    private static short asShort(byte b0, byte b1) {
+        return (short) ((b1 & 0xFF) << 8 | b0 & 0xFF);
     }
 }

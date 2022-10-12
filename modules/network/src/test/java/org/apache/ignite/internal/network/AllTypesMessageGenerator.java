@@ -208,10 +208,14 @@ public class AllTypesMessageGenerator {
         } else if (type == ByteBuffer.class) {
             byte[] bytes = new byte[16];
             random.nextBytes(bytes);
-            ByteBuffer buffer = ByteBuffer.wrap(bytes);
-            buffer.position(random.nextInt(3));
-            buffer.limit(13 + random.nextInt(3));
+
+            ByteBuffer buffer = random.nextBoolean() ? ByteBuffer.allocate(16) : ByteBuffer.allocateDirect(16);
+            buffer.put(bytes);
+
             buffer.order(random.nextBoolean() ? ByteOrder.LITTLE_ENDIAN : ByteOrder.BIG_ENDIAN);
+            buffer.position(random.nextInt(3));
+            buffer.limit(14 + random.nextInt(3));
+
             return buffer;
         } else {
             return null;

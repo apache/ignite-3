@@ -206,28 +206,20 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     /** {@inheritDoc} */
     @Override
     public void writeShort(short val) {
-        lastFinished = buf.remaining() >= 3;
+        lastFinished = buf.remaining() >= 2;
 
         if (lastFinished) {
-            if (val == Short.MAX_VALUE) {
-                val = Short.MIN_VALUE;
-            } else {
-                val++;
-            }
-
             int pos = buf.position();
 
-            while ((val & 0xFF80) != 0) {
-                byte b = (byte) (val | 0x80);
+            long off = baseOff + pos;
 
-                GridUnsafe.putByte(heapArr, baseOff + pos++, b);
-
-                val >>>= 7;
+            if (IS_BIG_ENDIAN) {
+                GridUnsafe.putShortLittleEndian(heapArr, off, val);
+            } else {
+                GridUnsafe.putShort(heapArr, off, val);
             }
 
-            GridUnsafe.putByte(heapArr, baseOff + pos++, (byte) val);
-
-            buf.position(pos);
+            buf.position(pos + 2);
         }
     }
 
@@ -546,11 +538,11 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
                 //noinspection fallthrough
             case 1:
-                if ((byteBufferFlag & 4) == 0) {
+                if (val.position() != 0) {
                     writeInt(val.position());
                 }
 
-                if (!lastFinished || val == null) {
+                if (!lastFinished) {
                     return;
                 }
 
@@ -558,11 +550,11 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
                 //noinspection fallthrough
             case 2:
-                if ((byteBufferFlag & 8) != 0) {
+                if (val.limit() != val.capacity()) {
                     writeInt(val.limit());
                 }
 
-                if (!lastFinished || val == null) {
+                if (!lastFinished) {
                     return;
                 }
 
@@ -584,7 +576,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
                     writeArray(array, BYTE_ARR_OFF, length, length);
                 }
 
-                if (!lastFinished || val == null) {
+                if (!lastFinished) {
                     return;
                 }
 
@@ -894,40 +886,19 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     /** {@inheritDoc} */
     @Override
     public short readShort() {
-        lastFinished = false;
+        lastFinished = buf.remaining() >= 2;
 
-        short val = 0;
-
-        while (buf.hasRemaining()) {
+        if (lastFinished) {
             int pos = buf.position();
 
-            byte b = GridUnsafe.getByte(heapArr, baseOff + pos);
+            buf.position(pos + 2);
 
-            buf.position(pos + 1);
+            long off = baseOff + pos;
 
-            prim |= ((long) b & 0x7F) << (7 * primShift);
-
-            if ((b & 0x80) == 0) {
-                lastFinished = true;
-
-                val = (short) prim;
-
-                if (val == Short.MIN_VALUE) {
-                    val = Short.MAX_VALUE;
-                } else {
-                    val--;
-                }
-
-                prim = 0;
-                primShift = 0;
-
-                break;
-            } else {
-                primShift++;
-            }
+            return IS_BIG_ENDIAN ? GridUnsafe.getShortLittleEndian(heapArr, off) : GridUnsafe.getShort(heapArr, off);
+        } else {
+            return 0;
         }
-
-        return val;
     }
 
     /** {@inheritDoc} */
@@ -1214,7 +1185,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
             case 3:
                 bytes = readByteArray();
 
-                if (!lastFinished ) {
+                if (!lastFinished) {
                     return null;
                 }
 
@@ -1554,8 +1525,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
      * @return Whether array was fully written.
      */
     boolean writeArray(Object arr, long off, int len, int bytes) {
-        assert arr != null;
-        assert arr.getClass().isArray() && arr.getClass().getComponentType().isPrimitive();
+        assert arr == null || arr.getClass().isArray() && arr.getClass().getComponentType().isPrimitive();
         assert off > 0;
         assert len >= 0;
         assert bytes >= 0;

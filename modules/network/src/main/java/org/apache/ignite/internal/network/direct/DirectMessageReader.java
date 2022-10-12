@@ -392,7 +392,7 @@ public class DirectMessageReader implements MessageReader {
 
         lastRead = stream.lastFinished();
 
-        assert col instanceof List;
+        assert col == null || col instanceof List : col;
 
         return (C) col;
     }
