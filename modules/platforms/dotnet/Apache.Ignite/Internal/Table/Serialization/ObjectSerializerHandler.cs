@@ -210,8 +210,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         {
             var type = typeof(T);
 
-            // TODO IGNITE-17876 Handle all primitives
-            if (type == typeof(long))
+            if (BinaryTupleMethods.GetReadMethodOrNull(type) != null)
             {
                 return (ref BinaryTupleReader _, T key) => key;
             }
