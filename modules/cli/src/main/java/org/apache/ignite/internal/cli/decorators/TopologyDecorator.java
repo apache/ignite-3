@@ -41,7 +41,7 @@ public class TopologyDecorator implements Decorator<List<ClusterNode>, TerminalO
         return () -> FlipTable.of(HEADERS, topologyToContent(topology));
     }
 
-    protected String[][]  topologyToContent(List<ClusterNode> topology) {
+    protected String[][] topologyToContent(List<ClusterNode> topology) {
         return topology.stream().map(
             node -> new String[]{
                 node.getName(),
