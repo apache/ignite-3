@@ -157,7 +157,7 @@ public class OrderingFuture<T> {
 
         assert state.phase == Phase.INCOMPLETE;
 
-        switchToNotyfyingStage(result, ex);
+        switchToNotifyingStage(result, ex);
 
         assert state.phase == Phase.NOTIFYING;
 
