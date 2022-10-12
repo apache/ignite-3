@@ -77,5 +77,5 @@ public interface AllTypesMessage extends NetworkMessage, Serializable {
 
     Collection<NetworkMessage> netMsgCollW();
 
-    Map<String, NetworkMessage> newMsgMapX();
+    Map<String, NetworkMessage> netMsgMapX();
 }

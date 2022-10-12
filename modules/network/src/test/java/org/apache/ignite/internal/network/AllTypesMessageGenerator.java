@@ -76,7 +76,7 @@ public class AllTypesMessageGenerator {
                         .mapToObj(unused -> generate(seed, false, fillArrays))
                         .collect(toList()));
 
-                message.newMsgMapX(IntStream.range(0, 10)
+                message.netMsgMapX(IntStream.range(0, 10)
                         .boxed()
                         .collect(toMap(String::valueOf, unused -> generate(seed, false, fillArrays))));
 
@@ -209,7 +209,8 @@ public class AllTypesMessageGenerator {
             byte[] bytes = new byte[16];
             random.nextBytes(bytes);
 
-            ByteBuffer buffer = random.nextBoolean() ? ByteBuffer.allocate(16) : ByteBuffer.allocateDirect(16);
+            ByteBuffer outerBuffer = random.nextBoolean() ? ByteBuffer.allocate(20) : ByteBuffer.allocateDirect(20);
+            ByteBuffer buffer = outerBuffer.position(2).limit(18).slice();
             buffer.put(bytes);
 
             buffer.order(random.nextBoolean() ? ByteOrder.LITTLE_ENDIAN : ByteOrder.BIG_ENDIAN);

@@ -67,16 +67,16 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     private static final Object NULL = new Object();
 
     /** Flag that indicates that byte buffer is not null. */
-    private static final byte BYTE_BYFFER_NOT_NULL_FLAG = 1;
+    private static final byte BYTE_BUFFER_NOT_NULL_FLAG = 1;
 
     /** Flag that indicates that byte buffer has Big Endinan order. */
-    private static final byte BYTE_BYFFER_BIG_ENDIAN_FLAG = 2;
+    private static final byte BYTE_BUFFER_BIG_ENDIAN_FLAG = 2;
 
     /** Flag that indicates that byte buffer has a non-zero position. */
-    private static final byte BYTE_BYFFER_HAS_POSITION_FLAG = 4;
+    private static final byte BYTE_BUFFER_HAS_POSITION_FLAG = 4;
 
     /** Flag that indicates that byte buffer has a limit that doesn't match its capacity. */
-    private static final byte BYTE_BYFFER_HAS_LIMIT_FLAG = 8;
+    private static final byte BYTE_BUFFER_HAS_LIMIT_FLAG = 8;
 
     /** Message serialization registry. */
     private final PerSessionSerializationService serializationService;
@@ -525,18 +525,18 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
                 byte flag = 0;
 
                 if (val != null) {
-                    flag |= BYTE_BYFFER_NOT_NULL_FLAG;
+                    flag |= BYTE_BUFFER_NOT_NULL_FLAG;
 
                     if (val.order() == ByteOrder.BIG_ENDIAN) {
-                        flag |= BYTE_BYFFER_BIG_ENDIAN_FLAG;
+                        flag |= BYTE_BUFFER_BIG_ENDIAN_FLAG;
                     }
 
                     if (val.position() != 0) {
-                        flag |= BYTE_BYFFER_HAS_POSITION_FLAG;
+                        flag |= BYTE_BUFFER_HAS_POSITION_FLAG;
                     }
 
                     if (val.limit() != val.capacity()) {
-                        flag |= BYTE_BYFFER_HAS_LIMIT_FLAG;
+                        flag |= BYTE_BUFFER_HAS_LIMIT_FLAG;
                     }
                 }
 
@@ -552,10 +552,10 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
             case 1:
                 if (val.position() != 0) {
                     writeInt(val.position());
-                }
 
-                if (!lastFinished) {
-                    return;
+                    if (!lastFinished) {
+                        return;
+                    }
                 }
 
                 byteBufferState++;
@@ -564,10 +564,10 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
             case 2:
                 if (val.limit() != val.capacity()) {
                     writeInt(val.limit());
-                }
 
-                if (!lastFinished) {
-                    return;
+                    if (!lastFinished) {
+                        return;
+                    }
                 }
 
                 byteBufferState++;
@@ -583,9 +583,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
                     lastFinished = writeArray(null, address, length, length);
                 } else {
-                    byte[] array = val.array();
-
-                    lastFinished = writeArray(array, BYTE_ARR_OFF, length, length);
+                    lastFinished = writeArray(val.array(), BYTE_ARR_OFF + val.arrayOffset(), length, length);
                 }
 
                 if (!lastFinished) {
@@ -1161,7 +1159,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
             case 0:
                 byteBufferFlag = readByte();
 
-                boolean isNull = (byteBufferFlag & BYTE_BYFFER_NOT_NULL_FLAG) == 0;
+                boolean isNull = (byteBufferFlag & BYTE_BUFFER_NOT_NULL_FLAG) == 0;
 
                 if (!lastFinished || isNull) {
                     return null;
@@ -1171,7 +1169,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
                 //noinspection fallthrough
             case 1:
-                if ((byteBufferFlag & BYTE_BYFFER_HAS_POSITION_FLAG) == 0) {
+                if ((byteBufferFlag & BYTE_BUFFER_HAS_POSITION_FLAG) == 0) {
                     byteBufferPosition = 0;
                 } else {
                     byteBufferPosition = readInt();
@@ -1185,7 +1183,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
                 //noinspection fallthrough
             case 2:
-                if ((byteBufferFlag & BYTE_BYFFER_HAS_LIMIT_FLAG) == 0) {
+                if ((byteBufferFlag & BYTE_BUFFER_HAS_LIMIT_FLAG) == 0) {
                     byteBufferLimit = -1;
                 } else {
                     byteBufferLimit = readInt();
@@ -1214,7 +1212,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
         ByteBuffer val = ByteBuffer.wrap(bytes).position(byteBufferPosition);
 
-        if ((byteBufferFlag & BYTE_BYFFER_BIG_ENDIAN_FLAG) == 0) {
+        if ((byteBufferFlag & BYTE_BUFFER_BIG_ENDIAN_FLAG) == 0) {
             val.order(ByteOrder.LITTLE_ENDIAN);
         } else {
             val.order(ByteOrder.BIG_ENDIAN);
