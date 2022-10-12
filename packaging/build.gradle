@@ -47,39 +47,36 @@ task cliStartScript(type: CreateStartScripts) {
     applicationName = 'ignite3-cli'
 }
 
-def dbContents = spec -> {
-    // create empty dirs that are required to start Ignite
-    into('') {
-        File.createTempDir().with {
-            ["log", "etc", "work"].each {new File(absolutePath, it).mkdirs() }
-            from (absolutePath) {
-                includeEmptyDirs = true
-            }
-        }
-    }
-    into('') {
-        from ("$rootDir/LICENSE")
-        from ("$rootDir/NOTICE")
-        from ("$rootDir/assembly/README.md")
-    }
-    into('etc') {
-        from ("${buildDir}/scripts/bootstrap-config")
-        from ("${buildDir}/config/ignite-config.conf")
-        from ("${buildDir}/config/ignite.java.util.logging.properties")
-    }
-    into('bin') {
-        fileMode 0755
-        from ("$rootDir/packaging/scripts/ignite3-db.sh")
-    }
-    into('lib') {
-        from(configurations.dbArtifacts)
-    }
-}
-
 distributions {
     db {
         distributionBaseName = 'ignite3-db'
-        contents dbContents
+        contents {
+            into('') {
+                File.createTempDir().with {
+                    ["log", "etc", "work"].each { new File(absolutePath, it).mkdirs() }
+                    from(absolutePath) {
+                        includeEmptyDirs = true
+                    }
+                }
+            }
+            into('') {
+                from("$rootDir/LICENSE")
+                from("$rootDir/NOTICE")
+                from("$rootDir/assembly/README.md")
+            }
+            into('etc') {
+                from("${buildDir}/scripts/bootstrap-config")
+                from("${buildDir}/config/ignite-config.conf")
+                from("${buildDir}/config/ignite.java.util.logging.properties")
+            }
+            into('bin') {
+                fileMode 0755
+                from("$rootDir/packaging/scripts/ignite3-db.sh")
+            }
+            into('lib') {
+                from(configurations.dbArtifacts)
+            }
+        }
     }
 
     cli {
@@ -92,8 +89,6 @@ distributions {
                         includeEmptyDirs = true
                     }
                 }
-            }
-            into('') {
                 from ("$rootDir/LICENSE")
                 from ("$rootDir/NOTICE")
                 from ("$rootDir/assembly/README.md")
@@ -115,10 +110,29 @@ docker {
     name 'apacheignite/ignite3'
     dockerfile file('docker/Dockerfile')
 
-    copySpec.into 'dist', dbContents
-    copySpec.into('dist/bin') {
-        fileMode 0755
-        from('docker/docker-entrypoint.sh')
+    copySpec.into 'dist', {
+        into('') {
+            File.createTempDir().with {
+                ['etc', 'work'].each { new File(absolutePath, it).mkdirs() }
+                from(absolutePath) {
+                    includeEmptyDirs = true
+                }
+            }
+            from("$rootDir/LICENSE")
+            from("$rootDir/NOTICE")
+            from("$rootDir/assembly/README.md")
+        }
+        into('etc') {
+            from('config/ignite-config.conf')
+            from('docker/ignite.java.util.logging.properties')
+        }
+        into('bin') {
+            fileMode 0755
+            from('docker/docker-entrypoint.sh')
+        }
+        into('lib') {
+            from(configurations.dbArtifacts)
+        }
     }
 }
 

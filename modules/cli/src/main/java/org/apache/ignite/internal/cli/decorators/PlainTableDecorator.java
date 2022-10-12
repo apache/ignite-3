@@ -15,26 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.replication.request;
+package org.apache.ignite.internal.cli.decorators;
 
-import java.util.UUID;
-import org.apache.ignite.internal.replicator.message.ReplicaRequest;
-import org.apache.ignite.internal.replicator.message.TimestampAware;
-import org.apache.ignite.network.annotations.Marshallable;
+import org.apache.ignite.internal.cli.core.decorator.Decorator;
+import org.apache.ignite.internal.cli.core.decorator.TerminalOutput;
+import org.apache.ignite.internal.cli.sql.table.Table;
+import org.apache.ignite.internal.cli.util.PlainTableRenderer;
 
 /**
- * Read-write replica request.
+ * Implementation of {@link Decorator} for {@link Table}.
  */
-public interface ReadWriteReplicaRequest extends ReplicaRequest, TimestampAware {
-    UUID transactionId();
-
+public class PlainTableDecorator extends TableDecorator {
     /**
-     * Gets a raft term.
-     * TODO: A temp solution until lease-based engine will be implemented (IGNITE-17256, IGNITE-15083)
+     * Transform {@link Table} to {@link TerminalOutput}.
      *
-     * @return Raft term.
+     * @param table incoming {@link Table}.
+     * @return Plain interpretation of {@link Table} in {@link TerminalOutput}.
      */
-    @Deprecated
-    @Marshallable
-    Long term();
+    @Override
+    public TerminalOutput decorate(Table table) {
+        return () -> new PlainTableRenderer().render(table.header(), table.content());
+    }
 }

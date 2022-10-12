@@ -20,6 +20,7 @@ package org.apache.ignite.network.serialization;
 import java.nio.ByteBuffer;
 import java.util.BitSet;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.apache.ignite.lang.IgniteUuid;
@@ -238,6 +239,15 @@ public interface MessageWriter {
     public boolean writeBitSet(String name, BitSet val);
 
     /**
+     * Writes a {@link ByteBuffer}.
+     *
+     * @param name Field name.
+     * @param val {@link ByteBuffer}.
+     * @return Whether a value was fully written.
+     */
+    boolean writeByteBuffer(String name, ByteBuffer val);
+
+    /**
      * Writes an {@link UUID}.
      *
      * @param name Field name.
@@ -285,6 +295,17 @@ public interface MessageWriter {
      * @return Whether a value was fully written.
      */
     public <T> boolean writeCollection(String name, Collection<T> col, MessageCollectionItemType itemType);
+
+    /**
+     * Writes a list.
+     *
+     * @param <T>      Type of collection.
+     * @param name     Field name.
+     * @param col      Collection.
+     * @param itemType An item type of the collection.
+     * @return Whether a value was fully written.
+     */
+    public <T> boolean writeList(String name, List<T> col, MessageCollectionItemType itemType);
 
     /**
      * Writes a map.

@@ -15,26 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.replication.request;
+apply from: "$rootDir/buildscripts/java-core.gradle"
+apply from: "$rootDir/buildscripts/java-junit5.gradle"
 
-import java.util.UUID;
-import org.apache.ignite.internal.replicator.message.ReplicaRequest;
-import org.apache.ignite.internal.replicator.message.TimestampAware;
-import org.apache.ignite.network.annotations.Marshallable;
 
-/**
- * Read-write replica request.
- */
-public interface ReadWriteReplicaRequest extends ReplicaRequest, TimestampAware {
-    UUID transactionId();
+dependencies {
+    annotationProcessor project(":ignite-network-annotation-processor")
+    implementation project(':ignite-core')
+    implementation project(':ignite-raft')
+    implementation project(':ignite-configuration')
+    implementation project(':ignite-network-api')
+    implementation libs.jetbrains.annotations
+    implementation libs.fastutil.core
 
-    /**
-     * Gets a raft term.
-     * TODO: A temp solution until lease-based engine will be implemented (IGNITE-17256, IGNITE-15083)
-     *
-     * @return Raft term.
-     */
-    @Deprecated
-    @Marshallable
-    Long term();
+    testImplementation libs.mockito.core
+    testImplementation libs.mockito.junit
 }
+
+description = 'ignite-replicator'

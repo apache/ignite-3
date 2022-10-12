@@ -30,6 +30,7 @@ dependencies {
     implementation project(':ignite-baseline')
     implementation project(':ignite-network-api')
     implementation project(':ignite-raft')
+    implementation project(':ignite-replicator')
     implementation project(':ignite-raft-client')
     implementation project(':ignite-metastorage-client')
     implementation project(':ignite-storage-api')
@@ -52,6 +53,7 @@ dependencies {
     testImplementation(testFixtures(project(':ignite-core')))
     testImplementation(testFixtures(project(':ignite-schema')))
     testImplementation(testFixtures(project(':ignite-configuration')))
+    testImplementation(testFixtures(project(':ignite-transactions')))
     testImplementation(testFixtures(project(':ignite-storage-api')))
     testImplementation(testFixtures(project(':ignite-raft')))
     testImplementation libs.mockito.core
@@ -69,6 +71,7 @@ dependencies {
     integrationTestImplementation(testFixtures(project(':ignite-network')))
     integrationTestImplementation(testFixtures(project(':ignite-raft')))
     integrationTestImplementation(testFixtures(project(':ignite-storage-api')))
+    integrationTestImplementation(testFixtures(project(':ignite-transactions')))
 }
 
 description = 'ignite-table'

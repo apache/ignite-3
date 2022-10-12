@@ -46,5 +46,4 @@ public class DirectMarshallingUtils {
     private static short asShort(byte b0, byte b1) {
         return (short) ((b1 & 0xFF) << 8 | b0 & 0xFF);
     }
-
 }

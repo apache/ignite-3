@@ -87,6 +87,8 @@ class MessageWriterMethodResolver {
                 return resolveWriteObjectArray((ArrayType) getterReturnType, parameterName);
             case "Collection":
                 return resolveWriteCollection((DeclaredType) getterReturnType, parameterName);
+            case "List":
+                return resolveWriteList((DeclaredType) getterReturnType, parameterName);
             case "Map":
                 return resolveWriteMap((DeclaredType) getterReturnType, parameterName);
             default:
@@ -126,6 +128,23 @@ class MessageWriterMethodResolver {
                         parameterName,
                         MessageCollectionItemType.class,
                         typeConverter.fromTypeMirror(collectionGenericType)
+                )
+                .build();
+    }
+
+    /**
+     * Creates a {@link MessageWriter#writeList(String, List, MessageCollectionItemType)} method call.
+     */
+    private CodeBlock resolveWriteList(DeclaredType parameterType, String parameterName) {
+        TypeMirror listGenericType = parameterType.getTypeArguments().get(0);
+
+        return CodeBlock.builder()
+                .add(
+                        "writeList($S, message.$L(), $T.$L)",
+                        parameterName,
+                        parameterName,
+                        MessageCollectionItemType.class,
+                        typeConverter.fromTypeMirror(listGenericType)
                 )
                 .build();
     }

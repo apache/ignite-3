@@ -30,7 +30,7 @@ public class TableDecorator implements Decorator<Table, TerminalOutput> {
      * Transform {@link Table} to {@link TerminalOutput}.
      *
      * @param table incoming {@link Table}.
-     * @return User friendly interpretation of {@link Table} in {@link TerminalOutput}.
+     * @return User-friendly interpretation of {@link Table} in {@link TerminalOutput}.
      */
     @Override
     public TerminalOutput decorate(Table table) {
