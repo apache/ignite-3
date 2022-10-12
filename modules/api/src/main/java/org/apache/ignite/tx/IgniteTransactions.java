@@ -82,7 +82,7 @@ public interface IgniteTransactions {
     CompletableFuture<Transaction> beginAsync();
 
     /**
-     * Executes a closure within a transaction and returns a result.
+     * Executes a closure within a transaction.
      *
      * <p>This method expects that all transaction operations are completed before the closure returns. The safest way to achieve that is
      * to use synchronous table API.
