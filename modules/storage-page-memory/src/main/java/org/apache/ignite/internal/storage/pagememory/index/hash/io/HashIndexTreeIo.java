@@ -40,6 +40,7 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.pagememory.index.InlineUtils;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.ReadIndexColumnsValue;
+import org.apache.ignite.internal.storage.pagememory.index.hash.CompareIndexColumnsValue;
 import org.apache.ignite.internal.storage.pagememory.index.hash.HashIndexRow;
 import org.apache.ignite.internal.storage.pagememory.index.hash.HashIndexRowKey;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
@@ -185,14 +186,11 @@ public interface HashIndexTreeIo {
             long link = readPartitionless(partitionId, pageAddr, off);
             off += PARTITIONLESS_LINK_SIZE_BYTES;
 
-            // TODO: IGNITE-17536 сравнивать без копирования
-            ReadIndexColumnsValue indexColumnsTraversal = new ReadIndexColumnsValue();
+            CompareIndexColumnsValue compareIndexColumnsValue = new CompareIndexColumnsValue();
 
-            dataPageReader.traverse(link, indexColumnsTraversal, null);
+            dataPageReader.traverse(link, compareIndexColumnsValue, row.indexColumns().valueBuffer().rewind().slice());
 
-            indexColumnsBuffer = ByteBuffer.wrap(indexColumnsTraversal.result());
-
-            cmp = indexColumnsBuffer.compareTo(row.indexColumns().valueBuffer());
+            cmp = compareIndexColumnsValue.compareResult();
 
             if (cmp != 0) {
                 return cmp;

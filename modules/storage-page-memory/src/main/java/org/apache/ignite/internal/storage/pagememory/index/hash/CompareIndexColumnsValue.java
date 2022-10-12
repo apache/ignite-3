@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.storage.pagememory.index.hash;
 
+import static org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns.VALUE_OFFSET;
+import static org.apache.ignite.internal.util.GridUnsafe.wrapPointer;
+
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.datapage.PageMemoryTraversal;
@@ -28,9 +31,26 @@ import org.apache.ignite.internal.pagememory.io.DataPagePayload;
 public class CompareIndexColumnsValue implements PageMemoryTraversal<ByteBuffer> {
     private int cmp;
 
+    private int pos;
+
     @Override
     public long consumePagePayload(long link, long pageAddr, DataPagePayload payload, ByteBuffer other) {
-        // TODO: IGNITE-17536 вот тут надо сделать, но как сделать красиво то? ебаные фрагменты
+        ByteBuffer buffer;
+
+        if (pos == 0) {
+            // First fragment.
+            buffer = wrapPointer(pageAddr + payload.offset() + VALUE_OFFSET, payload.payloadSize() - VALUE_OFFSET);
+        } else {
+            buffer = wrapPointer(pageAddr + payload.offset(), payload.payloadSize());
+        }
+
+        int oldLimit = other.limit();
+
+        cmp = buffer.compareTo(other.position(pos).limit(pos + buffer.limit()));
+
+        other.limit(oldLimit);
+
+        pos += buffer.limit();
 
         return cmp != 0 || !payload.hasMoreFragments() ? STOP_TRAVERSAL : payload.nextLink();
     }
