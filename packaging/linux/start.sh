@@ -38,6 +38,6 @@ ${IGNITE3_EXTRA_JVM_ARGS} \
 -classpath @INSTALL_DIR@/lib:@INSTALL_DIR@/lib/* org.apache.ignite.app.IgniteCliRunner \
 --config-path ${CONFIG_FILE} \
 --work-dir ${WORK_DIR} \
-${NODE_NAME}"
+--node-name ${NODE_NAME}"
 
 ${CMD}
