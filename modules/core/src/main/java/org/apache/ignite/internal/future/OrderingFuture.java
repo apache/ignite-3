@@ -176,7 +176,7 @@ public class OrderingFuture<T> {
         }
     }
 
-    private void switchToNotyfyingStage(@Nullable T result, @Nullable Throwable ex) {
+    private void switchToNotifyingStage(@Nullable T result, @Nullable Throwable ex) {
         while (true) {
             State<T> prevState = state;
 
