@@ -1246,14 +1246,14 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     /**
      * Creates a prefix of all keys in the given partition.
      */
-    private byte[] partitionStartPrefix() {
+    public byte[] partitionStartPrefix() {
         return unsignedShortAsBytes(partitionId);
     }
 
     /**
      * Creates a prefix of all keys in the next partition, used as an exclusive bound.
      */
-    private byte[] partitionEndPrefix() {
+    public byte[] partitionEndPrefix() {
         return unsignedShortAsBytes(partitionId + 1);
     }
 
