@@ -167,12 +167,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
         {
             var type = typeof(T);
 
-            // TODO IGNITE-17876 Handle all primitives
-            if (type == typeof(long))
-            {
-                return (ref BinaryTupleReader reader) => (T)(object)reader.GetLong(0);
-            }
-
             var method = new DynamicMethod(
                 name: "Read" + type.Name,
                 returnType: type,
@@ -181,6 +175,13 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 skipVisibility: true);
 
             var il = method.GetILGenerator();
+
+            if (BinaryTupleMethods.GetReadMethodOrNull(type) is { } readMethod)
+            {
+                il.Emit(OpCodes.Call, readMethod);
+                return (ReadDelegate<T>)method.CreateDelegate(typeof(ReadDelegate<T>));
+            }
+
             var local = il.DeclareLocal(type);
 
             il.Emit(OpCodes.Ldtoken, type);

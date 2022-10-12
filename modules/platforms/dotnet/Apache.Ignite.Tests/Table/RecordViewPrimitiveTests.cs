@@ -27,17 +27,7 @@ using NUnit.Framework;
 public class RecordViewPrimitiveTests : IgniteTestsBase
 {
     [Test]
-    public async Task TestLongKey()
-    {
-        var recordView = Table.GetRecordView<long>();
-
-        await recordView.UpsertAsync(null, 7);
-        var (res, _) = await recordView.GetAsync(null, 7);
-        var res2 = await recordView.GetAllAsync(null, new long[] { 1, 2, 7 });
-
-        Assert.AreEqual(7, res);
-        Assert.AreEqual(7, res2.Single().Value);
-    }
+    public async Task TestLongKey() => await TestKey(7L);
 
     [Test]
     public async Task TestIntKey() => await TestKey(1);
@@ -48,7 +38,9 @@ public class RecordViewPrimitiveTests : IgniteTestsBase
 
         await recordView.UpsertAsync(null, val);
         var (res, _) = await recordView.GetAsync(null, val);
+        var res2 = await recordView.GetAllAsync(null, new[] { default!, val });
 
         Assert.AreEqual(val, res);
+        Assert.AreEqual(val, res2.Single().Value);
     }
 }
