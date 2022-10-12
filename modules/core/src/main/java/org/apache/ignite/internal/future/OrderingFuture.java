@@ -38,6 +38,13 @@ import org.jetbrains.annotations.Nullable;
  * A little analogue of {@link CompletableFuture} that has the following property: callbacks (like {@link #whenComplete(BiConsumer)}
  * and {@link #thenComposeToCompletable(Function)}) are invoked in the same order in which they were registered.
  *
+ * <p>For completion methods ({@link #complete(Object)} and {@link #completeExceptionally(Throwable)} it is guaranteed that,
+ * upon returning, the caller will see the completion values (for example, using {@link #getNow(Object)}, UNLESS the
+ * completion method is interrupted.
+ *
+ * <p>Callbacks are invoked asynchronously relative to completion. This means that completer may exit the completion method
+ * before the callbacks are invoked.
+ *
  * @param <T> Type of payload.
  * @see CompletableFuture
  */
@@ -58,9 +65,9 @@ public class OrderingFuture<T> {
     private final AtomicBoolean completionStarted = new AtomicBoolean(false);
 
     /**
-     * Used by {@link #get(long, TimeUnit)} to wait for completion.
+     * Used by {@link #get(long, TimeUnit)} to wait for the moment when completion values are available.
      */
-    private final CountDownLatch completionLatch = new CountDownLatch(1);
+    private final CountDownLatch completionValuesReadyLatch = new CountDownLatch(1);
 
     /**
      * Creates an incomplete future.
@@ -140,20 +147,56 @@ public class OrderingFuture<T> {
         if (!completionStarted.compareAndSet(false, true)) {
             // Someone has already started the completion. We must leave as the following code can produce duplicate
             // notifications of dependents if executed by more than one thread.
+
+            // But let's wait for completion first as it would be strange if someone calls completion and then manages
+            // to see that getNow() returns the fallback value.
+            waitForCompletionValuesVisibility();
+
             return;
         }
 
-        State<T> prevState;
+        assert state.phase == Phase.INCOMPLETE;
+
+        switchToNotyfyingStage(result, ex);
+
+        assert state.phase == Phase.NOTIFYING;
+
+        completionValuesReadyLatch.countDown();
+
+        completeNotificationStage(result, ex);
+
+        assert state.phase == Phase.COMPLETED;
+    }
+
+    private void waitForCompletionValuesVisibility() {
+        try {
+            completionValuesReadyLatch.await();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    private void switchToNotyfyingStage(@Nullable T result, @Nullable Throwable ex) {
+        while (true) {
+            State<T> prevState = state;
+
+            // We can only compete with threads adding dependents in this loop, so we don't need to check the phase, it's INCOMPLETE.
+
+            State<T> newState = prevState.switchToNotifying(result, ex);
+
+            if (replaceState(prevState, newState)) {
+                break;
+            }
+        }
+    }
+
+    private void completeNotificationStage(@Nullable T result, @Nullable Throwable ex) {
         ListNode<T> lastNotifiedNode = null;
 
         while (true) {
-            prevState = state;
+            State<T> prevState = state;
 
-            if (state.completed) {
-                return;
-            }
-
-            State<T> newState = new State<>(true, result, ex, null);
+            State<T> newState = prevState.switchToCompleted();
 
             // We produce side-effects inside the retry loop, but it's ok as the queue can only grow, the queue
             // state we see is always a prefix of a queue changed by a competitor (we only compete with operations
@@ -166,8 +209,6 @@ public class OrderingFuture<T> {
                 break;
             }
         }
-
-        completionLatch.countDown();
     }
 
     /**
@@ -223,7 +264,7 @@ public class OrderingFuture<T> {
         while (true) {
             State<T> prevState = state;
 
-            if (prevState.completed) {
+            if (prevState.completionQueueProcessed()) {
                 acceptQuietly(action, prevState.result, prevState.exception);
                 return;
             }
@@ -261,7 +302,7 @@ public class OrderingFuture<T> {
         while (true) {
             State<T> prevState = state;
 
-            if (prevState.completed) {
+            if (prevState.completionQueueProcessed()) {
                 if (prevState.exception != null) {
                     return CompletableFuture.failedFuture(wrapWithCompletionException(prevState.exception));
                 } else {
@@ -304,7 +345,7 @@ public class OrderingFuture<T> {
     public T getNow(T valueIfAbsent) {
         State<T> currentState = state;
 
-        if (currentState.completed) {
+        if (currentState.completionValuesAvailable()) {
             if (currentState.exception != null) {
                 throw wrapWithCompletionException(currentState.exception);
             } else {
@@ -329,7 +370,7 @@ public class OrderingFuture<T> {
      * @see CompletableFuture#get(long, TimeUnit)
      */
     public T get(long timeout, TimeUnit unit) throws InterruptedException, TimeoutException, ExecutionException {
-        boolean completedInTime = completionLatch.await(timeout, unit);
+        boolean completedInTime = completionValuesReadyLatch.await(timeout, unit);
         if (!completedInTime) {
             throw new TimeoutException();
         }
@@ -432,15 +473,15 @@ public class OrderingFuture<T> {
     }
 
     private static class State<T> {
-        private static final State<?> EMPTY_STATE = new State<>(false, null, null, null);
+        private static final State<?> INCOMPLETE_STATE = new State<>(Phase.INCOMPLETE, null, null, null);
 
-        private final boolean completed;
+        private final Phase phase;
         private final T result;
         private final Throwable exception;
         private final ListNode<T> dependentsQueueTail;
 
-        private State(boolean completed, T result, Throwable exception, ListNode<T> dependentsQueueTail) {
-            this.completed = completed;
+        private State(Phase phase, T result, Throwable exception, ListNode<T> dependentsQueueTail) {
+            this.phase = phase;
             this.result = result;
             this.exception = exception;
             this.dependentsQueueTail = dependentsQueueTail;
@@ -448,11 +489,27 @@ public class OrderingFuture<T> {
 
         @SuppressWarnings("unchecked")
         private static <T> State<T> empty() {
-            return (State<T>) EMPTY_STATE;
+            return (State<T>) INCOMPLETE_STATE;
+        }
+
+        public boolean completionValuesAvailable() {
+            return phase != Phase.INCOMPLETE;
+        }
+
+        public boolean completionQueueProcessed() {
+            return phase == Phase.COMPLETED;
+        }
+
+        public State<T> switchToNotifying(T completionResult, Throwable completionCause) {
+            return new State<>(Phase.NOTIFYING, completionResult, completionCause, dependentsQueueTail);
+        }
+
+        public State<T> switchToCompleted() {
+            return new State<>(Phase.COMPLETED, result, exception, null);
         }
 
         public State<T> enqueueDependent(DependentAction<T> dependent) {
-            return new State<>(completed, result, exception, new ListNode<>(dependent, dependentsQueueTail));
+            return new State<>(phase, result, exception, new ListNode<>(dependent, dependentsQueueTail));
         }
     }
 
@@ -483,5 +540,23 @@ public class OrderingFuture<T> {
                 }
             }
         }
+    }
+
+    private enum Phase {
+        /**
+         * Future is not complete, completion values are not known, callbacks are not invoked. Callbacks added in this phase
+         * are enqueued for a later invocation.
+         */
+        INCOMPLETE,
+        /**
+         * Future is half-complete (completion values are available for the outside world), but callbacks are not yet invoked
+         * (but they are probably being invoked right now). Callbacks added in this phase are enqueued for a later invocation.
+         */
+        NOTIFYING,
+        /**
+         * Future is fully completed: completion values are available, callbacks are invoked. In this phase, new callbacks
+         * are invoked immediately instead of being enqueued.
+         */
+        COMPLETED
     }
 }
