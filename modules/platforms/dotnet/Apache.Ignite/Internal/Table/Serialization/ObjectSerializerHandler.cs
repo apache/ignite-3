@@ -188,7 +188,11 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
             if (BinaryTupleMethods.GetReadMethodOrNull(type) is { } readMethod)
             {
+                il.Emit(OpCodes.Ldarg_0); // reader
+                il.Emit(OpCodes.Ldc_I4_0); // index
                 il.Emit(OpCodes.Call, readMethod);
+                il.Emit(OpCodes.Ret);
+
                 return (ReadDelegate<T>)method.CreateDelegate(typeof(ReadDelegate<T>));
             }
 
