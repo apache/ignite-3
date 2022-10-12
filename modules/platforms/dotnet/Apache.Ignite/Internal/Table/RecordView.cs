@@ -33,7 +33,6 @@ namespace Apache.Ignite.Internal.Table
     /// </summary>
     /// <typeparam name="T">Record type.</typeparam>
     internal sealed class RecordView<T> : IRecordView<T>
-        where T : class
     {
         /** Table. */
         private readonly Table _table;
@@ -58,7 +57,7 @@ namespace Apache.Ignite.Internal.Table
         public RecordSerializer<T> RecordSerializer => _ser;
 
         /// <inheritdoc/>
-        public async Task<T?> GetAsync(ITransaction? transaction, T key)
+        public async Task<Option<T>> GetAsync(ITransaction? transaction, T key)
         {
             IgniteArgumentCheck.NotNull(key, nameof(key));
 
@@ -69,7 +68,7 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <inheritdoc/>
-        public async Task<IList<T?>> GetAllAsync(ITransaction? transaction, IEnumerable<T> keys)
+        public async Task<IList<Option<T>>> GetAllAsync(ITransaction? transaction, IEnumerable<T> keys)
         {
             IgniteArgumentCheck.NotNull(keys, nameof(keys));
 
@@ -77,7 +76,7 @@ namespace Apache.Ignite.Internal.Table
 
             if (!iterator.MoveNext())
             {
-                return Array.Empty<T>();
+                return Array.Empty<Option<T>>();
             }
 
             var schema = await _table.GetLatestSchemaAsync().ConfigureAwait(false);
@@ -123,7 +122,7 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <inheritdoc/>
-        public async Task<T?> GetAndUpsertAsync(ITransaction? transaction, T record)
+        public async Task<Option<T>> GetAndUpsertAsync(ITransaction? transaction, T record)
         {
             IgniteArgumentCheck.NotNull(record, nameof(record));
 
@@ -192,7 +191,7 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <inheritdoc/>
-        public async Task<T?> GetAndReplaceAsync(ITransaction? transaction, T record)
+        public async Task<Option<T>> GetAndReplaceAsync(ITransaction? transaction, T record)
         {
             IgniteArgumentCheck.NotNull(record, nameof(record));
 
@@ -221,7 +220,7 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <inheritdoc/>
-        public async Task<T?> GetAndDeleteAsync(ITransaction? transaction, T key)
+        public async Task<Option<T>> GetAndDeleteAsync(ITransaction? transaction, T key)
         {
             IgniteArgumentCheck.NotNull(key, nameof(key));
 
