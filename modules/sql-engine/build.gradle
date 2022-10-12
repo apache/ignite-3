@@ -30,6 +30,7 @@ dependencies {
     implementation project(':ignite-storage-api')
     implementation project(':ignite-schema')
     implementation project(':ignite-transactions')
+    implementation project(':ignite-replicator')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
     implementation libs.caffeine
