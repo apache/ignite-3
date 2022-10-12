@@ -1,0 +1,24 @@
+= Glossary
+
+
+==== D
+
+Data Region:: Data regions are used to control the amount of memory available to the storage. Depending on the type of storage the data region is assigned to, the data may be loaded into RAM or stored
+
+Data Rebalace:: Data rebalance is the process of redistributing partitions to make sure they are distributed equally across all nodes in the cluster.
+
+==== M
+
+Metastore::  Metastore holds additional information about Apache Ignite cluster that is required for its operation, for example the number and type of data regions configured.
+
+
+==== P
+
+Persistent Storage:: Persistent storage is the type of memory storage that is preserved regardless of cluster state. Some portion of data will be loaded into RAM to improve performance.
+
+
+==== V
+
+Volatile Storage:: Volatile storage is the type of memory storage that is only preserved while the cluster is active. Loss of power or unexpected cluster shutdown will lead to loss of data.
+
+
