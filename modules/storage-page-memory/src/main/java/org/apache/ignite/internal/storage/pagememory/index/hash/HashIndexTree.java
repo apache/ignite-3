@@ -39,6 +39,9 @@ public class HashIndexTree extends BplusTree<HashIndexRowKey, HashIndexRow> {
     /** Data page reader instance to read payload from data pages. */
     private final DataPageReader dataPageReader;
 
+    /** {@link BinaryTuple} inline size in bytes. */
+    private final int binaryTupleInlineSize;
+
     /**
      * Constructor.
      *
@@ -76,6 +79,8 @@ public class HashIndexTree extends BplusTree<HashIndexRowKey, HashIndexRow> {
 
         dataPageReader = new DataPageReader(pageMem, grpId, statisticsHolder());
 
+        this.binaryTupleInlineSize = binaryTupleInlineSize;
+
         initTree(initNew);
     }
 
@@ -105,5 +110,12 @@ public class HashIndexTree extends BplusTree<HashIndexRowKey, HashIndexRow> {
         HashIndexTreeIo hashIndexTreeIo = (HashIndexTreeIo) io;
 
         return hashIndexTreeIo.getRow(dataPageReader, partId, pageAddr, idx);
+    }
+
+    /**
+     * Returns {@link BinaryTuple} inline size in bytes.
+     */
+    public int binaryTupleInlineSize() {
+        return binaryTupleInlineSize;
     }
 }

@@ -35,7 +35,7 @@ class InsertHashIndexRowInvokeClosure implements InvokeClosure<HashIndexRow> {
     private final HashIndexRow hashIndexRow;
 
     /** Free list to insert data into in case of necessity. */
-    private final IndexColumnsFreeList freeList;
+    private final @Nullable IndexColumnsFreeList freeList;
 
     /** Operation type, either {@link OperationType#PUT} or {@link OperationType#NOOP} depending on the tree state. */
     private OperationType operationType = OperationType.PUT;
@@ -46,7 +46,7 @@ class InsertHashIndexRowInvokeClosure implements InvokeClosure<HashIndexRow> {
      * @param hashIndexRow Hash index row instance for insertion.
      * @param freeList Free list to insert data into in case of necessity.
      */
-    public InsertHashIndexRowInvokeClosure(HashIndexRow hashIndexRow, IndexColumnsFreeList freeList) {
+    public InsertHashIndexRowInvokeClosure(HashIndexRow hashIndexRow, @Nullable IndexColumnsFreeList freeList) {
         assert hashIndexRow.indexColumns().link() == NULL_LINK;
 
         this.hashIndexRow = hashIndexRow;
@@ -61,7 +61,9 @@ class InsertHashIndexRowInvokeClosure implements InvokeClosure<HashIndexRow> {
             return;
         }
 
-        freeList.insertDataRow(hashIndexRow.indexColumns());
+        if (freeList != null) {
+            freeList.insertDataRow(hashIndexRow.indexColumns());
+        }
     }
 
     @Override

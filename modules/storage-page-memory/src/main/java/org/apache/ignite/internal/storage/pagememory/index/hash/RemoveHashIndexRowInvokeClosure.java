@@ -36,7 +36,7 @@ class RemoveHashIndexRowInvokeClosure implements InvokeClosure<HashIndexRow> {
     private final HashIndexRow hashIndexRow;
 
     /** Free list to insert data into in case of necessity. */
-    private final IndexColumnsFreeList freeList;
+    private final @Nullable IndexColumnsFreeList freeList;
 
     /** Operation type, either {@link OperationType#REMOVE} or {@link OperationType#NOOP} if row is missing. */
     private OperationType operationType = OperationType.REMOVE;
@@ -47,7 +47,7 @@ class RemoveHashIndexRowInvokeClosure implements InvokeClosure<HashIndexRow> {
      * @param hashIndexRow Hash index row instance for removal.
      * @param freeList Free list to insert data into in case of necessity.
      */
-    public RemoveHashIndexRowInvokeClosure(HashIndexRow hashIndexRow, IndexColumnsFreeList freeList) {
+    public RemoveHashIndexRowInvokeClosure(HashIndexRow hashIndexRow, @Nullable IndexColumnsFreeList freeList) {
         assert hashIndexRow.indexColumns().link() == 0L;
 
         this.hashIndexRow = hashIndexRow;
@@ -84,7 +84,9 @@ class RemoveHashIndexRowInvokeClosure implements InvokeClosure<HashIndexRow> {
         if (indexColumns.link() != NULL_LINK) {
             assert operationType == OperationType.REMOVE;
 
-            freeList.removeDataRowByLink(indexColumns.link());
+            if (freeList != null) {
+                freeList.removeDataRowByLink(indexColumns.link());
+            }
 
             indexColumns.link(NULL_LINK);
         }

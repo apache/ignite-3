@@ -107,7 +107,7 @@ public interface HashIndexTreeIo {
         IndexColumns indexColumns = row.indexColumns();
 
         if (indexColumns.valueSize() <= indexColumnsInlineSize() + PARTITIONLESS_LINK_SIZE_BYTES) {
-            // TODO: IGNITE-17536 вот тут надо будет проверить что линки нет!
+            assert indexColumns.link() == NULL_LINK : "Index columns are completely inline, they should not be in FreeList";
 
             putShort(pageAddr, off, (short) -indexColumns.valueSize());
             off += Short.BYTES;

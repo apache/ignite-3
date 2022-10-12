@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.storage.pagememory.index.hash;
 
+import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.PARTITIONLESS_LINK_SIZE_BYTES;
+
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
@@ -100,7 +102,7 @@ public class PageMemoryHashIndexStorage implements HashIndexStorage {
         try {
             HashIndexRow hashIndexRow = new HashIndexRow(indexColumns, row.rowId());
 
-            var insert = new InsertHashIndexRowInvokeClosure(hashIndexRow, freeList);
+            var insert = new InsertHashIndexRowInvokeClosure(hashIndexRow, isFullyInline(hashIndexRow) ? null : freeList);
 
             hashIndexTree.invoke(hashIndexRow, null, insert);
         } catch (IgniteInternalCheckedException e) {
@@ -115,7 +117,7 @@ public class PageMemoryHashIndexStorage implements HashIndexStorage {
         try {
             HashIndexRow hashIndexRow = new HashIndexRow(indexColumns, row.rowId());
 
-            var remove = new RemoveHashIndexRowInvokeClosure(hashIndexRow, freeList);
+            var remove = new RemoveHashIndexRowInvokeClosure(hashIndexRow, hashIndexRow.indexColumns().link() == 0 ? null : freeList);
 
             hashIndexTree.invoke(hashIndexRow, null, remove);
 
@@ -129,5 +131,14 @@ public class PageMemoryHashIndexStorage implements HashIndexStorage {
     @Override
     public void destroy() throws StorageException {
         //TODO IGNITE-17626 Implement.
+    }
+
+    /**
+     * Checks if the index row can fully inline.
+     *
+     * @param hashIndexRow Hash index row.
+     */
+    private boolean isFullyInline(HashIndexRow hashIndexRow) {
+        return hashIndexRow.indexColumns().valueSize() <= hashIndexTree.binaryTupleInlineSize() + PARTITIONLESS_LINK_SIZE_BYTES;
     }
 }
