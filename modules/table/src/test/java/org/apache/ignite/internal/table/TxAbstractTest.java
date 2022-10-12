@@ -342,8 +342,9 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
             fut.join();
 
-            if (true)
+            if (true) {
                 throw new IllegalArgumentException();
+            }
 
             return fut;
         });

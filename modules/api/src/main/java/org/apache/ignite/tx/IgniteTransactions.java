@@ -169,6 +169,7 @@ public interface IgniteTransactions {
      *         acc -> view.upsertAsync(tx, Tuple.create().set("accountId", 1).set("balance", acc.longValue("balance") + 100))));
      * }
      * </pre>
+     *
      * <p>If the asynchronous chain resulted in no exception, the commitAsync will be automatically called.
      *
      * @param clo The closure.
