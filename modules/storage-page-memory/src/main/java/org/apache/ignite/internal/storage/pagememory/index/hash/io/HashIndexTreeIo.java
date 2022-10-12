@@ -51,7 +51,7 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
  * <ul>
  *     <li>Index columns hash - int (4 bytes);</li>
  *     <li>Inlined index columns size - short (2 bytes), no more than the {@link InlineUtils#MAX_BINARY_TUPLE_INLINE_SIZE}, the most
- *     significant (sign) bit is used to determine whether there is a link to the index columns;</li>
+ *     significant (sign) bit is used to determine whether there is a link to the index columns, if negative then no link;</li>
  *     <li>Inlined index columns - N bytes;</li>
  *     <li>Index columns link (optional)- 6 bytes, if the inlined index columns are the same size as the original index columns, no link is
  *     needed;</li>
@@ -165,21 +165,32 @@ public interface HashIndexTreeIo {
             ByteBuffer indexColumnsBuffer = wrapPointer(pageAddr + off, -indexColumnsSize);
             off += -indexColumnsSize;
 
-            cmp = indexColumnsBuffer.compareTo(row.indexColumns().valueBuffer());
+            cmp = indexColumnsBuffer.compareTo(row.indexColumns().valueBuffer().rewind());
 
             if (cmp != 0) {
                 return cmp;
             }
         } else {
-            long link = readPartitionless(partitionId, pageAddr, off += indexColumnsSize);
+            assert indexColumnsSize == indexColumnsInlineSize() : "exp=" + indexColumnsInlineSize() + ", act=" + indexColumnsSize;
+
+            ByteBuffer indexColumnsBuffer = wrapPointer(pageAddr + off, indexColumnsSize);
+            off += indexColumnsSize;
+
+            cmp = indexColumnsBuffer.compareTo(row.indexColumns().valueBuffer().rewind().slice().limit(indexColumnsSize));
+
+            if (cmp != 0) {
+                return cmp;
+            }
+
+            long link = readPartitionless(partitionId, pageAddr, off);
             off += PARTITIONLESS_LINK_SIZE_BYTES;
 
-            //TODO Add in-place compare in IGNITE-17536
+            // TODO: IGNITE-17536 сравнивать без копирования
             ReadIndexColumnsValue indexColumnsTraversal = new ReadIndexColumnsValue();
 
             dataPageReader.traverse(link, indexColumnsTraversal, null);
 
-            ByteBuffer indexColumnsBuffer = ByteBuffer.wrap(indexColumnsTraversal.result());
+            indexColumnsBuffer = ByteBuffer.wrap(indexColumnsTraversal.result());
 
             cmp = indexColumnsBuffer.compareTo(row.indexColumns().valueBuffer());
 
@@ -233,6 +244,8 @@ public interface HashIndexTreeIo {
 
             link = NULL_LINK;
         } else {
+            assert indexColumnsSize == indexColumnsInlineSize() : "exp=" + indexColumnsInlineSize() + ", act=" + indexColumnsSize;
+
             link = readPartitionless(partitionId, pageAddr, off += indexColumnsSize);
             off += PARTITIONLESS_LINK_SIZE_BYTES;
 

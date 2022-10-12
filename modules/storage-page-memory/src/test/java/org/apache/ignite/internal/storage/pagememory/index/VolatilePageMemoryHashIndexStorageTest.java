@@ -21,21 +21,19 @@ import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
-import org.apache.ignite.internal.storage.index.AbstractHashIndexStorageTest;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEngine;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryTableStorage;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Hash index test implementation for volatile page memory storage.
  */
 @ExtendWith(ConfigurationExtension.class)
-class VolatilePageMemoryHashIndexStorageTest extends AbstractHashIndexStorageTest {
+class VolatilePageMemoryHashIndexStorageTest extends AbstractPageMemoryHashIndexStorageTest {
     private VolatilePageMemoryStorageEngine engine;
 
     private VolatilePageMemoryTableStorage table;
@@ -70,11 +68,5 @@ class VolatilePageMemoryHashIndexStorageTest extends AbstractHashIndexStorageTes
                 table == null ? null : table::stop,
                 engine == null ? null : engine::stop
         );
-    }
-
-    //TODO IGNITE-17626 Enable the test.
-    @Disabled
-    @Override
-    public void testDestroy() {
     }
 }
