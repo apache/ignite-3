@@ -76,15 +76,14 @@ public readonly record struct Option<T>
 
     private bool PrintMembers(StringBuilder builder)
     {
-        builder.Append("Value = ");
+        builder.Append("HasValue = ");
+        builder.Append(HasValue);
 
         if (HasValue)
         {
+            builder.Append(", Value = ");
             builder.Append(_value);
         }
-
-        builder.Append(", HasValue = ");
-        builder.Append(HasValue);
 
         return true;
     }
