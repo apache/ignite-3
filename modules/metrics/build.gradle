@@ -29,10 +29,17 @@ dependencies {
     implementation project(':ignite-rest-api')
     implementation libs.jetbrains.annotations
     implementation libs.micronaut.http.core
+    implementation libs.micronaut.http.server.core
 
+    testAnnotationProcessor project(":ignite-configuration-annotation-processor")
     testImplementation libs.hamcrest.core
     testImplementation libs.mockito.core
     testImplementation project(':ignite-core')
+    testImplementation(testFixtures(project(':ignite-core')))
+    testImplementation(testFixtures(project(':ignite-configuration')))
+
+    integrationTestAnnotationProcessor project(":ignite-configuration-annotation-processor")
+    integrationTestImplementation(testFixtures(project(':ignite-configuration')))
 }
 
 description = 'ignite-metrics'

@@ -25,9 +25,13 @@ import org.apache.ignite.internal.cli.sql.SqlQueryResult;
  * Composite decorator for {@link SqlQueryResult}.
  */
 public class SqlQueryResultDecorator implements Decorator<SqlQueryResult, TerminalOutput> {
-    private final TableDecorator tableDecorator = new TableDecorator();
+    private final TableDecorator tableDecorator;
 
     private final DefaultDecorator<String> messageDecorator = new DefaultDecorator<>();
+
+    public SqlQueryResultDecorator(TableDecorator tableDecorator) {
+        this.tableDecorator = tableDecorator;
+    }
 
     @Override
     public TerminalOutput decorate(SqlQueryResult data) {

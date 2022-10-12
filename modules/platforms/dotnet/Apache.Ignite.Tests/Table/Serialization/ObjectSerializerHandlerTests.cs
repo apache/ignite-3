@@ -117,7 +117,6 @@ namespace Apache.Ignite.Tests.Table.Serialization
         }
 
         private static byte[] Write<T>(T obj, bool keyOnly = false)
-            where T : class
         {
             var handler = new ObjectSerializerHandler<T>();
 

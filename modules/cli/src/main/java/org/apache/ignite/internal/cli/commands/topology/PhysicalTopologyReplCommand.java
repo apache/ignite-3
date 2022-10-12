@@ -24,9 +24,11 @@ import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlMixin;
 import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
 import org.apache.ignite.internal.cli.core.call.UrlCallInput;
 import org.apache.ignite.internal.cli.core.flow.builder.Flows;
+import org.apache.ignite.internal.cli.decorators.PlainTopologyDecorator;
 import org.apache.ignite.internal.cli.decorators.TopologyDecorator;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
+import picocli.CommandLine.Option;
 
 /**
  * Command that show physical cluster topology in REPL mode.
@@ -43,13 +45,17 @@ public class PhysicalTopologyReplCommand extends BaseCommand implements Runnable
     @Inject
     private ConnectToClusterQuestion question;
 
+    @Option(names = "--plain", description = "Display output with plain formatting")
+    private boolean plain;
+
     /** {@inheritDoc} */
     @Override
     public void run() {
+        TopologyDecorator topologyDecorator = plain ? new PlainTopologyDecorator() : new TopologyDecorator();
         question.askQuestionIfNotConnected(clusterUrl.getClusterUrl())
                 .map(UrlCallInput::new)
                 .then(Flows.fromCall(call))
-                .print(new TopologyDecorator())
+                .print(topologyDecorator)
                 .start();
     }
 }

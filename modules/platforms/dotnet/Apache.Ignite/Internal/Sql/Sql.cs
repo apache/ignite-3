@@ -91,7 +91,6 @@ namespace Apache.Ignite.Internal.Sql
 
         /// <inheritdoc/>
         public Task<IResultSet<T>> ExecuteAsync<T>(ITransaction? transaction, SqlStatement statement, params object[] args)
-            where T : class
         {
             // TODO: IGNITE-17333 SQL ResultSet object mapping
             throw new NotSupportedException();
