@@ -92,14 +92,14 @@ public sealed class OptionTests
     [Test]
     public void TestNoneToString()
     {
-        Assert.AreEqual("Option { Value = , HasValue = False }", Option.None<int>().ToString());
-        Assert.AreEqual("Option { Value = , HasValue = False }", Option.None<string>().ToString());
+        Assert.AreEqual("Option { HasValue = False }", Option.None<int>().ToString());
+        Assert.AreEqual("Option { HasValue = False }", Option.None<string>().ToString());
     }
 
     [Test]
     public void TestSomeToString()
     {
-        Assert.AreEqual("Option { Value = 123, HasValue = True }", Option.Some(123).ToString());
-        Assert.AreEqual("Option { Value = Foo, HasValue = True }", Option.Some("Foo").ToString());
+        Assert.AreEqual("Option { HasValue = True, Value = 123 }", Option.Some(123).ToString());
+        Assert.AreEqual("Option { HasValue = True, Value = Foo }", Option.Some("Foo").ToString());
     }
 }
