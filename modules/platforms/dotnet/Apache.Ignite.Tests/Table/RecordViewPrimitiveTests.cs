@@ -40,6 +40,7 @@ public class RecordViewPrimitiveTests : IgniteTestsBase
         await TestKey(1L, "BIGINT");
         await TestKey(1.1f, "FLOAT");
         await TestKey(1.1d, "DOUBLE");
+        await TestKey("foo", "VARCHAR");
     }
 
     [Test]
@@ -53,7 +54,7 @@ public class RecordViewPrimitiveTests : IgniteTestsBase
     {
         await recordView.UpsertAsync(null, val);
         var (res, _) = await recordView.GetAsync(null, val);
-        var res2 = await recordView.GetAllAsync(null, new[] { default!, val });
+        var res2 = await recordView.GetAllAsync(null, new[] { val });
 
         Assert.AreEqual(val, res);
         Assert.AreEqual(val, res2.Single().Value);
