@@ -17,30 +17,19 @@
 
 apply from: "$rootDir/buildscripts/java-core.gradle"
 apply from: "$rootDir/buildscripts/java-junit5.gradle"
-apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
+
 
 dependencies {
     annotationProcessor project(":ignite-network-annotation-processor")
-    implementation project(':ignite-api')
     implementation project(':ignite-core')
-    implementation project(':ignite-network-api')
-    implementation project(':ignite-network')
-    implementation project(':ignite-raft-client')
-    implementation project(':ignite-rocksdb-common')
-    implementation project(':ignite-replicator')
+    implementation project(':ignite-raft')
     implementation project(':ignite-configuration')
+    implementation project(':ignite-network-api')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
 
-    testImplementation project(':ignite-core')
-    testImplementation(testFixtures(project(':ignite-core')))
-    testImplementation libs.mockito.junit
     testImplementation libs.mockito.core
-
-    testFixturesImplementation project(':ignite-configuration')
-    testFixturesImplementation project(':ignite-core')
-    testFixturesImplementation project(':ignite-api')
-    testFixturesImplementation libs.jetbrains.annotations
+    testImplementation libs.mockito.junit
 }
 
-description = 'ignite-transactions'
+description = 'ignite-replicator'
