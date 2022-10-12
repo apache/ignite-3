@@ -34,8 +34,8 @@ void store_date(std::byte *dest, const ignite_date &value) {
 
     auto date = (year << 9) | (month << 5) | day;
 
-    bytes::store<Endian::LITTLE>(dest, std::uint16_t(date));
-    bytes::store<Endian::LITTLE>(dest + 2, std::uint8_t(date >> 16));
+    bytes::store<endian::LITTLE>(dest, std::uint16_t(date));
+    bytes::store<endian::LITTLE>(dest + 2, std::uint8_t(date >> 16));
 }
 
 void store_time(std::byte *dest, const ignite_time &value, std::size_t size) {
@@ -46,15 +46,15 @@ void store_time(std::byte *dest, const ignite_time &value, std::size_t size) {
 
     if (size == 6) {
         auto time = (hour << 42) | (minute << 36) | (second << 30) | nanos;
-        bytes::store<Endian::LITTLE>(dest, std::uint32_t(time));
-        bytes::store<Endian::LITTLE>(dest + 4, std::uint16_t(time >> 32));
+        bytes::store<endian::LITTLE>(dest, std::uint32_t(time));
+        bytes::store<endian::LITTLE>(dest + 4, std::uint16_t(time >> 32));
     } else if (size == 5) {
         auto time = (hour << 32) | (minute << 26) | (second << 20) | (nanos / 1000);
-        bytes::store<Endian::LITTLE>(dest, std::uint32_t(time));
-        bytes::store<Endian::LITTLE>(dest + 4, std::uint8_t(time >> 32));
+        bytes::store<endian::LITTLE>(dest, std::uint32_t(time));
+        bytes::store<endian::LITTLE>(dest + 4, std::uint8_t(time >> 32));
     } else {
         auto time = (hour << 22) | (minute << 16) | (second << 10) | (nanos / 1000000);
-        bytes::store<Endian::LITTLE>(dest, std::uint32_t(time));
+        bytes::store<endian::LITTLE>(dest, std::uint32_t(time));
     }
 }
 
@@ -201,7 +201,7 @@ void binary_tuple_builder::put_float(bytes_view bytes) {
 
     if (size != 0) {
         assert(size == sizeof(float));
-        bytes::store<Endian::LITTLE>(next_value, value);
+        bytes::store<endian::LITTLE>(next_value, value);
         next_value += size;
     }
 
@@ -219,10 +219,10 @@ void binary_tuple_builder::put_double(bytes_view bytes) {
     if (size != 0) {
         if (size == sizeof(float)) {
             float floatValue = static_cast<float>(value);
-            bytes::store<Endian::LITTLE>(next_value, floatValue);
+            bytes::store<endian::LITTLE>(next_value, floatValue);
         } else {
             assert(size == sizeof(double));
-            bytes::store<Endian::LITTLE>(next_value, value);
+            bytes::store<endian::LITTLE>(next_value, value);
         }
         next_value += size;
     }
@@ -256,8 +256,8 @@ void binary_tuple_builder::put_uuid(bytes_view bytes) {
 
     if (size != 0) {
         assert(size == 16);
-        bytes::store<Endian::LITTLE>(next_value, value.getMostSignificantBits());
-        bytes::store<Endian::LITTLE>(next_value + 8, value.getLeastSignificantBits());
+        bytes::store<endian::LITTLE>(next_value, value.getMostSignificantBits());
+        bytes::store<endian::LITTLE>(next_value + 8, value.getLeastSignificantBits());
         next_value += size;
     }
 
@@ -326,9 +326,9 @@ void binary_tuple_builder::put_timestamp(bytes_view bytes) {
 
     if (size != 0) {
         assert(size == 8 || size == 12);
-        bytes::store<Endian::LITTLE>(next_value, value.get_epoch_second());
+        bytes::store<endian::LITTLE>(next_value, value.get_epoch_second());
         if (size == 12) {
-            bytes::store<Endian::LITTLE>(next_value + 8, value.get_nano());
+            bytes::store<endian::LITTLE>(next_value + 8, value.get_nano());
         }
         next_value += size;
     }

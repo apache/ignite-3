@@ -77,7 +77,7 @@ namespace ignite {
 /**
  * Byte order enum.
  */
-enum class Endian {
+enum class endian {
 #if IGNITE_STD_ENDIAN
     LITTLE = std::endian::little,
     BIG = std::endian::big,
@@ -96,7 +96,7 @@ enum class Endian {
  * @return false If the host platform has other byte order.
  */
 constexpr bool is_big_endian_platform() noexcept {
-    return Endian::NATIVE == Endian::BIG;
+    return endian::NATIVE == endian::BIG;
 }
 
 /**
@@ -106,7 +106,7 @@ constexpr bool is_big_endian_platform() noexcept {
  * @return false If the host platform has other byte order.
  */
 constexpr bool is_little_endian_platform() noexcept {
-    return Endian::NATIVE == Endian::LITTLE;
+    return endian::NATIVE == endian::LITTLE;
 }
 
 // Namespace for byte utilities
@@ -249,12 +249,12 @@ IGNITE_BYTESWAP_SPECIFIER T reverse(T value) noexcept {
  * @param value Original value.
  * @return Converted value.
  */
-template <typename T, Endian X, Endian Y>
+template <typename T, endian X, endian Y>
 static T adjust_order(T value) noexcept {
     if constexpr (X == Y) {
         return value;
     } else {
-        static_assert((X == Endian::LITTLE && Y == Endian::BIG) || (X == Endian::BIG && Y == Endian::LITTLE),
+        static_assert((X == endian::LITTLE && Y == endian::BIG) || (X == endian::BIG && Y == endian::LITTLE),
             "unimplemented byte order conversion");
         return reverse(value);
     }
@@ -269,7 +269,7 @@ static T adjust_order(T value) noexcept {
  */
 template <typename T>
 static T ltob(T value) noexcept {
-    return adjust_order<T, Endian::LITTLE, Endian::BIG>(value);
+    return adjust_order<T, endian::LITTLE, endian::BIG>(value);
 }
 
 /**
@@ -281,7 +281,7 @@ static T ltob(T value) noexcept {
  */
 template <typename T>
 static T ltoh(T value) noexcept {
-    return adjust_order<T, Endian::LITTLE, Endian::NATIVE>(value);
+    return adjust_order<T, endian::LITTLE, endian::NATIVE>(value);
 }
 
 /**
@@ -293,7 +293,7 @@ static T ltoh(T value) noexcept {
  */
 template <typename T>
 static T htol(T value) noexcept {
-    return adjust_order<T, Endian::NATIVE, Endian::LITTLE>(value);
+    return adjust_order<T, endian::NATIVE, endian::LITTLE>(value);
 }
 
 /**
@@ -305,7 +305,7 @@ static T htol(T value) noexcept {
  */
 template <typename T>
 static T btol(T value) noexcept {
-    return adjust_order<T, Endian::BIG, Endian::LITTLE>(value);
+    return adjust_order<T, endian::BIG, endian::LITTLE>(value);
 }
 
 /**
@@ -317,7 +317,7 @@ static T btol(T value) noexcept {
  */
 template <typename T>
 static T btoh(T value) noexcept {
-    return adjust_order<T, Endian::BIG, Endian::NATIVE>(value);
+    return adjust_order<T, endian::BIG, endian::NATIVE>(value);
 }
 
 /**
@@ -329,7 +329,7 @@ static T btoh(T value) noexcept {
  */
 template <typename T>
 static T htob(T value) noexcept {
-    return adjust_order<T, Endian::NATIVE, Endian::BIG>(value);
+    return adjust_order<T, endian::NATIVE, endian::BIG>(value);
 }
 
 /**
@@ -370,15 +370,15 @@ void store_raw(std::byte *bytes, T value) noexcept {
  * @param bytes Pointer to byte storage.
  * @return Loaded value.
  */
-template <Endian E, typename T>
+template <endian E, typename T>
 T load(const std::byte *bytes) noexcept {
-    if constexpr (E == Endian::NATIVE) {
+    if constexpr (E == endian::NATIVE) {
         return load_raw<T>(bytes);
     } else if constexpr (std::is_integral_v<T>) {
-        return adjust_order<T, E, Endian::NATIVE>(load_raw<T>(bytes));
+        return adjust_order<T, E, endian::NATIVE>(load_raw<T>(bytes));
     } else {
         using S = detail::swap_type<T>;
-        return cast<T>(adjust_order<S, E, Endian::NATIVE>(load_raw<S>(bytes)));
+        return cast<T>(adjust_order<S, E, endian::NATIVE>(load_raw<S>(bytes)));
     }
 }
 
@@ -390,15 +390,15 @@ T load(const std::byte *bytes) noexcept {
  * @param bytes Pointer to byte storage.
  * @param value Value to store.
  */
-template <Endian E, typename T>
+template <endian E, typename T>
 void store(std::byte *bytes, T value) noexcept {
-    if constexpr (E == Endian::NATIVE) {
+    if constexpr (E == endian::NATIVE) {
         store_raw(bytes, value);
     } else if constexpr (std::is_integral_v<T>) {
-        store_raw(bytes, adjust_order<T, Endian::NATIVE, E>(value));
+        store_raw(bytes, adjust_order<T, endian::NATIVE, E>(value));
     } else {
         using U = detail::swap_type<T>;
-        store_raw(bytes, adjust_order<U, Endian::NATIVE, E>(cast<U>(value)));
+        store_raw(bytes, adjust_order<U, endian::NATIVE, E>(cast<U>(value)));
     }
 }
 

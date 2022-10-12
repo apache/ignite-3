@@ -29,7 +29,7 @@ namespace {
 
 template <typename T>
 T load_as(bytes_view bytes, std::size_t offset = 0) noexcept {
-    return bytes::load<Endian::LITTLE, T>(bytes.data() + offset);
+    return bytes::load<endian::LITTLE, T>(bytes.data() + offset);
 }
 
 ignite_date load_date(bytes_view bytes) {

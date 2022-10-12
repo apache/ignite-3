@@ -173,7 +173,7 @@ void big_integer::from_big_endian(const std::byte *data, std::size_t size) {
 
     for (std::size_t i = 0; size >= 4; i++) {
         size -= 4;
-        mag[i] = bytes::load<Endian::BIG, std::uint32_t>(data + size);
+        mag[i] = bytes::load<endian::BIG, std::uint32_t>(data + size);
     }
 
     if (size > 0) {
@@ -212,7 +212,7 @@ void big_integer::from_negative_big_endian(const std::byte *data, std::size_t si
 
     for (std::size_t i = 0; size >= 4; i++) {
         size -= 4;
-        mag[i] = ~bytes::load<Endian::BIG, std::uint32_t>(data + size);
+        mag[i] = ~bytes::load<endian::BIG, std::uint32_t>(data + size);
     }
 
     if (size > 0) {
@@ -263,7 +263,7 @@ big_integer::big_integer(const int8_t *val, int32_t len, int32_t sign, bool bigE
         mag.resize((size + 3) / 4);
 
         for (std::size_t i = 0; size >= 4; i++) {
-            mag[i] = bytes::load<Endian::LITTLE, std::uint32_t>(data);
+            mag[i] = bytes::load<endian::LITTLE, std::uint32_t>(data);
             size -= 4;
             data += 4;
         }
@@ -375,7 +375,7 @@ void big_integer::store_bytes(std::byte *data) const {
     if (!is_negative()) {
         for (std::size_t i = 0; size >= 4; i++) {
             size -= 4;
-            bytes::store<Endian::BIG, std::uint32_t>(data + size, mag[i]);
+            bytes::store<endian::BIG, std::uint32_t>(data + size, mag[i]);
         }
 
         if (size > 0) {
@@ -402,7 +402,7 @@ void big_integer::store_bytes(std::byte *data) const {
             }
 
             size -= 4;
-            bytes::store<Endian::BIG, std::uint32_t>(data + size, value);
+            bytes::store<endian::BIG, std::uint32_t>(data + size, value);
         }
 
         if (size > 0) {
