@@ -27,7 +27,6 @@ import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.tree.io.BplusInnerIo;
 import org.apache.ignite.internal.pagememory.tree.io.BplusIo;
-import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.pagememory.index.InlineUtils;
 import org.apache.ignite.internal.storage.pagememory.index.hash.HashIndexRowKey;
 import org.apache.ignite.internal.storage.pagememory.index.hash.HashIndexTree;
@@ -37,19 +36,19 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
  * {@link BplusInnerIo} implementation for {@link HashIndexTree}.
  */
 public class HashIndexTreeInnerIo extends BplusInnerIo<HashIndexRowKey> implements HashIndexTreeIo {
-    /** I/O versions for each {@link BinaryTuple} inline size up to the {@link InlineUtils#MAX_BINARY_TUPLE_INLINE_SIZE}. */
+    /** I/O versions for each inline size up to the {@link InlineUtils#MAX_BINARY_TUPLE_INLINE_SIZE}. */
     public static final List<IoVersions<HashIndexTreeInnerIo>> VERSIONS = IntStream.rangeClosed(0, MAX_BINARY_TUPLE_INLINE_SIZE)
-            .mapToObj(binaryTupleInlineSize -> new IoVersions<>(new HashIndexTreeInnerIo(1, binaryTupleInlineSize)))
+            .mapToObj(inlineSize -> new IoVersions<>(new HashIndexTreeInnerIo(1, inlineSize)))
             .collect(toUnmodifiableList());
 
     /**
      * Constructor.
      *
      * @param ver Page format version.
-     * @param binaryTupleInlineSize {@link BinaryTuple} inline size in bytes.
+     * @param inlineSize Inline size in bytes.
      */
-    private HashIndexTreeInnerIo(int ver, int binaryTupleInlineSize) {
-        super(T_HASH_INDEX_INNER_IO_START + binaryTupleInlineSize, ver, true, binaryTupleInlineSize + ITEM_SIZE_WITHOUT_COLUMNS);
+    private HashIndexTreeInnerIo(int ver, int inlineSize) {
+        super(T_HASH_INDEX_INNER_IO_START + inlineSize, ver, true, inlineSize + ITEM_SIZE_WITHOUT_COLUMNS);
     }
 
     @Override

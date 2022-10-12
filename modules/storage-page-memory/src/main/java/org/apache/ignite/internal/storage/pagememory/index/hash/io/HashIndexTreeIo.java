@@ -29,6 +29,7 @@ import static org.apache.ignite.internal.pagememory.util.PageUtils.putShort;
 import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.PARTITIONLESS_LINK_SIZE_BYTES;
 import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.readPartitionless;
 import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.writePartitionless;
+import static org.apache.ignite.internal.storage.pagememory.index.InlineUtils.isFullyInlined;
 import static org.apache.ignite.internal.util.GridUnsafe.wrapPointer;
 
 import java.nio.ByteBuffer;
@@ -107,7 +108,7 @@ public interface HashIndexTreeIo {
 
         IndexColumns indexColumns = row.indexColumns();
 
-        if (indexColumns.valueSize() <= indexColumnsInlineSize() + PARTITIONLESS_LINK_SIZE_BYTES) {
+        if (isFullyInlined(indexColumns.valueSize(), indexColumnsInlineSize())) {
             assert indexColumns.link() == NULL_LINK : "Index columns are completely inline, they should not be in FreeList";
 
             putShort(pageAddr, off, (short) -indexColumns.valueSize());
