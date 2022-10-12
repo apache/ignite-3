@@ -32,6 +32,13 @@ public class RecordViewPrimitiveTests : IgniteTestsBase
     [Test]
     public async Task TestIntKey() => await TestKey(1);
 
+    [Test]
+    public void TestColumnTypeMismatch()
+    {
+        var ex = Assert.ThrowsAsync<IgniteClientException>(async () => await TestKey(1f));
+        Assert.AreEqual("Can't map 'System.Single' to column 'KEY' of type 'System.Int64' - types do not match.", ex!.Message);
+    }
+
     private async Task TestKey<T>(T val)
     {
         var recordView = Table.GetRecordView<T>();
