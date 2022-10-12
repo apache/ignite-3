@@ -101,23 +101,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
         {
             var type = typeof(T);
 
-            // TODO IGNITE-17876 Handle all primitives
-            if (type == typeof(long))
-            {
-                return (ref BinaryTupleBuilder writer, Span<byte> set, T value) =>
-                {
-                    writer.AppendLong((long)(object)value!);
-
-                    var columns = schema.Columns;
-                    var count = keyOnly ? schema.KeyColumnCount : columns.Count;
-
-                    for (var index = 1; index < count; index++)
-                    {
-                        writer.AppendNoValue(set);
-                    }
-                };
-            }
-
             var method = new DynamicMethod(
                 name: "Write" + type.Name,
                 returnType: typeof(void),
@@ -129,6 +112,33 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
             var columns = schema.Columns;
             var count = keyOnly ? schema.KeyColumnCount : columns.Count;
+
+            if (BinaryTupleMethods.GetWriteMethodOrNull(type) is { } directWriteMethod)
+            {
+                var col = columns[0];
+                ValidateSingleFieldMappingType(type, col);
+
+                il.Emit(OpCodes.Ldarg_0); // writer
+                il.Emit(OpCodes.Ldarg_2); // value
+
+                if (col.Type == ClientDataType.Decimal)
+                {
+                    EmitLdcI4(il, col.Scale);
+                }
+
+                il.Emit(OpCodes.Call, directWriteMethod);
+
+                for (var index = 1; index < count; index++)
+                {
+                    il.Emit(OpCodes.Ldarg_0); // writer
+                    il.Emit(OpCodes.Ldarg_1); // noValueSet
+                    il.Emit(OpCodes.Call, BinaryTupleMethods.WriteNoValue);
+                }
+
+                il.Emit(OpCodes.Ret);
+
+                return (WriteDelegate<T>)method.CreateDelegate(typeof(WriteDelegate<T>));
+            }
 
             for (var index = 0; index < count; index++)
             {
@@ -347,6 +357,18 @@ namespace Apache.Ignite.Internal.Table.Serialization
             {
                 var message = $"Can't map field '{fieldInfo.DeclaringType?.Name}.{fieldInfo.Name}' of type '{fieldType}' " +
                               $"to column '{column.Name}' of type '{columnType}' - types do not match.";
+
+                throw new IgniteClientException(ErrorGroups.Client.Configuration, message);
+            }
+        }
+
+        private static void ValidateSingleFieldMappingType(Type type, Column column)
+        {
+            var columnType = column.Type.ToType();
+
+            if (type != columnType)
+            {
+                var message = $"Can't map '{type}' to column '{column.Name}' of type '{columnType}' - types do not match.";
 
                 throw new IgniteClientException(ErrorGroups.Client.Configuration, message);
             }
