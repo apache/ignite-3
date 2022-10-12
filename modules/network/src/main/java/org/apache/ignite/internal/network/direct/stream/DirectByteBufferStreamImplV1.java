@@ -66,6 +66,18 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     /** Poison object. */
     private static final Object NULL = new Object();
 
+    /** Flag that indicates that byte buffer is not null. */
+    private static final byte BYTE_BYFFER_NOT_NULL_FLAG = 1;
+
+    /** Flag that indicates that byte buffer has Big Endinan order. */
+    private static final byte BYTE_BYFFER_BIG_ENDIAN_FLAG = 2;
+
+    /** Flag that indicates that byte buffer has a non-zero position. */
+    private static final byte BYTE_BYFFER_HAS_POSITION_FLAG = 4;
+
+    /** Flag that indicates that byte buffer has a limit that doesn't match its capacity. */
+    private static final byte BYTE_BYFFER_HAS_LIMIT_FLAG = 8;
+
     /** Message serialization registry. */
     private final PerSessionSerializationService serializationService;
 
@@ -513,18 +525,18 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
                 byte flag = 0;
 
                 if (val != null) {
-                    flag |= 1;
+                    flag |= BYTE_BYFFER_NOT_NULL_FLAG;
 
                     if (val.order() == ByteOrder.BIG_ENDIAN) {
-                        flag |= 2;
+                        flag |= BYTE_BYFFER_BIG_ENDIAN_FLAG;
                     }
 
-                    if (val.position() == 0) {
-                        flag |= 4;
+                    if (val.position() != 0) {
+                        flag |= BYTE_BYFFER_HAS_POSITION_FLAG;
                     }
 
-                    if (val.limit() == val.capacity()) {
-                        flag |= 8;
+                    if (val.limit() != val.capacity()) {
+                        flag |= BYTE_BYFFER_HAS_LIMIT_FLAG;
                     }
                 }
 
@@ -569,11 +581,11 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
                 if (val.isDirect()) {
                     long address = GridUnsafe.bufferAddress(val);
 
-                    writeArray(null, address, length, length);
+                    lastFinished = writeArray(null, address, length, length);
                 } else {
                     byte[] array = val.array();
 
-                    writeArray(array, BYTE_ARR_OFF, length, length);
+                    lastFinished = writeArray(array, BYTE_ARR_OFF, length, length);
                 }
 
                 if (!lastFinished) {
@@ -1149,7 +1161,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
             case 0:
                 byteBufferFlag = readByte();
 
-                boolean isNull = byteBufferFlag == 0;
+                boolean isNull = (byteBufferFlag & BYTE_BYFFER_NOT_NULL_FLAG) == 0;
 
                 if (!lastFinished || isNull) {
                     return null;
@@ -1159,7 +1171,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
                 //noinspection fallthrough
             case 1:
-                if ((byteBufferFlag & 4) != 0) {
+                if ((byteBufferFlag & BYTE_BYFFER_HAS_POSITION_FLAG) == 0) {
                     byteBufferPosition = 0;
                 } else {
                     byteBufferPosition = readInt();
@@ -1173,7 +1185,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
                 //noinspection fallthrough
             case 2:
-                if ((byteBufferFlag & 8) != 0) {
+                if ((byteBufferFlag & BYTE_BYFFER_HAS_LIMIT_FLAG) == 0) {
                     byteBufferLimit = -1;
                 } else {
                     byteBufferLimit = readInt();
@@ -1202,7 +1214,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
         ByteBuffer val = ByteBuffer.wrap(bytes).position(byteBufferPosition);
 
-        if ((byteBufferFlag & 2) == 0) {
+        if ((byteBufferFlag & BYTE_BYFFER_BIG_ENDIAN_FLAG) == 0) {
             val.order(ByteOrder.LITTLE_ENDIAN);
         } else {
             val.order(ByteOrder.BIG_ENDIAN);
