@@ -26,11 +26,14 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.IntStream;
+import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.AbstractHashIndexStorageTest;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexRow;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.BasePageMemoryStorageEngineConfiguration;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -38,6 +41,23 @@ import org.junit.jupiter.api.Test;
  * Base class for testing {@link HashIndexStorage} based on {@link PageMemory}.
  */
 abstract class AbstractPageMemoryHashIndexStorageTest extends AbstractHashIndexStorageTest {
+    protected BasePageMemoryStorageEngineConfiguration<?, ?> baseEngineConfig;
+
+    /**
+     * Initializes the internal structures needed for tests.
+     *
+     * <p>This method *MUST* always be called in either subclass' constructor or setUp method.
+     */
+    protected final void initialize(
+            MvTableStorage tableStorage,
+            TablesConfiguration tablesCfg,
+            BasePageMemoryStorageEngineConfiguration<?, ?> baseEngineConfig
+    ) {
+        this.baseEngineConfig = baseEngineConfig;
+
+        initialize(tableStorage, tablesCfg);
+    }
+
     //TODO IGNITE-17626 Enable the test.
     @Disabled
     @Override
@@ -52,6 +72,11 @@ abstract class AbstractPageMemoryHashIndexStorageTest extends AbstractHashIndexS
     @Test
     void testWithStringsLargerThanMaximumInlineSize() {
         checkHashCollisionStrings(randomString(MAX_BINARY_TUPLE_INLINE_SIZE));
+    }
+
+    @Test
+    void testFragmentedIndexColumns() {
+        checkHashCollisionStrings(randomString(baseEngineConfig.pageSize().value() * 2));
     }
 
     private void checkHashCollisionStrings(String prefix) {

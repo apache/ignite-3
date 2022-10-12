@@ -59,7 +59,7 @@ class VolatilePageMemoryHashIndexStorageTest extends AbstractPageMemoryHashIndex
 
         table.start();
 
-        initialize(table, tablesConfig);
+        initialize(table, tablesConfig, engineConfig);
     }
 
     @AfterEach

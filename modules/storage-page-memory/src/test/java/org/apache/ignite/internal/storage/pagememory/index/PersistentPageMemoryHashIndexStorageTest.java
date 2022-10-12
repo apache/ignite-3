@@ -64,7 +64,7 @@ class PersistentPageMemoryHashIndexStorageTest extends AbstractPageMemoryHashInd
 
         table.start();
 
-        initialize(table, tablesConfig);
+        initialize(table, tablesConfig, engineConfig);
     }
 
     @AfterEach
