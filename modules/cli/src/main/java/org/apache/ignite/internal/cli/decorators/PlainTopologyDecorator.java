@@ -17,39 +17,26 @@
 
 package org.apache.ignite.internal.cli.decorators;
 
-import com.jakewharton.fliptables.FlipTable;
 import java.util.List;
 import org.apache.ignite.internal.cli.core.decorator.Decorator;
 import org.apache.ignite.internal.cli.core.decorator.TerminalOutput;
+import org.apache.ignite.internal.cli.util.PlainTableRenderer;
 import org.apache.ignite.rest.client.model.ClusterNode;
 
 /**
  * Implementation of {@link Decorator} for the list of {@link ClusterNode}.
  */
-public class TopologyDecorator implements Decorator<List<ClusterNode>, TerminalOutput> {
-    /** List of headers to decorate topology. */
-    protected static final String[] HEADERS = {"name", "host", "port", "consistent id", "id"};
-
+public class PlainTopologyDecorator extends TopologyDecorator {
     /**
      * Transform list of {@link ClusterNode} to {@link TerminalOutput}.
      *
      * @param topology incoming list of {@link ClusterNode}.
-     * @return User-friendly interpretation of list of {@link ClusterNode} in {@link TerminalOutput}.
+     * @return Plain interpretation of list of {@link ClusterNode} in {@link TerminalOutput}.
      */
+
     @Override
     public TerminalOutput decorate(List<ClusterNode> topology) {
-        return () -> FlipTable.of(HEADERS, topologyToContent(topology));
-    }
-
-    protected String[][] topologyToContent(List<ClusterNode> topology) {
-        return topology.stream().map(
-            node -> new String[]{
-                node.getName(),
-                node.getAddress().getHost(),
-                String.valueOf(node.getAddress().getPort()),
-                node.getAddress().getConsistentId() == null ? "(empty)" : node.getAddress().getConsistentId(),
-                node.getId()
-            }
-        ).toArray(String[][]::new);
+        String[][] content = topologyToContent(topology);
+        return () -> new PlainTableRenderer().render(HEADERS, content);
     }
 }

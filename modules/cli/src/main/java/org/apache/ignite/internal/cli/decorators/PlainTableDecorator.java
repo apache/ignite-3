@@ -19,22 +19,21 @@ package org.apache.ignite.internal.cli.decorators;
 
 import org.apache.ignite.internal.cli.core.decorator.Decorator;
 import org.apache.ignite.internal.cli.core.decorator.TerminalOutput;
-import org.apache.ignite.internal.cli.sql.SqlQueryResult;
+import org.apache.ignite.internal.cli.sql.table.Table;
+import org.apache.ignite.internal.cli.util.PlainTableRenderer;
 
 /**
- * Composite decorator for {@link SqlQueryResult}.
+ * Implementation of {@link Decorator} for {@link Table}.
  */
-public class SqlQueryResultDecorator implements Decorator<SqlQueryResult, TerminalOutput> {
-    private final TableDecorator tableDecorator;
-
-    private final DefaultDecorator<String> messageDecorator = new DefaultDecorator<>();
-
-    public SqlQueryResultDecorator(TableDecorator tableDecorator) {
-        this.tableDecorator = tableDecorator;
-    }
-
+public class PlainTableDecorator extends TableDecorator {
+    /**
+     * Transform {@link Table} to {@link TerminalOutput}.
+     *
+     * @param table incoming {@link Table}.
+     * @return Plain interpretation of {@link Table} in {@link TerminalOutput}.
+     */
     @Override
-    public TerminalOutput decorate(SqlQueryResult data) {
-        return data.getResult(tableDecorator, messageDecorator);
+    public TerminalOutput decorate(Table table) {
+        return () -> new PlainTableRenderer().render(table.header(), table.content());
     }
 }
