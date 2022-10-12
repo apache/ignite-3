@@ -19,6 +19,8 @@ package org.apache.ignite.internal.table.distributed.replicator;
 
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
+import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -28,14 +30,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.hlc.HybridTimestamp;
+import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
@@ -43,10 +46,16 @@ import org.apache.ignite.internal.replicator.exception.UnsupportedReplicaRequest
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.BinaryTupleSchema;
+import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
+import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.index.HashIndexStorage;
+import org.apache.ignite.internal.table.distributed.TableManager.TableIndex;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
 import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
@@ -61,17 +70,16 @@ import org.apache.ignite.internal.table.distributed.replication.request.ReadWrit
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSwapRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
-import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.LockMode;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.message.TxCleanupReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
+import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.ErrorGroups.Replicator;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.service.RaftGroupService;
@@ -80,17 +88,18 @@ import org.jetbrains.annotations.Nullable;
 
 /** Partition replication listener. */
 public class PartitionReplicaListener implements ReplicaListener {
+    private static final BinaryTupleSchema PK_KEY_SCHEMA = BinaryTupleSchema.create(new Element[]{
+            new Element(NativeTypes.BYTES, false)
+    });
+
     /** Replication group id. */
     private final String replicationGroupId;
 
     /** Partition id. */
     private final int partId;
 
-    /** Primary key id. */
-    public final UUID indexPkId;
-
-    /** Scan index id. */
-    public final UUID indexScanId;
+    /** Primary key index. */
+    public final HashIndexStorage pkConstraintStorage;
 
     /** Table id. */
     private final UUID tableId;
@@ -107,15 +116,13 @@ public class PartitionReplicaListener implements ReplicaListener {
     /** Lock manager. */
     private final LockManager lockManager;
 
-    //TODO: https://issues.apache.org/jira/browse/IGNITE-17205 Temporary solution until the implementation of the primary index is done.
-    /** Dummy primary index. */
-    private final ConcurrentHashMap<ByteBuffer, RowId> primaryIndex;
-
     /**
      * Cursors map. The key of the map is internal Ignite uuid which consists of a transaction id ({@link UUID}) and a cursor id ({@link
      * Long}).
      */
     private final ConcurrentNavigableMap<IgniteUuid, PartitionTimestampCursor> cursors;
+
+    private final Supplier<List<TableIndex>> activeIndexes;
 
     /**
      * The constructor.
@@ -125,7 +132,6 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param txManager Transaction manager.
      * @param lockManager Lock manager.
      * @param tableId Table id.
-     * @param primaryIndex Primary index.
      * @param hybridClock Hybrid clock.
      */
     public PartitionReplicaListener(
@@ -136,7 +142,8 @@ public class PartitionReplicaListener implements ReplicaListener {
             int partId,
             String replicationGroupId,
             UUID tableId,
-            ConcurrentHashMap<ByteBuffer, RowId> primaryIndex,
+            Supplier<List<TableIndex>> activeIndexes,
+            HashIndexStorage pkConstraintStorage,
             HybridClock hybridClock
     ) {
         this.mvDataStorage = mvDataStorage;
@@ -146,11 +153,8 @@ public class PartitionReplicaListener implements ReplicaListener {
         this.partId = partId;
         this.replicationGroupId = replicationGroupId;
         this.tableId = tableId;
-        this.primaryIndex = primaryIndex;
-
-        //TODO: IGNITE-17479 Integrate indexes into replicaListener command handlers
-        this.indexScanId = new UUID(tableId.getMostSignificantBits(), tableId.getLeastSignificantBits() + 1);
-        this.indexPkId = new UUID(tableId.getMostSignificantBits(), tableId.getLeastSignificantBits() + 2);
+        this.activeIndexes = activeIndexes;
+        this.pkConstraintStorage = pkConstraintStorage;
 
         cursors = new ConcurrentSkipListMap<>((o1, o2) -> {
             if (o1 == o2) {
@@ -237,15 +241,13 @@ public class PartitionReplicaListener implements ReplicaListener {
     private CompletableFuture<Object> processReadOnlySingleEntryAction(ReadOnlySingleRowReplicaRequest request) {
         ByteBuffer searchKey = request.binaryRow().keySlice();
 
-        UUID indexId = indexIdOrDefault(indexScanId/*request.indexToUse()*/);
-
         if (request.requestType() !=  RequestType.RO_GET) {
             throw new IgniteInternalException(Replicator.REPLICA_COMMON_ERR,
-                    IgniteStringFormatter.format("Unknown single request [actionType={}]", request.requestType()));
+                    format("Unknown single request [actionType={}]", request.requestType()));
         }
 
         //TODO: IGNITE-17868 Integrate indexes into rowIds resolution along with proper lock management on search rows.
-        RowId rowId = rowIdByKey(indexId, searchKey);
+        RowId rowId = rowIdByKey(searchKey, request.timestamp(), null);
 
         BinaryRow result = rowId != null ? resolveReadResult(mvDataStorage.read(rowId, request.timestamp()), null) : null;
 
@@ -262,18 +264,16 @@ public class PartitionReplicaListener implements ReplicaListener {
         Collection<ByteBuffer> keyRows = request.binaryRows().stream().map(br -> br.keySlice()).collect(
                 Collectors.toList());
 
-        UUID indexId = indexIdOrDefault(indexScanId/*request.indexToUse()*/);
-
         if (request.requestType() !=  RequestType.RO_GET_ALL) {
             throw new IgniteInternalException(Replicator.REPLICA_COMMON_ERR,
-                    IgniteStringFormatter.format("Unknown single request [actionType={}]", request.requestType()));
+                    format("Unknown single request [actionType={}]", request.requestType()));
         }
 
         ArrayList<BinaryRow> result = new ArrayList<>(keyRows.size());
 
         for (ByteBuffer searchKey : keyRows) {
             //TODO: IGNITE-17868 Integrate indexes into rowIds resolution along with proper lock management on search rows.
-            RowId rowId = rowIdByKey(indexId, searchKey);
+            RowId rowId = rowIdByKey(searchKey, request.timestamp(), null);
 
             result.add(rowId != null ? resolveReadResult(mvDataStorage.read(rowId, request.timestamp()), null) : null);
         }
@@ -301,7 +301,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             } catch (Exception e) {
                 if (ex == null) {
                     ex = new ReplicationException(Replicator.REPLICA_COMMON_ERR,
-                            IgniteStringFormatter.format("Close cursor exception [replicaGrpId={}, msg={}]", replicationGroupId,
+                            format("Close cursor exception [replicaGrpId={}, msg={}]", replicationGroupId,
                                     e.getMessage()), e);
                 } else {
                     ex.addSuppressed(e);
@@ -334,7 +334,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 cursor.close();
             } catch (Exception e) {
                 throw new ReplicationException(Replicator.REPLICA_COMMON_ERR,
-                        IgniteStringFormatter.format("Close cursor exception [replicaGrpId={}, msg={}]", replicationGroupId,
+                        format("Close cursor exception [replicaGrpId={}, msg={}]", replicationGroupId,
                                 e.getMessage()), e);
             }
         }
@@ -446,42 +446,32 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     /**
-     * Returns index id of default {@lonk INDEX_SCAN_ID} index that will be used for operation.
-     *
-     * @param indexId Index id or {@code null}.
-     * @return Index id.
-     */
-    private @NotNull UUID indexIdOrDefault(@Nullable UUID indexId) {
-        return indexId != null ? indexId : indexScanId;
-    }
-
-    /**
      * Find out a row id by an index.
-     * TODO: IGNITE-17479 Integrate indexes into replicaListener command handlers
      *
-     * @param indexId Index id.
-     * @param key     Key to find.
+     * @param key Key to find.
      * @return Value or {@code null} if the key does not determine a value.
      */
-    private RowId rowIdByKey(@NotNull UUID indexId, ByteBuffer key) {
-        if (indexPkId.equals(indexId)) {
-            return primaryIndex.get(key);
-        }
+    private CompletableFuture<@Nullable RowId> rowIdByKey(ByteBuffer key, UUID txId) {
+        return lockManager.acquire(txId, new LockKey(tableId, new LockKey(key)), LockMode.S)
+                .thenApply(ignored -> rowIdByKey(key, HybridTimestamp.MAX_VALUE, txId));
 
-        if (indexScanId.equals(indexId)) {
-            RowId[] rowIdHolder = new RowId[1];
+    }
 
-            mvDataStorage.forEach((rowId, binaryRow) -> {
-                if (rowIdHolder[0] == null && binaryRow.keySlice().equals(key)) {
-                    rowIdHolder[0] = rowId;
+    private @Nullable RowId rowIdByKey(ByteBuffer key, HybridTimestamp ts, @Nullable UUID txId) {
+        try (Cursor<RowId> cursor = pkConstraintStorage.get(toPkIndexKey(key))) {
+            for (RowId rowId : cursor) {
+                BinaryRow row = resolveReadResult(mvDataStorage.read(rowId, ts), txId);
+
+                if (row != null && row.hasValue()) {
+                    return rowId;
                 }
-            });
+            }
 
-            return rowIdHolder[0];
+            return null;
+        } catch (Exception e) {
+            throw new IgniteInternalException(Replicator.REPLICA_COMMON_ERR,
+                    format("Unable to close cursor [tableId={}]", tableId), e);
         }
-
-        throw new IgniteInternalException(Replicator.REPLICA_COMMON_ERR,
-                IgniteStringFormatter.format("The index does not exist [indexId={}]", indexId));
     }
 
     /**
@@ -506,63 +496,79 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Listener response.
      */
     private CompletableFuture<Object> processMultiEntryAction(ReadWriteMultiRowReplicaRequest request) {
-        UUID indexId = indexIdOrDefault(indexPkId/*request.indexToUse()*/);
-
         UUID txId = request.transactionId();
 
         switch (request.requestType()) {
             case RW_GET_ALL: {
-                CompletableFuture<RowId>[] getLockFuts = new CompletableFuture[request.binaryRows().size()];
+                CompletableFuture<RowId>[] rowIdFuts = new CompletableFuture[request.binaryRows().size()];
 
                 int i = 0;
 
                 for (BinaryRow row : request.binaryRows()) {
-                    getLockFuts[i++] = takeLocksForGet(row.keySlice(), indexId, txId);
+                    rowIdFuts[i++] = rowIdByKey(row.keySlice(), txId)
+                            .thenCompose(rowId -> {
+                                if (rowId == null) {
+                                    return CompletableFuture.completedFuture(null);
+                                }
+
+                                return takeLocksForGet(rowId, txId);
+                            });
                 }
 
-                return allOf(getLockFuts).thenApply(ignore -> {
-                    ArrayList<BinaryRow> result = new ArrayList<>(request.binaryRows().size());
+                return allOf(rowIdFuts)
+                        .thenCompose(ignored -> {
+                            ArrayList<BinaryRow> result = new ArrayList<>(request.binaryRows().size());
 
-                    for (int futNum = 0; futNum < request.binaryRows().size(); futNum++) {
-                        RowId lockedRowId = getLockFuts[futNum].join();
+                            for (int idx = 0; idx < request.binaryRows().size(); idx++) {
+                                RowId lockedRowId = rowIdFuts[idx].join();
 
-                        result.add(lockedRowId != null
-                                ? resolveReadResult(mvDataStorage.read(lockedRowId, HybridTimestamp.MAX_VALUE), txId) : null
-                        );
-                    }
+                                result.add(lockedRowId != null
+                                        ? resolveReadResult(mvDataStorage.read(lockedRowId, HybridTimestamp.MAX_VALUE), txId) : null
+                                );
+                            }
 
-                    return result;
-                });
+                            return CompletableFuture.completedFuture(result);
+                        });
             }
             case RW_DELETE_ALL: {
-                CompletableFuture<RowId>[] deleteLockFuts = new CompletableFuture[request.binaryRows().size()];
+                CompletableFuture<RowId>[] rowIdLockFuts = new CompletableFuture[request.binaryRows().size()];
 
                 int i = 0;
 
                 for (BinaryRow row : request.binaryRows()) {
-                    deleteLockFuts[i++] = takeLocksForDelete(row.keySlice(), indexId, txId);
+                    rowIdLockFuts[i++] = rowIdByKey(row.keySlice(), txId)
+                        .thenCompose(rowId -> {
+                            if (rowId == null) {
+                                return CompletableFuture.completedFuture(null);
+                            }
+
+                            return takeLocksForDelete(row, rowId, txId)
+                                    .thenApply(ignored -> rowId);
+                        });
                 }
 
-                return allOf(deleteLockFuts).thenCompose(ignore -> {
-                    Collection<RowId> rowIdsToDelete = new ArrayList<>();
+                return allOf(rowIdLockFuts).thenCompose(ignore -> {
+                    Map<RowId, BinaryRow> rowIdsToDelete = new HashMap<>();
                     Collection<BinaryRow> result = new ArrayList<>();
 
                     int futNum = 0;
 
                     for (BinaryRow row : request.binaryRows()) {
-                        RowId lockedRowId = deleteLockFuts[futNum++].join();
+                        RowId lockedRowId = rowIdLockFuts[futNum++].join();
 
                         if (lockedRowId != null) {
-                            rowIdsToDelete.add(lockedRowId);
+                            rowIdsToDelete.put(lockedRowId, row);
                         } else {
                             result.add(row);
                         }
                     }
 
-                    CompletableFuture raftFut = rowIdsToDelete.isEmpty() ? CompletableFuture.completedFuture(null)
-                            : applyCmdWithExceptionHandling(new UpdateAllCommand(rowIdsToDelete, txId));
+                    if (rowIdsToDelete.isEmpty()) {
+                        return CompletableFuture.completedFuture(result);
+                    }
 
-                    return raftFut.thenApply(ignored -> result);
+                    return applyCmdWithExceptionHandling(new UpdateAllCommand(rowIdsToDelete, txId))
+                            .thenApply(ignored -> result);
                 });
             }
             case RW_DELETE_EXACT_ALL: {
@@ -571,7 +577,14 @@ public class PartitionReplicaListener implements ReplicaListener {
                 int i = 0;
 
                 for (BinaryRow row : request.binaryRows()) {
-                    deleteExactLockFuts[i++] = takeLocksForDeleteExact(row.keySlice(), row, indexId, txId);
+                    deleteExactLockFuts[i++] = rowIdByKey(row.keySlice(), txId)
+                            .thenCompose(rowId -> {
+                                if (rowId == null) {
+                                    return CompletableFuture.completedFuture(null);
+                                }
+
+                                return takeLocksForDeleteExact(row, rowId, txId);
+                            });
                 }
 
                 return allOf(deleteExactLockFuts).thenCompose(ignore -> {
@@ -597,22 +610,22 @@ public class PartitionReplicaListener implements ReplicaListener {
                 });
             }
             case RW_INSERT_ALL: {
-                CompletableFuture<RowId>[] insertLockFuts = new CompletableFuture[request.binaryRows().size()];
+                CompletableFuture<RowId>[] pkReadLockFuts = new CompletableFuture[request.binaryRows().size()];
 
                 int i = 0;
 
                 for (BinaryRow row : request.binaryRows()) {
-                    insertLockFuts[i++] = takeLocksForInsert(row.keySlice(), indexId, txId);
+                    pkReadLockFuts[i++] = rowIdByKey(row.keySlice(), txId);
                 }
 
-                return allOf(insertLockFuts).thenCompose(ignore -> {
+                return allOf(pkReadLockFuts).thenCompose(ignore -> {
                     Collection<BinaryRow> result = new ArrayList<>();
                     Map<RowId, BinaryRow> rowsToInsert = new HashMap<>();
 
                     int futNum = 0;
 
                     for (BinaryRow row : request.binaryRows()) {
-                        RowId lockedRow = insertLockFuts[futNum++].join();
+                        RowId lockedRow = pkReadLockFuts[futNum++].join();
 
                         if (lockedRow != null) {
                             result.add(row);
@@ -625,45 +638,88 @@ public class PartitionReplicaListener implements ReplicaListener {
                         }
                     }
 
-                    CompletableFuture raftFut = rowsToInsert.isEmpty() ? CompletableFuture.completedFuture(null)
-                            : applyCmdWithExceptionHandling(new UpdateAllCommand(rowsToInsert, txId));
+                    if (rowsToInsert.isEmpty()) {
+                        return CompletableFuture.completedFuture(result);
+                    }
 
-                    return raftFut.thenApply(ignored -> result);
+                    CompletableFuture<RowId>[] insertLockFuts = new CompletableFuture[rowsToInsert.size()];
+
+                    int idx = 0;
+                    List<TableIndex> indexes = activeIndexes.get();
+
+                    for (Map.Entry<RowId, BinaryRow> entry : rowsToInsert.entrySet()) {
+                        insertLockFuts[idx++] = takeLocksForInsert(entry.getValue(), entry.getKey(), txId, indexes);
+                    }
+
+                    return CompletableFuture.allOf(insertLockFuts)
+                            .thenCompose(ignored -> applyCmdWithExceptionHandling(new UpdateAllCommand(rowsToInsert, txId)))
+                            .thenCompose(ignored -> {
+                                CompletableFuture<?>[] cleanupLockFuts = new CompletableFuture[rowsToInsert.size()];
+
+                                int idx0 = 0;
+
+                                for (Map.Entry<RowId, BinaryRow> entry : rowsToInsert.entrySet()) {
+                                    cleanupLockFuts[idx0++] = releaseAfterPutLockOnIndexes(indexes, entry.getValue(), entry.getKey(), txId);
+                                }
+
+                                return allOf(cleanupLockFuts);
+                            })
+                            .thenApply(ignored -> result);
                 });
             }
             case RW_UPSERT_ALL: {
-                CompletableFuture<RowId>[] upsertLockFuts = new CompletableFuture[request.binaryRows().size()];
+                CompletableFuture<RowId>[] rowIdFuts = new CompletableFuture[request.binaryRows().size()];
 
                 int i = 0;
 
+                List<TableIndex> indexes = activeIndexes.get();
+
                 for (BinaryRow row : request.binaryRows()) {
-                    upsertLockFuts[i++] = takeLocksForUpsert(row.keySlice(), indexId, txId);
+                    rowIdFuts[i++] = rowIdByKey(row.keySlice(), txId)
+                            .thenCompose(rowId -> {
+                                boolean insert = rowId == null;
+
+                                RowId rowId0 = insert ? new RowId(partId) : rowId;
+
+                                return insert
+                                        ? takeLocksForInsert(row, rowId0, txId, indexes)
+                                        : takeLocksForUpdate(row, rowId0, txId, indexes);
+                            });
                 }
 
-                return allOf(upsertLockFuts).thenCompose(ignore -> {
+                return allOf(rowIdFuts).thenCompose(ignore -> {
                     Map<RowId, BinaryRow> rowsToUpdate = new HashMap<>();
 
                     int futNum = 0;
 
                     for (BinaryRow row : request.binaryRows()) {
-                        RowId lockedRow = upsertLockFuts[futNum++].join();
+                        RowId lockedRow = rowIdFuts[futNum++].join();
 
-                        if (lockedRow != null) {
-                            rowsToUpdate.put(lockedRow, row);
-                        } else {
-                            rowsToUpdate.put(new RowId(partId), row);
-                        }
+                        rowsToUpdate.put(lockedRow, row);
                     }
 
-                    CompletableFuture raftFut = rowsToUpdate.isEmpty() ? CompletableFuture.completedFuture(null)
-                            : applyCmdWithExceptionHandling(new UpdateAllCommand(rowsToUpdate, txId));
+                    if (rowsToUpdate.isEmpty()) {
+                        return CompletableFuture.completedFuture(null);
+                    }
 
-                    return raftFut.thenApply(ignored -> null);
+                    return applyCmdWithExceptionHandling(new UpdateAllCommand(rowsToUpdate, txId))
+                            .thenCompose(ignored -> {
+                                CompletableFuture<?>[] cleanupLockFuts = new CompletableFuture[rowsToUpdate.size()];
+
+                                int idx0 = 0;
+
+                                for (Map.Entry<RowId, BinaryRow> entry : rowsToUpdate.entrySet()) {
+                                    cleanupLockFuts[idx0++] = releaseAfterPutLockOnIndexes(indexes, entry.getValue(), entry.getKey(), txId);
+                                }
+
+                                return allOf(cleanupLockFuts);
+                            })
+                            .thenApply(ignored -> null);
                 });
             }
             default: {
                 throw new IgniteInternalException(Replicator.REPLICA_COMMON_ERR,
-                        IgniteStringFormatter.format("Unknown multi request [actionType={}]", request.requestType()));
+                        format("Unknown multi request [actionType={}]", request.requestType()));
             }
         }
     }
@@ -703,335 +759,277 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         ByteBuffer searchKey = searchRow.keySlice();
 
-        UUID indexId = indexIdOrDefault(indexPkId/*request.indexToUse()*/);
-
         UUID txId = request.transactionId();
 
         switch (request.requestType()) {
             case RW_GET: {
-                CompletableFuture<RowId> lockFut = takeLocksForGet(searchKey, indexId, txId);
+                return rowIdByKey(searchKey, txId)
+                        .thenCompose(rowId -> {
+                            if (rowId == null) {
+                                return CompletableFuture.completedFuture(null);
+                            }
 
-                return lockFut.thenApply(lockedRowId -> {
-                    BinaryRow result = lockedRowId != null
-                            ? resolveReadResult(mvDataStorage.read(lockedRowId, HybridTimestamp.MAX_VALUE), txId) : null;
-
-                    return result;
-                });
+                            return takeLocksForGet(rowId, txId)
+                                    .thenApply(ignored -> resolveReadResult(mvDataStorage.read(rowId, HybridTimestamp.MAX_VALUE), txId));
+                        });
             }
             case RW_DELETE: {
-                CompletableFuture<RowId> lockFut = takeLocksForDelete(searchKey, indexId, txId);
+                return rowIdByKey(searchKey, txId)
+                        .thenCompose(rowId -> {
+                            if (rowId == null) {
+                                return CompletableFuture.completedFuture(false);
+                            }
 
-                return lockFut.thenCompose(lockedRowId -> {
-                    boolean removed = lockedRowId != null;
+                            return takeLocksForDelete(searchRow, rowId, txId)
+                                    .thenCompose(ignored -> applyCmdWithExceptionHandling(new UpdateCommand(rowId, txId)))
+                                    .thenApply(ignored -> true);
 
-                    CompletableFuture raftFut = removed ? applyCmdWithExceptionHandling(new UpdateCommand(lockedRowId, txId)) :
-                            CompletableFuture.completedFuture(null);
-
-                    return raftFut.thenApply(ignored -> removed);
-                });
+                        });
             }
             case RW_GET_AND_DELETE: {
-                CompletableFuture<RowId> lockFut = takeLocksForDelete(searchKey, indexId, txId);
+                return rowIdByKey(searchKey, txId)
+                        .thenCompose(rowId -> {
+                            if (rowId == null) {
+                                return CompletableFuture.completedFuture(null);
+                            }
 
-                return lockFut.thenCompose(lockedRowId -> {
-                    BinaryRow lockedRow = lockedRowId != null
-                            ? resolveReadResult(mvDataStorage.read(lockedRowId, HybridTimestamp.MAX_VALUE), txId) : null;
+                            return takeLocksForDelete(searchRow, rowId, txId)
+                                    .thenCompose(ignored -> {
+                                        BinaryRow value = resolveReadResult(mvDataStorage.read(rowId, HybridTimestamp.MAX_VALUE), txId);
 
-                    CompletableFuture raftFut = lockedRowId != null ? applyCmdWithExceptionHandling(new UpdateCommand(lockedRowId, txId)) :
-                            CompletableFuture.completedFuture(null);
+                                        return applyCmdWithExceptionHandling(new UpdateCommand(rowId, txId))
+                                                .thenApply(ignored0 -> value);
+                                    });
 
-                    return raftFut.thenApply(ignored -> lockedRow);
-                });
+                        });
             }
             case RW_DELETE_EXACT: {
-                CompletableFuture<RowId> lockFut = takeLocksForDeleteExact(searchKey, searchRow, indexId, txId);
+                return rowIdByKey(searchKey, txId)
+                        .thenCompose(rowId -> {
+                            if (rowId == null) {
+                                return CompletableFuture.completedFuture(false);
+                            }
 
-                return lockFut.thenCompose(lockedRow -> {
-                    boolean removed = lockedRow != null;
+                            return takeLocksForDeleteExact(searchRow, rowId, txId)
+                                    .thenCompose(validatedRowId -> {
+                                        if (validatedRowId == null) {
+                                            return CompletableFuture.completedFuture(false);
+                                        }
 
-                    CompletableFuture raftFut = removed ? applyCmdWithExceptionHandling(new UpdateCommand(lockedRow, txId)) :
-                            CompletableFuture.completedFuture(null);
-
-                    return raftFut.thenApply(ignored -> removed);
-                });
+                                        return applyCmdWithExceptionHandling(new UpdateCommand(validatedRowId, txId))
+                                                .thenApply(ignored -> true);
+                                    });
+                        });
             }
             case RW_INSERT: {
-                CompletableFuture<RowId> lockFut = takeLocksForInsert(searchKey, indexId, txId);
+                return rowIdByKey(searchKey, txId)
+                        .thenCompose(rowId -> {
+                            if (rowId != null) {
+                                return CompletableFuture.completedFuture(false);
+                            }
 
-                return lockFut.thenCompose(lockedRowId -> {
-                    boolean inserted = lockedRowId == null;
+                            RowId rowId0 = new RowId(partId);
+                            List<TableIndex> indexes = activeIndexes.get();
 
-                    CompletableFuture raftFut =
-                            lockedRowId == null ? applyCmdWithExceptionHandling(new UpdateCommand(new RowId(partId), searchRow, txId)) :
-                                    CompletableFuture.completedFuture(null);
-
-                    return raftFut.thenApply(ignored -> inserted);
-                });
+                            return takeLocksForInsert(searchRow, rowId0, txId, indexes)
+                                    .thenCompose(ignored -> applyCmdWithExceptionHandling(new UpdateCommand(rowId0, searchRow, txId)))
+                                    .thenCompose(ignored -> releaseAfterPutLockOnIndexes(indexes, searchRow, rowId0, txId))
+                                    .thenApply(ignored -> true);
+                        });
             }
             case RW_UPSERT: {
-                CompletableFuture<RowId> lockFut = takeLocksForUpsert(searchKey, indexId, txId);
+                return rowIdByKey(searchKey, txId)
+                        .thenCompose(rowId -> {
+                            boolean insert = rowId == null;
 
-                return lockFut.thenCompose(lockedRowId -> {
-                    CompletableFuture raftFut =
-                            lockedRowId != null ? applyCmdWithExceptionHandling(new UpdateCommand(lockedRowId, searchRow, txId)) :
-                                    applyCmdWithExceptionHandling(new UpdateCommand(new RowId(partId), searchRow, txId));
+                            RowId rowId0 = insert ? new RowId(partId) : rowId;
+                            List<TableIndex> indexes = activeIndexes.get();
 
-                    return raftFut.thenApply(ignored -> null);
-                });
+                            CompletableFuture<?> lockFut = insert
+                                    ? takeLocksForInsert(searchRow, rowId0, txId, indexes)
+                                    : takeLocksForUpdate(searchRow, rowId0, txId, indexes);
+
+                            return lockFut
+                                    .thenCompose(ignored -> applyCmdWithExceptionHandling(new UpdateCommand(rowId0, searchRow, txId)))
+                                    .thenCompose(ignored -> releaseAfterPutLockOnIndexes(indexes, searchRow, rowId0, txId))
+                                    .thenApply(ignored -> null);
+                        });
             }
             case RW_GET_AND_UPSERT: {
-                return lockManager.acquire(txId, new LockKey(indexId, searchKey), LockMode.X)
-                        .thenCompose(idxLock -> { // Index X lock
-                            RowId rowId = rowIdByKey(indexId, searchKey);
+                return rowIdByKey(searchKey, txId)
+                        .thenCompose(rowId -> {
+                            boolean insert = rowId == null;
 
-                            return lockManager.acquire(txId, new LockKey(tableId), LockMode.IX)
-                                    .thenCompose(tblLock -> { // IX lock on table
-                                        CompletableFuture<Lock> rowLockFut = (rowId != null)
-                                                ? lockManager.acquire(txId, new LockKey(tableId, rowId), LockMode.X)
-                                                // X lock on RowId
-                                                : CompletableFuture.completedFuture(null);
+                            RowId rowId0 = insert ? new RowId(partId) : rowId;
+                            List<TableIndex> indexes = activeIndexes.get();
 
-                                        return rowLockFut.thenCompose(rowLock -> {
-                                            BinaryRow result = rowId != null
-                                                    ? resolveReadResult(mvDataStorage.read(rowId, HybridTimestamp.MAX_VALUE), txId) : null;
+                            CompletableFuture<?> lockFut = insert
+                                    ? takeLocksForInsert(searchRow, rowId0, txId, indexes)
+                                    : takeLocksForUpdate(searchRow, rowId0, txId, indexes);
 
-                                            CompletableFuture raftFut =
-                                                    rowId != null ? applyCmdWithExceptionHandling(new UpdateCommand(rowId, searchRow, txId))
-                                                            : applyCmdWithExceptionHandling(
-                                                                    new UpdateCommand(new RowId(partId), searchRow, txId));
+                            return lockFut
+                                    .thenCompose(ignored -> {
+                                        BinaryRow value = resolveReadResult(mvDataStorage.read(rowId, HybridTimestamp.MAX_VALUE), txId);
 
-                                            return raftFut.thenApply(ignored -> result);
-                                        });
+                                        return applyCmdWithExceptionHandling(new UpdateCommand(rowId0, searchRow, txId))
+                                                .thenCompose(ignored0 -> releaseAfterPutLockOnIndexes(indexes, searchRow, rowId0, txId))
+                                                .thenApply(ignored0 -> value);
                                     });
                         });
             }
             case RW_GET_AND_REPLACE: {
-                CompletableFuture<RowId> idxLockFut = lockManager.acquire(txId, new LockKey(indexId, searchKey), LockMode.S)
-                        .thenCompose(sharedIdxLock -> { // Index S lock
-                            RowId rowId = rowIdByKey(indexId, searchKey);
-
-                            if (rowId != null) {
-                                return lockManager.acquire(txId, new LockKey(indexId, searchKey), LockMode.X)
-                                        .thenApply(exclusiveIdxLock -> rowId); // Index X lock
+                return rowIdByKey(searchKey, txId)
+                        .thenCompose(rowId -> {
+                            if (rowId == null) {
+                                return CompletableFuture.completedFuture(null);
                             }
 
-                            return CompletableFuture.completedFuture(null);
+                            List<TableIndex> indexes = activeIndexes.get();
+
+                            return takeLocksForUpdate(searchRow, rowId, txId, indexes)
+                                    .thenCompose(ignored -> {
+                                        BinaryRow value = resolveReadResult(mvDataStorage.read(rowId, HybridTimestamp.MAX_VALUE), txId);
+
+                                        return applyCmdWithExceptionHandling(new UpdateCommand(rowId, searchRow, txId))
+                                                .thenCompose(ignored0 -> releaseAfterPutLockOnIndexes(indexes, searchRow, rowId, txId))
+                                                .thenApply(ignored0 -> value);
+                                    });
                         });
-
-                return idxLockFut.thenCompose(lockedRowId -> {
-                    return lockManager.acquire(txId, new LockKey(tableId), LockMode.IX)
-                            .thenCompose(tblLock -> { // IX lock on table
-                                CompletableFuture<BinaryRow> rowLockFut;
-
-                                if (lockedRowId != null) {
-                                    rowLockFut = lockManager.acquire(txId, new LockKey(tableId, lockedRowId), LockMode.X)
-                                            .thenApply(rowLock -> // X lock on RowId
-                                                    resolveReadResult(mvDataStorage.read(lockedRowId, HybridTimestamp.MAX_VALUE), txId)
-                                            );
-                                } else {
-                                    rowLockFut = CompletableFuture.completedFuture(null);
-                                }
-
-                                return rowLockFut.thenCompose(lockedRow -> {
-                                    CompletableFuture raftFut = lockedRow == null ? CompletableFuture.completedFuture(null) :
-                                            applyCmdWithExceptionHandling(new UpdateCommand(lockedRowId, searchRow, txId));
-
-                                    return raftFut.thenApply(ignored -> lockedRow);
-                                });
-                            });
-                });
             }
             case RW_REPLACE_IF_EXIST: {
-                CompletableFuture<RowId> lockFut = takeLocksForReplaceIfExist(searchKey, indexId, txId);
+                return rowIdByKey(searchKey, txId)
+                        .thenCompose(rowId -> {
+                            if (rowId == null) {
+                                return CompletableFuture.completedFuture(false);
+                            }
 
-                return lockFut.thenCompose(lockedRowId -> {
-                    boolean replaced = lockedRowId != null;
+                            List<TableIndex> indexes = activeIndexes.get();
 
-                    CompletableFuture raftFut = replaced ? applyCmdWithExceptionHandling(new UpdateCommand(lockedRowId, searchRow, txId)) :
-                            CompletableFuture.completedFuture(null);
-
-                    return raftFut.thenApply(ignored -> replaced);
-                });
+                            return takeLocksForUpdate(searchRow, rowId, txId, indexes)
+                                    .thenCompose(ignored -> applyCmdWithExceptionHandling(new UpdateCommand(rowId, searchRow, txId)))
+                                    .thenCompose(ignored -> releaseAfterPutLockOnIndexes(indexes, searchRow, rowId, txId))
+                                    .thenApply(ignored -> true);
+                        });
             }
             default: {
                 throw new IgniteInternalException(Replicator.REPLICA_COMMON_ERR,
-                        IgniteStringFormatter.format("Unknown single request [actionType={}]", request.requestType()));
+                        format("Unknown single request [actionType={}]", request.requestType()));
             }
         }
     }
 
     /**
-     * Takes all required locks on a key, before replacing.
-     *
-     * @param searchKey Key to search.
-     * @param indexId   Index id.
-     * @param txId      Transaction id.
-     * @return Future completes with {@link RowId} or {@code null} if there is no entry.
-     */
-    private CompletableFuture<RowId> takeLocksForReplaceIfExist(ByteBuffer searchKey, UUID indexId, UUID txId) {
-        return lockManager.acquire(txId, new LockKey(indexId, searchKey), LockMode.S).thenCompose(shareIdxLock -> { // Index R lock
-            RowId rowId = rowIdByKey(indexId, searchKey);
-
-            CompletableFuture<Lock> idxLockFut = rowId != null
-                    ? lockManager.acquire(txId, new LockKey(indexId, searchKey), LockMode.X) // Index X lock
-                    : CompletableFuture.completedFuture(null);
-
-            return idxLockFut.thenCompose(exclusiveIdxLock -> lockManager.acquire(txId, new LockKey(tableId), LockMode.IX)
-                    .thenCompose(tblLock -> { // IX lock on table
-                        if (rowId != null) {
-                            RowId rowIdToLock = rowId;
-
-                            return lockManager.acquire(txId, new LockKey(tableId, rowId), LockMode.X)
-                                    .thenApply(rowLock -> rowIdToLock); // X lock on RowId
-                        }
-
-                        return CompletableFuture.completedFuture(null);
-                    }));
-        });
-    }
-
-    /**
      * Takes all required locks on a key, before upserting.
      *
-     * @param searchKey Key to search.
-     * @param indexId   Index id.
      * @param txId      Transaction id.
      * @return Future completes with {@link RowId} or {@code null} if there is no value.
      */
-    private CompletableFuture<RowId> takeLocksForUpsert(ByteBuffer searchKey, UUID indexId, UUID txId) {
-        return lockManager.acquire(txId, new LockKey(indexId, searchKey), LockMode.X).thenCompose(idxLock -> { // Index X lock
-            RowId rowId = rowIdByKey(indexId, searchKey);
-
-            return lockManager.acquire(txId, new LockKey(tableId), LockMode.IX)
-                    .thenCompose(tblLock -> { // IX lock on table
-                        if (rowId != null) {
-                            return lockManager.acquire(txId, new LockKey(tableId, rowId), LockMode.X)
-                                    .thenApply(rowLock -> rowId); // X lock on RowId
-                        }
-
-                        return CompletableFuture.completedFuture(null);
-                    });
-        });
+    private CompletableFuture<RowId> takeLocksForUpdate(BinaryRow tableRow, RowId rowId, UUID txId, List<TableIndex> indexes) {
+        return lockManager.acquire(txId, new LockKey(tableId, tableRow.keySlice()), LockMode.X) // Index X lock
+                .thenCompose(ignored -> lockManager.acquire(txId, new LockKey(tableId), LockMode.IX))
+                .thenCompose(ignored -> lockManager.acquire(txId, new LockKey(tableId, rowId), LockMode.X))
+                .thenCompose(ignored -> takeBeforePutLockOnIndexes(indexes, tableRow, rowId, txId))
+                .thenApply(ignored -> rowId);
     }
 
     /**
      * Takes all required locks on a key, before inserting the value.
      *
-     * @param searchKey Key to search.
-     * @param indexId   Index id.
-     * @param txId      Transaction id.
+     * @param tableRow Table row.
+     * @param txId Transaction id.
      * @return Future completes with {@link RowId} or {@code null} if there is no value.
      */
-    private CompletableFuture<RowId> takeLocksForInsert(ByteBuffer searchKey, UUID indexId, UUID txId) {
-        return lockManager.acquire(txId, new LockKey(indexId, searchKey), LockMode.S) // Index S lock
-                .thenCompose(sharedIdxLock -> {
-                    RowId rowId = rowIdByKey(indexId, searchKey);
+    private CompletableFuture<RowId> takeLocksForInsert(BinaryRow tableRow, RowId rowId, UUID txId, List<TableIndex> indexes) {
+        return lockManager.acquire(txId, new LockKey(tableId, tableRow.keySlice()), LockMode.X)
+                .thenCompose(exclusiveIdxLock -> lockManager.acquire(txId, new LockKey(tableId), LockMode.IX)) // IX lock on table
+                .thenCompose(ignored -> takeBeforePutLockOnIndexes(indexes, tableRow, rowId, txId))
+                .thenApply(tblLock -> rowId);
+    }
 
-                    if (rowId == null) {
-                        return lockManager.acquire(txId, new LockKey(indexId, searchKey), LockMode.X) // Index X lock
-                                .thenCompose(exclusiveIdxLock ->
-                                        lockManager.acquire(txId, new LockKey(tableId), LockMode.IX) // IX lock on table
-                                                .thenApply(tblLock -> null));
+    private CompletableFuture<?> takeBeforePutLockOnIndexes(List<TableIndex> indexes, BinaryRow tableRow, RowId rowId, UUID txId) {
+        if (nullOrEmpty(indexes)) {
+            return CompletableFuture.completedFuture(null);
+        }
+
+        CompletableFuture<?>[] locks = new CompletableFuture[indexes.size()];
+        int idx = 0;
+
+        for (TableIndex locker : indexes) {
+            locks[idx++] = locker.beforePut(txId, rowId, tableRow);
+        }
+
+        return CompletableFuture.allOf(locks);
+    }
+
+    private CompletableFuture<?> releaseAfterPutLockOnIndexes(List<TableIndex> indexes, BinaryRow tableRow, RowId rowId, UUID txId) {
+        if (nullOrEmpty(indexes)) {
+            return CompletableFuture.completedFuture(null);
+        }
+
+        CompletableFuture<?>[] locks = new CompletableFuture[indexes.size()];
+        int idx = 0;
+
+        for (TableIndex locker : indexes) {
+            locks[idx++] = locker.afterPut(txId, rowId, tableRow);
+        }
+
+        return CompletableFuture.allOf(locks);
+    }
+
+    private BinaryTuple toPkIndexKey(ByteBuffer bytes) {
+        return new BinaryTuple(
+                PK_KEY_SCHEMA,
+                new BinaryTupleBuilder(1, false)
+                .appendElementBytes(bytes)
+                .build()
+        );
+    }
+
+    /**
+     * Takes all required locks on a key, before deleting the value.
+     *
+     * @param txId      Transaction id.
+     * @return Future completes with {@link RowId} or {@code null} if there is no value for remove.
+     */
+    private CompletableFuture<RowId> takeLocksForDeleteExact(BinaryRow tableRow, RowId rowId, UUID txId) {
+        return lockManager.acquire(txId, new LockKey(tableId, tableRow.keySlice()), LockMode.X)  // Index X lock
+                .thenCompose(ignored -> lockManager.acquire(txId, new LockKey(tableId), LockMode.IX)) // IX lock on table
+                .thenCompose(ignored -> lockManager.acquire(txId, new LockKey(tableId, rowId), LockMode.S)) // S lock on RowId
+                .thenCompose(ignored -> {
+                    BinaryRow curVal = resolveReadResult(mvDataStorage.read(rowId, HybridTimestamp.MAX_VALUE), txId);
+
+                    if (curVal != null && equalValues(curVal, tableRow)) {
+                        return lockManager.acquire(txId, new LockKey(tableId, rowId), LockMode.X) // X lock on RowId
+                                .thenApply(exclusiveRowLock -> rowId);
                     }
 
-                    return CompletableFuture.completedFuture(rowId);
+                    return CompletableFuture.completedFuture(null);
                 });
     }
 
     /**
      * Takes all required locks on a key, before deleting the value.
      *
-     * @param searchKey Key to search.
-     * @param searchRow Row to remove.
-     * @param indexId   Index id.
-     * @param txId      Transaction id.
-     * @return Future completes with {@link RowId} or {@code null} if there is no value for remove.
-     */
-    private CompletableFuture<RowId> takeLocksForDeleteExact(ByteBuffer searchKey, BinaryRow searchRow, UUID indexId, UUID txId) {
-        return lockManager.acquire(txId, new LockKey(indexId, searchKey), LockMode.X).thenCompose(idxLock -> { // Index X lock
-            RowId rowId = rowIdByKey(indexId, searchKey);
-
-            return lockManager.acquire(txId, new LockKey(tableId), LockMode.IX) // IX lock on table
-                    .thenCompose(tblLock -> {
-                        CompletableFuture<RowId> rowLockFut;
-
-                        if (rowId != null) {
-                            rowLockFut = lockManager.acquire(txId, new LockKey(tableId, rowId), LockMode.S) // S lock on RowId
-                                    .thenCompose(sharedRowLock -> {
-                                        BinaryRow curVal = resolveReadResult(mvDataStorage.read(rowId, HybridTimestamp.MAX_VALUE), txId);
-
-                                        if (equalValues(curVal, searchRow)) {
-                                            return lockManager.acquire(txId, new LockKey(tableId, rowId),
-                                                            LockMode.X) // X lock on RowId
-                                                    .thenApply(exclusiveRowLock -> rowId);
-                                        }
-
-                                        return CompletableFuture.completedFuture(null);
-                                    });
-                        } else {
-                            rowLockFut = CompletableFuture.completedFuture(null);
-                        }
-
-                        return rowLockFut;
-                    });
-        });
-    }
-
-    /**
-     * Takes all required locks on a key, before deleting the value.
-     *
-     * @param searchKey Key to search.
-     * @param indexId   Index id.
      * @param txId      Transaction id.
      * @return Future completes with {@link RowId} or {@code null} if there is no value for the key.
      */
-    private CompletableFuture<RowId> takeLocksForDelete(ByteBuffer searchKey, UUID indexId, UUID txId) {
-        return lockManager.acquire(txId, new LockKey(indexId, searchKey), LockMode.X).thenCompose(idxLock -> { // Index X lock
-            RowId rowId = rowIdByKey(indexId, searchKey);
-
-            return lockManager.acquire(txId, new LockKey(tableId), LockMode.IX) // IX lock on table
-                    .thenCompose(tblLock -> {
-                        if (rowId != null) {
-                            return lockManager.acquire(txId, new LockKey(tableId, rowId), LockMode.S) // S lock on RowId
-                                    .thenCompose(sharedRowLock -> {
-                                        BinaryRow curVal = resolveReadResult(mvDataStorage.read(rowId, HybridTimestamp.MAX_VALUE), txId);
-
-                                        if (curVal != null) {
-                                            return lockManager.acquire(txId, new LockKey(tableId, rowId),
-                                                            LockMode.X) // X lock on RowId
-                                                    .thenApply(exclusiveRowLock -> rowId);
-                                        }
-
-                                        return CompletableFuture.completedFuture(null);
-                                    });
-                        }
-
-                        return CompletableFuture.completedFuture(null);
-                    });
-        });
+    private CompletableFuture<RowId> takeLocksForDelete(BinaryRow tableRow, RowId rowId, UUID txId) {
+        return lockManager.acquire(txId, new LockKey(tableId, tableRow.keySlice()), LockMode.X)
+                .thenCompose(ignored -> lockManager.acquire(txId, new LockKey(tableId), LockMode.IX)) // IX lock on table
+                .thenCompose(ignored -> lockManager.acquire(txId, new LockKey(tableId, rowId), LockMode.X)) // X lock on RowId
+                .thenApply(ignored -> rowId);
     }
 
     /**
      * Takes all required locks on a key, before getting the value.
      *
-     * @param searchKey Key to search.
-     * @param indexId   Index id.
      * @param txId      Transaction id.
      * @return Future completes with {@link RowId} or {@code null} if there is no value for the key.
      */
-    private CompletableFuture<RowId> takeLocksForGet(ByteBuffer searchKey, UUID indexId, UUID txId) {
-        return lockManager.acquire(txId, new LockKey(indexId, searchKey), LockMode.S).thenCompose(idxLock -> { // Index S lock
-            RowId rowId = rowIdByKey(indexId, searchKey);
-
-            return lockManager.acquire(txId, new LockKey(tableId), LockMode.IS).thenCompose(tblLock -> { // IS lock on table
-                if (rowId != null) {
-                    return lockManager.acquire(txId, new LockKey(tableId, rowId), LockMode.S) // S lock on RowId
-                            .thenApply(rowLock -> rowId);
-                }
-
-                return CompletableFuture.completedFuture(null);
-            });
-        });
+    private CompletableFuture<RowId> takeLocksForGet(RowId rowId, UUID txId) {
+        return lockManager.acquire(txId, new LockKey(tableId), LockMode.IS) // IS lock on table
+                .thenCompose(tblLock -> lockManager.acquire(txId, new LockKey(tableId, rowId), LockMode.S)) // S lock on RowId
+                .thenApply(ignored -> rowId);
     }
 
     /**
@@ -1041,76 +1039,61 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Listener response.
      */
     private CompletableFuture<Object> processTwoEntriesAction(ReadWriteSwapRowReplicaRequest request) {
-        BinaryRow searchRow = request.binaryRow();
-        BinaryRow oldRow = request.oldBinaryRow();
+        BinaryRow newRow = request.binaryRow();
+        BinaryRow expectedRow = request.oldBinaryRow();
 
-        ByteBuffer searchKey = searchRow.keySlice();
-
-        UUID indexId = indexIdOrDefault(indexPkId/*request.indexToUse()*/);
+        ByteBuffer searchKey = newRow.keySlice();
 
         UUID txId = request.transactionId();
 
-        switch (request.requestType()) {
-            case RW_REPLACE: {
-                CompletableFuture<RowId> lockFut = takeLocsForReplace(searchKey, oldRow, indexId, txId);
+        if (request.requestType() == RequestType.RW_REPLACE) {
+            return rowIdByKey(searchKey, txId)
+                    .thenCompose(rowId -> {
+                        if (rowId == null) {
+                            return CompletableFuture.completedFuture(false);
+                        }
 
-                return lockFut.thenCompose(lockedRowId -> {
-                    boolean replaced = lockedRowId != null;
+                        List<TableIndex> indexes = activeIndexes.get();
 
-                    CompletableFuture raftFut = replaced ? applyCmdWithExceptionHandling(new UpdateCommand(lockedRowId, searchRow, txId)) :
-                            CompletableFuture.completedFuture(null);
+                        return takeLocksForReplace(expectedRow, newRow, rowId, txId, indexes)
+                                .thenCompose(validatedRowId -> {
+                                    if (validatedRowId == null) {
+                                        return CompletableFuture.completedFuture(false);
+                                    }
 
-                    return raftFut.thenApply(ignored -> replaced);
-                });
-            }
-            default: {
-                throw new IgniteInternalException(Replicator.REPLICA_COMMON_ERR,
-                        IgniteStringFormatter.format("Unknown two actions operation [actionType={}]", request.requestType()));
-            }
+                                    return applyCmdWithExceptionHandling(new UpdateCommand(validatedRowId, newRow, txId))
+                                            .thenCompose(ignored -> releaseAfterPutLockOnIndexes(indexes, newRow, rowId, txId))
+                                            .thenApply(ignored -> true);
+                                });
+                    });
         }
+
+        throw new IgniteInternalException(Replicator.REPLICA_COMMON_ERR,
+                format("Unknown two actions operation [actionType={}]", request.requestType()));
     }
 
     /**
      * Takes all required locks on a key, before updating the value.
      *
-     * @param searchKey Key to search.
-     * @param oldRow    Old row that is expected.
-     * @param indexId   Index id.
      * @param txId      Transaction id.
      * @return Future completes with {@link RowId} or {@code null} if there is no suitable row.
      */
-    private CompletableFuture<RowId> takeLocsForReplace(ByteBuffer searchKey, BinaryRow oldRow, UUID indexId, UUID txId) {
-        return lockManager.acquire(txId, new LockKey(indexId, searchKey), LockMode.S).thenCompose(shareIdxLock -> { // Index R lock
-            RowId rowId = rowIdByKey(indexId, searchKey);
+    private CompletableFuture<RowId> takeLocksForReplace(BinaryRow expectedRow, BinaryRow newRow,
+            RowId rowId, UUID txId, List<TableIndex> indexes) {
+        return lockManager.acquire(txId, new LockKey(tableId, expectedRow.keySlice()), LockMode.X) // Index X lock
+                .thenCompose(ignored -> lockManager.acquire(txId, new LockKey(tableId), LockMode.IX))
+                .thenCompose(ignored -> lockManager.acquire(txId, new LockKey(tableId, rowId), LockMode.S))
+                .thenCompose(ignored -> {
+                    BinaryRow curVal = resolveReadResult(mvDataStorage.read(rowId, HybridTimestamp.MAX_VALUE), txId);
 
-            CompletableFuture<Lock> idxLockFut = rowId != null
-                    ? lockManager.acquire(txId, new LockKey(indexId, searchKey), LockMode.X) // Index X lock
-                    : CompletableFuture.completedFuture(null);
+                    if (curVal != null && equalValues(curVal, expectedRow)) {
+                        return lockManager.acquire(txId, new LockKey(tableId, rowId), LockMode.X) // X lock on RowId
+                                .thenCompose(ignored1 -> takeBeforePutLockOnIndexes(indexes, newRow, rowId, txId))
+                                .thenApply(rowLock -> rowId);
+                    }
 
-            return idxLockFut.thenCompose(exclusiveIdxLock -> lockManager.acquire(txId, new LockKey(tableId), LockMode.IX)
-                    .thenCompose(tblLock -> { // IX lock on table
-                        CompletableFuture<RowId> rowLockFut;
-
-                        if (rowId != null) {
-                            rowLockFut = lockManager.acquire(txId, new LockKey(tableId, rowId), LockMode.S) // S lock on RowId
-                                    .thenCompose(sharedRowLock -> {
-                                        BinaryRow curVal = resolveReadResult(mvDataStorage.read(rowId, HybridTimestamp.MAX_VALUE), txId);
-
-                                        if (equalValues(curVal, oldRow)) {
-                                            return lockManager.acquire(txId, new LockKey(tableId, rowId),
-                                                            LockMode.X) // X lock on RowId
-                                                    .thenApply(rowLock -> rowId);
-                                        }
-
-                                        return CompletableFuture.completedFuture(null);
-                                    });
-                        } else {
-                            rowLockFut = CompletableFuture.completedFuture(null);
-                        }
-
-                        return rowLockFut;
-                    }));
-        });
+                    return CompletableFuture.completedFuture(null);
+                });
     }
 
     /**

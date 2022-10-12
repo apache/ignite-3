@@ -30,6 +30,7 @@ import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryTableStorage;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineView;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
@@ -161,8 +162,8 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     }
 
     @Override
-    public PageMemoryHashIndexStorage getOrCreateHashIndex(UUID indexId) {
-        return runConsistently(() -> super.getOrCreateHashIndex(indexId));
+    public PageMemoryHashIndexStorage getOrCreateHashIndex(HashIndexDescriptor descriptor) {
+        return runConsistently(() -> super.getOrCreateHashIndex(descriptor));
     }
 
     @Override

@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -34,6 +35,12 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.manager.Producer;
+import org.apache.ignite.internal.schema.BinaryConverter;
+import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.BinaryTupleSchema;
+import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
@@ -43,6 +50,7 @@ import org.apache.ignite.internal.schema.configuration.index.SortedIndexView;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexChange;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexConfiguration;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
+import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.lang.ErrorGroups;
@@ -53,6 +61,7 @@ import org.apache.ignite.lang.IndexNotFoundException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * An Ignite component that is responsible for handling index-related commands like CREATE or DROP
@@ -63,6 +72,8 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
 
     /** Common tables and indexes configuration. */
     private final TablesConfiguration tablesCfg;
+
+    private final TableManager tableManager;
 
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -75,8 +86,9 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
      *
      * @param tablesCfg Tables and indexes configuration.
      */
-    public IndexManager(TablesConfiguration tablesCfg) {
+    public IndexManager(TablesConfiguration tablesCfg, TableManager tableManager) {
         this.tablesCfg = Objects.requireNonNull(tablesCfg, "tablesCfg");
+        this.tableManager = tableManager;
     }
 
     /** {@inheritDoc} */
@@ -331,6 +343,8 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
 
         Index<?> index = newIndex(tableId, tableIndexView);
 
+        tableManager.registerSortedIndex(tableId, tableIndexView.id(), binRow -> toIndexKey(tableIndexView, binRow));
+
         fireEvent(IndexEvent.CREATE, new IndexEventParameters(causalityToken, index), null);
 
         return CompletableFuture.completedFuture(null);
@@ -378,6 +392,51 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                 indexedColumns,
                 collations
         );
+    }
+
+    private CompletableFuture<BinaryTuple> toIndexKey(TableIndexView indexView, BinaryRow tableRow) {
+        return tableManager.tableAsyncInternal(indexView.tableId(), false).thenApply(table -> {
+            SchemaDescriptor descriptor = table.schemaView().schema(tableRow.schemaVersion());
+
+            int[] indexedColumns = resolveIndexColumns(descriptor, indexView);
+
+            if (indexedColumns == null) {
+                return null;
+            }
+
+            BinaryTupleSchema tupleSchema = BinaryTupleSchema.createSchema(descriptor, indexedColumns);
+
+            var converter = new BinaryConverter(descriptor, tupleSchema);
+
+            return new BinaryTuple(tupleSchema, converter.toTuple(tableRow));
+        });
+    }
+
+    private int @Nullable [] resolveIndexColumns(SchemaDescriptor descriptor, TableIndexView indexView) {
+        List<String> names;
+        if (indexView instanceof HashIndexView) {
+            names = List.of(((HashIndexView) indexView).columnNames());
+        } else if (indexView instanceof SortedIndexView) {
+            names = ((SortedIndexView) indexView).columns().namedListKeys();
+        } else {
+            // TODO replace with valid exception
+            throw new IllegalStateException();
+        }
+
+        int[] result = new int[names.size()];
+        int idx = 0;
+
+        for (String name : names) {
+            Column column = descriptor.column(name);
+
+            if (column == null) {
+                return null;
+            }
+
+            result[idx++] = column.schemaIndex();
+        }
+
+        return result;
     }
 
     private class ConfigurationListener implements ConfigurationNamedListListener<TableIndexView> {

@@ -814,7 +814,12 @@ public class BinaryTupleBuilder {
     /** Put element bytes to the buffer extending it if needed. */
     private void putElement(ByteBuffer bytes) {
         ensure(bytes.remaining());
+
+        int pos = bytes.position();
+
         buffer.put(bytes);
+
+        bytes.position(pos);
     }
 
     /** Put element bytes to the buffer extending it if needed. */

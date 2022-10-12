@@ -140,6 +140,20 @@ public class TestMvTableStorage implements MvTableStorage {
     }
 
     @Override
+    public HashIndexStorage getOrCreateHashIndex(int partitionId, HashIndexDescriptor descriptor) {
+        if (!partitions.containsKey(partitionId)) {
+            throw new StorageException("Partition ID " + partitionId + " does not exist");
+        }
+
+        HashIndices sortedIndices = hashIndicesById.computeIfAbsent(
+                descriptor.id(),
+                id -> new HashIndices(descriptor)
+        );
+
+        return sortedIndices.getOrCreateStorage(partitionId);
+    }
+
+    @Override
     public CompletableFuture<Void> destroyIndex(UUID indexId) {
         sortedIndicesById.remove(indexId);
 

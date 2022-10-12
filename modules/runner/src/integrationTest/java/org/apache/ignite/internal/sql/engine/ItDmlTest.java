@@ -28,6 +28,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.apache.calcite.runtime.CalciteContextException;
+import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.sql.engine.exec.rel.AbstractNode;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -67,6 +68,34 @@ public class ItDmlTest extends AbstractBasicIntegrationTest {
     @AfterAll
     public static void resetStaticState() {
         IgniteTestUtils.setFieldValue(Commons.class, "implicitPkEnabled", null);
+    }
+
+    @Test
+    public void test() {
+        sql("CREATE TABLE my (id INT PRIMARY KEY, val INT)");
+        sql("INSERT INTO my VALUES (?, ?)", 0, 1);
+        assertQuery("SELECT val FROM my WHERE id = 0")
+                .returns(1)
+                .check();
+
+        {
+            SqlException ex = assertThrows(SqlException.class, () -> sql("INSERT INTO my VALUES (?, ?)", 0, 2));
+
+            assertEquals(ex.code(), Sql.DUPLICATE_KEYS_ERR);
+        }
+
+        sql("DELETE FROM my WHERE id=?", 0);
+
+        sql("INSERT INTO my VALUES (?, ?)", 0, 2);
+        assertQuery("SELECT val FROM my WHERE id = 0")
+                .returns(2)
+                .check();
+
+        {
+            SqlException ex = assertThrows(SqlException.class, () -> sql("INSERT INTO my VALUES (?, ?)", 0, 3));
+
+            assertEquals(ex.code(), Sql.DUPLICATE_KEYS_ERR);
+        }
     }
 
     @Test

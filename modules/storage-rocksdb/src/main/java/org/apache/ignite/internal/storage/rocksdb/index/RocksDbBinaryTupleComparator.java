@@ -65,6 +65,14 @@ public class RocksDbBinaryTupleComparator extends AbstractComparator {
         ByteBuffer firstBinaryTupleBuffer = a.slice().order(ByteOrder.LITTLE_ENDIAN);
         ByteBuffer secondBinaryTupleBuffer = b.slice().order(ByteOrder.LITTLE_ENDIAN);
 
+        if (!firstBinaryTupleBuffer.hasRemaining()) {
+            return -1;
+        }
+
+        if (!secondBinaryTupleBuffer.hasRemaining()) {
+            return 1;
+        }
+
         // Handle partition bounds.
         if (!firstBinaryTupleBuffer.hasRemaining()) {
             return -1;

@@ -149,7 +149,9 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                 TableIndexView indexCfgView = getByInternalId(indexesCfgView, indexMeta.id());
 
                 if (indexCfgView instanceof HashIndexView) {
-                    createOrRestoreHashIndex(indexMeta);
+                    var indexDescriptor = new HashIndexDescriptor(indexMeta.id(), tablesConfiguration.value());
+
+                    createOrRestoreHashIndex(indexMeta, indexDescriptor);
                 } else if (indexCfgView instanceof SortedIndexView) {
                     createOrRestoreSortedIndex(indexMeta);
                 } else {
@@ -164,12 +166,13 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     }
 
     /**
-     * Returns a hash index instance, creating index it if necessary.
+     * Returns a hash index instance, creating it if necessary.
      *
-     * @param indexId Index UUID.
+     * @param descriptor Descriptor of the index.
      */
-    public PageMemoryHashIndexStorage getOrCreateHashIndex(UUID indexId) {
-        return hashIndexes.computeIfAbsent(indexId, uuid -> createOrRestoreHashIndex(new IndexMeta(indexId, 0L)));
+    public PageMemoryHashIndexStorage getOrCreateHashIndex(HashIndexDescriptor descriptor) {
+        return hashIndexes.computeIfAbsent(descriptor.id(), uuid -> createOrRestoreHashIndex(
+                new IndexMeta(descriptor.id(), 0L), descriptor));
     }
 
     /**
@@ -181,9 +184,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         return sortedIndexes.computeIfAbsent(indexId, uuid -> createOrRestoreSortedIndex(new IndexMeta(indexId, 0L)));
     }
 
-    private PageMemoryHashIndexStorage createOrRestoreHashIndex(IndexMeta indexMeta) {
-        var indexDescriptor = new HashIndexDescriptor(indexMeta.id(), tablesConfiguration.value());
-
+    private PageMemoryHashIndexStorage createOrRestoreHashIndex(IndexMeta indexMeta, HashIndexDescriptor descriptor) {
         try {
             PageMemory pageMemory = tableStorage.dataRegion().pageMemory();
 
@@ -204,7 +205,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                     new AtomicLong(),
                     metaPageId,
                     rowVersionFreeList,
-                    indexDescriptor,
+                    descriptor,
                     initNew
             );
 
@@ -214,7 +215,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                 assert !replaced;
             }
 
-            return new PageMemoryHashIndexStorage(indexDescriptor, indexFreeList, hashIndexTree);
+            return new PageMemoryHashIndexStorage(descriptor, indexFreeList, hashIndexTree);
         } catch (IgniteInternalCheckedException e) {
             throw new RuntimeException(e);
         }

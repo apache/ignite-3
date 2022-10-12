@@ -370,14 +370,13 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 CompletableFuture<Void> partitionReadyFuture = raftServers.get(node).prepareRaftGroup(
                         grpId,
                         partNodes,
-                        () -> {
-                            return new PartitionListener(
-                                    testMpPartStorage,
-                                    new TestConcurrentHashMapTxStateStorage(),
-                                    txManagers.get(node),
-                                    primaryIndex
-                            );
-                        },
+                        () -> new PartitionListener(
+                                testMpPartStorage,
+                                new TestConcurrentHashMapTxStateStorage(),
+                                txManagers.get(node),
+                                List::of,
+                                null
+                        ),
                         RaftGroupOptions.defaults()
                 ).thenAccept(
                         raftSvc -> {
@@ -392,7 +391,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                                                 partId,
                                                 grpId,
                                                 tblId,
-                                                primaryIndex,
+                                                List::of,
+                                                null,
                                                 clocks.get(node)
                                         ));
                             } catch (NodeStoppingException e) {

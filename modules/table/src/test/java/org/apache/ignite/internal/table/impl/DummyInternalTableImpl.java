@@ -208,7 +208,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 0,
                 groupId,
                 tableId(),
-                primaryIndex,
+                List::of,
+                null,
                 new HybridClock()
         );
 
@@ -216,7 +217,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 mvPartStorage,
                 new TestConcurrentHashMapTxStateStorage(),
                 this.txManager,
-                primaryIndex
+                List::of,
+                null
         );
     }
 

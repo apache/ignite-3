@@ -115,7 +115,8 @@ public class PartitionCommandListenerTest {
                 mvPartitionStorage,
                 new TestConcurrentHashMapTxStateStorage(),
                 new TxManagerImpl(replicaService, new HeapLockManager(), new HybridClock()),
-                primaryIndex
+                List::of,
+                null
         );
     }
 

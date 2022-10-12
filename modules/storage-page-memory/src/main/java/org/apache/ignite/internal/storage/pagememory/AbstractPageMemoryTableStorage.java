@@ -30,6 +30,7 @@ import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
+import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage;
@@ -165,7 +166,20 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
             throw new StorageException(String.format("Partition ID %d does not exist", partitionId));
         }
 
-        return partitionStorage.getOrCreateHashIndex(indexId);
+        var indexDescriptor = new HashIndexDescriptor(indexId, tablesConfiguration.value());
+
+        return partitionStorage.getOrCreateHashIndex(indexDescriptor);
+    }
+
+    @Override
+    public HashIndexStorage getOrCreateHashIndex(int partitionId, HashIndexDescriptor descriptor) {
+        AbstractPageMemoryMvPartitionStorage partitionStorage = getMvPartition(partitionId);
+
+        if (partitionStorage == null) {
+            throw new StorageException(String.format("Partition ID %d does not exist", partitionId));
+        }
+
+        return partitionStorage.getOrCreateHashIndex(descriptor);
     }
 
     @Override

@@ -21,6 +21,7 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /** Lock manager allows to acquire locks and release locks and supports deadlock prevention by transaction id ordering. */
@@ -60,6 +61,15 @@ public interface LockManager {
      * @return An iterator over a collection of locks.
      */
     public Iterator<Lock> locks(UUID txId);
+
+    /**
+     * Retrieves a lock with given key for the specified transaction id, if acquired.
+     *
+     * @param txId Transaction Id.
+     * @param key The key.
+     * @return A lock which is held by specified transaction, or {@code null} if such lock doesn't exist.
+     */
+    @Nullable Lock lock(UUID txId, LockKey key);
 
     /**
      * Returns a collection of transaction ids that is associated with the specified {@code key}.
