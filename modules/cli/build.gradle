@@ -141,7 +141,7 @@ task generateAutocompletionScript(type: JavaExec) {
             "--completionScript",
             "${buildDir}/ignite_completion.sh",
             "-n",
-            "ignite",
+            "ignite3cli",
             "org.apache.ignite.internal.cli.commands.TopLevelCliCommand"]
     outputs.file "${buildDir}/ignite_completion.sh"
 }
