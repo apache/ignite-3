@@ -101,6 +101,23 @@ namespace Apache.Ignite.Internal.Table.Serialization
         {
             var type = typeof(T);
 
+            // TODO IGNITE-17876 Handle all primitives
+            if (type == typeof(long))
+            {
+                return (ref BinaryTupleBuilder writer, Span<byte> set, T value) =>
+                {
+                    writer.AppendLong((long)(object)value!);
+
+                    var columns = schema.Columns;
+                    var count = keyOnly ? schema.KeyColumnCount : columns.Count;
+
+                    for (var index = 1; index < count; index++)
+                    {
+                        writer.AppendNoValue(set);
+                    }
+                };
+            }
+
             var method = new DynamicMethod(
                 name: "Write" + type.Name,
                 returnType: typeof(void),
@@ -149,6 +166,15 @@ namespace Apache.Ignite.Internal.Table.Serialization
         private static ReadDelegate<T> EmitReader(Schema schema, bool keyOnly)
         {
             var type = typeof(T);
+
+            // TODO IGNITE-17876 Handle all primitives
+            if (type == typeof(long))
+            {
+                return (ref BinaryTupleReader reader) =>
+                {
+                    return (T)(object)reader.GetLong(0);
+                };
+            }
 
             var method = new DynamicMethod(
                 name: "Read" + type.Name,
