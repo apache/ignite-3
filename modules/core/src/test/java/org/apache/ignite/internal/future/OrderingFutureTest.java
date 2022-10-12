@@ -26,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
@@ -265,6 +266,38 @@ class OrderingFutureTest {
     }
 
     @Test
+    void whenCompleteSeesCompletionEffectsImmediatelyWithGetNow() {
+        OrderingFuture<Integer> future = new OrderingFuture<>();
+        AtomicInteger intHolder = new AtomicInteger();
+
+        future.whenComplete((res, ex) -> intHolder.set(future.getNow(999)));
+
+        future.complete(1);
+
+        assertThat(intHolder.get(), is(1));
+    }
+
+    @Test
+    void whenCompleteSeesCompletionEffectsImmediatelyWithGetWithTimeout() {
+        OrderingFuture<Integer> future = new OrderingFuture<>();
+        AtomicInteger intHolder = new AtomicInteger();
+
+        future.whenComplete((res, ex) -> {
+            try {
+                intHolder.set(future.get(0, TimeUnit.MILLISECONDS));
+            } catch (TimeoutException e) {
+                intHolder.set(999);
+            } catch (InterruptedException | ExecutionException e) {
+                fail("Unexpected exception", e);
+            }
+        });
+
+        future.complete(1);
+
+        assertThat(intHolder.get(), is(1));
+    }
+
+    @Test
     void composeToCompletablePropagatesResultFromAlreadyCompletedFuture() {
         OrderingFuture<Integer> orderingFuture = OrderingFuture.completedFuture(3);
 
@@ -373,6 +406,44 @@ class OrderingFutureTest {
 
         assertThat(causeRef.get(), is(instanceOf(CompletionException.class)));
         assertThat(causeRef.get().getCause(), is(cancellationException));
+    }
+
+
+    @Test
+    void composeToCompletableSeesCompletionEffectsImmediatelyWithGetNow() {
+        OrderingFuture<Integer> future = new OrderingFuture<>();
+        AtomicInteger intHolder = new AtomicInteger();
+
+        future.thenComposeToCompletable(x -> {
+            intHolder.set(future.getNow(999));
+            return CompletableFuture.completedFuture(null);
+        });
+
+        future.complete(1);
+
+        assertThat(intHolder.get(), is(1));
+    }
+
+    @Test
+    void composeToCompletableSeesCompletionEffectsImmediatelyWithGetWithTimeout() {
+        OrderingFuture<Integer> future = new OrderingFuture<>();
+        AtomicInteger intHolder = new AtomicInteger();
+
+        future.thenComposeToCompletable(x -> {
+            try {
+                intHolder.set(future.get(0, TimeUnit.MILLISECONDS));
+            } catch (TimeoutException e) {
+                intHolder.set(999);
+            } catch (InterruptedException | ExecutionException e) {
+                fail("Unexpected exception", e);
+            }
+
+            return CompletableFuture.completedFuture(null);
+        });
+
+        future.complete(1);
+
+        assertThat(intHolder.get(), is(1));
     }
 
     @Test
