@@ -38,6 +38,8 @@ public class RecordViewPrimitiveTests : IgniteTestsBase
         await TestKey((short)1, "SMALLINT");
         await TestKey(1, "INT");
         await TestKey(1L, "BIGINT");
+        await TestKey(1.1f, "FLOAT");
+        await TestKey(1.1d, "DOUBLE");
     }
 
     [Test]
