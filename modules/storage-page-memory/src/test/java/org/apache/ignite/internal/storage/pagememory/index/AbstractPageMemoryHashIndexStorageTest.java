@@ -21,6 +21,7 @@ import static java.util.stream.Collectors.joining;
 import static org.apache.ignite.internal.storage.pagememory.index.InlineUtils.MAX_BINARY_TUPLE_INLINE_SIZE;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.empty;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
@@ -66,21 +67,7 @@ abstract class AbstractPageMemoryHashIndexStorageTest extends AbstractHashIndexS
 
     @Test
     void testWithHashCollisionStrings() {
-        checkHashCollisionStrings("foo");
-    }
-
-    @Test
-    void testWithStringsLargerThanMaximumInlineSize() {
-        checkHashCollisionStrings(randomString(MAX_BINARY_TUPLE_INLINE_SIZE));
-    }
-
-    @Test
-    void testFragmentedIndexColumns() {
-        checkHashCollisionStrings(randomString(baseEngineConfig.pageSize().value() * 2));
-    }
-
-    private void checkHashCollisionStrings(String prefix) {
-        String[] hashCollisionPairStrings = createHashCollisionPairStrings(prefix);
+        String[] hashCollisionPairStrings = createHashCollisionPairStrings("foo");
 
         IndexRow indexRow0 = createIndexRow(1, hashCollisionPairStrings[0], new RowId(TEST_PARTITION));
         IndexRow indexRow1 = createIndexRow(1, hashCollisionPairStrings[1], new RowId(TEST_PARTITION));
@@ -90,6 +77,38 @@ abstract class AbstractPageMemoryHashIndexStorageTest extends AbstractHashIndexS
 
         assertThat(getAll(indexRow0), contains(indexRow0.rowId()));
         assertThat(getAll(indexRow1), contains(indexRow1.rowId()));
+    }
+
+    @Test
+    void testWithStringsLargerThanMaximumInlineSize() {
+        String[] hashCollisionPairStrings = createHashCollisionPairStrings(randomString(MAX_BINARY_TUPLE_INLINE_SIZE));
+
+        IndexRow indexRow0 = createIndexRow(1, hashCollisionPairStrings[0], new RowId(TEST_PARTITION));
+        IndexRow indexRow1 = createIndexRow(1, hashCollisionPairStrings[1], new RowId(TEST_PARTITION));
+
+        put(indexRow0);
+        put(indexRow1);
+
+        assertThat(getAll(indexRow0), contains(indexRow0.rowId()));
+        assertThat(getAll(indexRow1), contains(indexRow1.rowId()));
+
+        assertThat(getAll(createIndexRow(1, "foo", new RowId(TEST_PARTITION))), empty());
+    }
+
+    @Test
+    void testFragmentedIndexColumns() {
+        String[] hashCollisionPairStrings = createHashCollisionPairStrings(randomString(baseEngineConfig.pageSize().value() * 2));
+
+        IndexRow indexRow0 = createIndexRow(1, hashCollisionPairStrings[0], new RowId(TEST_PARTITION));
+        IndexRow indexRow1 = createIndexRow(1, hashCollisionPairStrings[1], new RowId(TEST_PARTITION));
+
+        put(indexRow0);
+        put(indexRow1);
+
+        assertThat(getAll(indexRow0), contains(indexRow0.rowId()));
+        assertThat(getAll(indexRow1), contains(indexRow1.rowId()));
+
+        assertThat(getAll(createIndexRow(1, "foo", new RowId(TEST_PARTITION))), empty());
     }
 
     private static String[] createHashCollisionPairStrings(String prefix) {
