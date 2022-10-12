@@ -31,11 +31,24 @@ public class RecordViewPrimitiveTests : IgniteTestsBase
     {
         var recordView = Table.GetRecordView<long>();
 
-        await recordView.UpsertAsync(null, 123);
-        var (res, _) = await recordView.GetAsync(null, 123);
-        var res2 = await recordView.GetAllAsync(null, new long[] { 1, 2, 123 });
+        await recordView.UpsertAsync(null, 7);
+        var (res, _) = await recordView.GetAsync(null, 7);
+        var res2 = await recordView.GetAllAsync(null, new long[] { 1, 2, 7 });
 
-        Assert.AreEqual(123, res);
-        Assert.AreEqual(123, res2.Single().Value);
+        Assert.AreEqual(7, res);
+        Assert.AreEqual(7, res2.Single().Value);
+    }
+
+    [Test]
+    public async Task TestIntKey() => await TestKey(1);
+
+    private async Task TestKey<T>(T val)
+    {
+        var recordView = Table.GetRecordView<T>();
+
+        await recordView.UpsertAsync(null, val);
+        var (res, _) = await recordView.GetAsync(null, val);
+
+        Assert.AreEqual(val, res);
     }
 }
