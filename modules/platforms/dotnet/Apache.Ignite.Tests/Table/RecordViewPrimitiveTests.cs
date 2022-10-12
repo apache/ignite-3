@@ -17,7 +17,6 @@
 
 namespace Apache.Ignite.Tests.Table;
 
-using System;
 using System.Linq;
 using System.Threading.Tasks;
 using Ignite.Table;
@@ -32,7 +31,7 @@ public class RecordViewPrimitiveTests : IgniteTestsBase
     public async Task TestLongKey() => await TestKey(7L, Table.GetRecordView<long>());
 
     [Test]
-    public async Task TestAllTypes()
+    public async Task TestAllSqlTypes()
     {
         await TestKey((sbyte)1, "TINYINT");
         await TestKey((short)1, "SMALLINT");
