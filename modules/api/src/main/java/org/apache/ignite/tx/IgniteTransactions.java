@@ -82,9 +82,32 @@ public interface IgniteTransactions {
     CompletableFuture<Transaction> beginAsync();
 
     /**
-     * Executes a closure within a transaction.
+     * Executes a closure within a transaction and returns a result.
      *
-     * <p>Please make sure all asynchronous operations are enlisted into the transaction before returning from the callback.
+     * <p>This method expects that all transaction operations are completed before the closure returns. The safest way to achieve that is
+     * to use synchronous table API.
+     *
+     * <p>Take care then using the asynchronous operations inside the closure. For example, the following snippet is <b>incorrect</b>,
+     * because the last operation goes out of the scope of the closure unfinished:
+     * <pre>
+     * {@code
+     * igniteTransactions.runInTransaction(tx -> {
+     *     var key = Tuple.create().set("accountId", 1);
+     *     Tuple acc = view.get(tx, key);
+     *        view.upsertAsync(tx, Tuple.create().set("accountId", 1).set("balance", acc.longValue("balance") + 100));
+     *     });
+     * }
+     * </pre>
+     *
+     * <p>The correct variant will be:
+     * <pre>
+     * {@code
+     * igniteTransactions.runInTransaction(tx -> {
+     *     view.getAsync(tx, Tuple.create().set("accountId", 1)).thenCompose(acc ->
+     *         view.upsertAsync(tx, Tuple.create().set("accountId", 1).set("balance", acc.longValue("balance") + 100))).join();
+     *     });
+     * }
+     * </pre>
      *
      * <p>If the closure is executed normally (no exceptions) the transaction is automatically committed.
      *
@@ -117,7 +140,7 @@ public interface IgniteTransactions {
      * }
      * </pre>
      *
-     * <p>The correct variant will be
+     * <p>The correct variant will be:
      * <pre>
      * {@code
      * igniteTransactions.runInTransaction(tx -> {
