@@ -72,12 +72,6 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     /** Flag that indicates that byte buffer has Big Endinan order. */
     private static final byte BYTE_BUFFER_BIG_ENDIAN_FLAG = 2;
 
-    /** Flag that indicates that byte buffer has a non-zero position. */
-    private static final byte BYTE_BUFFER_HAS_POSITION_FLAG = 4;
-
-    /** Flag that indicates that byte buffer has a limit that doesn't match its capacity. */
-    private static final byte BYTE_BUFFER_HAS_LIMIT_FLAG = 8;
-
     /** Message serialization registry. */
     private final PerSessionSerializationService serializationService;
 
@@ -157,10 +151,6 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     private int byteBufferState;
 
     private byte byteBufferFlag;
-
-    private int byteBufferPosition;
-
-    private int byteBufferLimit;
 
     protected boolean lastFinished;
 
@@ -530,14 +520,6 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
                     if (val.order() == ByteOrder.BIG_ENDIAN) {
                         flag |= BYTE_BUFFER_BIG_ENDIAN_FLAG;
                     }
-
-                    if (val.position() != 0) {
-                        flag |= BYTE_BUFFER_HAS_POSITION_FLAG;
-                    }
-
-                    if (val.limit() != val.capacity()) {
-                        flag |= BYTE_BUFFER_HAS_LIMIT_FLAG;
-                    }
                 }
 
                 writeByte(flag);
@@ -550,40 +532,15 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
                 //noinspection fallthrough
             case 1:
-                if (val.position() != 0) {
-                    writeInt(val.position());
-
-                    if (!lastFinished) {
-                        return;
-                    }
-                }
-
-                byteBufferState++;
-
-                //noinspection fallthrough
-            case 2:
-                if (val.limit() != val.capacity()) {
-                    writeInt(val.limit());
-
-                    if (!lastFinished) {
-                        return;
-                    }
-                }
-
-                byteBufferState++;
-
-                //noinspection fallthrough
-            case 3:
                 assert !val.isReadOnly();
 
-                int length = val.capacity();
+                int position = val.position();
+                int length = val.limit() - position;
 
                 if (val.isDirect()) {
-                    long address = GridUnsafe.bufferAddress(val);
-
-                    lastFinished = writeArray(null, address, length, length);
+                    lastFinished = writeArray(null, GridUnsafe.bufferAddress(val) + position, length, length);
                 } else {
-                    lastFinished = writeArray(val.array(), BYTE_ARR_OFF + val.arrayOffset(), length, length);
+                    lastFinished = writeArray(val.array(), BYTE_ARR_OFF + val.arrayOffset() + position, length, length);
                 }
 
                 if (!lastFinished) {
@@ -1169,34 +1126,6 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
                 //noinspection fallthrough
             case 1:
-                if ((byteBufferFlag & BYTE_BUFFER_HAS_POSITION_FLAG) == 0) {
-                    byteBufferPosition = 0;
-                } else {
-                    byteBufferPosition = readInt();
-                }
-
-                if (!lastFinished) {
-                    return null;
-                }
-
-                byteBufferState++;
-
-                //noinspection fallthrough
-            case 2:
-                if ((byteBufferFlag & BYTE_BUFFER_HAS_LIMIT_FLAG) == 0) {
-                    byteBufferLimit = -1;
-                } else {
-                    byteBufferLimit = readInt();
-                }
-
-                if (!lastFinished) {
-                    return null;
-                }
-
-                byteBufferState++;
-
-                //noinspection fallthrough
-            case 3:
                 bytes = readByteArray();
 
                 if (!lastFinished) {
@@ -1210,16 +1139,12 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
                 throw new IllegalArgumentException("Unknown byteBufferState: " + uuidState);
         }
 
-        ByteBuffer val = ByteBuffer.wrap(bytes).position(byteBufferPosition);
+        ByteBuffer val = ByteBuffer.wrap(bytes);
 
         if ((byteBufferFlag & BYTE_BUFFER_BIG_ENDIAN_FLAG) == 0) {
             val.order(ByteOrder.LITTLE_ENDIAN);
         } else {
             val.order(ByteOrder.BIG_ENDIAN);
-        }
-
-        if (byteBufferLimit != -1) {
-            val.limit(byteBufferLimit);
         }
 
         return val;
