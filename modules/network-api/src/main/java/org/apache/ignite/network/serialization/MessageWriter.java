@@ -246,6 +246,7 @@ public interface MessageWriter {
      * @return Whether a value was fully written.
      */
     boolean writeByteBuffer(String name, ByteBuffer val);
+
     /**
      * Writes an {@link UUID}.
      *

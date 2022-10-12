@@ -581,6 +581,10 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
                 }
 
                 byteBufferState = 0;
+                break;
+
+            default:
+                throw new IllegalArgumentException("Unknown byteBufferState: " + uuidState);
         }
     }
 
