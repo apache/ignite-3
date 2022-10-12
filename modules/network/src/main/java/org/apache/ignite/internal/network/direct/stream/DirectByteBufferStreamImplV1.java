@@ -1538,7 +1538,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
      * @param bytes Length in bytes.
      * @return Whether array was fully written.
      */
-    boolean writeArray(Object arr, long off, int len, int bytes) {
+    boolean writeArray(@Nullable Object arr, long off, int len, int bytes) {
         assert arr == null || arr.getClass().isArray() && arr.getClass().getComponentType().isPrimitive();
         assert off > 0;
         assert len >= 0;
