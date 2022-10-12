@@ -57,10 +57,7 @@ public class NettyBootstrapFactory implements IgniteComponent {
      * @param networkConfiguration     Network configuration.
      * @param eventLoopGroupNamePrefix Prefix for event loop group names.
      */
-    public NettyBootstrapFactory(
-            NetworkConfiguration networkConfiguration,
-            String eventLoopGroupNamePrefix
-    ) {
+    public NettyBootstrapFactory(NetworkConfiguration networkConfiguration, String eventLoopGroupNamePrefix) {
         assert eventLoopGroupNamePrefix != null;
         assert networkConfiguration != null;
 
