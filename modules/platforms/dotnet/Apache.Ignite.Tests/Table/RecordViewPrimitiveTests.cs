@@ -17,8 +17,10 @@
 
 namespace Apache.Ignite.Tests.Table;
 
+using System;
 using System.Linq;
 using System.Threading.Tasks;
+using Ignite.Table;
 using NUnit.Framework;
 
 /// <summary>
@@ -27,27 +29,49 @@ using NUnit.Framework;
 public class RecordViewPrimitiveTests : IgniteTestsBase
 {
     [Test]
-    public async Task TestLongKey() => await TestKey(7L);
+    public async Task TestLongKey() => await TestKey(7L, Table.GetRecordView<long>());
 
     [Test]
-    public async Task TestIntKey() => await TestKey(1);
+    public async Task TestAllTypes()
+    {
+        await TestKey((sbyte)1, "TINYINT");
+        await TestKey((short)1, "SMALLINT");
+        await TestKey(1, "INT");
+        await TestKey(1L, "BIGINT");
+    }
 
     [Test]
     public void TestColumnTypeMismatch()
     {
-        var ex = Assert.ThrowsAsync<IgniteClientException>(async () => await TestKey(1f));
+        var ex = Assert.ThrowsAsync<IgniteClientException>(async () => await TestKey(1f, Table.GetRecordView<float>()));
         Assert.AreEqual("Can't map 'System.Single' to column 'KEY' of type 'System.Int64' - types do not match.", ex!.Message);
     }
 
-    private async Task TestKey<T>(T val)
+    private static async Task TestKey<T>(T val, IRecordView<T> recordView)
     {
-        var recordView = Table.GetRecordView<T>();
-
         await recordView.UpsertAsync(null, val);
         var (res, _) = await recordView.GetAsync(null, val);
         var res2 = await recordView.GetAllAsync(null, new[] { default!, val });
 
         Assert.AreEqual(val, res);
         Assert.AreEqual(val, res2.Single().Value);
+    }
+
+    private async Task TestKey<T>(T val, string sqlColumnType)
+    {
+        var tableName = "TEST_KEY_" + sqlColumnType.ToUpperInvariant();
+        var sql = $"CREATE TABLE IF NOT EXISTS {tableName}(ID {sqlColumnType} PRIMARY KEY)";
+        var createRes = await Client.Sql.ExecuteAsync(null, sql);
+        Assert.IsTrue(createRes.WasApplied);
+
+        try
+        {
+            var table = await Client.Tables.GetTableAsync(tableName);
+            await TestKey(val, table!.GetRecordView<T>());
+        }
+        finally
+        {
+            await Client.Sql.ExecuteAsync(null, "DROP TABLE " + tableName);
+        }
     }
 }
