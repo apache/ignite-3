@@ -115,6 +115,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
             if (BinaryTupleMethods.GetWriteMethodOrNull(type) is { } directWriteMethod)
             {
+                // Single column to primitive type mapping.
                 var col = columns[0];
                 ValidateSingleFieldMappingType(type, col);
 
@@ -188,6 +189,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
             if (BinaryTupleMethods.GetReadMethodOrNull(type) is { } readMethod)
             {
+                // Single column to primitive type mapping.
                 il.Emit(OpCodes.Ldarg_0); // reader
                 il.Emit(OpCodes.Ldc_I4_0); // index
                 il.Emit(OpCodes.Call, readMethod);
@@ -227,6 +229,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
             if (BinaryTupleMethods.GetReadMethodOrNull(type) != null)
             {
+                // Single column to primitive type mapping - return key as is.
                 return (ref BinaryTupleReader _, T key) => key;
             }
 
