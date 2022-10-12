@@ -202,7 +202,7 @@ public abstract class AbstractSortedIndexStorageTest {
 
         TableIndexView indexConfig = tablesCfg.indexes().get(indexDefinition.name()).value();
 
-        return tableStorage.getOrCreateSortedIndex(0, indexConfig.id());
+        return tableStorage.getOrCreateSortedIndex(TEST_PARTITION, indexConfig.id());
     }
 
     /**
