@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.table.distributed.raft.snapshot.message;
 
 import java.nio.ByteBuffer;
-import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.hlc.HybridTimestamp;
@@ -35,7 +34,7 @@ import org.jetbrains.annotations.Nullable;
 @Transferable(TableMessageGroup.SNAPSHOT_MV_DATA_RESPONSE)
 public interface SnapshotMvDataResponse extends NetworkMessage {
     /** List of version chains. */
-    Collection<ResponseEntry> rows();
+    List<ResponseEntry> rows();
 
     /** Flag that indicates whether this is the last response or not. */
     boolean finish();
@@ -50,7 +49,6 @@ public interface SnapshotMvDataResponse extends NetworkMessage {
         UUID rowId();
 
         /** List of {@link BinaryRow}s for a given {@link #rowId()}. */
-        @Marshallable
         List<ByteBuffer> rowVersions();
 
         /**
