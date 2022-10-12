@@ -44,7 +44,7 @@ task cliStartScript(type: CreateStartScripts) {
     // it is expected to locate the "lib" dir together with "bin"
     classpath = files(new File("../lib/${project(':ignite-cli').name}-${project(':ignite-cli').version}.jar"), new File("../lib/*"))
     outputDir = file "$buildDir/scripts"
-    applicationName = 'ignite3-cli'
+    applicationName = 'ignite3cli'
 }
 
 distributions {
@@ -65,9 +65,9 @@ distributions {
                 from("$rootDir/assembly/README.md")
             }
             into('etc') {
-                from("${buildDir}/scripts/bootstrap-config")
-                from("${buildDir}/config/ignite-config.conf")
-                from("${buildDir}/config/ignite.java.util.logging.properties")
+                from("$rootDir/packaging/zip/bootstrap-config")
+                from("$rootDir/packaging/config/ignite-config.conf")
+                from("$rootDir/packaging/config/ignite.java.util.logging.properties")
             }
             into('bin') {
                 fileMode 0755
