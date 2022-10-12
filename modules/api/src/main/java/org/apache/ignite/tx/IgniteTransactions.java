@@ -17,6 +17,9 @@
 
 package org.apache.ignite.tx;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.function.Function.identity;
+
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -200,11 +203,19 @@ public interface IgniteTransactions {
      * @return The result.
      */
     default <T> CompletableFuture<T> runInTransactionAsync(Function<Transaction, CompletableFuture<T>> clo) {
-        // Rollback is expected to be called by the failure handling code
         // TODO FIXME https://issues.apache.org/jira/browse/IGNITE-17838 Implement auto retries
         return beginAsync().thenCompose(tx -> {
             try {
-                return clo.apply(tx).thenCompose(val -> tx.commitAsync().thenApply(ignored -> val));
+                return clo.apply(tx).handle((res, e) -> {
+                    if (e != null) {
+                        return tx.rollbackAsync().exceptionally(e0 -> {
+                            e.addSuppressed(e0);
+                            return null;
+                        }).thenCompose(ignored -> CompletableFuture.<T>failedFuture(e));
+                    }
+
+                    return completedFuture(res);
+                }).thenCompose(identity()).thenCompose(val -> tx.commitAsync().thenApply(ignored -> val));
             } catch (Exception e) {
                 return tx.rollbackAsync().exceptionally(e0 -> {
                     e.addSuppressed(e0);
