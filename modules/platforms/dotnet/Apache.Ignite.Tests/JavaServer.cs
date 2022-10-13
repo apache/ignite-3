@@ -37,17 +37,8 @@ namespace Apache.Ignite.Tests
 
         private const string GradleCommandExec = ":ignite-runner:runnerPlatformTest";
 
-        /** Maven command to execute the main class. */
-        private const string MavenCommandExec = "exec:java@platform-test-node-runner";
-
-        /** Maven arg to perform a dry run to ensure that code is compiled and all artifacts are downloaded. */
-        private const string MavenCommandDryRunArg = " -Dexec.args=dry-run";
-
         /** Gradle arg to perform a dry run to ensure that code is compiled and all artifacts are downloaded. */
         private const string GradleCommandDryRunArg = " --dry-run";
-
-        /** Full path to Maven binary. */
-        private static readonly string MavenPath = GetMaven();
 
          /** Full path to Gradle binary. */
         private static readonly string GradlePath = GetGradle();
@@ -133,7 +124,7 @@ namespace Apache.Ignite.Tests
         }
 
         /// <summary>
-        /// Performs a dry run of the Maven executable to ensure that code is compiled and all artifacts are downloaded.
+        /// Performs a dry run of the Gradle executable to ensure that code is compiled and all artifacts are downloaded.
         /// Does not start the actual node.
         /// </summary>
         private static void EnsureBuild()
@@ -168,12 +159,12 @@ namespace Apache.Ignite.Tests
             if (!process.WaitForExit(5 * 60_000))
             {
                 process.Kill();
-                throw new Exception("Failed to wait for Maven exec dry run.");
+                throw new Exception("Failed to wait for Gradle exec dry run.");
             }
 
             if (process.ExitCode != 0)
             {
-                throw new Exception($"Maven exec failed with code {process.ExitCode}, check log for details.");
+                throw new Exception($"Gradle exec failed with code {process.ExitCode}, check log for details.");
             }
 
             _dryRunComplete = true;
@@ -250,24 +241,6 @@ namespace Apache.Ignite.Tests
 
                 return e;
             }
-        }
-
-        /// <summary>
-        /// Gets maven path.
-        /// </summary>
-        private static string GetMaven()
-        {
-            var extensions = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
-                ? new[] {".cmd", ".bat"}
-                : new[] {string.Empty};
-
-            return new[] {"MAVEN_HOME", "M2_HOME", "M3_HOME", "MVN_HOME"}
-                .Select(Environment.GetEnvironmentVariable)
-                .Where(x => !string.IsNullOrEmpty(x))
-                .Select(x => Path.Combine(x!, "bin", "mvn"))
-                .SelectMany(x => extensions.Select(ext => x + ext))
-                .Where(File.Exists)
-                .FirstOrDefault() ?? "mvn";
         }
 
         private static string GetGradle()
