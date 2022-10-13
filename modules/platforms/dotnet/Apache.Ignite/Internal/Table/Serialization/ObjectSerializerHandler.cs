@@ -68,7 +68,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 ? w
                 : _valuePartReaders.GetOrAdd(schema.Version, EmitValuePartReader(schema));
 
-            var binaryTupleReader = new BinaryTupleReader(reader.ReadBytesAsMemory(), schema.Columns.Count - schema.KeyColumnCount);
+            var binaryTupleReader = new BinaryTupleReader(reader.ReadBytesAsMemory(), schema.ValueColumnCount);
 
             return readDelegate(ref binaryTupleReader, key);
         }
