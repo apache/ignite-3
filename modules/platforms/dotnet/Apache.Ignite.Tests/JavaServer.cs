@@ -35,15 +35,11 @@ namespace Apache.Ignite.Tests
 
         private const int ConnectTimeoutSeconds = 120;
 
-        private const string GradleCommandExec = ":ignite-runner:runnerPlatformTest";
-
-        /** Gradle arg to perform a dry run to ensure that code is compiled and all artifacts are downloaded. */
-        private const string GradleCommandDryRunArg = " --dry-run";
+        private const string GradleCommandExec = ":ignite-runner:runnerPlatformTest"
+          + "-x compileJava -x compileTestFixturesJava -x compileIntegrationTestJava -x compileTestJava";
 
          /** Full path to Gradle binary. */
         private static readonly string GradlePath = GetGradle();
-
-        private static volatile bool _dryRunComplete;
 
         private readonly Process? _process;
 
@@ -123,54 +119,7 @@ namespace Apache.Ignite.Tests
             Log(">>> Java server stopped.");
         }
 
-        /// <summary>
-        /// Performs a dry run of the Gradle executable to ensure that code is compiled and all artifacts are downloaded.
-        /// Does not start the actual node.
-        /// </summary>
-        private static void EnsureBuild()
-        {
-            if (_dryRunComplete)
-            {
-                return;
-            }
-
-            using var process = CreateProcess(dryRun: true);
-
-            DataReceivedEventHandler handler = (_, eventArgs) =>
-            {
-                var line = eventArgs.Data;
-                if (line == null)
-                {
-                    return;
-                }
-
-                Log(line);
-            };
-
-            process.OutputDataReceived += handler;
-            process.ErrorDataReceived += handler;
-
-            process.Start();
-
-            process.BeginErrorReadLine();
-            process.BeginOutputReadLine();
-
-            // 5 min timeout for the build process (may take time to download artifacts on slow networks).
-            if (!process.WaitForExit(5 * 60_000))
-            {
-                process.Kill();
-                throw new Exception("Failed to wait for Gradle exec dry run.");
-            }
-
-            if (process.ExitCode != 0)
-            {
-                throw new Exception($"Gradle exec failed with code {process.ExitCode}, check log for details.");
-            }
-
-            _dryRunComplete = true;
-        }
-
-        private static Process CreateProcess(bool dryRun = false)
+        private static Process CreateProcess()
         {
             var file = TestUtils.IsWindows ? "cmd.exe" : "/bin/bash";
 
@@ -182,7 +131,7 @@ namespace Apache.Ignite.Tests
                     ArgumentList =
                     {
                         TestUtils.IsWindows ? "/c" : "-c",
-                        $"{GradlePath} {GradleCommandExec}" + (dryRun ? GradleCommandDryRunArg : string.Empty)
+                        $"{GradlePath} {GradleCommandExec}"
                     },
                     CreateNoWindow = true,
                     UseShellExecute = false,
