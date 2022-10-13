@@ -63,9 +63,14 @@ namespace Apache.Ignite.Internal.Table
                 this,
                 new RecordSerializer<IIgniteTuple>(this, TupleSerializerHandler.Instance));
 
+            // RecordView and KeyValueView are symmetric and perform the same operations on the protocol level.
+            // Only serialization is different - KeyValueView splits records into two parts.
+            // Therefore, KeyValueView below simply delegates to RecordView<KvPair>,
+            // and SerializerHandler writes KV pair as a single record and reads back record as two parts.
+            var pairSerializer = new RecordSerializer<KvPair<IIgniteTuple, IIgniteTuple>>(this, TuplePairSerializerHandler.Instance);
+
             KeyValueBinaryView = new KeyValueView<IIgniteTuple, IIgniteTuple>(
-                this,
-                new RecordSerializer<KvPair<IIgniteTuple, IIgniteTuple>>(this, TuplePairSerializerHandler.Instance));
+                new RecordView<KvPair<IIgniteTuple, IIgniteTuple>>(this, pairSerializer));
         }
 
         /// <inheritdoc/>
