@@ -19,6 +19,8 @@ namespace Apache.Ignite.Internal.Table.Serialization
 {
     using System;
     using System.Collections.Concurrent;
+    using System.Collections.Generic;
+    using System.Linq;
     using System.Reflection;
     using System.Reflection.Emit;
     using MessagePack;
@@ -141,6 +143,8 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 return (WriteDelegate<T>)method.CreateDelegate(typeof(WriteDelegate<T>));
             }
 
+            int mappedCount = 0;
+
             for (var index = 0; index < count; index++)
             {
                 var col = columns[index];
@@ -166,8 +170,12 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
                     var writeMethod = BinaryTupleMethods.GetWriteMethod(fieldInfo.FieldType);
                     il.Emit(OpCodes.Call, writeMethod);
+
+                    mappedCount++;
                 }
             }
+
+            ValidateMappedCount(mappedCount, type, columns);
 
             il.Emit(OpCodes.Ret);
 
@@ -385,6 +393,20 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
                 throw new IgniteClientException(ErrorGroups.Client.Configuration, message);
             }
+        }
+
+        private static void ValidateMappedCount(int mappedCount, Type type, IEnumerable<Column> columns)
+        {
+            if (mappedCount > 0)
+            {
+                return;
+            }
+
+            var columnStr = string.Join(", ", columns.Select(x => x.Type + " " + x.Name));
+
+            throw new IgniteClientException(
+                ErrorGroups.Client.Configuration,
+                $"Can't map '{type}' to columns '{columnStr}'. Matching fields not found.");
         }
     }
 }
