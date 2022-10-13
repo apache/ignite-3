@@ -15,24 +15,33 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Internal.Table
-{
-    using System.Collections.Generic;
+namespace Apache.Ignite.Tests.Table;
 
-    /// <summary>
-    /// Schema.
-    /// </summary>
-    /// <param name="Version">Version.</param>
-    /// <param name="KeyColumnCount">Key column count.</param>
-    /// <param name="Columns">Columns in schema order.</param>
-    internal record Schema(
-        int Version,
-        int KeyColumnCount,
-        IReadOnlyList<Column> Columns)
+using System.Linq;
+using System.Threading.Tasks;
+using NUnit.Framework;
+
+/// <summary>
+/// Tests for key-value tuple view.
+/// </summary>
+public class KeyValueViewBinaryTests : IgniteTestsBase
+{
+    [TearDown]
+    public async Task CleanTable()
     {
-        /// <summary>
-        /// Gets the value column count.
-        /// </summary>
-        public int ValueColumnCount => Columns.Count - KeyColumnCount;
+        await TupleView.DeleteAllAsync(null, Enumerable.Range(-1, 12).Select(x => GetTuple(x)));
+    }
+
+    [Test]
+    public async Task TestPutGet()
+    {
+        var kvView = Table.KeyValueBinaryView;
+
+        await kvView.PutAsync(null, GetTuple(1L), GetTuple("val"));
+
+        var (res, _) = await kvView.GetAsync(null, GetTuple(1L));
+
+        Assert.AreEqual("val", res[0]);
+        Assert.AreEqual("val", res[ValCol]);
     }
 }

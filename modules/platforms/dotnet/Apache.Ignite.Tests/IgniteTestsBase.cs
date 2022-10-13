@@ -89,8 +89,9 @@ namespace Apache.Ignite.Tests
             Assert.AreEqual(_eventListener.BuffersReturned, _eventListener.BuffersRented);
         }
 
-        protected static IIgniteTuple GetTuple(long id, string? val = null) =>
-            new IgniteTuple { [KeyCol] = id, [ValCol] = val };
+        protected static IIgniteTuple GetTuple(long id, string? val = null) => new IgniteTuple { [KeyCol] = id, [ValCol] = val };
+
+        protected static IIgniteTuple GetTuple(string? val) => new IgniteTuple { [ValCol] = val };
 
         protected static Poco GetPoco(long id, string? val = null) => new() {Key = id, Val = val};
 

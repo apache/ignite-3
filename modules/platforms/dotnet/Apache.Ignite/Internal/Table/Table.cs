@@ -59,9 +59,10 @@ namespace Apache.Ignite.Internal.Table
             Name = name;
             Id = id;
 
-            RecordBinaryView = new RecordView<IIgniteTuple>(
-                this,
-                new RecordSerializer<IIgniteTuple>(this, TupleSerializerHandler.Instance));
+            var recordSerializer = new RecordSerializer<IIgniteTuple>(this, TupleSerializerHandler.Instance);
+
+            RecordBinaryView = new RecordView<IIgniteTuple>(this, recordSerializer);
+            KeyValueBinaryView = new KeyValueView<IIgniteTuple, IIgniteTuple>(this, recordSerializer, recordSerializer);
         }
 
         /// <inheritdoc/>
@@ -69,6 +70,9 @@ namespace Apache.Ignite.Internal.Table
 
         /// <inheritdoc/>
         public IRecordView<IIgniteTuple> RecordBinaryView { get; }
+
+        /// <inheritdoc/>
+        public IKeyValueView<IIgniteTuple, IIgniteTuple> KeyValueBinaryView { get; }
 
         /// <summary>
         /// Gets the associated socket.
