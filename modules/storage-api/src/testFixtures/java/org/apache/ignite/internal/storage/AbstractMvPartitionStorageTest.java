@@ -23,6 +23,7 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
+import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -73,19 +74,19 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
     private final BinaryRow binaryRow3 = binaryRow(key, new TestValue(22, "bar3"));
 
     /**
-     * Reads a row inside of consistency closure.
+     * Reads a row.
      */
     protected BinaryRow read(RowId rowId, HybridTimestamp timestamp) {
-        ReadResult readResult = storage.runConsistently(() -> storage.read(rowId, timestamp));
+        ReadResult readResult = storage.read(rowId, timestamp);
 
         return readResult.binaryRow();
     }
 
     /**
-     * Scans partition inside of consistency closure.
+     * Scans partition.
      */
     protected PartitionTimestampCursor scan(Predicate<BinaryRow> filter, HybridTimestamp timestamp) {
-        return storage.runConsistently(() -> storage.scan(filter, timestamp));
+        return storage.scan(filter, timestamp);
     }
 
     /**
@@ -112,6 +113,18 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
     protected void commitWrite(RowId rowId, HybridTimestamp tsExact) {
         storage.runConsistently(() -> {
             storage.commitWrite(rowId, tsExact);
+
+            return null;
+        });
+    }
+
+    /**
+     * Writes a row to storage like if it was first added using {@link MvPartitionStorage#addWrite(RowId, BinaryRow, UUID, UUID, int)}
+     * and immediately committed with {@link MvPartitionStorage#commitWrite(RowId, HybridTimestamp)}.
+     */
+    protected void addWriteCommitted(RowId rowId, BinaryRow row, HybridTimestamp commitTimestamp) {
+        storage.runConsistently(() -> {
+            storage.addWriteCommitted(rowId, row, commitTimestamp);
 
             return null;
         });
@@ -603,6 +616,15 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
     }
 
     @Test
+    void addWriteCreatesUncommittedVersion() {
+        RowId rowId = insert(binaryRow, txId);
+
+        ReadResult readResult = storage.read(rowId, clock.now());
+
+        assertTrue(readResult.isWriteIntent());
+    }
+
+    @Test
     void afterRemovalReadWithTxIdFindsNothing() {
         RowId rowId = insert(binaryRow, newTransactionId());
         commitWrite(rowId, clock.now());
@@ -658,6 +680,16 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
         BinaryRow rowFromRemoval = addWrite(rowId, null, newTransactionId());
 
         assertThat(rowFromRemoval, is(nullValue()));
+    }
+
+    @Test
+    void commitWriteCommitsWriteIntentVersion() {
+        RowId rowId = insert(binaryRow, txId);
+        commitWrite(rowId, clock.now());
+
+        ReadResult readResult = storage.read(rowId, clock.now());
+
+        assertFalse(readResult.isWriteIntent());
     }
 
     @Test
@@ -1136,6 +1168,72 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
         assertEquals(rowId2, storage.closestRowId(rowId2));
 
         assertNull(storage.closestRowId(rowId2.increment()));
+    }
+
+    @Test
+    public void addWriteCommittedAddsCommittedVersion() {
+        RowId rowId = new RowId(PARTITION_ID);
+
+        addWriteCommitted(rowId, binaryRow, clock.now());
+
+        // Read with timestamp returns write-intent.
+        assertRowMatches(storage.read(rowId, clock.now()).binaryRow(), binaryRow);
+    }
+
+    @Test
+    public void addWriteCommittedLeavesExistingCommittedVersionsUntouched() {
+        RowId rowId = new RowId(PARTITION_ID);
+
+        HybridTimestamp ts1 = clock.now();
+
+        addWriteCommitted(rowId, binaryRow, ts1);
+        addWriteCommitted(rowId, binaryRow2, clock.now());
+
+        assertRowMatches(storage.read(rowId, clock.now()).binaryRow(), binaryRow2);
+        assertRowMatches(storage.read(rowId, ts1).binaryRow(), binaryRow);
+    }
+
+    @Test
+    public void addWriteCommittedThrowsIfUncommittedVersionExists() {
+        RowId rowId = insert(binaryRow, txId);
+
+        StorageException ex = assertThrows(StorageException.class, () -> addWriteCommitted(rowId, binaryRow2, clock.now()));
+        assertThat(ex.getMessage(), is("Write intent exists for " + rowId));
+    }
+
+    @Test
+    public void scanVersionsReturnsUncommittedVersionsAsUncommitted() throws Exception {
+        RowId rowId = insert(binaryRow, txId);
+        commitWrite(rowId, clock.now());
+        addWrite(rowId, binaryRow2, newTransactionId());
+
+        try (Cursor<ReadResult> cursor = storage.scanVersions(rowId)) {
+            ReadResult result = cursor.next();
+
+            assertTrue(result.isWriteIntent());
+            assertThat(result.commitPartitionId(), is(not(ReadResult.UNDEFINED_COMMIT_PARTITION_ID)));
+            assertThat(result.commitTableId(), is(notNullValue()));
+            assertThat(result.transactionId(), is(notNullValue()));
+            assertThat(result.commitTimestamp(), is(nullValue()));
+            assertThat(result.newestCommitTimestamp(), is(nullValue()));
+        }
+    }
+
+    @Test
+    public void scanVersionsReturnsCommittedVersionsAsCommitted() throws Exception {
+        RowId rowId = insert(binaryRow, txId);
+        commitWrite(rowId, clock.now());
+
+        try (Cursor<ReadResult> cursor = storage.scanVersions(rowId)) {
+            ReadResult result = cursor.next();
+
+            assertFalse(result.isWriteIntent());
+            assertThat(result.commitPartitionId(), is(ReadResult.UNDEFINED_COMMIT_PARTITION_ID));
+            assertThat(result.commitTableId(), is(nullValue()));
+            assertThat(result.transactionId(), is(nullValue()));
+            assertThat(result.commitTimestamp(), is(notNullValue()));
+            assertThat(result.newestCommitTimestamp(), is(nullValue()));
+        }
     }
 
     /**
