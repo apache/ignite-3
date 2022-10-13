@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Internal.Table;
 
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Apache.Ignite.Transactions;
 using Ignite.Table;
@@ -28,8 +29,6 @@ using Serialization;
 /// <typeparam name="TK">Key type.</typeparam>
 /// <typeparam name="TV">Value type.</typeparam>
 internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
-    where TK : class
-    where TV : class
 {
     /** Record view. */
     private readonly RecordView<KvPair<TK, TV>> _recordView;
@@ -48,8 +47,86 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
         (await _recordView.GetAsync(transaction, new(key))).Map(static x => x.Val);
 
     /// <inheritdoc/>
+    public Task<IDictionary<TK, TV>> GetAllAsync(ITransaction? transaction, IEnumerable<TK> keys)
+    {
+        throw new System.NotImplementedException();
+    }
+
+    /// <inheritdoc/>
+    public Task<bool> ContainsAsync(ITransaction? transaction, TK key)
+    {
+        throw new System.NotImplementedException();
+    }
+
+    /// <inheritdoc/>
     public async Task PutAsync(ITransaction? transaction, TK key, TV val)
     {
         await _recordView.UpsertAsync(transaction, new(key, val));
+    }
+
+    /// <inheritdoc/>
+    public Task PutAllAsync(ITransaction? transaction, IEnumerable<KeyValuePair<TK, TV>> pairs)
+    {
+        throw new System.NotImplementedException();
+    }
+
+    /// <inheritdoc/>
+    public Task<Option<TV>> GetAndPutAsync(ITransaction? transaction, TK key, TV val)
+    {
+        throw new System.NotImplementedException();
+    }
+
+    /// <inheritdoc/>
+    public Task<bool> PutIfAbsentAsync(ITransaction? transaction, TK key, TV val)
+    {
+        throw new System.NotImplementedException();
+    }
+
+    /// <inheritdoc/>
+    public Task<bool> RemoveAsync(ITransaction? transaction, TK key)
+    {
+        throw new System.NotImplementedException();
+    }
+
+    /// <inheritdoc/>
+    public Task<bool> RemoveAsync(ITransaction? transaction, TK key, TV val)
+    {
+        throw new System.NotImplementedException();
+    }
+
+    /// <inheritdoc/>
+    public Task<IList<TK>> RemoveAllAsync(ITransaction? transaction, IEnumerable<TK> keys)
+    {
+        throw new System.NotImplementedException();
+    }
+
+    /// <inheritdoc/>
+    public Task<IList<TK>> RemoveAllAsync(ITransaction? transaction, IEnumerable<KeyValuePair<TK, TV>> pairs)
+    {
+        throw new System.NotImplementedException();
+    }
+
+    /// <inheritdoc/>
+    public Task<Option<TV>> GetAndRemoveAsync(ITransaction? transaction, TK key)
+    {
+        throw new System.NotImplementedException();
+    }
+
+    /// <inheritdoc/>
+    public Task<bool> ReplaceAsync(ITransaction? transaction, TK key, TV val)
+    {
+        throw new System.NotImplementedException();
+    }
+
+    /// <inheritdoc/>
+    public Task<bool> ReplaceAsync(ITransaction? transaction, TK key, TV oldVal, TV newVal)
+    {
+        throw new System.NotImplementedException();
+    }
+
+    /// <inheritdoc/>
+    public Task<Option<TV>> GetAndReplaceAsync(ITransaction? transaction, TK key, TV val)
+    {
+        throw new System.NotImplementedException();
     }
 }
