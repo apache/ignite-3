@@ -55,6 +55,7 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
     /// <inheritdoc/>
     public async Task<Option<TV>> GetAsync(ITransaction? transaction, TK key)
     {
+        // TODO: Delegate to RecordView to cut the code size! Most APIs should be covered.
         IgniteArgumentCheck.NotNull(key, nameof(key));
 
         using var resBuf = await DoKeyOutOpAsync(ClientOp.TupleGet, transaction, key).ConfigureAwait(false);
