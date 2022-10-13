@@ -39,17 +39,17 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
 public class HashIndexTreeLeafIo extends BplusLeafIo<HashIndexRowKey> implements HashIndexTreeIo {
     /** I/O versions for each {@link BinaryTuple} inline size up to the {@link InlineUtils#MAX_BINARY_TUPLE_INLINE_SIZE}. */
     public static final List<IoVersions<HashIndexTreeLeafIo>> VERSIONS = IntStream.rangeClosed(0, MAX_BINARY_TUPLE_INLINE_SIZE)
-            .mapToObj(binaryTupleInlineSize -> new IoVersions<>(new HashIndexTreeLeafIo(1, binaryTupleInlineSize)))
+            .mapToObj(inlineSize -> new IoVersions<>(new HashIndexTreeLeafIo(1, inlineSize)))
             .collect(toUnmodifiableList());
 
     /**
      * Constructor.
      *
      * @param ver Page format version.
-     * @param binaryTupleInlineSize {@link BinaryTuple} inline size in bytes.
+     * @param inlineSize Inline size in bytes.
      */
-    private HashIndexTreeLeafIo(int ver, int binaryTupleInlineSize) {
-        super(T_HASH_INDEX_LEAF_IO_START + binaryTupleInlineSize, ver, ITEM_SIZE_WITHOUT_COLUMNS + binaryTupleInlineSize);
+    private HashIndexTreeLeafIo(int ver, int inlineSize) {
+        super(T_HASH_INDEX_LEAF_IO_START + inlineSize, ver, ITEM_SIZE_WITHOUT_COLUMNS + inlineSize);
     }
 
     @Override

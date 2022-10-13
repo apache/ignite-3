@@ -22,8 +22,6 @@ import static org.apache.ignite.internal.storage.pagememory.index.InlineUtils.MA
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.empty;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.IntStream;
@@ -67,10 +65,8 @@ abstract class AbstractPageMemoryHashIndexStorageTest extends AbstractHashIndexS
 
     @Test
     void testWithHashCollisionStrings() {
-        String[] hashCollisionPairStrings = createHashCollisionPairStrings("foo");
-
-        IndexRow indexRow0 = createIndexRow(1, hashCollisionPairStrings[0], new RowId(TEST_PARTITION));
-        IndexRow indexRow1 = createIndexRow(1, hashCollisionPairStrings[1], new RowId(TEST_PARTITION));
+        IndexRow indexRow0 = createIndexRow(1, "foo0", new RowId(TEST_PARTITION));
+        IndexRow indexRow1 = createIndexRow(1, "foo1", new RowId(TEST_PARTITION));
 
         put(indexRow0);
         put(indexRow1);
@@ -81,10 +77,8 @@ abstract class AbstractPageMemoryHashIndexStorageTest extends AbstractHashIndexS
 
     @Test
     void testWithStringsLargerThanMaximumInlineSize() {
-        String[] hashCollisionPairStrings = createHashCollisionPairStrings(randomString(MAX_BINARY_TUPLE_INLINE_SIZE));
-
-        IndexRow indexRow0 = createIndexRow(1, hashCollisionPairStrings[0], new RowId(TEST_PARTITION));
-        IndexRow indexRow1 = createIndexRow(1, hashCollisionPairStrings[1], new RowId(TEST_PARTITION));
+        IndexRow indexRow0 = createIndexRow(1, randomString(MAX_BINARY_TUPLE_INLINE_SIZE), new RowId(TEST_PARTITION));
+        IndexRow indexRow1 = createIndexRow(1, randomString(MAX_BINARY_TUPLE_INLINE_SIZE), new RowId(TEST_PARTITION));
 
         put(indexRow0);
         put(indexRow1);
@@ -97,10 +91,8 @@ abstract class AbstractPageMemoryHashIndexStorageTest extends AbstractHashIndexS
 
     @Test
     void testFragmentedIndexColumns() {
-        String[] hashCollisionPairStrings = createHashCollisionPairStrings(randomString(baseEngineConfig.pageSize().value() * 2));
-
-        IndexRow indexRow0 = createIndexRow(1, hashCollisionPairStrings[0], new RowId(TEST_PARTITION));
-        IndexRow indexRow1 = createIndexRow(1, hashCollisionPairStrings[1], new RowId(TEST_PARTITION));
+        IndexRow indexRow0 = createIndexRow(1, randomString(baseEngineConfig.pageSize().value() * 2), new RowId(TEST_PARTITION));
+        IndexRow indexRow1 = createIndexRow(1, randomString(baseEngineConfig.pageSize().value() * 2), new RowId(TEST_PARTITION));
 
         put(indexRow0);
         put(indexRow1);
@@ -109,16 +101,6 @@ abstract class AbstractPageMemoryHashIndexStorageTest extends AbstractHashIndexS
         assertThat(getAll(indexRow1), contains(indexRow1.rowId()));
 
         assertThat(getAll(createIndexRow(1, "foo", new RowId(TEST_PARTITION))), empty());
-    }
-
-    private static String[] createHashCollisionPairStrings(String prefix) {
-        String s0 = prefix + "Aa";
-        String s1 = prefix + "BB";
-
-        assertEquals(s0.hashCode(), s1.hashCode(), "s0=" + s0 + ", s1=" + s1);
-        assertNotEquals(s0, s1);
-
-        return new String[]{s0, s1};
     }
 
     private static String randomString(int size) {

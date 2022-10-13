@@ -52,11 +52,10 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
  * <p>Defines a following data layout:
  * <ul>
  *     <li>Index columns hash - int (4 bytes);</li>
- *     <li>Inlined index columns size - short (2 bytes), no more than the {@link InlineUtils#MAX_BINARY_TUPLE_INLINE_SIZE}, the most
- *     significant (sign) bit is used to determine whether there is a link to the index columns, if negative then no link;</li>
+ *     <li>Inlined index columns size - short (2 bytes), no more than the {@link InlineUtils#MAX_BINARY_TUPLE_INLINE_SIZE}, if {@code -1}
+ *     then no link;</li>
  *     <li>Inlined index columns - N bytes;</li>
- *     <li>Index columns link (optional)- 6 bytes, if the inlined index columns are the same size as the original index columns, no link is
- *     needed;</li>
+ *     <li>Index columns link - 6 bytes, if the index columns can be completely inlined, then those 6 bytes will be reused;</li>
  *     <li>Row ID - {@link UUID} (16 bytes).</li>
  * </ul>
  */
@@ -271,7 +270,7 @@ public interface HashIndexTreeIo {
     /**
      * Returns the inline size for index columns in bytes.
      */
-    default int indexColumnsInlineSize() {
+    private int indexColumnsInlineSize() {
         return getItemSize() - ITEM_SIZE_WITHOUT_COLUMNS;
     }
 }
