@@ -64,19 +64,14 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
     }
 
     /// <inheritdoc/>
-    public async Task PutAsync(ITransaction? transaction, TK key, TV? val)
+    public async Task PutAsync(ITransaction? transaction, TK key, TV val)
     {
-        // TODO IGNITE-16226 use a special known type that combines Key and Val - some kind of Pair?
-        // In case of tuples we can create a combined tuple.
         var schema = await _table.GetLatestSchemaAsync().ConfigureAwait(false);
         var tx = transaction.ToInternal();
 
         using var writer = ProtoCommon.GetMessageWriter();
 
-        // TODO IGNITE-16226 We should write key and val into the same BinaryTuple.
-        // _keySer.Write(writer, tx, schema.SliceKey(), key);
-        // TODO IGNITE-16226 What if val is null?
-        // _valSer.Write(writer, tx, schema.SliceVal(), val!);
+        _ser.Write(writer, tx, schema, new(key, val));
         await DoOutInOpAsync(ClientOp.TupleUpsert, tx, writer).ConfigureAwait(false);
     }
 
