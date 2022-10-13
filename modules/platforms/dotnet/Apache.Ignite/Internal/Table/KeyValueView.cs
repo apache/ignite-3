@@ -75,65 +75,63 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
         await _recordView.UpsertAsync(transaction, new(key, val));
 
     /// <inheritdoc/>
-    public Task PutAllAsync(ITransaction? transaction, IEnumerable<KeyValuePair<TK, TV>> pairs)
-    {
-        throw new System.NotImplementedException();
-    }
+    public async Task PutAllAsync(ITransaction? transaction, IEnumerable<KeyValuePair<TK, TV>> pairs) =>
+        await _recordView.UpsertAllAsync(transaction, pairs.Select(static x => new KvPair<TK, TV>(x.Key, x.Value)));
 
     /// <inheritdoc/>
     public async Task<Option<TV>> GetAndPutAsync(ITransaction? transaction, TK key, TV val) =>
         (await _recordView.GetAndUpsertAsync(transaction, new KvPair<TK, TV>(key, val))).Map(static x => x.Val);
 
     /// <inheritdoc/>
-    public Task<bool> PutIfAbsentAsync(ITransaction? transaction, TK key, TV val)
+    public async Task<bool> PutIfAbsentAsync(ITransaction? transaction, TK key, TV val)
     {
         throw new System.NotImplementedException();
     }
 
     /// <inheritdoc/>
-    public Task<bool> RemoveAsync(ITransaction? transaction, TK key)
+    public async Task<bool> RemoveAsync(ITransaction? transaction, TK key)
     {
         throw new System.NotImplementedException();
     }
 
     /// <inheritdoc/>
-    public Task<bool> RemoveAsync(ITransaction? transaction, TK key, TV val)
+    public async Task<bool> RemoveAsync(ITransaction? transaction, TK key, TV val)
     {
         throw new System.NotImplementedException();
     }
 
     /// <inheritdoc/>
-    public Task<IList<TK>> RemoveAllAsync(ITransaction? transaction, IEnumerable<TK> keys)
+    public async Task<IList<TK>> RemoveAllAsync(ITransaction? transaction, IEnumerable<TK> keys)
     {
         throw new System.NotImplementedException();
     }
 
     /// <inheritdoc/>
-    public Task<IList<TK>> RemoveAllAsync(ITransaction? transaction, IEnumerable<KeyValuePair<TK, TV>> pairs)
+    public async Task<IList<TK>> RemoveAllAsync(ITransaction? transaction, IEnumerable<KeyValuePair<TK, TV>> pairs)
     {
         throw new System.NotImplementedException();
     }
 
     /// <inheritdoc/>
-    public Task<Option<TV>> GetAndRemoveAsync(ITransaction? transaction, TK key)
+    public async Task<Option<TV>> GetAndRemoveAsync(ITransaction? transaction, TK key)
     {
         throw new System.NotImplementedException();
     }
 
     /// <inheritdoc/>
-    public Task<bool> ReplaceAsync(ITransaction? transaction, TK key, TV val)
+    public async Task<bool> ReplaceAsync(ITransaction? transaction, TK key, TV val)
     {
         throw new System.NotImplementedException();
     }
 
     /// <inheritdoc/>
-    public Task<bool> ReplaceAsync(ITransaction? transaction, TK key, TV oldVal, TV newVal)
+    public async Task<bool> ReplaceAsync(ITransaction? transaction, TK key, TV oldVal, TV newVal)
     {
         throw new System.NotImplementedException();
     }
 
     /// <inheritdoc/>
-    public Task<Option<TV>> GetAndReplaceAsync(ITransaction? transaction, TK key, TV val)
+    public async Task<Option<TV>> GetAndReplaceAsync(ITransaction? transaction, TK key, TV val)
     {
         throw new System.NotImplementedException();
     }
