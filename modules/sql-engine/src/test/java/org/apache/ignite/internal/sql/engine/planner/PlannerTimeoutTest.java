@@ -30,25 +30,28 @@ import org.apache.calcite.plan.volcano.VolcanoPlanner;
 import org.apache.calcite.plan.volcano.VolcanoTimeoutException;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelVisitor;
+import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.prepare.IgnitePlanner;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
-import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 
 /**
  * Test planner timeout.
  */
 public class PlannerTimeoutTest extends AbstractPlannerTest {
-    private static final long PLANNER_TIMEOUT = 1_000;
+    private static final long PLANNER_TIMEOUT = 500;
 
     @Test
     public void testLongPlanningTimeout() throws Exception {
         IgniteSchema schema = createSchema(
-                createTable("T1", IgniteDistributions.broadcast(), "A", Integer.class, "B", Integer.class),
-                createTable("T2", IgniteDistributions.broadcast(), "A", Integer.class, "B", Integer.class)
+                createTestTable("T1", "A", Integer.class, "B", Integer.class),
+                createTestTable("T2", "A", Integer.class, "B", Integer.class)
         );
 
         String sql = "SELECT * FROM T1 JOIN T2 ON T1.A = T2.A";
@@ -62,7 +65,7 @@ public class PlannerTimeoutTest extends AbstractPlannerTest {
         AtomicReference<IgniteRel> plan = new AtomicReference<>();
         AtomicReference<RelOptPlanner.CannotPlanException> plannerError = new AtomicReference<>();
 
-        assertTimeoutPreemptively(Duration.ofMillis(3 * PLANNER_TIMEOUT), () -> {
+        assertTimeoutPreemptively(Duration.ofMillis(10 * PLANNER_TIMEOUT), () -> {
             try (IgnitePlanner planner = ctx.planner()) {
                 plan.set(physicalPlan(planner, ctx.query()));
 
@@ -93,6 +96,27 @@ public class PlannerTimeoutTest extends AbstractPlannerTest {
                 }
             }.go(plan.get());
         }
+    }
+
+    @NotNull
+    private static TestTable createTestTable(String name, Object... cols) {
+        RelDataTypeFactory.Builder b = new RelDataTypeFactory.Builder(TYPE_FACTORY);
+
+        for (int i = 0; i < cols.length; i += 2) {
+            b.add((String) cols[i], TYPE_FACTORY.createJavaType((Class<?>) cols[i + 1]));
+        }
+
+        return new TestTable(name, b.build(), DEFAULT_TBL_SIZE) {
+            @Override
+            public RelDataType getRowType(RelDataTypeFactory typeFactory, ImmutableBitSet bitSet) {
+                try {
+                    Thread.sleep(300);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+                return super.getRowType(typeFactory, bitSet);
+            }
+        };
     }
 }
 
