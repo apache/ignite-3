@@ -67,7 +67,6 @@ namespace Apache.Ignite.Tests
 
             Log(">>> Java server is not detected, starting...");
 
-            EnsureBuild();
             var process = CreateProcess();
 
             var evt = new ManualResetEventSlim(false);
