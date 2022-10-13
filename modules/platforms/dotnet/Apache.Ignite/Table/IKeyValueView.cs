@@ -35,7 +35,8 @@ public interface IKeyValueView<TK, TV>
     /// <param name="key">Key.</param>
     /// <returns>
     /// A <see cref="Task{TResult}"/> representing the asynchronous operation.
-    /// The task result contains a record with all columns.
+    /// The task result contains the value for the specified key, or an <see cref="Option{T}"/> instance without a value
+    /// when specified key is not present in the table.
     /// </returns>
     Task<Option<TV>> GetAsync(ITransaction? transaction, TK key);
 
@@ -78,4 +79,17 @@ public interface IKeyValueView<TK, TV>
     /// <param name="pairs">Pairs.</param>
     /// <returns>A <see cref="Task{TResult}"/> representing the asynchronous operation.</returns>
     Task PutAllAsync(ITransaction? transaction, IEnumerable<KeyValuePair<TK, TV>> pairs);
+
+    /// <summary>
+    /// Gets a value associated with the given key.
+    /// </summary>
+    /// <param name="transaction">The transaction or <c>null</c> to auto commit.</param>
+    /// <param name="key">Key.</param>
+    /// <param name="val">Value.</param>
+    /// <returns>
+    /// A <see cref="Task{TResult}"/> representing the asynchronous operation.
+    /// The task result contains the value for the specified key, or an <see cref="Option{T}"/> instance without a value
+    /// when specified key is not present in the table.
+    /// </returns>
+    Task<Option<TV>> GetAndPutAsync(ITransaction? transaction, TK key, TV val);
 }
