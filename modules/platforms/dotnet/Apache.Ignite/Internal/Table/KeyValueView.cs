@@ -59,10 +59,8 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
     }
 
     /// <inheritdoc/>
-    public async Task PutAsync(ITransaction? transaction, TK key, TV val)
-    {
+    public async Task PutAsync(ITransaction? transaction, TK key, TV val) =>
         await _recordView.UpsertAsync(transaction, new(key, val));
-    }
 
     /// <inheritdoc/>
     public Task PutAllAsync(ITransaction? transaction, IEnumerable<KeyValuePair<TK, TV>> pairs)
@@ -71,10 +69,8 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
     }
 
     /// <inheritdoc/>
-    public Task<Option<TV>> GetAndPutAsync(ITransaction? transaction, TK key, TV val)
-    {
-        throw new System.NotImplementedException();
-    }
+    public async Task<Option<TV>> GetAndPutAsync(ITransaction? transaction, TK key, TV val) =>
+        (await _recordView.GetAndUpsertAsync(transaction, new KvPair<TK, TV>(key, val))).Map(static x => x.Val);
 
     /// <inheritdoc/>
     public Task<bool> PutIfAbsentAsync(ITransaction? transaction, TK key, TV val)
