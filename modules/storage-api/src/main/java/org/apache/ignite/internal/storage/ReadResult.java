@@ -45,7 +45,7 @@ public class ReadResult {
     private final int commitPartitionId;
 
     /**
-     * Commit timestamp of this version (of exists). Non-null for committed versions, {@code null} for write intents.
+     * Commit timestamp of this version (if exists). Non-null for committed versions, {@code null} for write intents.
      */
     private final @Nullable HybridTimestamp commitTs;
 
