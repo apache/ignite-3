@@ -39,22 +39,17 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
     private readonly Table _table;
 
     /** Key serializer. */
-    private readonly RecordSerializer<TK> _keySer;
-
-    /** Value serializer. */
-    private readonly RecordSerializer<TV> _valSer;
+    private readonly RecordSerializer<KvPair<TK, TV>> _ser;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="KeyValueView{TK, TV}"/> class.
     /// </summary>
     /// <param name="table">Table.</param>
-    /// <param name="keySer">Key serializer.</param>
-    /// <param name="valSer">Value serializer.</param>
-    public KeyValueView(Table table, RecordSerializer<TK> keySer, RecordSerializer<TV> valSer)
+    /// <param name="ser">Serializer.</param>
+    public KeyValueView(Table table, RecordSerializer<KvPair<TK, TV>> ser)
     {
         _table = table;
-        _keySer = keySer;
-        _valSer = valSer;
+        _ser = ser;
     }
 
     /// <inheritdoc/>
@@ -65,8 +60,7 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
         using var resBuf = await DoKeyOutOpAsync(ClientOp.TupleGet, transaction, key).ConfigureAwait(false);
         var resSchema = await _table.ReadSchemaAsync(resBuf).ConfigureAwait(false);
 
-        // TODO IGNITE-16226
-        return _valSer.ReadValue(resBuf, resSchema, default!);
+        return _ser.ReadValue(resBuf, resSchema, new(key)).Map(static x => x.Val);
     }
 
     /// <inheritdoc/>
@@ -95,7 +89,7 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
         var tx = transaction.ToInternal();
 
         using var writer = ProtoCommon.GetMessageWriter();
-        _keySer.Write(writer, tx, schema, key, keyOnly: true);
+        _ser.Write(writer, tx, schema, new(key), keyOnly: true);
 
         return await DoOutInOpAsync(op, tx, writer).ConfigureAwait(false);
     }
