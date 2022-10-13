@@ -27,6 +27,7 @@ using Transactions;
 /// <typeparam name="TK">Key type.</typeparam>
 /// <typeparam name="TV">Value type.</typeparam>
 public interface IKeyValueView<TK, TV>
+    where TK : notnull
 {
     /// <summary>
     /// Gets a value associated with the given key.

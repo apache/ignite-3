@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Internal.Table;
 
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Apache.Ignite.Transactions;
 using Ignite.Table;
@@ -29,6 +30,7 @@ using Serialization;
 /// <typeparam name="TK">Key type.</typeparam>
 /// <typeparam name="TV">Value type.</typeparam>
 internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
+    where TK : notnull
 {
     /** Record view. */
     private readonly RecordView<KvPair<TK, TV>> _recordView;
@@ -47,9 +49,21 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
         (await _recordView.GetAsync(transaction, new(key))).Map(static x => x.Val);
 
     /// <inheritdoc/>
-    public Task<IDictionary<TK, TV>> GetAllAsync(ITransaction? transaction, IEnumerable<TK> keys)
+    public async Task<IDictionary<TK, TV>> GetAllAsync(ITransaction? transaction, IEnumerable<TK> keys)
     {
-        throw new System.NotImplementedException();
+        // TODO: Avoid list allocation, read directly into dict.
+        var list = await _recordView.GetAllAsync(transaction, keys.Select(static k => new KvPair<TK, TV>(k)));
+        var res = new Dictionary<TK, TV>(list.Count);
+
+        foreach (var ((key, val), hasVal) in list)
+        {
+            if (hasVal)
+            {
+                res[key] = val;
+            }
+        }
+
+        return res;
     }
 
     /// <inheritdoc/>
