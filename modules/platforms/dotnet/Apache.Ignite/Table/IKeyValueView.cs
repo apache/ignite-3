@@ -70,4 +70,12 @@ public interface IKeyValueView<TK, TV>
     /// <param name="val">Value.</param>
     /// <returns>A <see cref="Task{TResult}"/> representing the asynchronous operation.</returns>
     Task PutAsync(ITransaction? transaction, TK key, TV val);
+
+    /// <summary>
+    /// Puts multiple key-value pairs.
+    /// </summary>
+    /// <param name="transaction">The transaction or <c>null</c> to auto commit.</param>
+    /// <param name="pairs">Pairs.</param>
+    /// <returns>A <see cref="Task{TResult}"/> representing the asynchronous operation.</returns>
+    Task PutAllAsync(ITransaction? transaction, IEnumerable<KeyValuePair<TK, TV>> pairs);
 }
