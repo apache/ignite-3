@@ -302,7 +302,7 @@ public class AbstractExecutionTest extends IgniteAbstractTest {
             // No-op
         }
 
-        /** */
+        /** Remind count of rows. */
         public int rowsCount() {
             int cnt = 0;
 

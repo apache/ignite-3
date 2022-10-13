@@ -90,7 +90,6 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
 
     private final RelDataType emptyType;
 
-    /**  */
     private final RelDataType nullType;
 
     private final ExecutionContext<RowT> ctx;
@@ -148,7 +147,8 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
                         return 0;
                     }
 
-                    int res = (field.direction == RelFieldCollation.Direction.ASCENDING) ?
+                    int res = (field.direction == RelFieldCollation.Direction.ASCENDING)
+                            ?
                             ExpressionFactoryImpl.compare(c1, c2, nullComparison) :
                             ExpressionFactoryImpl.compare(c2, c1, -nullComparison);
 
@@ -210,7 +210,6 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         };
     }
 
-    /**  */
     @SuppressWarnings("rawtypes")
     private static int compare(Object o1, Object o2, int nullComparison) {
         final Comparable c1 = (Comparable) o1;
@@ -333,8 +332,8 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
             } else {
                 unspecifiedValues.set(i);
 
-                programBuilder.addProject(rexBuilder.makeNullLiteral(type == emptyType ?
-                        nullType : type.getFieldList().get(i).getType()), null);
+                programBuilder.addProject(rexBuilder.makeNullLiteral(type == emptyType
+                        ? nullType : type.getFieldList().get(i).getType()), null);
             }
         }
 
@@ -431,8 +430,9 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
 
         b.append(']');
 
-        if (type != null)
+        if (type != null) {
             b.append(':').append(type.getFullTypeString());
+        }
 
         return b.toString();
     }
@@ -653,8 +653,9 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         public Function1<String, InputGetter> build(Iterable<RexNode> nodes) {
             try {
                 for (RexNode node : nodes) {
-                    if (node != null)
+                    if (node != null) {
                         node.accept(this);
+                    }
                 }
 
                 return correlates == null ? null : correlates::get;

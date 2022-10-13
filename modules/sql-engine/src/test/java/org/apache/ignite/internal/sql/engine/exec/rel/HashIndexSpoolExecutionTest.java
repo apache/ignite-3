@@ -130,7 +130,6 @@ public class HashIndexSpoolExecutionTest extends AbstractExecutionTest {
         }
     }
 
-    /** */
     @Test
     public void testNullsInSearchRow() {
         ExecutionContext<Object[]> ctx = executionContext(true);
@@ -169,7 +168,7 @@ public class HashIndexSpoolExecutionTest extends AbstractExecutionTest {
         for (Pair<Object[], Integer> bound : testBounds) {
             System.arraycopy(bound.getFirst(), 0, searchRow, 0, searchRow.length);
 
-            assertEquals((int)bound.getSecond(), root.rowsCount(), "Invalid result size");
+            assertEquals((int) bound.getSecond(), root.rowsCount(), "Invalid result size");
         }
 
         root.closeRewindableRoot();

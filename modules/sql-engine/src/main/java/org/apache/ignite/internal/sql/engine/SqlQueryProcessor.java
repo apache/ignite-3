@@ -92,6 +92,11 @@ import org.jetbrains.annotations.Nullable;
 public class SqlQueryProcessor implements QueryProcessor {
     private static final IgniteLogger LOG = Loggers.forClass(SqlQueryProcessor.class);
 
+    /**
+     * Default planner timeout, in ms.
+     */
+    private static final long PLANNER_TIMEOUT = 15000L;
+
     /** Size of the cache for query plans. */
     public static final int PLAN_CACHE_SIZE = 1024;
 
@@ -395,6 +400,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                             .cancel(queryCancel)
                             .parameters(params)
                             .transaction(outerTx)
+                            .plannerTimeout(PLANNER_TIMEOUT)
                             .build();
 
                     return prepareSvc.prepareAsync(sqlNode, ctx)
@@ -474,6 +480,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                     )
                     .logger(LOG)
                     .parameters(params)
+                    .plannerTimeout(PLANNER_TIMEOUT)
                     .build();
 
             // TODO https://issues.apache.org/jira/browse/IGNITE-17746 Fix query execution flow.

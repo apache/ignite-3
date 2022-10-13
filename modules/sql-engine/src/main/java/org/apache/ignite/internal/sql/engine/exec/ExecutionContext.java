@@ -367,7 +367,6 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
         return cancelFlag.get();
     }
 
-    /** */
     public Object unspecifiedValue() {
         return UNSPECIFIED_VALUE;
     }

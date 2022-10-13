@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,14 +17,12 @@
 
 package org.apache.ignite.internal.sql.engine;
 
-import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.junit.jupiter.api.Test;
 
 /**
  * Hash spool test.
  */
 public class ItHashSpoolIntegrationTest extends AbstractBasicIntegrationTest {
-    /** */
     @Test
     public void testNullsInSearchRow() {
         sql("CREATE TABLE t(pk varchar default gen_random_uuid PRIMARY KEY, i1 INTEGER, i2 INTEGER)");
@@ -45,7 +43,6 @@ public class ItHashSpoolIntegrationTest extends AbstractBasicIntegrationTest {
                 .check();
     }
 
-    /** */
     @Test
     public void testNullsInSearchRowMultipleColumns() {
         sql("CREATE TABLE t0(pk varchar default gen_random_uuid PRIMARY KEY, i1 INTEGER, i2 INTEGER)");
@@ -53,9 +50,9 @@ public class ItHashSpoolIntegrationTest extends AbstractBasicIntegrationTest {
         sql("INSERT INTO t0(i1, i2) VALUES (null, 0), (1, null), (null, 2), (3, null), (1, 1)");
         sql("INSERT INTO t1(i1, i2) VALUES (null, 0), (null, 1), (2, null), (3, null), (1, 1)");
 
-        String sql = "SELECT /*+ DISABLE_RULE ('MergeJoinConverter', 'NestedLoopJoinConverter', " +
-                "'FilterSpoolMergeToSortedIndexSpoolRule')*/ t0.i1, t0.i2, t1.i1, t1.i2 " +
-                "FROM t0 JOIN t1 ON t0.i1=t1.i1 AND t0.i2=t1.i2";
+        String sql = "SELECT /*+ DISABLE_RULE ('MergeJoinConverter', 'NestedLoopJoinConverter', "
+                + "'FilterSpoolMergeToSortedIndexSpoolRule')*/ t0.i1, t0.i2, t1.i1, t1.i2 "
+                + "FROM t0 JOIN t1 ON t0.i1=t1.i1 AND t0.i2=t1.i2";
 
         assertQuery(sql)
                 .returns(1, 1, 1, 1)
