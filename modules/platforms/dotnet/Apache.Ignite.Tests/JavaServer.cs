@@ -35,7 +35,7 @@ namespace Apache.Ignite.Tests
 
         private const int ConnectTimeoutSeconds = 20;
 
-        private const string GradleCommandExec = ":ignite-runner:runnerPlatformTest"
+        private const string GradleCommandExec = ":ignite-runner:runnerPlatformTest --no-daemon"
           + " -x compileJava -x compileTestFixturesJava -x compileIntegrationTestJava -x compileTestJava";
 
          /** Full path to Gradle binary. */
