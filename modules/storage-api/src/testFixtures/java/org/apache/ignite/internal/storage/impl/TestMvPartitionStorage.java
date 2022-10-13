@@ -26,7 +26,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.function.BiConsumer;
-import java.util.function.Predicate;
 import java.util.stream.Stream;
 import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -197,7 +196,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
         VersionChain versionChain = map.get(rowId);
 
-        return read(versionChain, timestamp, null, null);
+        return read(versionChain, timestamp, null);
     }
 
     /**
@@ -206,14 +205,12 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
      * @param versionChain Version chain.
      * @param timestamp Timestamp or {@code null} if transaction id is defined.
      * @param txId Transaction id or {@code null} if timestamp is defined.
-     * @param filter Key filter.
      * @return Read result.
      */
     private static ReadResult read(
             VersionChain versionChain,
             @Nullable HybridTimestamp timestamp,
-            @Nullable UUID txId,
-            @Nullable Predicate<BinaryRow> filter
+            @Nullable UUID txId
     ) {
         assert timestamp == null ^ txId == null;
 
@@ -223,10 +220,6 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
         if (timestamp == null) {
             // Search by transaction id.
-
-            if (filter != null && !filter.test(versionChain.row)) {
-                return ReadResult.EMPTY;
-            }
 
             if (versionChain.txId != null && !versionChain.txId.equals(txId)) {
                 throw new TxIdMismatchException(txId, versionChain.txId);
@@ -243,19 +236,14 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
                 // We *only* have a write-intent, return it.
                 BinaryRow binaryRow = cur.row;
 
-                if (filter != null && !filter.test(binaryRow)) {
-                    return ReadResult.EMPTY;
-                }
-
-                return ReadResult.createFromWriteIntent(binaryRow, cur.txId, cur.commitTableId, cur.commitPartitionId, null
-                );
+                return ReadResult.createFromWriteIntent(binaryRow, cur.txId, cur.commitTableId, cur.commitPartitionId, null);
             }
 
             // Move to first commit.
             cur = cur.next;
         }
 
-        return walkVersionChain(versionChain, timestamp, filter, cur);
+        return walkVersionChain(versionChain, timestamp, cur);
     }
 
     private static ReadResult versionChainToReadResult(VersionChain versionChain, boolean fillLastCommittedTs) {
@@ -276,12 +264,10 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
      *
      * @param chainHead Version chain head.
      * @param timestamp Timestamp.
-     * @param filter Key filter.
      * @param firstCommit First commit chain element.
      * @return Read result.
      */
-    private static ReadResult walkVersionChain(VersionChain chainHead, HybridTimestamp timestamp, @Nullable Predicate<BinaryRow> filter,
-            VersionChain firstCommit) {
+    private static ReadResult walkVersionChain(VersionChain chainHead, HybridTimestamp timestamp, VersionChain firstCommit) {
         boolean hasWriteIntent = chainHead.ts == null;
 
         if (hasWriteIntent && timestamp.compareTo(firstCommit.ts) > 0) {
@@ -289,13 +275,8 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
             // So we just return write-intent.
             BinaryRow binaryRow = chainHead.row;
 
-            if (filter != null && !filter.test(binaryRow)) {
-                return ReadResult.EMPTY;
-            }
-
             return ReadResult.createFromWriteIntent(binaryRow, chainHead.txId, chainHead.commitTableId, chainHead.commitPartitionId,
-                    firstCommit.ts
-            );
+                    firstCommit.ts);
         }
 
         VersionChain cur = firstCommit;
@@ -306,10 +287,6 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
             if (timestamp.compareTo(cur.ts) >= 0) {
                 // This commit has timestamp matching the query ts, meaning that commit is the one we are looking for.
                 BinaryRow binaryRow = cur.row;
-
-                if (filter != null && !filter.test(binaryRow)) {
-                    return ReadResult.EMPTY;
-                }
 
                 return ReadResult.createFromCommitted(binaryRow, cur.ts);
             }
@@ -331,7 +308,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     /** {@inheritDoc} */
     @Override
-    public PartitionTimestampCursor scan(Predicate<BinaryRow> filter, HybridTimestamp timestamp) {
+    public PartitionTimestampCursor scan(HybridTimestamp timestamp) {
         Iterator<VersionChain> iterator = map.values().iterator();
 
         return new PartitionTimestampCursor() {
@@ -348,7 +325,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
                 }
 
                 // We don't check if row conforms the key filter here, because we've already checked it.
-                ReadResult read = read(currentChain, timestamp, null, null);
+                ReadResult read = read(currentChain, timestamp, null);
 
                 if (read.transactionId() == null) {
                     return read.binaryRow();
@@ -372,7 +349,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
                 while (iterator.hasNext()) {
                     VersionChain chain = iterator.next();
-                    ReadResult readResult = read(chain, timestamp, null, filter);
+                    ReadResult readResult = read(chain, timestamp, null);
 
                     if (!readResult.isEmpty()) {
                         currentChain = chain;

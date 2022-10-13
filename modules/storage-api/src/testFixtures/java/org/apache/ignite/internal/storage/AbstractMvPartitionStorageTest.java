@@ -40,7 +40,6 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.hlc.HybridTimestamp;
@@ -85,8 +84,8 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
     /**
      * Scans partition.
      */
-    protected PartitionTimestampCursor scan(Predicate<BinaryRow> filter, HybridTimestamp timestamp) {
-        return storage.scan(filter, timestamp);
+    protected PartitionTimestampCursor scan(HybridTimestamp timestamp) {
+        return storage.scan(timestamp);
     }
 
     /**
@@ -158,7 +157,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
 
     @Test
     public void testScanOverEmpty() throws Exception {
-        assertEquals(List.of(), convert(scan(row -> true, clock.now())));
+        assertEquals(List.of(), convert(scan(clock.now())));
     }
 
     /**
@@ -269,7 +268,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
     }
 
     /**
-     * Tests basic invariants of {@link MvPartitionStorage#scan(Predicate, HybridTimestamp)}.
+     * Tests basic invariants of {@link MvPartitionStorage#scan(HybridTimestamp)}.
      */
     @Test
     public void testScan() throws Exception {
@@ -296,13 +295,13 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
         HybridTimestamp ts5 = clock.now();
 
         // Full scan with various timestamp values.
-        assertEquals(List.of(), convert(scan(row -> true, ts1)));
+        assertEquals(List.of(), convert(scan(ts1)));
 
-        assertEquals(List.of(value1), convert(scan(row -> true, ts2)));
-        assertEquals(List.of(value1), convert(scan(row -> true, ts3)));
+        assertEquals(List.of(value1), convert(scan(ts2)));
+        assertEquals(List.of(value1), convert(scan(ts3)));
 
-        assertEquals(List.of(value1, value2), convert(scan(row -> true, ts4)));
-        assertEquals(List.of(value1, value2), convert(scan(row -> true, ts5)));
+        assertEquals(List.of(value1, value2), convert(scan(ts4)));
+        assertEquals(List.of(value1, value2), convert(scan(ts5)));
     }
 
     @Test
@@ -317,7 +316,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
         RowId rowId2 = insert(binaryRow(new TestKey(2, "2"), value2), txId);
         commitWrite(rowId2, clock.now());
 
-        try (PartitionTimestampCursor cursor = scan(row -> true, HybridTimestamp.MAX_VALUE)) {
+        try (PartitionTimestampCursor cursor = scan(HybridTimestamp.MAX_VALUE)) {
             assertTrue(cursor.hasNext());
             assertTrue(cursor.hasNext());
 
@@ -370,7 +369,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
 
         addWrite(rowId2, binaryRow22, newTransactionId());
 
-        try (PartitionTimestampCursor cursor = scan(row -> true, clock.now())) {
+        try (PartitionTimestampCursor cursor = scan(clock.now())) {
             assertThrows(IllegalStateException.class, () -> cursor.committed(commitTs1));
 
             assertTrue(cursor.hasNext());
@@ -832,7 +831,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
     void scanByTimestampWorksCorrectlyAfterCommitAndAbortFollowedByUncommittedWrite() throws Exception {
         commitAbortAndAddUncommitted();
 
-        try (Cursor<ReadResult> cursor = storage.scan(k -> true, clock.now())) {
+        try (Cursor<ReadResult> cursor = storage.scan(clock.now())) {
             BinaryRow foundRow = cursor.next().binaryRow();
 
             assertRowMatches(foundRow, binaryRow3);
@@ -1103,7 +1102,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
             return null;
         });
 
-        try (PartitionTimestampCursor cursor = storage.scan(r -> true, clock.now())) {
+        try (PartitionTimestampCursor cursor = storage.scan(clock.now())) {
             assertTrue(cursor.hasNext());
 
             ReadResult next = cursor.next();

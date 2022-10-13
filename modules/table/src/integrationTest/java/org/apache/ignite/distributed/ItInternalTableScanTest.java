@@ -163,7 +163,7 @@ public class ItInternalTableScanTest {
 
         AtomicReference<Throwable> gotException = new AtomicReference<>();
 
-        when(mockStorage.scan(any(), any(HybridTimestamp.class))).thenAnswer(invocation -> {
+        when(mockStorage.scan(any(HybridTimestamp.class))).thenAnswer(invocation -> {
             var cursor = mock(PartitionTimestampCursor.class);
 
             when(cursor.hasNext()).thenAnswer(hnInvocation -> true);
@@ -221,7 +221,7 @@ public class ItInternalTableScanTest {
 
         AtomicReference<Throwable> gotException = new AtomicReference<>();
 
-        when(mockStorage.scan(any(), any(HybridTimestamp.class))).thenThrow(new StorageException("Some storage exception"));
+        when(mockStorage.scan(any(HybridTimestamp.class))).thenThrow(new StorageException("Some storage exception"));
 
         internalTbl.scan(0, null).subscribe(new Subscriber<>() {
 
@@ -376,7 +376,7 @@ public class ItInternalTableScanTest {
 
         List<BinaryRow> retrievedItems = Collections.synchronizedList(new ArrayList<>());
 
-        when(mockStorage.scan(any(), any(HybridTimestamp.class))).thenAnswer(invocation -> {
+        when(mockStorage.scan(any(HybridTimestamp.class))).thenAnswer(invocation -> {
             var cursor = mock(PartitionTimestampCursor.class);
 
             when(cursor.hasNext()).thenAnswer(hnInvocation -> cursorTouchCnt.get() < submittedItems.size());
@@ -444,7 +444,7 @@ public class ItInternalTableScanTest {
         // and avoids the race between closing the cursor and stopping the node.
         CountDownLatch subscriberFinishedLatch = new CountDownLatch(1);
 
-        lenient().when(mockStorage.scan(any(), any(HybridTimestamp.class))).thenAnswer(invocation -> {
+        lenient().when(mockStorage.scan(any(HybridTimestamp.class))).thenAnswer(invocation -> {
             var cursor = mock(PartitionTimestampCursor.class);
 
             doAnswer(

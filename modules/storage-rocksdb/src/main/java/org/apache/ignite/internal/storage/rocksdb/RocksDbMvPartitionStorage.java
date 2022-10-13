@@ -876,7 +876,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
     /** {@inheritDoc} */
     @Override
-    public PartitionTimestampCursor scan(Predicate<BinaryRow> keyFilter, HybridTimestamp timestamp) throws StorageException {
+    public PartitionTimestampCursor scan(HybridTimestamp timestamp) throws StorageException {
         assert timestamp != null;
 
         RocksIterator it = db.newIterator(cf, scanReadOptions);
@@ -964,10 +964,6 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                         // Seek to next row id as we found nothing that matches.
                         incrementRowId(seekKeyBuf);
 
-                        continue;
-                    }
-
-                    if (keyFilter != null && !keyFilter.test(readResult.binaryRow())) {
                         continue;
                     }
 
