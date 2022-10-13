@@ -24,7 +24,9 @@ import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.Set;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.ClusterState;
+import org.apache.ignite.internal.cluster.management.raft.commands.ClusterNodeMessage;
 import org.apache.ignite.internal.cluster.management.raft.commands.InitCmgStateCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinReadyCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinRequestCommand;
@@ -110,7 +112,7 @@ public class CmgRaftGroupListener implements RaftGroupListener {
 
             return command.clusterState();
         } else {
-            ValidationResult validationResult = ValidationManager.validateState(state, command.node(), command.clusterState());
+            ValidationResult validationResult = ValidationManager.validateState(state, command.node().asClusterNode(), command.clusterState());
 
             return validationResult.isValid() ? state : new ValidationErrorResponse(validationResult.errorDescription());
         }
@@ -119,7 +121,7 @@ public class CmgRaftGroupListener implements RaftGroupListener {
     private ValidationResult validateNode(JoinRequestCommand command) {
         return validationManager.validateNode(
                 storage.getClusterState(),
-                command.node(),
+                command.node().asClusterNode(),
                 command.igniteVersion(),
                 command.clusterTag()
         );
@@ -127,7 +129,7 @@ public class CmgRaftGroupListener implements RaftGroupListener {
 
     @Nullable
     private Serializable completeValidation(JoinReadyCommand command) {
-        ClusterNode node = command.node();
+        ClusterNode node = command.node().asClusterNode();
 
         if (validationManager.isNodeValidated(node)) {
             storage.putLogicalTopologyNode(node);
@@ -143,7 +145,7 @@ public class CmgRaftGroupListener implements RaftGroupListener {
     }
 
     private void removeNodesFromLogicalTopology(NodesLeaveCommand command) {
-        Set<ClusterNode> nodes = command.nodes();
+        Set<ClusterNode> nodes = command.nodes().stream().map(ClusterNodeMessage::asClusterNode).collect(Collectors.toSet());
 
         storage.removeLogicalTopologyNodes(nodes);
 

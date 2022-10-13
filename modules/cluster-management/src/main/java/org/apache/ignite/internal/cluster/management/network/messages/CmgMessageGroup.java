@@ -53,4 +53,27 @@ public class CmgMessageGroup {
      * Message type for {@link SuccessResponseMessage}.
      */
     public static final short SUCCESS_RESPONSE = 6;
+
+    /**
+     * Message types for RAFT commands.
+     */
+    public interface Commands  {
+        int INIT_CMG_STATE = 40;
+
+        int READ_STATE = 41;
+
+        int READ_LOGICAL_TOPOLOGY = 42;
+
+        int JOIN_REQUEST = 43;
+
+        int JOIN_READY = 44;
+
+        int NODES_LEAVE = 45;
+
+        int CLUSTER_NODE = 60;
+
+        int CLUSTER_STATE = 61;
+
+        int CLUSTER_TAG = 62;
+    }
 }

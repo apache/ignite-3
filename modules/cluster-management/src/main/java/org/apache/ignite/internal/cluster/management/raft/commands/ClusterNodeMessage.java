@@ -17,19 +17,24 @@
 
 package org.apache.ignite.internal.cluster.management.raft.commands;
 
-import java.util.Set;
+import java.io.Serializable;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessageGroup;
+import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
-import org.apache.ignite.raft.client.WriteCommand;
 
-/**
- * Command that gets executed when a node needs to be removed from the logical topology.
- */
-@Transferable(CmgMessageGroup.Commands.NODES_LEAVE)
-public interface NodesLeaveCommand extends WriteCommand, NetworkMessage {
-    /**
-     * Returns the nodes that need to be removed from the logical topology.
-     */
-    Set<ClusterNodeMessage> nodes();
+@Transferable(CmgMessageGroup.Commands.CLUSTER_NODE)
+public interface ClusterNodeMessage extends NetworkMessage, Serializable {
+    String id();
+
+    String name();
+
+    String host();
+
+    int port();
+
+    default ClusterNode asClusterNode() {
+        return new ClusterNode(id(), name(), new NetworkAddress(host(), port()));
+    }
 }

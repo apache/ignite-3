@@ -26,6 +26,7 @@ import static org.apache.ignite.network.util.ClusterServiceUtils.resolveNodes;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
@@ -301,13 +302,13 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                 });
     }
 
-    private static ClusterState createClusterState(CmgInitMessage msg) {
-        return new ClusterState(
-                msg.cmgNodes(),
-                msg.metaStorageNodes(),
-                IgniteProductVersion.CURRENT_VERSION,
-                new ClusterTag(msg.clusterName())
-        );
+    private ClusterState createClusterState(CmgInitMessage msg) {
+        return msgFactory.clusterState()
+                .cmgNodes(Set.copyOf(msg.cmgNodes()))
+                .metaStorageNodes(Set.copyOf(msg.metaStorageNodes()))
+                .version(IgniteProductVersion.CURRENT_VERSION.toString())
+                .clusterTag(msgFactory.clusterTag().clusterName(msg.clusterName()).clusterId(UUID.randomUUID()).build())
+                .build();
     }
 
     /**

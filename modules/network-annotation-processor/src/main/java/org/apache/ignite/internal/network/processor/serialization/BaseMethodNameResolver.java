@@ -22,6 +22,7 @@ import java.util.BitSet;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.type.ArrayType;
@@ -128,6 +129,8 @@ class BaseMethodNameResolver {
             return "Collection";
         } else if (typeUtils.isSameType(parameterType, List.class)) {
             return "List";
+        } else if (typeUtils.isSameType(parameterType, Set.class)) {
+            return "Set";
         } else if (typeUtils.isSameType(parameterType, Map.class)) {
             return "Map";
         } else if (typeUtils.isSameType(parameterType, ByteBuffer.class)) {
