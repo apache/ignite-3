@@ -112,7 +112,11 @@ public class CmgRaftGroupListener implements RaftGroupListener {
 
             return command.clusterState();
         } else {
-            ValidationResult validationResult = ValidationManager.validateState(state, command.node().asClusterNode(), command.clusterState());
+            ValidationResult validationResult = ValidationManager.validateState(
+                    state,
+                    command.node().asClusterNode(),
+                    command.clusterState()
+            );
 
             return validationResult.isValid() ? state : new ValidationErrorResponse(validationResult.errorDescription());
         }

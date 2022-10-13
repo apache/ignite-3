@@ -27,6 +27,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.raft.client.Command;
@@ -61,18 +62,20 @@ public class CmgRaftGroupListenerTest {
      */
     @Test
     void testValidatedNodeIds() {
+        ClusterTag clusterTag = MSG_FACTORY.clusterTag().clusterName("cluster").clusterId(UUID.randomUUID()).build();
+
         var state = MSG_FACTORY.clusterState()
                 .cmgNodes(Set.of("foo"))
                 .metaStorageNodes(Set.of("bar"))
                 .version(IgniteProductVersion.CURRENT_VERSION.toString())
-                .clusterTag(MSG_FACTORY.clusterTag().clusterName("cluster").clusterId(UUID.randomUUID()).build())
+                .clusterTag(clusterTag)
                 .build();
 
         var node = MSG_FACTORY.clusterNodeMessage().id("foo").name("bar").host("localhost").port(666).build();
 
         listener.onWrite(iterator(MSG_FACTORY.initCmgStateCommand().node(node).clusterState(state).build()));
 
-        listener.onWrite(iterator(MSG_FACTORY.joinRequestCommand().node(node).version(state.version()).clusterTag(state.clusterTag()).build()));
+        listener.onWrite(iterator(MSG_FACTORY.joinRequestCommand().node(node).version(state.version()).clusterTag(clusterTag).build()));
 
         assertThat(listener.storage().getValidatedNodeIds(), contains(node.id()));
 

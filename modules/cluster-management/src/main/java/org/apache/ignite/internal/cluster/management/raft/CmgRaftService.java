@@ -31,6 +31,7 @@ import org.apache.ignite.internal.cluster.management.network.messages.CmgMessage
 import org.apache.ignite.internal.cluster.management.raft.commands.ClusterNodeMessage;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinReadyCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinRequestCommand;
+import org.apache.ignite.internal.cluster.management.raft.commands.NodesLeaveCommand;
 import org.apache.ignite.internal.cluster.management.raft.responses.LogicalTopologyResponse;
 import org.apache.ignite.internal.cluster.management.raft.responses.ValidationErrorResponse;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -123,7 +124,13 @@ public class CmgRaftService {
     public CompletableFuture<Void> startJoinCluster(ClusterTag clusterTag) {
         ClusterNodeMessage localNodeMessage = nodeMessage(clusterService.topologyService().localMember());
 
-        return raftService.run(msgFactory.joinRequestCommand().node(localNodeMessage).version(IgniteProductVersion.CURRENT_VERSION.toString()).clusterTag(clusterTag).build())
+        JoinRequestCommand command = msgFactory.joinRequestCommand()
+                .node(localNodeMessage)
+                .version(IgniteProductVersion.CURRENT_VERSION.toString())
+                .clusterTag(clusterTag)
+                .build();
+
+        return raftService.run(command)
                 .thenAccept(response -> {
                     if (response instanceof ValidationErrorResponse) {
                         throw new JoinDeniedException("Join request denied, reason: " + ((ValidationErrorResponse) response).reason());
@@ -164,7 +171,11 @@ public class CmgRaftService {
      * @return Future that represents the state of the operation.
      */
     public CompletableFuture<Void> removeFromCluster(Set<ClusterNode> nodes) {
-        return raftService.run(msgFactory.nodesLeaveCommand().nodes(nodes.stream().map(this::nodeMessage).collect(Collectors.toSet())).build());
+        NodesLeaveCommand command = msgFactory.nodesLeaveCommand()
+                .nodes(nodes.stream().map(this::nodeMessage).collect(Collectors.toSet()))
+                .build();
+
+        return raftService.run(command);
     }
 
     /**

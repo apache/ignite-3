@@ -24,6 +24,9 @@ import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
 
+/**
+ * {@link ClusterNode} as a network message class.
+ */
 @Transferable(CmgMessageGroup.Commands.CLUSTER_NODE)
 public interface ClusterNodeMessage extends NetworkMessage, Serializable {
     String id();
