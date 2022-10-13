@@ -113,28 +113,20 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
     }
 
     /// <inheritdoc/>
-    public async Task<Option<TV>> GetAndRemoveAsync(ITransaction? transaction, TK key)
-    {
-        throw new System.NotImplementedException();
-    }
+    public async Task<Option<TV>> GetAndRemoveAsync(ITransaction? transaction, TK key) =>
+        (await _recordView.GetAndDeleteAsync(transaction, key)).Map(static x => x.Val);
 
     /// <inheritdoc/>
-    public async Task<bool> ReplaceAsync(ITransaction? transaction, TK key, TV val)
-    {
-        throw new System.NotImplementedException();
-    }
+    public async Task<bool> ReplaceAsync(ITransaction? transaction, TK key, TV val) =>
+        await _recordView.ReplaceAsync(transaction, new(key, val));
 
     /// <inheritdoc/>
-    public async Task<bool> ReplaceAsync(ITransaction? transaction, TK key, TV oldVal, TV newVal)
-    {
-        throw new System.NotImplementedException();
-    }
+    public async Task<bool> ReplaceAsync(ITransaction? transaction, TK key, TV oldVal, TV newVal) =>
+        await _recordView.ReplaceAsync(transaction, new(key, oldVal), new(key, newVal));
 
     /// <inheritdoc/>
-    public async Task<Option<TV>> GetAndReplaceAsync(ITransaction? transaction, TK key, TV val)
-    {
-        throw new System.NotImplementedException();
-    }
+    public async Task<Option<TV>> GetAndReplaceAsync(ITransaction? transaction, TK key, TV val) =>
+        (await _recordView.GetAndReplaceAsync(transaction, new(key, val))).Map(static x => x.Val);
 
     private static KvPair<TK, TV> ToKv(KeyValuePair<TK, TV> x) => new(x.Key, x.Value);
 
