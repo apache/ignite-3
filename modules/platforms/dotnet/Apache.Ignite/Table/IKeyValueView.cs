@@ -92,4 +92,39 @@ public interface IKeyValueView<TK, TV>
     /// when specified key is not present in the table.
     /// </returns>
     Task<Option<TV>> GetAndPutAsync(ITransaction? transaction, TK key, TV val);
+
+    /// <summary>
+    /// Puts a value with a given key if the specified key is not present in the table.
+    /// </summary>
+    /// <param name="transaction">The transaction or <c>null</c> to auto commit.</param>
+    /// <param name="key">Key.</param>
+    /// <param name="val">Value.</param>
+    /// <returns>
+    /// A <see cref="Task{TResult}"/> representing the asynchronous operation.
+    /// The task result contains a value indicating whether the value was added to the table.
+    /// </returns>
+    Task<bool> PutIfAbsentAsync(ITransaction? transaction, TK key, TV val);
+
+    /// <summary>
+    /// Removes a value with a given key from the table.
+    /// </summary>
+    /// <param name="transaction">The transaction or <c>null</c> to auto commit.</param>
+    /// <param name="key">Key.</param>
+    /// <returns>
+    /// A <see cref="Task{TResult}"/> representing the asynchronous operation.
+    /// The task result contains a value indicating whether the key was removed from the table.
+    /// </returns>
+    Task<bool> RemoveAsync(ITransaction? transaction, TK key);
+
+    /// <summary>
+    /// Removes a value with a given key from the table only if it is equal to the specified value.
+    /// </summary>
+    /// <param name="transaction">The transaction or <c>null</c> to auto commit.</param>
+    /// <param name="key">Key.</param>
+    /// <param name="val">Val.</param>
+    /// <returns>
+    /// A <see cref="Task{TResult}"/> representing the asynchronous operation.
+    /// The task result contains a value indicating whether the key was removed from the table.
+    /// </returns>
+    Task<bool> RemoveAsync(ITransaction? transaction, TK key, TV val);
 }
