@@ -135,9 +135,9 @@ public interface IKeyValueView<TK, TV>
     /// <param name="keys">Keys.</param>
     /// <returns>
     /// A <see cref="Task{TResult}"/> representing the asynchronous operation.
-    /// The task result contains a value indicating whether the key was removed from the table.
+    /// The task result contains skipped keys.
     /// </returns>
-    Task<bool> RemoveAllAsync(ITransaction? transaction, IEnumerable<TK> keys);
+    Task<IList<TK>> RemoveAllAsync(ITransaction? transaction, IEnumerable<TK> keys);
 
     /// <summary>
     /// Removes records with given keys and values from the table.
@@ -146,7 +146,18 @@ public interface IKeyValueView<TK, TV>
     /// <param name="pairs">Keys.</param>
     /// <returns>
     /// A <see cref="Task{TResult}"/> representing the asynchronous operation.
+    /// The task result contains skipped keys.
+    /// </returns>
+    Task<IList<TK>> RemoveAllAsync(ITransaction? transaction, IEnumerable<KeyValuePair<TK, TV>> pairs);
+
+    /// <summary>
+    /// Gets and removes a value associated with the given key.
+    /// </summary>
+    /// <param name="transaction">The transaction or <c>null</c> to auto commit.</param>
+    /// <param name="key">Key.</param>
+    /// <returns>
+    /// A <see cref="Task{TResult}"/> representing the asynchronous operation.
     /// The task result contains a value indicating whether the key was removed from the table.
     /// </returns>
-    Task<bool> RemoveAllAsync(ITransaction? transaction, IEnumerable<KeyValuePair<TK, TV>> pairs);
+    Task<Option<TV>> GetAndRemoveAsync(ITransaction? transaction, TK key);
 }
