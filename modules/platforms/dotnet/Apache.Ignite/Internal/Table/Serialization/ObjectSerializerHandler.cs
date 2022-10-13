@@ -193,8 +193,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 il.Emit(OpCodes.Ldarg_0); // reader
                 il.Emit(OpCodes.Ldc_I4_0); // index
 
-                var col = schema.Columns[0];
-                if (col.Type == ClientDataType.Decimal)
+                if (schema.Columns[0] is { Type: ClientDataType.Decimal } col)
                 {
                     EmitLdcI4(il, col.Scale);
                 }
