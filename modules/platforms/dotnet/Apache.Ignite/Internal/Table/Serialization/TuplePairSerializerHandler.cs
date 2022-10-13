@@ -26,18 +26,22 @@ internal class TuplePairSerializerHandler : IRecordSerializerHandler<KvPair<IIgn
     /// <inheritdoc/>
     public KvPair<IIgniteTuple, IIgniteTuple> Read(ref MessagePackReader reader, Schema schema, bool keyOnly = false)
     {
+        // TODO: Deal with value nullability properly. Maybe use Tuple.Empty? Or keep it as is for perf?
         var columns = schema.Columns;
         var count = keyOnly ? schema.KeyColumnCount : columns.Count;
-        var tuple = new IgniteTuple(count);
+        var keyTuple = new IgniteTuple(count);
+        var valTuple = keyOnly ? null! : new IgniteTuple(columns.Count - schema.KeyColumnCount);
         var tupleReader = new BinaryTupleReader(reader.ReadBytesAsMemory(), count);
 
         for (var index = 0; index < count; index++)
         {
             var column = columns[index];
+
+            var tuple = index < schema.KeyColumnCount ? keyTuple : valTuple;
             tuple[column.Name] = tupleReader.GetObject(index, column.Type, column.Scale);
         }
 
-        return tuple;
+        return new(keyTuple, valTuple);
     }
 
     /// <inheritdoc/>
