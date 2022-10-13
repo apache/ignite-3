@@ -282,13 +282,15 @@ public class DdlCommandHandler {
      * @return {@code true} if the full columns set is applied successfully. Otherwise, returns {@code false}.
      */
     private CompletableFuture<Boolean> addColumnInternal(String fullName, List<ColumnDefinition> colsDef, boolean ignoreColumnExistance) {
-        AtomicBoolean ret = new AtomicBoolean(true);
+        AtomicBoolean retUsr = new AtomicBoolean(true);
 
         return tableManager.alterTableAsync(
                 fullName,
                 chng -> {
+                    AtomicBoolean retTbl = new AtomicBoolean();
+
                     chng.changeColumns(cols -> {
-                        ret.set(true); // Reset state if closure have been restarted.
+                        retUsr.set(true); // Reset state if closure have been restarted.
 
                         Map<String, String> colNamesToOrders = columnOrdersToNames(chng.columns());
 
@@ -297,7 +299,7 @@ public class DdlCommandHandler {
                         if (ignoreColumnExistance) {
                             colsDef0 = colsDef.stream().filter(k -> {
                                 if (colNamesToOrders.containsKey(k.name())) {
-                                    ret.set(false);
+                                    retUsr.set(false);
 
                                     return false;
                                 } else {
@@ -318,11 +320,13 @@ public class DdlCommandHandler {
                         for (ColumnDefinition col : colsDef0) {
                             cols.create(col.name(), colChg -> convertColumnDefinition(col, colChg));
                         }
+
+                        retTbl.set(!colsDef0.isEmpty());
                     });
 
-                    return ret.get();
+                    return retTbl.get();
                 }
-        ).thenApply(v -> ret.get());
+        ).thenApply(v -> retUsr.get());
     }
 
     private void convertColumnDefinition(ColumnDefinition definition, ColumnChange columnChange) {

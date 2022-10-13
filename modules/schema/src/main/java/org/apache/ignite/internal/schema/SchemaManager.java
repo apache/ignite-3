@@ -41,7 +41,9 @@ import org.apache.ignite.internal.causality.VersionedValue;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.manager.Producer;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.client.Conditions;
 import org.apache.ignite.internal.metastorage.client.Entry;
+import org.apache.ignite.internal.metastorage.client.Operations;
 import org.apache.ignite.internal.schema.event.SchemaEvent;
 import org.apache.ignite.internal.schema.event.SchemaEventParameters;
 import org.apache.ignite.internal.schema.marshaller.schema.SchemaSerializerImpl;
@@ -103,7 +105,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
 
             byte[] serialized;
 
-            if (schemas.size() > 1) {
+            if (!schemas.isEmpty()) {
                 for (Map.Entry<Integer, byte[]> ent : schemas.entrySet()) {
                     serialized = ent.getValue();
 
@@ -149,8 +151,6 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
                 return completedFuture(null);
             }
 
-            byte[] curSchemaDesc = schemaById(tblId, verFromUpdate);
-
             if (verFromUpdate != INITIAL_SCHEMA_VERSION) {
                 SchemaDescriptor oldSchema = searchSchemaByVersion(tblId, verFromUpdate - 1);
                 assert oldSchema != null;
@@ -169,16 +169,15 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
 
             CompletableFuture<?> createSchemaFut = createSchema(causalityToken, tblId, tableName, schemaDescFromUpdate);
 
-            if (curSchemaDesc == null) {
-                try {
-                    byte[] serialized = SchemaSerializerImpl.INSTANCE.serialize(schemaDescFromUpdate);
+            try {
+                final ByteArray key = schemaWithVerHistKey(tblId, verFromUpdate);
 
-                    createSchemaFut.thenCompose(t -> metastorageMgr.put(
-                            schemaWithVerHistKey(tblId, verFromUpdate), serialized)
-                    );
-                } catch (Throwable th) {
-                    createSchemaFut.completeExceptionally(th);
-                }
+                createSchemaFut.thenCompose(t -> metastorageMgr.invoke(
+                        Conditions.notExists(key),
+                        Operations.put(key, SchemaSerializerImpl.INSTANCE.serialize(schemaDescFromUpdate)),
+                        Operations.noop()));
+            } catch (Throwable th) {
+                createSchemaFut.completeExceptionally(th);
             }
 
             createSchemaFut.whenComplete((ignore, th) -> {
@@ -562,7 +561,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
      * @param ver Schema version.
      * @return {@link ByteArray} representation.
      */
-    public static ByteArray schemaWithVerHistKey(UUID tblId, int ver) {
+    private static ByteArray schemaWithVerHistKey(UUID tblId, int ver) {
         return ByteArray.fromString(tblId + SCHEMA_STORE_PREDICATE + ver);
     }
 
@@ -572,7 +571,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
      * @param tblId Table id.
      * @return {@link ByteArray} representation.
      */
-    public static ByteArray schemaHistPredicate(UUID tblId) {
+    private static ByteArray schemaHistPredicate(UUID tblId) {
         return ByteArray.fromString(tblId + SCHEMA_STORE_PREDICATE);
     }
 }

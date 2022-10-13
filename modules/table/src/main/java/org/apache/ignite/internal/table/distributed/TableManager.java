@@ -67,7 +67,6 @@ import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.IntSupplier;
-import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.ConfigurationChangeException;
@@ -1186,7 +1185,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      *                         </ul>
      * @see TableNotFoundException
      */
-    public CompletableFuture<Void> alterTableAsync(String name, Predicate<TableChange> tableChange) {
+    public CompletableFuture<Void> alterTableAsync(String name, Function<TableChange, Boolean> tableChange) {
         if (!busyLock.enterBusy()) {
             throw new IgniteException(new NodeStoppingException());
         }
@@ -1197,8 +1196,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
     }
 
-    /** See {@link #alterTableAsync(String, Predicate)} for details. */
-    private CompletableFuture<Void> alterTableAsyncInternal(String name, Predicate<TableChange> tableChange) {
+    /** See {@link #alterTableAsync(String, Function)} for details. */
+    private CompletableFuture<Void> alterTableAsyncInternal(String name, Function<TableChange, Boolean> tableChange) {
         CompletableFuture<Void> tblFut = new CompletableFuture<>();
 
         tableAsync(name).thenAccept(tbl -> {
@@ -1211,7 +1210,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     }
 
                     ch.update(name, tblCh -> {
-                        if (!tableChange.test(tblCh)) {
+                        if (!tableChange.apply(tblCh)) {
                             return;
                         }
 

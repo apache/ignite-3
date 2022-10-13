@@ -33,7 +33,11 @@ import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.configuration.ConfigurationManager;
+import org.apache.ignite.internal.configuration.schema.ExtendedTableView;
 import org.apache.ignite.internal.sql.engine.AbstractBasicIntegrationTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.TxManager;
@@ -91,6 +95,31 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
      */
     protected IgniteSql igniteSql() {
         return CLUSTER_NODES.get(0).sql();
+    }
+
+    /**
+     * Checks that schema version is updated even if column names are intersected.
+     */
+    @Test
+    public void checkSchemaUpdatedWithEqAlterColumn() {
+        IgniteSql sql = igniteSql();
+        Session ses = sql.createSession();
+
+        checkDdl(true, ses, "CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
+
+        Ignite node = CLUSTER_NODES.get(0);
+
+        ConfigurationManager cfgMgr = IgniteTestUtils.getFieldValue(node, "clusterCfgMgr");
+
+        final TablesConfiguration tablesConfiguration = cfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY);
+
+        int schIdBefore = ((ExtendedTableView) tablesConfiguration.tables().get("TEST").value()).schemaId();
+
+        checkDdl(false, ses, "ALTER TABLE TEST ADD COLUMN IF NOT EXISTS (VAL0 INT, VAL1 INT)");
+
+        int schIdAfter = ((ExtendedTableView) tablesConfiguration.tables().get("TEST").value()).schemaId();
+
+        assertEquals(schIdBefore + 1, schIdAfter);
     }
 
     @Test
