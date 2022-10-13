@@ -15,11 +15,22 @@
 # limitations under the License.
 #
 
-[requires]
-msgpack-c/4.0.0
-gtest/1.12.1
+project(ignite-test-common)
 
-[generators]
-cmake_find_package
-cmake_paths
-cmake
+set(TARGET ${PROJECT_NAME})
+
+include_directories(include)
+
+set(SOURCES
+    cmd_process.h
+    ignite_runner.cpp ignite_runner.h
+    process.cpp
+    test_utils.cpp test_utils.h
+)
+
+add_library(${TARGET} OBJECT ${SOURCES})
+target_link_libraries(${TARGET} ignite-common)
+target_include_directories(${TARGET} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+
+set_target_properties(${TARGET} PROPERTIES VERSION ${CMAKE_PROJECT_VERSION})
+set_target_properties(${TARGET} PROPERTIES POSITION_INDEPENDENT_CODE 1)
