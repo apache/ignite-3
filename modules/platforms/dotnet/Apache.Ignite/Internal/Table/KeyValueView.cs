@@ -72,6 +72,8 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
     /// <inheritdoc/>
     public async Task PutAsync(ITransaction? transaction, TK key, TV? val)
     {
+        // TODO IGNITE-16226 use a special known type that combines Key and Val - some kind of Pair?
+        // In case of tuples we can create a combined tuple.
         var schema = await _table.GetLatestSchemaAsync().ConfigureAwait(false);
         var tx = transaction.ToInternal();
 
