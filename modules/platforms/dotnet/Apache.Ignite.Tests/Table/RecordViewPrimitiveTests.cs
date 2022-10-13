@@ -31,15 +31,16 @@ public class RecordViewPrimitiveTests : IgniteTestsBase
     public async Task TestLongKey() => await TestKey(7L, Table.GetRecordView<long>());
 
     [Test]
-    public async Task TestAllSqlTypes()
+    public async Task TestAllKeyTypes()
     {
-        await TestKey((sbyte)1, "TINYINT");
-        await TestKey((short)1, "SMALLINT");
-        await TestKey(1, "INT");
-        await TestKey(1L, "BIGINT");
-        await TestKey(1.1f, "FLOAT");
-        await TestKey(1.1d, "DOUBLE");
-        await TestKey("foo", "VARCHAR");
+        await TestKey((sbyte)1, "TBL_INT8");
+        await TestKey((short)1, "TBL_INT16");
+        await TestKey(1, "TBL_INT32");
+        await TestKey(1L, "TBL_INT64");
+        await TestKey(1.1f, "TBL_FLOAT");
+        await TestKey(1.1d, "TBL_DOUBLE");
+        await TestKey(1.234m, "TBL_DECIMAL");
+        await TestKey("foo", "TBL_STRING");
     }
 
     [Test]
@@ -59,21 +60,12 @@ public class RecordViewPrimitiveTests : IgniteTestsBase
         Assert.AreEqual(val, res2.Single().Value);
     }
 
-    private async Task TestKey<T>(T val, string sqlColumnType)
+    private async Task TestKey<T>(T val, string tableName)
     {
-        var tableName = "TEST_KEY_" + sqlColumnType.ToUpperInvariant();
-        var sql = $"CREATE TABLE IF NOT EXISTS {tableName}(ID {sqlColumnType} PRIMARY KEY)";
-        var createRes = await Client.Sql.ExecuteAsync(null, sql);
-        Assert.IsTrue(createRes.WasApplied);
+        var table = await Client.Tables.GetTableAsync(tableName);
 
-        try
-        {
-            var table = await Client.Tables.GetTableAsync(tableName);
-            await TestKey(val, table!.GetRecordView<T>());
-        }
-        finally
-        {
-            await Client.Sql.ExecuteAsync(null, "DROP TABLE " + tableName);
-        }
+        Assert.IsNotNull(table, tableName);
+
+        await TestKey(val, table!.GetRecordView<T>());
     }
 }
