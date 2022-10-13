@@ -160,4 +160,42 @@ public interface IKeyValueView<TK, TV>
     /// The task result contains a value indicating whether the key was removed from the table.
     /// </returns>
     Task<Option<TV>> GetAndRemoveAsync(ITransaction? transaction, TK key);
+
+    /// <summary>
+    /// Replaces a record with the same key columns if it exists, otherwise does nothing.
+    /// </summary>
+    /// <param name="transaction">The transaction or <c>null</c> to auto commit.</param>
+    /// <param name="key">Key.</param>
+    /// <param name="val">Value.</param>
+    /// <returns>
+    /// A <see cref="Task"/> representing the asynchronous operation.
+    /// The task result contains a value indicating whether a record with the specified key was replaced.
+    /// </returns>
+    Task<bool> ReplaceAsync(ITransaction? transaction, TK key, TV val);
+
+    /// <summary>
+    /// Replaces a record with a new one only if all existing columns have the same values
+    /// as the specified <paramref name="oldVal"/>.
+    /// </summary>
+    /// <param name="transaction">The transaction or <c>null</c> to auto commit.</param>
+    /// <param name="key">Key.</param>
+    /// <param name="oldVal">Old value.</param>
+    /// <param name="newVal">New value.</param>
+    /// <returns>
+    /// A <see cref="Task"/> representing the asynchronous operation.
+    /// The task result contains a value indicating whether a record was replaced.
+    /// </returns>
+    Task<bool> ReplaceAsync(ITransaction? transaction, TK key, TV oldVal, TV newVal);
+
+    /// <summary>
+    /// Replaces a record with the same key columns if it exists.
+    /// </summary>
+    /// <param name="transaction">The transaction or <c>null</c> to auto commit.</param>
+    /// <param name="key">Key.</param>
+    /// <param name="val">Value.</param>
+    /// <returns>
+    /// A <see cref="Task"/> representing the asynchronous operation.
+    /// The task result contains the previous value for the given key, or empty <see cref="Option{T}"/> if it did not exist.
+    /// </returns>
+    Task<Option<TV>> GetAndReplaceAsync(ITransaction? transaction, TK key, TV val);
 }
