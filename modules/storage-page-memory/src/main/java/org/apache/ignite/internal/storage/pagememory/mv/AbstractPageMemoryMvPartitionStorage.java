@@ -636,6 +636,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         VersionChain currentChain = findVersionChain(rowId);
 
         if (currentChain != null && currentChain.isUncommitted()) {
+            // This means that there is a bug in our code as the caller must make sure that no write intent exists
+            // below this write.
             throw new StorageException("Write intent exists for " + rowId);
         }
 
