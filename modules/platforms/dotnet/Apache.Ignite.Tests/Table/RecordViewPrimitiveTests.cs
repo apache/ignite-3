@@ -17,7 +17,6 @@
 
 namespace Apache.Ignite.Tests.Table;
 
-using System;
 using System.Collections;
 using System.Linq;
 using System.Numerics;
@@ -54,9 +53,16 @@ public class RecordViewPrimitiveTests : IgniteTestsBase
     }
 
     [Test]
-    public void TestColumnTypeMismatch()
+    public void TestColumnTypeMismatchThrowsException()
     {
         var ex = Assert.ThrowsAsync<IgniteClientException>(async () => await TestKey(1f, Table.GetRecordView<float>()));
+        Assert.AreEqual("Can't map 'System.Single' to column 'KEY' of type 'System.Int64' - types do not match.", ex!.Message);
+    }
+
+    [Test]
+    public void TestUnmappedTypeThrowsException()
+    {
+        var ex = Assert.ThrowsAsync<IgniteClientException>(async () => await TestKey((byte)1, Table.GetRecordView<byte>()));
         Assert.AreEqual("Can't map 'System.Single' to column 'KEY' of type 'System.Int64' - types do not match.", ex!.Message);
     }
 
