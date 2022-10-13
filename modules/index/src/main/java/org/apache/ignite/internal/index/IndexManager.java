@@ -43,6 +43,8 @@ import org.apache.ignite.internal.schema.configuration.index.SortedIndexView;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexChange;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexConfiguration;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
+import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.lang.ErrorGroups;
@@ -56,7 +58,7 @@ import org.jetbrains.annotations.NotNull;
 
 /**
  * An Ignite component that is responsible for handling index-related commands like CREATE or DROP
- * as well as managing indexes lifecycle.
+ * as well as managing indexes' lifecycle.
  */
 public class IndexManager extends Producer<IndexEvent, IndexEventParameters> implements IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(IndexManager.class);
@@ -70,13 +72,18 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
     /** Prevents double stopping of the component. */
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
+    /** Table manager. */
+    private final TableManager tblManager;
+
     /**
      * Constructor.
      *
      * @param tablesCfg Tables and indexes configuration.
+     * @param tblManager Table manager.
      */
-    public IndexManager(TablesConfiguration tablesCfg) {
+    public IndexManager(TablesConfiguration tablesCfg, TableManager tblManager) {
         this.tablesCfg = Objects.requireNonNull(tablesCfg, "tablesCfg");
+        this.tblManager = tblManager;
     }
 
     /** {@inheritDoc} */
@@ -329,24 +336,26 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         LOG.trace("Creating local index: name={}, id={}, tableId={}, token={}",
                 tableIndexView.name(), tableIndexView.id(), tableId, causalityToken);
 
-        Index<?> index = newIndex(tableId, tableIndexView);
+        TableImpl tbl = tblManager.latestTables().get(tableId);
+
+        Index<?> index = newIndex(tbl, tableIndexView);
 
         fireEvent(IndexEvent.CREATE, new IndexEventParameters(causalityToken, index), null);
 
         return CompletableFuture.completedFuture(null);
     }
 
-    private Index<?> newIndex(UUID tableId, TableIndexView indexView) {
+    private Index<?> newIndex(TableImpl table, TableIndexView indexView) {
         if (indexView instanceof SortedIndexView) {
             return new SortedIndexImpl(
                     indexView.id(),
-                    tableId,
+                    table,
                     convert((SortedIndexView) indexView)
             );
         } else if (indexView instanceof HashIndexView) {
             return new HashIndex(
                     indexView.id(),
-                    tableId,
+                    table,
                     convert((HashIndexView) indexView)
             );
         }

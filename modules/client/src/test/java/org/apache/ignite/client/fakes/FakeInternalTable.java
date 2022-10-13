@@ -19,6 +19,7 @@ package org.apache.ignite.client.fakes;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
@@ -29,6 +30,7 @@ import java.util.function.BiConsumer;
 import javax.naming.OperationNotSupportedException;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
+import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -299,6 +301,20 @@ public class FakeInternalTable implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public Publisher<BinaryRow> scan(int p, @Nullable InternalTransaction tx) {
+        throw new IgniteInternalException(new OperationNotSupportedException());
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Publisher<BinaryRow> scan(int partId, @Nullable InternalTransaction tx, UUID indexId, BinaryTuple key,
+            BitSet columnsToInclude) {
+        throw new IgniteInternalException(new OperationNotSupportedException());
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Publisher<BinaryRow> scan(int partId, @Nullable InternalTransaction tx, UUID indexId, @Nullable BinaryTuple lowerBound,
+            @Nullable BinaryTuple upperBound, int flags, BitSet columnsToInclude) {
         throw new IgniteInternalException(new OperationNotSupportedException());
     }
 

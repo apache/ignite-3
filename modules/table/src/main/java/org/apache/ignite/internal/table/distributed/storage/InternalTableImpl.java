@@ -23,6 +23,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
@@ -43,7 +44,9 @@ import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissExcepti
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
+import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
+import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteScanRetrieveBatchReplicaRequest;
@@ -304,7 +307,11 @@ public class InternalTableImpl implements InternalTable {
             @NotNull InternalTransaction tx,
             int partId,
             long scanId,
-            int batchSize
+            int batchSize,
+            @Nullable UUID indexId,
+            @Nullable BinaryTuple lowerBound,
+            @Nullable BinaryTuple upperBound,
+            int flags
     ) {
         String partGroupId = partitionMap.get(partId).groupId();
 
@@ -316,6 +323,10 @@ public class InternalTableImpl implements InternalTable {
                 .groupId(partGroupId)
                 .transactionId(tx.id())
                 .scanId(scanId)
+                .indexToUse(indexId)
+                .lowerBound(lowerBound)
+                .upperBound(upperBound)
+                .flags(flags)
                 .batchSize(batchSize)
                 .timestamp(clock.now());
 
@@ -351,7 +362,7 @@ public class InternalTableImpl implements InternalTable {
             Function<Long, ReplicaRequest> requestFunction,
             int attempts
     ) {
-        CompletableFuture<R> result = new CompletableFuture();
+        CompletableFuture<R> result = new CompletableFuture<>();
 
         enlist(partId, tx).<R>thenCompose(
                         primaryReplicaAndTerm -> {
@@ -684,23 +695,37 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public Publisher<BinaryRow> scan(int p, @Nullable InternalTransaction tx) {
-        if (p < 0 || p >= partitions) {
-            throw new IllegalArgumentException(
-                    IgniteStringFormatter.format(
-                            "Invalid partition [partition={}, minValue={}, maxValue={}].",
-                            p,
-                            0,
-                            partitions - 1
-                    )
-            );
-        }
+        ensureValidPartition(p);
 
         final boolean implicit = tx == null;
 
         final InternalTransaction tx0 = implicit ? txManager.begin() : tx;
 
         return new PartitionScanPublisher(
-                (scanId, batchSize) -> enlistCursorInTx(tx0, p, scanId, batchSize),
+                (scanId, batchSize) -> enlistCursorInTx(tx0, p, scanId, batchSize, null, null, null,
+                        SortedIndexStorage.GREATER_OR_EQUAL), fut -> postEnlist(fut, implicit, tx0)
+        );
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Publisher<BinaryRow> scan(int partId, @Nullable InternalTransaction tx, @NotNull UUID indexId, BinaryTuple key,
+            @Nullable BitSet columnsToInclude) {
+        return scan(partId, tx, indexId, key, key, SortedIndexStorage.GREATER_OR_EQUAL, columnsToInclude);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Publisher<BinaryRow> scan(int partId, @Nullable InternalTransaction tx, @NotNull UUID indexId, @Nullable BinaryTuple lowerBound,
+            @Nullable BinaryTuple upperBound, int flags, @Nullable BitSet columnsToInclude) {
+        ensureValidPartition(partId);
+
+        final boolean implicit = tx == null;
+
+        final InternalTransaction tx0 = implicit ? txManager.begin() : tx;
+
+        return new PartitionScanPublisher(
+                (scanId, batchSize) -> enlistCursorInTx(tx0, partId, scanId, batchSize, indexId, lowerBound, upperBound, flags),
                 fut -> postEnlist(fut, implicit, tx0)
         );
     }
@@ -798,6 +823,25 @@ public class InternalTableImpl implements InternalTable {
         int partId = row.colocationHash() % partitions;
 
         return (partId < 0) ? -partId : partId;
+    }
+
+    /**
+     * Ensures partition id is valid.
+     *
+     * @param partId Partition.
+     * @throws IllegalArgumentException If partition id is invalid.
+     */
+    private void ensureValidPartition(int partId) {
+        if (partId < 0 || partId >= partitions) {
+            throw new IllegalArgumentException(
+                    IgniteStringFormatter.format(
+                            "Invalid partition [partition={}, minValue={}, maxValue={}].",
+                            partId,
+                            0,
+                            partitions - 1
+                    )
+            );
+        }
     }
 
     /**

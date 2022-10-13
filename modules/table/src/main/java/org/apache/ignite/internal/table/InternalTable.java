@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table;
 
+import java.util.BitSet;
 import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
@@ -24,12 +25,15 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
+import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
+import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.client.service.RaftGroupService;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -212,6 +216,36 @@ public interface InternalTable extends AutoCloseable {
      * @return {@link Publisher} that reactively notifies about partition rows.
      */
     Publisher<BinaryRow> scan(int p, @Nullable InternalTransaction tx);
+
+    /**
+     * Scans given partition index, providing {@link Publisher} that reactively notifies about partition rows.
+     *
+     * @param partId The partition.
+     * @param tx The transaction.
+     * @param indexId Index id.
+     * @param key Key to search.
+     * @param columnsToInclude Row projection. // TODO: Drop parameter or pushdown converter with the schema registry.
+     * @return {@link Publisher} that reactively notifies about partition rows.
+     */
+    default Publisher<BinaryRow> scan(int partId, @Nullable InternalTransaction tx, @NotNull UUID indexId, BinaryTuple key,
+            @Nullable BitSet columnsToInclude) {
+        return scan(partId, tx, indexId, key, key, SortedIndexStorage.GREATER_OR_EQUAL, columnsToInclude);
+    }
+
+    /**
+     * Scans given partition index, providing {@link Publisher} that reactively notifies about partition rows.
+     *
+     * @param partId The partition.
+     * @param tx The transaction.
+     * @param indexId Index id.
+     * @param lowerBound Lower search bound.
+     * @param upperBound Upper search bound.
+     * @param flags Control flags. See {@link org.apache.ignite.internal.storage.index.SortedIndexStorage} constants.
+     * @param columnsToInclude Row projection.
+     * @return {@link Publisher} that reactively notifies about partition rows.
+     */
+    Publisher<BinaryRow> scan(int partId, @Nullable InternalTransaction tx, @NotNull UUID indexId, @Nullable BinaryTuple lowerBound,
+            @Nullable BinaryTuple upperBound, int flags, @Nullable BitSet columnsToInclude);
 
     /**
      * Gets a count of partitions of the table.

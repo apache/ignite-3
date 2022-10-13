@@ -21,8 +21,15 @@ import java.util.BitSet;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.Flow.Publisher;
+import org.apache.ignite.internal.schema.BinaryConverter;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.util.PublisherAdapter;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -30,20 +37,23 @@ import org.jetbrains.annotations.Nullable;
  */
 public class SortedIndexImpl implements SortedIndex {
     private final UUID id;
-    private final UUID tableId;
+    private final InternalTable table;
     private final SortedIndexDescriptor descriptor;
+    private final SchemaRegistry schemaRegistry;
 
     /**
      * Constructs the sorted index.
      *
      * @param id An identifier of the index.
-     * @param tableId An identifier of the table this index relates to.
+     * @param table A table this index relates to.
      * @param descriptor A descriptor of the index.
      */
-    public SortedIndexImpl(UUID id, UUID tableId, SortedIndexDescriptor descriptor) {
+    public SortedIndexImpl(UUID id, TableImpl table, SortedIndexDescriptor descriptor) {
         this.id = Objects.requireNonNull(id, "id");
-        this.tableId = Objects.requireNonNull(tableId, "tableId");
+        this.table = Objects.requireNonNull(table.internalTable(), "table");
         this.descriptor = Objects.requireNonNull(descriptor, "descriptor");
+
+        schemaRegistry = table.schemaView();
     }
 
     /** {@inheritDoc} */
@@ -55,7 +65,7 @@ public class SortedIndexImpl implements SortedIndex {
     /** {@inheritDoc} */
     @Override
     public UUID tableId() {
-        return tableId;
+        return table.tableId();
     }
 
     /** {@inheritDoc} */
@@ -73,7 +83,7 @@ public class SortedIndexImpl implements SortedIndex {
     /** {@inheritDoc} */
     @Override
     public Publisher<BinaryTuple> scan(int partId, InternalTransaction tx, BinaryTuple key, BitSet columns) {
-        throw new UnsupportedOperationException("Index scan is not implemented yet");
+        return scan(partId, tx, key, key, INCLUDE_LEFT, columns); // TODO: Fix flags.
     }
 
     /** {@inheritDoc} */
@@ -86,6 +96,16 @@ public class SortedIndexImpl implements SortedIndex {
             int flags,
             BitSet columnsToInclude
     ) {
-        throw new UnsupportedOperationException("Index scan is not implemented yet");
+        return new PublisherAdapter<>(
+                table.scan(partId, tx, id, leftBound, rightBound, flags, columnsToInclude),
+                this::convertToTuple
+        );
+    }
+
+    // TODO: fix row conversion.
+    private BinaryTuple convertToTuple(BinaryRow row) {
+        SchemaDescriptor schemaDesc = schemaRegistry.schema(row.schemaVersion());
+
+        return BinaryConverter.forRow(schemaDesc).toTuple(row);
     }
 }

@@ -21,28 +21,38 @@ import java.util.BitSet;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.Flow.Publisher;
+import org.apache.ignite.internal.schema.BinaryConverter;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.util.PublisherAdapter;
 
 /**
  * An object that represents a hash index.
  */
 public class HashIndex implements Index<IndexDescriptor> {
     private final UUID id;
-    private final UUID tableId;
+    private final InternalTable table;
     private final IndexDescriptor descriptor;
+    private final SchemaRegistry schemaRegistry;
 
     /**
      * Constructs the index.
      *
      * @param id An identifier of the index.
-     * @param tableId An identifier of the table this index relates to.
+     * @param table A table this index relates to.
      * @param descriptor A descriptor of the index.
      */
-    public HashIndex(UUID id, UUID tableId, IndexDescriptor descriptor) {
+    public HashIndex(UUID id, TableImpl table, IndexDescriptor descriptor) {
         this.id = Objects.requireNonNull(id, "id");
-        this.tableId = Objects.requireNonNull(tableId, "tableId");
+        this.table = Objects.requireNonNull(table.internalTable(), "table");
         this.descriptor = Objects.requireNonNull(descriptor, "descriptor");
+
+        schemaRegistry = table.schemaView();
     }
 
     /** {@inheritDoc} */
@@ -54,7 +64,7 @@ public class HashIndex implements Index<IndexDescriptor> {
     /** {@inheritDoc} */
     @Override
     public UUID tableId() {
-        return tableId;
+        return table.tableId();
     }
 
     /** {@inheritDoc} */
@@ -72,6 +82,16 @@ public class HashIndex implements Index<IndexDescriptor> {
     /** {@inheritDoc} */
     @Override
     public Publisher<BinaryTuple> scan(int partId, InternalTransaction tx, BinaryTuple key, BitSet columns) {
-        throw new UnsupportedOperationException("Index scan is not implemented yet");
+        return new PublisherAdapter<>(
+                table.scan(partId, tx, id, key, columns),
+                this::convertToTuple
+        );
+    }
+
+    // TODO: fix row conversion, apply projection, upgrade row version if needed.
+    private BinaryTuple convertToTuple(BinaryRow row) {
+        SchemaDescriptor schemaDesc = schemaRegistry.schema(row.schemaVersion());
+
+        return BinaryConverter.forRow(schemaDesc).toTuple(row);
     }
 }
