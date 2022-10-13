@@ -15,11 +15,14 @@
 # limitations under the License.
 #
 
-[requires]
-msgpack-c/4.0.0
-gtest/1.12.1
+# ignite_install_headers(FILES <header>... DESTINATION <dest>)
+#
+# Function to install header files.
+function(ignite_install_headers)
+    cmake_parse_arguments(IGNITE_INSTALL "" "DESTINATION" "FILES" ${ARGN})
 
-[generators]
-cmake_find_package
-cmake_paths
-cmake
+    foreach(HEADER ${IGNITE_INSTALL_FILES})
+        get_filename_component(SUBDIR ${HEADER} DIRECTORY)
+        install(FILES ${HEADER} DESTINATION ${IGNITE_INSTALL_DESTINATION}/${SUBDIR} COMPONENT Development)
+    endforeach()
+endfunction()

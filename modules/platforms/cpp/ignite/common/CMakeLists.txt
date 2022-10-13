@@ -15,11 +15,27 @@
 # limitations under the License.
 #
 
-[requires]
-msgpack-c/4.0.0
-gtest/1.12.1
+project(ignite-common)
 
-[generators]
-cmake_find_package
-cmake_paths
-cmake
+set(TARGET ${PROJECT_NAME})
+
+set(PUBLIC_HEADERS
+    bits.h
+    bytes.h
+    bytes_view.h
+    config.h
+    ignite_error.h
+    ignite_result.h
+    uuid.h)
+
+add_library(${TARGET} INTERFACE)
+
+target_include_directories(${TARGET} INTERFACE
+    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}>
+    $<INSTALL_INTERFACE:${IGNITE_INCLUDEDIR}>)
+
+ignite_install_headers(FILES ${PUBLIC_HEADERS} DESTINATION ${IGNITE_INCLUDEDIR}/common)
+
+ignite_test(bits_test bits_test.cpp LIBS ${TARGET})
+ignite_test(bytes_test bytes_test.cpp LIBS ${TARGET})
+ignite_test(uuid_test uuid_test.cpp LIBS ${TARGET})

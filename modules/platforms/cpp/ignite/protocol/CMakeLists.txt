@@ -15,11 +15,22 @@
 # limitations under the License.
 #
 
-[requires]
-msgpack-c/4.0.0
-gtest/1.12.1
+project(ignite-protocol)
 
-[generators]
-cmake_find_package
-cmake_paths
-cmake
+set(TARGET ${PROJECT_NAME})
+
+find_package(msgpack)
+
+set(SOURCES
+    buffer_adapter.cpp buffer_adapter.h
+    extension_types.h
+    reader.cpp reader.h
+    utils.cpp utils.h
+    writer.cpp writer.h
+)
+
+add_library(${TARGET} OBJECT ${SOURCES})
+target_link_libraries(${TARGET} ignite-common msgpackc)
+
+set_target_properties(${TARGET} PROPERTIES VERSION ${CMAKE_PROJECT_VERSION})
+set_target_properties(${TARGET} PROPERTIES POSITION_INDEPENDENT_CODE 1)
