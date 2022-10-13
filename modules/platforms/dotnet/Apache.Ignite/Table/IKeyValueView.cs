@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Table;
 
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Transactions;
 
@@ -37,6 +38,18 @@ public interface IKeyValueView<TK, TV>
     /// The task result contains a record with all columns.
     /// </returns>
     Task<Option<TV>> GetAsync(ITransaction? transaction, TK key);
+
+    /// <summary>
+    /// Gets multiple records by keys.
+    /// </summary>
+    /// <param name="transaction">The transaction or <c>null</c> to auto commit.</param>
+    /// <param name="keys">Keys.</param>
+    /// <returns>
+    /// A <see cref="Task"/> representing the asynchronous operation.
+    /// The task result contains a dictionary with specified keys and their values. If a record for a particular key does not exist,
+    /// it will not be present in the resulting dictionary.
+    /// </returns>
+    Task<IDictionary<TK, TV>> GetAllAsync(ITransaction? transaction, IEnumerable<TK> keys);
 
     /// <summary>
     /// Puts a value with a given key.
