@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Tests.Table;
 
 using System;
+using System.Collections;
 using System.Linq;
 using System.Numerics;
 using System.Threading.Tasks;
@@ -48,6 +49,8 @@ public class RecordViewPrimitiveTests : IgniteTestsBase
         await TestKey(new LocalTime(3, 4, 5), "TBL_TIME");
         await TestKey(Instant.FromUnixTimeMilliseconds(123456789101112), "TBL_TIMESTAMP");
         await TestKey(new BigInteger(123456789101112), "TBL_NUMBER");
+        await TestKey(new byte[] { 1, 2, 3 }, "TBL_BYTES");
+        await TestKey(new BitArray(new[] { byte.MaxValue }), "TBL_BITMASK");
     }
 
     [Test]
