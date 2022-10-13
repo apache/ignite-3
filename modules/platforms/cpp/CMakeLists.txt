@@ -40,9 +40,10 @@ else()
     include(GNUInstallDirs)
 endif()
 
-set(INSTALL_INCLUDEDIR ${CMAKE_INSTALL_INCLUDEDIR}/ignite)
+set(IGNITE_INCLUDEDIR ${CMAKE_INSTALL_INCLUDEDIR}/ignite)
 message(STATUS "CMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}")
-message(STATUS "INSTALL_INCLUDEDIR=${INSTALL_INCLUDEDIR}")
+message(STATUS "IGNITE_INCLUDEDIR=${IGNITE_INCLUDEDIR}")
+include(ignite_install_headers)
 
 option(ENABLE_ADDRESS_SANITIZER "If address sanitizer is enabled" OFF)
 option(ENABLE_UB_SANITIZER "If undefined behavior sanitizer is enabled" OFF)

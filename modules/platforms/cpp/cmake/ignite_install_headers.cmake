@@ -15,27 +15,14 @@
 # limitations under the License.
 #
 
-project(ignite-common)
+# ignite_install_headers(FILES <header>... DESTINATION <dest>)
+#
+# Function to install header files.
+function(ignite_install_headers)
+    cmake_parse_arguments(IGNITE_INSTALL "" "DESTINATION" "FILES" ${ARGN})
 
-set(TARGET ${PROJECT_NAME})
-
-set(PUBLIC_HEADERS
-    bits.h
-    bytes.h
-    bytes_view.h
-    config.h
-    ignite_error.h
-    ignite_result.h
-    uuid.h)
-
-add_library(${TARGET} INTERFACE)
-
-target_include_directories(${TARGET} INTERFACE
-    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}>
-    $<INSTALL_INTERFACE:${IGNITE_INCLUDEDIR}>)
-
-ignite_install_headers(FILES ${PUBLIC_HEADERS} DESTINATION ${IGNITE_INCLUDEDIR}/common)
-
-ignite_test(bits_test bits_test.cpp LIBS ${TARGET})
-ignite_test(bytes_test bytes_test.cpp LIBS ${TARGET})
-ignite_test(uuid_test uuid_test.cpp LIBS ${TARGET})
+    foreach(HEADER ${IGNITE_INSTALL_FILES})
+        get_filename_component(SUBDIR ${HEADER} DIRECTORY)
+        install(FILES ${HEADER} DESTINATION ${IGNITE_INSTALL_DESTINATION}/${SUBDIR} COMPONENT Development)
+    endforeach()
+endfunction()
