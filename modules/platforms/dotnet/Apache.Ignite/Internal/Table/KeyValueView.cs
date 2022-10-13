@@ -53,10 +53,8 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
     }
 
     /// <inheritdoc/>
-    public Task<bool> ContainsAsync(ITransaction? transaction, TK key)
-    {
-        throw new System.NotImplementedException();
-    }
+    public async Task<bool> ContainsAsync(ITransaction? transaction, TK key) =>
+        await _recordView.ContainsKey(transaction, new(key));
 
     /// <inheritdoc/>
     public async Task PutAsync(ITransaction? transaction, TK key, TV val) =>

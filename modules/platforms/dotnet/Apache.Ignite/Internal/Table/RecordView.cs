@@ -279,6 +279,23 @@ namespace Apache.Ignite.Internal.Table
             return _ser.ReadMultiple(resBuf, resSchema);
         }
 
+        /// <summary>
+        /// Determines if the table contains an entry for the specified key.
+        /// </summary>
+        /// <param name="transaction">Transaction.</param>
+        /// <param name="key">Key.</param>
+        /// <returns>
+        /// A <see cref="Task"/> representing the asynchronous operation.
+        /// The task result contains a value indicating whether a record with the specified key exists in the table.
+        /// </returns>
+        internal async Task<bool> ContainsKey(ITransaction? transaction, T key)
+        {
+            IgniteArgumentCheck.NotNull(key, nameof(key));
+
+            using var resBuf = await DoRecordOutOpAsync(ClientOp.TupleContainsKey, transaction, key, keyOnly: true).ConfigureAwait(false);
+            return resBuf.GetReader().ReadBoolean();
+        }
+
         private async Task<PooledBuffer> DoOutInOpAsync(
             ClientOp clientOp,
             Transaction? tx,
