@@ -192,6 +192,13 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 // Single column to primitive type mapping.
                 il.Emit(OpCodes.Ldarg_0); // reader
                 il.Emit(OpCodes.Ldc_I4_0); // index
+
+                var col = schema.Columns[0];
+                if (col.Type == ClientDataType.Decimal)
+                {
+                    EmitLdcI4(il, col.Scale);
+                }
+
                 il.Emit(OpCodes.Call, readMethod);
                 il.Emit(OpCodes.Ret);
 
