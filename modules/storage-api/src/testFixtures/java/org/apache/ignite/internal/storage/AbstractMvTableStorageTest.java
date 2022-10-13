@@ -137,8 +137,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         assertThrows(IllegalArgumentException.class, () -> partitionStorage0.read(rowId1, HybridTimestamp.MAX_VALUE));
         assertThat(unwrap(partitionStorage1.read(rowId1, HybridTimestamp.MAX_VALUE)), is(equalTo(unwrap(testData1))));
 
-        assertThat(toList(partitionStorage0.scan(row -> true, HybridTimestamp.MAX_VALUE)), contains(unwrap(testData0)));
-        assertThat(toList(partitionStorage1.scan(row -> true, HybridTimestamp.MAX_VALUE)), contains(unwrap(testData1)));
+        assertThat(toList(partitionStorage0.scan(HybridTimestamp.MAX_VALUE)), contains(unwrap(testData0)));
+        assertThat(toList(partitionStorage1.scan(HybridTimestamp.MAX_VALUE)), contains(unwrap(testData1)));
     }
 
     /**
