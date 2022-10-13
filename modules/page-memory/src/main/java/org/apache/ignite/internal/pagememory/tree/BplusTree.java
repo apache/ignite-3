@@ -839,13 +839,13 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
 
             assert lvl == io.getRootLevel(metaAddr); // Can drop only root.
 
-            io.cutRoot(metaAddr, pageSize());
+            io.cutRoot(metaAddr);
 
             int newLvl = lvl - 1;
 
             assert io.getRootLevel(metaAddr) == newLvl;
 
-            treeMeta = new TreeMetaData(newLvl, io.getFirstPageId(metaAddr, newLvl));
+            treeMeta = new TreeMetaData(newLvl, io.getFirstPageId(metaAddr, newLvl, partId));
 
             return TRUE;
         }
@@ -876,10 +876,10 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
 
             assert lvl == io.getLevelsCount(pageAddr);
 
-            io.addRoot(pageAddr, rootPageId, pageSize());
+            io.addRoot(pageAddr, rootPageId);
 
             assert io.getRootLevel(pageAddr) == lvl;
-            assert io.getFirstPageId(pageAddr, lvl) == rootPageId;
+            assert io.getFirstPageId(pageAddr, lvl, partId) == rootPageId;
 
             treeMeta = new TreeMetaData(lvl, rootPageId);
 
@@ -893,7 +893,6 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
      * Page handler to initialize the root.
      */
     private class InitRoot implements PageHandler<Long, Bool> {
-        /** {@inheritDoc} */
         @Override
         public Bool run(
                 int groupId,
@@ -902,7 +901,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                 long pageAddr,
                 PageIo iox,
                 Long rootId,
-                int inlineSize,
+                int notUsed,
                 IoStatisticsHolder statHolder
         ) {
             assert rootId != null;
@@ -910,10 +909,10 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             // Safe cast because we should never recycle meta page until the tree is destroyed.
             BplusMetaIo io = (BplusMetaIo) iox;
 
-            io.initRoot(pageAddr, rootId, pageSize());
+            io.initRoot(pageAddr, rootId);
 
             assert io.getRootLevel(pageAddr) == 0;
-            assert io.getFirstPageId(pageAddr, 0) == rootId;
+            assert io.getFirstPageId(pageAddr, 0, partId) == rootId;
 
             treeMeta = new TreeMetaData(0, rootId);
 
@@ -1035,17 +1034,6 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
      * @throws IgniteInternalCheckedException If failed.
      */
     protected final void initTree(boolean initNew) throws IgniteInternalCheckedException {
-        initTree(initNew, 0);
-    }
-
-    /**
-     * Initialize new tree.
-     *
-     * @param initNew {@code True} if new tree should be created.
-     * @param inlineSize Inline size.
-     * @throws IgniteInternalCheckedException If failed.
-     */
-    protected final void initTree(boolean initNew, int inlineSize) throws IgniteInternalCheckedException {
         if (initNew) {
             // Allocate the first leaf page, it will be our root.
             long rootId = allocatePage(null);
@@ -1053,7 +1041,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             init(rootId, latestLeafIo());
 
             // Initialize meta page with new root page.
-            Bool res = write(metaPageId, initRoot, latestMetaIo(), rootId, inlineSize, FALSE, statisticsHolder());
+            Bool res = write(metaPageId, initRoot, latestMetaIo(), rootId, 0, FALSE, statisticsHolder());
 
             assert res == TRUE : res;
 
@@ -1101,7 +1089,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                 BplusMetaIo io = metaIos.forPage(pageAddr);
 
                 int rootLvl = io.getRootLevel(pageAddr);
-                long rootId = io.getFirstPageId(pageAddr, rootLvl);
+                long rootId = io.getFirstPageId(pageAddr, rootLvl, partId);
 
                 treeMeta = meta0 = new TreeMetaData(rootLvl, rootId);
             } finally {
@@ -1176,7 +1164,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                 return 0;
             }
 
-            return io.getFirstPageId(pageAddr, lvl);
+            return io.getFirstPageId(pageAddr, lvl, partId);
         } finally {
             if (metaPageAddr == 0L) {
                 readUnlock(metaId, metaPage, pageAddr);
@@ -2864,7 +2852,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
         BplusMetaIo mio = metaIos.forPage(pageAddr);
 
         for (int lvl = mio.getRootLevel(pageAddr); lvl >= 0; lvl--) {
-            res.add(mio.getFirstPageId(pageAddr, lvl));
+            res.add(mio.getFirstPageId(pageAddr, lvl, partId));
         }
 
         return res;

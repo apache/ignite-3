@@ -18,9 +18,7 @@
 package org.apache.ignite.internal.storage.pagememory.index.meta.io;
 
 import static org.apache.ignite.internal.pagememory.util.PageUtils.getLong;
-import static org.apache.ignite.internal.pagememory.util.PageUtils.getShort;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putLong;
-import static org.apache.ignite.internal.pagememory.util.PageUtils.putShort;
 
 import java.util.UUID;
 import org.apache.ignite.internal.pagememory.tree.io.BplusIo;
@@ -33,8 +31,7 @@ import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMeta;
  * <p>Defines a following data layout:
  * <ul>
  *     <li>Index ID - {@link UUID} (16 bytes);</li>
- *     <li>Index root page ID - long (8 bytes);</li>
- *     <li>Index inline size in bytes - short (2 bytes).</li>
+ *     <li>Index root page ID - long (8 bytes).</li>
  * </ul>
  */
 public interface IndexMetaIo {
@@ -46,9 +43,6 @@ public interface IndexMetaIo {
 
     /** Index tree meta page id offset - long (8 bytes). */
     int INDEX_TREE_META_PAGE_ID_OFFSET = INDEX_ID_LSB_OFFSET + Long.BYTES;
-
-    /** Offset of the inline size in bytes - short (2 bytes). */
-    int INDEX_INLINE_SIZE_OFFSET = INDEX_TREE_META_PAGE_ID_OFFSET + Long.BYTES;
 
     /** Payload size in bytes. */
     int SIZE_IN_BYTES = 2 * Long.BYTES /* Index ID - {@link UUID} (16 bytes) */
@@ -96,9 +90,7 @@ public interface IndexMetaIo {
 
         long indexTreeMetaPageId = getLong(pageAddr, elementOffset + INDEX_TREE_META_PAGE_ID_OFFSET);
 
-        int inlineSize = getShort(pageAddr, elementOffset + INDEX_INLINE_SIZE_OFFSET) & 0xFFFF;
-
-        return new IndexMeta(new UUID(indexIdMsb, indexIdLsb), indexTreeMetaPageId, inlineSize);
+        return new IndexMeta(new UUID(indexIdMsb, indexIdLsb), indexTreeMetaPageId);
     }
 
     /**
@@ -123,7 +115,5 @@ public interface IndexMetaIo {
         putLong(pageAddr, off + INDEX_ID_LSB_OFFSET, row.id().getLeastSignificantBits());
 
         putLong(pageAddr, off + INDEX_TREE_META_PAGE_ID_OFFSET, row.metaPageId());
-
-        putShort(pageAddr, off + INDEX_INLINE_SIZE_OFFSET, (short) row.inlineSize());
     }
 }

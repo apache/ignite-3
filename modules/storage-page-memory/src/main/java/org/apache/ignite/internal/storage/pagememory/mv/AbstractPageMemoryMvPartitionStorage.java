@@ -58,6 +58,7 @@ import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumnsFreeList;
 import org.apache.ignite.internal.storage.pagememory.index.hash.HashIndexTree;
 import org.apache.ignite.internal.storage.pagememory.index.hash.PageMemoryHashIndexStorage;
+import org.apache.ignite.internal.storage.pagememory.index.hash.io.HashIndexTreeMetaIo;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMeta;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.PageMemorySortedIndexStorage;
@@ -173,7 +174,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      * @param indexId Index UUID.
      */
     public PageMemoryHashIndexStorage getOrCreateHashIndex(UUID indexId) {
-        return hashIndexes.computeIfAbsent(indexId, uuid -> createOrRestoreHashIndex(new IndexMeta(indexId, 0L, 0)));
+        return hashIndexes.computeIfAbsent(indexId, uuid -> createOrRestoreHashIndex(new IndexMeta(indexId, 0L)));
     }
 
     /**
@@ -182,7 +183,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      * @param indexId Index UUID.
      */
     public PageMemorySortedIndexStorage getOrCreateSortedIndex(UUID indexId) {
-        return sortedIndexes.computeIfAbsent(indexId, uuid -> createOrRestoreSortedIndex(new IndexMeta(indexId, 0L, 0)));
+        return sortedIndexes.computeIfAbsent(indexId, uuid -> createOrRestoreSortedIndex(new IndexMeta(indexId, 0L)));
     }
 
     private PageMemoryHashIndexStorage createOrRestoreHashIndex(IndexMeta indexMeta) {
@@ -201,7 +202,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
             int inlineSize = initNew
                     ? binaryTupleInlineSize(pageMemory.pageSize(), 12, indexDescriptor)
-                    : indexMeta.inlineSize();
+                    : readHashIndexInlineSize(metaPageId);
 
             HashIndexTree hashIndexTree = new HashIndexTree(
                     groupId,
@@ -217,9 +218,11 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             );
 
             if (initNew) {
-                boolean replaced = indexMetaTree.putx(new IndexMeta(indexMeta.id(), metaPageId, inlineSize));
+                boolean replaced = indexMetaTree.putx(new IndexMeta(indexMeta.id(), metaPageId));
 
                 assert !replaced;
+
+                writeHashIndexInlineSize(metaPageId, inlineSize);
             }
 
             return new PageMemoryHashIndexStorage(indexDescriptor, indexFreeList, hashIndexTree);
@@ -256,8 +259,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             );
 
             if (initNew) {
-                // TODO: IGNITE-17671 Need to implement for sorted indexes
-                boolean replaced = indexMetaTree.putx(new IndexMeta(indexMeta.id(), metaPageId, 0));
+                boolean replaced = indexMetaTree.putx(new IndexMeta(indexMeta.id(), metaPageId));
 
                 assert !replaced;
             }
@@ -901,6 +903,50 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         @Override
         public void close() {
             // No-op.
+        }
+    }
+
+    private int readHashIndexInlineSize(long metaPageId) throws IgniteInternalCheckedException {
+        PageMemory pageMemory = tableStorage.dataRegion().pageMemory();
+
+        long metaPage = pageMemory.acquirePage(groupId, metaPageId);
+
+        try {
+            long metaPageAddr = pageMemory.readLock(groupId, metaPageId, metaPage);
+
+            assert metaPageAddr != 0 : metaPageId;
+
+            try {
+                HashIndexTreeMetaIo metaIo = pageMemory.ioRegistry().resolve(metaPageAddr);
+
+                return metaIo.getInlineSize(metaPageAddr);
+            } finally {
+                pageMemory.readUnlock(groupId, metaPageId, metaPage);
+            }
+        } finally {
+            pageMemory.releasePage(groupId, metaPageId, metaPage);
+        }
+    }
+
+    private void writeHashIndexInlineSize(long metaPageId, int inlineSize) throws IgniteInternalCheckedException {
+        PageMemory pageMemory = tableStorage.dataRegion().pageMemory();
+
+        long metaPage = pageMemory.acquirePage(groupId, metaPageId);
+
+        try {
+            long metaPageAddr = pageMemory.writeLock(groupId, metaPageId, metaPage);
+
+            assert metaPageAddr != 0 : metaPageId;
+
+            try {
+                HashIndexTreeMetaIo metaIo = pageMemory.ioRegistry().resolve(metaPageAddr);
+
+                metaIo.setInlineSize(metaPageAddr, inlineSize);
+            } finally {
+                pageMemory.writeUnlock(groupId, metaPageId, metaPage, true);
+            }
+        } finally {
+            pageMemory.releasePage(groupId, metaPageId, metaPage);
         }
     }
 }
