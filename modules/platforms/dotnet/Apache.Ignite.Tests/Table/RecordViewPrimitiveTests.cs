@@ -17,9 +17,11 @@
 
 namespace Apache.Ignite.Tests.Table;
 
+using System;
 using System.Linq;
 using System.Threading.Tasks;
 using Ignite.Table;
+using NodaTime;
 using NUnit.Framework;
 
 /// <summary>
@@ -41,6 +43,8 @@ public class RecordViewPrimitiveTests : IgniteTestsBase
         await TestKey(1.1d, "TBL_DOUBLE");
         await TestKey(1.234m, "TBL_DECIMAL");
         await TestKey("foo", "TBL_STRING");
+        await TestKey(new LocalDateTime(2022, 10, 13, 8, 4, 42), "TBL_DATETIME");
+        await TestKey(new LocalTime(3, 4, 5), "TBL_TIME");
     }
 
     [Test]
