@@ -52,7 +52,7 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
     public async Task<IDictionary<TK, TV>> GetAllAsync(ITransaction? transaction, IEnumerable<TK> keys)
     {
         // TODO: Avoid list allocation, read directly into dict.
-        var list = await _recordView.GetAllAsync(transaction, keys.Select(static k => new KvPair<TK, TV>(k)));
+        var list = await _recordView.GetAllAsync(transaction, keys.Select(static k => ToKv(k)));
         var res = new Dictionary<TK, TV>(list.Count);
 
         foreach (var ((key, val), hasVal) in list)
@@ -76,7 +76,7 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
 
     /// <inheritdoc/>
     public async Task PutAllAsync(ITransaction? transaction, IEnumerable<KeyValuePair<TK, TV>> pairs) =>
-        await _recordView.UpsertAllAsync(transaction, pairs.Select(static x => new KvPair<TK, TV>(x.Key, x.Value)));
+        await _recordView.UpsertAllAsync(transaction, pairs.Select(static x => ToKv(x)));
 
     /// <inheritdoc/>
     public async Task<Option<TV>> GetAndPutAsync(ITransaction? transaction, TK key, TV val) =>
@@ -98,7 +98,7 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
     public async Task<IList<TK>> RemoveAllAsync(ITransaction? transaction, IEnumerable<TK> keys)
     {
         // TODO: Avoid LINQ and list allocation, read into final list.
-        var skippedRecs = await _recordView.DeleteAllAsync(transaction, keys.Select(static k => new KvPair<TK, TV>(k)));
+        var skippedRecs = await _recordView.DeleteAllAsync(transaction, keys.Select(static k => ToKv(k)));
 
         return skippedRecs.Select(x => x.Key).ToList();
     }
@@ -107,7 +107,7 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
     public async Task<IList<TK>> RemoveAllAsync(ITransaction? transaction, IEnumerable<KeyValuePair<TK, TV>> pairs)
     {
         // TODO: Avoid LINQ and list allocation, read into final list.
-        var skippedRecs = await _recordView.DeleteAllExactAsync(transaction, pairs.Select(static x => new KvPair<TK, TV>(x.Key, x.Value)));
+        var skippedRecs = await _recordView.DeleteAllExactAsync(transaction, pairs.Select(static x => ToKv(x)));
 
         return skippedRecs.Select(x => x.Key).ToList();
     }
@@ -135,4 +135,8 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
     {
         throw new System.NotImplementedException();
     }
+
+    private static KvPair<TK, TV> ToKv(KeyValuePair<TK, TV> x) => new(x.Key, x.Value);
+
+    private static KvPair<TK, TV> ToKv(TK k) => new(k);
 }

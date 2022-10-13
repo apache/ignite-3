@@ -32,6 +32,4 @@ using Ignite.Table;
 internal readonly record struct KvPair<TK, TV>(TK Key, TV Val = default!)
 {
     public static implicit operator KvPair<TK, TV>(TK key) => new(key);
-
-    public static implicit operator KvPair<TK, TV>(KeyValuePair<TK, TV> pair) => new(pair.Key, pair.Value);
 }
