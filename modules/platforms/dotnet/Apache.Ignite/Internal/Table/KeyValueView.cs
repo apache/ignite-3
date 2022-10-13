@@ -97,7 +97,10 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
     /// <inheritdoc/>
     public async Task<IList<TK>> RemoveAllAsync(ITransaction? transaction, IEnumerable<TK> keys)
     {
-        throw new System.NotImplementedException();
+        // TODO: Avoid LINQ and list allocation, read into final list.
+        var skippedRecs = await _recordView.DeleteAllAsync(transaction, keys.Select(static k => new KvPair<TK, TV>(k)));
+
+        return skippedRecs.Select(x => x.Key).ToList();
     }
 
     /// <inheritdoc/>
