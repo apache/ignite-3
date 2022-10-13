@@ -179,6 +179,36 @@ public class PlatformTestNodeRunner {
                         .changeReplicas(1)
                         .changePartitions(10)
         ));
+
+        createTwoColumnTable(node, ColumnType.INT8);
+        createTwoColumnTable(node, ColumnType.INT16);
+        createTwoColumnTable(node, ColumnType.INT32);
+        createTwoColumnTable(node, ColumnType.INT64);
+        createTwoColumnTable(node, ColumnType.FLOAT);
+        createTwoColumnTable(node, ColumnType.DOUBLE);
+        createTwoColumnTable(node, ColumnType.decimal());
+        createTwoColumnTable(node, ColumnType.string());
+        createTwoColumnTable(node, ColumnType.datetime());
+        createTwoColumnTable(node, ColumnType.time());
+        createTwoColumnTable(node, ColumnType.timestamp());
+        createTwoColumnTable(node, ColumnType.number());
+        createTwoColumnTable(node, ColumnType.blob());
+        createTwoColumnTable(node, ColumnType.bitmaskOf(32));
+    }
+
+    private static void createTwoColumnTable(Ignite node, ColumnType type) {
+        var keyCol = "key";
+
+        TableDefinition schTbl = SchemaBuilders.tableBuilder(SCHEMA_NAME, "tbl_" + type.typeSpec().name()).columns(
+                SchemaBuilders.column(keyCol, type).build(),
+                SchemaBuilders.column("val", type).asNullable(true).build()
+        ).withPrimaryKey(keyCol).build();
+
+        await(((TableManager) node.tables()).createTableAsync(schTbl.name(), tblCh ->
+                SchemaConfigurationConverter.convert(schTbl, tblCh)
+                        .changeReplicas(1)
+                        .changePartitions(10)
+        ));
     }
 
     /**
