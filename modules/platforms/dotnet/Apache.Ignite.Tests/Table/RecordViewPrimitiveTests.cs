@@ -53,11 +53,15 @@ public class RecordViewPrimitiveTests : IgniteTestsBase
     private static async Task TestKey<T>(T val, IRecordView<T> recordView)
     {
         await recordView.UpsertAsync(null, val);
-        var (res, _) = await recordView.GetAsync(null, val);
-        var res2 = await recordView.GetAllAsync(null, new[] { val });
 
-        Assert.AreEqual(val, res);
-        Assert.AreEqual(val, res2.Single().Value);
+        // Tests EmitValuePartReader and EmitWriter.
+        var (getRes, _) = await recordView.GetAsync(null, val);
+
+        // Tests EmitReader and EmitWriter.
+        var getAllRes = await recordView.GetAllAsync(null, new[] { val });
+
+        Assert.AreEqual(val, getRes);
+        Assert.AreEqual(val, getAllRes.Single().Value);
     }
 
     private async Task TestKey<T>(T val, string tableName)
