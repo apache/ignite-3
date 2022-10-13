@@ -29,4 +29,9 @@ using Ignite.Table;
 /// <param name="Val">Value.</param>
 /// <typeparam name="TK">Key type.</typeparam>
 /// <typeparam name="TV">Value type.</typeparam>
-internal readonly record struct KvPair<TK, TV>(TK Key, TV Val = default!);
+internal readonly record struct KvPair<TK, TV>(TK Key, TV Val = default!)
+{
+    public static implicit operator KvPair<TK, TV>(TK key) => new(key);
+
+    public static implicit operator KvPair<TK, TV>(KeyValuePair<TK, TV> pair) => new(pair.Key, pair.Value);
+}

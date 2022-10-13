@@ -46,7 +46,7 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
 
     /// <inheritdoc/>
     public async Task<Option<TV>> GetAsync(ITransaction? transaction, TK key) =>
-        (await _recordView.GetAsync(transaction, new(key))).Map(static x => x.Val);
+        (await _recordView.GetAsync(transaction, key)).Map(static x => x.Val);
 
     /// <inheritdoc/>
     public async Task<IDictionary<TK, TV>> GetAllAsync(ITransaction? transaction, IEnumerable<TK> keys)
@@ -68,7 +68,7 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
 
     /// <inheritdoc/>
     public async Task<bool> ContainsAsync(ITransaction? transaction, TK key) =>
-        await _recordView.ContainsKey(transaction, new(key));
+        await _recordView.ContainsKey(transaction, key);
 
     /// <inheritdoc/>
     public async Task PutAsync(ITransaction? transaction, TK key, TV val) =>
@@ -83,22 +83,16 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
         (await _recordView.GetAndUpsertAsync(transaction, new KvPair<TK, TV>(key, val))).Map(static x => x.Val);
 
     /// <inheritdoc/>
-    public async Task<bool> PutIfAbsentAsync(ITransaction? transaction, TK key, TV val)
-    {
-        throw new System.NotImplementedException();
-    }
+    public async Task<bool> PutIfAbsentAsync(ITransaction? transaction, TK key, TV val) =>
+        await _recordView.InsertAsync(transaction, new(key, val));
 
     /// <inheritdoc/>
-    public async Task<bool> RemoveAsync(ITransaction? transaction, TK key)
-    {
-        throw new System.NotImplementedException();
-    }
+    public async Task<bool> RemoveAsync(ITransaction? transaction, TK key) =>
+        await _recordView.DeleteAsync(transaction, key);
 
     /// <inheritdoc/>
-    public async Task<bool> RemoveAsync(ITransaction? transaction, TK key, TV val)
-    {
-        throw new System.NotImplementedException();
-    }
+    public async Task<bool> RemoveAsync(ITransaction? transaction, TK key, TV val) =>
+        await _recordView.DeleteAsync(transaction, new(key, val));
 
     /// <inheritdoc/>
     public async Task<IList<TK>> RemoveAllAsync(ITransaction? transaction, IEnumerable<TK> keys)
