@@ -304,7 +304,7 @@ public class ErrorGroups {
 
     /** Storage error group. */
     public static class Storage {
-        /** Replicator error group. */
+        /** Storage error group. */
         public static final ErrorGroup STORAGE_ERR_GROUP = ErrorGroup.newGroup("STORAGE", 9);
 
         /** Failed to create a directory. */
