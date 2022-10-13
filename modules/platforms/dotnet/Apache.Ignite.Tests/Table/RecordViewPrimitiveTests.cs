@@ -63,7 +63,7 @@ public class RecordViewPrimitiveTests : IgniteTestsBase
     public void TestUnmappedTypeThrowsException()
     {
         var ex = Assert.ThrowsAsync<IgniteClientException>(async () => await TestKey((byte)1, Table.GetRecordView<byte>()));
-        Assert.AreEqual("Can't map 'System.Single' to column 'KEY' of type 'System.Int64' - types do not match.", ex!.Message);
+        Assert.AreEqual("Can't map 'System.Byte' to columns 'Int64 KEY, String VAL'. Matching fields not found.", ex!.Message);
     }
 
     private static async Task TestKey<T>(T val, IRecordView<T> recordView)
