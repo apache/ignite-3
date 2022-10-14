@@ -168,11 +168,24 @@ public class KeyValueViewBinaryTests : IgniteTestsBase
         Assert.IsFalse(res3);
     }
 
-    // TODO: Remove2
+    [Test]
+    public async Task TestRemoveExact()
+    {
+        await KvView.PutAsync(null, GetTuple(1), GetTuple("1"));
+
+        var res1 = await KvView.RemoveAsync(null, GetTuple(1), GetTuple("111"));
+        var res2 = await KvView.RemoveAsync(null, GetTuple(1), GetTuple("1"));
+        var res3 = await KvView.ContainsAsync(null, GetTuple(1));
+
+        Assert.IsFalse(res1);
+        Assert.IsTrue(res2);
+        Assert.IsFalse(res3);
+    }
+
     // TODO: RemoveAll
-    // TODO: RemoveAll2
+    // TODO: RemoveAllExact
     // TODO: GetAndRemove
     // TODO: Replace
-    // TODO: Replace2
+    // TODO: ReplaceExact
     // TODO: GetAndReplace
 }

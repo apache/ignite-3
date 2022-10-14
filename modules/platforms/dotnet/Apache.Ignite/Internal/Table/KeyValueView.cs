@@ -94,7 +94,7 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
 
     /// <inheritdoc/>
     public async Task<bool> RemoveAsync(ITransaction? transaction, TK key, TV val) =>
-        await _recordView.DeleteAsync(transaction, ToKv(key, val));
+        await _recordView.DeleteExactAsync(transaction, ToKv(key, val));
 
     /// <inheritdoc/>
     public async Task<IList<TK>> RemoveAllAsync(ITransaction? transaction, IEnumerable<TK> keys)
