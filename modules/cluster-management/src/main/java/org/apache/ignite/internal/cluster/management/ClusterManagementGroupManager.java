@@ -21,12 +21,12 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toSet;
 import static java.util.stream.Collectors.toUnmodifiableSet;
+import static org.apache.ignite.internal.cluster.management.ClusterTag.clusterTag;
 import static org.apache.ignite.network.util.ClusterServiceUtils.resolveNodes;
 
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
@@ -303,12 +303,13 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     }
 
     private ClusterState createClusterState(CmgInitMessage msg) {
-        return msgFactory.clusterState()
-                .cmgNodes(Set.copyOf(msg.cmgNodes()))
-                .metaStorageNodes(Set.copyOf(msg.metaStorageNodes()))
-                .version(IgniteProductVersion.CURRENT_VERSION.toString())
-                .clusterTag(msgFactory.clusterTag().clusterName(msg.clusterName()).clusterId(UUID.randomUUID()).build())
-                .build();
+        return ClusterState.clusterState(
+                msgFactory,
+                msg.cmgNodes(),
+                msg.metaStorageNodes(),
+                IgniteProductVersion.CURRENT_VERSION,
+                clusterTag(msgFactory, msg.clusterName())
+        );
     }
 
     /**

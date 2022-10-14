@@ -1367,17 +1367,30 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     @Override
     public <C extends Collection<?>> C readCollection(MessageCollectionItemType itemType,
             MessageReader reader) {
-        return readCollection0(itemType, reader, ArrayList::new);
+        return (C) readCollection0(itemType, reader, ArrayList::new);
     }
 
     @Override
     public <C extends Set<?>> C readSet(MessageCollectionItemType itemType, MessageReader reader) {
-        return readCollection0(itemType, reader, HashSet::new);
+        return (C) readCollection0(itemType, reader, HashSet::new);
     }
 
-    @Nullable
-    private <C extends Collection<?>> C readCollection0(MessageCollectionItemType itemType, MessageReader reader,
-            IntFunction<Collection<Object>> ctor) {
+    /**
+     * Common implementation for {@link #readCollection(MessageCollectionItemType, MessageReader)} and
+     * {@link #readSet(MessageCollectionItemType, MessageReader)}. Reads a sequence of objects and puts it into a collection, created by
+     * {@code ctor}.
+     *
+     * @param itemType Collection item type.
+     * @param reader Message reader instance.
+     * @param ctor Factory for creating a collection using its length.
+     *
+     * @return Collection, read from the reader, or {@code null} if reading has not completed yet.
+     */
+    private @Nullable Collection<?> readCollection0(
+            MessageCollectionItemType itemType,
+            MessageReader reader,
+            IntFunction<Collection<Object>> ctor
+    ) {
         if (readSize == -1) {
             int size = readInt();
 
@@ -1410,7 +1423,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         readItems = 0;
         cur = null;
 
-        C col0 = (C) col;
+        Collection<?> col0 = col;
 
         col = null;
 

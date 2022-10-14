@@ -20,6 +20,7 @@ package org.apache.ignite.internal.cluster.management;
 import java.io.Serializable;
 import java.util.UUID;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessageGroup;
+import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
 
@@ -36,4 +37,18 @@ public interface ClusterTag extends NetworkMessage, Serializable {
 
     /** Human-readable part. */
     String clusterName();
+
+    /**
+     * Creates a new cluster tag instance with auto-generated {@link #clusterId()}. Acts like a constructor replacement.
+     *
+     * @param msgFactory Message factory to instantiate builder.
+     * @param name Cluster name.
+     * @return Cluster tag instance.
+     */
+    static ClusterTag clusterTag(CmgMessagesFactory msgFactory, String name) {
+        return msgFactory.clusterTag()
+                .clusterName(name)
+                .clusterId(UUID.randomUUID())
+                .build();
+    }
 }

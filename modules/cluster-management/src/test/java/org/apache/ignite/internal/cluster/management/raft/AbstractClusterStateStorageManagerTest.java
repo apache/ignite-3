@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.cluster.management.raft;
 
+import static org.apache.ignite.internal.cluster.management.ClusterState.clusterState;
+import static org.apache.ignite.internal.cluster.management.ClusterTag.clusterTag;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
@@ -27,12 +29,8 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
 
 import java.nio.file.Path;
-import java.util.Collection;
 import java.util.List;
 import java.util.Set;
-import java.util.UUID;
-import org.apache.ignite.internal.cluster.management.ClusterState;
-import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -52,6 +50,8 @@ public abstract class AbstractClusterStateStorageManagerTest {
     private RaftStorageManager storageManager;
 
     private ClusterStateStorage storage;
+
+    private final CmgMessagesFactory msgFactory = new CmgMessagesFactory();
 
     @WorkDirectory
     Path workDir;
@@ -78,10 +78,12 @@ public abstract class AbstractClusterStateStorageManagerTest {
     @Test
     void testClusterState() {
         var state = clusterState(
+                msgFactory,
                 List.of("foo", "bar"),
                 List.of("foo", "baz"),
                 IgniteProductVersion.CURRENT_VERSION,
-                clusterTag("cluster"));
+                clusterTag(msgFactory, "cluster")
+        );
 
         assertThat(storageManager.getClusterState(), is(nullValue()));
 
@@ -90,10 +92,11 @@ public abstract class AbstractClusterStateStorageManagerTest {
         assertThat(storageManager.getClusterState(), is(equalTo(state)));
 
         state = clusterState(
+                msgFactory,
                 List.of("foo"),
                 List.of("foo"),
                 IgniteProductVersion.fromString("3.3.3"),
-                clusterTag("new_cluster")
+                clusterTag(msgFactory, "new_cluster")
         );
 
         storageManager.putClusterState(state);
@@ -159,10 +162,11 @@ public abstract class AbstractClusterStateStorageManagerTest {
     @Test
     void testSnapshot() {
         var state = clusterState(
+                msgFactory,
                 List.of("foo", "bar"),
                 List.of("foo", "baz"),
                 IgniteProductVersion.CURRENT_VERSION,
-                clusterTag("cluster")
+                clusterTag(msgFactory, "cluster")
         );
 
         storageManager.putClusterState(state);
@@ -176,10 +180,11 @@ public abstract class AbstractClusterStateStorageManagerTest {
         assertThat(storageManager.snapshot(workDir), willCompleteSuccessfully());
 
         var newState = clusterState(
+                msgFactory,
                 List.of("foo"),
                 List.of("foo"),
                 IgniteProductVersion.fromString("3.3.3"),
-                clusterTag("new_cluster")
+                clusterTag(msgFactory, "new_cluster")
         );
 
         storageManager.putClusterState(newState);
@@ -215,23 +220,5 @@ public abstract class AbstractClusterStateStorageManagerTest {
         assertThat(storageManager.isNodeValidated("node2"), is(true));
 
         assertThat(storageManager.getValidatedNodeIds(), containsInAnyOrder("node2"));
-    }
-
-    private static ClusterTag clusterTag(String cluster) {
-        return new CmgMessagesFactory().clusterTag().clusterName(cluster).clusterId(UUID.randomUUID()).build();
-    }
-
-    private static ClusterState clusterState(
-            Collection<String> cmgNodes,
-            Collection<String> metaStorageNodes,
-            IgniteProductVersion igniteVersion,
-            ClusterTag clusterTag
-    ) {
-        return new CmgMessagesFactory().clusterState()
-                .cmgNodes(Set.copyOf(cmgNodes))
-                .metaStorageNodes(Set.copyOf(metaStorageNodes))
-                .version(igniteVersion.toString())
-                .clusterTag(clusterTag)
-                .build();
     }
 }
