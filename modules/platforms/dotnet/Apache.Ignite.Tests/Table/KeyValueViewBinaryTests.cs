@@ -37,7 +37,6 @@ public class KeyValueViewBinaryTests : IgniteTestsBase
     public async Task TestPutGet()
     {
         var kvView = Table.KeyValueBinaryView;
-
         await kvView.PutAsync(null, GetTuple(1L), GetTuple("val"));
 
         var (res, _) = await kvView.GetAsync(null, GetTuple(1L));
@@ -53,6 +52,29 @@ public class KeyValueViewBinaryTests : IgniteTestsBase
 
         Assert.IsFalse(hasRes);
         Assert.IsNull(res);
+    }
+
+    [Test]
+    public async Task TestGetAll()
+    {
+        var kvView = Table.KeyValueBinaryView;
+        await kvView.PutAsync(null, GetTuple(7L), GetTuple("val1"));
+        await kvView.PutAsync(null, GetTuple(8L), GetTuple("val2"));
+
+        var res = await kvView.GetAllAsync(null, Enumerable.Range(-1, 100).Select(x => GetTuple(x)).ToList());
+
+        Assert.AreEqual(2, res.Count);
+        Assert.AreEqual("val1", res[GetTuple(7L)][0]);
+        Assert.AreEqual("val2", res[GetTuple(8L)][0]);
+    }
+
+    [Test]
+    public void TestGetAllWithNullKeyThrowsArgumentException()
+    {
+        var ex = Assert.ThrowsAsync<ArgumentNullException>(async () =>
+            await Table.KeyValueBinaryView.GetAllAsync(null, new[] { GetTuple(1L), null! }));
+
+        Assert.AreEqual("Value cannot be null. (Parameter 'key')", ex!.Message);
     }
 
     [Test]
