@@ -44,6 +44,8 @@ dependencies {
     testImplementation libs.hamcrest.core
 
     integrationTestImplementation(testFixtures(project(':ignite-configuration')))
+
+    annotationProcessor project(':ignite-configuration-annotation-processor')
 }
 
 description = 'ignite-client-handler'

@@ -15,7 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.schemas.rest;
+package org.apache.ignite.internal.compute.configuration;
+
+import static java.lang.Math.max;
 
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
@@ -23,18 +25,18 @@ import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Range;
 
 /**
- * Configuration schema for REST endpoint subtree.
+ * Configuration schema for Compute functionality.
  */
 @SuppressWarnings("PMD.UnusedPrivateField")
-@ConfigurationRoot(rootName = "rest", type = ConfigurationType.LOCAL)
-public class RestConfigurationSchema {
-    /** TCP port. */
-    @Range(min = 1024, max = 0xFFFF)
+@ConfigurationRoot(rootName = "compute", type = ConfigurationType.LOCAL)
+public class ComputeConfigurationSchema {
+    /** Job thread pool size. */
+    @Range(min = 1)
     @Value(hasDefault = true)
-    public final int port = 10300;
+    public final int threadPoolSize = max(Runtime.getRuntime().availableProcessors(), 8);
 
-    /** TCP port range. */
-    @Range(min = 0)
+    /** Job thread pool stop timeout (milliseconds). */
+    @Range(min = 1)
     @Value(hasDefault = true)
-    public final int portRange = 100;
+    public final long threadPoolStopTimeoutMillis = 10_000;
 }

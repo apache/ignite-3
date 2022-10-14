@@ -27,6 +27,7 @@ dependencies {
     implementation project(':ignite-core')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
+    annotationProcessor project(':ignite-configuration-annotation-processor')
     annotationProcessor project(':ignite-network-annotation-processor')
 
     testImplementation project(':ignite-core')
