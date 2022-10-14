@@ -190,7 +190,7 @@ public class KeyValueViewBinaryTests : IgniteTestsBase
         var res1 = await KvView.RemoveAllAsync(null, Enumerable.Range(-1, 8).Select(x => GetTuple(x)));
         var res2 = await KvView.ContainsAsync(null, GetTuple(1));
 
-        Assert.AreEqual(new[] { -1, 0, 2, 3, 4, 5, 6 }, res1.Select(x => x[0]));
+        Assert.AreEqual(new[] { -1, 0, 2, 3, 4, 5, 6 }, res1.Select(x => x[0]).OrderBy(x => x));
         Assert.IsFalse(res2);
     }
 
