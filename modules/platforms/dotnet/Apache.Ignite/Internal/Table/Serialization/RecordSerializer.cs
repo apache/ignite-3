@@ -72,7 +72,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             var r = buf.GetReader();
             r.Skip();
 
-            return _handler.ReadValuePart(ref r, schema, key);
+            return Option.Some(_handler.ReadValuePart(ref r, schema, key));
         }
 
         /// <summary>
@@ -129,9 +129,9 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
             for (var i = 0; i < count; i++)
             {
-                Option<T> option = r.ReadBoolean()
-                    ? _handler.Read(ref r, schema, keyOnly)
-                    : default(Option<T>);
+                var option = r.ReadBoolean()
+                    ? Option.Some(_handler.Read(ref r, schema, keyOnly))
+                    : default;
 
                 res.Add(option);
             }

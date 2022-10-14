@@ -47,6 +47,15 @@ public class KeyValueViewBinaryTests : IgniteTestsBase
     }
 
     [Test]
+    public async Task TestGetKeyNotExists()
+    {
+        var (res, hasRes) = await Table.KeyValueBinaryView.GetAsync(null, GetTuple(-111L));
+
+        Assert.IsFalse(hasRes);
+        Assert.IsNull(res);
+    }
+
+    [Test]
     public void TestPutNullThrowsArgumentException()
     {
         var keyEx = Assert.ThrowsAsync<ArgumentNullException>(async () => await Table.KeyValueBinaryView.PutAsync(null, null!, null!));
