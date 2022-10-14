@@ -19,4 +19,4 @@
  * Configuration schemas for Rest component.
  */
 
-package org.apache.ignite.configuration.schemas.rest;
+package org.apache.ignite.internal.rest.configuration;

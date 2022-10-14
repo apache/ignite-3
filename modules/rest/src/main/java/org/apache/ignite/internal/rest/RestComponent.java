@@ -29,8 +29,6 @@ import io.swagger.v3.oas.annotations.info.License;
 import java.net.BindException;
 import java.util.List;
 import java.util.Map;
-import org.apache.ignite.configuration.schemas.rest.RestConfiguration;
-import org.apache.ignite.configuration.schemas.rest.RestView;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -40,6 +38,8 @@ import org.apache.ignite.internal.rest.api.configuration.ClusterConfigurationApi
 import org.apache.ignite.internal.rest.api.configuration.NodeConfigurationApi;
 import org.apache.ignite.internal.rest.api.metric.NodeMetricApi;
 import org.apache.ignite.internal.rest.api.node.NodeManagementApi;
+import org.apache.ignite.internal.rest.configuration.RestConfiguration;
+import org.apache.ignite.internal.rest.configuration.RestView;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 
