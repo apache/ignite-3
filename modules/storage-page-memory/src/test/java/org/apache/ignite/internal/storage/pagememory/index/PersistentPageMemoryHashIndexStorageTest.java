@@ -22,7 +22,6 @@ import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
-import org.apache.ignite.internal.storage.index.AbstractHashIndexStorageTest;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryTableStorage;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
@@ -31,14 +30,13 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Hash index test implementation for persistent page memory storage.
  */
 @ExtendWith({ConfigurationExtension.class, WorkDirectoryExtension.class})
-class PersistentPageMemoryHashIndexStorageTest extends AbstractHashIndexStorageTest {
+class PersistentPageMemoryHashIndexStorageTest extends AbstractPageMemoryHashIndexStorageTest {
     private PersistentPageMemoryStorageEngine engine;
 
     private PersistentPageMemoryTableStorage table;
@@ -66,7 +64,7 @@ class PersistentPageMemoryHashIndexStorageTest extends AbstractHashIndexStorageT
 
         table.start();
 
-        initialize(table, tablesConfig);
+        initialize(table, tablesConfig, engineConfig);
     }
 
     @AfterEach
@@ -75,11 +73,5 @@ class PersistentPageMemoryHashIndexStorageTest extends AbstractHashIndexStorageT
                 table == null ? null : table::stop,
                 engine == null ? null : engine::stop
         );
-    }
-
-    //TODO IGNITE-17626 Enable the test.
-    @Disabled
-    @Override
-    public void testDestroy() {
     }
 }

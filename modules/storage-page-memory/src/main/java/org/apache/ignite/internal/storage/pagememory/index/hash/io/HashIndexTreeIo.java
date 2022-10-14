@@ -17,13 +17,20 @@
 
 package org.apache.ignite.internal.storage.pagememory.index.hash.io;
 
+import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
+import static org.apache.ignite.internal.pagememory.util.PageUtils.getBytes;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.getInt;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.getLong;
+import static org.apache.ignite.internal.pagememory.util.PageUtils.getShort;
+import static org.apache.ignite.internal.pagememory.util.PageUtils.putByteBuffer;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putInt;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putLong;
+import static org.apache.ignite.internal.pagememory.util.PageUtils.putShort;
 import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.PARTITIONLESS_LINK_SIZE_BYTES;
 import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.readPartitionless;
 import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.writePartitionless;
+import static org.apache.ignite.internal.storage.pagememory.index.InlineUtils.isFullyInlined;
+import static org.apache.ignite.internal.util.GridUnsafe.wrapPointer;
 
 import java.nio.ByteBuffer;
 import java.util.UUID;
@@ -31,8 +38,10 @@ import org.apache.ignite.internal.pagememory.datapage.DataPageReader;
 import org.apache.ignite.internal.pagememory.tree.io.BplusIo;
 import org.apache.ignite.internal.pagememory.util.PageUtils;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.pagememory.index.InlineUtils;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.ReadIndexColumnsValue;
+import org.apache.ignite.internal.storage.pagememory.index.hash.CompareIndexColumnsValue;
 import org.apache.ignite.internal.storage.pagememory.index.hash.HashIndexRow;
 import org.apache.ignite.internal.storage.pagememory.index.hash.HashIndexRowKey;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
@@ -43,25 +52,60 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
  * <p>Defines a following data layout:
  * <ul>
  *     <li>Index columns hash - int (4 bytes);</li>
- *     <li>Index columns link - long (6 bytes);</li>
+ *     <li>Inlined index columns size - short (2 bytes), no more than the {@link InlineUtils#MAX_BINARY_TUPLE_INLINE_SIZE}, if positive
+ *     then the index columns are fully inlined and this is their size, otherwise {@link #NOT_FULLY_INLINE} and their size is
+ *     {@link #indexColumnsInlineSize()} and to get the index columns you need to use the link;</li>
+ *     <li>Inlined index columns - N bytes;</li>
+ *     <li>Index columns link - 6 bytes, if the index columns can be completely inlined, then those 6 bytes will be reused;</li>
  *     <li>Row ID - {@link UUID} (16 bytes).</li>
  * </ul>
  */
 public interface HashIndexTreeIo {
+    /** Item size without index columns in bytes. */
+    int ITEM_SIZE_WITHOUT_COLUMNS = Integer.BYTES // Index columns hash.
+            + Short.SIZE // Inlined index columns size.
+            + PARTITIONLESS_LINK_SIZE_BYTES // Index column link.
+            + 2 * Long.BYTES; // Row ID.
+
+    /** Index columns are not fully inlined, the index column size is {@link #indexColumnsInlineSize()}. */
+    short NOT_FULLY_INLINE = -1;
+
     /** Offset of the index columns hash (4 bytes). */
-    int INDEX_COLUMNS_HASH_OFFSET = 0;
+    int HASH_OFFSET = 0;
 
-    /** Offset of the index column link (6 bytes). */
-    int INDEX_COLUMNS_LINK_OFFSET = INDEX_COLUMNS_HASH_OFFSET + Integer.BYTES;
+    /** Offset of the index columns size (2 bytes). */
+    int SIZE_OFFSET = HASH_OFFSET + Integer.BYTES;
 
-    /** Offset of rowId's most significant bits, 8 bytes. */
-    int ROW_ID_MSB_OFFSET = INDEX_COLUMNS_LINK_OFFSET + PARTITIONLESS_LINK_SIZE_BYTES;
+    /** Offset of the index columns tuple (N bytes). */
+    int TUPLE_OFFSET = SIZE_OFFSET + Short.BYTES;
 
-    /** Offset of rowId's least significant bits, 8 bytes. */
-    int ROW_ID_LSB_OFFSET = ROW_ID_MSB_OFFSET + Long.BYTES;
+    /**
+     * Returns offset of the index columns link (6 bytes).
+     */
+    default int linkOffset() {
+        return TUPLE_OFFSET + indexColumnsInlineSize();
+    }
 
-    /** Payload size in bytes. */
-    int SIZE_IN_BYTES = ROW_ID_LSB_OFFSET + Long.BYTES;
+    /**
+     * Returns offset of rowId's the most significant bits (8 bytes).
+     */
+    default int rowIdMsbOffset() {
+        return linkOffset() + PARTITIONLESS_LINK_SIZE_BYTES;
+    }
+
+    /**
+     * Returns offset of rowId's least significant bits (8 bytes).
+     */
+    default int rowIdLsbOffset() {
+        return rowIdMsbOffset() + Long.BYTES;
+    }
+
+    /**
+     * Returns item size in bytes.
+     *
+     * @see BplusIo#getItemSize()
+     */
+    int getItemSize();
 
     /**
      * Returns an offset of the element inside the page.
@@ -79,7 +123,7 @@ public interface HashIndexTreeIo {
         int dstOffset = offset(dstIdx);
         int srcOffset = offset(srcIdx);
 
-        PageUtils.copyMemory(srcPageAddr, srcOffset, dstPageAddr, dstOffset, SIZE_IN_BYTES);
+        PageUtils.copyMemory(srcPageAddr, srcOffset, dstPageAddr, dstOffset, getItemSize());
     }
 
     /**
@@ -87,19 +131,34 @@ public interface HashIndexTreeIo {
      *
      * @see BplusIo#storeByOffset(long, int, Object)
      */
-    default void storeByOffset(long pageAddr, int off, HashIndexRowKey rowKey) {
+    default void storeByOffset(long pageAddr, final int off, HashIndexRowKey rowKey) {
         assert rowKey instanceof HashIndexRow;
 
-        HashIndexRow hashIndexRow = (HashIndexRow) rowKey;
+        HashIndexRow row = (HashIndexRow) rowKey;
 
-        putInt(pageAddr, off + INDEX_COLUMNS_HASH_OFFSET, hashIndexRow.indexColumnsHash());
+        putInt(pageAddr + off, HASH_OFFSET, row.indexColumnsHash());
 
-        writePartitionless(pageAddr + off + INDEX_COLUMNS_LINK_OFFSET, hashIndexRow.indexColumns().link());
+        IndexColumns indexColumns = row.indexColumns();
 
-        RowId rowId = hashIndexRow.rowId();
+        if (isFullyInlined(indexColumns.valueSize(), indexColumnsInlineSize())) {
+            assert indexColumns.link() == NULL_LINK : "Index columns are completely inline, they should not be in FreeList";
 
-        putLong(pageAddr, off + ROW_ID_MSB_OFFSET, rowId.mostSignificantBits());
-        putLong(pageAddr, off + ROW_ID_LSB_OFFSET, rowId.leastSignificantBits());
+            putShort(pageAddr + off, SIZE_OFFSET, (short) indexColumns.valueSize());
+
+            putByteBuffer(pageAddr + off, TUPLE_OFFSET, indexColumns.valueBuffer().rewind());
+        } else {
+            putShort(pageAddr + off, SIZE_OFFSET, NOT_FULLY_INLINE);
+
+            putByteBuffer(pageAddr + off, TUPLE_OFFSET, indexColumns.valueBuffer().rewind().duplicate().limit(indexColumnsInlineSize()));
+
+            writePartitionless(pageAddr + off + linkOffset(), indexColumns.link());
+        }
+
+        RowId rowId = row.rowId();
+
+        putLong(pageAddr + off, rowIdMsbOffset(), rowId.mostSignificantBits());
+
+        putLong(pageAddr + off, rowIdLsbOffset(), rowId.leastSignificantBits());
     }
 
     /**
@@ -114,42 +173,57 @@ public interface HashIndexTreeIo {
             throws IgniteInternalCheckedException {
         assert rowKey instanceof HashIndexRow;
 
-        HashIndexRow hashIndexRow = (HashIndexRow) rowKey;
+        HashIndexRow row = (HashIndexRow) rowKey;
 
-        int off = offset(idx);
+        final int off = offset(idx);
 
-        int cmp = Integer.compare(getInt(pageAddr, off + INDEX_COLUMNS_HASH_OFFSET), hashIndexRow.indexColumnsHash());
-
-        if (cmp != 0) {
-            return cmp;
-        }
-
-        long link = readPartitionless(partitionId, pageAddr, off + INDEX_COLUMNS_LINK_OFFSET);
-
-        //TODO Add in-place compare in IGNITE-17536
-        ReadIndexColumnsValue indexColumnsTraversal = new ReadIndexColumnsValue();
-
-        dataPageReader.traverse(link, indexColumnsTraversal, null);
-
-        ByteBuffer indexColumnsBuffer = ByteBuffer.wrap(indexColumnsTraversal.result());
-
-        cmp = indexColumnsBuffer.compareTo(hashIndexRow.indexColumns().valueBuffer());
+        int cmp = Integer.compare(getInt(pageAddr + off, HASH_OFFSET), row.indexColumnsHash());
 
         if (cmp != 0) {
             return cmp;
         }
 
-        long rowIdMsb = getLong(pageAddr, off + ROW_ID_MSB_OFFSET);
+        int indexColumnsSize = getShort(pageAddr + off, SIZE_OFFSET);
 
-        cmp = Long.compare(rowIdMsb, hashIndexRow.rowId().mostSignificantBits());
+        if (indexColumnsSize != NOT_FULLY_INLINE) {
+            ByteBuffer indexColumnsBuffer = wrapPointer(pageAddr + off + TUPLE_OFFSET, indexColumnsSize);
+
+            cmp = indexColumnsBuffer.compareTo(row.indexColumns().valueBuffer().rewind());
+        } else {
+            indexColumnsSize = indexColumnsInlineSize();
+
+            ByteBuffer indexColumnsBuffer = wrapPointer(pageAddr + off + TUPLE_OFFSET, indexColumnsSize);
+
+            cmp = indexColumnsBuffer.compareTo(row.indexColumns().valueBuffer().rewind().duplicate().limit(indexColumnsSize));
+
+            if (cmp != 0) {
+                return cmp;
+            }
+
+            long link = readPartitionless(partitionId, pageAddr + off, linkOffset());
+
+            CompareIndexColumnsValue compareIndexColumnsValue = new CompareIndexColumnsValue();
+
+            dataPageReader.traverse(link, compareIndexColumnsValue, row.indexColumns().valueBuffer().rewind().duplicate());
+
+            cmp = compareIndexColumnsValue.compareResult();
+        }
 
         if (cmp != 0) {
             return cmp;
         }
 
-        long rowIdLsb = getLong(pageAddr, off + ROW_ID_LSB_OFFSET);
+        long rowIdMsb = getLong(pageAddr + off, rowIdMsbOffset());
 
-        return Long.compare(rowIdLsb, hashIndexRow.rowId().leastSignificantBits());
+        cmp = Long.compare(rowIdMsb, row.rowId().mostSignificantBits());
+
+        if (cmp != 0) {
+            return cmp;
+        }
+
+        long rowIdLsb = getLong(pageAddr + off, rowIdLsbOffset());
+
+        return Long.compare(rowIdLsb, row.rowId().leastSignificantBits());
     }
 
     /**
@@ -164,25 +238,45 @@ public interface HashIndexTreeIo {
      */
     default HashIndexRow getRow(DataPageReader dataPageReader, int partitionId, long pageAddr, int idx)
             throws IgniteInternalCheckedException {
-        int off = offset(idx);
+        final int off = offset(idx);
 
-        int hash = getInt(pageAddr, off + INDEX_COLUMNS_HASH_OFFSET);
+        int hash = getInt(pageAddr + off, HASH_OFFSET);
 
-        long link = readPartitionless(partitionId, pageAddr, off + INDEX_COLUMNS_LINK_OFFSET);
+        int indexColumnsSize = getShort(pageAddr + off, SIZE_OFFSET);
 
-        ReadIndexColumnsValue indexColumnsTraversal = new ReadIndexColumnsValue();
+        ByteBuffer indexColumnsBuffer;
 
-        dataPageReader.traverse(link, indexColumnsTraversal, null);
+        long link;
 
-        ByteBuffer indexColumnsBuffer = ByteBuffer.wrap(indexColumnsTraversal.result());
+        if (indexColumnsSize != NOT_FULLY_INLINE) {
+            indexColumnsBuffer = ByteBuffer.wrap(getBytes(pageAddr + off, TUPLE_OFFSET, indexColumnsSize));
+
+            link = NULL_LINK;
+        } else {
+            link = readPartitionless(partitionId, pageAddr + off, linkOffset());
+
+            ReadIndexColumnsValue indexColumnsTraversal = new ReadIndexColumnsValue();
+
+            dataPageReader.traverse(link, indexColumnsTraversal, null);
+
+            indexColumnsBuffer = ByteBuffer.wrap(indexColumnsTraversal.result());
+        }
 
         IndexColumns indexColumns = new IndexColumns(partitionId, link, indexColumnsBuffer);
 
-        long rowIdMsb = getLong(pageAddr, off + ROW_ID_MSB_OFFSET);
-        long rowIdLsb = getLong(pageAddr, off + ROW_ID_LSB_OFFSET);
+        long rowIdMsb = getLong(pageAddr + off, rowIdMsbOffset());
+
+        long rowIdLsb = getLong(pageAddr + off, rowIdLsbOffset());
 
         RowId rowId = new RowId(partitionId, rowIdMsb, rowIdLsb);
 
         return new HashIndexRow(hash, indexColumns, rowId);
+    }
+
+    /**
+     * Returns the inline size for index columns in bytes.
+     */
+    default int indexColumnsInlineSize() {
+        return getItemSize() - ITEM_SIZE_WITHOUT_COLUMNS;
     }
 }

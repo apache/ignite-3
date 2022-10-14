@@ -27,7 +27,6 @@ import static org.apache.ignite.internal.storage.index.SortedIndexStorage.GREATE
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.GREATER_OR_EQUAL;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.LESS;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.LESS_OR_EQUAL;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.randomString;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
@@ -240,7 +239,7 @@ public abstract class AbstractSortedIndexStorageTest {
                 column(ColumnType.INT32.typeSpec().name(), ColumnType.INT32).asNullable(false).build()
         );
 
-        SortedIndexDefinition indexDefinition = SchemaBuilders.sortedIndex(randomString(random, 10))
+        SortedIndexDefinition indexDefinition = SchemaBuilders.sortedIndex("TEST_INDEX")
                 .addIndexColumn(columns.get(0).name()).asc().done()
                 .addIndexColumn(columns.get(1).name()).asc().done()
                 .build();
@@ -286,7 +285,7 @@ public abstract class AbstractSortedIndexStorageTest {
                 column(ColumnType.INT32.typeSpec().name(), ColumnType.INT32).asNullable(false).build()
         );
 
-        SortedIndexDefinition indexDefinition = SchemaBuilders.sortedIndex(randomString(random, 10))
+        SortedIndexDefinition indexDefinition = SchemaBuilders.sortedIndex("TEST_INDEX")
                 .addIndexColumn(columns.get(0).name()).asc().done()
                 .addIndexColumn(columns.get(1).name()).asc().done()
                 .build();
@@ -318,7 +317,7 @@ public abstract class AbstractSortedIndexStorageTest {
                 column(ColumnType.INT32.typeSpec().name(), ColumnType.INT32).asNullable(false).build()
         );
 
-        SortedIndexDefinition indexDefinition = SchemaBuilders.sortedIndex(randomString(random, 10))
+        SortedIndexDefinition indexDefinition = SchemaBuilders.sortedIndex("TEST_INDEX")
                 .addIndexColumn(columns.get(0).name()).asc().done()
                 .addIndexColumn(columns.get(1).name()).asc().done()
                 .build();
@@ -356,7 +355,7 @@ public abstract class AbstractSortedIndexStorageTest {
                 column(ColumnType.INT32.typeSpec().name(), ColumnType.INT32).asNullable(false).build()
         );
 
-        SortedIndexDefinition indexDefinition = SchemaBuilders.sortedIndex(randomString(random, 10))
+        SortedIndexDefinition indexDefinition = SchemaBuilders.sortedIndex("TEST_INDEX")
                 .addIndexColumn(columns.get(0).name()).asc().done()
                 .addIndexColumn(columns.get(1).name()).asc().done()
                 .build();
@@ -460,12 +459,12 @@ public abstract class AbstractSortedIndexStorageTest {
                 column(ColumnType.INT32.typeSpec().name(), ColumnType.INT32).asNullable(false).build()
         );
 
-        SortedIndexDefinition index1Definition = SchemaBuilders.sortedIndex(randomString(random, 10))
+        SortedIndexDefinition index1Definition = SchemaBuilders.sortedIndex("TEST_INDEX_1")
                 .addIndexColumn(columns.get(0).name()).asc().done()
                 .addIndexColumn(columns.get(1).name()).asc().done()
                 .build();
 
-        SortedIndexDefinition index2Definition = SchemaBuilders.sortedIndex(randomString(random, 10))
+        SortedIndexDefinition index2Definition = SchemaBuilders.sortedIndex("TEST_INDEX_2")
                 .addIndexColumn(columns.get(0).name()).asc().done()
                 .addIndexColumn(columns.get(1).name()).desc().done()
                 .build();

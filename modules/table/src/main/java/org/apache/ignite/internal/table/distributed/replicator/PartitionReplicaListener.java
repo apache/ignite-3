@@ -214,9 +214,8 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         ArrayList<BinaryRow> batchRows = new ArrayList<>(batchCount);
 
-        //TODO: IGNITE-17849 Remove this always true filter after the storage API will be changed.
-        PartitionTimestampCursor cursor = cursors.computeIfAbsent(cursorId,
-                id -> mvDataStorage.scan(row -> true, HybridTimestamp.MAX_VALUE));
+        @SuppressWarnings("resource") PartitionTimestampCursor cursor = cursors.computeIfAbsent(cursorId,
+                id -> mvDataStorage.scan(HybridTimestamp.MAX_VALUE));
 
         while (batchRows.size() < batchCount && cursor.hasNext()) {
             BinaryRow resolvedReadResult = resolveReadResult(cursor.next(), null);
@@ -356,9 +355,8 @@ public class PartitionReplicaListener implements ReplicaListener {
         return lockManager.acquire(txId, new LockKey(tableId), LockMode.S).thenCompose(tblLock -> {
             ArrayList<BinaryRow> batchRows = new ArrayList<>(batchCount);
 
-            //TODO: IGNITE-17849 Remove this always true filter after the storage API will be changed.
-            PartitionTimestampCursor cursor = cursors.computeIfAbsent(cursorId,
-                    id -> mvDataStorage.scan(row -> true, HybridTimestamp.MAX_VALUE));
+            @SuppressWarnings("resource") PartitionTimestampCursor cursor = cursors.computeIfAbsent(cursorId,
+                    id -> mvDataStorage.scan(HybridTimestamp.MAX_VALUE));
 
             while (batchRows.size() < batchCount && cursor.hasNext()) {
                 BinaryRow resolvedReadResult = resolveReadResult(cursor.next(), txId);

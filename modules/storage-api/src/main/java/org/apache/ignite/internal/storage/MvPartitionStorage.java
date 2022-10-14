@@ -20,7 +20,6 @@ package org.apache.ignite.internal.storage;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiConsumer;
-import java.util.function.Predicate;
 import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.util.Cursor;
@@ -173,13 +172,12 @@ public interface MvPartitionStorage extends AutoCloseable {
     /**
      * Scans the partition and returns a cursor of values at the given timestamp.
      *
-     * @param keyFilter Key filter. Binary rows passed to the filter may or may not have a value, filter should only check keys.
      * @param timestamp Timestamp. Can't be {@code null}.
      * @return Cursor.
      * @throws TxIdMismatchException If there's another pending update associated with different transaction id.
      * @throws StorageException If failed to read data from the storage.
      */
-    PartitionTimestampCursor scan(Predicate<BinaryRow> keyFilter, HybridTimestamp timestamp) throws StorageException;
+    PartitionTimestampCursor scan(HybridTimestamp timestamp) throws StorageException;
 
     /**
      * Returns a row id, existing in the storage, that's greater or equal than the lower bound. {@code null} if not found.

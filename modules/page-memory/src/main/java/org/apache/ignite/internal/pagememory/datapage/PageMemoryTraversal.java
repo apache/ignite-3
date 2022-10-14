@@ -22,6 +22,8 @@ import org.apache.ignite.internal.pagememory.io.DataPagePayload;
 /**
  * Controls page memory traversal.
  *
+ * @param <T> Argument type.
+ *
  * @see DataPageReader#traverse(long, PageMemoryTraversal, Object)
  */
 public interface PageMemoryTraversal<T> {
@@ -42,7 +44,7 @@ public interface PageMemoryTraversal<T> {
     long consumePagePayload(long link, long pageAddr, DataPagePayload payload, T arg);
 
     /**
-     * Called when the traversal is finishced successfully.
+     * Called when the traversal is finished successfully.
      */
     default void finish() {
         // no-op
