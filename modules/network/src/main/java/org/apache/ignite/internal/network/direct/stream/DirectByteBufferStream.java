@@ -21,6 +21,7 @@ import java.nio.ByteBuffer;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.network.NetworkMessage;
@@ -246,6 +247,16 @@ public interface DirectByteBufferStream {
     <T> void writeCollection(Collection<T> col, MessageCollectionItemType itemType, MessageWriter writer);
 
     /**
+     * Writes {@link Set}.
+     *
+     * @param <T>      Type of the set.
+     * @param set      Set.
+     * @param itemType Component type.
+     * @param writer   Writer.
+     */
+    <T> void writeSet(Set<T> set, MessageCollectionItemType itemType, MessageWriter writer);
+
+    /**
      * Writes {@link Map}.
      *
      * @param <K>     Type of the map's keys.
@@ -434,6 +445,16 @@ public interface DirectByteBufferStream {
      * @return Collection.
      */
     <C extends Collection<?>> C readCollection(MessageCollectionItemType itemType, MessageReader reader);
+
+    /**
+     * Reads {@link Set}.
+     *
+     * @param <C>      Type of set.
+     * @param itemType Item type.
+     * @param reader   Reader.
+     * @return Set.
+     */
+    <C extends Set<?>> C readSet(MessageCollectionItemType itemType, MessageReader reader);
 
     /**
      * Reads {@link Map}.

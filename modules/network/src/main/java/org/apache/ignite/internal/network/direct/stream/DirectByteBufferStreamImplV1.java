@@ -41,11 +41,14 @@ import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.RandomAccess;
+import java.util.Set;
 import java.util.UUID;
+import java.util.function.IntFunction;
 import org.apache.ignite.internal.network.serialization.PerSessionSerializationService;
 import org.apache.ignite.internal.util.ArrayFactory;
 import org.apache.ignite.internal.util.GridUnsafe;
@@ -551,7 +554,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
                 break;
 
             default:
-                throw new IllegalArgumentException("Unknown byteBufferState: " + uuidState);
+                throw new IllegalArgumentException("Unknown byteBufferState: " + byteBufferState);
         }
     }
 
@@ -749,6 +752,11 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         } else {
             writeInt(-1);
         }
+    }
+
+    @Override
+    public <T> void writeSet(Set<T> set, MessageCollectionItemType itemType, MessageWriter writer) {
+        writeCollection(set, itemType, writer);
     }
 
     /**
@@ -1136,7 +1144,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
                 break;
 
             default:
-                throw new IllegalArgumentException("Unknown byteBufferState: " + uuidState);
+                throw new IllegalArgumentException("Unknown byteBufferState: " + byteBufferState);
         }
 
         ByteBuffer val = ByteBuffer.wrap(bytes);
@@ -1359,6 +1367,30 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     @Override
     public <C extends Collection<?>> C readCollection(MessageCollectionItemType itemType,
             MessageReader reader) {
+        return (C) readCollection0(itemType, reader, ArrayList::new);
+    }
+
+    @Override
+    public <C extends Set<?>> C readSet(MessageCollectionItemType itemType, MessageReader reader) {
+        return (C) readCollection0(itemType, reader, HashSet::new);
+    }
+
+    /**
+     * Common implementation for {@link #readCollection(MessageCollectionItemType, MessageReader)} and
+     * {@link #readSet(MessageCollectionItemType, MessageReader)}. Reads a sequence of objects and puts it into a collection, created by
+     * {@code ctor}.
+     *
+     * @param itemType Collection item type.
+     * @param reader Message reader instance.
+     * @param ctor Factory for creating a collection using its length.
+     *
+     * @return Collection, read from the reader, or {@code null} if reading has not completed yet.
+     */
+    private @Nullable Collection<?> readCollection0(
+            MessageCollectionItemType itemType,
+            MessageReader reader,
+            IntFunction<Collection<Object>> ctor
+    ) {
         if (readSize == -1) {
             int size = readInt();
 
@@ -1371,7 +1403,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
         if (readSize >= 0) {
             if (col == null) {
-                col = new ArrayList<>(readSize);
+                col = ctor.apply(readSize);
             }
 
             for (int i = readItems; i < readSize; i++) {
@@ -1391,7 +1423,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         readItems = 0;
         cur = null;
 
-        C col0 = (C) col;
+        Collection<?> col0 = col;
 
         col = null;
 
