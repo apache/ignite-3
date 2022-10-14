@@ -33,7 +33,7 @@ namespace Apache.Ignite.Tests
     {
         private const int DefaultClientPort = 10942;
 
-        private const int ConnectTimeoutSeconds = 20;
+        private const int ConnectTimeoutSeconds = 120;
 
         private const string GradleCommandExec = ":ignite-runner:runnerPlatformTest --no-daemon"
           + " -x compileJava -x compileTestFixturesJava -x compileIntegrationTestJava -x compileTestJava";
@@ -101,7 +101,7 @@ namespace Apache.Ignite.Tests
 
             if (!evt.Wait(TimeSpan.FromSeconds(ConnectTimeoutSeconds)) || !WaitForServer(port))
             {
-                process.Kill(true);
+                process.Kill(entireProcessTree: true);
 
                 throw new InvalidOperationException("Failed to wait for the server to start. Check logs for details.");
             }
@@ -113,7 +113,7 @@ namespace Apache.Ignite.Tests
 
         public void Dispose()
         {
-            _process?.Kill();
+            _process?.Kill(entireProcessTree: true);
             _process?.Dispose();
             Log(">>> Java server stopped.");
         }
