@@ -68,47 +68,47 @@ public class CmgMessageGroup {
      */
     public interface Commands  {
         /**
-         * Messae type for {@link InitCmgStateCommand}.
+         * Message type for {@link InitCmgStateCommand}.
          */
         int INIT_CMG_STATE = 40;
 
         /**
-         * Messae type for {@link ReadStateCommand}.
+         * Message type for {@link ReadStateCommand}.
          */
         int READ_STATE = 41;
 
         /**
-         * Messae type for {@link ReadLogicalTopologyCommand}.
+         * Message type for {@link ReadLogicalTopologyCommand}.
          */
         int READ_LOGICAL_TOPOLOGY = 42;
 
         /**
-         * Messae type for {@link JoinRequestCommand}.
+         * Message type for {@link JoinRequestCommand}.
          */
         int JOIN_REQUEST = 43;
 
         /**
-         * Messae type for {@link JoinReadyCommand}.
+         * Message type for {@link JoinReadyCommand}.
          */
         int JOIN_READY = 44;
 
         /**
-         * Messae type for {@link NodesLeaveCommand}.
+         * Message type for {@link NodesLeaveCommand}.
          */
         int NODES_LEAVE = 45;
 
         /**
-         * Messae type for {@link ClusterNodeMessage}.
+         * Message type for {@link ClusterNodeMessage}.
          */
         int CLUSTER_NODE = 60;
 
         /**
-         * Messae type for {@link ClusterState}.
+         * Message type for {@link ClusterState}.
          */
         int CLUSTER_STATE = 61;
 
         /**
-         * Messae type for {@link ClusterTag}.
+         * Message type for {@link ClusterTag}.
          */
         int CLUSTER_TAG = 62;
     }
