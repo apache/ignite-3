@@ -21,7 +21,6 @@ import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
-import org.apache.ignite.internal.storage.index.AbstractSortedIndexStorageTest;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEngine;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryTableStorage;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
@@ -34,7 +33,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Sorted index test implementation for volatile page memory storage.
  */
 @ExtendWith(ConfigurationExtension.class)
-class VolatilePageMemorySortedIndexStorageTest extends AbstractSortedIndexStorageTest {
+class VolatilePageMemorySortedIndexStorageTest extends AbstractPageMemorySortedIndexStorageTest {
     private VolatilePageMemoryStorageEngine engine;
 
     private VolatilePageMemoryTableStorage table;
@@ -60,7 +59,7 @@ class VolatilePageMemorySortedIndexStorageTest extends AbstractSortedIndexStorag
 
         table.start();
 
-        initialize(table, tablesConfig);
+        initialize(table, tablesConfig, engineConfig);
     }
 
     @AfterEach

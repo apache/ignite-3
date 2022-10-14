@@ -60,6 +60,8 @@ public interface SortedIndexTreeIo {
     /** Payload size in bytes. */
     int SIZE_IN_BYTES = ROW_ID_LSB_OFFSET + Long.BYTES;
 
+    int ITEM_SIZE_WITHOUT_COLUMNS = 0;
+
     /**
      * Returns an offset of the element inside the page.
      *
