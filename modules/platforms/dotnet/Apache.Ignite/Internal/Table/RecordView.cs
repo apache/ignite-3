@@ -273,6 +273,16 @@ namespace Apache.Ignite.Internal.Table
         public async Task<IList<T>> DeleteAllExactAsync(ITransaction? transaction, IEnumerable<T> records) =>
             await DeleteAllAsync(transaction, records, exact: true);
 
+        /// <summary>
+        /// Deletes multiple records. If one or more keys do not exist, other records are still deleted.
+        /// </summary>
+        /// <param name="transaction">The transaction or <c>null</c> to auto commit.</param>
+        /// <param name="records">Record keys to delete.</param>
+        /// <param name="exact">Whether to match on both key and value.</param>
+        /// <returns>
+        /// A <see cref="Task"/> representing the asynchronous operation.
+        /// The task result contains records from <paramref name="records"/> that did not exist.
+        /// </returns>
         public async Task<IList<T>> DeleteAllAsync(ITransaction? transaction, IEnumerable<T> records, bool exact) =>
             await DeleteAllAsync(
                 transaction,
@@ -283,16 +293,29 @@ namespace Apache.Ignite.Internal.Table
                 addAction: static (res, item) => res.Add(item),
                 exact: exact);
 
+        /// <summary>
+        /// Deletes multiple records. If one or more keys do not exist, other records are still deleted.
+        /// </summary>
+        /// <param name="transaction">The transaction or <c>null</c> to auto commit.</param>
+        /// <param name="records">Record keys to delete.</param>
+        /// <param name="resultFactory">Result factory.</param>
+        /// <param name="addAction">Add action.</param>
+        /// <param name="exact">Whether to match on both key and value.</param>
+        /// <typeparam name="TRes">Result type.</typeparam>
+        /// <returns>
+        /// A <see cref="Task"/> representing the asynchronous operation.
+        /// The task result contains records from <paramref name="records"/> that did not exist.
+        /// </returns>
         public async Task<TRes> DeleteAllAsync<TRes>(
             ITransaction? transaction,
-            IEnumerable<T> keys,
+            IEnumerable<T> records,
             Func<int, TRes> resultFactory,
             Action<TRes, T> addAction,
             bool exact)
         {
-            IgniteArgumentCheck.NotNull(keys, nameof(keys));
+            IgniteArgumentCheck.NotNull(records, nameof(records));
 
-            using var iterator = keys.GetEnumerator();
+            using var iterator = records.GetEnumerator();
 
             if (!iterator.MoveNext())
             {
@@ -305,7 +328,8 @@ namespace Apache.Ignite.Internal.Table
             using var writer = ProtoCommon.GetMessageWriter();
             _ser.WriteMultiple(writer, tx, schema, iterator, keyOnly: !exact);
 
-            using var resBuf = await DoOutInOpAsync(ClientOp.TupleDeleteAll, tx, writer).ConfigureAwait(false);
+            var clientOp = exact ? ClientOp.TupleDeleteAllExact : ClientOp.TupleDeleteAll;
+            using var resBuf = await DoOutInOpAsync(clientOp, tx, writer).ConfigureAwait(false);
             var resSchema = await _table.ReadSchemaAsync(resBuf).ConfigureAwait(false);
 
             // TODO: Read value parts only (IGNITE-16022).
