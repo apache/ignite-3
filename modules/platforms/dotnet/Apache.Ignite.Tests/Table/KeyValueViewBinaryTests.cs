@@ -20,7 +20,6 @@ namespace Apache.Ignite.Tests.Table;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
-using Ignite.Table;
 using NUnit.Framework;
 
 /// <summary>
