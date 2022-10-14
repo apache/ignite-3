@@ -35,7 +35,6 @@ public final class LocalStorageOutter {
 
     @Transferable(value = RaftMessageGroup.RaftOutterMessageGroup.LOCAL_SNAPSHOT_PB_META)
     public interface LocalSnapshotPbMeta extends Message {
-        @Marshallable
         RaftOutter.SnapshotMeta meta();
 
         @Marshallable
@@ -45,7 +44,6 @@ public final class LocalStorageOutter {
         interface File extends Message {
             String name();
 
-            @Marshallable
             LocalFileMetaOutter.LocalFileMeta meta();
         }
     }

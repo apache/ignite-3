@@ -33,7 +33,6 @@ namespace Apache.Ignite.Sql
     /// </summary>
     /// <typeparam name="T">Row type.</typeparam>
     public interface IResultSet<T> : IAsyncEnumerable<T>, IAsyncDisposable, IDisposable
-        where T : class // TODO: Remove class constraint (IGNITE-16355)
     {
         /// <summary>
         /// Gets result set metadata when <see cref="HasRowSet"/> is <c>true</c>, otherwise <c>null</c>.

@@ -37,7 +37,7 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.binarytuple.BinaryTuplePrefixBuilder;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypes;
-import org.apache.ignite.internal.storage.index.SortedIndexDescriptor.ColumnDescriptor;
+import org.apache.ignite.internal.storage.index.SortedIndexDescriptor.SortedIndexColumnDescriptor;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -51,7 +51,7 @@ public class BinaryTupleComparatorTest {
     @ParameterizedTest
     @MethodSource("allTypes")
     public void testCompareSingleColumnTuples(NativeType type) {
-        var columnDescriptor = new ColumnDescriptor("column", type, false, true);
+        var columnDescriptor = new SortedIndexColumnDescriptor("column", type, false, true);
 
         var descriptor = new SortedIndexDescriptor(UUID.randomUUID(), List.of(columnDescriptor));
 
@@ -300,9 +300,9 @@ public class BinaryTupleComparatorTest {
 
     @Test
     public void testCompareMultipleColumnTuples() {
-        List<ColumnDescriptor> columnDescriptors = List.of(
-                new ColumnDescriptor("column", NativeTypes.INT32, false, true),
-                new ColumnDescriptor("column", NativeTypes.STRING, false,  false)
+        List<SortedIndexColumnDescriptor> columnDescriptors = List.of(
+                new SortedIndexColumnDescriptor("column", NativeTypes.INT32, false, true),
+                new SortedIndexColumnDescriptor("column", NativeTypes.STRING, false,  false)
         );
 
         var descriptor = new SortedIndexDescriptor(UUID.randomUUID(), columnDescriptors);
@@ -334,9 +334,9 @@ public class BinaryTupleComparatorTest {
 
     @Test
     public void testCompareMultipleColumnTuplesWithNulls() {
-        List<ColumnDescriptor> columnDescriptors = List.of(
-                new ColumnDescriptor("column", NativeTypes.INT32, true, true),
-                new ColumnDescriptor("column", NativeTypes.STRING, true,  false)
+        List<SortedIndexColumnDescriptor> columnDescriptors = List.of(
+                new SortedIndexColumnDescriptor("column", NativeTypes.INT32, true, true),
+                new SortedIndexColumnDescriptor("column", NativeTypes.STRING, true,  false)
         );
 
         var descriptor = new SortedIndexDescriptor(UUID.randomUUID(), columnDescriptors);
@@ -377,9 +377,9 @@ public class BinaryTupleComparatorTest {
 
     @Test
     public void testCompareWithPrefix() {
-        List<ColumnDescriptor> columnDescriptors = List.of(
-                new ColumnDescriptor("column", NativeTypes.INT32, false, true),
-                new ColumnDescriptor("column", NativeTypes.STRING, false,  false)
+        List<SortedIndexColumnDescriptor> columnDescriptors = List.of(
+                new SortedIndexColumnDescriptor("column", NativeTypes.INT32, false, true),
+                new SortedIndexColumnDescriptor("column", NativeTypes.STRING, false,  false)
         );
 
         var descriptor = new SortedIndexDescriptor(UUID.randomUUID(), columnDescriptors);
@@ -420,9 +420,9 @@ public class BinaryTupleComparatorTest {
 
     @Test
     public void testCompareWithPrefixWithNulls() {
-        List<ColumnDescriptor> columnDescriptors = List.of(
-                new ColumnDescriptor("column", NativeTypes.INT32, true, true),
-                new ColumnDescriptor("column", NativeTypes.STRING, false,  false)
+        List<SortedIndexColumnDescriptor> columnDescriptors = List.of(
+                new SortedIndexColumnDescriptor("column", NativeTypes.INT32, true, true),
+                new SortedIndexColumnDescriptor("column", NativeTypes.STRING, false,  false)
         );
 
         var descriptor = new SortedIndexDescriptor(UUID.randomUUID(), columnDescriptors);

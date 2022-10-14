@@ -35,7 +35,7 @@ namespace Apache.Ignite.Tests.Proto
         /** Byte representation of the UUID above, serialized by Java ClientMessagePacker. */
         private static readonly sbyte[] JavaUuidBytes =
         {
-            -40, 3, 111, 36, 20, 106, 36, 74, 64, 24, -93, 108, 62, -100, -11, -76, 32, -126
+            -40, 3, 24, 64, 74, 36, 106, 20, 36, 111, -126, 32, -76, -11, -100, 62, 108, -93
         };
 
         private static readonly string?[] TestStrings =

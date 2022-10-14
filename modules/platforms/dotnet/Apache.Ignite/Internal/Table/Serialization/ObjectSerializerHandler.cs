@@ -19,6 +19,8 @@ namespace Apache.Ignite.Internal.Table.Serialization
 {
     using System;
     using System.Collections.Concurrent;
+    using System.Collections.Generic;
+    using System.Linq;
     using System.Reflection;
     using System.Reflection.Emit;
     using MessagePack;
@@ -30,7 +32,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
     /// </summary>
     /// <typeparam name="T">Object type.</typeparam>
     internal class ObjectSerializerHandler<T> : IRecordSerializerHandler<T>
-        where T : class
     {
         private readonly ConcurrentDictionary<(int, bool), WriteDelegate<T>> _writers = new();
 
@@ -114,6 +115,36 @@ namespace Apache.Ignite.Internal.Table.Serialization
             var columns = schema.Columns;
             var count = keyOnly ? schema.KeyColumnCount : columns.Count;
 
+            if (BinaryTupleMethods.GetWriteMethodOrNull(type) is { } directWriteMethod)
+            {
+                // Single column to primitive type mapping.
+                var col = columns[0];
+                ValidateSingleFieldMappingType(type, col);
+
+                il.Emit(OpCodes.Ldarg_0); // writer
+                il.Emit(OpCodes.Ldarg_2); // value
+
+                if (col.Type == ClientDataType.Decimal)
+                {
+                    EmitLdcI4(il, col.Scale);
+                }
+
+                il.Emit(OpCodes.Call, directWriteMethod);
+
+                for (var index = 1; index < count; index++)
+                {
+                    il.Emit(OpCodes.Ldarg_0); // writer
+                    il.Emit(OpCodes.Ldarg_1); // noValueSet
+                    il.Emit(OpCodes.Call, BinaryTupleMethods.WriteNoValue);
+                }
+
+                il.Emit(OpCodes.Ret);
+
+                return (WriteDelegate<T>)method.CreateDelegate(typeof(WriteDelegate<T>));
+            }
+
+            int mappedCount = 0;
+
             for (var index = 0; index < count; index++)
             {
                 var col = columns[index];
@@ -139,8 +170,12 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
                     var writeMethod = BinaryTupleMethods.GetWriteMethod(fieldInfo.FieldType);
                     il.Emit(OpCodes.Call, writeMethod);
+
+                    mappedCount++;
                 }
             }
+
+            ValidateMappedCount(mappedCount, type, columns);
 
             il.Emit(OpCodes.Ret);
 
@@ -159,7 +194,25 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 skipVisibility: true);
 
             var il = method.GetILGenerator();
-            il.DeclareLocal(type);
+
+            if (BinaryTupleMethods.GetReadMethodOrNull(type) is { } readMethod)
+            {
+                // Single column to primitive type mapping.
+                il.Emit(OpCodes.Ldarg_0); // reader
+                il.Emit(OpCodes.Ldc_I4_0); // index
+
+                if (schema.Columns[0] is { Type: ClientDataType.Decimal } col)
+                {
+                    EmitLdcI4(il, col.Scale);
+                }
+
+                il.Emit(OpCodes.Call, readMethod);
+                il.Emit(OpCodes.Ret);
+
+                return (ReadDelegate<T>)method.CreateDelegate(typeof(ReadDelegate<T>));
+            }
+
+            var local = il.DeclareLocal(type);
 
             il.Emit(OpCodes.Ldtoken, type);
             il.Emit(OpCodes.Call, ReflectionUtils.GetTypeFromHandleMethod);
@@ -175,7 +228,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 var col = columns[i];
                 var fieldInfo = type.GetFieldIgnoreCase(col.Name);
 
-                EmitFieldRead(fieldInfo, il, col, i);
+                EmitFieldRead(fieldInfo, il, col, i, local);
             }
 
             il.Emit(OpCodes.Ldloc_0); // res
@@ -188,6 +241,12 @@ namespace Apache.Ignite.Internal.Table.Serialization
         {
             var type = typeof(T);
 
+            if (BinaryTupleMethods.GetReadMethodOrNull(type) != null)
+            {
+                // Single column to primitive type mapping - return key as is.
+                return (ref BinaryTupleReader _, T key) => key;
+            }
+
             var method = new DynamicMethod(
                 name: "ReadValuePart" + type.Name,
                 returnType: type,
@@ -196,13 +255,20 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 skipVisibility: true);
 
             var il = method.GetILGenerator();
-            il.DeclareLocal(type);
+            var local = il.DeclareLocal(type);
 
-            il.Emit(OpCodes.Ldtoken, type);
-            il.Emit(OpCodes.Call, ReflectionUtils.GetTypeFromHandleMethod);
-            il.Emit(OpCodes.Call, ReflectionUtils.GetUninitializedObjectMethod);
-
-            il.Emit(OpCodes.Stloc_0); // T res
+            if (type.IsValueType)
+            {
+                il.Emit(OpCodes.Ldloca_S, local);
+                il.Emit(OpCodes.Initobj, type);
+            }
+            else
+            {
+                il.Emit(OpCodes.Ldtoken, type);
+                il.Emit(OpCodes.Call, ReflectionUtils.GetTypeFromHandleMethod);
+                il.Emit(OpCodes.Call, ReflectionUtils.GetUninitializedObjectMethod);
+                il.Emit(OpCodes.Stloc_0); // T res
+            }
 
             var columns = schema.Columns;
 
@@ -215,7 +281,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 {
                     if (fieldInfo != null)
                     {
-                        il.Emit(OpCodes.Ldloc_0); // res
+                        il.Emit(type.IsValueType ? OpCodes.Ldloca_S : OpCodes.Ldloc, local); // res
                         il.Emit(OpCodes.Ldarg_1); // key
                         il.Emit(OpCodes.Ldfld, fieldInfo);
                         il.Emit(OpCodes.Stfld, fieldInfo);
@@ -224,7 +290,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                     continue;
                 }
 
-                EmitFieldRead(fieldInfo, il, col, i - schema.KeyColumnCount);
+                EmitFieldRead(fieldInfo, il, col, i - schema.KeyColumnCount, local);
             }
 
             il.Emit(OpCodes.Ldloc_0); // res
@@ -233,7 +299,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             return (ReadValuePartDelegate<T>)method.CreateDelegate(typeof(ReadValuePartDelegate<T>));
         }
 
-        private static void EmitFieldRead(FieldInfo? fieldInfo, ILGenerator il, Column col, int elemIdx)
+        private static void EmitFieldRead(FieldInfo? fieldInfo, ILGenerator il, Column col, int elemIdx, LocalBuilder local)
         {
             if (fieldInfo == null)
             {
@@ -244,7 +310,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
             var readMethod = BinaryTupleMethods.GetReadMethod(fieldInfo.FieldType);
 
-            il.Emit(OpCodes.Ldloc_0); // res
+            il.Emit(fieldInfo.DeclaringType!.IsValueType ? OpCodes.Ldloca_S : OpCodes.Ldloc, local); // res
             il.Emit(OpCodes.Ldarg_0); // reader
             EmitLdcI4(il, elemIdx); // index
 
@@ -315,6 +381,32 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
                 throw new IgniteClientException(ErrorGroups.Client.Configuration, message);
             }
+        }
+
+        private static void ValidateSingleFieldMappingType(Type type, Column column)
+        {
+            var columnType = column.Type.ToType();
+
+            if (type != columnType)
+            {
+                var message = $"Can't map '{type}' to column '{column.Name}' of type '{columnType}' - types do not match.";
+
+                throw new IgniteClientException(ErrorGroups.Client.Configuration, message);
+            }
+        }
+
+        private static void ValidateMappedCount(int mappedCount, Type type, IEnumerable<Column> columns)
+        {
+            if (mappedCount > 0)
+            {
+                return;
+            }
+
+            var columnStr = string.Join(", ", columns.Select(x => x.Type + " " + x.Name));
+
+            throw new IgniteClientException(
+                ErrorGroups.Client.Configuration,
+                $"Can't map '{type}' to columns '{columnStr}'. Matching fields not found.");
         }
     }
 }

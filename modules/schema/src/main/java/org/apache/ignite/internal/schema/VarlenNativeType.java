@@ -23,14 +23,14 @@ import org.apache.ignite.internal.tostring.S;
  * Variable-length native type.
  */
 public class VarlenNativeType extends NativeType {
-    /** Length of the type. */
+    /** Length of the type, {@link Integer#MAX_VALUE} if not defined. */
     private final int len;
 
     /**
      * Constructor.
      *
      * @param typeSpec Type spec.
-     * @param len      Type length.
+     * @param len Type length.
      */
     protected VarlenNativeType(NativeTypeSpec typeSpec, int len) {
         super(typeSpec);
@@ -38,20 +38,18 @@ public class VarlenNativeType extends NativeType {
         this.len = len;
     }
 
-    /** {@inheritDoc} */
     @Override
     public boolean mismatch(NativeType type) {
         return super.mismatch(type) || len < ((VarlenNativeType) type).len;
     }
 
     /**
-     * Get length of the type.
+     * Get length of the type, {@link Integer#MAX_VALUE} if not defined.
      */
     public int length() {
         return len;
     }
 
-    /** {@inheritDoc} */
     @Override
     public String toString() {
         return S.toString(VarlenNativeType.class.getSimpleName(), "name", spec(), "len", len);

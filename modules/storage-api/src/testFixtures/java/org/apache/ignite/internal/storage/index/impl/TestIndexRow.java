@@ -32,7 +32,7 @@ import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.index.IndexRow;
-import org.apache.ignite.internal.storage.index.SortedIndexDescriptor.ColumnDescriptor;
+import org.apache.ignite.internal.storage.index.SortedIndexDescriptor.SortedIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 
 /**
@@ -64,8 +64,8 @@ public class TestIndexRow implements IndexRow, Comparable<TestIndexRow> {
     public static TestIndexRow randomRow(SortedIndexStorage indexStorage) {
         var random = new Random();
 
-        Object[] columns = indexStorage.indexDescriptor().indexColumns().stream()
-                .map(ColumnDescriptor::type)
+        Object[] columns = indexStorage.indexDescriptor().columns().stream()
+                .map(SortedIndexColumnDescriptor::type)
                 .map(type -> generateRandomValue(random, type))
                 .toArray();
 
@@ -109,7 +109,7 @@ public class TestIndexRow implements IndexRow, Comparable<TestIndexRow> {
             int compare = comparator.compare(columns[i], o.columns[i]);
 
             if (compare != 0) {
-                boolean asc = indexStorage.indexDescriptor().indexColumns().get(i).asc();
+                boolean asc = indexStorage.indexDescriptor().columns().get(i).asc();
 
                 return asc ? compare : -compare;
             }

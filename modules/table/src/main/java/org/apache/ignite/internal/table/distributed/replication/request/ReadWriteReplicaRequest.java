@@ -26,7 +26,6 @@ import org.apache.ignite.network.annotations.Marshallable;
  * Read-write replica request.
  */
 public interface ReadWriteReplicaRequest extends ReplicaRequest, TimestampAware {
-    @Marshallable
     UUID transactionId();
 
     /**

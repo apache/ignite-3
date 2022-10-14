@@ -69,7 +69,7 @@ import org.apache.ignite.internal.schema.testutils.definition.index.SortedIndexD
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
-import org.apache.ignite.internal.storage.index.SortedIndexDescriptor.ColumnDescriptor;
+import org.apache.ignite.internal.storage.index.SortedIndexDescriptor.SortedIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.index.impl.BinaryTupleRowSerializer;
 import org.apache.ignite.internal.storage.index.impl.TestIndexRow;
 import org.apache.ignite.internal.testframework.VariableSource;
@@ -202,7 +202,7 @@ public abstract class AbstractSortedIndexStorageTest {
 
         TableIndexView indexConfig = tablesCfg.indexes().get(indexDefinition.name()).value();
 
-        return tableStorage.getOrCreateSortedIndex(0, indexConfig.id());
+        return tableStorage.getOrCreateSortedIndex(TEST_PARTITION, indexConfig.id());
     }
 
     /**
@@ -212,8 +212,8 @@ public abstract class AbstractSortedIndexStorageTest {
     void testRowSerialization() {
         SortedIndexStorage indexStorage = createIndexStorage(ALL_TYPES_COLUMN_DEFINITIONS);
 
-        Object[] columns = indexStorage.indexDescriptor().indexColumns().stream()
-                .map(ColumnDescriptor::type)
+        Object[] columns = indexStorage.indexDescriptor().columns().stream()
+                .map(SortedIndexColumnDescriptor::type)
                 .map(type -> SchemaTestUtils.generateRandomValue(random, type))
                 .toArray();
 

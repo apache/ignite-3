@@ -36,6 +36,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableIndexView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
+import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -124,8 +125,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         partitionStorage0.runConsistently(() -> partitionStorage0.addWrite(rowId0, testData0, txId, UUID.randomUUID(), 0));
 
-        assertThat(unwrap(partitionStorage0.read(rowId0, txId)), is(equalTo(unwrap(testData0))));
-        assertThrows(IllegalArgumentException.class, () -> partitionStorage1.read(rowId0, txId));
+        assertThat(unwrap(partitionStorage0.read(rowId0, HybridTimestamp.MAX_VALUE)), is(equalTo(unwrap(testData0))));
+        assertThrows(IllegalArgumentException.class, () -> partitionStorage1.read(rowId0, HybridTimestamp.MAX_VALUE));
 
         var testData1 = binaryRow(new TestKey(2, "2"), new TestValue(20, "20"));
 
@@ -133,11 +134,11 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         partitionStorage1.runConsistently(() -> partitionStorage1.addWrite(rowId1, testData1, txId, UUID.randomUUID(), 0));
 
-        assertThrows(IllegalArgumentException.class, () -> partitionStorage0.read(rowId1, txId));
-        assertThat(unwrap(partitionStorage1.read(rowId1, txId)), is(equalTo(unwrap(testData1))));
+        assertThrows(IllegalArgumentException.class, () -> partitionStorage0.read(rowId1, HybridTimestamp.MAX_VALUE));
+        assertThat(unwrap(partitionStorage1.read(rowId1, HybridTimestamp.MAX_VALUE)), is(equalTo(unwrap(testData1))));
 
-        assertThat(toList(partitionStorage0.scan(row -> true, txId)), contains(unwrap(testData0)));
-        assertThat(toList(partitionStorage1.scan(row -> true, txId)), contains(unwrap(testData1)));
+        assertThat(toList(partitionStorage0.scan(HybridTimestamp.MAX_VALUE)), contains(unwrap(testData0)));
+        assertThat(toList(partitionStorage1.scan(HybridTimestamp.MAX_VALUE)), contains(unwrap(testData1)));
     }
 
     /**

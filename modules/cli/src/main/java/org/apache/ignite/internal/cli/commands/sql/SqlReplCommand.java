@@ -34,7 +34,9 @@ import org.apache.ignite.internal.cli.core.exception.handler.SqlExceptionHandler
 import org.apache.ignite.internal.cli.core.repl.Repl;
 import org.apache.ignite.internal.cli.core.repl.executor.RegistryCommandExecutor;
 import org.apache.ignite.internal.cli.core.repl.executor.ReplExecutorProvider;
+import org.apache.ignite.internal.cli.decorators.PlainTableDecorator;
 import org.apache.ignite.internal.cli.decorators.SqlQueryResultDecorator;
+import org.apache.ignite.internal.cli.decorators.TableDecorator;
 import org.apache.ignite.internal.cli.deprecated.IgniteCliException;
 import org.apache.ignite.internal.cli.sql.SqlManager;
 import org.apache.ignite.internal.cli.sql.SqlSchemaProvider;
@@ -51,6 +53,9 @@ public class SqlReplCommand extends BaseCommand implements Runnable {
     @Option(names = {"-u", "--jdbc-url"}, required = true,
             descriptionKey = "ignite.jdbc-url", description = "JDBC url to ignite cluster")
     private String jdbc;
+
+    @Option(names = "--plain", description = "Display output with plain formatting")
+    private boolean plain;
 
     @ArgGroup
     private ExecOptions execOptions;
@@ -105,11 +110,12 @@ public class SqlReplCommand extends BaseCommand implements Runnable {
     }
 
     private CallExecutionPipeline<?, ?> createSqlExecPipeline(SqlManager sqlManager, String line) {
+        TableDecorator tableDecorator = plain ? new PlainTableDecorator() : new TableDecorator();
         return CallExecutionPipeline.builder(new SqlQueryCall(sqlManager))
                 .inputProvider(() -> new StringCallInput(line))
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
-                .decorator(new SqlQueryResultDecorator())
+                .decorator(new SqlQueryResultDecorator(tableDecorator))
                 .build();
     }
 

@@ -24,9 +24,11 @@ import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlProfileMixin;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.internal.cli.core.call.UrlCallInput;
+import org.apache.ignite.internal.cli.decorators.PlainTopologyDecorator;
 import org.apache.ignite.internal.cli.decorators.TopologyDecorator;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
+import picocli.CommandLine.Option;
 
 /**
  * Command that show physical cluster topology.
@@ -40,14 +42,18 @@ public class PhysicalTopologyCommand extends BaseCommand implements Callable<Int
     @Inject
     private PhysicalTopologyCall call;
 
+    @Option(names = "--plain", description = "Display output with plain formatting")
+    private boolean plain;
+
     /** {@inheritDoc} */
     @Override
     public Integer call() {
+        TopologyDecorator topologyDecorator = plain ? new PlainTopologyDecorator() : new TopologyDecorator();
         return CallExecutionPipeline.builder(call)
                 .inputProvider(() -> new UrlCallInput(clusterUrl.getClusterUrl()))
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
-                .decorator(new TopologyDecorator())
+                .decorator(topologyDecorator)
                 .build()
                 .runPipeline();
     }

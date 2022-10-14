@@ -197,6 +197,13 @@ public interface DirectByteBufferStream {
     void writeBitSet(BitSet val);
 
     /**
+     * Writes {@link ByteBuffer}.
+     *
+     * @param val Value.
+     */
+    void writeByteBuffer(ByteBuffer val);
+
+    /**
      * Writes {@link UUID}.
      *
      * @param val Value.
@@ -376,6 +383,13 @@ public interface DirectByteBufferStream {
      * @return Value.
      */
     BitSet readBitSet();
+
+    /**
+     * Reads {@link ByteBuffer}.
+     *
+     * @return Value.
+     */
+    ByteBuffer readByteBuffer();
 
     /**
      * Reads {@link UUID}.
