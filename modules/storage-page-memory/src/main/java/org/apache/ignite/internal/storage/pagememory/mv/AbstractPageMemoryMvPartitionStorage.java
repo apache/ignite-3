@@ -206,6 +206,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                     new AtomicLong(),
                     metaPageId,
                     rowVersionFreeList,
+                    indexDescriptor,
                     initNew
             );
 
