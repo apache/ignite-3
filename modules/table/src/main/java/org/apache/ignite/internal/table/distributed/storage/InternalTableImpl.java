@@ -1039,7 +1039,7 @@ public class InternalTableImpl implements InternalTable {
                     if (binaryRows.size() < n) {
                         cancel();
                     } else if (requestedItemsCnt.addAndGet(Math.negateExact(binaryRows.size())) > 0) {
-                        scanBatch(INTERNAL_BATCH_SIZE);
+                        scanBatch(Math.min(n, INTERNAL_BATCH_SIZE));
                     }
                 }).exceptionally(t -> {
                     cancel(t);

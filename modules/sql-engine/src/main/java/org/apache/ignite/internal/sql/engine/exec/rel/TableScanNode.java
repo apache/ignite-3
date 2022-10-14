@@ -63,11 +63,11 @@ public class TableScanNode<RowT> extends AbstractNode<RowT> {
 
     private int requested;
 
-    private int waiting;
+    private volatile int waiting;
 
     private boolean inLoop;
 
-    private Subscription activeSubscription;
+    private volatile Subscription activeSubscription;
 
     private int curPartIdx;
 
@@ -188,7 +188,7 @@ public class TableScanNode<RowT> extends AbstractNode<RowT> {
             }
         }
 
-        if (waiting == 0 || activeSubscription == null) {
+        if ((waiting == 0 && requested > 0) || activeSubscription == null) {
             requestNextBatch();
         }
 
@@ -203,13 +203,14 @@ public class TableScanNode<RowT> extends AbstractNode<RowT> {
     }
 
     private void requestNextBatch() {
-        if (waiting == NOT_WAITING) {
+        if (waiting == NOT_WAITING || requested == 0) {
             return;
         }
 
         if (waiting == 0) {
             // we must not request rows more than inBufSize
             waiting = inBufSize - inBuff.size();
+            assert waiting != 0;
         }
 
         Subscription subscription = this.activeSubscription;
@@ -223,8 +224,6 @@ public class TableScanNode<RowT> extends AbstractNode<RowT> {
     }
 
     private class SubscriberImpl implements Flow.Subscriber<BinaryRow> {
-        private int received = 0; // HB guarded here.
-
         /** {@inheritDoc} */
         @Override
         public void onSubscribe(Subscription subscription) {
@@ -241,13 +240,15 @@ public class TableScanNode<RowT> extends AbstractNode<RowT> {
 
             inBuff.add(row);
 
-            if (++received == inBufSize) {
-                received = 0;
+            if (inBuff.size() == inBufSize) {
+                waiting = 0;
 
                 context().execute(() -> {
                     waiting = 0;
                     push();
                 }, TableScanNode.this::onError);
+
+                Thread.yield();
             }
         }
 
