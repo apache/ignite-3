@@ -47,7 +47,7 @@ public class KeyValueViewBinaryTests : IgniteTestsBase
     }
 
     [Test]
-    public async Task TestGetKeyNotExists()
+    public async Task TestGetNonExistentKeyReturnsEmptyOption()
     {
         var (res, hasRes) = await Table.KeyValueBinaryView.GetAsync(null, GetTuple(-111L));
 
