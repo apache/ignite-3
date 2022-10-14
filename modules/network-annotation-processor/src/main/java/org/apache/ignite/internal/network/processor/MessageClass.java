@@ -84,6 +84,7 @@ public class MessageClass {
                 .filter(e -> e.getKind() == ElementKind.METHOD)
                 .map(ExecutableElement.class::cast)
                 .filter(e -> !e.isDefault())
+                .filter(e -> e.getParameters().isEmpty())
                 // use a tree map to sort getters by name and remove duplicates
                 .collect(Collectors.toMap(
                         e -> e.getSimpleName().toString(),
