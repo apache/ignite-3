@@ -191,7 +191,15 @@ namespace Apache.Ignite.Internal.Table
             var resSchema = await _table.ReadSchemaAsync(resBuf).ConfigureAwait(false);
 
             // TODO: Read value parts only (IGNITE-16022).
-            return ReadMultiple(resBuf, resSchema);        }
+            return _ser.ReadMultiple(
+                buf: resBuf,
+                schema: resSchema,
+                keyOnly: false,
+                resultFactory: static count => count == 0
+                    ? (IList<T>)Array.Empty<T>()
+                    : new List<T>(count),
+                addAction: static (res, item) => res.Add(item));
+        }
 
         /// <inheritdoc/>
         public async Task<bool> ReplaceAsync(ITransaction? transaction, T record)
@@ -258,7 +266,29 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <inheritdoc/>
-        public async Task<IList<T>> DeleteAllAsync(ITransaction? transaction, IEnumerable<T> keys)
+        public async Task<IList<T>> DeleteAllAsync(ITransaction? transaction, IEnumerable<T> keys) =>
+            await DeleteAllAsync(transaction, keys, exact: false);
+
+        /// <inheritdoc/>
+        public async Task<IList<T>> DeleteAllExactAsync(ITransaction? transaction, IEnumerable<T> records) =>
+            await DeleteAllAsync(transaction, records, exact: true);
+
+        public async Task<IList<T>> DeleteAllAsync(ITransaction? transaction, IEnumerable<T> records, bool exact) =>
+            await DeleteAllAsync(
+                transaction,
+                records,
+                resultFactory: static count => count == 0
+                    ? (IList<T>)Array.Empty<T>()
+                    : new List<T>(count),
+                addAction: static (res, item) => res.Add(item),
+                exact: exact);
+
+        public async Task<TRes> DeleteAllAsync<TRes>(
+            ITransaction? transaction,
+            IEnumerable<T> keys,
+            Func<int, TRes> resultFactory,
+            Action<TRes, T> addAction,
+            bool exact)
         {
             IgniteArgumentCheck.NotNull(keys, nameof(keys));
 
@@ -266,44 +296,25 @@ namespace Apache.Ignite.Internal.Table
 
             if (!iterator.MoveNext())
             {
-                return Array.Empty<T>();
+                return resultFactory(0);
             }
 
             var schema = await _table.GetLatestSchemaAsync().ConfigureAwait(false);
             var tx = transaction.ToInternal();
 
             using var writer = ProtoCommon.GetMessageWriter();
-            _ser.WriteMultiple(writer, tx, schema, iterator, keyOnly: true);
+            _ser.WriteMultiple(writer, tx, schema, iterator, keyOnly: !exact);
 
             using var resBuf = await DoOutInOpAsync(ClientOp.TupleDeleteAll, tx, writer).ConfigureAwait(false);
             var resSchema = await _table.ReadSchemaAsync(resBuf).ConfigureAwait(false);
 
             // TODO: Read value parts only (IGNITE-16022).
-            return ReadMultiple(resBuf, resSchema, keyOnly: true);
-        }
-
-        /// <inheritdoc/>
-        public async Task<IList<T>> DeleteAllExactAsync(ITransaction? transaction, IEnumerable<T> records)
-        {
-            IgniteArgumentCheck.NotNull(records, nameof(records));
-
-            using var iterator = records.GetEnumerator();
-
-            if (!iterator.MoveNext())
-            {
-                return Array.Empty<T>();
-            }
-
-            var schema = await _table.GetLatestSchemaAsync().ConfigureAwait(false);
-            var tx = transaction.ToInternal();
-
-            using var writer = ProtoCommon.GetMessageWriter();
-            _ser.WriteMultiple(writer, tx, schema, iterator);
-
-            using var resBuf = await DoOutInOpAsync(ClientOp.TupleDeleteAllExact, tx, writer).ConfigureAwait(false);
-            var resSchema = await _table.ReadSchemaAsync(resBuf).ConfigureAwait(false);
-
-            return ReadMultiple(resBuf, resSchema);
+            return _ser.ReadMultiple(
+                buf: resBuf,
+                schema: resSchema,
+                keyOnly: !exact,
+                resultFactory: resultFactory,
+                addAction: addAction);
         }
 
         /// <summary>
@@ -345,15 +356,5 @@ namespace Apache.Ignite.Internal.Table
 
             return await DoOutInOpAsync(op, tx, writer).ConfigureAwait(false);
         }
-
-        private IList<T> ReadMultiple(PooledBuffer resBuf, Schema? resSchema, bool keyOnly = false) =>
-            _ser.ReadMultiple(
-                buf: resBuf,
-                schema: resSchema,
-                keyOnly: keyOnly,
-                resultFactory: static count => count == 0
-                    ? (IList<T>)Array.Empty<T>()
-                    : new List<T>(count),
-                addAction: static (res, item) => res.Add(item));
     }
 }

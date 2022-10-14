@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Internal.Table;
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -99,10 +100,14 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
     {
         IgniteArgumentCheck.NotNull(keys, nameof(keys));
 
-        // TODO: Avoid LINQ and list allocation, read into final list.
-        var skippedRecs = await _recordView.DeleteAllAsync(transaction, keys.Select(static k => ToKv(k)));
-
-        return skippedRecs.Select(x => x.Key).ToList();
+        return await _recordView.DeleteAllAsync(
+            transaction,
+            keys.Select(static k => ToKv(k)),
+            resultFactory: static count => count == 0
+                ? (IList<TK>)Array.Empty<TK>()
+                : new List<TK>(count),
+            addAction: static (res, item) => res.Add(item.Key),
+            exact: false);
     }
 
     /// <inheritdoc/>
@@ -110,10 +115,14 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
     {
         IgniteArgumentCheck.NotNull(pairs, nameof(pairs));
 
-        // TODO: Avoid LINQ and list allocation, read into final list.
-        var skippedRecs = await _recordView.DeleteAllExactAsync(transaction, pairs.Select(static x => ToKv(x)));
-
-        return skippedRecs.Select(x => x.Key).ToList();
+        return await _recordView.DeleteAllAsync(
+            transaction,
+            pairs.Select(static k => ToKv(k)),
+            resultFactory: static count => count == 0
+                ? (IList<TK>)Array.Empty<TK>()
+                : new List<TK>(count),
+            addAction: static (res, item) => res.Add(item.Key),
+            exact: true);
     }
 
     /// <inheritdoc/>
