@@ -67,6 +67,7 @@ public class RecordViewPrimitiveTests : IgniteTestsBase
     }
 
     private static async Task TestKey<T>(T val, IRecordView<T> recordView)
+        where T : notnull
     {
         // Tests EmitWriter.
         await recordView.UpsertAsync(null, val);
@@ -82,6 +83,7 @@ public class RecordViewPrimitiveTests : IgniteTestsBase
     }
 
     private async Task TestKey<T>(T val, string tableName)
+        where T : notnull
     {
         var table = await Client.Tables.GetTableAsync(tableName);
 

@@ -93,7 +93,8 @@ namespace Apache.Ignite.Internal.Table
         internal Guid Id { get; }
 
         /// <inheritdoc/>
-        public IRecordView<T> GetRecordView<T>() => GetRecordViewInternal<T>();
+        public IRecordView<T> GetRecordView<T>()
+            where T : notnull => GetRecordViewInternal<T>();
 
         /// <summary>
         /// Gets the record view for the specified type.
@@ -101,6 +102,7 @@ namespace Apache.Ignite.Internal.Table
         /// <typeparam name="T">Record type.</typeparam>
         /// <returns>Record view.</returns>
         internal RecordView<T> GetRecordViewInternal<T>()
+            where T : notnull
         {
             // ReSharper disable once HeapView.CanAvoidClosure (generics prevent this)
             return (RecordView<T>)_recordViews.GetOrAdd(

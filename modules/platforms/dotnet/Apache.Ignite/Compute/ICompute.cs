@@ -58,7 +58,8 @@ namespace Apache.Ignite.Compute
         /// <typeparam name="T">Job result type.</typeparam>
         /// <typeparam name="TKey">Key type.</typeparam>
         /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-        Task<T> ExecuteColocatedAsync<T, TKey>(string tableName, TKey key, string jobClassName, params object[] args);
+        Task<T> ExecuteColocatedAsync<T, TKey>(string tableName, TKey key, string jobClassName, params object[] args)
+            where TKey : notnull;
 
         /// <summary>
         /// Executes a compute job represented by the given class on all of the specified nodes.

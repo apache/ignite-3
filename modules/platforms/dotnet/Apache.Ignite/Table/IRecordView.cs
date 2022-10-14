@@ -26,6 +26,7 @@ namespace Apache.Ignite.Table
     /// </summary>
     /// <typeparam name="T">Record type.</typeparam>
     public interface IRecordView<T>
+        where T : notnull
     {
         /// <summary>
         /// Gets a record by key.

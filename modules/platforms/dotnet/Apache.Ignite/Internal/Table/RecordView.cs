@@ -33,6 +33,7 @@ namespace Apache.Ignite.Internal.Table
     /// </summary>
     /// <typeparam name="T">Record type.</typeparam>
     internal sealed class RecordView<T> : IRecordView<T>
+        where T : notnull
     {
         /** Table. */
         private readonly Table _table;
