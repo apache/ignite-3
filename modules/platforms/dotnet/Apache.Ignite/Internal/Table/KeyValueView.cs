@@ -51,22 +51,20 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
         (await _recordView.GetAsync(transaction, ToKv(key))).Select(static x => x.Val);
 
     /// <inheritdoc/>
-    public async Task<IDictionary<TK, TV>> GetAllAsync(ITransaction? transaction, IEnumerable<TK> keys)
-    {
-        // TODO: Avoid list allocation, read directly into dict.
-        var list = await _recordView.GetAllAsync(transaction, keys.Select(static k => ToKv(k)));
-        var res = new Dictionary<TK, TV>(list.Count);
-
-        foreach (var ((key, val), hasVal) in list)
-        {
-            if (hasVal)
+    public async Task<IDictionary<TK, TV>> GetAllAsync(ITransaction? transaction, IEnumerable<TK> keys) =>
+        await _recordView.GetAllAsync(
+            transaction,
+            keys.Select(static k => ToKv(k)),
+            count => new Dictionary<TK, TV>(count),
+            (dict, item) =>
             {
-                res[key] = val;
-            }
-        }
+                var ((key, val), hasVal) = item;
 
-        return res;
-    }
+                if (hasVal)
+                {
+                    dict[key] = val;
+                }
+            });
 
     /// <inheritdoc/>
     public async Task<bool> ContainsAsync(ITransaction? transaction, TK key) =>

@@ -288,6 +288,4 @@ public class KeyValueViewBinaryTests : IgniteTestsBase
         Assert.IsTrue(res4.HasValue);
         Assert.AreEqual("11", res4.Value[0]);
     }
-
-    // TODO: GetAndReplace
 }

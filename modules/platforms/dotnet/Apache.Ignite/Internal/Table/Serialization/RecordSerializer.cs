@@ -110,14 +110,20 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// </summary>
         /// <param name="buf">Buffer.</param>
         /// <param name="schema">Schema or null when there is no value.</param>
-        /// <param name="keyOnly">Key only mode.</param>
+        /// <param name="resultFactory">Result factory.</param>
+        /// <param name="addAction">Adds items to the result.</param>
+        /// <typeparam name="TRes">Result type.</typeparam>
         /// <returns>List of records.</returns>
-        public IList<Option<T>> ReadMultipleNullable(PooledBuffer buf, Schema? schema, bool keyOnly = false)
+        public TRes ReadMultipleNullable<TRes>(
+            PooledBuffer buf,
+            Schema? schema,
+            Func<int, TRes> resultFactory,
+            Action<TRes, Option<T>> addAction)
         {
             if (schema == null)
             {
                 // Null schema means empty collection.
-                return Array.Empty<Option<T>>();
+                return resultFactory(0);
             }
 
             // Skip schema version.
@@ -125,15 +131,15 @@ namespace Apache.Ignite.Internal.Table.Serialization
             r.Skip();
 
             var count = r.ReadInt32();
-            var res = new List<Option<T>>(count);
+            var res = resultFactory(count);
 
             for (var i = 0; i < count; i++)
             {
                 var option = r.ReadBoolean()
-                    ? Option.Some(_handler.Read(ref r, schema, keyOnly))
+                    ? Option.Some(_handler.Read(ref r, schema))
                     : default;
 
-                res.Add(option);
+                addAction(res, option);
             }
 
             return res;

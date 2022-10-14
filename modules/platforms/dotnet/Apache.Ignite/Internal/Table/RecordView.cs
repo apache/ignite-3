@@ -69,7 +69,34 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <inheritdoc/>
-        public async Task<IList<Option<T>>> GetAllAsync(ITransaction? transaction, IEnumerable<T> keys)
+        public async Task<IList<Option<T>>> GetAllAsync(ITransaction? transaction, IEnumerable<T> keys) =>
+            await GetAllAsync(
+                transaction,
+                keys,
+                static count => count == 0
+                    ? (IList<Option<T>>)Array.Empty<Option<T>>()
+                    : new List<Option<T>>(count),
+                static (res, item) => res.Add(item));
+
+        /// <summary>
+        /// Gets multiple records by keys.
+        /// </summary>
+        /// <param name="transaction">The transaction or <c>null</c> to auto commit.</param>
+        /// <param name="keys">Collection of records with key columns set.</param>
+        /// <param name="resultFactory">Result factory.</param>
+        /// <param name="addAction">Add action.</param>
+        /// <typeparam name="TRes">Result type.</typeparam>
+        /// <returns>
+        /// A <see cref="Task"/> representing the asynchronous operation.
+        /// The task result contains matching records with all columns filled from the table. The order of collection
+        /// elements is guaranteed to be the same as the order of <paramref name="keys"/>. If a record does not exist,
+        /// the element at the corresponding index of the resulting collection will be empty <see cref="Option{T}"/>.
+        /// </returns>
+        public async Task<TRes> GetAllAsync<TRes>(
+            ITransaction? transaction,
+            IEnumerable<T> keys,
+            Func<int, TRes> resultFactory,
+            Action<TRes, Option<T>> addAction)
         {
             IgniteArgumentCheck.NotNull(keys, nameof(keys));
 
@@ -77,7 +104,7 @@ namespace Apache.Ignite.Internal.Table
 
             if (!iterator.MoveNext())
             {
-                return Array.Empty<Option<T>>();
+                return resultFactory(0);
             }
 
             var schema = await _table.GetLatestSchemaAsync().ConfigureAwait(false);
@@ -90,7 +117,7 @@ namespace Apache.Ignite.Internal.Table
             var resSchema = await _table.ReadSchemaAsync(resBuf).ConfigureAwait(false);
 
             // TODO: Read value parts only (IGNITE-16022).
-            return _ser.ReadMultipleNullable(resBuf, resSchema);
+            return _ser.ReadMultipleNullable(resBuf, resSchema, resultFactory, addAction);
         }
 
         /// <inheritdoc/>
