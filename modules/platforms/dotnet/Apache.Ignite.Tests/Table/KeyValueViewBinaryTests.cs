@@ -120,4 +120,19 @@ public class KeyValueViewBinaryTests : IgniteTestsBase
             Assert.AreEqual("v" + i, val[ValCol]);
         }
     }
+
+    [Test]
+    public async Task TestGetAndPut()
+    {
+        var res1 = await KvView.GetAndPutAsync(null, GetTuple(1), GetTuple("1"));
+        var res2 = await KvView.GetAndPutAsync(null, GetTuple(1), GetTuple("2"));
+        var res3 = await KvView.GetAsync(null, GetTuple(1));
+
+        Assert.IsFalse(res1.HasValue);
+        Assert.IsTrue(res2.HasValue);
+        Assert.IsTrue(res3.HasValue);
+
+        Assert.AreEqual("1", res2.Value[0]);
+        Assert.AreEqual("2", res3.Value[0]);
+    }
 }
