@@ -153,4 +153,26 @@ public class KeyValueViewBinaryTests : IgniteTestsBase
         Assert.IsTrue(res3);
         Assert.AreEqual("2", res4.Value[0]);
     }
+
+    [Test]
+    public async Task TestRemove()
+    {
+        await KvView.PutAsync(null, GetTuple(1), GetTuple("1"));
+
+        var res1 = await KvView.RemoveAsync(null, GetTuple(1));
+        var res2 = await KvView.RemoveAsync(null, GetTuple(2));
+        var res3 = await KvView.ContainsAsync(null, GetTuple(1));
+
+        Assert.IsTrue(res1);
+        Assert.IsFalse(res2);
+        Assert.IsFalse(res3);
+    }
+
+    // TODO: Remove2
+    // TODO: RemoveAll
+    // TODO: RemoveAll2
+    // TODO: GetAndRemove
+    // TODO: Replace
+    // TODO: Replace2
+    // TODO: GetAndReplace
 }
