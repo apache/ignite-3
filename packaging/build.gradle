@@ -44,7 +44,7 @@ task cliStartScript(type: CreateStartScripts) {
     // it is expected to locate the "lib" dir together with "bin"
     classpath = files(new File("../lib/${project(':ignite-cli').name}-${project(':ignite-cli').version}.jar"), new File("../lib/*"))
     outputDir = file "$buildDir/scripts"
-    applicationName = 'ignite3cli'
+    applicationName = 'ignite3'
 }
 
 distributions {
