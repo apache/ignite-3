@@ -17,15 +17,15 @@
 
 package org.apache.ignite.internal.storage.configuration;
 
-import static org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema.UNKNOWN_DATA_STORAGE;
 import static org.apache.ignite.internal.configuration.validation.TestValidationUtil.mockValidationContext;
 import static org.apache.ignite.internal.configuration.validation.TestValidationUtil.validate;
+import static org.apache.ignite.internal.schema.configuration.storage.UnknownDataStorageConfigurationSchema.UNKNOWN_DATA_STORAGE;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.UUID;
-import org.apache.ignite.configuration.schemas.store.ExistingDataStorage;
+import org.apache.ignite.internal.schema.configuration.storage.ExistingDataStorage;
 import org.apache.ignite.internal.storage.DataStorageModule;
 import org.junit.jupiter.api.Test;
 
