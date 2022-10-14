@@ -49,7 +49,7 @@ public class SortedIndexTreeLeafIo extends BplusLeafIo<SortedIndexRowKey> implem
      * @param inlineSize Inline size in bytes.
      */
     private SortedIndexTreeLeafIo(int ver, int inlineSize) {
-        super(T_SORTED_INDEX_LEAF_IO_START + inlineSize, ver, SIZE_IN_BYTES);
+        super(T_SORTED_INDEX_LEAF_IO_START + inlineSize, ver, ITEM_SIZE_WITHOUT_COLUMNS + inlineSize);
     }
 
     @Override

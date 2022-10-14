@@ -49,7 +49,7 @@ public class SortedIndexTreeInnerIo extends BplusInnerIo<SortedIndexRowKey> impl
      * @param inlineSize Inline size in bytes.
      */
     private SortedIndexTreeInnerIo(int ver, int inlineSize) {
-        super(T_SORTED_INDEX_INNER_IO_START + inlineSize, ver, true, SIZE_IN_BYTES);
+        super(T_SORTED_INDEX_INNER_IO_START + inlineSize, ver, true, ITEM_SIZE_WITHOUT_COLUMNS + inlineSize);
     }
 
     @Override

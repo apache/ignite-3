@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage.pagememory.index.hash.io;
 
+import static java.nio.ByteOrder.LITTLE_ENDIAN;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.getBytes;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.getInt;
@@ -64,7 +65,7 @@ public interface HashIndexTreeIo {
     /** Item size without index columns in bytes. */
     int ITEM_SIZE_WITHOUT_COLUMNS = Integer.BYTES // Index columns hash.
             + Short.SIZE // Inlined index columns size.
-            + PARTITIONLESS_LINK_SIZE_BYTES // Index column link.
+            + PARTITIONLESS_LINK_SIZE_BYTES // Index columns link.
             + 2 * Long.BYTES; // Row ID.
 
     /** Index columns are not fully inlined, the index column size is {@link #indexColumnsInlineSize()}. */
@@ -262,10 +263,9 @@ public interface HashIndexTreeIo {
             indexColumnsBuffer = ByteBuffer.wrap(indexColumnsTraversal.result());
         }
 
-        IndexColumns indexColumns = new IndexColumns(partitionId, link, indexColumnsBuffer);
+        IndexColumns indexColumns = new IndexColumns(partitionId, link, indexColumnsBuffer.order(LITTLE_ENDIAN));
 
         long rowIdMsb = getLong(pageAddr + off, rowIdMsbOffset());
-
         long rowIdLsb = getLong(pageAddr + off, rowIdLsbOffset());
 
         RowId rowId = new RowId(partitionId, rowIdMsb, rowIdLsb);
