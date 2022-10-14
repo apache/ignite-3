@@ -39,7 +39,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
-import java.util.Set;
 import java.util.TreeMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -70,7 +69,7 @@ public class SqlScriptRunner {
     private static final String NULL = "NULL";
 
     /** Comparator for "rowsort" sort mode. */
-    private final Comparator<List<?>> ROW_COMPARATOR = (r1, r2) -> {
+    private final Comparator<List<?>> rowComparator = (r1, r2) -> {
         int rows = r1.size();
 
         for (int i = 0; i < rows; ++i) {
@@ -192,9 +191,9 @@ public class SqlScriptRunner {
     }
 
     private String toString(Object res) {
-        if (res == null)
+        if (res == null) {
             return nullLbl;
-        else if (res instanceof byte[]) {
+        } else if (res instanceof byte[]) {
             return ByteString.toString((byte[]) res, 16);
         } else if (res instanceof Map) {
             return mapToString((Map<?, ?>) res);
@@ -248,7 +247,8 @@ public class SqlScriptRunner {
             return '(' + fileName + ':' + lineNum + ')';
         }
 
-        @Override public void close() throws Exception {
+        @Override
+        public void close() throws Exception {
             buffReader.close();
         }
 
@@ -264,7 +264,7 @@ public class SqlScriptRunner {
                     String[] tokens = s.split("\\s+");
 
                     assert !ArrayUtils.nullOrEmpty(tokens) : "Invalid command line. "
-                        + script.positionDescription() + ". [cmd=" + s + ']';
+                            + script.positionDescription() + ". [cmd=" + s + ']';
 
                     Command cmd = null;
 
@@ -296,7 +296,7 @@ public class SqlScriptRunner {
 
                         default:
                             throw new IgniteException("Unexpected command. "
-                                + script.positionDescription() + ". [cmd=" + s + ']');
+                                    + script.positionDescription() + ". [cmd=" + s + ']');
                     }
 
                     if (cmd != null) {
@@ -311,16 +311,19 @@ public class SqlScriptRunner {
         }
 
         @NotNull
-        @Override public Iterator<Command> iterator() {
+        @Override
+        public Iterator<Command> iterator() {
             final Command cmd0 = nextCommand();
             return new Iterator<>() {
                 private Command cmd = cmd0;
 
-                @Override public boolean hasNext() {
+                @Override
+                public boolean hasNext() {
                     return cmd != null;
                 }
 
-                @Override public Command next() {
+                @Override
+                public Command next() {
                     if (cmd == null) {
                         throw new NoSuchElementException();
                     }
@@ -361,7 +364,7 @@ public class SqlScriptRunner {
                 end = Integer.parseInt(cmdTokens[3]);
             } catch (Exception e) {
                 throw new IgniteException("Unexpected loop syntax. "
-                    + script.positionDescription() + ". [cmd=" + cmdTokens + ']');
+                        + script.positionDescription() + ". [cmd=" + cmdTokens + ']');
             }
 
             while (script.ready()) {
@@ -375,7 +378,8 @@ public class SqlScriptRunner {
             }
         }
 
-        @Override void execute() {
+        @Override
+        void execute() {
             for (int i = begin; i < end; ++i) {
                 loopVars.put(var, i);
 
@@ -387,7 +391,8 @@ public class SqlScriptRunner {
     }
 
     private class EndLoop extends Command {
-        @Override void execute() {
+        @Override
+        void execute() {
             // No-op.
         }
     }
@@ -411,7 +416,7 @@ public class SqlScriptRunner {
 
                 default:
                     throw new IgniteException("Statement argument should be 'ok' or 'error'. "
-                        + script.positionDescription() + "[cmd=" + Arrays.toString(cmd) + ']');
+                            + script.positionDescription() + "[cmd=" + Arrays.toString(cmd) + ']');
             }
 
             queries = new ArrayList<>();
@@ -427,17 +432,19 @@ public class SqlScriptRunner {
             }
         }
 
-        @Override void execute() {
+        @Override
+        void execute() {
             for (String qry : queries) {
                 String[] toks = qry.split("\\s+");
 
                 if ("PRAGMA".equals(toks[0])) {
                     String[] pragmaParams = toks[1].split("=");
 
-                    if ("null".equals(pragmaParams[0]))
+                    if ("null".equals(pragmaParams[0])) {
                         nullLbl = pragmaParams[1];
-                    else
+                    } else {
                         log.info("Ignore: " + toString());
+                    }
 
                     continue;
                 }
@@ -512,13 +519,13 @@ public class SqlScriptRunner {
 
                     default:
                         throw new IgniteException("Unknown type character '" + resTypesChars.charAt(i) + "' at: "
-                            + script.positionDescription() + "[cmd=" + Arrays.toString(cmd) + ']');
+                                + script.positionDescription() + "[cmd=" + Arrays.toString(cmd) + ']');
                 }
             }
 
             if (CollectionUtils.nullOrEmpty(resTypes)) {
                 throw new IgniteException("Missing type string at: "
-                    + script.positionDescription() + "[cmd=" + Arrays.toString(cmd) + ']');
+                        + script.positionDescription() + "[cmd=" + Arrays.toString(cmd) + ']');
             }
 
             // Read SQL query
@@ -561,7 +568,7 @@ public class SqlScriptRunner {
 
                     if (vals.length != resTypes.size() && !singleValOnLine) {
                         throw new IgniteException("Invalid columns count at the result at: "
-                            + script.positionDescription() + " [row=\"" + s + "\", types=" + resTypes + ']');
+                                + script.positionDescription() + " [row=\"" + s + "\", types=" + resTypes + ']');
                     }
 
                     try {
@@ -583,7 +590,7 @@ public class SqlScriptRunner {
                         }
                     } catch (Exception e) {
                         throw new IgniteException("Cannot parse expected results at: "
-                            + script.positionDescription() + "[row=\"" + s + "\", types=" + resTypes + ']', e);
+                                + script.positionDescription() + "[row=\"" + s + "\", types=" + resTypes + ']', e);
                     }
 
                     s = script.nextLineWithoutTrim();
@@ -591,7 +598,8 @@ public class SqlScriptRunner {
             }
         }
 
-        @Override void execute() {
+        @Override
+        void execute() {
             try {
                 List<List<?>> res = sql(sql.toString());
 
@@ -603,10 +611,10 @@ public class SqlScriptRunner {
 
         void checkResult(List<List<?>> res) {
             if (sortType == SortType.ROWSORT) {
-                res.sort(ROW_COMPARATOR);
+                res.sort(rowComparator);
 
                 if (expectedRes != null) {
-                    expectedRes.sort(ROW_COMPARATOR);
+                    expectedRes.sort(rowComparator);
                 }
             } else if (sortType == SortType.VALUESORT) {
                 List<Object> flattenRes = new ArrayList<>();
@@ -668,15 +676,18 @@ public class SqlScriptRunner {
         }
 
         private void checkEquals(String msg, String expectedStr, Object actual) {
-            if (actual == null && (expectedStr == null || nullLbl.equalsIgnoreCase(expectedStr)))
+            if (actual == null && (expectedStr == null || nullLbl.equalsIgnoreCase(expectedStr))) {
                 return;
+            }
 
-            if (actual != null ^ expectedStr != null)
+            if (actual != null ^ expectedStr != null) {
                 throw new AssertionError(msg);
+            }
 
             // Alternative values for boolean "0" and "1".
-            if (actual instanceof Boolean && expectedStr.equals((Boolean)actual ? "1" : "0"))
+            if (actual instanceof Boolean && expectedStr.equals((Boolean) actual ? "1" : "0")) {
                 return;
+            }
 
             if (actual instanceof Number) {
                 if ("NaN".equals(expectedStr) || expectedStr.endsWith("Infinity")) {
