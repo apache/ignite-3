@@ -58,6 +58,8 @@ namespace Apache.Ignite.Tests
 
         protected IRecordView<IIgniteTuple> TupleView { get; private set; } = null!;
 
+        protected IKeyValueView<IIgniteTuple, IIgniteTuple> KvView => Table.KeyValueBinaryView;
+
         protected IRecordView<Poco> PocoView { get; private set; } = null!;
 
         [OneTimeSetUp]

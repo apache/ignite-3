@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Tests.Table;
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Ignite.Table;
@@ -37,10 +38,9 @@ public class KeyValueViewBinaryTests : IgniteTestsBase
     [Test]
     public async Task TestPutGet()
     {
-        var kvView = Table.KeyValueBinaryView;
-        await kvView.PutAsync(null, GetTuple(1L), GetTuple("val"));
+        await KvView.PutAsync(null, GetTuple(1L), GetTuple("val"));
 
-        var (res, _) = await kvView.GetAsync(null, GetTuple(1L));
+        var (res, _) = await KvView.GetAsync(null, GetTuple(1L));
 
         Assert.AreEqual("val", res[0]);
         Assert.AreEqual("val", res[ValCol]);
@@ -49,7 +49,7 @@ public class KeyValueViewBinaryTests : IgniteTestsBase
     [Test]
     public async Task TestGetNonExistentKeyReturnsEmptyOption()
     {
-        var (res, hasRes) = await Table.KeyValueBinaryView.GetAsync(null, GetTuple(-111L));
+        var (res, hasRes) = await KvView.GetAsync(null, GetTuple(-111L));
 
         Assert.IsFalse(hasRes);
         Assert.IsNull(res);
@@ -58,12 +58,11 @@ public class KeyValueViewBinaryTests : IgniteTestsBase
     [Test]
     public async Task TestGetAll()
     {
-        var kvView = Table.KeyValueBinaryView;
-        await kvView.PutAsync(null, GetTuple(7L), GetTuple("val1"));
-        await kvView.PutAsync(null, GetTuple(8L), GetTuple("val2"));
+        await KvView.PutAsync(null, GetTuple(7L), GetTuple("val1"));
+        await KvView.PutAsync(null, GetTuple(8L), GetTuple("val2"));
 
-        var res = await kvView.GetAllAsync(null, Enumerable.Range(-1, 100).Select(x => GetTuple(x)).ToList());
-        var resEmpty = await kvView.GetAllAsync(null, Array.Empty<IIgniteTuple>());
+        var res = await KvView.GetAllAsync(null, Enumerable.Range(-1, 100).Select(x => GetTuple(x)).ToList());
+        var resEmpty = await KvView.GetAllAsync(null, Array.Empty<IIgniteTuple>());
 
         Assert.AreEqual(2, res.Count);
         Assert.AreEqual("val1", res[GetTuple(7L)][0]);
@@ -73,23 +72,10 @@ public class KeyValueViewBinaryTests : IgniteTestsBase
     }
 
     [Test]
-    public async Task TestContains()
-    {
-        var kvView = Table.KeyValueBinaryView;
-        await kvView.PutAsync(null, GetTuple(7L), GetTuple("val1"));
-
-        var res1 = await kvView.ContainsAsync(null, GetTuple(7L));
-        var res2 = await kvView.ContainsAsync(null, GetTuple(8L));
-
-        Assert.IsTrue(res1);
-        Assert.IsFalse(res2);
-    }
-
-    [Test]
     public void TestGetAllWithNullKeyThrowsArgumentException()
     {
         var ex = Assert.ThrowsAsync<ArgumentNullException>(async () =>
-            await Table.KeyValueBinaryView.GetAllAsync(null, new[] { GetTuple(1L), null! }));
+            await KvView.GetAllAsync(null, new[] { GetTuple(1L), null! }));
 
         Assert.AreEqual("Value cannot be null. (Parameter 'key')", ex!.Message);
     }
@@ -97,10 +83,41 @@ public class KeyValueViewBinaryTests : IgniteTestsBase
     [Test]
     public void TestPutNullThrowsArgumentException()
     {
-        var keyEx = Assert.ThrowsAsync<ArgumentNullException>(async () => await Table.KeyValueBinaryView.PutAsync(null, null!, null!));
+        var keyEx = Assert.ThrowsAsync<ArgumentNullException>(async () => await KvView.PutAsync(null, null!, null!));
         Assert.AreEqual("Value cannot be null. (Parameter 'key')", keyEx!.Message);
 
-        var valEx = Assert.ThrowsAsync<ArgumentNullException>(async () => await Table.KeyValueBinaryView.PutAsync(null, GetTuple(1L), null!));
+        var valEx = Assert.ThrowsAsync<ArgumentNullException>(async () => await KvView.PutAsync(null, GetTuple(1L), null!));
         Assert.AreEqual("Value cannot be null. (Parameter 'val')", valEx!.Message);
+    }
+
+    [Test]
+    public async Task TestContains()
+    {
+        await KvView.PutAsync(null, GetTuple(7L), GetTuple("val1"));
+
+        var res1 = await KvView.ContainsAsync(null, GetTuple(7L));
+        var res2 = await KvView.ContainsAsync(null, GetTuple(8L));
+
+        Assert.IsTrue(res1);
+        Assert.IsFalse(res2);
+    }
+
+    [Test]
+    public async Task TestPutAll()
+    {
+        await KvView.PutAllAsync(null, new Dictionary<IIgniteTuple, IIgniteTuple>());
+        await KvView.PutAllAsync(
+            null,
+            Enumerable.Range(-1, 7).Select(x => new KeyValuePair<IIgniteTuple, IIgniteTuple>(GetTuple(x), GetTuple("v" + x))));
+
+        var res = await KvView.GetAllAsync(null, Enumerable.Range(-10, 20).Select(x => GetTuple(x)));
+
+        Assert.AreEqual(7, res.Count);
+
+        for (var i = -1; i < 6; i++)
+        {
+            var val = res[GetTuple(i)];
+            Assert.AreEqual("v" + i, val[ValCol]);
+        }
     }
 }
