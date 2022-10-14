@@ -15,25 +15,8 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute.configuration;
-
-import java.util.Collection;
-import java.util.Collections;
-import org.apache.ignite.configuration.RootKey;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.internal.configuration.ConfigurationModule;
-
 /**
- * {@link ConfigurationModule} for node-local configuration provided by compute.
+ * Configuration schemas for thin client components.
  */
-public class ComputeConfigurationModule implements ConfigurationModule {
-    @Override
-    public ConfigurationType type() {
-        return ConfigurationType.LOCAL;
-    }
 
-    @Override
-    public Collection<RootKey<?, ?>> rootKeys() {
-        return Collections.singleton(ComputeConfiguration.KEY);
-    }
-}
+package org.apache.ignite.client.handler.configuration;
