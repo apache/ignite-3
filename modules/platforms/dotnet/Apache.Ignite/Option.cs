@@ -73,7 +73,7 @@ public readonly record struct Option<T>
     /// <param name="selector">Selector.</param>
     /// <typeparam name="TRes">Result type.</typeparam>
     /// <returns>Resulting option.</returns>
-    public Option<TRes> Map<TRes>(Func<T, TRes> selector) => HasValue ? Option.Some(selector(_value)) : default!;
+    public Option<TRes> Select<TRes>(Func<T, TRes> selector) => HasValue ? Option.Some(selector(_value)) : default!;
 
     private bool PrintMembers(StringBuilder builder)
     {

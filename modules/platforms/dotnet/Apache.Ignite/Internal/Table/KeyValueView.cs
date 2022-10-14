@@ -48,7 +48,7 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
 
     /// <inheritdoc/>
     public async Task<Option<TV>> GetAsync(ITransaction? transaction, TK key) =>
-        (await _recordView.GetAsync(transaction, ToKv(key))).Map(static x => x.Val);
+        (await _recordView.GetAsync(transaction, ToKv(key))).Select(static x => x.Val);
 
     /// <inheritdoc/>
     public async Task<IDictionary<TK, TV>> GetAllAsync(ITransaction? transaction, IEnumerable<TK> keys)
@@ -82,7 +82,7 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
 
     /// <inheritdoc/>
     public async Task<Option<TV>> GetAndPutAsync(ITransaction? transaction, TK key, TV val) =>
-        (await _recordView.GetAndUpsertAsync(transaction, new KvPair<TK, TV>(key, val))).Map(static x => x.Val);
+        (await _recordView.GetAndUpsertAsync(transaction, new KvPair<TK, TV>(key, val))).Select(static x => x.Val);
 
     /// <inheritdoc/>
     public async Task<bool> PutIfAbsentAsync(ITransaction? transaction, TK key, TV val) =>
@@ -120,7 +120,7 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
 
     /// <inheritdoc/>
     public async Task<Option<TV>> GetAndRemoveAsync(ITransaction? transaction, TK key) =>
-        (await _recordView.GetAndDeleteAsync(transaction, ToKv(key))).Map(static x => x.Val);
+        (await _recordView.GetAndDeleteAsync(transaction, ToKv(key))).Select(static x => x.Val);
 
     /// <inheritdoc/>
     public async Task<bool> ReplaceAsync(ITransaction? transaction, TK key, TV val) =>
@@ -132,7 +132,7 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
 
     /// <inheritdoc/>
     public async Task<Option<TV>> GetAndReplaceAsync(ITransaction? transaction, TK key, TV val) =>
-        (await _recordView.GetAndReplaceAsync(transaction, ToKv(key, val))).Map(static x => x.Val);
+        (await _recordView.GetAndReplaceAsync(transaction, ToKv(key, val))).Select(static x => x.Val);
 
     private static KvPair<TK, TV> ToKv(KeyValuePair<TK, TV> x)
     {
