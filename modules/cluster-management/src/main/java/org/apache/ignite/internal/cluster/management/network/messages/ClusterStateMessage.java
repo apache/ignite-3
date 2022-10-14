@@ -19,7 +19,6 @@ package org.apache.ignite.internal.cluster.management.network.messages;
 
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
@@ -27,6 +26,5 @@ import org.apache.ignite.network.annotations.Transferable;
  */
 @Transferable(CmgMessageGroup.CLUSTER_STATE)
 public interface ClusterStateMessage extends NetworkMessage {
-    @Marshallable
     ClusterState clusterState();
 }
