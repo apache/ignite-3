@@ -21,6 +21,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Apache.Ignite.Transactions;
+using Common;
 using Ignite.Table;
 using Serialization;
 
@@ -72,7 +73,7 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
 
     /// <inheritdoc/>
     public async Task PutAsync(ITransaction? transaction, TK key, TV val) =>
-        await _recordView.UpsertAsync(transaction, new(key, val));
+        await _recordView.UpsertAsync(transaction, ToKv(key, val));
 
     /// <inheritdoc/>
     public async Task PutAllAsync(ITransaction? transaction, IEnumerable<KeyValuePair<TK, TV>> pairs) =>
@@ -84,7 +85,7 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
 
     /// <inheritdoc/>
     public async Task<bool> PutIfAbsentAsync(ITransaction? transaction, TK key, TV val) =>
-        await _recordView.InsertAsync(transaction, new(key, val));
+        await _recordView.InsertAsync(transaction, ToKv(key, val));
 
     /// <inheritdoc/>
     public async Task<bool> RemoveAsync(ITransaction? transaction, TK key) =>
@@ -92,7 +93,7 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
 
     /// <inheritdoc/>
     public async Task<bool> RemoveAsync(ITransaction? transaction, TK key, TV val) =>
-        await _recordView.DeleteAsync(transaction, new(key, val));
+        await _recordView.DeleteAsync(transaction, ToKv(key, val));
 
     /// <inheritdoc/>
     public async Task<IList<TK>> RemoveAllAsync(ITransaction? transaction, IEnumerable<TK> keys)
@@ -118,17 +119,34 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
 
     /// <inheritdoc/>
     public async Task<bool> ReplaceAsync(ITransaction? transaction, TK key, TV val) =>
-        await _recordView.ReplaceAsync(transaction, new(key, val));
+        await _recordView.ReplaceAsync(transaction, ToKv(key, val));
 
     /// <inheritdoc/>
     public async Task<bool> ReplaceAsync(ITransaction? transaction, TK key, TV oldVal, TV newVal) =>
-        await _recordView.ReplaceAsync(transaction, new(key, oldVal), new(key, newVal));
+        await _recordView.ReplaceAsync(transaction, ToKv(key, oldVal), ToKv(key, newVal));
 
     /// <inheritdoc/>
     public async Task<Option<TV>> GetAndReplaceAsync(ITransaction? transaction, TK key, TV val) =>
-        (await _recordView.GetAndReplaceAsync(transaction, new(key, val))).Map(static x => x.Val);
+        (await _recordView.GetAndReplaceAsync(transaction, ToKv(key, val))).Map(static x => x.Val);
 
-    private static KvPair<TK, TV> ToKv(KeyValuePair<TK, TV> x) => new(x.Key, x.Value);
+    private static KvPair<TK, TV> ToKv(KeyValuePair<TK, TV> x)
+    {
+        IgniteArgumentCheck.NotNull(x.Key, "key");
 
-    private static KvPair<TK, TV> ToKv(TK k) => new(k);
+        return new(x.Key, x.Value);
+    }
+
+    private static KvPair<TK, TV> ToKv(TK k)
+    {
+        IgniteArgumentCheck.NotNull(k, "key");
+
+        return new(k);
+    }
+
+    private static KvPair<TK, TV> ToKv(TK k, TV v)
+    {
+        IgniteArgumentCheck.NotNull(k, "key");
+
+        return new(k, v);
+    }
 }
