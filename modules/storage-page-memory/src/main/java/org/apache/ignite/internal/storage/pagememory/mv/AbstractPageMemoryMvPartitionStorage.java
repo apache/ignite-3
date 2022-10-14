@@ -19,7 +19,6 @@ package org.apache.ignite.internal.storage.pagememory.mv;
 
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.getByInternalId;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
-import static org.apache.ignite.internal.storage.pagememory.index.InlineUtils.binaryTupleInlineSize;
 
 import java.nio.ByteBuffer;
 import java.util.NoSuchElementException;
@@ -58,7 +57,6 @@ import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumnsFreeList;
 import org.apache.ignite.internal.storage.pagememory.index.hash.HashIndexTree;
 import org.apache.ignite.internal.storage.pagememory.index.hash.PageMemoryHashIndexStorage;
-import org.apache.ignite.internal.storage.pagememory.index.hash.io.HashIndexTreeMetaIo;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMeta;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.PageMemorySortedIndexStorage;
@@ -199,10 +197,6 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
             String tableName = tableStorage.configuration().value().name();
 
-            int inlineSize = initNew
-                    ? binaryTupleInlineSize(pageMemory.pageSize(), 12, indexDescriptor)
-                    : readHashIndexInlineSize(metaPageId);
-
             HashIndexTree hashIndexTree = new HashIndexTree(
                     groupId,
                     tableName,
@@ -212,7 +206,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                     new AtomicLong(),
                     metaPageId,
                     rowVersionFreeList,
-                    inlineSize,
+                    indexDescriptor,
                     initNew
             );
 
@@ -220,8 +214,6 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                 boolean replaced = indexMetaTree.putx(new IndexMeta(indexMeta.id(), metaPageId));
 
                 assert !replaced;
-
-                writeHashIndexInlineSize(metaPageId, inlineSize);
             }
 
             return new PageMemoryHashIndexStorage(indexDescriptor, indexFreeList, hashIndexTree);
@@ -931,50 +923,6 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         @Override
         public void close() {
             // No-op.
-        }
-    }
-
-    private int readHashIndexInlineSize(long metaPageId) throws IgniteInternalCheckedException {
-        PageMemory pageMemory = tableStorage.dataRegion().pageMemory();
-
-        long metaPage = pageMemory.acquirePage(groupId, metaPageId);
-
-        try {
-            long metaPageAddr = pageMemory.readLock(groupId, metaPageId, metaPage);
-
-            assert metaPageAddr != 0 : metaPageId;
-
-            try {
-                HashIndexTreeMetaIo metaIo = pageMemory.ioRegistry().resolve(metaPageAddr);
-
-                return metaIo.getInlineSize(metaPageAddr);
-            } finally {
-                pageMemory.readUnlock(groupId, metaPageId, metaPage);
-            }
-        } finally {
-            pageMemory.releasePage(groupId, metaPageId, metaPage);
-        }
-    }
-
-    private void writeHashIndexInlineSize(long metaPageId, int inlineSize) throws IgniteInternalCheckedException {
-        PageMemory pageMemory = tableStorage.dataRegion().pageMemory();
-
-        long metaPage = pageMemory.acquirePage(groupId, metaPageId);
-
-        try {
-            long metaPageAddr = pageMemory.writeLock(groupId, metaPageId, metaPage);
-
-            assert metaPageAddr != 0 : metaPageId;
-
-            try {
-                HashIndexTreeMetaIo metaIo = pageMemory.ioRegistry().resolve(metaPageAddr);
-
-                metaIo.setInlineSize(metaPageAddr, inlineSize);
-            } finally {
-                pageMemory.writeUnlock(groupId, metaPageId, metaPage, true);
-            }
-        } finally {
-            pageMemory.releasePage(groupId, metaPageId, metaPage);
         }
     }
 }
