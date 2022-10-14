@@ -135,4 +135,22 @@ public class KeyValueViewBinaryTests : IgniteTestsBase
         Assert.AreEqual("1", res2.Value[0]);
         Assert.AreEqual("2", res3.Value[0]);
     }
+
+    [Test]
+    public async Task TestPutIfAbsent()
+    {
+        await KvView.PutAsync(null, GetTuple(1), GetTuple("1"));
+
+        var res1 = await KvView.PutIfAbsentAsync(null, GetTuple(1), GetTuple("11"));
+        var res2 = await KvView.GetAsync(null, GetTuple(1));
+
+        var res3 = await KvView.PutIfAbsentAsync(null, GetTuple(2), GetTuple("2"));
+        var res4 = await KvView.GetAsync(null, GetTuple(2));
+
+        Assert.IsFalse(res1);
+        Assert.AreEqual("1", res2.Value[0]);
+
+        Assert.IsTrue(res3);
+        Assert.AreEqual("2", res4.Value[0]);
+    }
 }
