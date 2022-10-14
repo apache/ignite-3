@@ -124,7 +124,7 @@ ospackage {
         fileMode = 0755
     }
 
-    into("/etc/bash-completion.d") {
+    into("/usr/share/bash-completion/completions/") {
         from configurations.cliScripts
         fileMode 0755
     }
