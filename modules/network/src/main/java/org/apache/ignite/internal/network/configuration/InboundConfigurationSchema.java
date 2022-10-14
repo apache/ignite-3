@@ -15,17 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.schemas.network;
+package org.apache.ignite.internal.network.configuration;
 
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Range;
 
-/** Client socket configuration. See <a href="https://man7.org/linux/man-pages/man7/tcp.7.html">TCP docs</a> and
+/**
+ * Server socket configuration. See <a href="https://man7.org/linux/man-pages/man7/tcp.7.html">TCP docs</a> and
  * <a href="https://man7.org/linux/man-pages/man7/socket.7.html">socket docs</a>.
  */
 @Config
-public class OutboundConfigurationSchema {
+public class InboundConfigurationSchema {
+    /** Backlog value. */
+    @Range(min = 0)
+    @Value(hasDefault = true)
+    public final int soBacklog = 128;
+
+    /** Reuse address flag. */
+    @Value(hasDefault = true)
+    public final boolean soReuseAddr = true;
+
     /** Keep-alive flag. */
     @Value(hasDefault = true)
     public final boolean soKeepAlive = true;

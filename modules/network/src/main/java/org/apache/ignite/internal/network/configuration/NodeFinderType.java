@@ -15,8 +15,10 @@
  * limitations under the License.
  */
 
-/**
- * Configuration schemas for Network components.
- */
+package org.apache.ignite.internal.network.configuration;
 
-package org.apache.ignite.configuration.schemas.network;
+/** NodeFinder type. */
+public enum NodeFinderType {
+    /** Node finder with a preconfigured list of ip addresses. */
+    STATIC;
+}

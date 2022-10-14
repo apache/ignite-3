@@ -15,34 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.schemas.network;
+package org.apache.ignite.internal.network.configuration;
 
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.validation.Range;
 
-/**
- * ScaleCube configuration.
+/** Client socket configuration. See <a href="https://man7.org/linux/man-pages/man7/tcp.7.html">TCP docs</a> and
+ * <a href="https://man7.org/linux/man-pages/man7/socket.7.html">socket docs</a>.
  */
 @Config
-public class ScaleCubeConfigurationSchema {
-    /**
-     * This multiplier is used to calculate the timeout after which the node is considered dead. For more information see
-     * io.scalecube.cluster.ClusterMath#suspicionTimeout.
-     */
+public class OutboundConfigurationSchema {
+    /** Keep-alive flag. */
     @Value(hasDefault = true)
-    public final int membershipSuspicionMultiplier = 1;
+    public final boolean soKeepAlive = true;
 
-    /**
-     * Number of members to be randomly selected by a cluster node for an indirect ping request.
-     */
+    /** Socket close linger value. */
+    @Range(min = 0, max = 0xFFFF)
     @Value(hasDefault = true)
-    public final int failurePingRequestMembers = 1;
+    public final int soLinger = 0;
 
-    /**
-     * Gossip spreading interval.
-     *
-     * @see <a href="https://en.wikipedia.org/wiki/Gossip_protocol">Gossip Protocol</a>
-     */
+    /** TCP no delay flag. */
     @Value(hasDefault = true)
-    public final int gossipInterval = 10;
+    public final boolean tcpNoDelay = true;
 }

@@ -33,6 +33,7 @@ dependencies {
     implementation libs.fastutil.core
     implementation libs.netty.handler
     implementation libs.netty.transport
+    annotationProcessor project(":ignite-configuration-annotation-processor")
     annotationProcessor project(":ignite-network-annotation-processor")
     annotationProcessor libs.jmh.annotation.processor
 
