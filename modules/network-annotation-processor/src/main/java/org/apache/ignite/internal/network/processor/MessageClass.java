@@ -27,6 +27,7 @@ import java.util.stream.Collectors;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
@@ -84,7 +85,7 @@ public class MessageClass {
                 .filter(e -> e.getKind() == ElementKind.METHOD)
                 .map(ExecutableElement.class::cast)
                 .filter(e -> !e.isDefault())
-                .filter(e -> e.getParameters().isEmpty())
+                .filter(e -> !e.getModifiers().contains(Modifier.STATIC))
                 // use a tree map to sort getters by name and remove duplicates
                 .collect(Collectors.toMap(
                         e -> e.getSimpleName().toString(),
