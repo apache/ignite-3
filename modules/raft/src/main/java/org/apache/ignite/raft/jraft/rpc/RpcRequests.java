@@ -88,7 +88,6 @@ public final class RpcRequests {
 
         long term();
 
-        @Marshallable
         RaftOutter.SnapshotMeta meta();
 
         String uri();

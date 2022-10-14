@@ -19,6 +19,7 @@
 
 package org.apache.ignite.raft.jraft.entity;
 
+import java.nio.ByteBuffer;
 import java.util.Collection;
 import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
@@ -64,5 +65,7 @@ public final class RaftOutter {
         Collection<String> learnersList();
 
         Collection<String> oldLearnersList();
+
+        ByteBuffer buffer();
     }
 }

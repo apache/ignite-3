@@ -28,10 +28,10 @@ import org.apache.ignite.internal.network.direct.state.DirectMessageState;
 import org.apache.ignite.internal.network.direct.state.DirectMessageStateItem;
 import org.apache.ignite.internal.network.direct.stream.DirectByteBufferStream;
 import org.apache.ignite.internal.network.direct.stream.DirectByteBufferStreamImplV1;
-import org.apache.ignite.internal.network.serialization.PerSessionSerializationService;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.serialization.MessageReader;
+import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.plugin.extensions.communication.MessageCollectionItemType;
 import org.jetbrains.annotations.Nullable;
 
@@ -48,14 +48,14 @@ public class DirectMessageReader implements MessageReader {
     /**
      * Constructor.
      *
-     * @param serializationService  Serialization service.
-     * @param protoVer              Protocol version.
+     * @param serializationRegistry Serialization registry.
+     * @param protoVer Protocol version.
      */
     public DirectMessageReader(
-            PerSessionSerializationService serializationService,
+            MessageSerializationRegistry serializationRegistry,
             byte protoVer
     ) {
-        state = new DirectMessageState<>(StateItem.class, () -> new StateItem(serializationService, protoVer));
+        state = new DirectMessageState<>(StateItem.class, () -> new StateItem(serializationRegistry, protoVer));
     }
 
     /** {@inheritDoc} */
@@ -460,9 +460,18 @@ public class DirectMessageReader implements MessageReader {
     }
 
     /**
+     * Returns a stream to read message fields recursively.
+     *
+     * @param serializationRegistry Serialization registry.
+     */
+    protected DirectByteBufferStream createStream(MessageSerializationRegistry serializationRegistry) {
+        return new DirectByteBufferStreamImplV1(serializationRegistry);
+    }
+
+    /**
      * State item.
      */
-    private static class StateItem implements DirectMessageStateItem {
+    private class StateItem implements DirectMessageStateItem {
         /** Stream. */
         private final DirectByteBufferStream stream;
 
@@ -472,13 +481,13 @@ public class DirectMessageReader implements MessageReader {
         /**
          * Constructor.
          *
-         * @param serializationService Serialization service.
-         * @param protoVer              Protocol version.
+         * @param serializationRegistry Serialization registry.
+         * @param protoVer Protocol version.
          */
-        StateItem(PerSessionSerializationService serializationService, byte protoVer) {
+        StateItem(MessageSerializationRegistry serializationRegistry, byte protoVer) {
             switch (protoVer) {
                 case 1:
-                    stream = new DirectByteBufferStreamImplV1(serializationService);
+                    stream = createStream(serializationRegistry);
 
                     break;
 
