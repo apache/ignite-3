@@ -73,6 +73,19 @@ public class KeyValueViewBinaryTests : IgniteTestsBase
     }
 
     [Test]
+    public async Task TestContains()
+    {
+        var kvView = Table.KeyValueBinaryView;
+        await kvView.PutAsync(null, GetTuple(7L), GetTuple("val1"));
+
+        var res1 = await kvView.ContainsAsync(null, GetTuple(7L));
+        var res2 = await kvView.ContainsAsync(null, GetTuple(8L));
+
+        Assert.IsTrue(res1);
+        Assert.IsFalse(res2);
+    }
+
+    [Test]
     public void TestGetAllWithNullKeyThrowsArgumentException()
     {
         var ex = Assert.ThrowsAsync<ArgumentNullException>(async () =>
