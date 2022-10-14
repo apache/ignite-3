@@ -64,7 +64,8 @@ public interface SnapshotMvDataResponse extends NetworkMessage {
         /** Commit table id for write-intent if it's present. */
         @Nullable UUID commitTableId();
 
-        /** Commit partition id for write-intent if it's present. {@code -1} otherwise. */
+        /** Commit partition id for write-intent if it's present.
+         *  {@link org.apache.ignite.internal.storage.ReadResult#UNDEFINED_COMMIT_PARTITION_ID} otherwise. */
         int commitPartitionId();
     }
 }

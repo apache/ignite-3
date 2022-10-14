@@ -15,21 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.raft.snapshot.message;
+package org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing;
 
-import org.apache.ignite.internal.table.distributed.TableMessageGroup;
-import org.apache.ignite.network.annotations.Transferable;
+import java.util.UUID;
 
 /**
- * Snapshot partition data request message.
+ * Registry of {@link OutgoingSnapshot}s.
  */
-@Transferable(TableMessageGroup.SNAPSHOT_MV_DATA_REQUEST)
-public interface SnapshotMvDataRequest extends SnapshotRequestMessage {
+public interface OutgoingSnapshotRegistry {
     /**
-     * How many bytes the receiver is willing to receive. This corresponds to the sum of byte representations of row
-     * versions, so the overall size of the message might exceed the hint (due to metadata and other fields of row versions).
+     * Register a snapshot with the registry.
      *
-     * @return Batch size hint.
+     * @param snapshotId ID of the snapshot.
+     * @param outgoingSnapshot Snapshot itself.
      */
-    long batchSizeHint();
+    void registerOutgoingSnapshot(UUID snapshotId, OutgoingSnapshot outgoingSnapshot);
+
+    /**
+     * Unregisters a snapshot with the given ID.
+     *
+     * @param snapshotId Snapshot ID.
+     */
+    void unregisterOutgoingSnapshot(UUID snapshotId);
 }

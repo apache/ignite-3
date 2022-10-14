@@ -21,6 +21,7 @@ import java.io.Serializable;
 import java.util.UUID;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Class that represents row id in primary index of the table. Contains a timestamp-based UUID and a partition id.
@@ -82,6 +83,16 @@ public final class RowId implements Serializable, Comparable<RowId> {
      */
     public long leastSignificantBits() {
         return uuid.getLeastSignificantBits();
+    }
+
+    /**
+     * Returns the UUID equivalent of {@link #mostSignificantBits()} and {@link #leastSignificantBits()}.
+     *
+     * @return UUID.
+     */
+    @TestOnly
+    public UUID uuid() {
+        return uuid;
     }
 
     @Override

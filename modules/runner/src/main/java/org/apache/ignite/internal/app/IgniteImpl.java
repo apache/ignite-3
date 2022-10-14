@@ -88,6 +88,7 @@ import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.TableMessagesSerializationRegistryInitializer;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
@@ -224,6 +225,8 @@ public class IgniteImpl implements Ignite {
 
     /** A hybrid logical clock. */
     private final HybridClock clock;
+
+    private final OutgoingSnapshotsManager outgoingSnapshotsManager;
 
     /**
      * The Constructor.
@@ -363,6 +366,8 @@ public class IgniteImpl implements Ignite {
 
         volatileLogStorageFactoryCreator = new VolatileLogStorageFactoryCreator(workDir.resolve("volatile-log-spillout"));
 
+        outgoingSnapshotsManager = new OutgoingSnapshotsManager(clusterSvc.messagingService());
+
         distributedTblMgr = new TableManager(
                 name,
                 registry,
@@ -379,7 +384,8 @@ public class IgniteImpl implements Ignite {
                 metaStorageMgr,
                 schemaManager,
                 volatileLogStorageFactoryCreator,
-                clock
+                clock,
+                outgoingSnapshotsManager
         );
 
         indexManager = new IndexManager(tablesConfiguration);
@@ -518,6 +524,7 @@ public class IgniteImpl implements Ignite {
                                     dataStorageMgr,
                                     schemaManager,
                                     volatileLogStorageFactoryCreator,
+                                    outgoingSnapshotsManager,
                                     distributedTblMgr,
                                     indexManager,
                                     qryEngine,
