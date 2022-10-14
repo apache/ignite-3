@@ -17,8 +17,10 @@
 
 namespace Apache.Ignite.Tests.Table;
 
+using System;
 using System.Linq;
 using System.Threading.Tasks;
+using Ignite.Table;
 using NUnit.Framework;
 
 /// <summary>
@@ -43,5 +45,15 @@ public class KeyValueViewBinaryTests : IgniteTestsBase
 
         Assert.AreEqual("val", res[0]);
         Assert.AreEqual("val", res[ValCol]);
+    }
+
+    [Test]
+    public void TestPutNullThrowsArgumentException()
+    {
+        var keyEx = Assert.ThrowsAsync<ArgumentNullException>(async () => await Table.KeyValueBinaryView.PutAsync(null, null!, null!));
+        Assert.AreEqual("Value cannot be null. (Parameter 'key')", keyEx!.Message);
+
+        var valEx = Assert.ThrowsAsync<ArgumentNullException>(async () => await Table.KeyValueBinaryView.PutAsync(null, GetTuple(1L), null!));
+        Assert.AreEqual("Value cannot be null. (Parameter 'val')", valEx!.Message);
     }
 }

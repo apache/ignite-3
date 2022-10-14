@@ -132,6 +132,7 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
     private static KvPair<TK, TV> ToKv(KeyValuePair<TK, TV> x)
     {
         IgniteArgumentCheck.NotNull(x.Key, "key");
+        IgniteArgumentCheck.NotNull(x.Value, "val");
 
         return new(x.Key, x.Value);
     }
@@ -146,6 +147,7 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
     private static KvPair<TK, TV> ToKv(TK k, TV v)
     {
         IgniteArgumentCheck.NotNull(k, "key");
+        IgniteArgumentCheck.NotNull(v, "val");
 
         return new(k, v);
     }
