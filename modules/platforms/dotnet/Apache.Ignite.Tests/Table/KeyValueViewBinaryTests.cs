@@ -20,6 +20,7 @@ namespace Apache.Ignite.Tests.Table;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using Ignite.Table;
 using NUnit.Framework;
 
 /// <summary>
@@ -62,10 +63,13 @@ public class KeyValueViewBinaryTests : IgniteTestsBase
         await kvView.PutAsync(null, GetTuple(8L), GetTuple("val2"));
 
         var res = await kvView.GetAllAsync(null, Enumerable.Range(-1, 100).Select(x => GetTuple(x)).ToList());
+        var resEmpty = await kvView.GetAllAsync(null, Array.Empty<IIgniteTuple>());
 
         Assert.AreEqual(2, res.Count);
         Assert.AreEqual("val1", res[GetTuple(7L)][0]);
         Assert.AreEqual("val2", res[GetTuple(8L)][0]);
+
+        Assert.AreEqual(0, resEmpty.Count);
     }
 
     [Test]
