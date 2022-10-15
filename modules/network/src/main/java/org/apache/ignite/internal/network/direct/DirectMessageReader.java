@@ -478,7 +478,7 @@ public class DirectMessageReader implements MessageReader {
     /**
      * State item.
      */
-    private class StateItem implements DirectMessageStateItem {
+    private static class StateItem implements DirectMessageStateItem {
         /** Stream. */
         private final DirectByteBufferStream stream;
 

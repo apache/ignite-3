@@ -437,7 +437,7 @@ public class DirectMessageWriter implements MessageWriter {
     /**
      * State item.
      */
-    private class StateItem implements DirectMessageStateItem {
+    private static class StateItem implements DirectMessageStateItem {
         private final DirectByteBufferStream stream;
 
         private int state;
