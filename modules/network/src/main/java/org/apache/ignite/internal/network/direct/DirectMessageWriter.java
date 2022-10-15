@@ -49,7 +49,7 @@ public class DirectMessageWriter implements MessageWriter {
      * @param protoVer Protocol version.
      */
     public DirectMessageWriter(MessageSerializationRegistry serializationRegistry, byte protoVer) {
-        state = new DirectMessageState<>(StateItem.class, () -> new StateItem(serializationRegistry, protoVer));
+        state = new DirectMessageState<>(StateItem.class, () -> new StateItem(createStream(serializationRegistry, protoVer)));
     }
 
     /** {@inheritDoc} */
@@ -422,9 +422,16 @@ public class DirectMessageWriter implements MessageWriter {
      * Returns a stream to write message fields recursively.
      *
      * @param serializationRegistry Serialization registry.
+     * @param protoVer Protocol version.
      */
-    protected DirectByteBufferStream createStream(MessageSerializationRegistry serializationRegistry) {
-        return new DirectByteBufferStreamImplV1(serializationRegistry);
+    protected DirectByteBufferStream createStream(MessageSerializationRegistry serializationRegistry, byte protoVer) {
+        switch (protoVer) {
+            case 1:
+                return new DirectByteBufferStreamImplV1(serializationRegistry);
+
+            default:
+                throw new IllegalStateException("Invalid protocol version: " + protoVer);
+        }
     }
 
     /**
@@ -448,19 +455,10 @@ public class DirectMessageWriter implements MessageWriter {
         /**
          * Constructor.
          *
-         * @param serializationRegistry Serialization registry.
-         * @param protoVer Protocol version.
+         * @param stream Direct byte buffer stream.
          */
-        StateItem(MessageSerializationRegistry serializationRegistry, byte protoVer) {
-            switch (protoVer) {
-                case 1:
-                    stream = createStream(serializationRegistry);
-
-                    break;
-
-                default:
-                    throw new IllegalStateException("Invalid protocol version: " + protoVer);
-            }
+        StateItem(DirectByteBufferStream stream) {
+            this.stream = stream;
         }
 
         /** {@inheritDoc} */

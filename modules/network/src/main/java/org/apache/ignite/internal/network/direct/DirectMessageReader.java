@@ -55,7 +55,7 @@ public class DirectMessageReader implements MessageReader {
             MessageSerializationRegistry serializationRegistry,
             byte protoVer
     ) {
-        state = new DirectMessageState<>(StateItem.class, () -> new StateItem(serializationRegistry, protoVer));
+        state = new DirectMessageState<>(StateItem.class, () -> new StateItem(createStream(serializationRegistry, protoVer)));
     }
 
     /** {@inheritDoc} */
@@ -463,9 +463,16 @@ public class DirectMessageReader implements MessageReader {
      * Returns a stream to read message fields recursively.
      *
      * @param serializationRegistry Serialization registry.
+     * @param protoVer Protocol version.
      */
-    protected DirectByteBufferStream createStream(MessageSerializationRegistry serializationRegistry) {
-        return new DirectByteBufferStreamImplV1(serializationRegistry);
+    protected DirectByteBufferStream createStream(MessageSerializationRegistry serializationRegistry, byte protoVer) {
+        switch (protoVer) {
+            case 1:
+                return new DirectByteBufferStreamImplV1(serializationRegistry);
+
+            default:
+                throw new IllegalStateException("Invalid protocol version: " + protoVer);
+        }
     }
 
     /**
@@ -481,19 +488,10 @@ public class DirectMessageReader implements MessageReader {
         /**
          * Constructor.
          *
-         * @param serializationRegistry Serialization registry.
-         * @param protoVer Protocol version.
+         * @param stream Direct byte buffer stream.
          */
-        StateItem(MessageSerializationRegistry serializationRegistry, byte protoVer) {
-            switch (protoVer) {
-                case 1:
-                    stream = createStream(serializationRegistry);
-
-                    break;
-
-                default:
-                    throw new IllegalStateException("Invalid protocol version: " + protoVer);
-            }
+        StateItem(DirectByteBufferStream stream) {
+            this.stream = stream;
         }
 
         /** {@inheritDoc} */

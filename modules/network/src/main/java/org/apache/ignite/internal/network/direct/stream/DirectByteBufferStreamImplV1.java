@@ -234,11 +234,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         lastFinished = buf.remaining() >= 5;
 
         if (lastFinished) {
-            if (val == Integer.MAX_VALUE) {
-                val = Integer.MIN_VALUE;
-            } else {
-                val++;
-            }
+            val++;
 
             int pos = buf.position();
 
@@ -262,11 +258,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         lastFinished = buf.remaining() >= 10;
 
         if (lastFinished) {
-            if (val == Long.MAX_VALUE) {
-                val = Long.MIN_VALUE;
-            } else {
-                val++;
-            }
+            val++;
 
             int pos = buf.position();
 
@@ -899,13 +891,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
             if ((b & 0x80) == 0) {
                 lastFinished = true;
 
-                val = (int) prim;
-
-                if (val == Integer.MIN_VALUE) {
-                    val = Integer.MAX_VALUE;
-                } else {
-                    val--;
-                }
+                val = (int) prim - 1;
 
                 prim = 0;
                 primShift = 0;
@@ -938,13 +924,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
             if ((b & 0x80) == 0) {
                 lastFinished = true;
 
-                val = prim;
-
-                if (val == Long.MIN_VALUE) {
-                    val = Long.MAX_VALUE;
-                } else {
-                    val--;
-                }
+                val = prim - 1;
 
                 prim = 0;
                 primShift = 0;

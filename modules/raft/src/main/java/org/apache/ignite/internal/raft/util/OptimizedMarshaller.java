@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.raft.util;
 
-import static java.lang.ThreadLocal.withInitial;
-
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Arrays;
@@ -45,8 +43,8 @@ public class OptimizedMarshaller implements Marshaller {
     /** Byte buffer order. */
     private static final ByteOrder ORDER = ByteOrder.LITTLE_ENDIAN;
 
-    /** Thread-local buffer to write data. */
-    private static final ThreadLocal<ByteBuffer> BUFFER = withInitial(() -> ByteBuffer.allocate(DEFAULT_BUFFER_SIZE).order(ORDER));
+    /** Buffer to write data. */
+    private ByteBuffer buffer = ByteBuffer.allocate(DEFAULT_BUFFER_SIZE).order(ORDER);
 
     /** Direct byte-buffer stream instance. */
     private final OptimizedStream stream;
@@ -67,14 +65,18 @@ public class OptimizedMarshaller implements Marshaller {
 
         messageWriter = new DirectMessageWriter(serializationRegistry, PROTO_VER) {
             @Override
-            protected DirectByteBufferStreamImplV1 createStream(MessageSerializationRegistry serializationRegistry) {
+            protected DirectByteBufferStreamImplV1 createStream(MessageSerializationRegistry serializationRegistry, byte protoVer) {
+                assert protoVer == PROTO_VER : protoVer;
+
                 return new OptimizedStream(serializationRegistry);
             }
         };
 
         messageReader = new DirectMessageReader(serializationRegistry, PROTO_VER) {
             @Override
-            protected DirectByteBufferStream createStream(MessageSerializationRegistry serializationRegistry) {
+            protected DirectByteBufferStream createStream(MessageSerializationRegistry serializationRegistry, byte protoVer) {
+                assert protoVer == PROTO_VER : protoVer;
+
                 return new OptimizedStream(serializationRegistry);
             }
         };
@@ -86,7 +88,7 @@ public class OptimizedMarshaller implements Marshaller {
 
         NetworkMessage message = (NetworkMessage) o;
 
-        ByteBuffer buffer = BUFFER.get().position(0);
+        buffer.position(0);
 
         while (true) {
             stream.setBuffer(buffer);
@@ -112,7 +114,7 @@ public class OptimizedMarshaller implements Marshaller {
     }
 
     /**
-     * Creates a bigger copy of the buffer, setting it into {@link #BUFFER}.
+     * Creates a bigger copy of the buffer.
      *
      * @param buffer Smaller byte buffer.
      * @return Bigger byte buffer.
@@ -120,10 +122,6 @@ public class OptimizedMarshaller implements Marshaller {
     private ByteBuffer expandBuffer(ByteBuffer buffer) {
         byte[] newArray = Arrays.copyOf(buffer.array(), (int) (buffer.capacity() * 1.5));
 
-        ByteBuffer newBuffer = ByteBuffer.wrap(newArray).position(buffer.position()).order(ORDER);
-
-        BUFFER.set(newBuffer);
-
-        return newBuffer;
+        return ByteBuffer.wrap(newArray).position(buffer.position()).order(ORDER);
     }
 }
