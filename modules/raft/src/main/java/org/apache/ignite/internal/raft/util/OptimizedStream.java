@@ -64,7 +64,7 @@ class OptimizedStream extends DirectByteBufferStreamImplV1 {
         try {
             ByteBuffer val = buf.limit(buf.position() + length).slice();
 
-            buf.position(buf.position() + length);
+            buf.position(buf.limit());
 
             if ((flag & BYTE_BUFFER_BIG_ENDIAN_FLAG) == 0) {
                 val.order(ByteOrder.LITTLE_ENDIAN);
