@@ -322,9 +322,12 @@ namespace Apache.Ignite.Internal.Table.Serialization
             var il = method.GetILGenerator();
             var (keyType, valType, keyField, valField) = GetKeyValTypes();
 
+            var keyMethod = BinaryTupleMethods.GetReadMethodOrNull(keyType);
+            var valMethod = BinaryTupleMethods.GetReadMethodOrNull(valType);
+
             var kvLocal = DeclareAndInitLocal(il, type);
-            var keyLocal = DeclareAndInitLocal(il, keyType);
-            var valLocal = DeclareAndInitLocal(il, valType);
+            var keyLocal = keyMethod == null ? DeclareAndInitLocal(il, keyType) : null;
+            var valLocal = valMethod == null ? DeclareAndInitLocal(il, valType) : null;
 
             var columns = schema.Columns;
             var count = keyOnly ? schema.KeyColumnCount : columns.Count;
@@ -332,20 +335,43 @@ namespace Apache.Ignite.Internal.Table.Serialization
             for (var i = 0; i < count; i++)
             {
                 var col = columns[i];
-                var fieldInfo = (col.IsKey ? keyType : valType).GetFieldIgnoreCase(col.Name);
+                FieldInfo? fieldInfo;
+                LocalBuilder? local;
 
-                EmitFieldRead(fieldInfo, il, col, i, col.IsKey ? keyLocal : valLocal);
+                if (i == 0 && keyMethod != null)
+                {
+                    fieldInfo = keyField;
+                    local = kvLocal;
+                }
+                else if (i == schema.KeyColumnCount && valMethod != null)
+                {
+                    fieldInfo = valField;
+                    local = kvLocal;
+                }
+                else
+                {
+                    fieldInfo = (col.IsKey ? keyType : valType).GetFieldIgnoreCase(col.Name);
+                    local = col.IsKey ? keyLocal : valLocal;
+                }
+
+                EmitFieldRead(fieldInfo, il, col, i, local);
             }
 
             // Copy Key to KvPair.
-            il.Emit(OpCodes.Ldloca_S, kvLocal);
-            il.Emit(OpCodes.Ldloc, keyLocal);
-            il.Emit(OpCodes.Stfld, keyField);
+            if (keyLocal != null)
+            {
+                il.Emit(OpCodes.Ldloca_S, kvLocal);
+                il.Emit(OpCodes.Ldloc, keyLocal);
+                il.Emit(OpCodes.Stfld, keyField);
+            }
 
             // Copy Val to KvPair.
-            il.Emit(OpCodes.Ldloca_S, kvLocal);
-            il.Emit(OpCodes.Ldloc, valLocal);
-            il.Emit(OpCodes.Stfld, valField);
+            if (valLocal != null)
+            {
+                il.Emit(OpCodes.Ldloca_S, kvLocal);
+                il.Emit(OpCodes.Ldloc, valLocal);
+                il.Emit(OpCodes.Stfld, valField);
+            }
 
             il.Emit(OpCodes.Ldloc_0); // res
             il.Emit(OpCodes.Ret);
@@ -453,9 +479,9 @@ namespace Apache.Ignite.Internal.Table.Serialization
             return (ReadValuePartDelegate<T>)method.CreateDelegate(typeof(ReadValuePartDelegate<T>));
         }
 
-        private static void EmitFieldRead(FieldInfo? fieldInfo, ILGenerator il, Column col, int elemIdx, LocalBuilder local)
+        private static void EmitFieldRead(FieldInfo? fieldInfo, ILGenerator il, Column col, int elemIdx, LocalBuilder? local)
         {
-            if (fieldInfo == null)
+            if (fieldInfo == null || local == null)
             {
                 return;
             }
