@@ -22,7 +22,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.Iterator;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableView;
@@ -71,7 +70,7 @@ public class InternalSchemaTest extends AbstractBasicIntegrationTest {
 
         ses.execute(
                 null,
-                "INSERT INTO my VALUES (1, 2, 3)"
+                "INSERT INTO my VALUES (1, 2, '3')"
         );
 
         ResultSet res = ses.execute(
