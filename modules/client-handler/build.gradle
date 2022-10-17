@@ -28,7 +28,6 @@ dependencies {
     implementation project(':ignite-sql-engine')
     implementation project(':ignite-network')
     implementation project(':ignite-core')
-    implementation project(':ignite-extended-api')
     implementation project(':ignite-schema')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core

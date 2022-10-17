@@ -20,7 +20,7 @@ package org.apache.ignite.internal.configuration;
 import java.util.Collection;
 import java.util.List;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.internal.configuration.schema.ExtendedTableConfigurationSchema;
+import org.apache.ignite.internal.schema.configuration.ExtendedTableConfigurationSchema;
 
 /**
  * {@link ConfigurationModule} for cluster-wide configuration provided by ignite-table.

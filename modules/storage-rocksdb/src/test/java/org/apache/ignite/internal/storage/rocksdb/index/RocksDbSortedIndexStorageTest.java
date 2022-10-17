@@ -18,9 +18,9 @@
 package org.apache.ignite.internal.storage.rocksdb.index;
 
 import java.nio.file.Path;
-import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.index.AbstractSortedIndexStorageTest;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbTableStorage;

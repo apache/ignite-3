@@ -22,7 +22,7 @@ import static org.apache.ignite.internal.storage.rocksdb.configuration.schema.Ro
 
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema;
+import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 import org.apache.ignite.internal.storage.rocksdb.configuration.RocksDbDataRegionName;
 
