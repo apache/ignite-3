@@ -351,11 +351,11 @@ namespace Apache.Ignite.Internal.Table.Serialization
             if (keyValTypes != null)
             {
                 il.Emit(OpCodes.Ldloca_S, local);
-                il.Emit(OpCodes.Ldloca_S, localKey!);
+                il.Emit(OpCodes.Ldloc, localKey!);
                 il.Emit(OpCodes.Stfld, type.GetFieldIgnoreCase("Key")!);
 
                 il.Emit(OpCodes.Ldloca_S, local);
-                il.Emit(OpCodes.Ldloca_S, localVal!);
+                il.Emit(OpCodes.Ldloc, localVal!);
                 il.Emit(OpCodes.Stfld, type.GetFieldIgnoreCase("Val")!);
             }
 
@@ -374,7 +374,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
             ValidateFieldType(fieldInfo, col);
 
-            il.Emit(fieldInfo.DeclaringType!.IsValueType ? OpCodes.Ldloca_S : OpCodes.Ldloc, local); // res
+            il.Emit(local.LocalType.IsValueType ? OpCodes.Ldloca_S : OpCodes.Ldloc, local); // res
             il.Emit(OpCodes.Ldarg_0); // reader
             EmitLdcI4(il, elemIdx); // index
 
