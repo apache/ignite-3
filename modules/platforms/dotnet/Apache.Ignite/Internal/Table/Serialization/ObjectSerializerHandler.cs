@@ -343,20 +343,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             }
 
             var il = method.GetILGenerator();
-            var local = il.DeclareLocal(type);
-
-            if (type.IsValueType)
-            {
-                il.Emit(OpCodes.Ldloca_S, local);
-                il.Emit(OpCodes.Initobj, type);
-            }
-            else
-            {
-                il.Emit(OpCodes.Ldtoken, type);
-                il.Emit(OpCodes.Call, ReflectionUtils.GetTypeFromHandleMethod);
-                il.Emit(OpCodes.Call, ReflectionUtils.GetUninitializedObjectMethod);
-                il.Emit(OpCodes.Stloc_0); // T res
-            }
+            var local = DeclareAndInitLocal(il, type); // T res
 
             var columns = schema.Columns;
 
@@ -394,23 +381,9 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
             var il = method.GetILGenerator();
 
-            var local = il.DeclareLocal(type);
-            il.Emit(OpCodes.Ldloca_S, local);
-            il.Emit(OpCodes.Initobj, type);
-
-            // TODO: IsValueType - reusable init logic.
-            var localKey = il.DeclareLocal(keyValTypes[0]);
-            il.Emit(OpCodes.Ldtoken, keyValTypes[0]);
-            il.Emit(OpCodes.Call, ReflectionUtils.GetTypeFromHandleMethod);
-            il.Emit(OpCodes.Call, ReflectionUtils.GetUninitializedObjectMethod);
-            il.Emit(OpCodes.Stloc_1); // TK
-
-            // TODO: IsValueType - reusable init logic.
-            var localVal = il.DeclareLocal(keyValTypes[1]);
-            il.Emit(OpCodes.Ldtoken, keyValTypes[1]);
-            il.Emit(OpCodes.Call, ReflectionUtils.GetTypeFromHandleMethod);
-            il.Emit(OpCodes.Call, ReflectionUtils.GetUninitializedObjectMethod);
-            il.Emit(OpCodes.Stloc_2); // TV
+            var kvLocal = DeclareAndInitLocal(il, type);
+            var keyLocal = DeclareAndInitLocal(il, keyValTypes[0]);
+            var valLocal = DeclareAndInitLocal(il, keyValTypes[1]);
 
             var columns = schema.Columns;
 
@@ -423,18 +396,16 @@ namespace Apache.Ignite.Internal.Table.Serialization
                         ? keyValTypes[0].GetFieldIgnoreCase(col.Name)
                         : keyValTypes[1].GetFieldIgnoreCase(col.Name);
 
-                var loc = localVal;
-
-                EmitFieldRead(fieldInfo, il, col, i - schema.KeyColumnCount, loc);
+                EmitFieldRead(fieldInfo, il, col, i - schema.KeyColumnCount, valLocal);
             }
 
             // Copy K and V to KvPair.
-            il.Emit(OpCodes.Ldloca_S, local);
-            il.Emit(OpCodes.Ldloc, localKey);
+            il.Emit(OpCodes.Ldloca_S, kvLocal);
+            il.Emit(OpCodes.Ldloc, keyLocal);
             il.Emit(OpCodes.Stfld, type.GetFieldIgnoreCase("Key")!);
 
-            il.Emit(OpCodes.Ldloca_S, local);
-            il.Emit(OpCodes.Ldloc, localVal);
+            il.Emit(OpCodes.Ldloca_S, kvLocal);
+            il.Emit(OpCodes.Ldloc, valLocal);
             il.Emit(OpCodes.Stfld, type.GetFieldIgnoreCase("Val")!);
 
             il.Emit(OpCodes.Ldloc_0); // res
@@ -551,6 +522,26 @@ namespace Apache.Ignite.Internal.Table.Serialization
             throw new IgniteClientException(
                 ErrorGroups.Client.Configuration,
                 $"Can't map '{type}' to columns '{columnStr}'. Matching fields not found.");
+        }
+
+        private static LocalBuilder DeclareAndInitLocal(ILGenerator il, Type type)
+        {
+            var local = il.DeclareLocal(type);
+
+            if (type.IsValueType)
+            {
+                il.Emit(OpCodes.Ldloca_S, local);
+                il.Emit(OpCodes.Initobj, type);
+            }
+            else
+            {
+                il.Emit(OpCodes.Ldtoken, type);
+                il.Emit(OpCodes.Call, ReflectionUtils.GetTypeFromHandleMethod);
+                il.Emit(OpCodes.Call, ReflectionUtils.GetUninitializedObjectMethod);
+                il.Emit(OpCodes.Stloc, local);
+            }
+
+            return local;
         }
     }
 }
