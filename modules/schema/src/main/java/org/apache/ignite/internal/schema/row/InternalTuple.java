@@ -29,7 +29,7 @@ import java.util.UUID;
 import org.apache.ignite.internal.schema.InvalidTypeException;
 
 /**
- * General interface to describe tuples outside of their data layout and column schemas.
+ * General interface to describe tuples outside their data layout and column schemas.
  * Accessor methods may or may not throw {@link InvalidTypeException} depending on the implementation.
  */
 public interface InternalTuple {
