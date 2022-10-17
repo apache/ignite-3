@@ -73,32 +73,20 @@ public class KeyValueViewPrimitiveTests : IgniteTestsBase
         Assert.AreEqual(0, resEmpty.Count);
     }
 
-    /*[Test]
-    public void TestGetAllWithNullKeyThrowsArgumentException()
-    {
-        var ex = Assert.ThrowsAsync<ArgumentNullException>(async () =>
-            await KvView.GetAllAsync(null, new[] { GetTuple(1L), null! }));
-
-        Assert.AreEqual("Value cannot be null. (Parameter 'key')", ex!.Message);
-    }
-
     [Test]
     public void TestPutNullThrowsArgumentException()
     {
-        var keyEx = Assert.ThrowsAsync<ArgumentNullException>(async () => await KvView.PutAsync(null, null!, null!));
-        Assert.AreEqual("Value cannot be null. (Parameter 'key')", keyEx!.Message);
-
-        var valEx = Assert.ThrowsAsync<ArgumentNullException>(async () => await KvView.PutAsync(null, GetTuple(1L), null!));
+        var valEx = Assert.ThrowsAsync<ArgumentNullException>(async () => await KvView.PutAsync(null, 1L, null!));
         Assert.AreEqual("Value cannot be null. (Parameter 'val')", valEx!.Message);
     }
 
     [Test]
     public async Task TestContains()
     {
-        await KvView.PutAsync(null, GetTuple(7L), GetTuple("val1"));
+        await KvView.PutAsync(null, 7L, "val1");
 
-        bool res1 = await KvView.ContainsAsync(null, GetTuple(7L));
-        bool res2 = await KvView.ContainsAsync(null, GetTuple(8L));
+        bool res1 = await KvView.ContainsAsync(null, 7L);
+        bool res2 = await KvView.ContainsAsync(null, 8L);
 
         Assert.IsTrue(res1);
         Assert.IsFalse(res2);
@@ -107,63 +95,63 @@ public class KeyValueViewPrimitiveTests : IgniteTestsBase
     [Test]
     public async Task TestPutAll()
     {
-        await KvView.PutAllAsync(null, new Dictionary<IIgniteTuple, IIgniteTuple>());
+        await KvView.PutAllAsync(null, new Dictionary<long, string>());
         await KvView.PutAllAsync(
             null,
-            Enumerable.Range(-1, 7).Select(x => new KeyValuePair<IIgniteTuple, IIgniteTuple>(GetTuple(x), GetTuple("v" + x))));
+            Enumerable.Range(-1, 7).Select(x => new KeyValuePair<long, string>(x, "v" + x)));
 
-        IDictionary<IIgniteTuple, IIgniteTuple> res = await KvView.GetAllAsync(null, Enumerable.Range(-10, 20).Select(x => GetTuple(x)));
+        IDictionary<long, string> res = await KvView.GetAllAsync(null, Enumerable.Range(-10, 20).Select(x => (long)x));
 
         Assert.AreEqual(7, res.Count);
 
         for (int i = -1; i < 6; i++)
         {
-            IIgniteTuple val = res[GetTuple(i)];
-            Assert.AreEqual("v" + i, val[ValCol]);
+            string val = res[i];
+            Assert.AreEqual("v" + i, val);
         }
     }
 
     [Test]
     public async Task TestGetAndPut()
     {
-        Option<IIgniteTuple> res1 = await KvView.GetAndPutAsync(null, GetTuple(1), GetTuple("1"));
-        Option<IIgniteTuple> res2 = await KvView.GetAndPutAsync(null, GetTuple(1), GetTuple("2"));
-        Option<IIgniteTuple> res3 = await KvView.GetAsync(null, GetTuple(1));
+        Option<string> res1 = await KvView.GetAndPutAsync(null, 1, "1");
+        Option<string> res2 = await KvView.GetAndPutAsync(null, 1, "2");
+        Option<string> res3 = await KvView.GetAsync(null, 1);
 
         Assert.IsFalse(res1.HasValue);
         Assert.IsTrue(res2.HasValue);
         Assert.IsTrue(res3.HasValue);
 
-        Assert.AreEqual("1", res2.Value[0]);
-        Assert.AreEqual("2", res3.Value[0]);
+        Assert.AreEqual("1", res2.Value);
+        Assert.AreEqual("2", res3.Value);
     }
 
     [Test]
     public async Task TestPutIfAbsent()
     {
-        await KvView.PutAsync(null, GetTuple(1), GetTuple("1"));
+        await KvView.PutAsync(null, 1, "1");
 
-        bool res1 = await KvView.PutIfAbsentAsync(null, GetTuple(1), GetTuple("11"));
-        Option<IIgniteTuple> res2 = await KvView.GetAsync(null, GetTuple(1));
+        bool res1 = await KvView.PutIfAbsentAsync(null, 1, "11");
+        Option<string> res2 = await KvView.GetAsync(null, 1);
 
-        bool res3 = await KvView.PutIfAbsentAsync(null, GetTuple(2), GetTuple("2"));
-        Option<IIgniteTuple> res4 = await KvView.GetAsync(null, GetTuple(2));
+        bool res3 = await KvView.PutIfAbsentAsync(null, 2, "2");
+        Option<string> res4 = await KvView.GetAsync(null, 2);
 
         Assert.IsFalse(res1);
-        Assert.AreEqual("1", res2.Value[0]);
+        Assert.AreEqual("1", res2.Value);
 
         Assert.IsTrue(res3);
-        Assert.AreEqual("2", res4.Value[0]);
+        Assert.AreEqual("2", res4.Value);
     }
 
     [Test]
     public async Task TestRemove()
     {
-        await KvView.PutAsync(null, GetTuple(1), GetTuple("1"));
+        await KvView.PutAsync(null, 1, "1");
 
-        bool res1 = await KvView.RemoveAsync(null, GetTuple(1));
-        bool res2 = await KvView.RemoveAsync(null, GetTuple(2));
-        bool res3 = await KvView.ContainsAsync(null, GetTuple(1));
+        bool res1 = await KvView.RemoveAsync(null, 1);
+        bool res2 = await KvView.RemoveAsync(null, 2);
+        bool res3 = await KvView.ContainsAsync(null, 1);
 
         Assert.IsTrue(res1);
         Assert.IsFalse(res2);
@@ -173,11 +161,11 @@ public class KeyValueViewPrimitiveTests : IgniteTestsBase
     [Test]
     public async Task TestRemoveExact()
     {
-        await KvView.PutAsync(null, GetTuple(1), GetTuple("1"));
+        await KvView.PutAsync(null, 1, "1");
 
-        bool res1 = await KvView.RemoveAsync(null, GetTuple(1), GetTuple("111"));
-        bool res2 = await KvView.RemoveAsync(null, GetTuple(1), GetTuple("1"));
-        bool res3 = await KvView.ContainsAsync(null, GetTuple(1));
+        bool res1 = await KvView.RemoveAsync(null, 1, "111");
+        bool res2 = await KvView.RemoveAsync(null, 1, "1");
+        bool res3 = await KvView.ContainsAsync(null, 1);
 
         Assert.IsFalse(res1);
         Assert.IsTrue(res2);
@@ -187,40 +175,40 @@ public class KeyValueViewPrimitiveTests : IgniteTestsBase
     [Test]
     public async Task TestRemoveAll()
     {
-        await KvView.PutAsync(null, GetTuple(1), GetTuple("1"));
+        await KvView.PutAsync(null, 1, "1");
 
-        IList<IIgniteTuple> res1 = await KvView.RemoveAllAsync(null, Enumerable.Range(-1, 8).Select(x => GetTuple(x, "foo")));
-        bool res2 = await KvView.ContainsAsync(null, GetTuple(1));
+        IList<long> res1 = await KvView.RemoveAllAsync(null, Enumerable.Range(-1, 8).Select(x => (long)x));
+        bool res2 = await KvView.ContainsAsync(null, 1);
 
-        Assert.AreEqual(new[] { -1, 0, 2, 3, 4, 5, 6 }, res1.Select(x => x[0]).OrderBy(x => x));
+        Assert.AreEqual(new[] { -1, 0, 2, 3, 4, 5, 6 }, res1.OrderBy(x => x));
         Assert.IsFalse(res2);
     }
 
     [Test]
     public async Task TestRemoveAllExact()
     {
-        await KvView.PutAsync(null, GetTuple(1), GetTuple("1"));
+        await KvView.PutAsync(null, 1, "1");
 
-        IList<IIgniteTuple> res1 = await KvView.RemoveAllAsync(
+        IList<long> res1 = await KvView.RemoveAllAsync(
             null,
-            Enumerable.Range(-1, 8).Select(x => new KeyValuePair<IIgniteTuple, IIgniteTuple>(GetTuple(x), GetTuple(x.ToString()))));
+            Enumerable.Range(-1, 8).Select(x => new KeyValuePair<long, string>(x, x.ToString())));
 
-        bool res2 = await KvView.ContainsAsync(null, GetTuple(1));
+        bool res2 = await KvView.ContainsAsync(null, 1);
 
-        Assert.AreEqual(new[] { -1, 0, 2, 3, 4, 5, 6 }, res1.Select(x => x[0]).OrderBy(x => x));
+        Assert.AreEqual(new[] { -1, 0, 2, 3, 4, 5, 6 }, res1.OrderBy(x => x));
         Assert.IsFalse(res2);
     }
 
     [Test]
     public async Task TestGetAndRemove()
     {
-        await KvView.PutAsync(null, GetTuple(1), GetTuple("1"));
+        await KvView.PutAsync(null, 1, "1");
 
-        (IIgniteTuple val1, bool hasVal1) = await KvView.GetAndRemoveAsync(null, GetTuple(1));
-        (IIgniteTuple val2, bool hasVal2) = await KvView.GetAndRemoveAsync(null, GetTuple(1));
+        (string val1, bool hasVal1) = await KvView.GetAndRemoveAsync(null, 1);
+        (string val2, bool hasVal2) = await KvView.GetAndRemoveAsync(null, 1);
 
         Assert.IsTrue(hasVal1);
-        Assert.AreEqual("1", val1[0]);
+        Assert.AreEqual("1", val1);
 
         Assert.IsFalse(hasVal2);
         Assert.IsNull(val2);
@@ -229,65 +217,65 @@ public class KeyValueViewPrimitiveTests : IgniteTestsBase
     [Test]
     public async Task TestReplace()
     {
-        await KvView.PutAsync(null, GetTuple(1), GetTuple("1"));
+        await KvView.PutAsync(null, 1, "1");
 
-        bool res1 = await KvView.ReplaceAsync(null, GetTuple(0), GetTuple("00"));
-        Option<IIgniteTuple> res2 = await KvView.GetAsync(null, GetTuple(0));
+        bool res1 = await KvView.ReplaceAsync(null, 0, "00");
+        Option<string> res2 = await KvView.GetAsync(null, 0);
 
-        bool res3 = await KvView.ReplaceAsync(null, GetTuple(1), GetTuple("11"));
-        Option<IIgniteTuple> res4 = await KvView.GetAsync(null, GetTuple(1));
+        bool res3 = await KvView.ReplaceAsync(null, 1, "11");
+        Option<string> res4 = await KvView.GetAsync(null, 1);
 
         Assert.IsFalse(res1);
         Assert.IsFalse(res2.HasValue);
 
         Assert.IsTrue(res3);
         Assert.IsTrue(res4.HasValue);
-        Assert.AreEqual("11", res4.Value[0]);
+        Assert.AreEqual("11", res4.Value);
     }
 
     [Test]
     public async Task TestReplaceExact()
     {
-        await KvView.PutAsync(null, GetTuple(1), GetTuple("1"));
+        await KvView.PutAsync(null, 1, "1");
 
-        bool res1 = await KvView.ReplaceAsync(transaction: null, key: GetTuple(0), oldVal: GetTuple("0"), newVal: GetTuple("00"));
-        Option<IIgniteTuple> res2 = await KvView.GetAsync(null, GetTuple(0));
+        bool res1 = await KvView.ReplaceAsync(transaction: null, key: 0, oldVal: "0", newVal: "00");
+        Option<string> res2 = await KvView.GetAsync(null, 0);
 
-        bool res3 = await KvView.ReplaceAsync(transaction: null, key: GetTuple(1), oldVal: GetTuple("1"), newVal: GetTuple("11"));
-        Option<IIgniteTuple> res4 = await KvView.GetAsync(null, GetTuple(1));
+        bool res3 = await KvView.ReplaceAsync(transaction: null, key: 1, oldVal: "1", newVal: "11");
+        Option<string> res4 = await KvView.GetAsync(null, 1);
 
-        bool res5 = await KvView.ReplaceAsync(transaction: null, key: GetTuple(2), oldVal: GetTuple("1"), newVal: GetTuple("22"));
-        Option<IIgniteTuple> res6 = await KvView.GetAsync(null, GetTuple(1));
+        bool res5 = await KvView.ReplaceAsync(transaction: null, key: 2, oldVal: "1", newVal: "22");
+        Option<string> res6 = await KvView.GetAsync(null, 1);
 
         Assert.IsFalse(res1);
         Assert.IsFalse(res2.HasValue);
 
         Assert.IsTrue(res3);
         Assert.IsTrue(res4.HasValue);
-        Assert.AreEqual("11", res4.Value[0]);
+        Assert.AreEqual("11", res4.Value);
 
         Assert.IsFalse(res5);
-        Assert.AreEqual("11", res6.Value[0]);
+        Assert.AreEqual("11", res6.Value);
     }
 
     [Test]
     public async Task TestGetAndReplace()
     {
-        await KvView.PutAsync(null, GetTuple(1), GetTuple("1"));
+        await KvView.PutAsync(null, 1, "1");
 
-        Option<IIgniteTuple> res1 = await KvView.GetAndReplaceAsync(null, GetTuple(0), GetTuple("00"));
-        Option<IIgniteTuple> res2 = await KvView.GetAsync(null, GetTuple(0));
+        Option<string> res1 = await KvView.GetAndReplaceAsync(null, 0, "00");
+        Option<string> res2 = await KvView.GetAsync(null, 0);
 
-        Option<IIgniteTuple> res3 = await KvView.GetAndReplaceAsync(null, GetTuple(1), GetTuple("11"));
-        Option<IIgniteTuple> res4 = await KvView.GetAsync(null, GetTuple(1));
+        Option<string> res3 = await KvView.GetAndReplaceAsync(null, 1, "11");
+        Option<string> res4 = await KvView.GetAsync(null, 1);
 
         Assert.IsFalse(res1.HasValue);
         Assert.IsFalse(res2.HasValue);
 
         Assert.IsTrue(res3.HasValue);
-        Assert.AreEqual("1", res3.Value[0]);
+        Assert.AreEqual("1", res3.Value);
 
         Assert.IsTrue(res4.HasValue);
-        Assert.AreEqual("11", res4.Value[0]);
-    }*/
+        Assert.AreEqual("11", res4.Value);
+    }
 }
