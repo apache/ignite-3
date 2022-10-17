@@ -40,15 +40,15 @@ public class KeyValueViewPocoTests : IgniteTestsBase
     [Test]
     public async Task TestPutGet()
     {
-        await KvView.PutAsync(null, GetTuple(1L), GetTuple("val"));
+        await KvView.PutAsync(null, GetPoco(1L), GetPoco("val"));
 
-        (IIgniteTuple res, _) = await KvView.GetAsync(null, GetTuple(1L));
+        (Poco res, _) = await KvView.GetAsync(null, GetPoco(1L));
 
-        Assert.AreEqual("val", res[0]);
-        Assert.AreEqual("val", res[ValCol]);
+        Assert.AreEqual("val", res.Val);
+        Assert.AreEqual(0, res.Key);
     }
 
-    [Test]
+    /*[Test]
     public async Task TestGetNonExistentKeyReturnsEmptyOption()
     {
         (IIgniteTuple res, bool hasRes) = await KvView.GetAsync(null, GetTuple(-111L));
@@ -289,5 +289,5 @@ public class KeyValueViewPocoTests : IgniteTestsBase
 
         Assert.IsTrue(res4.HasValue);
         Assert.AreEqual("11", res4.Value[0]);
-    }
+    }*/
 }
