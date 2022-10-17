@@ -26,7 +26,7 @@ import static org.hamcrest.Matchers.empty;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
-import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
+import org.apache.ignite.internal.schema.testutils.definition.ColumnType.ColumnTypeSpec;
 import org.apache.ignite.internal.schema.testutils.definition.index.SortedIndexDefinition;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
@@ -61,8 +61,8 @@ abstract class AbstractPageMemorySortedIndexStorageTest extends AbstractSortedIn
     @Test
     void testWithStringsLargerThanMaximumInlineSize() throws Exception {
         SortedIndexDefinition indexDefinition = SchemaBuilders.sortedIndex("TEST_INDEX")
-                .addIndexColumn(ColumnType.INT32.typeSpec().name()).asc().done()
-                .addIndexColumn(ColumnType.string().typeSpec().name()).asc().done()
+                .addIndexColumn(ColumnTypeSpec.INT32.name()).asc().done()
+                .addIndexColumn(ColumnTypeSpec.STRING.name()).asc().done()
                 .build();
 
         SortedIndexStorage index = createIndexStorage(indexDefinition);
@@ -88,8 +88,8 @@ abstract class AbstractPageMemorySortedIndexStorageTest extends AbstractSortedIn
     @Test
     void testFragmentedIndexColumns() throws Exception {
         SortedIndexDefinition indexDefinition = SchemaBuilders.sortedIndex("TEST_INDEX")
-                .addIndexColumn(ColumnType.INT32.typeSpec().name()).asc().done()
-                .addIndexColumn(ColumnType.string().typeSpec().name()).asc().done()
+                .addIndexColumn(ColumnTypeSpec.INT32.name()).asc().done()
+                .addIndexColumn(ColumnTypeSpec.STRING.name()).asc().done()
                 .build();
 
         SortedIndexStorage index = createIndexStorage(indexDefinition);

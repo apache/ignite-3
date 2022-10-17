@@ -28,7 +28,7 @@ import static org.apache.ignite.internal.pagememory.util.PageUtils.putShort;
 import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.PARTITIONLESS_LINK_SIZE_BYTES;
 import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.readPartitionless;
 import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.writePartitionless;
-import static org.apache.ignite.internal.storage.pagememory.index.InlineUtils.isFullyInlined;
+import static org.apache.ignite.internal.storage.pagememory.index.InlineUtils.canFullyInline;
 import static org.apache.ignite.internal.util.GridUnsafe.wrapPointer;
 
 import java.nio.ByteBuffer;
@@ -128,7 +128,9 @@ public interface SortedIndexTreeIo {
 
         IndexColumns indexColumns = row.indexColumns();
 
-        if (isFullyInlined(indexColumns.valueSize(), indexColumnsInlineSize())) {
+        if (canFullyInline(indexColumns.valueSize(), indexColumnsInlineSize())) {
+            assert indexColumns.link() == NULL_LINK : "Index columns are completely inline, they should not be in FreeList";
+
             putShort(pageAddr + off, SIZE_OFFSET, (short) indexColumns.valueSize());
 
             putByteBuffer(pageAddr + off, TUPLE_OFFSET, indexColumns.valueBuffer().rewind());
@@ -172,9 +174,7 @@ public interface SortedIndexTreeIo {
 
         ByteBuffer firstBinaryTupleBuffer;
 
-        if (indexColumnsSize != NOT_FULLY_INLINE) {
-            firstBinaryTupleBuffer = wrapPointer(pageAddr + off + TUPLE_OFFSET, indexColumnsSize);
-        } else {
+        if (indexColumnsSize == NOT_FULLY_INLINE) {
             // TODO: IGNITE-17325 Use a comparator for inlined tuple
             long link = readPartitionless(partitionId, pageAddr + off, linkOffset());
 
@@ -183,6 +183,8 @@ public interface SortedIndexTreeIo {
             dataPageReader.traverse(link, indexColumnsTraversal, null);
 
             firstBinaryTupleBuffer = ByteBuffer.wrap(indexColumnsTraversal.result());
+        } else {
+            firstBinaryTupleBuffer = wrapPointer(pageAddr + off + TUPLE_OFFSET, indexColumnsSize);
         }
 
         ByteBuffer secondBinaryTupleBuffer = rowKey.indexColumns().valueBuffer();
@@ -230,11 +232,7 @@ public interface SortedIndexTreeIo {
 
         long link;
 
-        if (indexColumnsSize != NOT_FULLY_INLINE) {
-            indexColumnsBuffer = ByteBuffer.wrap(getBytes(pageAddr + off, TUPLE_OFFSET, indexColumnsSize));
-
-            link = NULL_LINK;
-        } else {
+        if (indexColumnsSize == NOT_FULLY_INLINE) {
             link = readPartitionless(partitionId, pageAddr + off, linkOffset());
 
             ReadIndexColumnsValue indexColumnsTraversal = new ReadIndexColumnsValue();
@@ -242,6 +240,10 @@ public interface SortedIndexTreeIo {
             dataPageReader.traverse(link, indexColumnsTraversal, null);
 
             indexColumnsBuffer = ByteBuffer.wrap(indexColumnsTraversal.result());
+        } else {
+            indexColumnsBuffer = ByteBuffer.wrap(getBytes(pageAddr + off, TUPLE_OFFSET, indexColumnsSize));
+
+            link = NULL_LINK;
         }
 
         IndexColumns indexColumns = new IndexColumns(partitionId, link, indexColumnsBuffer.order(LITTLE_ENDIAN));

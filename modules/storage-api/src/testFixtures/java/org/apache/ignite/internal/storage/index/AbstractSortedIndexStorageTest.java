@@ -62,6 +62,7 @@ import org.apache.ignite.internal.schema.testutils.builder.SortedIndexDefinition
 import org.apache.ignite.internal.schema.testutils.builder.SortedIndexDefinitionBuilder.SortedIndexColumnBuilder;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnDefinition;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
+import org.apache.ignite.internal.schema.testutils.definition.ColumnType.ColumnTypeSpec;
 import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
 import org.apache.ignite.internal.schema.testutils.definition.index.ColumnarIndexDefinition;
 import org.apache.ignite.internal.schema.testutils.definition.index.SortedIndexDefinition;
@@ -235,8 +236,8 @@ public abstract class AbstractSortedIndexStorageTest {
     @Test
     void testGet() throws Exception {
         SortedIndexDefinition indexDefinition = SchemaBuilders.sortedIndex("TEST_INDEX")
-                .addIndexColumn(ColumnType.string().typeSpec().name()).asc().done()
-                .addIndexColumn(ColumnType.INT32.typeSpec().name()).asc().done()
+                .addIndexColumn(ColumnTypeSpec.STRING.name()).asc().done()
+                .addIndexColumn(ColumnTypeSpec.INT32.name()).asc().done()
                 .build();
 
         SortedIndexStorage index = createIndexStorage(indexDefinition);
@@ -276,8 +277,8 @@ public abstract class AbstractSortedIndexStorageTest {
     @Test
     void testPutIdempotence() throws Exception {
         SortedIndexDefinition indexDefinition = SchemaBuilders.sortedIndex("TEST_INDEX")
-                .addIndexColumn(ColumnType.string().typeSpec().name()).asc().done()
-                .addIndexColumn(ColumnType.INT32.typeSpec().name()).asc().done()
+                .addIndexColumn(ColumnTypeSpec.STRING.name()).asc().done()
+                .addIndexColumn(ColumnTypeSpec.INT32.name()).asc().done()
                 .build();
 
         SortedIndexStorage index = createIndexStorage(indexDefinition);
@@ -303,8 +304,8 @@ public abstract class AbstractSortedIndexStorageTest {
     @Test
     void testMultiplePuts() throws Exception {
         SortedIndexDefinition indexDefinition = SchemaBuilders.sortedIndex("TEST_INDEX")
-                .addIndexColumn(ColumnType.string().typeSpec().name()).asc().done()
-                .addIndexColumn(ColumnType.INT32.typeSpec().name()).asc().done()
+                .addIndexColumn(ColumnTypeSpec.STRING.name()).asc().done()
+                .addIndexColumn(ColumnTypeSpec.INT32.name()).asc().done()
                 .build();
 
         SortedIndexStorage index = createIndexStorage(indexDefinition);
@@ -336,8 +337,8 @@ public abstract class AbstractSortedIndexStorageTest {
     @Test
     void testRemove() throws Exception {
         SortedIndexDefinition indexDefinition = SchemaBuilders.sortedIndex("TEST_INDEX")
-                .addIndexColumn(ColumnType.string().typeSpec().name()).asc().done()
-                .addIndexColumn(ColumnType.INT32.typeSpec().name()).asc().done()
+                .addIndexColumn(ColumnTypeSpec.STRING.name()).asc().done()
+                .addIndexColumn(ColumnTypeSpec.INT32.name()).asc().done()
                 .build();
 
         SortedIndexStorage index = createIndexStorage(indexDefinition);
@@ -434,17 +435,17 @@ public abstract class AbstractSortedIndexStorageTest {
 
     @Test
     public void testBoundsAndOrder() throws Exception {
-        ColumnType string = ColumnType.string();
-        ColumnType int32 = ColumnType.INT32;
+        ColumnTypeSpec string = ColumnTypeSpec.STRING;
+        ColumnTypeSpec int32 = ColumnTypeSpec.INT32;
 
         SortedIndexDefinition index1Definition = SchemaBuilders.sortedIndex("TEST_INDEX_1")
-                .addIndexColumn(string.typeSpec().name()).asc().done()
-                .addIndexColumn(int32.typeSpec().name()).asc().done()
+                .addIndexColumn(string.name()).asc().done()
+                .addIndexColumn(int32.name()).asc().done()
                 .build();
 
         SortedIndexDefinition index2Definition = SchemaBuilders.sortedIndex("TEST_INDEX_2")
-                .addIndexColumn(string.typeSpec().name()).asc().done()
-                .addIndexColumn(int32.typeSpec().name()).desc().done()
+                .addIndexColumn(string.name()).asc().done()
+                .addIndexColumn(int32.name()).desc().done()
                 .build();
 
         SortedIndexStorage index1 = createIndexStorage(index1Definition);

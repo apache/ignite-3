@@ -128,6 +128,13 @@ public class SortedIndexTree extends BplusTree<SortedIndexRowKey, SortedIndexRow
         return sortedIndexTreeIo.getRow(dataPageReader, partId, pageAddr, idx);
     }
 
+    /**
+     * Returns inline size in bytes.
+     */
+    public int inlineSize() {
+        return inlineSize;
+    }
+
     private int readInlineSizeFromMetaIo() throws IgniteInternalCheckedException {
         Integer inlineSize = read(
                 metaPageId,
