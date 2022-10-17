@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.raft.storage.impl;
 
-import org.apache.ignite.configuration.schemas.table.LogStorageBudgetView;
+import org.apache.ignite.internal.raft.configuration.LogStorageBudgetView;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 
 /**

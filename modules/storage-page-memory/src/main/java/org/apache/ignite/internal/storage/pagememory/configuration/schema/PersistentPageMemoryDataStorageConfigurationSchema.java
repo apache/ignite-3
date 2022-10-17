@@ -22,7 +22,7 @@ import static org.apache.ignite.internal.storage.pagememory.configuration.schema
 
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema;
+import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
 import org.apache.ignite.internal.storage.pagememory.configuration.PageMemoryDataRegionName;
 

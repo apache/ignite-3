@@ -22,8 +22,8 @@ import static org.mockito.Mockito.when;
 
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
-import org.apache.ignite.configuration.schemas.table.TableConfiguration;
-import org.apache.ignite.configuration.schemas.table.TableView;
+import org.apache.ignite.internal.schema.configuration.TableConfiguration;
+import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorageAbstractTest;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.junit.jupiter.api.AfterEach;

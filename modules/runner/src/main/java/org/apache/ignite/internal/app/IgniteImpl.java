@@ -34,7 +34,6 @@ import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.client.handler.ClientHandlerModule;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
-import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
@@ -77,6 +76,7 @@ import org.apache.ignite.internal.rest.configuration.PresentationsFactory;
 import org.apache.ignite.internal.rest.configuration.RestConfiguration;
 import org.apache.ignite.internal.rest.node.NodeManagementRestFactory;
 import org.apache.ignite.internal.schema.SchemaManager;
+import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.sql.api.IgniteSqlImpl;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
@@ -346,7 +346,7 @@ public class IgniteImpl implements Ignite {
 
         Path storagePath = getPartitionsStorePath(workDir);
 
-        final TablesConfiguration tablesConfiguration = clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY);
+        TablesConfiguration tablesConfiguration = clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY);
 
         dataStorageMgr = new DataStorageManager(
                 tablesConfiguration,

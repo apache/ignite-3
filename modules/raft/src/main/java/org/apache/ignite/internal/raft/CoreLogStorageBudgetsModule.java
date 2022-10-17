@@ -18,9 +18,9 @@
 package org.apache.ignite.internal.raft;
 
 import java.util.Map;
-import org.apache.ignite.configuration.schemas.table.EntryCountBudgetConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.EntryCountBudgetView;
-import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
+import org.apache.ignite.internal.raft.configuration.EntryCountBudgetConfigurationSchema;
+import org.apache.ignite.internal.raft.configuration.EntryCountBudgetView;
+import org.apache.ignite.internal.raft.configuration.UnlimitedBudgetConfigurationSchema;
 import org.apache.ignite.raft.jraft.core.LogStorageBudgetFactory;
 import org.apache.ignite.raft.jraft.core.LogStorageBudgetsModule;
 import org.apache.ignite.raft.jraft.storage.impl.EntryCountBudget;
@@ -33,10 +33,11 @@ public class CoreLogStorageBudgetsModule implements LogStorageBudgetsModule {
     @Override
     public Map<String, LogStorageBudgetFactory> budgetFactories() {
         return Map.of(
-                UnlimitedBudgetConfigurationSchema.NAME, config -> new UnlimitedBudget(),
-                EntryCountBudgetConfigurationSchema.NAME, config -> {
-                    return new EntryCountBudget(((EntryCountBudgetView) config).entriesCountLimit());
-                }
+                UnlimitedBudgetConfigurationSchema.NAME,
+                config -> new UnlimitedBudget(),
+
+                EntryCountBudgetConfigurationSchema.NAME,
+                config -> new EntryCountBudget(((EntryCountBudgetView) config).entriesCountLimit())
         );
     }
 }

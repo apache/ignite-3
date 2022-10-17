@@ -24,19 +24,16 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import org.apache.ignite.configuration.schemas.table.ColumnDefaultView;
-import org.apache.ignite.configuration.schemas.table.ColumnTypeView;
-import org.apache.ignite.configuration.schemas.table.ColumnView;
-import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultView;
-import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultView;
-import org.apache.ignite.configuration.schemas.table.NullValueDefaultView;
-import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.DefaultValueGenerator;
 import org.apache.ignite.internal.schema.DefaultValueProvider;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.configuration.defaultvalue.ColumnDefaultView;
+import org.apache.ignite.internal.schema.configuration.defaultvalue.ConstantValueDefaultView;
+import org.apache.ignite.internal.schema.configuration.defaultvalue.FunctionCallDefaultView;
+import org.apache.ignite.internal.schema.configuration.defaultvalue.NullValueDefaultView;
 import org.apache.ignite.internal.util.IgniteUtils;
 
 /**
