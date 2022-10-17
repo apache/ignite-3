@@ -327,23 +327,24 @@ namespace Apache.Ignite.Internal.Table.Serialization
                         ? keyValTypes[0].GetFieldIgnoreCase(col.Name)
                         : keyValTypes[1].GetFieldIgnoreCase(col.Name);
 
+                if (i < schema.KeyColumnCount)
+                {
+                    if (fieldInfo != null && !isKvPair)
+                    {
+                        il.Emit(type.IsValueType ? OpCodes.Ldloca_S : OpCodes.Ldloc, local); // res
+                        il.Emit(OpCodes.Ldarg_1); // key
+                        il.Emit(OpCodes.Ldfld, fieldInfo);
+                        il.Emit(OpCodes.Stfld, fieldInfo);
+                    }
+
+                    continue;
+                }
+
                 var loc = keyValTypes == null
                     ? local
                     : i < schema.KeyColumnCount
                         ? localKey!
                         : localVal!;
-
-                if (i < schema.KeyColumnCount)
-                {
-                    // if (fieldInfo != null)
-                    // {
-                    //     il.Emit(loc.LocalType.IsValueType ? OpCodes.Ldloca_S : OpCodes.Ldloc, loc); // res
-                    //     il.Emit(OpCodes.Ldarg_1); // key
-                    //     il.Emit(OpCodes.Ldfld, fieldInfo);
-                    //     il.Emit(OpCodes.Stfld, fieldInfo);
-                    // }
-                    continue;
-                }
 
                 EmitFieldRead(fieldInfo, il, col, i - schema.KeyColumnCount, loc);
             }
