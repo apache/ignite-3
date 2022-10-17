@@ -15,19 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.schemas.network;
+package org.apache.ignite.internal.storage;
 
-import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.Value;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** Node finder configuration. */
-@Config
-public class NodeFinderConfigurationSchema {
-    /** Node finder type. */
-    @Value(hasDefault = true)
-    public final String type = NodeFinderType.STATIC.name();
+import org.junit.jupiter.api.Test;
 
-    /** Addresses of nodes in the cluster in a host:port format. This is a part of StaticNodeFinder configuration. */
-    @Value(hasDefault = true)
-    public final String[] netClusterNodes = new String[0];
+class ReadResultTest {
+    @Test
+    void resultInEmptyConstantIsEmpty() {
+        assertTrue(ReadResult.EMPTY.isEmpty());
+    }
+
+    @Test
+    void resultWithNullRowIsEmpty() {
+        ReadResult result = ReadResult.createFromCommitted(null, null);
+
+        assertTrue(result.isEmpty());
+    }
 }

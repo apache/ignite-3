@@ -15,26 +15,8 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.schemas.network;
-
-import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.ConfigValue;
-import org.apache.ignite.configuration.annotation.Value;
-
 /**
- * Cluster membership configuration.
+ * Configuration schemas for Network components.
  */
-@Config
-public class ClusterMembershipConfigurationSchema {
-    /** Periodic membership data sync interval. */
-    @Value(hasDefault = true)
-    public final int membershipSyncInterval = 1000;
 
-    /** Failure detector ping interval. */
-    @Value(hasDefault = true)
-    public final int failurePingInterval = 500;
-
-    /** ScaleCube-specific configuration. */
-    @ConfigValue
-    public ScaleCubeConfigurationSchema scaleCube;
-}
+package org.apache.ignite.internal.network.configuration;

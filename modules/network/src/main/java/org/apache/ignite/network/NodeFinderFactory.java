@@ -21,8 +21,8 @@ import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.toUnmodifiableList;
 
 import java.util.Arrays;
-import org.apache.ignite.configuration.schemas.network.NodeFinderType;
-import org.apache.ignite.configuration.schemas.network.NodeFinderView;
+import org.apache.ignite.internal.network.configuration.NodeFinderType;
+import org.apache.ignite.internal.network.configuration.NodeFinderView;
 
 /**
  * {@link NodeFinder} factory.

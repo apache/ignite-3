@@ -15,26 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.network.configuration;
+package org.apache.ignite.internal.network.configuration;
 
-import java.util.Collection;
-import java.util.Collections;
-import org.apache.ignite.configuration.RootKey;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
-import org.apache.ignite.internal.configuration.ConfigurationModule;
+import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.Value;
 
-/**
- * {@link ConfigurationModule} for node-local configuration provided by ignite-network.
- */
-public class NetworkConfigurationModule implements ConfigurationModule {
-    @Override
-    public ConfigurationType type() {
-        return ConfigurationType.LOCAL;
-    }
+/** Node finder configuration. */
+@Config
+public class NodeFinderConfigurationSchema {
+    /** Node finder type. */
+    @Value(hasDefault = true)
+    public final String type = NodeFinderType.STATIC.name();
 
-    @Override
-    public Collection<RootKey<?, ?>> rootKeys() {
-        return Collections.singleton(NetworkConfiguration.KEY);
-    }
+    /** Addresses of nodes in the cluster in a host:port format. This is a part of StaticNodeFinder configuration. */
+    @Value(hasDefault = true)
+    public final String[] netClusterNodes = new String[0];
 }
