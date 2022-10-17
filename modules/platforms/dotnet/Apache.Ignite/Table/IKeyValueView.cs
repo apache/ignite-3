@@ -83,7 +83,7 @@ public interface IKeyValueView<TK, TV>
     Task PutAllAsync(ITransaction? transaction, IEnumerable<KeyValuePair<TK, TV>> pairs);
 
     /// <summary>
-    /// Gets a value associated with the given key.
+    /// Puts a value with a given key and returns previous value for that key.
     /// </summary>
     /// <param name="transaction">The transaction or <c>null</c> to auto commit.</param>
     /// <param name="key">Key.</param>

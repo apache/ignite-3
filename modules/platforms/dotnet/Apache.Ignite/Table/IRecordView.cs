@@ -69,7 +69,7 @@ namespace Apache.Ignite.Table
         Task UpsertAllAsync(ITransaction? transaction, IEnumerable<T> records);
 
         /// <summary>
-        /// Inserts a record into the table if it does not exist or replaces the existing one.
+        /// Inserts a record into the table and returns previous record.
         /// </summary>
         /// <param name="transaction">The transaction or <c>null</c> to auto commit.</param>
         /// <param name="record">Record to upsert.</param>
