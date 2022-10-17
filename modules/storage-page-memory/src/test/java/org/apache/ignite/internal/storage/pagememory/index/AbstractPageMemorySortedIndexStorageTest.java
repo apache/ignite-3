@@ -23,8 +23,8 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.empty;
 
-import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.pagememory.PageMemory;
+import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
 import org.apache.ignite.internal.schema.testutils.definition.index.SortedIndexDefinition;
