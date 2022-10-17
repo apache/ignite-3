@@ -76,7 +76,8 @@ namespace Apache.Ignite.Internal.Compute
                 .ConfigureAwait(false);
 
         /// <inheritdoc/>
-        public async Task<T> ExecuteColocatedAsync<T, TKey>(string tableName, TKey key, string jobClassName, params object[] args) =>
+        public async Task<T> ExecuteColocatedAsync<T, TKey>(string tableName, TKey key, string jobClassName, params object[] args)
+            where TKey : notnull =>
             await ExecuteColocatedAsync<T, TKey>(
                     tableName,
                     key,
@@ -198,6 +199,7 @@ namespace Apache.Ignite.Internal.Compute
             Func<Table, IRecordSerializerHandler<TKey>> serializerHandlerFunc,
             string jobClassName,
             params object[] args)
+            where TKey : notnull
         {
             // TODO: IGNITE-16990 - implement partition awareness.
             IgniteArgumentCheck.NotNull(tableName, nameof(tableName));

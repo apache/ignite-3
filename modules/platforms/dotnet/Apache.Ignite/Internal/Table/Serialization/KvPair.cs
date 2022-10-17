@@ -15,24 +15,18 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Internal.Table
-{
-    using System.Collections.Generic;
+namespace Apache.Ignite.Internal.Table.Serialization;
 
-    /// <summary>
-    /// Schema.
-    /// </summary>
-    /// <param name="Version">Version.</param>
-    /// <param name="KeyColumnCount">Key column count.</param>
-    /// <param name="Columns">Columns in schema order.</param>
-    internal record Schema(
-        int Version,
-        int KeyColumnCount,
-        IReadOnlyList<Column> Columns)
-    {
-        /// <summary>
-        /// Gets the value column count.
-        /// </summary>
-        public int ValueColumnCount => Columns.Count - KeyColumnCount;
-    }
-}
+using System.Collections.Generic;
+using Ignite.Table;
+
+/// <summary>
+/// Key + Value wrapper for serializing data from <see cref="IKeyValueView{TK,TV}"/>.
+/// <para />
+/// We can't use built-in <see cref="KeyValuePair{TKey,TValue}"/>, because it can come from the user code.
+/// </summary>
+/// <param name="Key">Key.</param>
+/// <param name="Val">Value.</param>
+/// <typeparam name="TK">Key type.</typeparam>
+/// <typeparam name="TV">Value type.</typeparam>
+internal readonly record struct KvPair<TK, TV>(TK Key, TV Val = default!);

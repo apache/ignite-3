@@ -38,7 +38,7 @@ public readonly record struct Option<T>
         "StyleCop.CSharp.DocumentationRules",
         "SA1642:ConstructorSummaryDocumentationMustBeginWithStandardText",
         Justification = "False positive.")]
-    private Option(T value, bool hasValue)
+    internal Option(T value, bool hasValue)
     {
         _value = value;
         HasValue = hasValue;
@@ -57,13 +57,6 @@ public readonly record struct Option<T>
     public bool HasValue { get; }
 
     /// <summary>
-    /// Wraps a value into an option.
-    /// </summary>
-    /// <param name="value">Value.</param>
-    /// <returns>Wrapped value.</returns>
-    public static implicit operator Option<T>(T value) => new(value, true);
-
-    /// <summary>
     /// Deconstructs this instance.
     /// </summary>
     /// <param name="value">Value.</param>
@@ -73,6 +66,14 @@ public readonly record struct Option<T>
         value = _value;
         hasValue = HasValue;
     }
+
+    /// <summary>
+    /// Maps this instance to another type.
+    /// </summary>
+    /// <param name="selector">Selector.</param>
+    /// <typeparam name="TRes">Result type.</typeparam>
+    /// <returns>Resulting option.</returns>
+    public Option<TRes> Select<TRes>(Func<T, TRes> selector) => HasValue ? Option.Some(selector(_value)) : default!;
 
     private bool PrintMembers(StringBuilder builder)
     {
@@ -100,7 +101,7 @@ public static class Option
     /// <param name="val">Value.</param>
     /// <typeparam name="T">value type.</typeparam>
     /// <returns>Option of T.</returns>
-    public static Option<T> Some<T>(T val) => val;
+    public static Option<T> Some<T>(T val) => new(val, true);
 
     /// <summary>
     /// Returns an option without a value.
