@@ -378,14 +378,14 @@ namespace Apache.Ignite.Internal.Table.Serialization
         {
             var type = typeof(T);
             var keyValTypes = type.GetGenericArguments();
+
             var keyType = keyValTypes[0];
             var valType = keyValTypes[1];
-            var keyField = type.GetFieldIgnoreCase("Key")!;
+
             var valField = type.GetFieldIgnoreCase("Val")!;
             var valReadMethod = BinaryTupleMethods.GetReadMethodOrNull(valType);
 
             var il = method.GetILGenerator();
-
             var kvLocal = DeclareAndInitLocal(il, type);
 
             if (valReadMethod != null)
@@ -401,7 +401,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
             }
             else
             {
-                var keyLocal = DeclareAndInitLocal(il, keyType);
                 var valLocal = DeclareAndInitLocal(il, valType);
                 var columns = schema.Columns;
 
@@ -418,11 +417,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                     EmitFieldRead(fieldInfo, il, col, i - schema.KeyColumnCount, valLocal);
                 }
 
-                // Copy K and V to KvPair.
-                il.Emit(OpCodes.Ldloca_S, kvLocal);
-                il.Emit(OpCodes.Ldloc, keyLocal);
-                il.Emit(OpCodes.Stfld, keyField);
-
+                // Copy Val to KvPair.
                 il.Emit(OpCodes.Ldloca_S, kvLocal);
                 il.Emit(OpCodes.Ldloc, valLocal);
                 il.Emit(OpCodes.Stfld, valField);
