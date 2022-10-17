@@ -117,6 +117,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             var columns = schema.Columns;
             var count = keyOnly ? schema.KeyColumnCount : columns.Count;
 
+            // TODO: Special cases for KV pair of primitives (can be also mixed)
             if (BinaryTupleMethods.GetWriteMethodOrNull(type) is { } directWriteMethod)
             {
                 // Single column to primitive type mapping.
