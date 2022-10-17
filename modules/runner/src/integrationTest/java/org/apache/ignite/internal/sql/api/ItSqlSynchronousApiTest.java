@@ -227,7 +227,6 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
-    @Disabled ("IGNITE-17806 Rollback SQL automatically created transaction when an error has happened")
     public void errors() throws InterruptedException {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
         for (int i = 0; i < ROW_COUNT; ++i) {
