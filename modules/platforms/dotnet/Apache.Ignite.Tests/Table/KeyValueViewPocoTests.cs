@@ -25,11 +25,11 @@ using Ignite.Table;
 using NUnit.Framework;
 
 /// <summary>
-/// Tests for key-value tuple view.
+/// Tests for key-value POCO view.
 /// </summary>
-public class KeyValueViewBinaryTests : IgniteTestsBase
+public class KeyValueViewPocoTests : IgniteTestsBase
 {
-    private IKeyValueView<IIgniteTuple, IIgniteTuple> KvView => Table.KeyValueBinaryView;
+    private IKeyValueView<Poco, Poco> KvView => Table.GetKeyValueView<Poco, Poco>();
 
     [TearDown]
     public async Task CleanTable()
