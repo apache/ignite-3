@@ -387,7 +387,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 var col = columns[i];
                 var fieldInfo = type.GetFieldIgnoreCase(col.Name);
 
-                if (i < schema.KeyColumnCount)
+                if (col.IsKey)
                 {
                     if (fieldInfo != null)
                     {
