@@ -20,6 +20,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
     using System;
     using System.Collections.Concurrent;
     using System.Collections.Generic;
+    using System.Diagnostics;
     using System.Linq;
     using System.Reflection;
     using System.Reflection.Emit;
@@ -190,13 +191,10 @@ namespace Apache.Ignite.Internal.Table.Serialization
         private static WriteDelegate<T> EmitKvWriter(Schema schema, bool keyOnly, DynamicMethod method)
         {
             var type = typeof(T);
-            var keyValTypes = type.GetGenericArguments();
-            var keyType = keyValTypes[0];
-            var valType = keyValTypes[1];
+            var (keyType, valType, keyField, valField) = GetKeyValTypes();
+
             var keyWriteMethod = BinaryTupleMethods.GetWriteMethodOrNull(keyType);
             var valWriteMethod = BinaryTupleMethods.GetWriteMethodOrNull(valType);
-            var keyField = type.GetFieldIgnoreCase("Key")!;
-            var valField = type.GetFieldIgnoreCase("Val")!;
 
             var il = method.GetILGenerator();
 
@@ -300,13 +298,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 return (ReadDelegate<T>)method.CreateDelegate(typeof(ReadDelegate<T>));
             }
 
-            var local = il.DeclareLocal(type);
-
-            il.Emit(OpCodes.Ldtoken, type);
-            il.Emit(OpCodes.Call, ReflectionUtils.GetTypeFromHandleMethod);
-            il.Emit(OpCodes.Call, ReflectionUtils.GetUninitializedObjectMethod);
-
-            il.Emit(OpCodes.Stloc_0); // T res
+            var local = DeclareAndInitLocal(il, type);
 
             var columns = schema.Columns;
             var count = keyOnly ? schema.KeyColumnCount : columns.Count;
@@ -406,16 +398,12 @@ namespace Apache.Ignite.Internal.Table.Serialization
         private static ReadValuePartDelegate<T> EmitKvValuePartReader(Schema schema, DynamicMethod method)
         {
             var type = typeof(T);
-            var keyValTypes = type.GetGenericArguments();
-
-            var keyType = keyValTypes[0];
-            var valType = keyValTypes[1];
-
-            var valField = type.GetFieldIgnoreCase("Val")!;
-            var valReadMethod = BinaryTupleMethods.GetReadMethodOrNull(valType);
+            var (_, valType, _, valField) = GetKeyValTypes();
 
             var il = method.GetILGenerator();
             var kvLocal = DeclareAndInitLocal(il, type);
+
+            var valReadMethod = BinaryTupleMethods.GetReadMethodOrNull(valType);
 
             if (valReadMethod != null)
             {
@@ -436,12 +424,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 for (var i = schema.KeyColumnCount; i < columns.Count; i++)
                 {
                     var col = columns[i];
-
-                    var fieldInfo = keyValTypes == null
-                        ? type.GetFieldIgnoreCase(col.Name)
-                        : i < schema.KeyColumnCount
-                            ? keyType.GetFieldIgnoreCase(col.Name)
-                            : valType.GetFieldIgnoreCase(col.Name);
+                    var fieldInfo = valType.GetFieldIgnoreCase(col.Name);
 
                     EmitFieldRead(fieldInfo, il, col, i - schema.KeyColumnCount, valLocal);
                 }
@@ -586,6 +569,16 @@ namespace Apache.Ignite.Internal.Table.Serialization
             }
 
             return local;
+        }
+
+        private static (Type KeyType, Type ValType, FieldInfo KeyField, FieldInfo ValField) GetKeyValTypes()
+        {
+            var type = typeof(T);
+            Debug.Assert(type.IsGenericType && type.GetGenericTypeDefinition() == typeof(KvPair<,>));
+
+            var keyValTypes = type.GetGenericArguments();
+
+            return (keyValTypes[0], keyValTypes[1], type.GetFieldIgnoreCase("Key")!, type.GetFieldIgnoreCase("Val")!);
         }
     }
 }
