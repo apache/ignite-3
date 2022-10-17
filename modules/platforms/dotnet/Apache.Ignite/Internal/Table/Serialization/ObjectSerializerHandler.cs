@@ -276,6 +276,11 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 m: typeof(IIgnite).Module,
                 skipVisibility: true);
 
+            if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(KvPair<,>))
+            {
+                return EmitKvReader(schema, keyOnly, method);
+            }
+
             var il = method.GetILGenerator();
 
             if (BinaryTupleMethods.GetReadMethodOrNull(type) is { } readMethod)
@@ -302,6 +307,30 @@ namespace Apache.Ignite.Internal.Table.Serialization
             il.Emit(OpCodes.Call, ReflectionUtils.GetUninitializedObjectMethod);
 
             il.Emit(OpCodes.Stloc_0); // T res
+
+            var columns = schema.Columns;
+            var count = keyOnly ? schema.KeyColumnCount : columns.Count;
+
+            for (var i = 0; i < count; i++)
+            {
+                var col = columns[i];
+                var fieldInfo = type.GetFieldIgnoreCase(col.Name);
+
+                EmitFieldRead(fieldInfo, il, col, i, local);
+            }
+
+            il.Emit(OpCodes.Ldloc_0); // res
+            il.Emit(OpCodes.Ret);
+
+            return (ReadDelegate<T>)method.CreateDelegate(typeof(ReadDelegate<T>));
+        }
+
+        private static ReadDelegate<T> EmitKvReader(Schema schema, bool keyOnly, DynamicMethod method)
+        {
+            var type = typeof(T);
+
+            var il = method.GetILGenerator();
+            var local = DeclareAndInitLocal(il, type);
 
             var columns = schema.Columns;
             var count = keyOnly ? schema.KeyColumnCount : columns.Count;
