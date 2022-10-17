@@ -219,9 +219,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 }
                 else
                 {
-                    fieldInfo = index < schema.KeyColumnCount
-                        ? keyType.GetFieldIgnoreCase(col.Name)
-                        : valType.GetFieldIgnoreCase(col.Name);
+                    fieldInfo = (col.IsKey ? keyType : valType).GetFieldIgnoreCase(col.Name);
                 }
 
                 if (fieldInfo == null)
