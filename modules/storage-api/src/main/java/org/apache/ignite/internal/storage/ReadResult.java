@@ -32,7 +32,7 @@ public class ReadResult {
     /** Empty read result. */
     public static final ReadResult EMPTY = new ReadResult(null, null, null, null, null, UNDEFINED_COMMIT_PARTITION_ID);
 
-    /** Data. */
+    /** Data. {@code null} iff the result is empty (i.e. no row exists or it is a tombstone). */
     private final @Nullable BinaryRow binaryRow;
 
     /** Transaction id. Not {@code null} iff this is a write-intent. */
@@ -90,11 +90,11 @@ public class ReadResult {
     }
 
     /**
-     * Returns binary row representation of the data.
+     * Returns binary row representation of the data, {@code null} if {@link #isEmpty()}.
      *
-     * @return Binary row representation of the data.
+     * @return Binary row representation of the data, {@code null} if {@link #isEmpty()}.
      */
-    public BinaryRow binaryRow() {
+    public @Nullable BinaryRow binaryRow() {
         return binaryRow;
     }
 
@@ -155,6 +155,6 @@ public class ReadResult {
     }
 
     public boolean isEmpty() {
-        return this == EMPTY;
+        return binaryRow == null;
     }
 }
