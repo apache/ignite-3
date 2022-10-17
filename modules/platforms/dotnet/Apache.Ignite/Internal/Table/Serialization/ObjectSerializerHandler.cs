@@ -102,6 +102,8 @@ namespace Apache.Ignite.Internal.Table.Serialization
         private static WriteDelegate<T> EmitWriter(Schema schema, bool keyOnly)
         {
             var type = typeof(T);
+            var isKvPair = type.IsGenericType && type.GetGenericTypeDefinition() == typeof(KvPair<,>);
+            var keyValTypes = isKvPair ? type.GetGenericArguments() : null;
 
             var method = new DynamicMethod(
                 name: "Write" + type.Name,
@@ -148,7 +150,11 @@ namespace Apache.Ignite.Internal.Table.Serialization
             for (var index = 0; index < count; index++)
             {
                 var col = columns[index];
-                var fieldInfo = type.GetFieldIgnoreCase(col.Name);
+                var fieldInfo = keyValTypes == null
+                    ? type.GetFieldIgnoreCase(col.Name)
+                    : index < schema.KeyColumnCount
+                        ? keyValTypes[0].GetFieldIgnoreCase(col.Name)
+                        : keyValTypes[1].GetFieldIgnoreCase(col.Name);
 
                 if (fieldInfo == null)
                 {
