@@ -329,8 +329,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
         private static ReadValuePartDelegate<T> EmitValuePartReader(Schema schema)
         {
             var type = typeof(T);
-            var isKvPair = type.IsGenericType && type.GetGenericTypeDefinition() == typeof(KvPair<,>);
-            var keyValTypes = isKvPair ? type.GetGenericArguments() : null;
 
             if (BinaryTupleMethods.GetReadMethodOrNull(type) != null)
             {
@@ -345,27 +343,13 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 m: typeof(IIgnite).Module,
                 skipVisibility: true);
 
+            if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(KvPair<,>))
+            {
+                return EmitKvValuePartReader(schema, method);
+            }
+
             var il = method.GetILGenerator();
             var local = il.DeclareLocal(type);
-
-            LocalBuilder? localKey = null;
-            LocalBuilder? localVal = null;
-
-            if (keyValTypes != null)
-            {
-                localKey = il.DeclareLocal(keyValTypes[0]);
-                localVal = il.DeclareLocal(keyValTypes[1]);
-
-                il.Emit(OpCodes.Ldtoken, keyValTypes[0]);
-                il.Emit(OpCodes.Call, ReflectionUtils.GetTypeFromHandleMethod);
-                il.Emit(OpCodes.Call, ReflectionUtils.GetUninitializedObjectMethod);
-                il.Emit(OpCodes.Stloc_1); // TK
-
-                il.Emit(OpCodes.Ldtoken, keyValTypes[1]);
-                il.Emit(OpCodes.Call, ReflectionUtils.GetTypeFromHandleMethod);
-                il.Emit(OpCodes.Call, ReflectionUtils.GetUninitializedObjectMethod);
-                il.Emit(OpCodes.Stloc_2); // TV
-            }
 
             if (type.IsValueType)
             {
@@ -385,15 +369,11 @@ namespace Apache.Ignite.Internal.Table.Serialization
             for (var i = 0; i < columns.Count; i++)
             {
                 var col = columns[i];
-                var fieldInfo = keyValTypes == null
-                    ? type.GetFieldIgnoreCase(col.Name)
-                    : i < schema.KeyColumnCount
-                        ? keyValTypes[0].GetFieldIgnoreCase(col.Name)
-                        : keyValTypes[1].GetFieldIgnoreCase(col.Name);
+                var fieldInfo = type.GetFieldIgnoreCase(col.Name);
 
                 if (i < schema.KeyColumnCount)
                 {
-                    if (fieldInfo != null && !isKvPair)
+                    if (fieldInfo != null)
                     {
                         il.Emit(type.IsValueType ? OpCodes.Ldloca_S : OpCodes.Ldloc, local); // res
                         il.Emit(OpCodes.Ldarg_1); // key
@@ -404,26 +384,64 @@ namespace Apache.Ignite.Internal.Table.Serialization
                     continue;
                 }
 
-                var loc = keyValTypes == null
-                    ? local
+                EmitFieldRead(fieldInfo, il, col, i - schema.KeyColumnCount, local);
+            }
+
+            il.Emit(OpCodes.Ldloc_0); // res
+            il.Emit(OpCodes.Ret);
+
+            return (ReadValuePartDelegate<T>)method.CreateDelegate(typeof(ReadValuePartDelegate<T>));
+        }
+
+        private static ReadValuePartDelegate<T> EmitKvValuePartReader(Schema schema, DynamicMethod method)
+        {
+            var type = typeof(T);
+            var keyValTypes = type.GetGenericArguments();
+
+            var il = method.GetILGenerator();
+
+            var local = il.DeclareLocal(type);
+            il.Emit(OpCodes.Ldloca_S, local);
+            il.Emit(OpCodes.Initobj, type);
+
+            // TODO: IsValueType - reusable init logic.
+            var localKey = il.DeclareLocal(keyValTypes[0]);
+            il.Emit(OpCodes.Ldtoken, keyValTypes[0]);
+            il.Emit(OpCodes.Call, ReflectionUtils.GetTypeFromHandleMethod);
+            il.Emit(OpCodes.Call, ReflectionUtils.GetUninitializedObjectMethod);
+            il.Emit(OpCodes.Stloc_1); // TK
+
+            // TODO: IsValueType - reusable init logic.
+            var localVal = il.DeclareLocal(keyValTypes[1]);
+            il.Emit(OpCodes.Ldtoken, keyValTypes[1]);
+            il.Emit(OpCodes.Call, ReflectionUtils.GetTypeFromHandleMethod);
+            il.Emit(OpCodes.Call, ReflectionUtils.GetUninitializedObjectMethod);
+            il.Emit(OpCodes.Stloc_2); // TV
+
+            var columns = schema.Columns;
+
+            for (var i = schema.KeyColumnCount; i < columns.Count; i++)
+            {
+                var col = columns[i];
+                var fieldInfo = keyValTypes == null
+                    ? type.GetFieldIgnoreCase(col.Name)
                     : i < schema.KeyColumnCount
-                        ? localKey!
-                        : localVal!;
+                        ? keyValTypes[0].GetFieldIgnoreCase(col.Name)
+                        : keyValTypes[1].GetFieldIgnoreCase(col.Name);
+
+                var loc = localVal;
 
                 EmitFieldRead(fieldInfo, il, col, i - schema.KeyColumnCount, loc);
             }
 
-            if (keyValTypes != null)
-            {
-                // Copy K and V to KvPair.
-                il.Emit(OpCodes.Ldloca_S, local);
-                il.Emit(OpCodes.Ldloc, localKey!);
-                il.Emit(OpCodes.Stfld, type.GetFieldIgnoreCase("Key")!);
+            // Copy K and V to KvPair.
+            il.Emit(OpCodes.Ldloca_S, local);
+            il.Emit(OpCodes.Ldloc, localKey);
+            il.Emit(OpCodes.Stfld, type.GetFieldIgnoreCase("Key")!);
 
-                il.Emit(OpCodes.Ldloca_S, local);
-                il.Emit(OpCodes.Ldloc, localVal!);
-                il.Emit(OpCodes.Stfld, type.GetFieldIgnoreCase("Val")!);
-            }
+            il.Emit(OpCodes.Ldloca_S, local);
+            il.Emit(OpCodes.Ldloc, localVal);
+            il.Emit(OpCodes.Stfld, type.GetFieldIgnoreCase("Val")!);
 
             il.Emit(OpCodes.Ldloc_0); // res
             il.Emit(OpCodes.Ret);
