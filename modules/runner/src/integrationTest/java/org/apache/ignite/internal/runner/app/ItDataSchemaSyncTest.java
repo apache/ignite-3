@@ -187,7 +187,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
         sql(ignite1, "CREATE TABLE " + TABLE_NAME + "(key BIGINT PRIMARY KEY, valint1 INT, valint2 INT)");
 
         for (int i = 0; i < 10; ++i) {
-            sql(ignite1, String.format("INSERT INTO " + TABLE_NAME + " VALUES(%d, %d, %d)", i, i, i));
+            sql(ignite1, String.format("INSERT INTO " + TABLE_NAME + " VALUES(%d, %d, %d)", i, i, 2 * i));
         }
 
         sql(ignite1, "ALTER TABLE " + TABLE_NAME + " DROP COLUMN valint1");

@@ -33,8 +33,6 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
-import org.apache.ignite.configuration.schemas.table.ColumnView;
-import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.causality.VersionedValue;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.manager.Producer;
@@ -42,6 +40,10 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.client.Conditions;
 import org.apache.ignite.internal.metastorage.client.Entry;
 import org.apache.ignite.internal.metastorage.client.Operations;
+import org.apache.ignite.internal.schema.configuration.ColumnView;
+import org.apache.ignite.internal.schema.configuration.ExtendedTableConfiguration;
+import org.apache.ignite.internal.schema.configuration.ExtendedTableView;
+import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.event.SchemaEvent;
 import org.apache.ignite.internal.schema.event.SchemaEventParameters;
 import org.apache.ignite.internal.schema.marshaller.schema.SchemaSerializerImpl;
@@ -64,7 +66,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
     public static final int INITIAL_SCHEMA_VERSION = 1;
 
     /** Schema history key predicate part. */
-    public static final String SCHEMA_STORE_PREDICATE = ".sch-hist:";
+    public static final String SCHEMA_STORE_PREDICATE = ".sch-hist.";
 
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -500,7 +502,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
     }
 
     private int extractVerFromSchemaKey(String key) {
-        int pos = key.indexOf(':');
+        int pos = key.lastIndexOf('.');
         assert pos != -1 : "Unexpected key: " + key;
 
         key = key.substring(pos + 1);

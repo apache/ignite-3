@@ -19,8 +19,7 @@ package org.apache.ignite.internal.schema;
 
 import java.util.Optional;
 import org.apache.ignite.configuration.NamedListView;
-import org.apache.ignite.configuration.schemas.table.ColumnView;
-import org.apache.ignite.configuration.schemas.table.TableView;
+import org.apache.ignite.internal.schema.configuration.ColumnView;
 import org.apache.ignite.internal.schema.configuration.ConfigurationToSchemaDescriptorConverter;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.mapping.ColumnMapper;
@@ -68,20 +67,27 @@ public class SchemaUtils {
 
             if (i < oldTblColumns.size()) {
                 ColumnView oldColView = oldTblColumns.get(i);
+
                 Column oldCol = oldDesc.column(oldColView.name());
 
-                if (newCol.schemaIndex() == oldCol.schemaIndex() && newCol.name().equals(oldCol.name())) {
+                if (newCol.schemaIndex() == oldCol.schemaIndex()) {
                     continue;
                 }
+
+                if (mapper == null) {
+                    mapper = ColumnMapping.createMapper(newDesc);
+                }
+
+                mapper.add(newCol.schemaIndex(), oldCol.schemaIndex());
+            } else {
+                assert !newDesc.isKeyColumn(newCol.schemaIndex());
+
+                if (mapper == null) {
+                    mapper = ColumnMapping.createMapper(newDesc);
+                }
+
+                mapper.add(newCol);
             }
-
-            assert !newDesc.isKeyColumn(newCol.schemaIndex());
-
-            if (mapper == null) {
-                mapper = ColumnMapping.createMapper(newDesc);
-            }
-
-            mapper.add(newCol);
         }
 
         // since newTblColumns comes from a TableChange, it will contain nulls for removed columns
