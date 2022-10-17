@@ -268,8 +268,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
         private static ReadDelegate<T> EmitReader(Schema schema, bool keyOnly)
         {
             var type = typeof(T);
-            var isKvPair = type.IsGenericType && type.GetGenericTypeDefinition() == typeof(KvPair<,>);
-            var keyValTypes = isKvPair ? type.GetGenericArguments() : null;
 
             var method = new DynamicMethod(
                 name: "Read" + type,
@@ -311,11 +309,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             for (var i = 0; i < count; i++)
             {
                 var col = columns[i];
-                var fieldInfo = keyValTypes == null
-                    ? type.GetFieldIgnoreCase(col.Name)
-                    : i < schema.KeyColumnCount
-                        ? keyValTypes[0].GetFieldIgnoreCase(col.Name)
-                        : keyValTypes[1].GetFieldIgnoreCase(col.Name);
+                var fieldInfo = type.GetFieldIgnoreCase(col.Name);
 
                 EmitFieldRead(fieldInfo, il, col, i, local);
             }
