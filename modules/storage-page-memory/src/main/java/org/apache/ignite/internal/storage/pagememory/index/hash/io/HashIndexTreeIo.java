@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage.pagememory.index.hash.io;
 
+import static java.nio.ByteOrder.LITTLE_ENDIAN;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.getBytes;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.getInt;
@@ -29,7 +30,7 @@ import static org.apache.ignite.internal.pagememory.util.PageUtils.putShort;
 import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.PARTITIONLESS_LINK_SIZE_BYTES;
 import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.readPartitionless;
 import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.writePartitionless;
-import static org.apache.ignite.internal.storage.pagememory.index.InlineUtils.isFullyInlined;
+import static org.apache.ignite.internal.storage.pagememory.index.InlineUtils.canFullyInline;
 import static org.apache.ignite.internal.util.GridUnsafe.wrapPointer;
 
 import java.nio.ByteBuffer;
@@ -64,10 +65,10 @@ public interface HashIndexTreeIo {
     /** Item size without index columns in bytes. */
     int ITEM_SIZE_WITHOUT_COLUMNS = Integer.BYTES // Index columns hash.
             + Short.SIZE // Inlined index columns size.
-            + PARTITIONLESS_LINK_SIZE_BYTES // Index column link.
+            + PARTITIONLESS_LINK_SIZE_BYTES // Index columns link.
             + 2 * Long.BYTES; // Row ID.
 
-    /** Index columns are not fully inlined, the index column size is {@link #indexColumnsInlineSize()}. */
+    /** Special value that is written to the Index Key, indicating the value has not been fully inlined into it. */
     short NOT_FULLY_INLINE = -1;
 
     /** Offset of the index columns hash (4 bytes). */
@@ -140,7 +141,7 @@ public interface HashIndexTreeIo {
 
         IndexColumns indexColumns = row.indexColumns();
 
-        if (isFullyInlined(indexColumns.valueSize(), indexColumnsInlineSize())) {
+        if (canFullyInline(indexColumns.valueSize(), indexColumnsInlineSize())) {
             assert indexColumns.link() == NULL_LINK : "Index columns are completely inline, they should not be in FreeList";
 
             putShort(pageAddr + off, SIZE_OFFSET, (short) indexColumns.valueSize());
@@ -149,7 +150,9 @@ public interface HashIndexTreeIo {
         } else {
             putShort(pageAddr + off, SIZE_OFFSET, NOT_FULLY_INLINE);
 
-            putByteBuffer(pageAddr + off, TUPLE_OFFSET, indexColumns.valueBuffer().rewind().duplicate().limit(indexColumnsInlineSize()));
+            ByteBuffer bufferToWrite = indexColumns.valueBuffer().rewind().duplicate().limit(indexColumnsInlineSize());
+
+            putByteBuffer(pageAddr + off, TUPLE_OFFSET, bufferToWrite);
 
             writePartitionless(pageAddr + off + linkOffset(), indexColumns.link());
         }
@@ -185,11 +188,7 @@ public interface HashIndexTreeIo {
 
         int indexColumnsSize = getShort(pageAddr + off, SIZE_OFFSET);
 
-        if (indexColumnsSize != NOT_FULLY_INLINE) {
-            ByteBuffer indexColumnsBuffer = wrapPointer(pageAddr + off + TUPLE_OFFSET, indexColumnsSize);
-
-            cmp = indexColumnsBuffer.compareTo(row.indexColumns().valueBuffer().rewind());
-        } else {
+        if (indexColumnsSize == NOT_FULLY_INLINE) {
             indexColumnsSize = indexColumnsInlineSize();
 
             ByteBuffer indexColumnsBuffer = wrapPointer(pageAddr + off + TUPLE_OFFSET, indexColumnsSize);
@@ -207,6 +206,10 @@ public interface HashIndexTreeIo {
             dataPageReader.traverse(link, compareIndexColumnsValue, row.indexColumns().valueBuffer().rewind().duplicate());
 
             cmp = compareIndexColumnsValue.compareResult();
+        } else {
+            ByteBuffer indexColumnsBuffer = wrapPointer(pageAddr + off + TUPLE_OFFSET, indexColumnsSize);
+
+            cmp = indexColumnsBuffer.compareTo(row.indexColumns().valueBuffer().rewind());
         }
 
         if (cmp != 0) {
@@ -244,28 +247,27 @@ public interface HashIndexTreeIo {
 
         int indexColumnsSize = getShort(pageAddr + off, SIZE_OFFSET);
 
-        ByteBuffer indexColumnsBuffer;
+        byte[] indexColumnsBytes;
 
         long link;
 
-        if (indexColumnsSize != NOT_FULLY_INLINE) {
-            indexColumnsBuffer = ByteBuffer.wrap(getBytes(pageAddr + off, TUPLE_OFFSET, indexColumnsSize));
-
-            link = NULL_LINK;
-        } else {
+        if (indexColumnsSize == NOT_FULLY_INLINE) {
             link = readPartitionless(partitionId, pageAddr + off, linkOffset());
 
             ReadIndexColumnsValue indexColumnsTraversal = new ReadIndexColumnsValue();
 
             dataPageReader.traverse(link, indexColumnsTraversal, null);
 
-            indexColumnsBuffer = ByteBuffer.wrap(indexColumnsTraversal.result());
+            indexColumnsBytes = indexColumnsTraversal.result();
+        } else {
+            indexColumnsBytes = getBytes(pageAddr + off, TUPLE_OFFSET, indexColumnsSize);
+
+            link = NULL_LINK;
         }
 
-        IndexColumns indexColumns = new IndexColumns(partitionId, link, indexColumnsBuffer);
+        IndexColumns indexColumns = new IndexColumns(partitionId, link, ByteBuffer.wrap(indexColumnsBytes).order(LITTLE_ENDIAN));
 
         long rowIdMsb = getLong(pageAddr + off, rowIdMsbOffset());
-
         long rowIdLsb = getLong(pageAddr + off, rowIdLsbOffset());
 
         RowId rowId = new RowId(partitionId, rowIdMsb, rowIdLsb);
