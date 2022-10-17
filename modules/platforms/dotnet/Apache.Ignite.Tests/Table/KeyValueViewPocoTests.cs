@@ -42,8 +42,9 @@ public class KeyValueViewPocoTests : IgniteTestsBase
     {
         await KvView.PutAsync(null, GetPoco(1L), GetPoco("val"));
 
-        (Poco res, _) = await KvView.GetAsync(null, GetPoco(1L));
+        (Poco res, bool hasRes) = await KvView.GetAsync(null, GetPoco(1L));
 
+        Assert.IsTrue(hasRes);
         Assert.AreEqual("val", res.Val);
         Assert.AreEqual(0, res.Key);
     }

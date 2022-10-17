@@ -106,7 +106,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             var keyValTypes = isKvPair ? type.GetGenericArguments() : null;
 
             var method = new DynamicMethod(
-                name: "Write" + type.Name,
+                name: "Write" + type,
                 returnType: typeof(void),
                 parameterTypes: new[] { typeof(BinaryTupleBuilder).MakeByRefType(), typeof(Span<byte>), type },
                 m: typeof(IIgnite).Module,
@@ -202,9 +202,11 @@ namespace Apache.Ignite.Internal.Table.Serialization
         private static ReadDelegate<T> EmitReader(Schema schema, bool keyOnly)
         {
             var type = typeof(T);
+            var isKvPair = type.IsGenericType && type.GetGenericTypeDefinition() == typeof(KvPair<,>);
+            var keyValTypes = isKvPair ? type.GetGenericArguments() : null;
 
             var method = new DynamicMethod(
-                name: "Read" + type.Name,
+                name: "Read" + type,
                 returnType: type,
                 parameterTypes: new[] { typeof(BinaryTupleReader).MakeByRefType() },
                 m: typeof(IIgnite).Module,
@@ -243,7 +245,11 @@ namespace Apache.Ignite.Internal.Table.Serialization
             for (var i = 0; i < count; i++)
             {
                 var col = columns[i];
-                var fieldInfo = type.GetFieldIgnoreCase(col.Name);
+                var fieldInfo = keyValTypes == null
+                    ? type.GetFieldIgnoreCase(col.Name)
+                    : i < schema.KeyColumnCount
+                        ? keyValTypes[0].GetFieldIgnoreCase(col.Name)
+                        : keyValTypes[1].GetFieldIgnoreCase(col.Name);
 
                 EmitFieldRead(fieldInfo, il, col, i, local);
             }
@@ -257,6 +263,8 @@ namespace Apache.Ignite.Internal.Table.Serialization
         private static ReadValuePartDelegate<T> EmitValuePartReader(Schema schema)
         {
             var type = typeof(T);
+            var isKvPair = type.IsGenericType && type.GetGenericTypeDefinition() == typeof(KvPair<,>);
+            var keyValTypes = isKvPair ? type.GetGenericArguments() : null;
 
             if (BinaryTupleMethods.GetReadMethodOrNull(type) != null)
             {
@@ -265,7 +273,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             }
 
             var method = new DynamicMethod(
-                name: "ReadValuePart" + type.Name,
+                name: "ReadValuePart" + type,
                 returnType: type,
                 parameterTypes: new[] { typeof(BinaryTupleReader).MakeByRefType(), type },
                 m: typeof(IIgnite).Module,
@@ -273,6 +281,26 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
             var il = method.GetILGenerator();
             var local = il.DeclareLocal(type);
+
+            LocalBuilder? localKey = null;
+            LocalBuilder? localVal = null;
+
+            if (keyValTypes != null)
+            {
+                // TODO: Load all
+                localKey = il.DeclareLocal(keyValTypes[0]);
+                localVal = il.DeclareLocal(keyValTypes[1]);
+
+                il.Emit(OpCodes.Ldtoken, keyValTypes[0]);
+                il.Emit(OpCodes.Call, ReflectionUtils.GetTypeFromHandleMethod);
+                il.Emit(OpCodes.Call, ReflectionUtils.GetUninitializedObjectMethod);
+                il.Emit(OpCodes.Stloc_1); // T res
+
+                il.Emit(OpCodes.Ldtoken, keyValTypes[1]);
+                il.Emit(OpCodes.Call, ReflectionUtils.GetTypeFromHandleMethod);
+                il.Emit(OpCodes.Call, ReflectionUtils.GetUninitializedObjectMethod);
+                il.Emit(OpCodes.Stloc_2); // T res
+            }
 
             if (type.IsValueType)
             {
@@ -292,22 +320,32 @@ namespace Apache.Ignite.Internal.Table.Serialization
             for (var i = 0; i < columns.Count; i++)
             {
                 var col = columns[i];
-                var fieldInfo = type.GetFieldIgnoreCase(col.Name);
+
+                var fieldInfo = keyValTypes == null
+                    ? type.GetFieldIgnoreCase(col.Name)
+                    : i < schema.KeyColumnCount
+                        ? keyValTypes[0].GetFieldIgnoreCase(col.Name)
+                        : keyValTypes[1].GetFieldIgnoreCase(col.Name);
+
+                var loc = keyValTypes == null
+                    ? local
+                    : i < schema.KeyColumnCount
+                        ? localKey!
+                        : localVal!;
 
                 if (i < schema.KeyColumnCount)
                 {
-                    if (fieldInfo != null)
-                    {
-                        il.Emit(type.IsValueType ? OpCodes.Ldloca_S : OpCodes.Ldloc, local); // res
-                        il.Emit(OpCodes.Ldarg_1); // key
-                        il.Emit(OpCodes.Ldfld, fieldInfo);
-                        il.Emit(OpCodes.Stfld, fieldInfo);
-                    }
-
+                    // if (fieldInfo != null)
+                    // {
+                    //     il.Emit(loc.LocalType.IsValueType ? OpCodes.Ldloca_S : OpCodes.Ldloc, loc); // res
+                    //     il.Emit(OpCodes.Ldarg_1); // key
+                    //     il.Emit(OpCodes.Ldfld, fieldInfo);
+                    //     il.Emit(OpCodes.Stfld, fieldInfo);
+                    // }
                     continue;
                 }
 
-                EmitFieldRead(fieldInfo, il, col, i - schema.KeyColumnCount, local);
+                EmitFieldRead(fieldInfo, il, col, i - schema.KeyColumnCount, loc);
             }
 
             il.Emit(OpCodes.Ldloc_0); // res
@@ -325,8 +363,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
             ValidateFieldType(fieldInfo, col);
 
-            var readMethod = BinaryTupleMethods.GetReadMethod(fieldInfo.FieldType);
-
             il.Emit(fieldInfo.DeclaringType!.IsValueType ? OpCodes.Ldloca_S : OpCodes.Ldloc, local); // res
             il.Emit(OpCodes.Ldarg_0); // reader
             EmitLdcI4(il, elemIdx); // index
@@ -336,6 +372,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 EmitLdcI4(il, col.Scale);
             }
 
+            var readMethod = BinaryTupleMethods.GetReadMethod(fieldInfo.FieldType);
             il.Emit(OpCodes.Call, readMethod);
             il.Emit(OpCodes.Stfld, fieldInfo); // res.field = value
         }
