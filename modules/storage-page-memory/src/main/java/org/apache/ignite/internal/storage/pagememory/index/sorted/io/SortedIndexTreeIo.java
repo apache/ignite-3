@@ -175,7 +175,7 @@ public interface SortedIndexTreeIo {
         if (indexColumnsSize != NOT_FULLY_INLINE) {
             firstBinaryTupleBuffer = wrapPointer(pageAddr + off + TUPLE_OFFSET, indexColumnsSize);
         } else {
-            // TODO: IGNITE-17671 вот тут надо сравнивать на месте и если равно то по фрагментам
+            // TODO: IGNITE-17325 Use a comparator for inlined tuple
             long link = readPartitionless(partitionId, pageAddr + off, linkOffset());
 
             ReadIndexColumnsValue indexColumnsTraversal = new ReadIndexColumnsValue();

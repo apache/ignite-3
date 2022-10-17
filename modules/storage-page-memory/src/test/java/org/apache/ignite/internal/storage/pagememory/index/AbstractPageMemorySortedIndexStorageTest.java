@@ -114,8 +114,6 @@ abstract class AbstractPageMemorySortedIndexStorageTest extends AbstractSortedIn
         assertThat(get(index, indexRow3.indexColumns()), empty());
     }
 
-    // TODO: IGNITE-17671 надо не забыть про тестирование компаратора по обрезанному туплу
-
     private static IndexRow createIndexRow(BinaryTupleRowSerializer serializer, RowId rowId, Object... objects) {
         return serializer.serializeRow(objects, rowId);
     }
