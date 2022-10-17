@@ -217,6 +217,10 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 {
                     fieldInfo = valField;
                 }
+                else if ((col.IsKey && keyWriteMethod != null) || (!col.IsKey && valWriteMethod != null))
+                {
+                    fieldInfo = null;
+                }
                 else
                 {
                     fieldInfo = (col.IsKey ? keyType : valType).GetFieldIgnoreCase(col.Name);
@@ -350,8 +354,10 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 }
                 else
                 {
-                    fieldInfo = (col.IsKey ? keyType : valType).GetFieldIgnoreCase(col.Name);
                     local = col.IsKey ? keyLocal : valLocal;
+                    fieldInfo = local == null
+                        ? null
+                        : (col.IsKey ? keyType : valType).GetFieldIgnoreCase(col.Name);
                 }
 
                 EmitFieldRead(fieldInfo, il, col, i, local);
