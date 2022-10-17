@@ -348,6 +348,17 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 EmitFieldRead(fieldInfo, il, col, i - schema.KeyColumnCount, loc);
             }
 
+            if (keyValTypes != null)
+            {
+                il.Emit(OpCodes.Ldloca_S, local);
+                il.Emit(OpCodes.Ldloca_S, localKey!);
+                il.Emit(OpCodes.Stfld, type.GetFieldIgnoreCase("Key")!);
+
+                il.Emit(OpCodes.Ldloca_S, local);
+                il.Emit(OpCodes.Ldloca_S, localVal!);
+                il.Emit(OpCodes.Stfld, type.GetFieldIgnoreCase("Val")!);
+            }
+
             il.Emit(OpCodes.Ldloc_0); // res
             il.Emit(OpCodes.Ret);
 
