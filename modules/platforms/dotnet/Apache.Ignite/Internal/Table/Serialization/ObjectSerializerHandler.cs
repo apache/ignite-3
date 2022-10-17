@@ -588,7 +588,9 @@ namespace Apache.Ignite.Internal.Table.Serialization
         private static (Type KeyType, Type ValType, FieldInfo KeyField, FieldInfo ValField) GetKeyValTypes()
         {
             var type = typeof(T);
-            Debug.Assert(type.IsGenericType && type.GetGenericTypeDefinition() == typeof(KvPair<,>));
+            Debug.Assert(
+                type.IsGenericType && type.GetGenericTypeDefinition() == typeof(KvPair<,>),
+                "type.IsGenericType && type.GetGenericTypeDefinition() == typeof(KvPair<,>)");
 
             var keyValTypes = type.GetGenericArguments();
 
