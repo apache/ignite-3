@@ -25,7 +25,7 @@ using Ignite.Table;
 using NUnit.Framework;
 
 /// <summary>
-/// Tests for key-value POCO view.
+/// Tests for key-value view where key is a user object, and value is a primitive (string).
 /// </summary>
 public class KeyValueViewPocoPrimitiveTests : IgniteTestsBase
 {
