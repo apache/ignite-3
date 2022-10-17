@@ -378,35 +378,55 @@ namespace Apache.Ignite.Internal.Table.Serialization
         {
             var type = typeof(T);
             var keyValTypes = type.GetGenericArguments();
+            var keyType = keyValTypes[0];
+            var valType = keyValTypes[1];
+            var keyField = type.GetFieldIgnoreCase("Key")!;
+            var valField = type.GetFieldIgnoreCase("Val")!;
+            var valReadMethod = BinaryTupleMethods.GetReadMethodOrNull(valType);
 
             var il = method.GetILGenerator();
 
             var kvLocal = DeclareAndInitLocal(il, type);
-            var keyLocal = DeclareAndInitLocal(il, keyValTypes[0]);
-            var valLocal = DeclareAndInitLocal(il, keyValTypes[1]);
 
-            var columns = schema.Columns;
-
-            for (var i = schema.KeyColumnCount; i < columns.Count; i++)
+            if (valReadMethod != null)
             {
-                var col = columns[i];
-                var fieldInfo = keyValTypes == null
-                    ? type.GetFieldIgnoreCase(col.Name)
-                    : i < schema.KeyColumnCount
-                        ? keyValTypes[0].GetFieldIgnoreCase(col.Name)
-                        : keyValTypes[1].GetFieldIgnoreCase(col.Name);
+                // Single-value mapping.
+                if (schema.Columns.Count == schema.KeyColumnCount)
+                {
+                    // No value columns.
+                    return (ref BinaryTupleReader _, T _) => default!;
+                }
 
-                EmitFieldRead(fieldInfo, il, col, i - schema.KeyColumnCount, valLocal);
+                EmitFieldRead(valField, il, schema.Columns[schema.KeyColumnCount], 0, kvLocal);
             }
+            else
+            {
+                var keyLocal = DeclareAndInitLocal(il, keyType);
+                var valLocal = DeclareAndInitLocal(il, valType);
+                var columns = schema.Columns;
 
-            // Copy K and V to KvPair.
-            il.Emit(OpCodes.Ldloca_S, kvLocal);
-            il.Emit(OpCodes.Ldloc, keyLocal);
-            il.Emit(OpCodes.Stfld, type.GetFieldIgnoreCase("Key")!);
+                for (var i = schema.KeyColumnCount; i < columns.Count; i++)
+                {
+                    var col = columns[i];
 
-            il.Emit(OpCodes.Ldloca_S, kvLocal);
-            il.Emit(OpCodes.Ldloc, valLocal);
-            il.Emit(OpCodes.Stfld, type.GetFieldIgnoreCase("Val")!);
+                    var fieldInfo = keyValTypes == null
+                        ? type.GetFieldIgnoreCase(col.Name)
+                        : i < schema.KeyColumnCount
+                            ? keyType.GetFieldIgnoreCase(col.Name)
+                            : valType.GetFieldIgnoreCase(col.Name);
+
+                    EmitFieldRead(fieldInfo, il, col, i - schema.KeyColumnCount, valLocal);
+                }
+
+                // Copy K and V to KvPair.
+                il.Emit(OpCodes.Ldloca_S, kvLocal);
+                il.Emit(OpCodes.Ldloc, keyLocal);
+                il.Emit(OpCodes.Stfld, keyField);
+
+                il.Emit(OpCodes.Ldloca_S, kvLocal);
+                il.Emit(OpCodes.Ldloc, valLocal);
+                il.Emit(OpCodes.Stfld, valField);
+            }
 
             il.Emit(OpCodes.Ldloc_0); // res
             il.Emit(OpCodes.Ret);
