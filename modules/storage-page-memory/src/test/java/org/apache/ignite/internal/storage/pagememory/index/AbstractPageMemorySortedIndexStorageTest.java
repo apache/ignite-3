@@ -17,12 +17,14 @@
 
 package org.apache.ignite.internal.storage.pagememory.index;
 
-import static org.apache.ignite.internal.storage.pagememory.index.IndexTestUtils.randomString;
 import static org.apache.ignite.internal.storage.pagememory.index.InlineUtils.MAX_BINARY_TUPLE_INLINE_SIZE;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.randomString;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.empty;
 
+import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
@@ -42,6 +44,8 @@ import org.junit.jupiter.api.Test;
  */
 abstract class AbstractPageMemorySortedIndexStorageTest extends AbstractSortedIndexStorageTest {
     protected BasePageMemoryStorageEngineConfiguration<?, ?> baseEngineConfig;
+
+    protected Random random = ThreadLocalRandom.current();
 
     /**
      * Initializes the internal structures needed for tests.
@@ -69,10 +73,10 @@ abstract class AbstractPageMemorySortedIndexStorageTest extends AbstractSortedIn
 
         var serializer = new BinaryTupleRowSerializer(index.indexDescriptor());
 
-        IndexRow indexRow0 = createIndexRow(serializer, new RowId(TEST_PARTITION), 10, randomString(MAX_BINARY_TUPLE_INLINE_SIZE));
-        IndexRow indexRow1 = createIndexRow(serializer, new RowId(TEST_PARTITION), 10, randomString(MAX_BINARY_TUPLE_INLINE_SIZE));
-        IndexRow indexRow2 = createIndexRow(serializer, new RowId(TEST_PARTITION), 20, randomString(MAX_BINARY_TUPLE_INLINE_SIZE));
-        IndexRow indexRow3 = createIndexRow(serializer, new RowId(TEST_PARTITION), 20, randomString(MAX_BINARY_TUPLE_INLINE_SIZE));
+        IndexRow indexRow0 = createIndexRow(serializer, new RowId(TEST_PARTITION), 10, randomString(random, MAX_BINARY_TUPLE_INLINE_SIZE));
+        IndexRow indexRow1 = createIndexRow(serializer, new RowId(TEST_PARTITION), 10, randomString(random, MAX_BINARY_TUPLE_INLINE_SIZE));
+        IndexRow indexRow2 = createIndexRow(serializer, new RowId(TEST_PARTITION), 20, randomString(random, MAX_BINARY_TUPLE_INLINE_SIZE));
+        IndexRow indexRow3 = createIndexRow(serializer, new RowId(TEST_PARTITION), 20, randomString(random, MAX_BINARY_TUPLE_INLINE_SIZE));
 
         put(index, indexRow0);
         put(index, indexRow1);
@@ -98,10 +102,10 @@ abstract class AbstractPageMemorySortedIndexStorageTest extends AbstractSortedIn
 
         int pageSize = baseEngineConfig.pageSize().value();
 
-        IndexRow indexRow0 = createIndexRow(serializer, new RowId(TEST_PARTITION), 10, randomString(pageSize * 2));
-        IndexRow indexRow1 = createIndexRow(serializer, new RowId(TEST_PARTITION), 10, randomString(pageSize * 2));
-        IndexRow indexRow2 = createIndexRow(serializer, new RowId(TEST_PARTITION), 20, randomString(pageSize * 2));
-        IndexRow indexRow3 = createIndexRow(serializer, new RowId(TEST_PARTITION), 20, randomString(pageSize * 2));
+        IndexRow indexRow0 = createIndexRow(serializer, new RowId(TEST_PARTITION), 10, randomString(random, pageSize * 2));
+        IndexRow indexRow1 = createIndexRow(serializer, new RowId(TEST_PARTITION), 10, randomString(random, pageSize * 2));
+        IndexRow indexRow2 = createIndexRow(serializer, new RowId(TEST_PARTITION), 20, randomString(random, pageSize * 2));
+        IndexRow indexRow3 = createIndexRow(serializer, new RowId(TEST_PARTITION), 20, randomString(random, pageSize * 2));
 
         put(index, indexRow0);
         put(index, indexRow1);

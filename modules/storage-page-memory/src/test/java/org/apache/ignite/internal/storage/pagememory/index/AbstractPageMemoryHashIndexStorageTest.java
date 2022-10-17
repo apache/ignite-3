@@ -17,12 +17,14 @@
 
 package org.apache.ignite.internal.storage.pagememory.index;
 
-import static org.apache.ignite.internal.storage.pagememory.index.IndexTestUtils.randomString;
 import static org.apache.ignite.internal.storage.pagememory.index.InlineUtils.MAX_BINARY_TUPLE_INLINE_SIZE;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.randomString;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.empty;
 
+import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.RowId;
@@ -39,6 +41,8 @@ import org.junit.jupiter.api.Test;
  */
 abstract class AbstractPageMemoryHashIndexStorageTest extends AbstractHashIndexStorageTest {
     protected BasePageMemoryStorageEngineConfiguration<?, ?> baseEngineConfig;
+
+    protected Random random = ThreadLocalRandom.current();
 
     /**
      * Initializes the internal structures needed for tests.
@@ -63,8 +67,8 @@ abstract class AbstractPageMemoryHashIndexStorageTest extends AbstractHashIndexS
 
     @Test
     void testWithStringsLargerThanMaximumInlineSize() {
-        IndexRow indexRow0 = createIndexRow(1, randomString(MAX_BINARY_TUPLE_INLINE_SIZE), new RowId(TEST_PARTITION));
-        IndexRow indexRow1 = createIndexRow(1, randomString(MAX_BINARY_TUPLE_INLINE_SIZE), new RowId(TEST_PARTITION));
+        IndexRow indexRow0 = createIndexRow(1, randomString(random, MAX_BINARY_TUPLE_INLINE_SIZE), new RowId(TEST_PARTITION));
+        IndexRow indexRow1 = createIndexRow(1, randomString(random, MAX_BINARY_TUPLE_INLINE_SIZE), new RowId(TEST_PARTITION));
 
         put(indexRow0);
         put(indexRow1);
@@ -77,8 +81,8 @@ abstract class AbstractPageMemoryHashIndexStorageTest extends AbstractHashIndexS
 
     @Test
     void testFragmentedIndexColumns() {
-        IndexRow indexRow0 = createIndexRow(1, randomString(baseEngineConfig.pageSize().value() * 2), new RowId(TEST_PARTITION));
-        IndexRow indexRow1 = createIndexRow(1, randomString(baseEngineConfig.pageSize().value() * 2), new RowId(TEST_PARTITION));
+        IndexRow indexRow0 = createIndexRow(1, randomString(random, baseEngineConfig.pageSize().value() * 2), new RowId(TEST_PARTITION));
+        IndexRow indexRow1 = createIndexRow(1, randomString(random, baseEngineConfig.pageSize().value() * 2), new RowId(TEST_PARTITION));
 
         put(indexRow0);
         put(indexRow1);

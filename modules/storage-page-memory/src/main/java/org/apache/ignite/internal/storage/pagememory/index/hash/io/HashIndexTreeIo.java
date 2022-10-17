@@ -68,7 +68,7 @@ public interface HashIndexTreeIo {
             + PARTITIONLESS_LINK_SIZE_BYTES // Index columns link.
             + 2 * Long.BYTES; // Row ID.
 
-    /** Index columns are not fully inlined, the index column size is {@link #indexColumnsInlineSize()}. */
+    /** Special value that is written to the Index Key, indicating the value has not benn fully inlined into it. */
     short NOT_FULLY_INLINE = -1;
 
     /** Offset of the index columns hash (4 bytes). */
@@ -150,7 +150,9 @@ public interface HashIndexTreeIo {
         } else {
             putShort(pageAddr + off, SIZE_OFFSET, NOT_FULLY_INLINE);
 
-            putByteBuffer(pageAddr + off, TUPLE_OFFSET, indexColumns.valueBuffer().rewind().duplicate().limit(indexColumnsInlineSize()));
+            ByteBuffer bufferToWrite = indexColumns.valueBuffer().rewind().duplicate().limit(indexColumnsInlineSize());
+
+            putByteBuffer(pageAddr + off, TUPLE_OFFSET, bufferToWrite);
 
             writePartitionless(pageAddr + off + linkOffset(), indexColumns.link());
         }
