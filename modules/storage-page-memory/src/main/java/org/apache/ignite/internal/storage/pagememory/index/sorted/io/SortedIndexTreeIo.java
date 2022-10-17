@@ -18,11 +18,18 @@
 package org.apache.ignite.internal.storage.pagememory.index.sorted.io;
 
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
+import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
+import static org.apache.ignite.internal.pagememory.util.PageUtils.getBytes;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.getLong;
+import static org.apache.ignite.internal.pagememory.util.PageUtils.getShort;
+import static org.apache.ignite.internal.pagememory.util.PageUtils.putByteBuffer;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putLong;
+import static org.apache.ignite.internal.pagememory.util.PageUtils.putShort;
 import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.PARTITIONLESS_LINK_SIZE_BYTES;
 import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.readPartitionless;
 import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.writePartitionless;
+import static org.apache.ignite.internal.storage.pagememory.index.InlineUtils.canFullyInline;
+import static org.apache.ignite.internal.util.GridUnsafe.wrapPointer;
 
 import java.nio.ByteBuffer;
 import java.util.UUID;
@@ -48,17 +55,47 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
  * </ul>
  */
 public interface SortedIndexTreeIo {
-    /** Offset of the index column link (6 bytes). */
-    int INDEX_COLUMNS_LINK_OFFSET = 0;
+    /** Item size without index columns in bytes. */
+    int ITEM_SIZE_WITHOUT_COLUMNS = Short.SIZE // Inlined index columns size.
+            + PARTITIONLESS_LINK_SIZE_BYTES // Index columns link.
+            + 2 * Long.BYTES; // Row ID.
 
-    /** Offset of rowId's most significant bits, 8 bytes. */
-    int ROW_ID_MSB_OFFSET = INDEX_COLUMNS_LINK_OFFSET + PARTITIONLESS_LINK_SIZE_BYTES;
+    /** Special value that is written to the Index Key, indicating the value has not been fully inlined into it. */
+    short NOT_FULLY_INLINE = -1;
 
-    /** Offset of rowId's least significant bits, 8 bytes. */
-    int ROW_ID_LSB_OFFSET = ROW_ID_MSB_OFFSET + Long.BYTES;
+    /** Offset of the index columns size (2 bytes). */
+    int SIZE_OFFSET = 0;
 
-    /** Payload size in bytes. */
-    int SIZE_IN_BYTES = ROW_ID_LSB_OFFSET + Long.BYTES;
+    /** Offset of the index columns tuple (N bytes). */
+    int TUPLE_OFFSET = SIZE_OFFSET + Short.BYTES;
+
+    /**
+     * Returns offset of the index columns link (6 bytes).
+     */
+    default int linkOffset() {
+        return TUPLE_OFFSET + indexColumnsInlineSize();
+    }
+
+    /**
+     * Returns offset of rowId's the most significant bits (8 bytes).
+     */
+    default int rowIdMsbOffset() {
+        return linkOffset() + PARTITIONLESS_LINK_SIZE_BYTES;
+    }
+
+    /**
+     * Returns offset of rowId's least significant bits (8 bytes).
+     */
+    default int rowIdLsbOffset() {
+        return rowIdMsbOffset() + Long.BYTES;
+    }
+
+    /**
+     * Returns item size in bytes.
+     *
+     * @see BplusIo#getItemSize()
+     */
+    int getItemSize();
 
     /**
      * Returns an offset of the element inside the page.
@@ -76,7 +113,7 @@ public interface SortedIndexTreeIo {
         int dstOffset = offset(dstIdx);
         int srcOffset = offset(srcIdx);
 
-        PageUtils.copyMemory(srcPageAddr, srcOffset, dstPageAddr, dstOffset, SIZE_IN_BYTES);
+        PageUtils.copyMemory(srcPageAddr, srcOffset, dstPageAddr, dstOffset, getItemSize());
     }
 
     /**
@@ -84,17 +121,33 @@ public interface SortedIndexTreeIo {
      *
      * @see BplusIo#storeByOffset(long, int, Object)
      */
-    default void storeByOffset(long pageAddr, int off, SortedIndexRowKey rowKey) {
+    default void storeByOffset(long pageAddr, final int off, SortedIndexRowKey rowKey) {
         assert rowKey instanceof SortedIndexRow;
 
-        SortedIndexRow sortedIndexRow = (SortedIndexRow) rowKey;
+        SortedIndexRow row = (SortedIndexRow) rowKey;
 
-        writePartitionless(pageAddr + off + INDEX_COLUMNS_LINK_OFFSET, sortedIndexRow.indexColumns().link());
+        IndexColumns indexColumns = row.indexColumns();
 
-        RowId rowId = sortedIndexRow.rowId();
+        if (canFullyInline(indexColumns.valueSize(), indexColumnsInlineSize())) {
+            assert indexColumns.link() == NULL_LINK : "Index columns are completely inline, they should not be in FreeList";
 
-        putLong(pageAddr, off + ROW_ID_MSB_OFFSET, rowId.mostSignificantBits());
-        putLong(pageAddr, off + ROW_ID_LSB_OFFSET, rowId.leastSignificantBits());
+            putShort(pageAddr + off, SIZE_OFFSET, (short) indexColumns.valueSize());
+
+            putByteBuffer(pageAddr + off, TUPLE_OFFSET, indexColumns.valueBuffer().rewind());
+        } else {
+            putShort(pageAddr + off, SIZE_OFFSET, NOT_FULLY_INLINE);
+
+            ByteBuffer bufferToWrite = indexColumns.valueBuffer().rewind().duplicate().limit(indexColumnsInlineSize());
+
+            putByteBuffer(pageAddr + off, TUPLE_OFFSET, bufferToWrite);
+
+            writePartitionless(pageAddr + off + linkOffset(), indexColumns.link());
+        }
+
+        RowId rowId = row.rowId();
+
+        putLong(pageAddr + off, rowIdMsbOffset(), rowId.mostSignificantBits());
+        putLong(pageAddr + off, rowIdLsbOffset(), rowId.leastSignificantBits());
     }
 
     /**
@@ -117,19 +170,28 @@ public interface SortedIndexTreeIo {
             int idx,
             SortedIndexRowKey rowKey
     ) throws IgniteInternalCheckedException {
-        int off = offset(idx);
+        final int off = offset(idx);
 
-        long link = readPartitionless(partitionId, pageAddr, off + INDEX_COLUMNS_LINK_OFFSET);
+        int indexColumnsSize = getShort(pageAddr + off, SIZE_OFFSET);
 
-        //TODO Add in-place compare in IGNITE-17671
-        ReadIndexColumnsValue indexColumnsTraversal = new ReadIndexColumnsValue();
+        ByteBuffer firstBinaryTupleBuffer;
 
-        dataPageReader.traverse(link, indexColumnsTraversal, null);
+        if (indexColumnsSize == NOT_FULLY_INLINE) {
+            // TODO: IGNITE-17325 Use a comparator for inlined tuple
+            long link = readPartitionless(partitionId, pageAddr + off, linkOffset());
 
-        ByteBuffer firstBinaryTupleBuffer = ByteBuffer.wrap(indexColumnsTraversal.result()).order(LITTLE_ENDIAN);
+            ReadIndexColumnsValue indexColumnsTraversal = new ReadIndexColumnsValue();
+
+            dataPageReader.traverse(link, indexColumnsTraversal, null);
+
+            firstBinaryTupleBuffer = ByteBuffer.wrap(indexColumnsTraversal.result());
+        } else {
+            firstBinaryTupleBuffer = wrapPointer(pageAddr + off + TUPLE_OFFSET, indexColumnsSize);
+        }
+
         ByteBuffer secondBinaryTupleBuffer = rowKey.indexColumns().valueBuffer();
 
-        int cmp = binaryTupleComparator.compare(firstBinaryTupleBuffer, secondBinaryTupleBuffer);
+        int cmp = binaryTupleComparator.compare(firstBinaryTupleBuffer.order(LITTLE_ENDIAN), secondBinaryTupleBuffer);
 
         if (cmp != 0) {
             return cmp;
@@ -137,19 +199,19 @@ public interface SortedIndexTreeIo {
 
         assert rowKey instanceof SortedIndexRow : rowKey;
 
-        SortedIndexRow sortedIndexRow = (SortedIndexRow) rowKey;
+        SortedIndexRow row = (SortedIndexRow) rowKey;
 
-        long rowIdMsb = getLong(pageAddr, off + ROW_ID_MSB_OFFSET);
+        long rowIdMsb = getLong(pageAddr + off, rowIdMsbOffset());
 
-        cmp = Long.compare(rowIdMsb, sortedIndexRow.rowId().mostSignificantBits());
+        cmp = Long.compare(rowIdMsb, row.rowId().mostSignificantBits());
 
         if (cmp != 0) {
             return cmp;
         }
 
-        long rowIdLsb = getLong(pageAddr, off + ROW_ID_LSB_OFFSET);
+        long rowIdLsb = getLong(pageAddr + off, rowIdLsbOffset());
 
-        return Long.compare(rowIdLsb, sortedIndexRow.rowId().leastSignificantBits());
+        return Long.compare(rowIdLsb, row.rowId().leastSignificantBits());
     }
 
     /**
@@ -164,23 +226,42 @@ public interface SortedIndexTreeIo {
      */
     default SortedIndexRow getRow(DataPageReader dataPageReader, int partitionId, long pageAddr, int idx)
             throws IgniteInternalCheckedException {
-        int off = offset(idx);
+        final int off = offset(idx);
 
-        long link = readPartitionless(partitionId, pageAddr, off + INDEX_COLUMNS_LINK_OFFSET);
+        int indexColumnsSize = getShort(pageAddr + off, SIZE_OFFSET);
 
-        ReadIndexColumnsValue indexColumnsTraversal = new ReadIndexColumnsValue();
+        ByteBuffer indexColumnsBuffer;
 
-        dataPageReader.traverse(link, indexColumnsTraversal, null);
+        long link;
 
-        ByteBuffer indexColumnsBuffer = ByteBuffer.wrap(indexColumnsTraversal.result()).order(LITTLE_ENDIAN);
+        if (indexColumnsSize == NOT_FULLY_INLINE) {
+            link = readPartitionless(partitionId, pageAddr + off, linkOffset());
 
-        IndexColumns indexColumns = new IndexColumns(partitionId, link, indexColumnsBuffer);
+            ReadIndexColumnsValue indexColumnsTraversal = new ReadIndexColumnsValue();
 
-        long rowIdMsb = getLong(pageAddr, off + ROW_ID_MSB_OFFSET);
-        long rowIdLsb = getLong(pageAddr, off + ROW_ID_LSB_OFFSET);
+            dataPageReader.traverse(link, indexColumnsTraversal, null);
+
+            indexColumnsBuffer = ByteBuffer.wrap(indexColumnsTraversal.result());
+        } else {
+            indexColumnsBuffer = ByteBuffer.wrap(getBytes(pageAddr + off, TUPLE_OFFSET, indexColumnsSize));
+
+            link = NULL_LINK;
+        }
+
+        IndexColumns indexColumns = new IndexColumns(partitionId, link, indexColumnsBuffer.order(LITTLE_ENDIAN));
+
+        long rowIdMsb = getLong(pageAddr + off, rowIdMsbOffset());
+        long rowIdLsb = getLong(pageAddr + off, rowIdLsbOffset());
 
         RowId rowId = new RowId(partitionId, rowIdMsb, rowIdLsb);
 
         return new SortedIndexRow(indexColumns, rowId);
+    }
+
+    /**
+     * Returns the inline size for index columns in bytes.
+     */
+    default int indexColumnsInlineSize() {
+        return getItemSize() - ITEM_SIZE_WITHOUT_COLUMNS;
     }
 }

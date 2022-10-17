@@ -17,16 +17,16 @@
 
 package org.apache.ignite.internal.storage.pagememory.index;
 
-import static java.util.stream.Collectors.joining;
 import static org.apache.ignite.internal.storage.pagememory.index.InlineUtils.MAX_BINARY_TUPLE_INLINE_SIZE;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.randomString;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.empty;
 
-import java.util.concurrent.ThreadLocalRandom;
-import java.util.stream.IntStream;
+import java.util.Random;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.pagememory.PageMemory;
+import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.AbstractHashIndexStorageTest;
@@ -41,6 +41,8 @@ import org.junit.jupiter.api.Test;
  */
 abstract class AbstractPageMemoryHashIndexStorageTest extends AbstractHashIndexStorageTest {
     protected BasePageMemoryStorageEngineConfiguration<?, ?> baseEngineConfig;
+
+    private final Random random = new Random();
 
     /**
      * Initializes the internal structures needed for tests.
@@ -64,21 +66,9 @@ abstract class AbstractPageMemoryHashIndexStorageTest extends AbstractHashIndexS
     }
 
     @Test
-    void testWithHashCollisionStrings() {
-        IndexRow indexRow0 = createIndexRow(1, "foo0", new RowId(TEST_PARTITION));
-        IndexRow indexRow1 = createIndexRow(1, "foo1", new RowId(TEST_PARTITION));
-
-        put(indexRow0);
-        put(indexRow1);
-
-        assertThat(getAll(indexRow0), contains(indexRow0.rowId()));
-        assertThat(getAll(indexRow1), contains(indexRow1.rowId()));
-    }
-
-    @Test
     void testWithStringsLargerThanMaximumInlineSize() {
-        IndexRow indexRow0 = createIndexRow(1, randomString(MAX_BINARY_TUPLE_INLINE_SIZE), new RowId(TEST_PARTITION));
-        IndexRow indexRow1 = createIndexRow(1, randomString(MAX_BINARY_TUPLE_INLINE_SIZE), new RowId(TEST_PARTITION));
+        IndexRow indexRow0 = createIndexRow(1, randomString(random, MAX_BINARY_TUPLE_INLINE_SIZE), new RowId(TEST_PARTITION));
+        IndexRow indexRow1 = createIndexRow(1, randomString(random, MAX_BINARY_TUPLE_INLINE_SIZE), new RowId(TEST_PARTITION));
 
         put(indexRow0);
         put(indexRow1);
@@ -91,8 +81,8 @@ abstract class AbstractPageMemoryHashIndexStorageTest extends AbstractHashIndexS
 
     @Test
     void testFragmentedIndexColumns() {
-        IndexRow indexRow0 = createIndexRow(1, randomString(baseEngineConfig.pageSize().value() * 2), new RowId(TEST_PARTITION));
-        IndexRow indexRow1 = createIndexRow(1, randomString(baseEngineConfig.pageSize().value() * 2), new RowId(TEST_PARTITION));
+        IndexRow indexRow0 = createIndexRow(1, randomString(random, baseEngineConfig.pageSize().value() * 2), new RowId(TEST_PARTITION));
+        IndexRow indexRow1 = createIndexRow(1, randomString(random, baseEngineConfig.pageSize().value() * 2), new RowId(TEST_PARTITION));
 
         put(indexRow0);
         put(indexRow1);
@@ -101,14 +91,5 @@ abstract class AbstractPageMemoryHashIndexStorageTest extends AbstractHashIndexS
         assertThat(getAll(indexRow1), contains(indexRow1.rowId()));
 
         assertThat(getAll(createIndexRow(1, "foo", new RowId(TEST_PARTITION))), empty());
-    }
-
-    private static String randomString(int size) {
-        ThreadLocalRandom random = ThreadLocalRandom.current();
-
-        return IntStream.range(0, size)
-                .map(i -> 'A' + random.nextInt('Z' - 'A'))
-                .mapToObj(i -> String.valueOf((char) i))
-                .collect(joining());
     }
 }
