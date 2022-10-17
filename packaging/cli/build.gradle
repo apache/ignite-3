@@ -17,7 +17,7 @@
 
 plugins {
     id 'java'
-    id 'application'
+    id 'distribution'
     alias(libs.plugins.nebula)
 }
 
@@ -64,8 +64,8 @@ task replacePostInstallScriptVars(type: Copy) {
     into("${buildDir}")
 }
 
-//distTar.dependsOn replaceScriptVars
-//distZip.dependsOn replaceScriptVars
+distTar.dependsOn replaceScriptVars
+distZip.dependsOn replaceScriptVars
 
 // task that generates start script for cli
 task cliStartScript(type: CreateStartScripts) {
@@ -78,28 +78,28 @@ task cliStartScript(type: CreateStartScripts) {
     applicationName = 'ignite3'
 }
 
-//distributions {
-//    main {
-//        distributionBaseName = 'ignite3'
-//        contents {
-//            into('') {
-//                from("$rootDir/LICENSE")
-//                from("$rootDir/NOTICE")
-//                from("$rootDir/assembly/README.md")
-//            }
-//            into('bin') {
-//                duplicatesStrategy= DuplicatesStrategy.EXCLUDE
-//                from(configurations.cliScripts)
-//                from(cliStartScript)
-//                fileMode = 0755
-//            }
-//            into('lib') {
-//                from(configurations.cliArtifacts)
-//            }
-//        }
-//    }
-//}
-//
+distributions {
+    main {
+        distributionBaseName = 'ignite3cli'
+        contents {
+            into('') {
+                from("$rootDir/LICENSE")
+                from("$rootDir/NOTICE")
+                from("$rootDir/assembly/README.md")
+            }
+            into('bin') {
+                duplicatesStrategy= DuplicatesStrategy.EXCLUDE
+                from(configurations.cliScripts)
+                from(cliStartScript)
+                fileMode = 0755
+            }
+            into('lib') {
+                from(configurations.cliArtifacts)
+            }
+        }
+    }
+}
+
 buildRpm.dependsOn replaceScriptVars, replacePostInstallScriptVars
 buildDeb.dependsOn replaceScriptVars, replacePostInstallScriptVars
 
@@ -124,6 +124,7 @@ ospackage {
     url "https://ignite.apache.org"
     packageDescription "This package will install Apache Ignite CLI"
     os LINUX
+    user 'root'
 
     into(tokens.INSTALL_DIR) {
         from("$buildDir/ignite3")

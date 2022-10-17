@@ -17,7 +17,6 @@
 
 plugins {
     id 'java'
-    id 'distribution'
     alias(libs.plugins.docker)
     alias(libs.plugins.nebula)
 }
@@ -28,82 +27,10 @@ configurations {
     cliScripts
 }
 
-import org.apache.tools.ant.filters.ReplaceTokens
-
 dependencies {
     dbArtifacts(project(':ignite-runner'))
     cliArtifacts(project(':ignite-cli'))
     cliScripts(project(path: ':ignite-cli', configuration: 'cliScripts'))
-}
-
-// task that generates start script for cli
-task cliStartScript(type: CreateStartScripts) {
-    // will be passed to exec "java ... <mainClassName>"
-    mainClass = "org.apache.ignite.internal.cli.Main"
-    // forms a classpath string that will be passed to exec "java -cp <classpath> .."
-    // it is expected to locate the "lib" dir together with "bin"
-    classpath = files(new File("../lib/${project(':ignite-cli').name}-${project(':ignite-cli').version}.jar"), new File("../lib/*"))
-    outputDir = file "$buildDir/scripts"
-    applicationName = 'ignite3'
-}
-
-distributions {
-    db {
-        distributionBaseName = 'ignite3-db'
-        contents {
-            into('') {
-                File.createTempDir().with {
-                    ["log", "etc", "work"].each { new File(absolutePath, it).mkdirs() }
-                    from(absolutePath) {
-                        includeEmptyDirs = true
-                    }
-                }
-            }
-            into('') {
-                from("$rootDir/LICENSE")
-                from("$rootDir/NOTICE")
-                from("$rootDir/assembly/README.md")
-            }
-            into('etc') {
-                from("$rootDir/packaging/zip/bootstrap-config")
-                from("$rootDir/packaging/config/ignite-config.conf")
-                from("$rootDir/packaging/config/ignite.java.util.logging.properties")
-            }
-            into('bin') {
-                fileMode 0755
-                from("$rootDir/packaging/scripts/ignite3-db.sh")
-            }
-            into('lib') {
-                from(configurations.dbArtifacts)
-            }
-        }
-    }
-
-    cli {
-        distributionBaseName = 'ignite3-cli'
-        contents {
-            into('') {
-                File.createTempDir().with {
-                    ["log"].each {new File(absolutePath, it).mkdirs() }
-                    from (absolutePath) {
-                        includeEmptyDirs = true
-                    }
-                }
-                from ("$rootDir/LICENSE")
-                from ("$rootDir/NOTICE")
-                from ("$rootDir/assembly/README.md")
-            }
-            into('bin') {
-                duplicatesStrategy= DuplicatesStrategy.EXCLUDE
-                from(configurations.cliScripts)
-                from(cliStartScript)
-                fileMode = 0755
-            }
-            into('lib') {
-                from(configurations.cliArtifacts)
-            }
-        }
-    }
 }
 
 docker {
@@ -137,101 +64,11 @@ docker {
 }
 
 // create an uber zip with all distributions
-task allDistZip(type: Zip) {
-    archiveBaseName = "ignite3"
-    def allZipFiles = cliDistZip.outputs.files + dbDistZip.outputs.files
-    allZipFiles.each {
-        from(zipTree(it))
-    }
-}
-
-allDistZip.dependsOn cliDistZip, dbDistZip
-
-def tokens = [
-        PRODUCT_NAME            : 'ignite3db',
-        PRODUCT_DISPLAY_NAME    : 'Apache Ignite',
-        USERNAME                : 'ignite3',
-        GROUPNAME               : 'ignite3',
-        INSTALL_DIR             : '/usr/share/ignite3db',
-        CONF_DIR                : '/etc/ignite3db',
-        LOG_DIR                 : '/var/log/ignite3db',
-        PID_DIR                 : '/var/run/ignite3db',
-        VARS_FILE_NAME          : 'vars.env',
-        MIN_PRODUCT_VERSION     : project.version.toString(),
-        PRODUCT_VERSION         : project.version.toString(),
-        IGNITE_CONF_FILE        : 'ignite-config.conf',
-        IGNITE_WORK_DIR         : '/usr/share/ignite3db/work'
-]
-
-task replaceConfigVars(type: Copy) {
-    from("${projectDir}/config")
-    filter(ReplaceTokens, tokens: tokens)
-    into("${buildDir}/config")
-}
-
-task replaceScriptVars(type: Copy) {
-    from("${projectDir}/linux")
-    filter(ReplaceTokens, tokens: tokens)
-    into("${buildDir}/linux")
-}
-
-buildRpm {
-    dependsOn replaceScriptVars, replaceConfigVars
-    configurationFile = "/etc/ignite3/vars.env"
-
-    installUtils file("${buildDir}/linux/service/vars.env")
-    installUtils file("${buildDir}/linux/common.sh")
-    preInstall file("${buildDir}/linux/preInstall.sh")
-    postInstall file("${buildDir}/linux/postInstall.sh")
-    preUninstall file("${buildDir}/linux/rpm/preUninstall.sh")
-    postUninstall file("${buildDir}/linux/rpm/postUninstall.sh")
-}
-
-buildDeb {
-    dependsOn replaceScriptVars, replaceConfigVars
-    configurationFile = "/etc/ignite3/vars.env"
-
-    installUtils file("${buildDir}/linux/service/vars.env")
-    installUtils file("${buildDir}/linux/common.sh")
-    preInstall file("${buildDir}/linux/preInstall.sh")
-    postInstall file("${buildDir}/linux/postInstall.sh")
-    preUninstall file("${buildDir}/linux/deb/preUninstall.sh")
-    postUninstall file("${buildDir}/linux/deb/postUninstall.sh")
-}
-
-ospackage {
-    license "ASL 2.0"
-    packageName 'ignite3db'
-    packageGroup "System Environment/Daemons"
-    url "https://ignite.apache.org"
-    user tokens.USERNAME
-    packageDescription "This package will install Apache Ignite"
-    os LINUX
-
-    into(tokens.INSTALL_DIR) {
-        into("") {
-            from "${buildDir}/linux/service/ignite3db.service"
-            from "${buildDir}/linux/service/ignite3db.conf"
-            from("${buildDir}/linux/start.sh") {
-                fileMode 0755
-            }
-        }
-
-        into("lib") {
-            from configurations.dbArtifacts
-        }
-
-        into("etc") {
-            fileType CONFIG
-            from "${buildDir}/linux/service/vars.env"
-            from "${buildDir}/config/ignite.java.util.logging.properties"
-            from "${buildDir}/config/ignite-config.conf"
-        }
-
-        into("etc") {
-            from sourceSets.main.resources
-        }
-    }
-    link "/etc/ignite3db", "${tokens.INSTALL_DIR}/etc/"
-    link "/opt/ignite3db", "${tokens.INSTALL_DIR}"
-}
+// todo
+//task allDistZip(type: Zip) {
+//    archiveBaseName = "ignite3"
+//    def allZipFiles = cliDistZip.outputs.files + dbDistZip.outputs.files
+//    allZipFiles.each {
+//        from(zipTree(it))
+//    }
+//}
