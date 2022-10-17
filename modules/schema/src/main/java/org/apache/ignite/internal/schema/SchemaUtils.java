@@ -62,38 +62,26 @@ public class SchemaUtils {
         for (int i = 0; i < newTblColumns.size(); ++i) {
             ColumnView newColView = newTblColumns.get(i);
 
-            // new value can be null if a column has been deleted
-            if (newColView == null) {
-                continue;
-            }
+            assert newColView != null;
+
+            Column newCol = newDesc.column(newColView.name());
 
             if (i < oldTblColumns.size()) {
                 ColumnView oldColView = oldTblColumns.get(i);
-
-                Column newCol = newDesc.column(newColView.name());
                 Column oldCol = oldDesc.column(oldColView.name());
 
-                if (newCol.schemaIndex() == oldCol.schemaIndex()) {
+                if (newCol.schemaIndex() == oldCol.schemaIndex() && newCol.name().equals(oldCol.name())) {
                     continue;
                 }
-
-                if (mapper == null) {
-                    mapper = ColumnMapping.createMapper(newDesc);
-                }
-
-                mapper.add(newCol.schemaIndex(), oldCol.schemaIndex());
-            } else {
-                // if the new Named List is larger than the old one, it can only mean that a new column has been added
-                Column newCol = newDesc.column(newColView.name());
-
-                assert !newDesc.isKeyColumn(newCol.schemaIndex());
-
-                if (mapper == null) {
-                    mapper = ColumnMapping.createMapper(newDesc);
-                }
-
-                mapper.add(newCol);
             }
+
+            assert !newDesc.isKeyColumn(newCol.schemaIndex());
+
+            if (mapper == null) {
+                mapper = ColumnMapping.createMapper(newDesc);
+            }
+
+            mapper.add(newCol);
         }
 
         // since newTblColumns comes from a TableChange, it will contain nulls for removed columns

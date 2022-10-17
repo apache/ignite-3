@@ -97,31 +97,6 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
         return CLUSTER_NODES.get(0).sql();
     }
 
-    /**
-     * Checks that schema version is updated even if column names are intersected.
-     */
-    @Test
-    public void checkSchemaUpdatedWithEqAlterColumn() {
-        IgniteSql sql = igniteSql();
-        Session ses = sql.createSession();
-
-        checkDdl(true, ses, "CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
-
-        Ignite node = CLUSTER_NODES.get(0);
-
-        ConfigurationManager cfgMgr = IgniteTestUtils.getFieldValue(node, "clusterCfgMgr");
-
-        final TablesConfiguration tablesConfiguration = cfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY);
-
-        int schIdBefore = ((ExtendedTableView) tablesConfiguration.tables().get("TEST").value()).schemaId();
-
-        checkDdl(false, ses, "ALTER TABLE TEST ADD COLUMN IF NOT EXISTS (VAL0 INT, VAL1 INT)");
-
-        int schIdAfter = ((ExtendedTableView) tablesConfiguration.tables().get("TEST").value()).schemaId();
-
-        assertEquals(schIdBefore + 1, schIdAfter);
-    }
-
     @Test
     public void ddl() {
         IgniteSql sql = igniteSql();

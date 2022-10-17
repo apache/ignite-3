@@ -22,10 +22,8 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.UUID;
@@ -471,10 +469,6 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
             }
 
             return lastVer;
-        } catch (NoSuchElementException e) {
-            assert false : "Table must exist. [tableId=" + tblId + ']';
-
-            return INITIAL_SCHEMA_VERSION;
         } catch (NodeStoppingException e) {
             throw new IgniteException(e.traceId(), e.code(), e.getMessage(), e);
         }
@@ -500,47 +494,6 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
             }
 
             return schemes;
-        } catch (NoSuchElementException e) {
-            assert false : "Table must exist. [tableId=" + tblId + ']';
-
-            return Collections.emptySortedMap();
-        } catch (NodeStoppingException e) {
-            throw new IgniteException(e.traceId(), e.code(), e.getMessage(), e);
-        }
-    }
-
-    /**
-     * Gets the latest serialized schema of the table which available in Metastore.
-     *
-     * @param tblId Table id.
-     * @return The latest schema version or {@code null} if not found.
-     */
-    private @Nullable byte[] schemaById(UUID tblId, int ver) {
-        try {
-            Cursor<Entry> cur = metastorageMgr.prefix(schemaHistPredicate(tblId));
-
-            int lastVer = INITIAL_SCHEMA_VERSION;
-            byte[] schema = null;
-
-            for (Entry ent : cur) {
-                String key = ent.key().toString();
-                int descVer = extractVerFromSchemaKey(key);
-
-                if (ver != -1) {
-                    if (ver == descVer) {
-                        return ent.value();
-                    }
-                } else if (descVer >= lastVer) {
-                    lastVer = descVer;
-                    schema = ent.value();
-                }
-            }
-
-            return schema;
-        } catch (NoSuchElementException e) {
-            assert false : "Table must exist. [tableId=" + tblId + ']';
-
-            return null;
         } catch (NodeStoppingException e) {
             throw new IgniteException(e.traceId(), e.code(), e.getMessage(), e);
         }
