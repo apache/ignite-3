@@ -96,6 +96,12 @@ namespace Apache.Ignite.Internal.Table
         public IRecordView<T> GetRecordView<T>()
             where T : notnull => GetRecordViewInternal<T>();
 
+        /// <inheritdoc/>
+        public IKeyValueView<TK, TV> GetKeyValueView<TK, TV>()
+            where TK : notnull
+            where TV : notnull =>
+            new KeyValueView<TK, TV>(GetRecordViewInternal<KvPair<TK, TV>>());
+
         /// <summary>
         /// Gets the record view for the specified type.
         /// </summary>
