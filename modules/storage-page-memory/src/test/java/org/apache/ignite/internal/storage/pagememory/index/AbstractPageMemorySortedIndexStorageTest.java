@@ -24,7 +24,6 @@ import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.empty;
 
 import java.util.Random;
-import java.util.concurrent.ThreadLocalRandom;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
@@ -45,7 +44,7 @@ import org.junit.jupiter.api.Test;
 abstract class AbstractPageMemorySortedIndexStorageTest extends AbstractSortedIndexStorageTest {
     protected BasePageMemoryStorageEngineConfiguration<?, ?> baseEngineConfig;
 
-    protected Random random = ThreadLocalRandom.current();
+    private final Random random = new Random();
 
     /**
      * Initializes the internal structures needed for tests.

@@ -60,7 +60,7 @@ public interface SortedIndexTreeIo {
             + PARTITIONLESS_LINK_SIZE_BYTES // Index columns link.
             + 2 * Long.BYTES; // Row ID.
 
-    /** Special value that is written to the Index Key, indicating the value has not benn fully inlined into it. */
+    /** Special value that is written to the Index Key, indicating the value has not been fully inlined into it. */
     short NOT_FULLY_INLINE = -1;
 
     /** Offset of the index columns size (2 bytes). */

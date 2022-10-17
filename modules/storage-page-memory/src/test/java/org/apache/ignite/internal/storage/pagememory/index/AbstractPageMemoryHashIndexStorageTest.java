@@ -24,7 +24,6 @@ import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.empty;
 
 import java.util.Random;
-import java.util.concurrent.ThreadLocalRandom;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.RowId;
@@ -42,7 +41,7 @@ import org.junit.jupiter.api.Test;
 abstract class AbstractPageMemoryHashIndexStorageTest extends AbstractHashIndexStorageTest {
     protected BasePageMemoryStorageEngineConfiguration<?, ?> baseEngineConfig;
 
-    protected Random random = ThreadLocalRandom.current();
+    private final Random random = new Random();
 
     /**
      * Initializes the internal structures needed for tests.
