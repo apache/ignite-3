@@ -152,7 +152,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 var col = columns[index];
                 var fieldInfo = keyValTypes == null
                     ? type.GetFieldIgnoreCase(col.Name)
-                    : index < schema.KeyColumnCount
+                    : index < schema.KeyColumnCount // KvPair.
                         ? keyValTypes[0].GetFieldIgnoreCase(col.Name)
                         : keyValTypes[1].GetFieldIgnoreCase(col.Name);
 
@@ -170,7 +170,11 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
                     if (keyValTypes != null)
                     {
-                        var field = index < schema.KeyColumnCount ? type.GetFieldIgnoreCase("Key") : type.GetFieldIgnoreCase("Val");
+                        // KvPair.
+                        var field = index < schema.KeyColumnCount
+                            ? type.GetFieldIgnoreCase("Key")
+                            : type.GetFieldIgnoreCase("Val");
+
                         il.Emit(OpCodes.Ldfld, field!);
                     }
 
