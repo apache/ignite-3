@@ -167,6 +167,13 @@ namespace Apache.Ignite.Internal.Table.Serialization
                     ValidateFieldType(fieldInfo, col);
                     il.Emit(OpCodes.Ldarg_0); // writer
                     il.Emit(OpCodes.Ldarg_2); // record
+
+                    if (keyValTypes != null)
+                    {
+                        var field = index < schema.KeyColumnCount ? type.GetFieldIgnoreCase("Key") : type.GetFieldIgnoreCase("Val");
+                        il.Emit(OpCodes.Ldfld, field!);
+                    }
+
                     il.Emit(OpCodes.Ldfld, fieldInfo);
 
                     if (col.Type == ClientDataType.Decimal)
