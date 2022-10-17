@@ -18,10 +18,13 @@
 namespace Apache.Ignite.Tests.Table;
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Numerics;
 using System.Threading.Tasks;
 using Ignite.Table;
+using NodaTime;
 using NUnit.Framework;
 
 /// <summary>
@@ -40,7 +43,6 @@ public class KeyValueViewPrimitiveTests : IgniteTestsBase
     [Test]
     public async Task TestPutGet()
     {
-        // TODO: Test mixed primitive/compound KV mapping.
         await KvView.PutAsync(null, 1L, "val");
 
         (string res, _) = await KvView.GetAsync(null, 1L);
@@ -277,5 +279,50 @@ public class KeyValueViewPrimitiveTests : IgniteTestsBase
 
         Assert.IsTrue(res4.HasValue);
         Assert.AreEqual("11", res4.Value);
+    }
+
+    [Test]
+    public async Task TestAllTypes()
+    {
+        await TestKey((sbyte)1, "TBL_INT8");
+        await TestKey((short)1, "TBL_INT16");
+        await TestKey(1, "TBL_INT32");
+        await TestKey(1L, "TBL_INT64");
+        await TestKey(1.1f, "TBL_FLOAT");
+        await TestKey(1.1d, "TBL_DOUBLE");
+        await TestKey(1.234m, "TBL_DECIMAL");
+        await TestKey("foo", "TBL_STRING");
+        await TestKey(new LocalDateTime(2022, 10, 13, 8, 4, 42), "TBL_DATETIME");
+        await TestKey(new LocalTime(3, 4, 5), "TBL_TIME");
+        await TestKey(Instant.FromUnixTimeMilliseconds(123456789101112), "TBL_TIMESTAMP");
+        await TestKey(new BigInteger(123456789101112), "TBL_NUMBER");
+        await TestKey(new byte[] { 1, 2, 3 }, "TBL_BYTES");
+        await TestKey(new BitArray(new[] { byte.MaxValue }), "TBL_BITMASK");
+    }
+
+    private static async Task TestKey<T>(T val, IKeyValueView<T, T> kvView)
+        where T : notnull
+    {
+        // Tests EmitKvWriter.
+        await kvView.PutAsync(null, val, val);
+
+        // Tests EmitKvValuePartReader.
+        var (getRes, _) = await kvView.GetAsync(null, val);
+
+        // Tests EmitKvReader.
+        var getAllRes = await kvView.GetAllAsync(null, new[] { val });
+
+        Assert.AreEqual(val, getRes);
+        Assert.AreEqual(val, getAllRes.Single().Value);
+    }
+
+    private async Task TestKey<T>(T val, string tableName)
+        where T : notnull
+    {
+        var table = await Client.Tables.GetTableAsync(tableName);
+
+        Assert.IsNotNull(table, tableName);
+
+        await TestKey(val, table!.GetKeyValueView<T, T>());
     }
 }
