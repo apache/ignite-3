@@ -80,9 +80,11 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
     protected ByteBuffer buf;
 
-    private byte[] heapArr;
+    protected byte[] heapArr;
 
-    private long baseOff;
+    protected long baseOff;
+
+    private int limit;
 
     private int arrOff = -1;
 
@@ -179,6 +181,8 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
             heapArr = buf.isDirect() ? null : buf.array();
             baseOff = buf.isDirect() ? GridUnsafe.bufferAddress(buf) : BYTE_ARR_OFF;
+
+            limit = buf.limit();
         }
     }
 
@@ -879,12 +883,12 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
         int val = 0;
 
-        while (buf.hasRemaining()) {
-            int pos = buf.position();
+        int pos = buf.position();
 
+        while (pos < limit) {
             byte b = GridUnsafe.getByte(heapArr, baseOff + pos);
 
-            buf.position(pos + 1);
+            pos++;
 
             prim |= ((long) b & 0x7F) << (7 * primShift);
 
@@ -902,6 +906,8 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
             }
         }
 
+        buf.position(pos);
+
         return val;
     }
 
@@ -912,12 +918,12 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
         long val = 0;
 
-        while (buf.hasRemaining()) {
-            int pos = buf.position();
+        int pos = buf.position();
 
+        while (pos < limit) {
             byte b = GridUnsafe.getByte(heapArr, baseOff + pos);
 
-            buf.position(pos + 1);
+            pos++;
 
             prim |= ((long) b & 0x7F) << (7 * primShift);
 
@@ -934,6 +940,8 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
                 primShift++;
             }
         }
+
+        buf.position(pos);
 
         return val;
     }

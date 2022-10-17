@@ -20,6 +20,7 @@ package org.apache.ignite.internal.raft.util;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import org.apache.ignite.internal.network.direct.stream.DirectByteBufferStreamImplV1;
+import org.apache.ignite.internal.util.GridUnsafe;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 
 /**
@@ -44,7 +45,33 @@ class OptimizedStream extends DirectByteBufferStreamImplV1 {
 
     @Override
     public short readShort() {
-        return (short) readInt();
+        return (short) readLong();
+    }
+
+    @Override
+    public int readInt() {
+        return (int) readLong();
+    }
+
+    @Override
+    public long readLong() {
+        long res = 0;
+
+        int pos = buf.position();
+
+        for (int shift = 0; ; shift += 7) {
+            byte b = GridUnsafe.getByte(heapArr, baseOff + pos++);
+
+            res |= (b & 0x7FL) << shift;
+
+            if (b >= 0) {
+                break;
+            }
+        }
+
+        buf.position(pos);
+
+        return res - 1;
     }
 
     @Override
