@@ -104,11 +104,17 @@ buildRpm.dependsOn replaceScriptVars, replacePostInstallScriptVars
 buildDeb.dependsOn replaceScriptVars, replacePostInstallScriptVars
 
 buildDeb {
-    postInstall file("${buildDir}/postInstall.sh")
+    into("/usr/share/bash-completion/completions/") {
+        from configurations.cliScripts
+        fileMode 0755
+    }
 }
 
 buildRpm {
-    postInstall file("${buildDir}/postInstall.sh")
+    into("/etc/bash_completion.d/") {
+        from configurations.cliScripts
+        fileMode 0755
+    }
 }
 
 ospackage {
@@ -124,12 +130,9 @@ ospackage {
         fileMode = 0755
     }
 
-    into("/usr/share/bash-completion/completions/") {
-        from configurations.cliScripts
-        fileMode 0755
-    }
-
     into(tokens.LIB_DIR) {
         from configurations.cliArtifacts
     }
+
+    postInstall file("${buildDir}/postInstall.sh")
 }
