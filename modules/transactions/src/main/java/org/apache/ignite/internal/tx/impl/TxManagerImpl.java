@@ -84,7 +84,7 @@ public class TxManagerImpl implements TxManager {
     public InternalTransaction begin() {
         UUID txId = Timestamp.nextVersion().toUuid();
 
-        states.put(txId, TxState.PENDING);
+//        states.put(txId, TxState.PENDING);
 
         return new TransactionImpl(this, txId);
     }
