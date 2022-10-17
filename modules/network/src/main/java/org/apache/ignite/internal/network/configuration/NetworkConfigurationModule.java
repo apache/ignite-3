@@ -15,10 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.schemas.network;
+package org.apache.ignite.internal.network.configuration;
 
-/** NodeFinder type. */
-public enum NodeFinderType {
-    /** Node finder with a preconfigured list of ip addresses. */
-    STATIC;
+import java.util.Collection;
+import java.util.Collections;
+import org.apache.ignite.configuration.RootKey;
+import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.internal.configuration.ConfigurationModule;
+
+/**
+ * {@link ConfigurationModule} for node-local configuration provided by ignite-network.
+ */
+public class NetworkConfigurationModule implements ConfigurationModule {
+    @Override
+    public ConfigurationType type() {
+        return ConfigurationType.LOCAL;
+    }
+
+    @Override
+    public Collection<RootKey<?, ?>> rootKeys() {
+        return Collections.singleton(NetworkConfiguration.KEY);
+    }
 }

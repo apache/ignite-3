@@ -62,6 +62,15 @@ namespace Apache.Ignite.Internal.Table
             RecordBinaryView = new RecordView<IIgniteTuple>(
                 this,
                 new RecordSerializer<IIgniteTuple>(this, TupleSerializerHandler.Instance));
+
+            // RecordView and KeyValueView are symmetric and perform the same operations on the protocol level.
+            // Only serialization is different - KeyValueView splits records into two parts.
+            // Therefore, KeyValueView below simply delegates to RecordView<KvPair>,
+            // and SerializerHandler writes KV pair as a single record and reads back record as two parts.
+            var pairSerializer = new RecordSerializer<KvPair<IIgniteTuple, IIgniteTuple>>(this, TuplePairSerializerHandler.Instance);
+
+            KeyValueBinaryView = new KeyValueView<IIgniteTuple, IIgniteTuple>(
+                new RecordView<KvPair<IIgniteTuple, IIgniteTuple>>(this, pairSerializer));
         }
 
         /// <inheritdoc/>
@@ -69,6 +78,9 @@ namespace Apache.Ignite.Internal.Table
 
         /// <inheritdoc/>
         public IRecordView<IIgniteTuple> RecordBinaryView { get; }
+
+        /// <inheritdoc/>
+        public IKeyValueView<IIgniteTuple, IIgniteTuple> KeyValueBinaryView { get; }
 
         /// <summary>
         /// Gets the associated socket.
@@ -81,7 +93,8 @@ namespace Apache.Ignite.Internal.Table
         internal Guid Id { get; }
 
         /// <inheritdoc/>
-        public IRecordView<T> GetRecordView<T>() => GetRecordViewInternal<T>();
+        public IRecordView<T> GetRecordView<T>()
+            where T : notnull => GetRecordViewInternal<T>();
 
         /// <summary>
         /// Gets the record view for the specified type.
@@ -89,6 +102,7 @@ namespace Apache.Ignite.Internal.Table
         /// <typeparam name="T">Record type.</typeparam>
         /// <returns>Record view.</returns>
         internal RecordView<T> GetRecordViewInternal<T>()
+            where T : notnull
         {
             // ReSharper disable once HeapView.CanAvoidClosure (generics prevent this)
             return (RecordView<T>)_recordViews.GetOrAdd(

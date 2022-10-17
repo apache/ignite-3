@@ -15,19 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.schemas.network;
+namespace Apache.Ignite.Internal.Table.Serialization;
 
-import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.Value;
+using System.Collections.Generic;
+using Ignite.Table;
 
-/** Node finder configuration. */
-@Config
-public class NodeFinderConfigurationSchema {
-    /** Node finder type. */
-    @Value(hasDefault = true)
-    public final String type = NodeFinderType.STATIC.name();
-
-    /** Addresses of nodes in the cluster in a host:port format. This is a part of StaticNodeFinder configuration. */
-    @Value(hasDefault = true)
-    public final String[] netClusterNodes = new String[0];
-}
+/// <summary>
+/// Key + Value wrapper for serializing data from <see cref="IKeyValueView{TK,TV}"/>.
+/// <para />
+/// We can't use built-in <see cref="KeyValuePair{TKey,TValue}"/>, because it can come from the user code.
+/// </summary>
+/// <param name="Key">Key.</param>
+/// <param name="Val">Value.</param>
+/// <typeparam name="TK">Key type.</typeparam>
+/// <typeparam name="TV">Value type.</typeparam>
+internal readonly record struct KvPair<TK, TV>(TK Key, TV Val = default!);

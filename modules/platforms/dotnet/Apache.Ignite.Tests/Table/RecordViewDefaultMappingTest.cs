@@ -74,7 +74,8 @@ namespace Apache.Ignite.Tests.Table
             Assert.AreEqual("2", res.Val);
         }
 
-        private T Get<T>(T key) => Table.GetRecordView<T>().GetAsync(null, key).GetAwaiter().GetResult().Value;
+        private T Get<T>(T key)
+            where T : notnull => Table.GetRecordView<T>().GetAsync(null, key).GetAwaiter().GetResult().Value;
 
         private class FieldsTest
         {

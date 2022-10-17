@@ -49,7 +49,7 @@ public sealed class OptionTests
     [Test]
     public void TestEquality()
     {
-        Assert.AreEqual(Option.Some(123), (Option<int>)123);
+        Assert.AreEqual(Option.Some(123), Option.Some(123));
         Assert.AreNotEqual(Option.Some(123), Option.Some(124));
     }
 

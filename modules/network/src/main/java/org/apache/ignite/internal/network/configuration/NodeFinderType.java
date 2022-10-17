@@ -15,24 +15,10 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Internal.Table
-{
-    using System.Collections.Generic;
+package org.apache.ignite.internal.network.configuration;
 
-    /// <summary>
-    /// Schema.
-    /// </summary>
-    /// <param name="Version">Version.</param>
-    /// <param name="KeyColumnCount">Key column count.</param>
-    /// <param name="Columns">Columns in schema order.</param>
-    internal record Schema(
-        int Version,
-        int KeyColumnCount,
-        IReadOnlyList<Column> Columns)
-    {
-        /// <summary>
-        /// Gets the value column count.
-        /// </summary>
-        public int ValueColumnCount => Columns.Count - KeyColumnCount;
-    }
+/** NodeFinder type. */
+public enum NodeFinderType {
+    /** Node finder with a preconfigured list of ip addresses. */
+    STATIC;
 }
