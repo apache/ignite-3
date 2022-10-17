@@ -92,9 +92,7 @@ import org.jetbrains.annotations.Nullable;
 public class SqlQueryProcessor implements QueryProcessor {
     private static final IgniteLogger LOG = Loggers.forClass(SqlQueryProcessor.class);
 
-    /**
-     * Default planner timeout, in ms.
-     */
+    /** Default planner timeout, in ms. */
     private static final long PLANNER_TIMEOUT = 15000L;
 
     /** Size of the cache for query plans. */
