@@ -29,6 +29,7 @@ dependencies {
     implementation project(':ignite-raft-client')
     implementation project(':ignite-rocksdb-common')
     implementation project(':ignite-replicator')
+    implementation project(':ignite-schema')
     implementation project(':ignite-configuration')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
@@ -41,6 +42,7 @@ dependencies {
     testFixturesImplementation project(':ignite-configuration')
     testFixturesImplementation project(':ignite-core')
     testFixturesImplementation project(':ignite-api')
+    testFixturesImplementation project(':ignite-schema')
     testFixturesImplementation libs.jetbrains.annotations
 }
 

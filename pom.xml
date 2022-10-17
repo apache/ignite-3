@@ -54,7 +54,6 @@
         <module>modules/configuration-annotation-processor</module>
         <module>modules/configuration-api</module>
         <module>modules/core</module>
-        <module>modules/extended-api</module>
         <module>modules/file-io</module>
         <module>modules/index</module>
         <module>modules/jacoco-report</module>

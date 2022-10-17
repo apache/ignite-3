@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.storage.engine;
 
-import org.apache.ignite.configuration.schemas.table.TableConfiguration;
+import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.storage.PartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.jetbrains.annotations.Nullable;

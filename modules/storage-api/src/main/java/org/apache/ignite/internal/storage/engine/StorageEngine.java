@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.storage.engine;
 
-import org.apache.ignite.configuration.schemas.table.TableConfiguration;
-import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
+import org.apache.ignite.internal.schema.configuration.TableConfiguration;
+import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.StorageException;
 
 /**
