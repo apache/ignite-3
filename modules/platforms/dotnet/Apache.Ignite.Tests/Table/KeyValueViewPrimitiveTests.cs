@@ -48,10 +48,10 @@ public class KeyValueViewPrimitiveTests : IgniteTestsBase
         Assert.AreEqual("val", res);
     }
 
-    /*[Test]
+    [Test]
     public async Task TestGetNonExistentKeyReturnsEmptyOption()
     {
-        (IIgniteTuple res, bool hasRes) = await KvView.GetAsync(null, GetTuple(-111L));
+        (string res, bool hasRes) = await KvView.GetAsync(null, -111L);
 
         Assert.IsFalse(hasRes);
         Assert.IsNull(res);
@@ -60,20 +60,20 @@ public class KeyValueViewPrimitiveTests : IgniteTestsBase
     [Test]
     public async Task TestGetAll()
     {
-        await KvView.PutAsync(null, GetTuple(7L), GetTuple("val1"));
-        await KvView.PutAsync(null, GetTuple(8L), GetTuple("val2"));
+        await KvView.PutAsync(null, 7L, "val1");
+        await KvView.PutAsync(null, 8L, "val2");
 
-        IDictionary<IIgniteTuple, IIgniteTuple> res = await KvView.GetAllAsync(null, Enumerable.Range(-1, 100).Select(x => GetTuple(x)).ToList());
-        IDictionary<IIgniteTuple, IIgniteTuple> resEmpty = await KvView.GetAllAsync(null, Array.Empty<IIgniteTuple>());
+        IDictionary<long, string> res = await KvView.GetAllAsync(null, Enumerable.Range(-1, 100).Select(x => (long)x).ToList());
+        IDictionary<long, string> resEmpty = await KvView.GetAllAsync(null, Array.Empty<long>());
 
         Assert.AreEqual(2, res.Count);
-        Assert.AreEqual("val1", res[GetTuple(7L)][0]);
-        Assert.AreEqual("val2", res[GetTuple(8L)][0]);
+        Assert.AreEqual("val1", res[7L]);
+        Assert.AreEqual("val2", res[8L]);
 
         Assert.AreEqual(0, resEmpty.Count);
     }
 
-    [Test]
+    /*[Test]
     public void TestGetAllWithNullKeyThrowsArgumentException()
     {
         var ex = Assert.ThrowsAsync<ArgumentNullException>(async () =>
