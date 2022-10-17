@@ -24,14 +24,41 @@
 
 #include <algorithm>
 #include <chrono>
-#include <thread>
 
 using namespace ignite;
+
+template <typename T>
+bool check_and_set_operation_error(std::promise<void> &operation, const ignite_result<T> &res) {
+    if (res.has_error()) {
+        operation.set_exception(std::make_exception_ptr(res.error()));
+        return false;
+    }
+    if (!res.has_value()) {
+        operation.set_exception(std::make_exception_ptr(ignite_error("There is no value in client result")));
+        return false;
+    }
+    return true;
+}
 
 /**
  * Test suite.
  */
 class tables_test : public ignite_runner_suite { };
+
+TEST_F(tables_test, tables_get_table) {
+    ignite_client_configuration cfg{NODE_ADDRS};
+    cfg.set_logger(get_logger());
+
+    auto client = ignite_client::start(cfg, std::chrono::seconds(5));
+    auto tables = client.get_tables();
+
+    auto tableUnknown = tables.get_table("PUB.some_unknown");
+    EXPECT_FALSE(tableUnknown.has_value());
+
+    auto table = tables.get_table("PUB.tbl1");
+    ASSERT_TRUE(table.has_value());
+    EXPECT_EQ(table->name(), "PUB.tbl1");
+}
 
 TEST_F(tables_test, tables_get_table_async_promises) {
     ignite_client_configuration cfg{NODE_ADDRS};
@@ -56,19 +83,6 @@ TEST_F(tables_test, tables_get_table_async_promises) {
     auto table = tablePromise->get_future().get();
     ASSERT_TRUE(table.has_value());
     EXPECT_EQ(table->name(), "PUB.tbl1");
-}
-
-template <typename T>
-bool check_and_set_operation_error(std::promise<void> &operation, const ignite_result<T> &res) {
-    if (res.has_error()) {
-        operation.set_exception(std::make_exception_ptr(res.error()));
-        return false;
-    }
-    if (!res.has_value()) {
-        operation.set_exception(std::make_exception_ptr(ignite_error("There is no value in client result")));
-        return false;
-    }
-    return true;
 }
 
 TEST_F(tables_test, tables_get_table_async_callbacks) {
@@ -125,6 +139,22 @@ TEST_F(tables_test, tables_get_table_async_callbacks) {
     operation0->get_future().get();
     operation1->get_future().get();
     operation2->get_future().get();
+}
+
+TEST_F(tables_test, tables_get_tables) {
+    ignite_client_configuration cfg{NODE_ADDRS};
+    cfg.set_logger(get_logger());
+
+    auto client = ignite_client::start(cfg, std::chrono::seconds(5));
+
+    auto tablesApi = client.get_tables();
+
+    auto tables = tablesApi.get_tables();
+    ASSERT_GT(tables.size(), 0);
+
+    auto it = std::find_if(tables.begin(), tables.end(), [](auto &table) { return table.name() == "PUB.TBL1"; });
+
+    ASSERT_NE(it, tables.end());
 }
 
 TEST_F(tables_test, tables_get_tables_async_promises) {

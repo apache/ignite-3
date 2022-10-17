@@ -22,13 +22,13 @@
 
 namespace ignite::detail {
 
-void tables_impl::get_table_async(const std::string &name, ignite_callback<std::optional<table>> callback) {
+void tables_impl::get_table_async(std::string_view name, ignite_callback<std::optional<table>> callback) {
     auto reader_func = [name](protocol::reader &reader) -> std::optional<table> {
         if (reader.try_read_nil())
             return std::nullopt;
 
         auto id = reader.read_uuid();
-        auto tableImpl = std::make_shared<table_impl>(name, id);
+        auto tableImpl = std::make_shared<table_impl>(std::string(name), id);
 
         return std::make_optional(table(tableImpl));
     };
