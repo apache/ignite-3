@@ -84,20 +84,6 @@ private:
     explicit tables(std::shared_ptr<detail::tables_impl> impl)
         : m_impl(std::move(impl)) { }
 
-    /**
-     * Get implementation reference.
-     *
-     * @return Implementation reference.
-     */
-    [[nodiscard]] detail::tables_impl &impl() { return *m_impl; }
-
-    /**
-     * Get implementation reference.
-     *
-     * @return Implementation reference.
-     */
-    [[nodiscard]] const detail::tables_impl &impl() const { return *m_impl; }
-
     /** Implementation. */
     std::shared_ptr<detail::tables_impl> m_impl;
 };

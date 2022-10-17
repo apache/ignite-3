@@ -20,7 +20,6 @@
 #include "ignite/common/config.h"
 #include "ignite/client/table/ignite_tuple.h"
 
-#include <future>
 #include <memory>
 #include <utility>
 
@@ -72,20 +71,6 @@ private:
      */
     explicit table(std::shared_ptr<detail::table_impl> impl)
         : m_impl(std::move(impl)) { }
-
-    /**
-     * Get implementation reference.
-     *
-     * @return Implementation reference.
-     */
-    [[nodiscard]] detail::table_impl &impl() noexcept { return *m_impl; }
-
-    /**
-     * Get implementation reference.
-     *
-     * @return Implementation reference.
-     */
-    [[nodiscard]] const detail::table_impl &impl() const noexcept { return *m_impl; }
 
     /** Implementation. */
     std::shared_ptr<detail::table_impl> m_impl;

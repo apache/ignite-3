@@ -26,11 +26,11 @@
 namespace ignite {
 
 void tables::get_table_async(const std::string &name, ignite_callback<std::optional<table>> callback) {
-    impl().get_table_async(name, std::move(callback));
+    m_impl->get_table_async(name, std::move(callback));
 }
 
 void tables::get_tables_async(ignite_callback<std::vector<table>> callback) {
-    impl().get_tables_async(std::move(callback));
+    m_impl->get_tables_async(std::move(callback));
 }
 
 } // namespace ignite

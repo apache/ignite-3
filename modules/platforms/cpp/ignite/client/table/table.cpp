@@ -22,7 +22,7 @@
 namespace ignite {
 
 const std::string &table::name() const noexcept {
-    return impl().name();
+    return m_impl->name();
 }
 
 } // namespace ignite
