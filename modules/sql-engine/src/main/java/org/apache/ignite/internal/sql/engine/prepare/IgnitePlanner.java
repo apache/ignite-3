@@ -76,6 +76,7 @@ import org.apache.ignite.internal.sql.engine.metadata.IgniteMetadata;
 import org.apache.ignite.internal.sql.engine.metadata.RelMetadataQueryEx;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.util.FastTimestamps;
 import org.apache.ignite.lang.IgniteException;
 
 /**
@@ -516,6 +517,24 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
         @Override
         public RelOptCost getCost(RelNode rel, RelMetadataQuery mq) {
             return mq.getCumulativeCost(rel);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public void checkCancel() {
+            PlanningContext ctx = getContext().unwrap(PlanningContext.class);
+
+            long timeout = ctx.plannerTimeout();
+
+            if (timeout > 0) {
+                long startTs = ctx.startTs();
+
+                if (FastTimestamps.coarseCurrentTimeMillis() - startTs > timeout) {
+                    cancelFlag.set(true);
+                }
+            }
+
+            super.checkCancel();
         }
     }
 }
