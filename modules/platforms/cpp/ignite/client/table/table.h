@@ -17,7 +17,8 @@
 
 #pragma once
 
-#include <ignite/common/config.h>
+#include "ignite/common/config.h"
+#include "ignite/client/table/ignite_tuple.h"
 
 #include <future>
 #include <memory>
@@ -42,19 +43,26 @@ public:
     // Default
     table() = default;
     ~table() = default;
-    table(table &&) = default;
-    table &operator=(table &&) = default;
+    table(table &&) noexcept = default;
+    table &operator=(table &&) noexcept = default;
 
     // Deleted
     table(const table &) = delete;
     table &operator=(const table &) = delete;
 
     /**
-     * Get table name.
+     * Gets table name.
      *
      * @return Table name.
      */
     [[nodiscard]] IGNITE_API const std::string &name() const noexcept;
+
+    /**
+     * Gets the record view mapped to specified type @c T.
+     *
+     * @return Table name.
+     */
+//    [[nodiscard]] IGNITE_API ignite_tuple &get_record_view() const noexcept;
 
 private:
     /**

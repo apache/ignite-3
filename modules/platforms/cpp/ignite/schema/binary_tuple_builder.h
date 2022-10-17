@@ -322,7 +322,9 @@ private:
      * @param value Actual element value.
      * @return Required size.
      */
-    static SizeT gauge_number(const big_integer &value) noexcept { return value.is_zero() ? 0 : value.byte_size(); }
+    static SizeT gauge_number(const big_integer &value) noexcept {
+        return SizeT(value.is_zero() ? 0 : value.byte_size());
+    }
 
     /**
      * @brief Computes required binary size for a given value.
@@ -331,7 +333,7 @@ private:
      * @return Required size.
      */
     static SizeT gauge_number(const big_decimal &value) noexcept {
-        return value.is_zero() ? 0 : value.get_unscaled_value().byte_size();
+        return SizeT(value.is_zero() ? 0 : value.get_unscaled_value().byte_size());
     }
 
     /**
