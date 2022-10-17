@@ -49,10 +49,10 @@ public class KeyValueViewPocoTests : IgniteTestsBase
         Assert.AreEqual(0, res.Key);
     }
 
-    /*[Test]
+    [Test]
     public async Task TestGetNonExistentKeyReturnsEmptyOption()
     {
-        (IIgniteTuple res, bool hasRes) = await KvView.GetAsync(null, GetTuple(-111L));
+        (Poco res, bool hasRes) = await KvView.GetAsync(null, GetPoco(-111L));
 
         Assert.IsFalse(hasRes);
         Assert.IsNull(res);
@@ -61,20 +61,20 @@ public class KeyValueViewPocoTests : IgniteTestsBase
     [Test]
     public async Task TestGetAll()
     {
-        await KvView.PutAsync(null, GetTuple(7L), GetTuple("val1"));
-        await KvView.PutAsync(null, GetTuple(8L), GetTuple("val2"));
+        await KvView.PutAsync(null, GetPoco(7L), GetPoco("val1"));
+        await KvView.PutAsync(null, GetPoco(8L), GetPoco("val2"));
 
-        IDictionary<IIgniteTuple, IIgniteTuple> res = await KvView.GetAllAsync(null, Enumerable.Range(-1, 100).Select(x => GetTuple(x)).ToList());
-        IDictionary<IIgniteTuple, IIgniteTuple> resEmpty = await KvView.GetAllAsync(null, Array.Empty<IIgniteTuple>());
+        IDictionary<Poco, Poco> res = await KvView.GetAllAsync(null, Enumerable.Range(-1, 100).Select(x => GetPoco(x)).ToList());
+        IDictionary<Poco, Poco> resEmpty = await KvView.GetAllAsync(null, Array.Empty<Poco>());
 
         Assert.AreEqual(2, res.Count);
-        Assert.AreEqual("val1", res[GetTuple(7L)][0]);
-        Assert.AreEqual("val2", res[GetTuple(8L)][0]);
+        Assert.AreEqual("val1", res[GetPoco(7L)].Val);
+        Assert.AreEqual("val2", res[GetPoco(8L)].Val);
 
         Assert.AreEqual(0, resEmpty.Count);
     }
 
-    [Test]
+    /*[Test]
     public void TestGetAllWithNullKeyThrowsArgumentException()
     {
         var ex = Assert.ThrowsAsync<ArgumentNullException>(async () =>
