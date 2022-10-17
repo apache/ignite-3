@@ -1297,6 +1297,27 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
         }
     }
 
+    @ParameterizedTest
+    @EnumSource(ScanTimestampProvider.class)
+    void committedMethodCallDoesNotInterfereWithIteratingOverScanCursor(ScanTimestampProvider scanTsProvider) throws Exception {
+        RowId rowId1 = insert(binaryRow, txId);
+        HybridTimestamp commitTs1 = clock.now();
+        commitWrite(rowId1, commitTs1);
+
+        insert(binaryRow2, txId);
+
+        try (PartitionTimestampCursor cursor = scan(scanTsProvider.scanTimestamp(clock))) {
+            cursor.next();
+
+            cursor.committed(commitTs1);
+
+            ReadResult result2 = cursor.next();
+            assertRowMatches(result2.binaryRow(), binaryRow2);
+
+            assertFalse(cursor.hasNext());
+        }
+    }
+
     /**
      * Returns row id that is lexicographically smaller (by the value of one) than the argument.
      *

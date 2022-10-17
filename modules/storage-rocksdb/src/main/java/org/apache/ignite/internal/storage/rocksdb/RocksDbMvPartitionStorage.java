@@ -731,11 +731,13 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         }
     }
 
-    private void setKeyBuffer(ByteBuffer keyBuf, RowId rowId, HybridTimestamp timestamp) {
+    private void setKeyBuffer(ByteBuffer keyBuf, RowId rowId, @Nullable HybridTimestamp timestamp) {
         keyBuf.putLong(ROW_ID_OFFSET, normalize(rowId.mostSignificantBits()));
         keyBuf.putLong(ROW_ID_OFFSET + Long.BYTES, normalize(rowId.leastSignificantBits()));
 
-        putTimestamp(keyBuf.position(ROW_PREFIX_SIZE), timestamp);
+        if (timestamp != null) {
+            putTimestamp(keyBuf.position(ROW_PREFIX_SIZE), timestamp);
+        }
 
         keyBuf.position(0);
     }
@@ -1104,6 +1106,13 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             if (next != null) {
                 return true;
             }
+
+            if (currentRowId != null) {
+                setKeyBuffer(seekKeyBuf, currentRowId, null);
+                incrementRowId(seekKeyBuf);
+            }
+
+            currentRowId = null;
 
             // Prepare direct buffer slice to read keys from the iterator.
             ByteBuffer directBuffer = MV_KEY_BUFFER.get().position(0);
