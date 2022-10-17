@@ -68,8 +68,8 @@ public class KeyValueViewPocoTests : IgniteTestsBase
         IDictionary<Poco, Poco> resEmpty = await KvView.GetAllAsync(null, Array.Empty<Poco>());
 
         Assert.AreEqual(2, res.Count);
-        Assert.AreEqual("val1", res[GetPoco(7L)].Val);
-        Assert.AreEqual("val2", res[GetPoco(8L)].Val);
+        Assert.AreEqual("val1", res.Single(x => x.Key.Key == 7).Value.Val);
+        Assert.AreEqual("val2", res.Single(x => x.Key.Key == 8).Value.Val);
 
         Assert.AreEqual(0, resEmpty.Count);
     }
