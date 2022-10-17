@@ -102,8 +102,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
         private static WriteDelegate<T> EmitWriter(Schema schema, bool keyOnly)
         {
             var type = typeof(T);
-            var isKvPair = type.IsGenericType && type.GetGenericTypeDefinition() == typeof(KvPair<,>);
-            var keyValTypes = isKvPair ? type.GetGenericArguments() : null;
 
             var method = new DynamicMethod(
                 name: "Write" + type,
@@ -112,12 +110,16 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 m: typeof(IIgnite).Module,
                 skipVisibility: true);
 
+            if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(KvPair<,>))
+            {
+                return EmitKvWriter(schema, keyOnly, method);
+            }
+
             var il = method.GetILGenerator();
 
             var columns = schema.Columns;
             var count = keyOnly ? schema.KeyColumnCount : columns.Count;
 
-            // TODO: Special cases for KV pair of primitives (can be also mixed)
             if (BinaryTupleMethods.GetWriteMethodOrNull(type) is { } directWriteMethod)
             {
                 // Single column to primitive type mapping.
@@ -151,11 +153,60 @@ namespace Apache.Ignite.Internal.Table.Serialization
             for (var index = 0; index < count; index++)
             {
                 var col = columns[index];
-                var fieldInfo = keyValTypes == null
-                    ? type.GetFieldIgnoreCase(col.Name)
-                    : index < schema.KeyColumnCount // KvPair.
-                        ? keyValTypes[0].GetFieldIgnoreCase(col.Name)
-                        : keyValTypes[1].GetFieldIgnoreCase(col.Name);
+                var fieldInfo = type.GetFieldIgnoreCase(col.Name);
+
+                if (fieldInfo == null)
+                {
+                    il.Emit(OpCodes.Ldarg_0); // writer
+                    il.Emit(OpCodes.Ldarg_1); // noValueSet
+                    il.Emit(OpCodes.Call, BinaryTupleMethods.WriteNoValue);
+                }
+                else
+                {
+                    ValidateFieldType(fieldInfo, col);
+                    il.Emit(OpCodes.Ldarg_0); // writer
+                    il.Emit(OpCodes.Ldarg_2); // record
+                    il.Emit(OpCodes.Ldfld, fieldInfo);
+
+                    if (col.Type == ClientDataType.Decimal)
+                    {
+                        EmitLdcI4(il, col.Scale);
+                    }
+
+                    var writeMethod = BinaryTupleMethods.GetWriteMethod(fieldInfo.FieldType);
+                    il.Emit(OpCodes.Call, writeMethod);
+
+                    mappedCount++;
+                }
+            }
+
+            ValidateMappedCount(mappedCount, type, columns);
+
+            il.Emit(OpCodes.Ret);
+
+            return (WriteDelegate<T>)method.CreateDelegate(typeof(WriteDelegate<T>));
+        }
+
+        private static WriteDelegate<T> EmitKvWriter(Schema schema, bool keyOnly, DynamicMethod method)
+        {
+            var type = typeof(T);
+            var keyValTypes = type.GetGenericArguments();
+            var keyType = keyValTypes[0];
+            var valType = keyValTypes[1];
+
+            var il = method.GetILGenerator();
+
+            var columns = schema.Columns;
+            var count = keyOnly ? schema.KeyColumnCount : columns.Count;
+
+            int mappedCount = 0;
+
+            for (var index = 0; index < count; index++)
+            {
+                var col = columns[index];
+                var fieldInfo = index < schema.KeyColumnCount
+                        ? keyType.GetFieldIgnoreCase(col.Name)
+                        : valType.GetFieldIgnoreCase(col.Name);
 
                 if (fieldInfo == null)
                 {
@@ -169,16 +220,11 @@ namespace Apache.Ignite.Internal.Table.Serialization
                     il.Emit(OpCodes.Ldarg_0); // writer
                     il.Emit(OpCodes.Ldarg_2); // record
 
-                    if (keyValTypes != null)
-                    {
-                        // KvPair.
-                        var field = index < schema.KeyColumnCount
-                            ? type.GetFieldIgnoreCase("Key")
-                            : type.GetFieldIgnoreCase("Val");
+                    var field = index < schema.KeyColumnCount
+                        ? type.GetFieldIgnoreCase("Key")
+                        : type.GetFieldIgnoreCase("Val");
 
-                        il.Emit(OpCodes.Ldfld, field!);
-                    }
-
+                    il.Emit(OpCodes.Ldfld, field!);
                     il.Emit(OpCodes.Ldfld, fieldInfo);
 
                     if (col.Type == ClientDataType.Decimal)
@@ -288,19 +334,18 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
             if (keyValTypes != null)
             {
-                // TODO: Load all
                 localKey = il.DeclareLocal(keyValTypes[0]);
                 localVal = il.DeclareLocal(keyValTypes[1]);
 
                 il.Emit(OpCodes.Ldtoken, keyValTypes[0]);
                 il.Emit(OpCodes.Call, ReflectionUtils.GetTypeFromHandleMethod);
                 il.Emit(OpCodes.Call, ReflectionUtils.GetUninitializedObjectMethod);
-                il.Emit(OpCodes.Stloc_1); // T res
+                il.Emit(OpCodes.Stloc_1); // TK
 
                 il.Emit(OpCodes.Ldtoken, keyValTypes[1]);
                 il.Emit(OpCodes.Call, ReflectionUtils.GetTypeFromHandleMethod);
                 il.Emit(OpCodes.Call, ReflectionUtils.GetUninitializedObjectMethod);
-                il.Emit(OpCodes.Stloc_2); // T res
+                il.Emit(OpCodes.Stloc_2); // TV
             }
 
             if (type.IsValueType)
@@ -321,7 +366,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
             for (var i = 0; i < columns.Count; i++)
             {
                 var col = columns[i];
-
                 var fieldInfo = keyValTypes == null
                     ? type.GetFieldIgnoreCase(col.Name)
                     : i < schema.KeyColumnCount
@@ -352,6 +396,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
             if (keyValTypes != null)
             {
+                // Copy K and V to KvPair.
                 il.Emit(OpCodes.Ldloca_S, local);
                 il.Emit(OpCodes.Ldloc, localKey!);
                 il.Emit(OpCodes.Stfld, type.GetFieldIgnoreCase("Key")!);
@@ -376,6 +421,8 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
             ValidateFieldType(fieldInfo, col);
 
+            var readMethod = BinaryTupleMethods.GetReadMethod(fieldInfo.FieldType);
+
             il.Emit(local.LocalType.IsValueType ? OpCodes.Ldloca_S : OpCodes.Ldloc, local); // res
             il.Emit(OpCodes.Ldarg_0); // reader
             EmitLdcI4(il, elemIdx); // index
@@ -385,7 +432,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 EmitLdcI4(il, col.Scale);
             }
 
-            var readMethod = BinaryTupleMethods.GetReadMethod(fieldInfo.FieldType);
             il.Emit(OpCodes.Call, readMethod);
             il.Emit(OpCodes.Stfld, fieldInfo); // res.field = value
         }
