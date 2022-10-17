@@ -84,7 +84,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
     protected long baseOff;
 
-    private int limit;
+    protected int limit;
 
     private int arrOff = -1;
 

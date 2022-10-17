@@ -86,8 +86,6 @@ class OptimizedStream extends DirectByteBufferStreamImplV1 {
 
         int length = readInt();
 
-        int oldLimit = buf.limit();
-
         try {
             ByteBuffer val = buf.limit(buf.position() + length).slice();
 
@@ -101,7 +99,7 @@ class OptimizedStream extends DirectByteBufferStreamImplV1 {
 
             return val;
         } finally {
-            buf.limit(oldLimit);
+            buf.limit(limit);
         }
     }
 }
