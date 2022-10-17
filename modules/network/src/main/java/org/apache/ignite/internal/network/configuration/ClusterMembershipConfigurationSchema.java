@@ -15,26 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.network.configuration;
+package org.apache.ignite.internal.network.configuration;
 
-import java.util.Collection;
-import java.util.Collections;
-import org.apache.ignite.configuration.RootKey;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
-import org.apache.ignite.internal.configuration.ConfigurationModule;
+import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.ConfigValue;
+import org.apache.ignite.configuration.annotation.Value;
 
 /**
- * {@link ConfigurationModule} for node-local configuration provided by ignite-network.
+ * Cluster membership configuration.
  */
-public class NetworkConfigurationModule implements ConfigurationModule {
-    @Override
-    public ConfigurationType type() {
-        return ConfigurationType.LOCAL;
-    }
+@Config
+public class ClusterMembershipConfigurationSchema {
+    /** Periodic membership data sync interval. */
+    @Value(hasDefault = true)
+    public final int membershipSyncInterval = 1000;
 
-    @Override
-    public Collection<RootKey<?, ?>> rootKeys() {
-        return Collections.singleton(NetworkConfiguration.KEY);
-    }
+    /** Failure detector ping interval. */
+    @Value(hasDefault = true)
+    public final int failurePingInterval = 500;
+
+    /** ScaleCube-specific configuration. */
+    @ConfigValue
+    public ScaleCubeConfigurationSchema scaleCube;
 }
