@@ -40,6 +40,7 @@ public class KeyValueViewPrimitiveTests : IgniteTestsBase
     [Test]
     public async Task TestPutGet()
     {
+        // TODO: Test mixed primitive/compound KV mapping.
         await KvView.PutAsync(null, 1L, "val");
 
         (string res, _) = await KvView.GetAsync(null, 1L);

@@ -193,6 +193,10 @@ namespace Apache.Ignite.Internal.Table.Serialization
             var keyValTypes = type.GetGenericArguments();
             var keyType = keyValTypes[0];
             var valType = keyValTypes[1];
+            var keyWriteMethod = BinaryTupleMethods.GetWriteMethodOrNull(keyType);
+            var valWriteMethod = BinaryTupleMethods.GetWriteMethodOrNull(valType);
+            var keyField = type.GetFieldIgnoreCase("Key")!;
+            var valField = type.GetFieldIgnoreCase("Val")!;
 
             var il = method.GetILGenerator();
 
@@ -204,9 +208,23 @@ namespace Apache.Ignite.Internal.Table.Serialization
             for (var index = 0; index < count; index++)
             {
                 var col = columns[index];
-                var fieldInfo = index < schema.KeyColumnCount
+
+                FieldInfo? fieldInfo;
+
+                if (keyWriteMethod != null && index == 0)
+                {
+                    fieldInfo = keyField;
+                }
+                else if (valWriteMethod != null && index == schema.KeyColumnCount)
+                {
+                    fieldInfo = valField;
+                }
+                else
+                {
+                    fieldInfo = index < schema.KeyColumnCount
                         ? keyType.GetFieldIgnoreCase(col.Name)
                         : valType.GetFieldIgnoreCase(col.Name);
+                }
 
                 if (fieldInfo == null)
                 {
@@ -220,12 +238,13 @@ namespace Apache.Ignite.Internal.Table.Serialization
                     il.Emit(OpCodes.Ldarg_0); // writer
                     il.Emit(OpCodes.Ldarg_2); // record
 
-                    var field = index < schema.KeyColumnCount
-                        ? type.GetFieldIgnoreCase("Key")
-                        : type.GetFieldIgnoreCase("Val");
+                    var field = index < schema.KeyColumnCount ? keyField : valField;
+                    il.Emit(OpCodes.Ldfld, field);
 
-                    il.Emit(OpCodes.Ldfld, field!);
-                    il.Emit(OpCodes.Ldfld, fieldInfo);
+                    if (field != fieldInfo)
+                    {
+                        il.Emit(OpCodes.Ldfld, fieldInfo);
+                    }
 
                     if (col.Type == ClientDataType.Decimal)
                     {
