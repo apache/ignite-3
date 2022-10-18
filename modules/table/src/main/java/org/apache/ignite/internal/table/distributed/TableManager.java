@@ -736,8 +736,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                     partitionStorage,
                                                     internalTbl.txStateStorage().getOrCreateTxStateStorage(partId),
                                                     txManager,
-                                                    primaryIndex
-                                            ),
+                                                    primaryIndex),
                                                 new RebalanceRaftGroupEventsListener(
                                                         metaStorageMgr,
                                                         tablesCfg.tables().get(tablesById.get(tblId).name()),
@@ -786,7 +785,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                             grpId,
                                                             tblId,
                                                             primaryIndex,
-                                                            clock
+                                                            clock,
+                                                            uuid -> storage.getIndexStorage(partId, uuid)
                                                     )
                                             );
                                         } catch (NodeStoppingException ex) {
@@ -1762,7 +1762,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                             grpId,
                                             tblId,
                                             primaryIndex,
-                                            clock
+                                            clock,
+                                            uuid -> tbl.internalTable().storage().getIndexStorage(partId, uuid)
                                     )
                             );
                         }

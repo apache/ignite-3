@@ -393,7 +393,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                                                 grpId,
                                                 tblId,
                                                 primaryIndex,
-                                                clocks.get(node)
+                                                clocks.get(node),
+                                                uuid -> null
                                         ));
                             } catch (NodeStoppingException e) {
                                 fail("Unexpected node stopping", e);
