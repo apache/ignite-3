@@ -18,9 +18,7 @@
 package org.apache.ignite.internal.storage.engine;
 
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
-import org.apache.ignite.internal.storage.PartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Table storage that contains meta, partitions and SQL indexes.
@@ -29,26 +27,6 @@ import org.jetbrains.annotations.Nullable;
  */
 @Deprecated
 public interface TableStorage {
-    /**
-     * Retrieves or creates a partition for the current table. Not expected to be called concurrently with the same partition id.
-     *
-     * @param partId Partition id.
-     * @return Partition storage.
-     * @throws IllegalArgumentException If partition id is out of bounds.
-     * @throws StorageException         If an error has occurred during the partition creation.
-     */
-    PartitionStorage getOrCreatePartition(int partId) throws StorageException;
-
-    /**
-     * Returns the partition storage or {@code null} if the requested storage doesn't exist.
-     *
-     * @param partId Partition id.
-     * @return Partition storage or {@code null}.
-     * @throws IllegalArgumentException If partition id is out of bounds.
-     */
-    @Nullable
-    PartitionStorage getPartition(int partId);
-
     /**
      * Destroys a partition if it exists.
      *
