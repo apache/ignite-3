@@ -10,8 +10,8 @@ To add a new data storage you need:
 * Implement interfaces:
     * `org.apache.ignite.internal.storage.DataStorageModule`;
     * `org.apache.ignite.internal.storage.engine.StorageEngine`;
-    * `org.apache.ignite.internal.storage.engine.TableStorage`;
-    * `org.apache.ignite.internal.storage.PartitionStorage`;
+    * `org.apache.ignite.internal.storage.engine.MvTableStorage`;
+    * `org.apache.ignite.internal.storage.MvPartitionStorage`;
     * `org.apache.ignite.internal.storage.index.SortedIndexStorage`;
 * Add configuration:
     * Add an inheritor of `org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema`, with type equal
