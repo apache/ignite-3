@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include "ignite/client/transaction/transaction.h"
+
 #include "ignite/common/config.h"
 #include "ignite/common/ignite_result.h"
 
@@ -42,13 +44,29 @@ public:
     record_view &operator=(record_view &&) noexcept = default;
 
     /**
-     * Gets a record by key.
+     * Gets a record by key asynchronously.
      *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *  single operation is used.
      * @param key Key.
      * @param callback Callback.
      */
-    IGNITE_API void get_async(T&& key, ignite_callback<T> callback) noexcept {
+    IGNITE_API void get_async(transaction* tx, const T& key, ignite_callback<std::optional<T>> callback) {
+        // TODO: Implement me
+    }
 
+    /**
+     * Gets a record by key.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *  single operation is used.
+     * @param key Key.
+     * @param callback Callback.
+     */
+    IGNITE_API std::optional<T> get(transaction* tx, const T& key) {
+        return sync<std::optional<T>>([this, &tx, &key] (auto callback) {
+            get_async(tx, key, std::move(callback));
+        });
     }
 
 private:
