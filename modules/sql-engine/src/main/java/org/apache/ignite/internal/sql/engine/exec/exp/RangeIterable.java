@@ -15,24 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.exec;
-
-import org.apache.ignite.internal.util.Cursor;
+package org.apache.ignite.internal.sql.engine.exec.exp;
 
 /**
- * Tree index interface.
- *
- * @param <R> Indexing row type.
+ * Iterable over range conditions.
  */
-public interface TreeIndex<R> {
-    /**
-     * Index lookup method.
-     *
-     * @param lower Lower bound.
-     * @param upper Upper bound.
-     * @param lowerInclude Inclusive lower bound.
-     * @param upperInclude Inclusive upper bound.
-     * @return Cursor over the rows within bounds.
-     */
-    Cursor<R> find(R lower, R upper, boolean lowerInclude, boolean upperInclude);
+public interface RangeIterable<RowT> extends Iterable<RangeCondition<RowT>> {
+    /** Count of ranges in iterable. */
+    public int size();
 }
