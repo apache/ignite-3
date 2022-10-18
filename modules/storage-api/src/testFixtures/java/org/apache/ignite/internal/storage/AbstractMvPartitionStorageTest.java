@@ -48,6 +48,8 @@ import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 /**
  * Base test for MV partition storages.
@@ -155,9 +157,10 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
         assertNull(read(rowId, clock.now()));
     }
 
-    @Test
-    public void testScanOverEmpty() throws Exception {
-        assertEquals(List.of(), convert(scan(clock.now())));
+    @ParameterizedTest
+    @EnumSource
+    public void testScanOverEmpty(ScanTimestampProvider tsProvider) throws Exception {
+        assertEquals(List.of(), convert(scan(tsProvider.scanTimestamp(clock))));
     }
 
     /**
@@ -302,8 +305,11 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
 
         assertEquals(List.of(value1, value2), convert(scan(ts4)));
         assertEquals(List.of(value1, value2), convert(scan(ts5)));
+
+        assertEquals(List.of(value1, value2), convert(scan(HybridTimestamp.MAX_VALUE)));
     }
 
+    @SuppressWarnings("ConstantConditions")
     @Test
     public void testTransactionScanCursorInvariants() throws Exception {
         TestValue value1 = new TestValue(10, "xxx");
@@ -338,6 +344,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
         }
     }
 
+    @SuppressWarnings("ConstantConditions")
     @Test
     public void testTimestampScanCursorInvariants() throws Exception {
         TestValue value11 = new TestValue(10, "xxx");
@@ -408,6 +415,8 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
 
             assertFalse(cursor.hasNext());
             assertFalse(cursor.hasNext());
+
+            assertThrows(NoSuchElementException.class, () -> cursor.next());
 
             assertThrows(IllegalStateException.class, () -> cursor.committed(commitTs1));
         }
@@ -827,11 +836,12 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
         });
     }
 
-    @Test
-    void scanByTimestampWorksCorrectlyAfterCommitAndAbortFollowedByUncommittedWrite() throws Exception {
+    @ParameterizedTest
+    @EnumSource(ScanTimestampProvider.class)
+    void scanWorksCorrectlyAfterCommitAndAbortFollowedByUncommittedWrite(ScanTimestampProvider tsProvider) throws Exception {
         commitAbortAndAddUncommitted();
 
-        try (Cursor<ReadResult> cursor = storage.scan(clock.now())) {
+        try (Cursor<ReadResult> cursor = storage.scan(tsProvider.scanTimestamp(clock))) {
             BinaryRow foundRow = cursor.next().binaryRow();
 
             assertRowMatches(foundRow, binaryRow3);
@@ -1086,23 +1096,12 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
         }
     }
 
-    @Test
-    void testScanWithWriteIntent() throws Exception {
-        RowId rowId1 = new RowId(PARTITION_ID);
+    @ParameterizedTest
+    @EnumSource(ScanTimestampProvider.class)
+    void testScanWithWriteIntent(ScanTimestampProvider tsProvider) throws Exception {
+        HybridTimestamp commitTs = addCommittedVersionAndWriteIntent();
 
-        HybridTimestamp commit1ts = clock.now();
-
-        storage.runConsistently(() -> {
-            addWrite(rowId1, binaryRow, newTransactionId());
-
-            commitWrite(rowId1, commit1ts);
-
-            addWrite(rowId1, binaryRow2, newTransactionId());
-
-            return null;
-        });
-
-        try (PartitionTimestampCursor cursor = storage.scan(clock.now())) {
+        try (PartitionTimestampCursor cursor = storage.scan(tsProvider.scanTimestamp(clock))) {
             assertTrue(cursor.hasNext());
 
             ReadResult next = cursor.next();
@@ -1111,10 +1110,28 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
 
             assertRowMatches(next.binaryRow(), binaryRow2);
 
-            BinaryRow committedRow = cursor.committed(next.newestCommitTimestamp());
+            BinaryRow committedRow = cursor.committed(commitTs);
 
             assertRowMatches(committedRow, binaryRow);
         }
+    }
+
+    private HybridTimestamp addCommittedVersionAndWriteIntent() {
+        RowId rowId = new RowId(PARTITION_ID);
+
+        HybridTimestamp commitTs = clock.now();
+
+        storage.runConsistently(() -> {
+            addWrite(rowId, binaryRow, newTransactionId());
+
+            commitWrite(rowId, commitTs);
+
+            addWrite(rowId, binaryRow2, newTransactionId());
+
+            return null;
+        });
+
+        return commitTs;
     }
 
     @Test
@@ -1141,8 +1158,8 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
 
         assertEquals(2, list.size());
 
-        for (int i = 0; i < list.size(); i++) {
-            assertEquals(key, list.get(i).getKey());
+        for (IgniteBiTuple<TestKey, TestValue> objects : list) {
+            assertEquals(key, objects.getKey());
         }
 
         assertEquals(value2, list.get(0).getValue());
@@ -1235,6 +1252,72 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
         }
     }
 
+    @ParameterizedTest
+    @EnumSource(ScanTimestampProvider.class)
+    public void scanCursorHasNextReturnsFalseEachTimeAfterExhaustion(ScanTimestampProvider tsProvider) throws Exception {
+        RowId rowId = insert(binaryRow, txId);
+        commitWrite(rowId, clock.now());
+
+        try (PartitionTimestampCursor cursor = scan(tsProvider.scanTimestamp(clock))) {
+            cursor.next();
+
+            assertFalse(cursor.hasNext());
+            //noinspection ConstantConditions
+            assertFalse(cursor.hasNext());
+        }
+    }
+
+    @ParameterizedTest
+    @EnumSource(ScanTimestampProvider.class)
+    public void scanDoesNotSeeTombstonesWhenTombstoneIsNotCommitted(ScanTimestampProvider tsProvider) throws Exception {
+        testScanDoesNotSeeTombstones(tsProvider, false);
+    }
+
+    @ParameterizedTest
+    @EnumSource(ScanTimestampProvider.class)
+    public void scanDoesNotSeeTombstonesWhenTombstoneIsCommitted(ScanTimestampProvider tsProvider) throws Exception {
+        testScanDoesNotSeeTombstones(tsProvider, true);
+    }
+
+    private void testScanDoesNotSeeTombstones(ScanTimestampProvider scantsProvider, boolean commitRemoval) throws Exception {
+        RowId rowId = insert(binaryRow, txId);
+        commitWrite(rowId, clock.now());
+
+        addWrite(rowId, null, newTransactionId());
+        if (commitRemoval) {
+            commitWrite(rowId, clock.now());
+        }
+
+        assertScanSeesNothing(scantsProvider);
+    }
+
+    private void assertScanSeesNothing(ScanTimestampProvider scanTsProvider) throws Exception {
+        try (PartitionTimestampCursor cursor = scan(scanTsProvider.scanTimestamp(clock))) {
+            assertFalse(cursor.hasNext());
+        }
+    }
+
+    @ParameterizedTest
+    @EnumSource(ScanTimestampProvider.class)
+    void committedMethodCallDoesNotInterfereWithIteratingOverScanCursor(ScanTimestampProvider scanTsProvider) throws Exception {
+        RowId rowId1 = insert(binaryRow, txId);
+        HybridTimestamp commitTs1 = clock.now();
+        commitWrite(rowId1, commitTs1);
+
+        insert(binaryRow2, txId);
+
+        try (PartitionTimestampCursor cursor = scan(scanTsProvider.scanTimestamp(clock))) {
+            cursor.next();
+
+            cursor.committed(commitTs1);
+
+            ReadResult result2 = cursor.next();
+            assertRowMatches(result2.binaryRow(), binaryRow2);
+
+            assertFalse(cursor.hasNext());
+        }
+    }
+
     /**
      * Returns row id that is lexicographically smaller (by the value of one) than the argument.
      *
@@ -1252,5 +1335,22 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
         }
 
         return new RowId(value.partitionId(), msb, lsb);
+    }
+
+    private enum ScanTimestampProvider {
+        NOW {
+            @Override
+            HybridTimestamp scanTimestamp(HybridClock clock) {
+                return clock.now();
+            }
+        },
+        MAX_VALUE {
+            @Override
+            HybridTimestamp scanTimestamp(HybridClock clock) {
+                return HybridTimestamp.MAX_VALUE;
+            }
+        };
+
+        abstract HybridTimestamp scanTimestamp(HybridClock clock);
     }
 }

@@ -163,6 +163,8 @@ public final class BaseQueryContext extends AbstractQueryContext {
 
     private CalciteCatalogReader catalogReader;
 
+    private long plannerTimeout;
+
     /**
      * Private constructor, used by a builder.
      */
@@ -172,7 +174,8 @@ public final class BaseQueryContext extends AbstractQueryContext {
             QueryCancel cancel,
             Object[] parameters,
             IgniteLogger log,
-            InternalTransaction tx
+            InternalTransaction tx,
+            long plannerTimeout
     ) {
         super(Contexts.chain(cfg.getContext()));
 
@@ -184,6 +187,7 @@ public final class BaseQueryContext extends AbstractQueryContext {
         this.cancel = cancel;
         this.parameters = parameters;
         this.tx = tx;
+        this.plannerTimeout = plannerTimeout;
 
         RelDataTypeSystem typeSys = CALCITE_CONNECTION_CONFIG.typeSystem(RelDataTypeSystem.class, cfg.getTypeSystem());
 
@@ -234,6 +238,10 @@ public final class BaseQueryContext extends AbstractQueryContext {
 
     public InternalTransaction transaction() {
         return tx;
+    }
+
+    public long plannerTimeout() {
+        return plannerTimeout;
     }
 
     /**
@@ -305,6 +313,8 @@ public final class BaseQueryContext extends AbstractQueryContext {
 
         private InternalTransaction tx;
 
+        private long plannerTimeout;
+
         public Builder frameworkConfig(FrameworkConfig frameworkCfg) {
             this.frameworkCfg = Objects.requireNonNull(frameworkCfg);
             return this;
@@ -335,8 +345,13 @@ public final class BaseQueryContext extends AbstractQueryContext {
             return this;
         }
 
+        public Builder plannerTimeout(long plannerTimeout) {
+            this.plannerTimeout = plannerTimeout;
+            return this;
+        }
+
         public BaseQueryContext build() {
-            return new BaseQueryContext(queryId, frameworkCfg, cancel, parameters, log, tx);
+            return new BaseQueryContext(queryId, frameworkCfg, cancel, parameters, log, tx, plannerTimeout);
         }
     }
 }

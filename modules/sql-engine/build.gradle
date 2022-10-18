@@ -56,7 +56,6 @@ dependencies {
     testAnnotationProcessor libs.value.annotation.processor
     testImplementation project(':ignite-core')
     testImplementation project(':ignite-baseline')
-    testImplementation project(':ignite-extended-api')
     testImplementation project(':ignite-metastorage')
     testImplementation project(':ignite-raft')
     testImplementation project(':ignite-raft-client')

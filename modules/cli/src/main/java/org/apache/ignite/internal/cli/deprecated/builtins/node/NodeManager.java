@@ -145,6 +145,7 @@ public class NodeManager {
             cmdArgs.add("--work-dir");
             cmdArgs.add(workDir.toAbsolutePath().toString());
 
+            cmdArgs.add("--node-name");
             cmdArgs.add(nodeName);
 
             ProcessBuilder pb = new ProcessBuilder(cmdArgs)

@@ -202,7 +202,7 @@ public class InlineUtils {
      * @param indexColumnsSize Index columns size in bytes.
      * @param inlineSize Inline size in bytes.
      */
-    public static boolean isFullyInlined(int indexColumnsSize, int inlineSize) {
+    public static boolean canFullyInline(int indexColumnsSize, int inlineSize) {
         return indexColumnsSize <= inlineSize + PARTITIONLESS_LINK_SIZE_BYTES;
     }
 }

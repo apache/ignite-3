@@ -48,20 +48,21 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-import org.apache.ignite.configuration.schemas.table.TableConfiguration;
-import org.apache.ignite.configuration.schemas.table.TableIndexView;
-import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
+import org.apache.ignite.internal.schema.configuration.TableConfiguration;
+import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
+import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
 import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.internal.schema.testutils.builder.SortedIndexDefinitionBuilder;
 import org.apache.ignite.internal.schema.testutils.builder.SortedIndexDefinitionBuilder.SortedIndexColumnBuilder;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnDefinition;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
+import org.apache.ignite.internal.schema.testutils.definition.ColumnType.ColumnTypeSpec;
 import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
 import org.apache.ignite.internal.schema.testutils.definition.index.ColumnarIndexDefinition;
 import org.apache.ignite.internal.schema.testutils.definition.index.SortedIndexDefinition;
@@ -88,7 +89,7 @@ public abstract class AbstractSortedIndexStorageTest {
     /** Definitions of all supported column types. */
     public static final List<ColumnDefinition> ALL_TYPES_COLUMN_DEFINITIONS = allTypesColumnDefinitions();
 
-    private static final int TEST_PARTITION = 0;
+    protected static final int TEST_PARTITION = 0;
 
     private static List<ColumnDefinition> allTypesColumnDefinitions() {
         Stream<ColumnType> allColumnTypes = Stream.of(
@@ -189,7 +190,7 @@ public abstract class AbstractSortedIndexStorageTest {
     /**
      * Creates a Sorted Index using the given index definition.
      */
-    private SortedIndexStorage createIndexStorage(ColumnarIndexDefinition indexDefinition) {
+    protected SortedIndexStorage createIndexStorage(ColumnarIndexDefinition indexDefinition) {
         CompletableFuture<Void> createIndexFuture =
                 tablesCfg.indexes().change(chg -> chg.create(indexDefinition.name(), idx -> {
                     UUID tableId = ConfigurationUtil.internalId(tablesCfg.tables().value(), "foo");
@@ -218,7 +219,7 @@ public abstract class AbstractSortedIndexStorageTest {
 
         var serializer = new BinaryTupleRowSerializer(indexStorage.indexDescriptor());
 
-        IndexRow row = serializer.serializeRow(columns, new RowId(0));
+        IndexRow row = serializer.serializeRow(columns, new RowId(TEST_PARTITION));
 
         Object[] actual = serializer.deserializeColumns(row);
 
@@ -234,24 +235,19 @@ public abstract class AbstractSortedIndexStorageTest {
 
     @Test
     void testGet() throws Exception {
-        List<ColumnDefinition> columns = List.of(
-                column(ColumnType.string().typeSpec().name(), ColumnType.string()).asNullable(false).build(),
-                column(ColumnType.INT32.typeSpec().name(), ColumnType.INT32).asNullable(false).build()
-        );
-
         SortedIndexDefinition indexDefinition = SchemaBuilders.sortedIndex("TEST_INDEX")
-                .addIndexColumn(columns.get(0).name()).asc().done()
-                .addIndexColumn(columns.get(1).name()).asc().done()
+                .addIndexColumn(ColumnTypeSpec.STRING.name()).asc().done()
+                .addIndexColumn(ColumnTypeSpec.INT32.name()).asc().done()
                 .build();
 
         SortedIndexStorage index = createIndexStorage(indexDefinition);
 
         var serializer = new BinaryTupleRowSerializer(index.indexDescriptor());
 
-        IndexRow val1090 = serializer.serializeRow(new Object[]{ "10", 90 }, new RowId(0));
-        IndexRow otherVal1090 = serializer.serializeRow(new Object[]{ "10", 90 }, new RowId(0));
-        IndexRow val1080 = serializer.serializeRow(new Object[]{ "10", 80 }, new RowId(0));
-        IndexRow val2090 = serializer.serializeRow(new Object[]{ "20", 90 }, new RowId(0));
+        IndexRow val1090 = serializer.serializeRow(new Object[]{ "10", 90 }, new RowId(TEST_PARTITION));
+        IndexRow otherVal1090 = serializer.serializeRow(new Object[]{ "10", 90 }, new RowId(TEST_PARTITION));
+        IndexRow val1080 = serializer.serializeRow(new Object[]{ "10", 80 }, new RowId(TEST_PARTITION));
+        IndexRow val2090 = serializer.serializeRow(new Object[]{ "20", 90 }, new RowId(TEST_PARTITION));
 
         put(index, val1090);
         put(index, otherVal1090);
@@ -280,20 +276,15 @@ public abstract class AbstractSortedIndexStorageTest {
      */
     @Test
     void testPutIdempotence() throws Exception {
-        List<ColumnDefinition> columns = List.of(
-                column(ColumnType.string().typeSpec().name(), ColumnType.string()).asNullable(false).build(),
-                column(ColumnType.INT32.typeSpec().name(), ColumnType.INT32).asNullable(false).build()
-        );
-
         SortedIndexDefinition indexDefinition = SchemaBuilders.sortedIndex("TEST_INDEX")
-                .addIndexColumn(columns.get(0).name()).asc().done()
-                .addIndexColumn(columns.get(1).name()).asc().done()
+                .addIndexColumn(ColumnTypeSpec.STRING.name()).asc().done()
+                .addIndexColumn(ColumnTypeSpec.INT32.name()).asc().done()
                 .build();
 
         SortedIndexStorage index = createIndexStorage(indexDefinition);
 
         var columnValues = new Object[] { "foo", 1 };
-        var rowId = new RowId(0);
+        var rowId = new RowId(TEST_PARTITION);
 
         var serializer = new BinaryTupleRowSerializer(index.indexDescriptor());
 
@@ -312,23 +303,18 @@ public abstract class AbstractSortedIndexStorageTest {
      */
     @Test
     void testMultiplePuts() throws Exception {
-        List<ColumnDefinition> columns = List.of(
-                column(ColumnType.string().typeSpec().name(), ColumnType.string()).asNullable(false).build(),
-                column(ColumnType.INT32.typeSpec().name(), ColumnType.INT32).asNullable(false).build()
-        );
-
         SortedIndexDefinition indexDefinition = SchemaBuilders.sortedIndex("TEST_INDEX")
-                .addIndexColumn(columns.get(0).name()).asc().done()
-                .addIndexColumn(columns.get(1).name()).asc().done()
+                .addIndexColumn(ColumnTypeSpec.STRING.name()).asc().done()
+                .addIndexColumn(ColumnTypeSpec.INT32.name()).asc().done()
                 .build();
 
         SortedIndexStorage index = createIndexStorage(indexDefinition);
 
         var columnValues1 = new Object[] { "foo", 1 };
         var columnValues2 = new Object[] { "bar", 3 };
-        var rowId1 = new RowId(0);
-        var rowId2 = new RowId(0);
-        var rowId3 = new RowId(0);
+        var rowId1 = new RowId(TEST_PARTITION);
+        var rowId2 = new RowId(TEST_PARTITION);
+        var rowId3 = new RowId(TEST_PARTITION);
 
         var serializer = new BinaryTupleRowSerializer(index.indexDescriptor());
 
@@ -350,23 +336,18 @@ public abstract class AbstractSortedIndexStorageTest {
      */
     @Test
     void testRemove() throws Exception {
-        List<ColumnDefinition> columns = List.of(
-                column(ColumnType.string().typeSpec().name(), ColumnType.string()).asNullable(false).build(),
-                column(ColumnType.INT32.typeSpec().name(), ColumnType.INT32).asNullable(false).build()
-        );
-
         SortedIndexDefinition indexDefinition = SchemaBuilders.sortedIndex("TEST_INDEX")
-                .addIndexColumn(columns.get(0).name()).asc().done()
-                .addIndexColumn(columns.get(1).name()).asc().done()
+                .addIndexColumn(ColumnTypeSpec.STRING.name()).asc().done()
+                .addIndexColumn(ColumnTypeSpec.INT32.name()).asc().done()
                 .build();
 
         SortedIndexStorage index = createIndexStorage(indexDefinition);
 
         var columnValues1 = new Object[] { "foo", 1 };
         var columnValues2 = new Object[] { "bar", 3 };
-        var rowId1 = new RowId(0);
-        var rowId2 = new RowId(0);
-        var rowId3 = new RowId(0);
+        var rowId1 = new RowId(TEST_PARTITION);
+        var rowId2 = new RowId(TEST_PARTITION);
+        var rowId3 = new RowId(TEST_PARTITION);
 
         var serializer = new BinaryTupleRowSerializer(index.indexDescriptor());
 
@@ -454,19 +435,17 @@ public abstract class AbstractSortedIndexStorageTest {
 
     @Test
     public void testBoundsAndOrder() throws Exception {
-        List<ColumnDefinition> columns = List.of(
-                column(ColumnType.string().typeSpec().name(), ColumnType.string()).asNullable(false).build(),
-                column(ColumnType.INT32.typeSpec().name(), ColumnType.INT32).asNullable(false).build()
-        );
+        ColumnTypeSpec string = ColumnTypeSpec.STRING;
+        ColumnTypeSpec int32 = ColumnTypeSpec.INT32;
 
         SortedIndexDefinition index1Definition = SchemaBuilders.sortedIndex("TEST_INDEX_1")
-                .addIndexColumn(columns.get(0).name()).asc().done()
-                .addIndexColumn(columns.get(1).name()).asc().done()
+                .addIndexColumn(string.name()).asc().done()
+                .addIndexColumn(int32.name()).asc().done()
                 .build();
 
         SortedIndexDefinition index2Definition = SchemaBuilders.sortedIndex("TEST_INDEX_2")
-                .addIndexColumn(columns.get(0).name()).asc().done()
-                .addIndexColumn(columns.get(1).name()).desc().done()
+                .addIndexColumn(string.name()).asc().done()
+                .addIndexColumn(int32.name()).desc().done()
                 .build();
 
         SortedIndexStorage index1 = createIndexStorage(index1Definition);
@@ -480,10 +459,10 @@ public abstract class AbstractSortedIndexStorageTest {
         for (SortedIndexStorage index : Arrays.asList(index1, index2)) {
             var serializer = new BinaryTupleRowSerializer(index.indexDescriptor());
 
-            put(index, serializer.serializeRow(val1090, new RowId(0)));
-            put(index, serializer.serializeRow(val1080, new RowId(0)));
-            put(index, serializer.serializeRow(val2090, new RowId(0)));
-            put(index, serializer.serializeRow(val2080, new RowId(0)));
+            put(index, serializer.serializeRow(val1090, new RowId(TEST_PARTITION)));
+            put(index, serializer.serializeRow(val1080, new RowId(TEST_PARTITION)));
+            put(index, serializer.serializeRow(val2090, new RowId(TEST_PARTITION)));
+            put(index, serializer.serializeRow(val2080, new RowId(TEST_PARTITION)));
         }
 
         // Test without bounds.
@@ -579,7 +558,7 @@ public abstract class AbstractSortedIndexStorageTest {
 
         var serializer = new BinaryTupleRowSerializer(storage.indexDescriptor());
 
-        IndexRow nullRow = serializer.serializeRow(nullArray, new RowId(0));
+        IndexRow nullRow = serializer.serializeRow(nullArray, new RowId(TEST_PARTITION));
 
         var entry2 = new TestIndexRow(storage, serializer, nullRow, nullArray);
 
@@ -694,13 +673,13 @@ public abstract class AbstractSortedIndexStorageTest {
         }
     }
 
-    private static List<RowId> get(SortedIndexStorage index, BinaryTuple key) throws Exception {
+    protected static List<RowId> get(SortedIndexStorage index, BinaryTuple key) throws Exception {
         try (Cursor<RowId> cursor = index.get(key)) {
             return cursor.stream().collect(toUnmodifiableList());
         }
     }
 
-    private void put(SortedIndexStorage indexStorage, IndexRow row) {
+    protected void put(SortedIndexStorage indexStorage, IndexRow row) {
         partitionStorage.runConsistently(() -> {
             indexStorage.put(row);
 

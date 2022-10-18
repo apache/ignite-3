@@ -20,7 +20,7 @@ package org.apache.ignite.internal.storage.impl.schema;
 import static org.apache.ignite.internal.storage.impl.TestStorageEngine.ENGINE_NAME;
 
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
-import org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema;
+import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.impl.TestStorageEngine;
 
 /**

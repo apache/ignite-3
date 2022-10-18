@@ -54,6 +54,7 @@ namespace Apache.Ignite
                 ClientOperationType.TupleDeleteExact => false,
                 ClientOperationType.TupleDeleteAllExact => false,
                 ClientOperationType.TupleGetAndDelete => false,
+                ClientOperationType.TupleContainsKey => false,
                 ClientOperationType.ComputeExecute => false,
                 ClientOperationType.SqlExecute => false,
                 var unsupported => throw new NotSupportedException("Unsupported operation type: " + unsupported)

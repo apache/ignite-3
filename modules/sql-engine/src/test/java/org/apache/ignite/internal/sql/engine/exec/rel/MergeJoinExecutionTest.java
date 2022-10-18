@@ -115,39 +115,44 @@ public class MergeJoinExecutionTest extends AbstractExecutionTest {
         Object[][] right = {
                 {1, "Core"},
                 {1, "OLD_Core"},
+                {1, "NEW_Core"},
                 {2, "SQL"},
                 {3, "Arch"}
         };
 
-        verifyJoin(left, right, INNER, new Object[][]{
+        verifyJoin(left, right, INNER, new Object[][] {
                 {2, "Igor", "Core"},
                 {2, "Igor", "OLD_Core"},
+                {2, "Igor", "NEW_Core"},
                 {3, "Alexey", "SQL"}
         });
-        verifyJoin(left, right, LEFT, new Object[][]{
+        verifyJoin(left, right, LEFT, new Object[][] {
                 {1, "Roman", null},
                 {2, "Igor", "Core"},
                 {2, "Igor", "OLD_Core"},
+                {2, "Igor", "NEW_Core"},
                 {3, "Alexey", "SQL"}
         });
-        verifyJoin(left, right, RIGHT, new Object[][]{
+        verifyJoin(left, right, RIGHT, new Object[][] {
                 {2, "Igor", "Core"},
                 {2, "Igor", "OLD_Core"},
+                {2, "Igor", "NEW_Core"},
                 {3, "Alexey", "SQL"},
                 {null, null, "Arch"}
         });
-        verifyJoin(left, right, FULL, new Object[][]{
+        verifyJoin(left, right, FULL, new Object[][] {
                 {1, "Roman", null},
                 {2, "Igor", "Core"},
                 {2, "Igor", "OLD_Core"},
+                {2, "Igor", "NEW_Core"},
                 {3, "Alexey", "SQL"},
                 {null, null, "Arch"}
         });
-        verifyJoin(left, right, SEMI, new Object[][]{
+        verifyJoin(left, right, SEMI, new Object[][] {
                 {2, "Igor"},
                 {3, "Alexey"}
         });
-        verifyJoin(left, right, ANTI, new Object[][]{
+        verifyJoin(left, right, ANTI, new Object[][] {
                 {1, "Roman"}
         });
     }
@@ -295,6 +300,61 @@ public class MergeJoinExecutionTest extends AbstractExecutionTest {
         });
     }
 
+    @Test
+    public void joinOnNullField() {
+        Object[][] left = {
+                {1, "Roman", null},
+                {2, "Igor", null},
+                {3, "Alexey", 1},
+                {4, "Ivan", 2}
+        };
+
+        Object[][] right = {
+                {null, "Core"},
+                {null, "OLD_Core"},
+                {1, "SQL"},
+                {2, "QA"}
+        };
+
+        verifyJoin(left, right, INNER, new Object[][]{
+                {3, "Alexey", "SQL"},
+                {4, "Ivan", "QA"},
+        });
+
+        verifyJoin(left, right, LEFT, new Object[][]{
+                {1, "Roman", null},
+                {2, "Igor", null},
+                {3, "Alexey", "SQL"},
+                {4, "Ivan", "QA"},
+        });
+
+        verifyJoin(left, right, RIGHT, new Object[][]{
+                {null, null, "Core"},
+                {null, null, "OLD_Core"},
+                {3, "Alexey", "SQL"},
+                {4, "Ivan", "QA"},
+        });
+
+        verifyJoin(left, right, FULL, new Object[][]{
+                {null, null, "Core"},
+                {null, null, "OLD_Core"},
+                {1, "Roman", null},
+                {2, "Igor", null},
+                {3, "Alexey", "SQL"},
+                {4, "Ivan", "QA"},
+        });
+
+        verifyJoin(left, right, SEMI, new Object[][]{
+                {3, "Alexey"},
+                {4, "Ivan"},
+        });
+
+        verifyJoin(left, right, ANTI, new Object[][]{
+                {1, "Roman"},
+                {2, "Igor"},
+        });
+    }
+
     /**
      * Creates execution tree and executes it. Then compares the result of the execution with the given one.
      *
@@ -329,12 +389,13 @@ public class MergeJoinExecutionTest extends AbstractExecutionTest {
                 } else if (o2 != null) {
                     return -1;
                 } else {
-                    return 0;
+                    return 1;
                 }
             }
 
             return Integer.compare((Integer) o1, (Integer) o2);
         });
+
         join.register(asList(leftNode, rightNode));
 
         RelDataType rowType;
