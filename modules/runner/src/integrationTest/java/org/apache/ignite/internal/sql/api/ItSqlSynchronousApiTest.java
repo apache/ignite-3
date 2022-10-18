@@ -227,11 +227,6 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
     @Test
     public void errors() throws InterruptedException {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
-
-        TxManager txManagerInternal = (TxManager) IgniteTestUtils.getFieldValue(CLUSTER_NODES.get(0), IgniteImpl.class, "txManager");
-
-        int txPrevCnt = txManagerInternal.finished();
-
         for (int i = 0; i < ROW_COUNT; ++i) {
             sql("INSERT INTO TEST VALUES (?, ?)", i, i);
         }
@@ -281,7 +276,7 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
             assertThrowsWithCause(() -> rs.forEachRemaining(Object::hashCode), CursorClosedException.class);
         }
 
-        assertEquals(ROW_COUNT + 1, txManagerInternal.finished() - txPrevCnt);
+        TxManager txManagerInternal = (TxManager) IgniteTestUtils.getFieldValue(CLUSTER_NODES.get(0), IgniteImpl.class, "txManager");
 
         var states = (Map<UUID, TxState>) IgniteTestUtils.getFieldValue(txManagerInternal, TxManagerImpl.class, "states");
 

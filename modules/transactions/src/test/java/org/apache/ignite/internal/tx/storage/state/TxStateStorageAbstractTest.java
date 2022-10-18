@@ -122,7 +122,7 @@ public abstract class TxStateStorageAbstractTest {
 
             TxMeta txMetaWrongTimestamp0 =
                     new TxMeta(txMeta0.txState(), txMeta0.enlistedPartitions(), generateTimestamp(UUID.randomUUID()));
-            assertFalse(storage.compareAndSet(txId, null, txMetaWrongTimestamp0, 1));
+            assertFalse(storage.compareAndSet(txId, TxState.COMMITED, txMetaWrongTimestamp0, 1));
 
             TxMeta txMetaNullTimestamp0 = new TxMeta(txMeta0.txState(), txMeta0.enlistedPartitions(), null);
             assertFalse(storage.compareAndSet(txId, TxState.ABORTED, txMetaNullTimestamp0, 3));
