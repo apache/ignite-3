@@ -215,9 +215,7 @@ public class MetricManager implements IgniteComponent {
         MetricExporter<T> exporter = availableExporters.get(exporterName);
 
         if (exporter != null) {
-            exporter.init(metricsProvider, exporterConfiguration);
-
-            exporter.start();
+            exporter.start(metricsProvider, exporterConfiguration);
 
             enabledMetricExporters.put(exporter.name(), exporter);
         } else {

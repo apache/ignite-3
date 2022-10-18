@@ -33,17 +33,9 @@ import org.apache.ignite.internal.metrics.exporters.configuration.ExporterView;
  */
 public interface MetricExporter<CfgT extends ExporterView> {
     /**
-     * Initialize metric exporter with the provider of available metrics.
-     *
-     * @param metricProvider Metrics provider
-     * @param configuration CfgT
-     */
-    void init(MetricProvider metricProvider, CfgT configuration);
-
-    /**
      * Start metrics exporter. Here all needed listeners, schedulers etc. should be started.
      */
-    void start();
+    void start(MetricProvider metricProvider, CfgT configuration);
 
     /**
      * Stop and cleanup work for current exporter must be implemented here.

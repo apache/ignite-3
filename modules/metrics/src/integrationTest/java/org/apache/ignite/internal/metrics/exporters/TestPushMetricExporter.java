@@ -35,8 +35,8 @@ public class TestPushMetricExporter extends PushMetricExporter<TestPushMetricsEx
     private long period;
 
     @Override
-    public void init(MetricProvider metricsProvider, TestPushMetricsExporterView configuration) {
-        super.init(metricsProvider, configuration);
+    public void start(MetricProvider metricsProvider, TestPushMetricsExporterView configuration) {
+        super.start(metricsProvider, configuration);
 
         period = configuration.period();
     }

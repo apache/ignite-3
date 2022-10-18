@@ -35,7 +35,7 @@ public abstract class BasicMetricExporter<CfgT extends ExporterView> implements 
 
     /** {@inheritDoc} */
     @Override
-    public void init(MetricProvider metricsProvider, CfgT configuration) {
+    public void start(MetricProvider metricsProvider, CfgT configuration) {
         this.metricsProvider = metricsProvider;
         this.configuration = configuration;
     }

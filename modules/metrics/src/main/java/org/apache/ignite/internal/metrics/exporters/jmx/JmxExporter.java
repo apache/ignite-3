@@ -1,7 +1,5 @@
 package org.apache.ignite.internal.metrics.exporters.jmx;
 
-import static org.apache.ignite.internal.util.IgniteUtils.makeMBeanName;
-
 import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -30,11 +28,11 @@ public class JmxExporter extends BasicMetricExporter<JmxExporterView> {
     private final List<ObjectName> mBeans = Collections.synchronizedList(new ArrayList<>());
 
     @Override
-    public void init(MetricProvider metricsProvider, JmxExporterView configuration) {
-        super.init(metricsProvider, configuration);
-        for(MetricSource metricSource: metricsProvider.metrics()) {
-
-        }
+    public void start(MetricProvider metricsProvider, JmxExporterView configuration) {
+        super.start(metricsProvider, configuration);
+//        for(MetricSource metricSource: metricsProvider.metrics()) {
+//
+//        }
     }
 
     @Override
@@ -73,7 +71,7 @@ public class JmxExporter extends BasicMetricExporter<JmxExporterView> {
     private void unregister(MetricSet mreg) {
         IgniteBiTuple<String, String> n = parse(mreg.name());
 
-        try {
+//        try {
             ObjectName mbeanName = makeMBeanName(n.get1(), n.get2());
 
             boolean rmv = mBeans.remove(mbeanName);
@@ -81,10 +79,10 @@ public class JmxExporter extends BasicMetricExporter<JmxExporterView> {
             assert rmv;
 
             unregBean(mbeanName);
-        }
-        catch (MalformedObjectNameException e) {
-            LOG.error("MBean for metric registry '" + n.get1() + ',' + n.get2() + "' can't be unregistered.", e);
-        }
+//        }
+//        catch (MalformedObjectNameException e) {
+//            LOG.error("MBean for metric registry '" + n.get1() + ',' + n.get2() + "' can't be unregistered.", e);
+//        }
     }
 
     /**
@@ -114,7 +112,6 @@ public class JmxExporter extends BasicMetricExporter<JmxExporterView> {
 
     private ObjectName makeMBeanName(String group, String name) {
         // TODO: KKK implement
-        throw new UnsupportedOperationException()
-
+        throw new UnsupportedOperationException();
     }
 }

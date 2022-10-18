@@ -4,12 +4,12 @@ import javax.management.ObjectName;
 
 public class JmxUtils {
 
-    public static ObjectName registerMBean(
-    ignite().configuration().getMBeanServer(),
-    igniteInstanceName,
-            n.root(),
-            n.subName(),
-    mregBean,
-    MetricRegistryMBean.class);
+//    public static ObjectName registerMBean(
+//    ignite().configuration().getMBeanServer(),
+//    igniteInstanceName,
+//            n.root(),
+//            n.subName(),
+//    mregBean,
+//    MetricRegistryMBean.class);
 
 }

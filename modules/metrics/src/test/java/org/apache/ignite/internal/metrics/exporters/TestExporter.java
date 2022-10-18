@@ -30,14 +30,11 @@ public class TestExporter extends BasicMetricExporter<TestExporterView> {
     private volatile int port;
 
     @Override
-    public void init(MetricProvider metricsProvider, TestExporterView configuration) {
-        super.init(metricsProvider, configuration);
+    public void start(MetricProvider metricsProvider, TestExporterView configuration) {
+        super.start(metricsProvider, configuration);
 
         port = configuration.port();
-    }
 
-    @Override
-    public void start() {
         started = true;
     }
 
