@@ -17,31 +17,19 @@
 
 package org.apache.ignite.internal.metastorage.common.command.cursor;
 
+import org.apache.ignite.internal.metastorage.common.command.MetastorageCommandsMessageGroup;
 import org.apache.ignite.lang.IgniteUuid;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Transferable;
 import org.apache.ignite.raft.client.WriteCommand;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Cursor close command for MetaStorageCommandListener that closes cursor with given id.
  */
-public class CursorCloseCommand implements WriteCommand {
-    /** Cursor id. */
-    @NotNull
-    private final IgniteUuid cursorId;
-
-    /**
-     * Constructor.
-     *
-     * @param cursorId Cursor id.
-     */
-    public CursorCloseCommand(@NotNull IgniteUuid cursorId) {
-        this.cursorId = cursorId;
-    }
-
+@Transferable(MetastorageCommandsMessageGroup.CURSOR_CLOSE)
+public interface CursorCloseCommand extends NetworkMessage, WriteCommand {
     /**
      * Returns cursor id.
      */
-    public @NotNull IgniteUuid cursorId() {
-        return cursorId;
-    }
+    IgniteUuid cursorId();
 }

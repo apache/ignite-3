@@ -18,58 +18,34 @@
 package org.apache.ignite.internal.metastorage.common.command;
 
 import java.util.List;
+import org.apache.ignite.internal.metastorage.common.OperationInfo;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Transferable;
 import org.apache.ignite.raft.client.WriteCommand;
 
 /**
  * Represents invoke command for meta storage.
  */
-public class InvokeCommand implements WriteCommand {
-    /** Condition. */
-    private final ConditionInfo cond;
-
-    /** Success operations. */
-    private final List<OperationInfo> success;
-
-    /** Failure operations. */
-    private final List<OperationInfo> failure;
-
-    /**
-     * Constructs invoke command instance.
-     *
-     * @param cond    Condition.
-     * @param success Success operations.
-     * @param failure Failure operations.
-     */
-    public InvokeCommand(ConditionInfo cond, List<OperationInfo> success, List<OperationInfo> failure) {
-        this.cond = cond;
-        this.success = success;
-        this.failure = failure;
-    }
-
+@Transferable(MetastorageCommandsMessageGroup.INVOKE)
+public interface InvokeCommand extends NetworkMessage, WriteCommand {
     /**
      * Returns condition.
      *
      * @return Condition.
      */
-    public ConditionInfo condition() {
-        return cond;
-    }
+    ConditionInfo condition();
 
     /**
      * Returns success operations.
      *
      * @return Success operations.
      */
-    public List<OperationInfo> success() {
-        return success;
-    }
+    List<OperationInfo> success();
 
     /**
      * Returns failure operations.
      *
      * @return Failure operations.
      */
-    public List<OperationInfo> failure() {
-        return failure;
-    }
+    List<OperationInfo> failure();
 }

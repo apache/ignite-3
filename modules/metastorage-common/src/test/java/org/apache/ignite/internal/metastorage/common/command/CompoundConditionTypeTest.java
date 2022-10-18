@@ -15,21 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.common.command.cursor;
+package org.apache.ignite.internal.metastorage.common.command;
 
-import org.apache.ignite.internal.metastorage.common.command.MetastorageCommandsMessageGroup;
-import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
-import org.apache.ignite.raft.client.ReadCommand;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import org.junit.jupiter.api.Test;
 
 /**
- * Cursor {@code hasNext} command for MetaStorageCommandListener that checks whether next element is available.
+ * Tests that persisted enum ordinals have not been accidentally changed by a developer.
  */
-@Transferable(MetastorageCommandsMessageGroup.CURSOR_HAS_NEXT)
-public interface CursorHasNextCommand extends NetworkMessage, ReadCommand {
-    /**
-     * Returns cursor id.
-     */
-    IgniteUuid cursorId();
+class CompoundConditionTypeTest {
+    @Test
+    void testOrdinal() {
+        assertEquals(0, CompoundConditionType.AND.ordinal());
+
+        assertEquals(1, CompoundConditionType.OR.ordinal());
+    }
 }

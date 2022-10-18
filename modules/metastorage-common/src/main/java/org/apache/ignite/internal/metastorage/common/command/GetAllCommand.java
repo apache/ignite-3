@@ -21,60 +21,39 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import org.apache.ignite.lang.ByteArray;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Transferable;
 import org.apache.ignite.raft.client.ReadCommand;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Get all command for MetaStorageCommandListener that retrieves entries for given keys and the revision upper bound, if latter is present.
  */
-public final class GetAllCommand implements ReadCommand {
-    /** The list of keys. */
-    @NotNull
-    private final List<byte[]> keys;
-
-    /** The upper bound for entry revisions. Must be positive. */
-    private long revUpperBound;
-
-    /**
-     * Constructor.
-     *
-     * @param keys The collection of keys. Couldn't be {@code null} or empty. Collection elements couldn't be {@code null}.
-     */
-    public GetAllCommand(@NotNull Set<ByteArray> keys) {
-        assert !keys.isEmpty();
-
-        this.keys = new ArrayList<>(keys.size());
-
-        for (ByteArray key : keys) {
-            this.keys.add(key.bytes());
-        }
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param keys          The collection of keys. Couldn't be {@code null} or empty. Collection elements couldn't be {@code null}.
-     * @param revUpperBound The upper bound for entry revisions. Must be positive.
-     */
-    public GetAllCommand(@NotNull Set<ByteArray> keys, long revUpperBound) {
-        this(keys);
-
-        assert revUpperBound > 0;
-
-        this.revUpperBound = revUpperBound;
-    }
-
+@Transferable(MetastorageCommandsMessageGroup.GET_ALL)
+public interface GetAllCommand extends ReadCommand, NetworkMessage {
     /**
      * Returns the list of keys.
      */
-    public @NotNull List<byte[]> keys() {
-        return keys;
-    }
+    List<byte[]> keys();
 
     /**
      * Returns the upper bound for entry revisions. Must be positive.
      */
-    public long revision() {
-        return revUpperBound;
+    long revision();
+
+    /**
+     * Static constructor.
+     *
+     * @param commandsFactory Commands factory.
+     * @param keys The collection of keys. Couldn't be {@code null} or empty. Collection elements couldn't be {@code null}.
+     * @param revUpperBound The upper bound for entry revisions. Must be positive.
+     */
+    static GetAllCommand getAllCommand(MetaStorageCommandsFactory commandsFactory, Set<ByteArray> keys, long revUpperBound) {
+        List<byte[]> keysList = new ArrayList<>(keys.size());
+
+        for (ByteArray key : keys) {
+            keysList.add(key.bytes());
+        }
+
+        return commandsFactory.getAllCommand().keys(keysList).revision(revUpperBound).build();
     }
 }

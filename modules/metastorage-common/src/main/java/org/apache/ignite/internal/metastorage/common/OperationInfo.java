@@ -15,30 +15,45 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.common.command;
+package org.apache.ignite.internal.metastorage.common;
 
 import java.io.Serializable;
+import org.apache.ignite.internal.metastorage.common.command.MetastorageCommandsMessageGroup;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Transferable;
 
-/** Defines error response. */
-public class ErrorResponse implements Serializable {
-    /** Error code. */
-    private final int errCode;
+/**
+ * Defines operation.
+ */
+@Transferable(MetastorageCommandsMessageGroup.OPERATION_INFO)
+public interface OperationInfo extends NetworkMessage, Serializable {
+    /**
+     * Returns key.
+     *
+     * @return Key.
+     */
+    byte[] key();
 
     /**
-     * Constructs error response.
+     * Returns value.
      *
-     * @param errCode Error code
+     * @return Value.
      */
-    public ErrorResponse(int errCode) {
-        this.errCode = errCode;
-    }
+    byte[] value();
 
     /**
-     * Returns error code.
+     * Returns operation type.
      *
-     * @return Error code.
+     * @return Operation type.
      */
-    public int errorCode() {
-        return errCode;
+    int operationType();
+
+    /**
+     * Returns operation type.
+     *
+     * @return Operation type.
+     */
+    default OperationType type() {
+        return OperationType.values()[operationType()];
     }
 }

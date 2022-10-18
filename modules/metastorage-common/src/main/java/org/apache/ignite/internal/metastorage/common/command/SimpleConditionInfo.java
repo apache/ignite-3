@@ -18,54 +18,34 @@
 package org.apache.ignite.internal.metastorage.common.command;
 
 import org.apache.ignite.internal.metastorage.common.ConditionType;
+import org.apache.ignite.network.annotations.Transferable;
 
 /**
  * Defines condition for InvokeCommand.
  */
-public class SimpleConditionInfo implements ConditionInfo {
-    /** Key. */
-    private final byte[] key;
-
-    /** Type. */
-    private final ConditionType type;
-
-    /** Value. */
-    private final byte[] val;
-
-    /** Revision. */
-    private final long rev;
-
-    /**
-     * Construct condition with given parameters.
-     *
-     * @param key  Key.
-     * @param type Condition type.
-     * @param val  Value.
-     * @param rev  Revision.
-     */
-    public SimpleConditionInfo(byte[] key, ConditionType type, byte[] val, long rev) {
-        this.key = key;
-        this.type = type;
-        this.val = val;
-        this.rev = rev;
-    }
-
+@Transferable(MetastorageCommandsMessageGroup.SIMPLE_CONDITION_INFO)
+public interface SimpleConditionInfo extends ConditionInfo {
     /**
      * Returns key.
      *
      * @return Key.
      */
-    public byte[] key() {
-        return key;
-    }
+    byte[] key();
 
     /**
      * Returns condition type.
      *
      * @return Condition type.
      */
-    public ConditionType type() {
-        return type;
+    int conditionType();
+
+    /**
+     * Returns condition type.
+     *
+     * @return Condition type.
+     */
+    default ConditionType type() {
+        return ConditionType.values()[conditionType()];
     }
 
     /**
@@ -73,16 +53,12 @@ public class SimpleConditionInfo implements ConditionInfo {
      *
      * @return Value.
      */
-    public byte[] value() {
-        return val;
-    }
+    byte[] value();
 
     /**
      * Returns revision.
      *
      * @return Revision.
      */
-    public long revision() {
-        return rev;
-    }
+    long revision();
 }

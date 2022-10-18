@@ -17,107 +17,39 @@
 
 package org.apache.ignite.internal.metastorage.common.command;
 
-import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteUuid;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Transferable;
 import org.apache.ignite.raft.client.WriteCommand;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Watch command for MetaStorageCommandListener that subscribes on meta storage updates matching the parameters.
  */
-public final class WatchRangeKeysCommand implements WriteCommand {
-    /** Start key of range (inclusive). Couldn't be {@code null}. */
-    @Nullable
-    private final byte[] keyFrom;
-
-    /** End key of range (exclusive). Could be {@code null}. */
-    @Nullable
-    private final byte[] keyTo;
-
-    /** Start revision inclusive. {@code 0} - all revisions. */
-    private final long revision;
-
-    /** Id of the node that requests watch. */
-    @NotNull
-    private final String requesterNodeId;
-
-    /** Id of cursor that is associated with the current command. */
-    @NotNull
-    private final IgniteUuid cursorId;
-
-    /**
-     * Constructor.
-     *
-     * @param keyFrom         Start key of range (inclusive).
-     * @param keyTo           End key of range (exclusive).
-     * @param requesterNodeId Id of the node that requests watch.
-     * @param cursorId        Id of cursor that is associated with the current command.*
-     */
-    public WatchRangeKeysCommand(
-            @Nullable ByteArray keyFrom,
-            @Nullable ByteArray keyTo,
-            @NotNull String requesterNodeId,
-            @NotNull IgniteUuid cursorId
-    ) {
-        this(keyFrom, keyTo, 0L, requesterNodeId, cursorId);
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param keyFrom         Start key of range (inclusive).
-     * @param keyTo           End key of range (exclusive).
-     * @param revision        Start revision inclusive. {@code 0} - all revisions.
-     * @param requesterNodeId Id of the node that requests watch.
-     * @param cursorId        Id of cursor that is associated with the current command.
-     */
-    public WatchRangeKeysCommand(
-            @Nullable ByteArray keyFrom,
-            @Nullable ByteArray keyTo,
-            long revision,
-            @NotNull String requesterNodeId,
-            @NotNull IgniteUuid cursorId
-    ) {
-        this.keyFrom = keyFrom == null ? null : keyFrom.bytes();
-        this.keyTo = keyTo == null ? null : keyTo.bytes();
-        this.revision = revision;
-        this.requesterNodeId = requesterNodeId;
-        this.cursorId = cursorId;
-    }
-
+@Transferable(MetastorageCommandsMessageGroup.WATCH_RANGE_KEYS)
+public interface WatchRangeKeysCommand extends NetworkMessage, WriteCommand {
     /**
      * Returns start key of range (inclusive). Couldn't be {@code null}.
      */
-    public @Nullable byte[] keyFrom() {
-        return keyFrom;
-    }
+    byte @Nullable [] keyFrom();
 
     /**
      * Returns end key of range (exclusive). Could be {@code null}.
      */
-    public @Nullable byte[] keyTo() {
-        return keyTo;
-    }
+    byte @Nullable [] keyTo();
 
     /**
      * Returns start revision inclusive. {@code 0} - all revisions.
      */
-    public long revision() {
-        return revision;
-    }
+    long revision();
 
     /**
      * Returns id of the node that requests range.
      */
-    public @NotNull String requesterNodeId() {
-        return requesterNodeId;
-    }
+    String requesterNodeId();
 
     /**
      * Returns id of cursor that is associated with the current command.
      */
-    public IgniteUuid getCursorId() {
-        return cursorId;
-    }
+    IgniteUuid cursorId();
 }

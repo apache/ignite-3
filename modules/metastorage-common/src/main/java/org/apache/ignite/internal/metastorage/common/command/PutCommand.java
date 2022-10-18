@@ -17,45 +17,23 @@
 
 package org.apache.ignite.internal.metastorage.common.command;
 
-import org.apache.ignite.lang.ByteArray;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Transferable;
 import org.apache.ignite.raft.client.WriteCommand;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Put command for MetaStorageCommandListener that inserts or updates an entry with the given key and the given value and retrieves a
  * previous entry for the given key.
  */
-public final class PutCommand implements WriteCommand {
-    /** The key. Couldn't be {@code null}. */
-    @NotNull
-    private final byte[] key;
-
-    /** The value. Couldn't be {@code null}. */
-    @NotNull
-    private final byte[] val;
-
-    /**
-     * Constructor.
-     *
-     * @param key The key. Couldn't be {@code null}.
-     * @param val The value. Couldn't be {@code null}.
-     */
-    public PutCommand(@NotNull ByteArray key, @NotNull byte[] val) {
-        this.key = key.bytes();
-        this.val = val;
-    }
-
+@Transferable(MetastorageCommandsMessageGroup.PUT)
+public interface PutCommand extends WriteCommand, NetworkMessage {
     /**
      * Returns the key. Couldn't be {@code null}.
      */
-    public @NotNull byte[] key() {
-        return key;
-    }
+    byte[] key();
 
     /**
      * Returns the value. Couldn't be {@code null}.
      */
-    public @NotNull byte[] value() {
-        return val;
-    }
+    byte[] value();
 }
