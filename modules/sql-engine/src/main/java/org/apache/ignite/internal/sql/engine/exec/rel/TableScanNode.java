@@ -63,11 +63,11 @@ public class TableScanNode<RowT> extends AbstractNode<RowT> {
 
     private int requested;
 
-    private volatile int waiting;
+    private int waiting;
 
     private boolean inLoop;
 
-    private volatile Subscription activeSubscription;
+    private Subscription activeSubscription;
 
     private int curPartIdx;
 
@@ -203,14 +203,13 @@ public class TableScanNode<RowT> extends AbstractNode<RowT> {
     }
 
     private void requestNextBatch() {
-        if (waiting == NOT_WAITING || requested == 0) {
+        if (waiting == NOT_WAITING) {
             return;
         }
 
         if (waiting == 0) {
             // we must not request rows more than inBufSize
             waiting = inBufSize - inBuff.size();
-            assert waiting != 0;
         }
 
         Subscription subscription = this.activeSubscription;
@@ -241,14 +240,10 @@ public class TableScanNode<RowT> extends AbstractNode<RowT> {
             inBuff.add(row);
 
             if (inBuff.size() == inBufSize) {
-                waiting = 0;
-
                 context().execute(() -> {
                     waiting = 0;
                     push();
                 }, TableScanNode.this::onError);
-
-                Thread.yield();
             }
         }
 
