@@ -97,14 +97,14 @@ protected:
 };
 
 TEST_F(record_binary_view_test, tables_get_table) {
-    tuple_view.upsert(nullptr, get_tuple(1, "foo"));
+//    tuple_view.upsert(nullptr, get_tuple(1, "foo"));
 
     auto key_tuple = get_tuple(1);
     auto res_tuple = tuple_view.get(nullptr, key_tuple);
 
     ASSERT_TRUE(res_tuple.has_value());
-    EXPECT_EQ(2, res_tuple.column_count());
-    EXPECT_EQ(1L, res_tuple.get("key"));
-    EXPECT_EQ("foo", res_tuple.get("val"));
+    EXPECT_EQ(2, res_tuple->column_count());
+    EXPECT_EQ(1L, res_tuple->get<int64_t>("key"));
+    EXPECT_EQ("foo", res_tuple->get<std::string>("val"));
 }
 
