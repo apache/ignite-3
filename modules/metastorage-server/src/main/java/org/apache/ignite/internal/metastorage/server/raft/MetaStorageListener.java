@@ -32,8 +32,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.metastorage.common.ConditionType;
 import org.apache.ignite.internal.metastorage.common.MetaStorageException;
+import org.apache.ignite.internal.metastorage.common.OperationInfo;
 import org.apache.ignite.internal.metastorage.common.StatementInfo;
-import org.apache.ignite.internal.metastorage.common.StatementResultInfo;
 import org.apache.ignite.internal.metastorage.common.UpdateInfo;
 import org.apache.ignite.internal.metastorage.common.command.CompoundConditionInfo;
 import org.apache.ignite.internal.metastorage.common.command.CompoundConditionType;
@@ -46,9 +46,9 @@ import org.apache.ignite.internal.metastorage.common.command.GetAndRemoveCommand
 import org.apache.ignite.internal.metastorage.common.command.GetCommand;
 import org.apache.ignite.internal.metastorage.common.command.IfInfo;
 import org.apache.ignite.internal.metastorage.common.command.InvokeCommand;
+import org.apache.ignite.internal.metastorage.common.command.MetaStorageCommandsFactory;
 import org.apache.ignite.internal.metastorage.common.command.MultiInvokeCommand;
 import org.apache.ignite.internal.metastorage.common.command.MultipleEntryResponse;
-import org.apache.ignite.internal.metastorage.common.command.OperationInfo;
 import org.apache.ignite.internal.metastorage.common.command.PutAllCommand;
 import org.apache.ignite.internal.metastorage.common.command.PutCommand;
 import org.apache.ignite.internal.metastorage.common.command.RangeCommand;
@@ -92,6 +92,8 @@ import org.jetbrains.annotations.TestOnly;
  * TODO: IGNITE-14693 Implement Meta storage exception handling logic.
  */
 public class MetaStorageListener implements RaftGroupListener {
+    private final MetaStorageCommandsFactory commandsFactory = new MetaStorageCommandsFactory();
+
     /** Storage. */
     private final KeyValueStorage storage;
 
@@ -191,7 +193,7 @@ public class MetaStorageListener implements RaftGroupListener {
             } else if (command instanceof GetAndPutAllCommand) {
                 GetAndPutAllCommand getAndPutAllCmd = (GetAndPutAllCommand) command;
 
-                Collection<Entry> entries = storage.getAndPutAll(getAndPutAllCmd.keys(), getAndPutAllCmd.vals());
+                Collection<Entry> entries = storage.getAndPutAll(getAndPutAllCmd.keys(), getAndPutAllCmd.values());
 
                 List<SingleEntryResponse> resp = new ArrayList<>(entries.size());
 
@@ -245,15 +247,15 @@ public class MetaStorageListener implements RaftGroupListener {
 
                 StatementResult res = storage.invoke(toIf(cmd.iif()));
 
-                clo.result(new StatementResultInfo(res.bytes()));
+                clo.result(commandsFactory.statementResultInfo().result(res.bytes()).build());
             } else if (command instanceof RangeCommand) {
                 RangeCommand rangeCmd = (RangeCommand) command;
 
-                IgniteUuid cursorId = rangeCmd.getCursorId();
+                IgniteUuid cursorId = rangeCmd.cursorId();
 
                 Cursor<Entry> cursor = (rangeCmd.revUpperBound() != -1)
-                        ? storage.range(rangeCmd.keyFrom(), rangeCmd.keyTo(), rangeCmd.revUpperBound(), rangeCmd.includeTombstones()) :
-                        storage.range(rangeCmd.keyFrom(), rangeCmd.keyTo(), rangeCmd.includeTombstones());
+                        ? storage.range(rangeCmd.keyFrom(), rangeCmd.keyTo(), rangeCmd.revUpperBound(), rangeCmd.includeTombstones())
+                        : storage.range(rangeCmd.keyFrom(), rangeCmd.keyTo(), rangeCmd.includeTombstones());
 
                 cursors.put(
                         cursorId,
@@ -335,7 +337,7 @@ public class MetaStorageListener implements RaftGroupListener {
             } else if (command instanceof WatchRangeKeysCommand) {
                 WatchRangeKeysCommand watchCmd = (WatchRangeKeysCommand) command;
 
-                IgniteUuid cursorId = watchCmd.getCursorId();
+                IgniteUuid cursorId = watchCmd.cursorId();
 
                 Cursor<WatchEvent> cursor =
                         storage.watch(watchCmd.keyFrom(), watchCmd.keyTo(), watchCmd.revision());
@@ -354,7 +356,7 @@ public class MetaStorageListener implements RaftGroupListener {
             } else if (command instanceof WatchExactKeysCommand) {
                 WatchExactKeysCommand watchCmd = (WatchExactKeysCommand) command;
 
-                IgniteUuid cursorId = watchCmd.getCursorId();
+                IgniteUuid cursorId = watchCmd.cursorId();
 
                 Cursor<WatchEvent> cursor = storage.watch(watchCmd.keys(), watchCmd.revision());
 

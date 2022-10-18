@@ -29,8 +29,7 @@ import java.util.function.Function;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.common.MetaStorageException;
-import org.apache.ignite.internal.metastorage.common.command.cursor.CursorCloseCommand;
-import org.apache.ignite.internal.metastorage.common.command.cursor.CursorHasNextCommand;
+import org.apache.ignite.internal.metastorage.common.command.MetaStorageCommandsFactory;
 import org.apache.ignite.internal.metastorage.common.command.cursor.CursorNextCommand;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteUuid;
@@ -47,6 +46,9 @@ public class CursorImpl<T> implements Cursor<T> {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(CursorImpl.class);
 
+    /** Commands factory. */
+    private final MetaStorageCommandsFactory commandsFactory;
+
     /** Future that runs meta storage service operation that provides cursor. */
     private final CompletableFuture<IgniteUuid> initOp;
 
@@ -58,16 +60,19 @@ public class CursorImpl<T> implements Cursor<T> {
     /**
      * Constructor.
      *
+     * @param commandsFactory Commands factory.
      * @param metaStorageRaftGrpSvc Meta storage raft group service.
      * @param initOp                Future that runs meta storage service operation that provides cursor.
      * @param fn                    Function transforming the result of {@link CursorNextCommand} to the type of {@link T},
      *                              or to the {@link Iterable} of type {@link T} if needed.
      */
     CursorImpl(
+            MetaStorageCommandsFactory commandsFactory,
             RaftGroupService metaStorageRaftGrpSvc,
             CompletableFuture<IgniteUuid> initOp,
             Function<Object, Object> fn
     ) {
+        this.commandsFactory = commandsFactory;
         this.metaStorageRaftGrpSvc = metaStorageRaftGrpSvc;
         this.initOp = initOp;
         this.it = new InnerIterator(fn);
@@ -78,7 +83,7 @@ public class CursorImpl<T> implements Cursor<T> {
     public void close() {
         try {
             initOp.thenCompose(
-                    cursorId -> metaStorageRaftGrpSvc.run(new CursorCloseCommand(cursorId))).get();
+                    cursorId -> metaStorageRaftGrpSvc.run(commandsFactory.cursorCloseCommand().cursorId(cursorId).build())).get();
 
             ((InnerIterator) it).close();
         } catch (InterruptedException | ExecutionException e) {
@@ -125,7 +130,8 @@ public class CursorImpl<T> implements Cursor<T> {
                     return true;
                 } else {
                     return initOp
-                            .thenCompose(cursorId -> metaStorageRaftGrpSvc.<Boolean>run(new CursorHasNextCommand(cursorId)))
+                            .thenCompose(cursorId ->
+                                    metaStorageRaftGrpSvc.<Boolean>run(commandsFactory.cursorHasNextCommand().cursorId(cursorId).build()))
                             .get();
                 }
             } catch (InterruptedException | ExecutionException e) {
@@ -147,7 +153,8 @@ public class CursorImpl<T> implements Cursor<T> {
                     return internalCacheIterator.next();
                 } else {
                     Object res = initOp
-                            .thenCompose(cursorId -> metaStorageRaftGrpSvc.run(new CursorNextCommand(cursorId)))
+                            .thenCompose(cursorId ->
+                                    metaStorageRaftGrpSvc.run(commandsFactory.cursorNextCommand().cursorId(cursorId).build()))
                             .get();
 
                     Object transformed = fn.apply(res);
