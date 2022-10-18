@@ -1,5 +1,8 @@
 = Glossary
 
+==== C
+
+Cluster Management Group::A subset of Ignite nodes in a Raft cluster. Cluster group leader is responsible for managing nodes that enter or leave Ignite Cluster.
 
 ==== D
 
