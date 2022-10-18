@@ -143,7 +143,13 @@ public class MetricManager implements IgniteComponent {
      * @return Metric set, or {@code null} if already enabled.
      */
     public MetricSet enable(MetricSource src) {
-        return registry.enable(src);
+        MetricSet enabled = registry.enable(src);
+
+        if (enabled != null) {
+            enabledMetricExporters.values().forEach(e -> e.addMetricSet(enabled));
+        }
+
+        return enabled;
     }
 
     /**
@@ -153,7 +159,13 @@ public class MetricManager implements IgniteComponent {
      * @return Metric set, or {@code null} if already enabled.
      */
     public MetricSet enable(final String srcName) {
-        return registry.enable(srcName);
+        MetricSet enabled = registry.enable(srcName);
+
+        if (enabled != null) {
+            enabledMetricExporters.values().forEach(e -> e.addMetricSet(enabled));
+        }
+
+        return enabled;
     }
 
     /**
@@ -178,6 +190,8 @@ public class MetricManager implements IgniteComponent {
      */
     public void disable(MetricSource src) {
         registry.disable(src);
+
+        enabledMetricExporters.values().forEach(e -> e.removeMetricSet(src.name()));
     }
 
     /**
@@ -187,6 +201,8 @@ public class MetricManager implements IgniteComponent {
      */
     public void disable(final String srcName) {
         registry.disable(srcName);
+
+        enabledMetricExporters.values().forEach(e -> e.removeMetricSet(srcName));
     }
 
     /**

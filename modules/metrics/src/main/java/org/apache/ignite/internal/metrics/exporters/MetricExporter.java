@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.metrics.exporters;
 
 import org.apache.ignite.internal.metrics.MetricProvider;
+import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.metrics.exporters.configuration.ExporterConfiguration;
 import org.apache.ignite.internal.metrics.exporters.configuration.ExporterView;
 
@@ -55,4 +56,8 @@ public interface MetricExporter<CfgT extends ExporterView> {
      * @param newValue new configuration.
      */
     void reconfigure(CfgT newValue);
+
+    void addMetricSet(MetricSet metricSet);
+
+    void removeMetricSet(String metricSetName);
 }

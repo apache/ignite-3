@@ -96,6 +96,16 @@ public class TestPullMetricExporter extends BasicMetricExporter<TestPullMetricsE
         return EXPORTER_NAME;
     }
 
+    @Override
+    public void addMetricSet(MetricSet metricSet) {
+
+    }
+
+    @Override
+    public void removeMetricSet(String metricSetName) {
+
+    }
+
     private void waitForRequest() {
         synchronized (obj) {
             try {

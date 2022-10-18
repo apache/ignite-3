@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.metrics.exporters;
 
 import org.apache.ignite.internal.metrics.MetricProvider;
+import org.apache.ignite.internal.metrics.MetricSet;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -53,6 +54,16 @@ public class TestExporter extends BasicMetricExporter<TestExporterView> {
         super.reconfigure(newValue);
 
         port = configuration.port();
+    }
+
+    @Override
+    public void addMetricSet(MetricSet metricSet) {
+
+    }
+
+    @Override
+    public void removeMetricSet(String metricSetName) {
+
     }
 
     public boolean isStarted() {

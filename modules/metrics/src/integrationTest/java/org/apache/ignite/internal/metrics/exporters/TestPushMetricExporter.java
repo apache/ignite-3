@@ -84,4 +84,14 @@ public class TestPushMetricExporter extends PushMetricExporter<TestPushMetricsEx
     public String name() {
         return EXPORTER_NAME;
     }
+
+    @Override
+    public void addMetricSet(MetricSet metricSet) {
+
+    }
+
+    @Override
+    public void removeMetricSet(String metricSetName) {
+
+    }
 }

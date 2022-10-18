@@ -30,9 +30,10 @@ public class JmxExporter extends BasicMetricExporter<JmxExporterView> {
     @Override
     public void start(MetricProvider metricsProvider, JmxExporterView configuration) {
         super.start(metricsProvider, configuration);
-//        for(MetricSource metricSource: metricsProvider.metrics()) {
-//
-//        }
+
+        for(MetricSet metricSet: metricsProvider.metrics().get1().values()) {
+            register(metricSet);
+        }
     }
 
     @Override
@@ -43,6 +44,16 @@ public class JmxExporter extends BasicMetricExporter<JmxExporterView> {
     @Override
     public String name() {
         return null;
+    }
+
+    @Override
+    public void addMetricSet(MetricSet metricSet) {
+        register(metricSet);
+    }
+
+    @Override
+    public void removeMetricSet(String metricSet) {
+        unregister(metricSet);
     }
 
     private void register(MetricSet metricSet) {
@@ -66,10 +77,10 @@ public class JmxExporter extends BasicMetricExporter<JmxExporterView> {
     /**
      * Unregister JMX bean for specific metric registry.
      *
-     * @param mreg Metric registry.
+     * @param metricSetName Metric registry.
      */
-    private void unregister(MetricSet mreg) {
-        IgniteBiTuple<String, String> n = parse(mreg.name());
+    private void unregister(String metricSetName) {
+        IgniteBiTuple<String, String> n = parse(metricSetName);
 
 //        try {
             ObjectName mbeanName = makeMBeanName(n.get1(), n.get2());
