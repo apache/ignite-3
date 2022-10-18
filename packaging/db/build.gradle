@@ -67,6 +67,20 @@ distributions {
     }
 }
 
+// Expose zip artifacts to be consumed by others
+configurations {
+    dbZip {
+        canBeConsumed = true
+        canBeResolved = false
+    }
+}
+
+artifacts {
+    dbZip(distZip) {
+        builtBy(distZip)
+    }
+}
+
 // RPM/DEB packaging
 
 def javaArgs = '-Dio.netty.tryReflectionSetAccessible=true ' +

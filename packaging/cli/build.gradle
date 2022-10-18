@@ -33,6 +33,7 @@ dependencies {
     cliScripts(project(path: ':ignite-cli', configuration: 'cliScripts'))
 }
 
+// Common for ZIP and RPM/DEB
 
 def tokens = [
         PRODUCT_NAME        : 'ignite3cli',
@@ -78,6 +79,9 @@ task cliStartScript(type: CreateStartScripts) {
     applicationName = 'ignite3'
 }
 
+
+// ZIP packaging
+
 distributions {
     main {
         distributionBaseName = 'ignite3cli'
@@ -102,6 +106,23 @@ distributions {
 
 buildRpm.dependsOn replaceScriptVars, replacePostInstallScriptVars
 buildDeb.dependsOn replaceScriptVars, replacePostInstallScriptVars
+
+// Expose zip artifacts to be consumed by others
+configurations {
+    cliZip {
+        canBeConsumed = true
+        canBeResolved = false
+    }
+}
+
+artifacts {
+    cliZip(distZip) {
+        builtBy(distZip)
+    }
+}
+
+
+// DEB/RPM packaging
 
 buildDeb {
     into("/usr/share/bash-completion/completions/") {
