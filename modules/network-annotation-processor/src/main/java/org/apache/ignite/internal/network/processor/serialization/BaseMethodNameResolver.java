@@ -17,9 +17,12 @@
 
 package org.apache.ignite.internal.network.processor.serialization;
 
+import java.nio.ByteBuffer;
 import java.util.BitSet;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.type.ArrayType;
@@ -124,8 +127,14 @@ class BaseMethodNameResolver {
             return "BitSet";
         } else if (typeUtils.isSameType(parameterType, Collection.class)) {
             return "Collection";
+        } else if (typeUtils.isSameType(parameterType, List.class)) {
+            return "List";
+        } else if (typeUtils.isSameType(parameterType, Set.class)) {
+            return "Set";
         } else if (typeUtils.isSameType(parameterType, Map.class)) {
             return "Map";
+        } else if (typeUtils.isSameType(parameterType, ByteBuffer.class)) {
+            return "ByteBuffer";
         } else {
             throw new ProcessingException("Unsupported reference type for message (de-)serialization: " + parameterType);
         }

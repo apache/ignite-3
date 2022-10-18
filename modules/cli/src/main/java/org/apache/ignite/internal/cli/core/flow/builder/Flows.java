@@ -153,4 +153,11 @@ public final class Flows {
     public static <I, O> FlowBuilder<I, O> acceptQuestion(QuestionUiComponent question, Supplier<O> onAccept) {
         return acceptQuestion(question.render(), onAccept);
     }
+
+    /**
+     * Returns a {@link FlowBuilder} that always returns its input argument.
+     */
+    public static <I> FlowBuilder<I, I> identity() {
+        return new FlowBuilderImpl<>(input -> Flowable.success(input.value()));
+    }
 }

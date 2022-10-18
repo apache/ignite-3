@@ -45,7 +45,9 @@ public interface IndexMetaIo {
     int INDEX_TREE_META_PAGE_ID_OFFSET = INDEX_ID_LSB_OFFSET + Long.BYTES;
 
     /** Payload size in bytes. */
-    int SIZE_IN_BYTES = 2 * Long.BYTES /* Index ID - {@link UUID} (16 bytes) */ + Long.BYTES /* Index root page ID - long (8 bytes) */;
+    int SIZE_IN_BYTES = 2 * Long.BYTES /* Index ID - {@link UUID} (16 bytes) */
+            + Long.BYTES /* Index root page ID - long (8 bytes) */
+            + Short.BYTES /* Inline size in bytes - short (2 bytes) */;
 
     /**
      * Returns an offset of the element inside the page.

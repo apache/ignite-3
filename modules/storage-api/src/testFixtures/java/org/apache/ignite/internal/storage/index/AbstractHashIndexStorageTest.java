@@ -33,10 +33,10 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import java.util.Collection;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.configuration.schemas.table.TableConfiguration;
-import org.apache.ignite.configuration.schemas.table.TableIndexView;
-import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
+import org.apache.ignite.internal.schema.configuration.TableConfiguration;
+import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
+import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
 import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnDefinition;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
@@ -53,7 +53,7 @@ import org.junit.jupiter.api.Test;
  * Base class for Hash Index storage tests.
  */
 public abstract class AbstractHashIndexStorageTest {
-    private static final int TEST_PARTITION = 0;
+    protected static final int TEST_PARTITION = 0;
 
     private static final String INT_COLUMN_NAME = "intVal";
 
@@ -247,7 +247,7 @@ public abstract class AbstractHashIndexStorageTest {
         }
     }
 
-    private Collection<RowId> getAll(IndexRow row) {
+    protected Collection<RowId> getAll(IndexRow row) {
         try (Cursor<RowId> cursor = indexStorage.get(row.indexColumns())) {
             return cursor.stream().collect(toList());
         } catch (Exception e) {
@@ -255,7 +255,7 @@ public abstract class AbstractHashIndexStorageTest {
         }
     }
 
-    private void put(IndexRow row) {
+    protected void put(IndexRow row) {
         partitionStorage.runConsistently(() -> {
             indexStorage.put(row);
 
@@ -269,5 +269,16 @@ public abstract class AbstractHashIndexStorageTest {
 
             return null;
         });
+    }
+
+    /**
+     * Creates an index row.
+     *
+     * @param intVal Integer column.
+     * @param strVal String column.
+     * @param rowId Row ID.
+     */
+    protected IndexRow createIndexRow(int intVal, String strVal, RowId rowId) {
+        return serializer.serializeRow(new Object[]{ intVal, strVal }, rowId);
     }
 }

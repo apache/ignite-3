@@ -20,7 +20,9 @@ package org.apache.ignite.internal.network.direct;
 import java.nio.ByteBuffer;
 import java.util.BitSet;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import org.apache.ignite.internal.network.direct.state.DirectMessageState;
 import org.apache.ignite.internal.network.direct.state.DirectMessageStateItem;
@@ -284,6 +286,15 @@ public class DirectMessageWriter implements MessageWriter {
         return stream.lastFinished();
     }
 
+    @Override
+    public boolean writeByteBuffer(String name, ByteBuffer val) {
+        DirectByteBufferStream stream = state.item().stream;
+
+        stream.writeByteBuffer(val);
+
+        return stream.lastFinished();
+    }
+
     /** {@inheritDoc} */
     @Override
     public boolean writeUuid(String name, UUID val) {
@@ -330,6 +341,26 @@ public class DirectMessageWriter implements MessageWriter {
         DirectByteBufferStream stream = state.item().stream;
 
         stream.writeCollection(col, itemType, this);
+
+        return stream.lastFinished();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public <T> boolean writeList(String name, List<T> col, MessageCollectionItemType itemType) {
+        DirectByteBufferStream stream = state.item().stream;
+
+        stream.writeCollection(col, itemType, this);
+
+        return stream.lastFinished();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public <T> boolean writeSet(String name, Set<T> col, MessageCollectionItemType itemType) {
+        DirectByteBufferStream stream = state.item().stream;
+
+        stream.writeSet(col, itemType, this);
 
         return stream.lastFinished();
     }

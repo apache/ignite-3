@@ -93,6 +93,12 @@ jacoco {
     toolVersion = libs.versions.jacocoTool.get()
 }
 
+javadoc {
+    source = sourceSets.main.java
+    classpath = configurations.compileClasspath
+    enabled = false
+}
+
 jacocoTestReport {
     reports {
         xml.required = false

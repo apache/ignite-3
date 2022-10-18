@@ -59,7 +59,7 @@ namespace Apache.Ignite.Compute
         /// <typeparam name="TKey">Key type.</typeparam>
         /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
         Task<T> ExecuteColocatedAsync<T, TKey>(string tableName, TKey key, string jobClassName, params object[] args)
-            where TKey : class; // TODO: Remove class constraint (IGNITE-16355)
+            where TKey : notnull;
 
         /// <summary>
         /// Executes a compute job represented by the given class on all of the specified nodes.

@@ -501,8 +501,8 @@ public class ClientMessagePacker implements AutoCloseable {
 
         packExtensionTypeHeader(ClientMsgPackType.UUID, 16);
 
-        buf.writeLong(val.getMostSignificantBits());
-        buf.writeLong(val.getLeastSignificantBits());
+        buf.writeLongLE(val.getMostSignificantBits());
+        buf.writeLongLE(val.getLeastSignificantBits());
     }
 
     /**

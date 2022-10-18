@@ -27,12 +27,11 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
-import org.apache.ignite.internal.cluster.management.raft.commands.InitCmgStateCommand;
+import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
+import org.apache.ignite.internal.cluster.management.raft.commands.ClusterNodeMessage;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinReadyCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinRequestCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.NodesLeaveCommand;
-import org.apache.ignite.internal.cluster.management.raft.commands.ReadLogicalTopologyCommand;
-import org.apache.ignite.internal.cluster.management.raft.commands.ReadStateCommand;
 import org.apache.ignite.internal.cluster.management.raft.responses.LogicalTopologyResponse;
 import org.apache.ignite.internal.cluster.management.raft.responses.ValidationErrorResponse;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -55,6 +54,8 @@ public class CmgRaftService {
      * Number of attempts when trying to resolve a {@link Peer} into a {@link ClusterNode}.
      */
     private static final int MAX_RESOLVE_ATTEMPTS = 5;
+
+    private final CmgMessagesFactory msgFactory = new CmgMessagesFactory();
 
     private final RaftGroupService raftService;
 
@@ -86,7 +87,7 @@ public class CmgRaftService {
      * @return Future that resolves into the current cluster state or {@code null} if it does not exist.
      */
     public CompletableFuture<ClusterState> readClusterState() {
-        return raftService.run(new ReadStateCommand())
+        return raftService.run(msgFactory.readStateCommand().build())
                 .thenApply(ClusterState.class::cast);
     }
 
@@ -97,9 +98,9 @@ public class CmgRaftService {
      * @return Future that resolves to the current CMG state.
      */
     public CompletableFuture<ClusterState> initClusterState(ClusterState clusterState) {
-        ClusterNode localMember = clusterService.topologyService().localMember();
+        ClusterNodeMessage localNodeMessage = nodeMessage(clusterService.topologyService().localMember());
 
-        return raftService.run(new InitCmgStateCommand(localMember, clusterState))
+        return raftService.run(msgFactory.initCmgStateCommand().node(localNodeMessage).clusterState(clusterState).build())
                 .thenApply(response -> {
                     if (response instanceof ValidationErrorResponse) {
                         throw new IllegalInitArgumentException("Init CMG request denied, reason: "
@@ -121,9 +122,15 @@ public class CmgRaftService {
      * @see ValidationManager
      */
     public CompletableFuture<Void> startJoinCluster(ClusterTag clusterTag) {
-        ClusterNode localMember = clusterService.topologyService().localMember();
+        ClusterNodeMessage localNodeMessage = nodeMessage(clusterService.topologyService().localMember());
 
-        return raftService.run(new JoinRequestCommand(localMember, IgniteProductVersion.CURRENT_VERSION, clusterTag))
+        JoinRequestCommand command = msgFactory.joinRequestCommand()
+                .node(localNodeMessage)
+                .version(IgniteProductVersion.CURRENT_VERSION.toString())
+                .clusterTag(clusterTag)
+                .build();
+
+        return raftService.run(command)
                 .thenAccept(response -> {
                     if (response instanceof ValidationErrorResponse) {
                         throw new JoinDeniedException("Join request denied, reason: " + ((ValidationErrorResponse) response).reason());
@@ -143,9 +150,9 @@ public class CmgRaftService {
     public CompletableFuture<Void> completeJoinCluster() {
         LOG.info("Node is ready to join the logical topology");
 
-        ClusterNode localMember = clusterService.topologyService().localMember();
+        ClusterNodeMessage localNodeMessage = nodeMessage(clusterService.topologyService().localMember());
 
-        return raftService.run(new JoinReadyCommand(localMember))
+        return raftService.run(msgFactory.joinReadyCommand().node(localNodeMessage).build())
                 .thenAccept(response -> {
                     if (response instanceof ValidationErrorResponse) {
                         throw new JoinDeniedException("JoinReady request denied, reason: "
@@ -164,7 +171,11 @@ public class CmgRaftService {
      * @return Future that represents the state of the operation.
      */
     public CompletableFuture<Void> removeFromCluster(Set<ClusterNode> nodes) {
-        return raftService.run(new NodesLeaveCommand(nodes));
+        NodesLeaveCommand command = msgFactory.nodesLeaveCommand()
+                .nodes(nodes.stream().map(this::nodeMessage).collect(Collectors.toSet()))
+                .build();
+
+        return raftService.run(command);
     }
 
     /**
@@ -173,7 +184,7 @@ public class CmgRaftService {
      * @return Logical topology.
      */
     public CompletableFuture<Collection<ClusterNode>> logicalTopology() {
-        return raftService.run(new ReadLogicalTopologyCommand())
+        return raftService.run(msgFactory.readLogicalTopologyCommand().build())
                 .thenApply(LogicalTopologyResponse.class::cast)
                 .thenApply(LogicalTopologyResponse::logicalTopology);
     }
@@ -219,5 +230,14 @@ public class CmgRaftService {
         }
 
         throw new IgniteInternalException(String.format("Node %s is not present in the physical topology", addr));
+    }
+
+    private ClusterNodeMessage nodeMessage(ClusterNode node) {
+        return msgFactory.clusterNodeMessage()
+                .id(node.id())
+                .name(node.name())
+                .host(node.address().host())
+                .port(node.address().port())
+                .build();
     }
 }

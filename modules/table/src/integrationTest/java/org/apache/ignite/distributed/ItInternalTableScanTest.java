@@ -34,7 +34,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.NoSuchElementException;
-import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Subscriber;
@@ -42,16 +41,19 @@ import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
+import org.apache.ignite.hlc.HybridClock;
+import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.storage.DataRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.PartitionTimestampCursor;
+import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.util.ByteUtils;
-import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -72,6 +74,8 @@ public class ItInternalTableScanTest {
 
     /** Internal table to test. */
     private InternalTable internalTbl;
+
+    private final HybridClock clock = new HybridClock();
 
     /**
      * Prepare test environment using DummyInternalTableImpl and Mocked storage.
@@ -159,8 +163,8 @@ public class ItInternalTableScanTest {
 
         AtomicReference<Throwable> gotException = new AtomicReference<>();
 
-        when(mockStorage.scan(any(), any(UUID.class))).thenAnswer(invocation -> {
-            var cursor = mock(Cursor.class);
+        when(mockStorage.scan(any(HybridTimestamp.class))).thenAnswer(invocation -> {
+            var cursor = mock(PartitionTimestampCursor.class);
 
             when(cursor.hasNext()).thenAnswer(hnInvocation -> true);
 
@@ -217,7 +221,7 @@ public class ItInternalTableScanTest {
 
         AtomicReference<Throwable> gotException = new AtomicReference<>();
 
-        when(mockStorage.scan(any(), any(UUID.class))).thenThrow(new StorageException("Some storage exception"));
+        when(mockStorage.scan(any(HybridTimestamp.class))).thenThrow(new StorageException("Some storage exception"));
 
         internalTbl.scan(0, null).subscribe(new Subscriber<>() {
 
@@ -372,12 +376,13 @@ public class ItInternalTableScanTest {
 
         List<BinaryRow> retrievedItems = Collections.synchronizedList(new ArrayList<>());
 
-        when(mockStorage.scan(any(), any(UUID.class))).thenAnswer(invocation -> {
-            var cursor = mock(Cursor.class);
+        when(mockStorage.scan(any(HybridTimestamp.class))).thenAnswer(invocation -> {
+            var cursor = mock(PartitionTimestampCursor.class);
 
             when(cursor.hasNext()).thenAnswer(hnInvocation -> cursorTouchCnt.get() < submittedItems.size());
 
-            when(cursor.next()).thenAnswer(ninvocation -> submittedItems.get(cursorTouchCnt.getAndIncrement()));
+            when(cursor.next()).thenAnswer(ninvocation ->
+                    ReadResult.createFromCommitted(submittedItems.get(cursorTouchCnt.getAndIncrement()), clock.now()));
 
             return cursor;
         });
@@ -439,8 +444,8 @@ public class ItInternalTableScanTest {
         // and avoids the race between closing the cursor and stopping the node.
         CountDownLatch subscriberFinishedLatch = new CountDownLatch(1);
 
-        lenient().when(mockStorage.scan(any(), any(UUID.class))).thenAnswer(invocation -> {
-            var cursor = mock(Cursor.class);
+        lenient().when(mockStorage.scan(any(HybridTimestamp.class))).thenAnswer(invocation -> {
+            var cursor = mock(PartitionTimestampCursor.class);
 
             doAnswer(
                     invocationClose -> {

@@ -25,9 +25,11 @@ import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlProfileMixin;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.internal.cli.core.call.UrlCallInput;
 import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
+import org.apache.ignite.internal.cli.decorators.PlainTopologyDecorator;
 import org.apache.ignite.internal.cli.decorators.TopologyDecorator;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
+import picocli.CommandLine.Option;
 
 /**
  * Command that show logical cluster topology.
@@ -41,14 +43,18 @@ public class LogicalTopologyCommand extends BaseCommand implements Callable<Inte
     @Inject
     private LogicalTopologyCall call;
 
+    @Option(names = "--plain", description = "Display output with plain formatting")
+    private boolean plain;
+
     /** {@inheritDoc} */
     @Override
     public Integer call() {
+        TopologyDecorator topologyDecorator = plain ? new PlainTopologyDecorator() : new TopologyDecorator();
         return CallExecutionPipeline.builder(call)
                 .inputProvider(() -> new UrlCallInput(clusterUrl.getClusterUrl()))
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
-                .decorator(new TopologyDecorator())
+                .decorator(topologyDecorator)
                 .exceptionHandler(new ClusterNotInitializedExceptionHandler(
                         "Cannot show logical topology", "ignite cluster init"
                 ))

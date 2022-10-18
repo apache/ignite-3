@@ -23,6 +23,7 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -36,7 +37,6 @@ import java.util.function.BiPredicate;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 import org.apache.calcite.DataContext;
 import org.apache.calcite.adapter.enumerable.EnumUtils;
 import org.apache.calcite.linq4j.function.Function1;
@@ -60,6 +60,7 @@ import org.apache.calcite.rex.RexProgram;
 import org.apache.calcite.rex.RexProgramBuilder;
 import org.apache.calcite.rex.RexShuttle;
 import org.apache.calcite.rex.RexUtil;
+import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.validate.SqlConformance;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
@@ -97,6 +98,8 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
 
     private final RelDataType emptyType;
 
+    private final RelDataType nullType;
+
     private final ExecutionContext<RowT> ctx;
 
     /**
@@ -110,6 +113,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
 
         rexBuilder = new RexBuilder(this.typeFactory);
         emptyType = new RelDataTypeFactory.Builder(this.typeFactory).build();
+        nullType = typeFactory.createSqlType(SqlTypeName.NULL);
     }
 
     /** {@inheritDoc} */
@@ -131,14 +135,39 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
     public Comparator<RowT> comparator(RelCollation collation) {
         if (collation == null || collation.getFieldCollations().isEmpty()) {
             return null;
-        } else if (collation.getFieldCollations().size() == 1) {
-            return comparator(collation.getFieldCollations().get(0));
         }
 
-        return Commons.compoundComparator(collation.getFieldCollations()
-                .stream()
-                .map(this::comparator)
-                .collect(Collectors.toList()));
+        return new Comparator<RowT>() {
+            @Override
+            public int compare(RowT o1, RowT o2) {
+                RowHandler<RowT> hnd = ctx.rowHandler();
+                Object unspecifiedVal = ctx.unspecifiedValue();
+
+                for (RelFieldCollation field : collation.getFieldCollations()) {
+                    int fieldIdx = field.getFieldIndex();
+                    int nullComparison = field.nullDirection.nullComparison;
+
+                    Object c1 = hnd.get(fieldIdx, o1);
+                    Object c2 = hnd.get(fieldIdx, o2);
+
+                    // If filter for some field is unspecified, assume equality for this field and all subsequent fields.
+                    if (c1 == unspecifiedVal || c2 == unspecifiedVal) {
+                        return 0;
+                    }
+
+                    int res = (field.direction == RelFieldCollation.Direction.ASCENDING)
+                            ?
+                            ExpressionFactoryImpl.compare(c1, c2, nullComparison) :
+                            ExpressionFactoryImpl.compare(c2, c1, -nullComparison);
+
+                    if (res != 0) {
+                        return res;
+                    }
+                }
+
+                return 0;
+            }
+        };
     }
 
     /** {@inheritDoc} */
@@ -149,65 +178,61 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
                     + (left != null ? left.size() : "null") + ", right=" + (right != null ? right.size() : "null"));
         }
 
-        List<Comparator<RowT>> comparators = new ArrayList<>();
-
+        // Check that collations is correct.
         for (int i = 0; i < left.size(); i++) {
-            comparators.add(comparator(left.get(i), right.get(i)));
+            if (left.get(i).nullDirection.nullComparison != right.get(i).nullDirection.nullComparison) {
+                throw new IllegalArgumentException("Can't be compared: left=" + left.get(i) + ", right=" + right.get(i));
+            }
+
+            if (left.get(i).direction != right.get(i).direction) {
+                throw new IllegalArgumentException("Can't be compared: left=" + left.get(i) + ", right=" + right.get(i));
+            }
         }
 
-        return Commons.compoundComparator(comparators);
-    }
+        return new Comparator<RowT>() {
+            @Override
+            public int compare(RowT o1, RowT o2) {
+                boolean hasNulls = false;
+                RowHandler<RowT> hnd = ctx.rowHandler();
 
-    @SuppressWarnings("rawtypes")
-    private Comparator<RowT> comparator(RelFieldCollation fieldCollation) {
-        final int nullComparison = fieldCollation.nullDirection.nullComparison;
-        final int x = fieldCollation.getFieldIndex();
-        RowHandler<RowT> handler = ctx.rowHandler();
+                for (int i = 0; i < left.size(); i++) {
+                    RelFieldCollation leftField = left.get(i);
+                    RelFieldCollation rightField = right.get(i);
 
-        if (fieldCollation.direction == RelFieldCollation.Direction.ASCENDING) {
-            return (o1, o2) -> {
-                final Comparable c1 = (Comparable) handler.get(x, o1);
-                final Comparable c2 = (Comparable) handler.get(x, o2);
-                return RelFieldCollation.compare(c1, c2, nullComparison);
-            };
-        }
+                    int leftIdx = leftField.getFieldIndex();
+                    int rightIdx = rightField.getFieldIndex();
 
-        return (o1, o2) -> {
-            final Comparable c1 = (Comparable) handler.get(x, o1);
-            final Comparable c2 = (Comparable) handler.get(x, o2);
-            return RelFieldCollation.compare(c2, c1, nullComparison);
+                    Object c1 = hnd.get(leftIdx, o1);
+                    Object c2 = hnd.get(rightIdx, o2);
+
+                    if (c1 == null && c2 == null) {
+                        hasNulls = true;
+                        continue;
+                    }
+
+                    int nullComparison = leftField.nullDirection.nullComparison;
+
+                    int res = leftField.direction == RelFieldCollation.Direction.ASCENDING
+                            ?
+                            ExpressionFactoryImpl.compare(c1, c2, nullComparison) :
+                            ExpressionFactoryImpl.compare(c2, c1, -nullComparison);
+
+                    if (res != 0) {
+                        return res;
+                    }
+                }
+
+                // If compared rows contain NULLs, they shouldn't be treated as equals, since NULL <> NULL in SQL.
+                return hasNulls ? 1 : 0;
+            }
         };
     }
 
     @SuppressWarnings("rawtypes")
-    private Comparator<RowT> comparator(RelFieldCollation left, RelFieldCollation right) {
-        final int nullComparison = left.nullDirection.nullComparison;
-
-        if (nullComparison != right.nullDirection.nullComparison) {
-            throw new IllegalArgumentException("Can't be compared: left=" + left + ", right=" + right);
-        }
-
-        final int lIdx = left.getFieldIndex();
-        final int rIdx = right.getFieldIndex();
-        RowHandler<RowT> handler = ctx.rowHandler();
-
-        if (left.direction != right.direction) {
-            throw new IllegalArgumentException("Can't be compared: left=" + left + ", right=" + right);
-        }
-
-        if (left.direction == RelFieldCollation.Direction.ASCENDING) {
-            return (o1, o2) -> {
-                final Comparable c1 = (Comparable) handler.get(lIdx, o1);
-                final Comparable c2 = (Comparable) handler.get(rIdx, o2);
-                return RelFieldCollation.compare(c1, c2, nullComparison);
-            };
-        }
-
-        return (o1, o2) -> {
-            final Comparable c1 = (Comparable) handler.get(lIdx, o1);
-            final Comparable c2 = (Comparable) handler.get(rIdx, o2);
-            return RelFieldCollation.compare(c2, c1, -nullComparison);
-        };
+    private static int compare(Object o1, Object o2, int nullComparison) {
+        final Comparable c1 = (Comparable) o1;
+        final Comparable c2 = (Comparable) o2;
+        return RelFieldCollation.compare(c1, c2, nullComparison);
     }
 
     /** {@inheritDoc} */
@@ -231,7 +256,8 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
     /** {@inheritDoc} */
     @Override
     public Supplier<RowT> rowSource(List<RexNode> values) {
-        return new ValuesImpl(scalar(values, null), ctx.rowHandler().factory(typeFactory, RexUtil.types(values)));
+        return new ValuesImpl(scalar(values, null), ctx.rowHandler().factory(typeFactory,
+                Commons.transform(values, v -> v != null ? v.getType() : nullType)));
     }
 
     /** {@inheritDoc} */
@@ -406,7 +432,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
     /**
      * Creates {@link SingleScalar}, a code-generated expressions evaluator.
      *
-     * @param nodes Expressions.
+     * @param nodes Expressions. {@code Null} expressions will be evaluated to {@link ExecutionContext#unspecifiedValue()}.
      * @param type Row type.
      * @return SingleScalar.
      */
@@ -429,15 +455,26 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
                 k -> compile(nodes, type, true));
     }
 
-    private Scalar compile(Iterable<RexNode> nodes, RelDataType type, boolean biInParams) {
+    private Scalar compile(List<RexNode> nodes, RelDataType type, boolean biInParams) {
         if (type == null) {
             type = emptyType;
         }
 
         RexProgramBuilder programBuilder = new RexProgramBuilder(type, rexBuilder);
 
-        for (RexNode node : nodes) {
-            programBuilder.addProject(node, null);
+        BitSet unspecifiedValues = new BitSet(nodes.size());
+
+        for (int i = 0; i < nodes.size(); i++) {
+            RexNode node = nodes.get(i);
+
+            if (node != null) {
+                programBuilder.addProject(node, null);
+            } else {
+                unspecifiedValues.set(i);
+
+                programBuilder.addProject(rexBuilder.makeNullLiteral(type == emptyType
+                        ? nullType : type.getFieldList().get(i).getType()), null);
+            }
         }
 
         RexProgram program = programBuilder.getProgram();
@@ -471,12 +508,17 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         List<Expression> projects = RexToLixTranslator.translateProjects(program, typeFactory, conformance,
                 builder, null, ctx, inputGetter, correlates);
 
+        assert nodes.size() == projects.size();
+
         for (int i = 0; i < projects.size(); i++) {
+            Expression val = unspecifiedValues.get(i) ? Expressions.call(ctx,
+                    IgniteMethod.CONTEXT_UNSPECIFIED_VALUE.method()) : projects.get(i);
+
             builder.add(
                     Expressions.statement(
                             Expressions.call(hnd,
                                     IgniteMethod.ROW_HANDLER_SET.method(),
-                                    Expressions.constant(i), out, projects.get(i))));
+                                    Expressions.constant(i), out, val)));
         }
 
         String methodName = biInParams ? IgniteMethod.BI_SCALAR_EXECUTE.method().getName() :
@@ -512,7 +554,8 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
                 continue;
             }
 
-            b.append(':').append(node.getType().getFullTypeString());
+            b.append(':');
+            b.append(node.getType().getFullTypeString());
 
             new RexShuttle() {
                 @Override
@@ -521,7 +564,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
 
                     return super.visitFieldAccess(fieldAccess);
                 }
-            }.apply(nodes.get(i));
+            }.apply(node);
         }
 
         b.append(", biParam=").append(biParam);
@@ -867,7 +910,9 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         public Function1<String, InputGetter> build(Iterable<RexNode> nodes) {
             try {
                 for (RexNode node : nodes) {
-                    node.accept(this);
+                    if (node != null) {
+                        node.accept(this);
+                    }
                 }
 
                 return correlates == null ? null : correlates::get;

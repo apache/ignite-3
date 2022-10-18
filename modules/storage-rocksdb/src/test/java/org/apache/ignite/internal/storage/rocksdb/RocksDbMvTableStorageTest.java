@@ -28,9 +28,10 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import java.nio.file.Path;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
+import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.AbstractMvTableStorageTest;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
@@ -115,8 +116,10 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
         assertThat(destroyFuture, willCompleteSuccessfully());
 
         assertThat(tableStorage.getMvPartition(PARTITION_ID_0), is(nullValue()));
-        assertThat(tableStorage.getOrCreateMvPartition(PARTITION_ID_0).read(rowId0, txId), is(nullValue()));
-        assertThat(unwrap(tableStorage.getMvPartition(PARTITION_ID_1).read(rowId1, txId)), is(equalTo(unwrap(testData))));
+        assertThat(tableStorage.getOrCreateMvPartition(PARTITION_ID_0).read(rowId0, HybridTimestamp.MAX_VALUE).binaryRow(),
+                is(nullValue()));
+        assertThat(unwrap(tableStorage.getMvPartition(PARTITION_ID_1).read(rowId1, HybridTimestamp.MAX_VALUE).binaryRow()),
+                is(equalTo(unwrap(testData))));
     }
 
     /**
@@ -143,7 +146,8 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
         assertThat(tableStorage.getMvPartition(PARTITION_ID), is(notNullValue()));
         assertThat(tableStorage.getMvPartition(PARTITION_ID_0), is(nullValue()));
         assertThat(tableStorage.getMvPartition(PARTITION_ID_1), is(nullValue()));
-        assertThat(unwrap(tableStorage.getMvPartition(PARTITION_ID).read(rowId0, txId)), is(equalTo(unwrap(testData))));
+        assertThat(unwrap(tableStorage.getMvPartition(PARTITION_ID).read(rowId0, HybridTimestamp.MAX_VALUE).binaryRow()),
+                is(equalTo(unwrap(testData))));
     }
 
     @Test

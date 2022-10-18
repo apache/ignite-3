@@ -29,13 +29,13 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
-import org.apache.ignite.configuration.schemas.network.ClusterMembershipView;
-import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
-import org.apache.ignite.configuration.schemas.network.NetworkView;
-import org.apache.ignite.configuration.schemas.network.ScaleCubeView;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
+import org.apache.ignite.internal.network.configuration.ClusterMembershipView;
+import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
+import org.apache.ignite.internal.network.configuration.NetworkView;
+import org.apache.ignite.internal.network.configuration.ScaleCubeView;
 import org.apache.ignite.internal.network.netty.ConnectionManager;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorFactory;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorRegistry;
@@ -78,7 +78,12 @@ public class ScaleCubeClusterServiceFactory {
 
         UserObjectSerializationContext userObjectSerialization = createUserObjectSerializationContext();
 
-        var messagingService = new DefaultMessagingService(messageFactory, topologyService, userObjectSerialization);
+        var messagingService = new DefaultMessagingService(
+                messageFactory,
+                topologyService,
+                userObjectSerialization.descriptorRegistry(),
+                userObjectSerialization.marshaller()
+        );
 
         return new AbstractClusterService(context, topologyService, messagingService) {
 

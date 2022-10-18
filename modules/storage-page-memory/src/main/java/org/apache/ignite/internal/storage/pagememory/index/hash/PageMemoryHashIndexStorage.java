@@ -100,7 +100,7 @@ public class PageMemoryHashIndexStorage implements HashIndexStorage {
         try {
             HashIndexRow hashIndexRow = new HashIndexRow(indexColumns, row.rowId());
 
-            var insert = new InsertHashIndexRowInvokeClosure(hashIndexRow, freeList);
+            var insert = new InsertHashIndexRowInvokeClosure(hashIndexRow, freeList, hashIndexTree.inlineSize());
 
             hashIndexTree.invoke(hashIndexRow, null, insert);
         } catch (IgniteInternalCheckedException e) {

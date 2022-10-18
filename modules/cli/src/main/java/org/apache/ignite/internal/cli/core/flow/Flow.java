@@ -36,7 +36,7 @@ public interface Flow<I, O> {
     /**
      * Flow composition method.
      *
-     * @param next flow which will be executed after currecnt instance with result of it.
+     * @param next flow which will be executed after current instance with result of it.
      * @param <OT> new output type.
      * @return output flowable of {@param next}
      */

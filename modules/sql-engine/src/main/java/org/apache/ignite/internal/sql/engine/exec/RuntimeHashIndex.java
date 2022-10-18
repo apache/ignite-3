@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import static org.apache.ignite.internal.util.ArrayUtils.OBJECT_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.util.ArrayList;
@@ -36,6 +37,12 @@ import org.jetbrains.annotations.Nullable;
  * Runtime hash index based on on-heap hash map.
  */
 public class RuntimeHashIndex<RowT> implements RuntimeIndex<RowT> {
+    /**
+     * Placeholder for keys containing NULL values. Used to skip rows with such keys, since condition NULL=NULL should not satisfy the
+     * filter.
+     */
+    private static final GroupKey NULL_KEY = new GroupKey(OBJECT_EMPTY_ARRAY);
+
     protected final ExecutionContext<RowT> ectx;
 
     private final ImmutableBitSet keys;
@@ -62,7 +69,13 @@ public class RuntimeHashIndex<RowT> implements RuntimeIndex<RowT> {
     /** {@inheritDoc} */
     @Override
     public void push(RowT r) {
-        List<RowT> eqRows = rows.computeIfAbsent(key(r), k -> new ArrayList<>());
+        GroupKey key = key(r);
+
+        if (key == NULL_KEY) {
+            return;
+        }
+
+        List<RowT> eqRows = rows.computeIfAbsent(key, k -> new ArrayList<>());
 
         eqRows.add(r);
     }
@@ -80,7 +93,13 @@ public class RuntimeHashIndex<RowT> implements RuntimeIndex<RowT> {
         GroupKey.Builder b = GroupKey.builder(keys.cardinality());
 
         for (Integer field : keys) {
-            b.add(ectx.rowHandler().get(field, r));
+            Object fieldVal = ectx.rowHandler().get(field, r);
+
+            if (fieldVal == null) {
+                return NULL_KEY;
+            }
+
+            b.add(fieldVal);
         }
 
         return b.build();
@@ -113,7 +132,13 @@ public class RuntimeHashIndex<RowT> implements RuntimeIndex<RowT> {
         @NotNull
         @Override
         public Iterator<RowT> iterator() {
-            List<RowT> eqRows = rows.get(key(searchRow.get()));
+            GroupKey key = key(searchRow.get());
+
+            if (key == NULL_KEY) {
+                return Collections.emptyIterator();
+            }
+
+            List<RowT> eqRows = rows.get(key);
 
             if (eqRows == null) {
                 return Collections.emptyIterator();

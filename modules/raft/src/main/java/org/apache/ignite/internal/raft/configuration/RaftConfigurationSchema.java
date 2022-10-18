@@ -20,7 +20,6 @@ package org.apache.ignite.internal.raft.configuration;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.configuration.schemas.table.VolatileRaftConfigurationSchema;
 
 /**
  * Raft configuration schema.

@@ -28,5 +28,11 @@ namespace Apache.Ignite.Internal.Table
     internal record Schema(
         int Version,
         int KeyColumnCount,
-        IReadOnlyList<Column> Columns);
+        IReadOnlyList<Column> Columns)
+    {
+        /// <summary>
+        /// Gets the value column count.
+        /// </summary>
+        public int ValueColumnCount => Columns.Count - KeyColumnCount;
+    }
 }

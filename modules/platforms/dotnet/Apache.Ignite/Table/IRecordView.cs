@@ -26,7 +26,7 @@ namespace Apache.Ignite.Table
     /// </summary>
     /// <typeparam name="T">Record type.</typeparam>
     public interface IRecordView<T>
-        where T : class // TODO: Remove class constraint (IGNITE-16355)
+        where T : notnull
     {
         /// <summary>
         /// Gets a record by key.
@@ -37,7 +37,7 @@ namespace Apache.Ignite.Table
         /// A <see cref="Task"/> representing the asynchronous operation.
         /// The task result contains a record with all columns.
         /// </returns>
-        Task<T?> GetAsync(ITransaction? transaction, T key);
+        Task<Option<T>> GetAsync(ITransaction? transaction, T key);
 
         /// <summary>
         /// Gets multiple records by keys.
@@ -48,9 +48,9 @@ namespace Apache.Ignite.Table
         /// A <see cref="Task"/> representing the asynchronous operation.
         /// The task result contains matching records with all columns filled from the table. The order of collection
         /// elements is guaranteed to be the same as the order of <paramref name="keys"/>. If a record does not exist,
-        /// the element at the corresponding index of the resulting collection will be <c>null</c>.
+        /// the element at the corresponding index of the resulting collection will be empty <see cref="Option{T}"/>.
         /// </returns>
-        Task<IList<T?>> GetAllAsync(ITransaction? transaction, IEnumerable<T> keys);
+        Task<IList<Option<T>>> GetAllAsync(ITransaction? transaction, IEnumerable<T> keys);
 
         /// <summary>
         /// Inserts a record into the table if it does not exist or replaces the existing one.
@@ -69,7 +69,7 @@ namespace Apache.Ignite.Table
         Task UpsertAllAsync(ITransaction? transaction, IEnumerable<T> records);
 
         /// <summary>
-        /// Inserts a record into the table if it does not exist or replaces the existing one.
+        /// Inserts a record into the table and returns previous record.
         /// </summary>
         /// <param name="transaction">The transaction or <c>null</c> to auto commit.</param>
         /// <param name="record">Record to upsert.</param>
@@ -77,7 +77,7 @@ namespace Apache.Ignite.Table
         /// A <see cref="Task"/> representing the asynchronous operation.
         /// The task result contains replaced record or null if it did not exist.
         /// </returns>
-        Task<T?> GetAndUpsertAsync(ITransaction? transaction, T record);
+        Task<Option<T>> GetAndUpsertAsync(ITransaction? transaction, T record);
 
         /// <summary>
         /// Inserts a record into the table if it does not exist.
@@ -133,9 +133,9 @@ namespace Apache.Ignite.Table
         /// <param name="record">Record to insert.</param>
         /// <returns>
         /// A <see cref="Task"/> representing the asynchronous operation.
-        /// The task result contains the previous value for the given key, or <c>null</c> if it did not exist.
+        /// The task result contains the previous value for the given key, or empty <see cref="Option{T}"/> if it did not exist.
         /// </returns>
-        Task<T?> GetAndReplaceAsync(ITransaction? transaction, T record);
+        Task<Option<T>> GetAndReplaceAsync(ITransaction? transaction, T record);
 
         /// <summary>
         /// Deletes a record with the specified key.
@@ -166,9 +166,9 @@ namespace Apache.Ignite.Table
         /// <param name="key">A record with key columns set.</param>
         /// <returns>
         /// A <see cref="Task"/> representing the asynchronous operation.
-        /// The task result contains deleted record or <c>null</c> if it did not exist.
+        /// The task result contains deleted record or empty <see cref="Option{T}"/> if it did not exist.
         /// </returns>
-        Task<T?> GetAndDeleteAsync(ITransaction? transaction, T key);
+        Task<Option<T>> GetAndDeleteAsync(ITransaction? transaction, T key);
 
         /// <summary>
         /// Deletes multiple records. If one or more keys do not exist, other records are still deleted.

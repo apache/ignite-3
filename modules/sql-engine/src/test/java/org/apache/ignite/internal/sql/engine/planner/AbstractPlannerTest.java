@@ -333,35 +333,23 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
             assertNotNull(planner);
             assertNotNull(ctx.query());
 
-            return physicalPlan(ctx.query(), ctx);
+            return physicalPlan(planner, ctx.query());
         }
     }
 
-    protected IgniteRel physicalPlan(String sql, PlanningContext ctx) throws Exception {
-        try (IgnitePlanner planner = ctx.planner()) {
-            assertNotNull(planner);
+    protected IgniteRel physicalPlan(IgnitePlanner planner, String qry) throws Exception {
+        // Parse
+        SqlNode sqlNode = planner.parse(qry);
 
-            String qry = ctx.query();
+        // Validate
+        sqlNode = planner.validate(sqlNode);
 
-            assertNotNull(qry);
+        try {
+            return PlannerHelper.optimize(sqlNode, planner);
+        } catch (Throwable ex) {
+            System.err.println(planner.dump());
 
-            // Parse
-            SqlNode sqlNode = planner.parse(qry);
-
-            // Validate
-            sqlNode = planner.validate(sqlNode);
-
-            try {
-                IgniteRel rel = PlannerHelper.optimize(sqlNode, planner);
-
-                // System.out.println(RelOptUtil.toString(rel));
-
-                return rel;
-            } catch (Throwable ex) {
-                System.err.println(planner.dump());
-
-                throw ex;
-            }
+            throw ex;
         }
     }
 

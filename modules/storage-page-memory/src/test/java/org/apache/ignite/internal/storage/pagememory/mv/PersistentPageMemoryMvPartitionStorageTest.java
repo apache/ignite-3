@@ -21,11 +21,12 @@ import static org.apache.ignite.internal.pagememory.persistence.checkpoint.Check
 
 import java.nio.file.Path;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
+import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryTableStorage;
@@ -104,6 +105,6 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
 
         setUp();
 
-        assertRowMatches(binaryRow, read(rowId, txId));
+        assertRowMatches(binaryRow, read(rowId, HybridTimestamp.MAX_VALUE));
     }
 }

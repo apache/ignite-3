@@ -200,10 +200,8 @@ namespace Apache.Ignite.Tests.Compute
             await Test(BigInteger.Pow(1234, 56));
 
             await Test(Guid.Empty);
-
-            // TODO IGNITE-17830 String representation should be the same in Java and C#.
-            await Test(
-                new Guid(new byte[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 }), "07080506-0102-0304-100f-0e0d0c0b0a09");
+            await Test(new Guid(new byte[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 }));
+            await Test(Guid.NewGuid());
 
             async Task Test(object val, string? expectedStr = null)
             {
@@ -228,9 +226,13 @@ namespace Apache.Ignite.Tests.Compute
             var keyPoco = new Poco { Key = key };
             var resNodeName2 = await Client.Compute.ExecuteColocatedAsync<string, Poco>(TableName, keyPoco, NodeNameJob);
 
+            var keyPocoStruct = new PocoStruct(key, null);
+            var resNodeName3 = await Client.Compute.ExecuteColocatedAsync<string, PocoStruct>(TableName, keyPocoStruct, NodeNameJob);
+
             var expectedNodeName = PlatformTestNodeRunner + nodeName;
             Assert.AreEqual(expectedNodeName, resNodeName);
             Assert.AreEqual(expectedNodeName, resNodeName2);
+            Assert.AreEqual(expectedNodeName, resNodeName3);
         }
 
         [Test]

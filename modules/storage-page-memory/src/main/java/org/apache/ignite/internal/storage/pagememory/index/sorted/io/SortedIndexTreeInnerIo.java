@@ -17,11 +17,18 @@
 
 package org.apache.ignite.internal.storage.pagememory.index.sorted.io;
 
+import static java.util.stream.Collectors.toUnmodifiableList;
+import static org.apache.ignite.internal.storage.pagememory.index.IndexPageTypes.T_SORTED_INDEX_INNER_IO_START;
+import static org.apache.ignite.internal.storage.pagememory.index.InlineUtils.MAX_BINARY_TUPLE_INLINE_SIZE;
+
+import java.util.List;
+import java.util.stream.IntStream;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.tree.io.BplusInnerIo;
 import org.apache.ignite.internal.pagememory.tree.io.BplusIo;
-import org.apache.ignite.internal.storage.pagememory.index.IndexPageTypes;
+import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.storage.pagememory.index.InlineUtils;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.SortedIndexRowKey;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.SortedIndexTree;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
@@ -30,16 +37,19 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
  * {@link BplusInnerIo} implementation for {@link SortedIndexTree}.
  */
 public class SortedIndexTreeInnerIo extends BplusInnerIo<SortedIndexRowKey> implements SortedIndexTreeIo {
-    /** I/O versions. */
-    public static final IoVersions<SortedIndexTreeInnerIo> VERSIONS = new IoVersions<>(new SortedIndexTreeInnerIo(1));
+    /** I/O versions for each {@link BinaryTuple} inline size up to the {@link InlineUtils#MAX_BINARY_TUPLE_INLINE_SIZE}. */
+    public static final List<IoVersions<SortedIndexTreeInnerIo>> VERSIONS = IntStream.rangeClosed(0, MAX_BINARY_TUPLE_INLINE_SIZE)
+            .mapToObj(inlineSize -> new IoVersions<>(new SortedIndexTreeInnerIo(1, inlineSize)))
+            .collect(toUnmodifiableList());
 
     /**
      * Constructor.
      *
      * @param ver Page format version.
+     * @param inlineSize Inline size in bytes.
      */
-    protected SortedIndexTreeInnerIo(int ver) {
-        super(IndexPageTypes.T_SORTED_INDEX_INNER_IO, ver, true, SIZE_IN_BYTES);
+    private SortedIndexTreeInnerIo(int ver, int inlineSize) {
+        super(T_SORTED_INDEX_INNER_IO_START + inlineSize, ver, true, ITEM_SIZE_WITHOUT_COLUMNS + inlineSize);
     }
 
     @Override

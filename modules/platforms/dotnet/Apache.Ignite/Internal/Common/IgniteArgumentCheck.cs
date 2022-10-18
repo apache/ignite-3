@@ -19,7 +19,7 @@
 namespace Apache.Ignite.Internal.Common
 {
     using System;
-    using System.Collections.Generic;
+    using JetBrains.Annotations;
 
     /// <summary>
     /// Arguments check helpers.
@@ -31,7 +31,8 @@ namespace Apache.Ignite.Internal.Common
         /// </summary>
         /// <param name="arg">The argument.</param>
         /// <param name="argName">Name of the argument.</param>
-        public static void NotNull(object arg, string argName)
+        /// <typeparam name="T">Arg type.</typeparam>
+        public static void NotNull<T>([NoEnumeration] T arg, string argName)
         {
             if (arg == null)
             {
@@ -53,20 +54,6 @@ namespace Apache.Ignite.Internal.Common
             }
 
             return arg;
-        }
-
-        /// <summary>
-        /// Throws an ArgumentException if specified arg is null or empty string.
-        /// </summary>
-        /// <param name="collection">The collection.</param>
-        /// <param name="argName">Name of the argument.</param>
-        /// <typeparam name="T">Type.</typeparam>
-        public static void NotNullOrEmpty<T>(ICollection<T> collection, string? argName)
-        {
-            if (collection == null || collection.Count == 0)
-            {
-                throw new ArgumentException($"'{argName}' argument should not be null or empty.", argName);
-            }
         }
 
         /// <summary>

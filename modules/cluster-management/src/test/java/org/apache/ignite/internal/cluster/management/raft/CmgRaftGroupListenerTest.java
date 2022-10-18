@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.cluster.management.raft;
 
+import static org.apache.ignite.internal.cluster.management.ClusterState.clusterState;
+import static org.apache.ignite.internal.cluster.management.ClusterTag.clusterTag;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.empty;
@@ -25,14 +27,10 @@ import static org.hamcrest.Matchers.is;
 import java.io.Serializable;
 import java.util.Iterator;
 import java.util.List;
-import org.apache.ignite.internal.cluster.management.ClusterState;
+import java.util.Set;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
-import org.apache.ignite.internal.cluster.management.raft.commands.InitCmgStateCommand;
-import org.apache.ignite.internal.cluster.management.raft.commands.JoinReadyCommand;
-import org.apache.ignite.internal.cluster.management.raft.commands.JoinRequestCommand;
+import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
-import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.service.CommandClosure;
 import org.jetbrains.annotations.Nullable;
@@ -47,6 +45,8 @@ public class CmgRaftGroupListenerTest {
     private final ClusterStateStorage storage = new TestClusterStateStorage();
 
     private final CmgRaftGroupListener listener = new CmgRaftGroupListener(storage);
+
+    private final CmgMessagesFactory msgFactory = new CmgMessagesFactory();
 
     @BeforeEach
     void setUp() {
@@ -63,22 +63,25 @@ public class CmgRaftGroupListenerTest {
      */
     @Test
     void testValidatedNodeIds() {
-        var state = new ClusterState(
-                List.of("foo"),
-                List.of("bar"),
+        ClusterTag clusterTag = clusterTag(msgFactory, "cluster");
+
+        var state = clusterState(
+                msgFactory,
+                Set.of("foo"),
+                Set.of("bar"),
                 IgniteProductVersion.CURRENT_VERSION,
-                new ClusterTag("cluster")
+                clusterTag
         );
 
-        var node = new ClusterNode("foo", "bar", new NetworkAddress("localhost", 666));
+        var node = msgFactory.clusterNodeMessage().id("foo").name("bar").host("localhost").port(666).build();
 
-        listener.onWrite(iterator(new InitCmgStateCommand(node, state)));
+        listener.onWrite(iterator(msgFactory.initCmgStateCommand().node(node).clusterState(state).build()));
 
-        listener.onWrite(iterator(new JoinRequestCommand(node, state.igniteVersion(), state.clusterTag())));
+        listener.onWrite(iterator(msgFactory.joinRequestCommand().node(node).version(state.version()).clusterTag(clusterTag).build()));
 
         assertThat(listener.storage().getValidatedNodeIds(), contains(node.id()));
 
-        listener.onWrite(iterator(new JoinReadyCommand(node)));
+        listener.onWrite(iterator(msgFactory.joinReadyCommand().node(node).build()));
 
         assertThat(listener.storage().getValidatedNodeIds(), is(empty()));
     }

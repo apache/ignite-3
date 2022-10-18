@@ -161,14 +161,14 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
     }
 
     private Cursor<ByteBuffer> createScanCursor(byte @Nullable [] lowerBound, byte @Nullable [] upperBound) {
-        Slice upperBoundSlice = upperBound == null ? null : new Slice(upperBound);
+        Slice upperBoundSlice = upperBound == null ? new Slice(partitionStorage.partitionEndPrefix()) : new Slice(upperBound);
 
         ReadOptions options = new ReadOptions().setIterateUpperBound(upperBoundSlice);
 
         RocksIterator it = indexCf.newIterator(options);
 
         if (lowerBound == null) {
-            it.seekToFirst();
+            it.seek(partitionStorage.partitionStartPrefix());
         } else {
             it.seek(lowerBound);
         }

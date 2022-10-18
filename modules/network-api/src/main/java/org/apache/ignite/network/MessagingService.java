@@ -39,10 +39,14 @@ public interface MessagingService {
      *
      * <p>Guarantees:
      * <ul>
-     *     <li>Messages will be delivered in the same order as they were sent;</li>
-     *     <li>If a message N has been successfully delivered to a member implies that all messages preceding N
-     *     have also been successfully delivered.</li>
+     *     <li>Messages send to same receiver will be delivered in the same order as they were sent;</li>
+     *     <li>If a message N has been successfully delivered to a member implies that all messages to same receiver
+     *     preceding N have also been successfully delivered.</li>
      * </ul>
+     *
+     * <p>Please note that the guarantees only work for same (sender, receiver) pairs. That is, if A sends m1 and m2
+     * to B, then the guarantees are maintained. If, on the other hand, A sends m1 to B and m2 to C, then no guarantees
+     * exist.
      *
      * @param recipient Recipient of the message.
      * @param msg       Message which should be delivered.

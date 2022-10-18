@@ -95,15 +95,6 @@ public class TxManagerImpl implements TxManager {
         return states.get(txId);
     }
 
-    /**
-     * Unlocks all locks for the timestamp.
-     *
-     * @param txId Transaction id.
-     */
-    private void unlockAll(UUID txId) {
-        lockManager.locks(txId).forEachRemaining(lockManager::release);
-    }
-
     /** {@inheritDoc} */
     @Override
     public boolean changeState(UUID txId, TxState before, TxState after) {
@@ -119,7 +110,7 @@ public class TxManagerImpl implements TxManager {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Lock> writeLock(UUID lockId, ByteBuffer keyData, UUID txId) {
-        // TODO IGNITE-15933 process tx messages in striped fasion to avoid races. But locks can be acquired from any thread !
+        // TODO IGNITE-15933 process tx messages in strips to avoid races. But locks can be acquired from any thread !
         TxState state = state(txId);
 
         if (state != null && state != TxState.PENDING) {

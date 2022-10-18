@@ -22,17 +22,17 @@ import static java.util.stream.Collectors.toUnmodifiableList;
 import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.configuration.NamedListView;
-import org.apache.ignite.configuration.schemas.table.ColumnView;
-import org.apache.ignite.configuration.schemas.table.IndexColumnView;
-import org.apache.ignite.configuration.schemas.table.SortedIndexView;
-import org.apache.ignite.configuration.schemas.table.TableIndexView;
-import org.apache.ignite.configuration.schemas.table.TableView;
-import org.apache.ignite.configuration.schemas.table.TablesView;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.schema.NativeType;
+import org.apache.ignite.internal.schema.configuration.ColumnView;
 import org.apache.ignite.internal.schema.configuration.ConfigurationToSchemaDescriptorConverter;
+import org.apache.ignite.internal.schema.configuration.TableView;
+import org.apache.ignite.internal.schema.configuration.TablesView;
+import org.apache.ignite.internal.schema.configuration.index.IndexColumnView;
+import org.apache.ignite.internal.schema.configuration.index.SortedIndexView;
+import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.tostring.S;
 
@@ -41,11 +41,11 @@ import org.apache.ignite.internal.tostring.S;
  *
  * @see SortedIndexStorage
  */
-public class SortedIndexDescriptor {
+public class SortedIndexDescriptor implements IndexDescriptor {
     /**
      * Descriptor of a Sorted Index column (column name and column sort order).
      */
-    public static class ColumnDescriptor {
+    public static class SortedIndexColumnDescriptor implements ColumnDescriptor {
         private final String name;
 
         private final NativeType type;
@@ -62,7 +62,7 @@ public class SortedIndexDescriptor {
          * @param nullable Flag indicating that the column may contain {@code null}s.
          * @param asc Sort order of the column.
          */
-        public ColumnDescriptor(String name, NativeType type, boolean nullable, boolean asc) {
+        public SortedIndexColumnDescriptor(String name, NativeType type, boolean nullable, boolean asc) {
             this.name = name;
             this.type = type;
             this.nullable = nullable;
@@ -75,30 +75,24 @@ public class SortedIndexDescriptor {
          * @param tableColumnView Table column configuration.
          * @param indexColumnView Index column configuration.
          */
-        public ColumnDescriptor(ColumnView tableColumnView, IndexColumnView indexColumnView) {
+        public SortedIndexColumnDescriptor(ColumnView tableColumnView, IndexColumnView indexColumnView) {
             this.name = tableColumnView.name();
             this.type = ConfigurationToSchemaDescriptorConverter.convert(tableColumnView.type());
             this.nullable = tableColumnView.nullable();
             this.asc = indexColumnView.asc();
         }
 
-        /**
-         * Returns the name of an index column.
-         */
+        @Override
         public String name() {
             return name;
         }
 
-        /**
-         * Returns a column descriptor.
-         */
+        @Override
         public NativeType type() {
             return type;
         }
 
-        /**
-         * Returns {@code true} if this column can contain null values or {@code false} otherwise.
-         */
+        @Override
         public boolean nullable() {
             return nullable;
         }
@@ -118,7 +112,7 @@ public class SortedIndexDescriptor {
 
     private final UUID id;
 
-    private final List<ColumnDescriptor> columns;
+    private final List<SortedIndexColumnDescriptor> columns;
 
     private final BinaryTupleSchema binaryTupleSchema;
 
@@ -138,13 +132,13 @@ public class SortedIndexDescriptor {
      * @param indexId Index ID.
      * @param columnDescriptors Column descriptors.
      */
-    public SortedIndexDescriptor(UUID indexId, List<ColumnDescriptor> columnDescriptors) {
+    public SortedIndexDescriptor(UUID indexId, List<SortedIndexColumnDescriptor> columnDescriptors) {
         this.id = indexId;
         this.columns = List.copyOf(columnDescriptors);
         this.binaryTupleSchema = createSchema(columns);
     }
 
-    private static List<ColumnDescriptor> extractIndexColumnsConfiguration(UUID indexId, TablesView tablesConfig) {
+    private static List<SortedIndexColumnDescriptor> extractIndexColumnsConfiguration(UUID indexId, TablesView tablesConfig) {
         TableIndexView indexConfig = ConfigurationUtil.getByInternalId(tablesConfig.indexes(), indexId);
 
         if (indexConfig == null) {
@@ -174,12 +168,12 @@ public class SortedIndexDescriptor {
 
                     IndexColumnView indexColumnView = indexColumns.get(columnName);
 
-                    return new ColumnDescriptor(columnView, indexColumnView);
+                    return new SortedIndexColumnDescriptor(columnView, indexColumnView);
                 })
                 .collect(toUnmodifiableList());
     }
 
-    private static BinaryTupleSchema createSchema(List<ColumnDescriptor> columns) {
+    private static BinaryTupleSchema createSchema(List<SortedIndexColumnDescriptor> columns) {
         Element[] elements = columns.stream()
                 .map(columnDescriptor -> new Element(columnDescriptor.type(), columnDescriptor.nullable()))
                 .toArray(Element[]::new);
@@ -187,17 +181,13 @@ public class SortedIndexDescriptor {
         return BinaryTupleSchema.create(elements);
     }
 
-    /**
-     * Returns this index' ID.
-     */
+    @Override
     public UUID id() {
         return id;
     }
 
-    /**
-     * Returns the Column Descriptors that comprise a row of this index.
-     */
-    public List<ColumnDescriptor> indexColumns() {
+    @Override
+    public List<SortedIndexColumnDescriptor> columns() {
         return columns;
     }
 

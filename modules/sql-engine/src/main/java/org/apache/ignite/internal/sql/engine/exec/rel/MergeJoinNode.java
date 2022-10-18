@@ -454,8 +454,8 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         protected void join() throws Exception {
             inLoop = true;
             try {
-                while (requested > 0 && (left != null || !leftInBuf.isEmpty())
-                        && !(right == null && rightInBuf.isEmpty() && rightMaterialization == null && waitingRight != NOT_WAITING)) {
+                while (requested > 0 && (left != null || !leftInBuf.isEmpty()) && (right != null || !rightInBuf.isEmpty()
+                        || rightMaterialization != null || waitingRight == NOT_WAITING)) {
                     checkState();
 
                     if (left == null) {
@@ -464,8 +464,14 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
                         matched = false;
                     }
 
-                    if (right == null && !rightInBuf.isEmpty()) {
-                        right = rightInBuf.remove();
+                    if (right == null) {
+                        if (rightInBuf.isEmpty() && waitingRight != NOT_WAITING) {
+                            break;
+                        }
+
+                        if (!rightInBuf.isEmpty()) {
+                            right = rightInBuf.remove();
+                        }
                     }
 
                     if (right == null && rightMaterialization != null && !drainMaterialization) {

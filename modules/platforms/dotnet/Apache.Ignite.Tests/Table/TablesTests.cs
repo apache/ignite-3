@@ -33,9 +33,9 @@ namespace Apache.Ignite.Tests.Table
         {
             var tables = (await Client.Tables.GetTablesAsync()).OrderBy(x => x.Name).ToList();
 
-            Assert.AreEqual(2, tables.Count);
-            Assert.AreEqual(TableAllColumnsName, tables[0].Name);
-            Assert.AreEqual(TableName, tables[1].Name);
+            Assert.GreaterOrEqual(tables.Count, 2);
+            CollectionAssert.Contains(tables.Select(x => x.Name), TableName);
+            CollectionAssert.Contains(tables.Select(x => x.Name), TableAllColumnsName);
         }
 
         [Test]

@@ -633,10 +633,6 @@ public class RexUtils {
                 || op instanceof RexFieldAccess;
     }
 
-    private static List<RexNode> makeListOfNullLiterals(RexBuilder builder, List<RelDataType> types) {
-        return Commons.transform(types, builder::makeNullLiteral);
-    }
-
     /**
      * IsNotNull.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
@@ -662,7 +658,7 @@ public class RexUtils {
 
         RexBuilder builder = builder(cluster);
         List<RelDataType> types = RelOptUtil.getFieldTypeList(rowType);
-        List<RexNode> res = makeListOfNullLiterals(builder, types);
+        List<RexNode> res = Arrays.asList(new RexNode[types.size()]);
 
         for (RexNode pred : idxCond) {
             assert pred instanceof RexCall;

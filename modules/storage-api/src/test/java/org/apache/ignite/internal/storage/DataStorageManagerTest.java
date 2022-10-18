@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.storage;
 
-import static org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema.UNKNOWN_DATA_STORAGE;
+import static org.apache.ignite.internal.schema.configuration.storage.UnknownDataStorageConfigurationSchema.UNKNOWN_DATA_STORAGE;
 import static org.apache.ignite.internal.storage.DataStorageModulesTest.FirstDataStorageConfigurationSchema.FIRST;
 import static org.apache.ignite.internal.storage.DataStorageModulesTest.SecondDataStorageConfigurationSchema.SECOND;
 import static org.apache.ignite.internal.storage.DataStorageModulesTest.createMockedDataStorageModule;
@@ -35,14 +35,14 @@ import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.configuration.ConfigurationWrongPolymorphicTypeIdException;
-import org.apache.ignite.configuration.schemas.store.DataStorageConfiguration;
-import org.apache.ignite.configuration.schemas.store.DataStorageView;
-import org.apache.ignite.configuration.schemas.store.UnknownDataStorageChange;
-import org.apache.ignite.configuration.schemas.store.UnknownDataStorageView;
-import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
+import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfiguration;
+import org.apache.ignite.internal.schema.configuration.storage.DataStorageView;
+import org.apache.ignite.internal.schema.configuration.storage.UnknownDataStorageChange;
+import org.apache.ignite.internal.schema.configuration.storage.UnknownDataStorageView;
 import org.apache.ignite.internal.storage.DataStorageModulesTest.FirstDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.DataStorageModulesTest.SecondDataStorageConfigurationSchema;
 import org.apache.ignite.internal.testframework.WorkDirectory;
