@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metastorage.common;
 
+import java.io.Serializable;
 import org.apache.ignite.internal.metastorage.common.command.MetastorageCommandsMessageGroup;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
@@ -25,7 +26,7 @@ import org.apache.ignite.network.annotations.Transferable;
  * Defines operation.
  */
 @Transferable(MetastorageCommandsMessageGroup.OPERATION_INFO)
-public interface OperationInfo extends NetworkMessage {
+public interface OperationInfo extends NetworkMessage, Serializable {
     /**
      * Returns key.
      *

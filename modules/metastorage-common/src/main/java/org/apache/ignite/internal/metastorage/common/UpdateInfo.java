@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metastorage.common;
 
+import java.io.Serializable;
 import java.util.Collection;
 import org.apache.ignite.internal.metastorage.common.command.MetastorageCommandsMessageGroup;
 import org.apache.ignite.network.NetworkMessage;
@@ -27,7 +28,7 @@ import org.apache.ignite.network.annotations.Transferable;
  * of {@link org.apache.ignite.internal.metastorage.common.command.IfInfo} execution.
  */
 @Transferable(MetastorageCommandsMessageGroup.UPDATE_INFO)
-public interface UpdateInfo extends NetworkMessage {
+public interface UpdateInfo extends NetworkMessage, Serializable {
     /**
      * Retunrs operations.
      *
