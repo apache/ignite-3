@@ -17,11 +17,18 @@
 
 package org.apache.ignite.internal.replicator;
 
+import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
+
 import java.util.Collection;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
+import java.util.function.Supplier;
 import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -34,6 +41,7 @@ import org.apache.ignite.internal.replicator.message.ReplicaMessageGroup;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NodeStoppingException;
@@ -42,6 +50,7 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.NetworkMessageHandler;
+import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -51,6 +60,9 @@ import org.jetbrains.annotations.Nullable;
  * This class allow to start/stop/get a replica.
  */
 public class ReplicaManager implements IgniteComponent {
+    /** Idle safe time propagation period. */
+    private static final int IDLE_SAFE_TIME_PROPAGATION_PERIOD_SECONDS = 1;
+
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(ReplicaManager.class);
 
@@ -74,6 +86,10 @@ public class ReplicaManager implements IgniteComponent {
 
     /** A hybrid logical clock. */
     private final HybridClock clock;
+
+    /** Scheduled executor for idle safe time sync. */
+    private final ScheduledExecutorService scheduledIdleSafeTimeSyncExecutor =
+        Executors.newScheduledThreadPool(1, new NamedThreadFactory("scheduled-idle-safe-time-sync-thread", LOG));
 
     /** Set of message groups to handler as replica requests. */
     Set<Class<?>> messageGroupsToHandle;
@@ -161,19 +177,26 @@ public class ReplicaManager implements IgniteComponent {
      *
      * @param replicaGrpId Replication group id.
      * @param listener Replica listener.
+     * @param raftClient Raft client.
+     * @param clusterNodeResolver Resolver that resolves a network address to cluster node.
+     * @param localNodeSupplier Supplier of instance of {@link ClusterNode} which represents the local node.
      * @return New replica.
      * @throws NodeStoppingException If node is stopping.
      * @throws ReplicaIsAlreadyStartedException Is thrown when a replica with the same replication group id has already been started.
      */
     public Replica startReplica(
             String replicaGrpId,
-            ReplicaListener listener) throws NodeStoppingException {
+            ReplicaListener listener,
+            RaftGroupService raftClient,
+            Function<NetworkAddress, ClusterNode> clusterNodeResolver,
+            Supplier<ClusterNode> localNodeSupplier
+    ) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
         }
 
         try {
-            return startReplicaInternal(replicaGrpId, listener);
+            return startReplicaInternal(replicaGrpId, listener, raftClient, clusterNodeResolver, localNodeSupplier);
         } finally {
             busyLock.leaveBusy();
         }
@@ -184,10 +207,19 @@ public class ReplicaManager implements IgniteComponent {
      *
      * @param replicaGrpId   Replication group id.
      * @param listener Replica listener.
+     * @param raftClient Raft client.
+     * @param clusterNodeResolver Resolver that resolves a network address to cluster node.
+     * @param localNodeSupplier Supplier of instance of {@link ClusterNode} which represents the local node.
      * @return New replica.
      */
-    private Replica startReplicaInternal(String replicaGrpId, ReplicaListener listener) {
-        var replica = new Replica(replicaGrpId, listener);
+    private Replica startReplicaInternal(
+            String replicaGrpId,
+            ReplicaListener listener,
+            RaftGroupService raftClient,
+            Function<NetworkAddress, ClusterNode> clusterNodeResolver,
+            Supplier<ClusterNode> localNodeSupplier
+    ) {
+        var replica = new Replica(replicaGrpId, listener, raftClient, clusterNodeResolver, localNodeSupplier);
 
         Replica previous = replicas.putIfAbsent(replicaGrpId, replica);
 
@@ -232,6 +264,7 @@ public class ReplicaManager implements IgniteComponent {
     public void start() {
         clusterNetSvc.messagingService().addMessageHandler(ReplicaMessageGroup.class, handler);
         messageGroupsToHandle.forEach(mg -> clusterNetSvc.messagingService().addMessageHandler(mg, handler));
+        scheduledIdleSafeTimeSyncExecutor.schedule(this::idleSafeTimeSync, IDLE_SAFE_TIME_PROPAGATION_PERIOD_SECONDS, TimeUnit.SECONDS);
     }
 
     /** {@inheritDoc} */
@@ -242,6 +275,8 @@ public class ReplicaManager implements IgniteComponent {
         }
 
         busyLock.block();
+
+        shutdownAndAwaitTermination(scheduledIdleSafeTimeSyncExecutor, 10, TimeUnit.SECONDS);
 
         assert replicas.isEmpty() : "There are replicas alive [replicas=" + replicas.keySet() + ']';
     }
@@ -338,5 +373,12 @@ public class ReplicaManager implements IgniteComponent {
                     .throwable(ex)
                     .build();
         }
+    }
+
+    /**
+     * Idle safe time sync for replicas.
+     */
+    private void idleSafeTimeSync() {
+        replicas.values().forEach(Replica::propagateSafeTime);
     }
 }

@@ -791,7 +791,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                             tblId,
                                                             primaryIndex,
                                                             safeTimeClock
-                                                    )
+                                                    ),
+                                                    updatedRaftGroupService,
+                                                    clusterNodeResolver,
+                                                    topologyService::localMember
                                             );
                                         } catch (NodeStoppingException ex) {
                                             throw new AssertionError("Loza was stopped before Table manager", ex);
@@ -1760,10 +1763,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         if (replicaMgr.shouldHaveReplicationGroupLocally(deltaPeers)) {
                             MvPartitionStorage partitionStorage = tbl.internalTable().storage().getOrCreateMvPartition(partId);
 
+                            RaftGroupService raftGroupService = tbl.internalTable().partitionRaftGroupService(partId);
+
                             replicaMgr.startReplica(grpId,
                                     new PartitionReplicaListener(
                                             partitionStorage,
-                                            tbl.internalTable().partitionRaftGroupService(partId),
+                                            raftGroupService,
                                             txManager,
                                             lockMgr,
                                             partId,
@@ -1771,7 +1776,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                             tblId,
                                             primaryIndex,
                                             safeTimeClock
-                                    )
+                                    ),
+                                    raftGroupService,
+                                    clusterNodeResolver,
+                                    raftMgr.topologyService()::localMember
                             );
                         }
                     } catch (NodeStoppingException e) {

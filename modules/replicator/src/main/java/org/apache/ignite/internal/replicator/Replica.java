@@ -18,9 +18,16 @@
 package org.apache.ignite.internal.replicator;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
+import java.util.function.Supplier;
+import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.lang.IgniteStringFormatter;
+import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.raft.client.Peer;
+import org.apache.ignite.raft.client.service.RaftGroupService;
 
 /**
  * Replica server.
@@ -32,18 +39,35 @@ public class Replica {
     /** Replica listener. */
     private final ReplicaListener listener;
 
+    private final RaftGroupService raftClient;
+
+    /** Resolver that resolves a network address to cluster node. */
+    private final Function<NetworkAddress, ClusterNode> clusterNodeResolver;
+
+    /** Supplier of instance of {@link ClusterNode} which represents the local node. */
+    private final Supplier<ClusterNode> localNodeSupplier;
+
     /**
      * The constructor of a replica server.
      *
      * @param replicaGrpId Replication group id.
      * @param listener Replica listener.
+     * @param raftClient Raft client.
+     * @param clusterNodeResolver Resolver that resolves a network address to cluster node.
+     * @param localNodeSupplier Supplier of instance of {@link ClusterNode} which represents the local node.
      */
     public Replica(
             String replicaGrpId,
-            ReplicaListener listener
+            ReplicaListener listener,
+            RaftGroupService raftClient,
+            Function<NetworkAddress, ClusterNode> clusterNodeResolver,
+            Supplier<ClusterNode> localNodeSupplier
     ) {
         this.replicaGrpId = replicaGrpId;
         this.listener = listener;
+        this.raftClient = raftClient;
+        this.clusterNodeResolver = clusterNodeResolver;
+        this.localNodeSupplier = localNodeSupplier;
     }
 
     /**
@@ -59,5 +83,28 @@ public class Replica {
                 replicaGrpId);
 
         return listener.invoke(request);
+    }
+
+    /**
+     * Whether this replica on this node is primary.
+     *
+     * @return Whether is primary.
+     */
+    public boolean isPrimary() {
+        // TODO https://issues.apache.org/jira/browse/IGNITE-17256
+        return raftClient.refreshAndGetLeaderWithTerm()
+            .thenApply(leaderAndTerm -> clusterNodeResolver.apply(leaderAndTerm.get1().address()).equals(localNodeSupplier.get()))
+            .join();
+    }
+
+    /**
+     * Propagates safe time on non-primary replicas, if this replica is primary.
+     */
+    public void propagateSafeTime() {
+        if (!isPrimary()) {
+            return;
+        }
+
+        raftClient.run(new SafeTimeSyncCommand());
     }
 }

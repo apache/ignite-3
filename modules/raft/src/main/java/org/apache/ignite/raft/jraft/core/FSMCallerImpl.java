@@ -23,6 +23,7 @@ import com.lmax.disruptor.EventTranslator;
 import com.lmax.disruptor.RingBuffer;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicLong;
@@ -58,6 +59,7 @@ import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
 import org.apache.ignite.raft.jraft.util.DisruptorMetricSet;
 import org.apache.ignite.raft.jraft.util.OnlyForTest;
 import org.apache.ignite.raft.jraft.util.Requires;
+import org.apache.ignite.raft.jraft.util.SafeTimeCandidateManager;
 import org.apache.ignite.raft.jraft.util.Utils;
 
 /**
@@ -155,6 +157,8 @@ public class FSMCallerImpl implements FSMCaller {
     private NodeMetrics nodeMetrics;
     private final CopyOnWriteArrayList<LastAppliedLogIndexListener> lastAppliedLogIndexListeners = new CopyOnWriteArrayList<>();
     private RaftMessagesFactory msgFactory;
+    private SafeTimeCandidateManager safeTimeCandidateManager;
+    private UUID uuid;
 
     public FSMCallerImpl() {
         super();
@@ -186,6 +190,8 @@ public class FSMCallerImpl implements FSMCaller {
         }
         this.error = new RaftException(ErrorType.ERROR_TYPE_NONE);
         this.msgFactory = opts.getRaftMessagesFactory();
+        this.safeTimeCandidateManager = opts.getSafeTimeCandidateManager();
+        this.uuid = opts.uuid();
         LOG.info("Starts FSMCaller successfully.");
         return true;
     }
@@ -524,6 +530,9 @@ public class FSMCallerImpl implements FSMCaller {
             this.lastAppliedTerm = lastTerm;
             this.logManager.setAppliedId(lastAppliedId);
             notifyLastAppliedIndexUpdated(lastIndex);
+            if (safeTimeCandidateManager != null) {
+                safeTimeCandidateManager.commitIndex(lastAppliedIndex, lastIndex, lastTerm);
+            }
         }
         finally {
             this.nodeMetrics.recordLatency("fsm-commit", Utils.monotonicMs() - startMs);

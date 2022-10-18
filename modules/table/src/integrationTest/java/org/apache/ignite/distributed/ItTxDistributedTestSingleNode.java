@@ -17,6 +17,7 @@
 
 package org.apache.ignite.distributed;
 
+import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.raft.jraft.test.TestUtils.waitForTopology;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -361,6 +362,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
             List<Peer> conf = partNodes.stream().map(n -> n.address()).map(Peer::new)
                     .collect(Collectors.toList());
 
+            Map<NetworkAddress, ClusterNode> addressToNodeMap = partNodes.stream().collect(toMap(ClusterNode::address, n -> n));
+
             for (ClusterNode node : partNodes) {
                 var testMpPartStorage = new TestMvPartitionStorage(0);
 
@@ -397,7 +400,10 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                                                 tblId,
                                                 primaryIndex,
                                                 safeTimeClock
-                                        )
+                                        ),
+                                        raftSvc,
+                                        addressToNodeMap::get,
+                                        raftServers.get(node).topologyService()::localMember
                                 );
                             } catch (NodeStoppingException e) {
                                 fail("Unexpected node stopping", e);

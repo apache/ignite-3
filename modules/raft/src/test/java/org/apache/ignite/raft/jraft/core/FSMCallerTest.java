@@ -18,6 +18,8 @@ package org.apache.ignite.raft.jraft.core;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
+import org.apache.ignite.hlc.HybridClock;
+import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.raft.jraft.Iterator;
 import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
@@ -42,6 +44,7 @@ import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
 import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
+import org.apache.ignite.raft.jraft.util.SafeTimeCandidateManager;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -73,6 +76,10 @@ public class FSMCallerTest {
 
     private ExecutorService executor;
 
+    private HybridClock safeTimeClock = new HybridClock();
+
+    private SafeTimeCandidateManager safeTimeCandidateManager = new SafeTimeCandidateManager(safeTimeClock);
+
     @BeforeEach
     public void setup() {
         this.fsmCaller = new FSMCallerImpl();
@@ -94,6 +101,7 @@ public class FSMCallerTest {
             1024,
             () -> new FSMCallerImpl.ApplyTask(),
             1));
+        opts.setSafeTimeCandidateManager(safeTimeCandidateManager);
         assertTrue(this.fsmCaller.init(opts));
     }
 
@@ -131,6 +139,7 @@ public class FSMCallerTest {
 
     @Test
     public void testOnCommitted() throws Exception {
+        safeTimeCandidateManager.addSafeTimeCandidate(11, 1, new HybridTimestamp(1, 1));
         final LogEntry log = new LogEntry(EntryType.ENTRY_TYPE_DATA);
         log.getId().setIndex(11);
         log.getId().setTerm(1);

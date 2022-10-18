@@ -106,7 +106,7 @@ public class HybridClock {
      */
     private HybridTimestamp update(HybridTimestamp requestTime, boolean addTick) {
         while (true) {
-            HybridTimestamp now = new HybridTimestamp(Clock.systemUTC().instant().toEpochMilli(), -1);
+            HybridTimestamp now = new HybridTimestamp(Clock.systemUTC().instant().toEpochMilli(), addTick ? -1 : 0);
 
             // Read the latest time after accessing UTC time to reduce contention.
             HybridTimestamp latestTime = this.latestTime;

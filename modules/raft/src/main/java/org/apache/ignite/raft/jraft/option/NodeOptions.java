@@ -237,7 +237,7 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     private HybridClock clock = new HybridClock();
 
     /** A hybrid clock for safe time. */
-    private HybridClock safeTimeClock = new HybridClock();
+    private HybridClock safeTimeClock;
 
     /**
      * Amount of Disruptors that will handle the RAFT server.

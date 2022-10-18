@@ -16,6 +16,7 @@
  */
 package org.apache.ignite.raft.jraft.option;
 
+import java.util.UUID;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.StateMachine;
@@ -25,6 +26,7 @@ import org.apache.ignite.raft.jraft.core.NodeImpl;
 import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
 import org.apache.ignite.raft.jraft.entity.LogId;
 import org.apache.ignite.raft.jraft.storage.LogManager;
+import org.apache.ignite.raft.jraft.util.SafeTimeCandidateManager;
 
 /**
  * FSM caller options.
@@ -41,6 +43,8 @@ public class FSMCallerOptions {
     private NodeImpl node;
     private RaftMessagesFactory raftMessagesFactory;
     private StripedDisruptor<FSMCallerImpl.ApplyTask> fSMCallerExecutorDisruptor;
+    private SafeTimeCandidateManager safeTimeCandidateManager;
+    private UUID uuid;
 
     public String getGroupId() {
         return groupId;
@@ -114,5 +118,21 @@ public class FSMCallerOptions {
 
     public void setRaftMessagesFactory(RaftMessagesFactory raftMessagesFactory) {
         this.raftMessagesFactory = raftMessagesFactory;
+    }
+
+    public SafeTimeCandidateManager getSafeTimeCandidateManager() {
+        return safeTimeCandidateManager;
+    }
+
+    public void setSafeTimeCandidateManager(SafeTimeCandidateManager safeTimeCandidateManager) {
+        this.safeTimeCandidateManager = safeTimeCandidateManager;
+    }
+
+    public UUID uuid() {
+        return uuid;
+    }
+
+    public void setUuid(UUID uuid) {
+        this.uuid = uuid;
     }
 }

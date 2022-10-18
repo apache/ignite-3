@@ -25,7 +25,10 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ScheduledFuture;
@@ -39,6 +42,7 @@ import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.FSMCaller;
@@ -116,6 +120,7 @@ import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.OnlyForTest;
 import org.apache.ignite.raft.jraft.util.RepeatedTimer;
 import org.apache.ignite.raft.jraft.util.Requires;
+import org.apache.ignite.raft.jraft.util.SafeTimeCandidateManager;
 import org.apache.ignite.raft.jraft.util.StringUtils;
 import org.apache.ignite.raft.jraft.util.SystemPropertyUtil;
 import org.apache.ignite.raft.jraft.util.ThreadHelper;
@@ -137,7 +142,7 @@ public class NodeImpl implements Node, RaftServerService {
 
     private volatile HybridClock clock;
 
-    private volatile HybridClock safeTimeClock;
+    private volatile SafeTimeCandidateManager safeTimeCandidateManager;
 
     /**
      * Internal states
@@ -211,6 +216,7 @@ public class NodeImpl implements Node, RaftServerService {
 
     private NodeId nodeId;
     private JRaftServiceFactory serviceFactory;
+    private UUID uuid = UUID.randomUUID();
 
     /**
      * ReplicatorStateListeners
@@ -563,12 +569,6 @@ public class NodeImpl implements Node, RaftServerService {
         return clock.update(timestamp);
     }
 
-    public void safeTimeClockSync(HybridTimestamp safeTimestamp) {
-        if (safeTimeClock != null) {
-            safeTimeClock.sync(safeTimestamp);
-        }
-    }
-
     private boolean initSnapshotStorage() {
         if (StringUtils.isEmpty(this.options.getSnapshotUri())) {
             LOG.warn("Do not set snapshot uri, ignore initSnapshotStorage.");
@@ -830,6 +830,8 @@ public class NodeImpl implements Node, RaftServerService {
         opts.setRaftMessagesFactory(raftOptions.getRaftMessagesFactory());
         opts.setfSMCallerExecutorDisruptor(options.getfSMCallerExecutorDisruptor());
         opts.setGroupId(groupId);
+        opts.setSafeTimeCandidateManager(safeTimeCandidateManager);
+        opts.setUuid(uuid);
 
         return this.fsmCaller.init(opts);
     }
@@ -865,7 +867,9 @@ public class NodeImpl implements Node, RaftServerService {
         Requires.requireNonNull(opts.getServiceFactory(), "Null jraft service factory");
         this.serviceFactory = opts.getServiceFactory();
         this.clock = opts.getNodeOptions().getClock();
-        this.safeTimeClock = opts.getNodeOptions().getSafeTimeClock();
+        if (opts.getNodeOptions().getSafeTimeClock() != null) {
+            this.safeTimeCandidateManager = new SafeTimeCandidateManager(opts.getNodeOptions().getSafeTimeClock(), uuid);
+        }
         // Term is not an option since changing it is very dangerous
         final long bootstrapLogTerm = opts.getLastLogIndex() > 0 ? 1 : 0;
         final LogId bootstrapId = new LogId(opts.getLastLogIndex(), bootstrapLogTerm);
@@ -964,7 +968,9 @@ public class NodeImpl implements Node, RaftServerService {
         Requires.requireNonNull(opts.getServiceFactory(), "Null jraft service factory");
         this.serviceFactory = opts.getServiceFactory();
         this.clock = opts.getClock();
-        this.safeTimeClock = opts.getSafeTimeClock();
+        if (opts.getSafeTimeClock() != null) {
+            this.safeTimeCandidateManager = new SafeTimeCandidateManager(opts.getSafeTimeClock(), uuid);
+        }
         this.options = opts;
         this.raftOptions = opts.getRaftOptions();
         this.metrics = new NodeMetrics(opts.isEnableMetrics());
@@ -2096,6 +2102,7 @@ public class NodeImpl implements Node, RaftServerService {
         final long startMs = Utils.monotonicMs();
         this.writeLock.lock();
         final int entriesCount = Utils.size(request.entriesList());
+        System.out.println("qqq handling appendEntries request uuid=" + uuid);
         try {
             if (!this.state.isActive()) {
                 LOG.warn("Node {} is not in active state, currTerm={}.", getNodeId(), this.currTerm);
@@ -2113,25 +2120,20 @@ public class NodeImpl implements Node, RaftServerService {
                         "Parse serverId failed: %s.", request.serverId());
             }
 
-            HybridTimestamp timestampForResponse;
-
-            if (request.timestamp() != null) {
-                timestampForResponse = clock.update(request.timestamp());
-                safeTimeClockSync(request.timestamp());
-            } else {
-                timestampForResponse = null;
-            }
-
             // Check stale term
             if (request.term() < this.currTerm) {
                 LOG.warn("Node {} ignore stale AppendEntriesRequest from {}, term={}, currTerm={}.", getNodeId(),
                     request.serverId(), request.term(), this.currTerm);
-                return raftOptions.getRaftMessagesFactory()
+                AppendEntriesResponseBuilder rb = raftOptions.getRaftMessagesFactory()
                         .appendEntriesResponse()
                         .success(false)
-                        .term(this.currTerm)
-                        .timestamp(timestampForResponse)
-                        .build();
+                        .term(this.currTerm);
+
+                if (request.timestamp() != null) {
+                    rb.timestamp(clock.update(request.timestamp()));
+                }
+
+                return rb.build();
             }
 
             // Check term and state to step down
@@ -2143,12 +2145,16 @@ public class NodeImpl implements Node, RaftServerService {
                 // loss of split brain
                 stepDown(request.term() + 1, false, new Status(RaftError.ELEADERCONFLICT,
                     "More than one leader in the same term."));
-                return raftOptions.getRaftMessagesFactory()
+                AppendEntriesResponseBuilder rb = raftOptions.getRaftMessagesFactory()
                         .appendEntriesResponse()
                         .success(false) //
-                        .term(request.term() + 1)
-                        .timestamp(timestampForResponse)
-                        .build();
+                        .term(request.term() + 1);
+
+                if (request.timestamp() != null) {
+                    rb.timestamp(clock.update(request.timestamp()));
+                }
+
+                return rb.build();
             }
 
             updateLastLeaderTimestamp(Utils.monotonicMs());
@@ -2171,13 +2177,17 @@ public class NodeImpl implements Node, RaftServerService {
                     getNodeId(), request.serverId(), request.term(), prevLogIndex, prevLogTerm, localPrevLogTerm,
                     lastLogIndex, entriesCount);
 
-                return raftOptions.getRaftMessagesFactory()
+                AppendEntriesResponseBuilder rb = raftOptions.getRaftMessagesFactory()
                         .appendEntriesResponse()
                         .success(false)
                         .term(this.currTerm)
-                        .lastLogIndex(lastLogIndex)
-                        .timestamp(timestampForResponse)
-                        .build();
+                        .lastLogIndex(lastLogIndex);
+
+                if (request.timestamp() != null) {
+                    rb.timestamp(clock.update(request.timestamp()));
+                }
+
+                return rb.build();
             }
 
             if (entriesCount == 0) {
@@ -2186,8 +2196,10 @@ public class NodeImpl implements Node, RaftServerService {
                     .appendEntriesResponse()
                     .success(true)
                     .term(this.currTerm)
-                    .lastLogIndex(this.logManager.getLastLogIndex())
-                    .timestamp(timestampForResponse);
+                    .lastLogIndex(this.logManager.getLastLogIndex());
+                if (request.timestamp() != null) {
+                    respBuilder.timestamp(clock.update(request.timestamp()));
+                }
                 doUnlock = false;
                 this.writeLock.unlock();
                 // see the comments at FollowerStableClosure#run()
@@ -2221,6 +2233,10 @@ public class NodeImpl implements Node, RaftServerService {
                                 realChecksum);
                     }
                     entries.add(logEntry);
+                }
+
+                if (safeTimeCandidateManager != null) {
+                    safeTimeCandidateManager.addSafeTimeCandidate(index, request.term(), request.timestamp());
                 }
             }
 
