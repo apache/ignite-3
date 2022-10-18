@@ -84,8 +84,6 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
     protected long baseOff;
 
-    protected int limit;
-
     private int arrOff = -1;
 
     private Object tmpArr;
@@ -181,8 +179,6 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
             heapArr = buf.isDirect() ? null : buf.array();
             baseOff = buf.isDirect() ? GridUnsafe.bufferAddress(buf) : BYTE_ARR_OFF;
-
-            limit = buf.limit();
         }
     }
 
@@ -885,6 +881,8 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
         int pos = buf.position();
 
+        int limit = buf.limit();
+
         while (pos < limit) {
             byte b = GridUnsafe.getByte(heapArr, baseOff + pos);
 
@@ -919,6 +917,8 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         long val = 0;
 
         int pos = buf.position();
+
+        int limit = buf.limit();
 
         while (pos < limit) {
             byte b = GridUnsafe.getByte(heapArr, baseOff + pos);
