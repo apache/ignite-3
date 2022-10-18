@@ -157,7 +157,7 @@ public class MetaStorageListener implements RaftGroupListener {
 
                 CursorMeta cursorDesc = cursors.get(cursorHasNextCmd.cursorId());
 
-                clo.result(!(cursorDesc == null) && cursorDesc.cursor().hasNext());
+                clo.result(cursorDesc != null && cursorDesc.cursor().hasNext());
             } else {
                 assert false : "Command was not found [cmd=" + command + ']';
             }
