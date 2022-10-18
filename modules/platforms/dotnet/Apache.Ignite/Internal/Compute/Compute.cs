@@ -57,7 +57,7 @@ namespace Apache.Ignite.Internal.Compute
         }
 
         /// <inheritdoc/>
-        public async Task<T> ExecuteAsync<T>(IEnumerable<IClusterNode> nodes, string jobClassName, params object[] args)
+        public async Task<T> ExecuteAsync<T>(IEnumerable<IClusterNode> nodes, string jobClassName, params object?[]? args)
         {
             IgniteArgumentCheck.NotNull(nodes, nameof(nodes));
             IgniteArgumentCheck.NotNull(jobClassName, nameof(jobClassName));
@@ -66,7 +66,7 @@ namespace Apache.Ignite.Internal.Compute
         }
 
         /// <inheritdoc/>
-        public async Task<T> ExecuteColocatedAsync<T>(string tableName, IIgniteTuple key, string jobClassName, params object[] args) =>
+        public async Task<T> ExecuteColocatedAsync<T>(string tableName, IIgniteTuple key, string jobClassName, params object?[]? args) =>
             await ExecuteColocatedAsync<T, IIgniteTuple>(
                     tableName,
                     key,
@@ -76,7 +76,7 @@ namespace Apache.Ignite.Internal.Compute
                 .ConfigureAwait(false);
 
         /// <inheritdoc/>
-        public async Task<T> ExecuteColocatedAsync<T, TKey>(string tableName, TKey key, string jobClassName, params object[] args)
+        public async Task<T> ExecuteColocatedAsync<T, TKey>(string tableName, TKey key, string jobClassName, params object?[]? args)
             where TKey : notnull =>
             await ExecuteColocatedAsync<T, TKey>(
                     tableName,
@@ -87,7 +87,7 @@ namespace Apache.Ignite.Internal.Compute
                 .ConfigureAwait(false);
 
         /// <inheritdoc/>
-        public IDictionary<IClusterNode, Task<T>> BroadcastAsync<T>(IEnumerable<IClusterNode> nodes, string jobClassName, params object[] args)
+        public IDictionary<IClusterNode, Task<T>> BroadcastAsync<T>(IEnumerable<IClusterNode> nodes, string jobClassName, params object?[]? args)
         {
             IgniteArgumentCheck.NotNull(nodes, nameof(nodes));
             IgniteArgumentCheck.NotNull(jobClassName, nameof(jobClassName));
@@ -118,7 +118,7 @@ namespace Apache.Ignite.Internal.Compute
         private static ICollection<IClusterNode> GetNodesCollection(IEnumerable<IClusterNode> nodes) =>
             nodes as ICollection<IClusterNode> ?? nodes.ToList();
 
-        private async Task<T> ExecuteOnOneNode<T>(IClusterNode node, string jobClassName, object[] args)
+        private async Task<T> ExecuteOnOneNode<T>(IClusterNode node, string jobClassName, object?[]? args)
         {
             IgniteArgumentCheck.NotNull(node, nameof(node));
 
@@ -198,7 +198,7 @@ namespace Apache.Ignite.Internal.Compute
             TKey key,
             Func<Table, IRecordSerializerHandler<TKey>> serializerHandlerFunc,
             string jobClassName,
-            params object[] args)
+            params object?[]? args)
             where TKey : notnull
         {
             // TODO: IGNITE-16990 - implement partition awareness.
