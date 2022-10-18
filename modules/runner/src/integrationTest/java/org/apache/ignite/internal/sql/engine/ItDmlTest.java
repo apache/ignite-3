@@ -28,7 +28,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.apache.calcite.runtime.CalciteContextException;
-import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.sql.engine.exec.rel.AbstractNode;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -71,7 +70,7 @@ public class ItDmlTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
-    public void test() {
+    public void pkConstraintConsistencyTest() {
         sql("CREATE TABLE my (id INT PRIMARY KEY, val INT)");
         sql("INSERT INTO my VALUES (?, ?)", 0, 1);
         assertQuery("SELECT val FROM my WHERE id = 0")

@@ -257,7 +257,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** Resolver that resolves a network address to cluster node. */
     private final Function<NetworkAddress, ClusterNode> clusterNodeResolver;
 
-    private final Map<UUID, Map<UUID, IndexLockerFactory>> indexLockerFactories = new ConcurrentHashMap<>();
+    private final Map<UUID, Map<UUID, TableIndexFactory>> tableIndexFactories = new ConcurrentHashMap<>();
 
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -1625,6 +1625,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         return getTblFut.whenComplete((unused, throwable) -> tablesByIdVv.removeWhenComplete(tablesListener));
     }
 
+    /**
+     * Register the index with given id in a table.
+     *
+     * @param tableId A table id to register index in.
+     * @param indexId An index id os the index to register.
+     * @param searchRowResolver Function which converts given table row to an index key.
+     */
     public void registerHashIndex(UUID tableId, UUID indexId, Function<BinaryRow, CompletableFuture<BinaryTuple>> searchRowResolver) {
         TableImpl table = tablesByIdVv.latest().get(tableId);
 
@@ -1632,7 +1639,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             throw new IgniteInternalException(Common.UNEXPECTED_ERR, "Table was concurrently deleted [tableId=" + tableId + "]");
         }
 
-        indexLockerFactories.computeIfAbsent(
+        tableIndexFactories.computeIfAbsent(
                 tableId,
                 key -> new ConcurrentHashMap<>()
         ).put(
@@ -1646,6 +1653,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         );
     }
 
+    /**
+     * Register the index with given id in a table.
+     *
+     * @param tableId A table id to register index in.
+     * @param indexId An index id os the index to register.
+     * @param searchRowResolver Function which converts given table row to an index key.
+     */
     public void registerSortedIndex(UUID tableId, UUID indexId, Function<BinaryRow, CompletableFuture<BinaryTuple>> searchRowResolver) {
         TableImpl table = tablesByIdVv.latest().get(tableId);
 
@@ -1653,7 +1667,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             throw new IgniteInternalException(Common.UNEXPECTED_ERR, "Table was concurrently deleted [tableId=" + tableId + "]");
         }
 
-        indexLockerFactories.computeIfAbsent(
+        tableIndexFactories.computeIfAbsent(
                 tableId,
                 key -> new ConcurrentHashMap<>()
         ).put(
@@ -1667,8 +1681,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         );
     }
 
+    /**
+     * Unregister given index from table.
+     *
+     * @param tableId A table id to unregister index from.
+     * @param indexId An index id to unregister.
+     */
     public void unregisterIndex(UUID tableId, UUID indexId) {
-        Map<UUID, IndexLockerFactory> factories = indexLockerFactories.get(tableId);
+        Map<UUID, TableIndexFactory> factories = tableIndexFactories.get(tableId);
 
         if (factories != null) {
             factories.remove(indexId);
@@ -2028,11 +2048,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     private Supplier<List<TableIndex>> activeIndexes(UUID tableId, int partId) {
         return () -> {
-            List<IndexLockerFactory> factories = new ArrayList<>(indexLockerFactories.getOrDefault(tableId, Map.of()).values());
+            List<TableIndexFactory> factories = new ArrayList<>(tableIndexFactories.getOrDefault(tableId, Map.of()).values());
 
             List<TableIndex> lockers = new ArrayList<>(factories.size());
 
-            for (IndexLockerFactory factory : factories) {
+            for (TableIndexFactory factory : factories) {
                 lockers.add(factory.create(partId));
             }
 
@@ -2040,13 +2060,53 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         };
     }
 
+    /**
+     * A decorator interface to hide all tx-protocol-related things.
+     *
+     * <p>Different indexes requires different approaches for locking. Thus every index type has its own implementation of this interface.
+     */
     public interface TableIndex {
+        /**
+         * Notifies the index that specified row is going to be inserted.
+         *
+         * <p>Primarily used to take all necessary locks.
+         *
+         * @param txId An id of the transaction.
+         * @param rowId An id of the row which being inserted.
+         * @param tableRow A row which is being inserted.
+         * @return A future representing the result.
+         */
         CompletableFuture<?> beforePut(UUID txId, RowId rowId, BinaryRow tableRow);
 
+        /**
+         * Inserts the given row to the index.
+         *
+         * @param tableRow A table row to insert.
+         * @param rowId An identifier of the row to insert.
+         */
         void doPut(BinaryRow tableRow, RowId rowId);
 
+        /**
+         * Notifies the index that specified row was inserted.
+         *
+         * <p>Primarily used to release all short-living locks.
+         *
+         * @param txId An id of the transaction.
+         * @param rowId An id of the row which was inserted.
+         * @param tableRow A row which was inserted.
+         * @return A future representing the result.
+         */
         CompletableFuture<?> afterPut(UUID txId, RowId rowId, BinaryRow tableRow);
 
+        /**
+         * Notifies the index that specified row is going to be removed.
+         *
+         * <p>Primarily used to take all necessary locks.
+         *
+         * @param txId An id of the transaction.
+         * @param tableRow A row which is being inserted.
+         * @return A future representing the result.
+         */
         CompletableFuture<?> beforeRemove(UUID txId, BinaryRow tableRow);
     }
 
@@ -2200,7 +2260,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     @FunctionalInterface
-    interface IndexLockerFactory {
+    private interface TableIndexFactory {
+        /** Creates the index decorator for given partition. */
         TableIndex create(int partitionId);
     }
 }

@@ -40,7 +40,7 @@ import org.apache.ignite.network.MessagingService;
  */
 public class ReplicaService {
     /** Network timeout. */
-    private static final int RPC_TIMEOUT = 3_000;
+    private static final int RPC_TIMEOUT = 3000;
 
     /** Message service. */
     private final MessagingService messagingService;

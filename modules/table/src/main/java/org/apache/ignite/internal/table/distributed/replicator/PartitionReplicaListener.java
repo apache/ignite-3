@@ -361,7 +361,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             while (batchRows.size() < batchCount && cursor.hasNext()) {
                 BinaryRow resolvedReadResult = resolveReadResult(cursor.next(), txId);
 
-                if (resolvedReadResult != null) {
+                if (resolvedReadResult != null && resolvedReadResult.hasValue()) {
                     batchRows.add(resolvedReadResult);
                 }
             }

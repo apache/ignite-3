@@ -85,6 +85,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
      * Constructor.
      *
      * @param tablesCfg Tables and indexes configuration.
+     * @param tableManager Table manager.
      */
     public IndexManager(TablesConfiguration tablesCfg, TableManager tableManager) {
         this.tablesCfg = Objects.requireNonNull(tablesCfg, "tablesCfg");
@@ -296,6 +297,8 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
             return failedFuture(new NodeStoppingException());
         }
 
+        tableManager.unregisterIndex(evt.oldValue().tableId(), idxId);
+
         try {
             fireEvent(IndexEvent.DROP, new IndexEventParameters(evt.storageRevision(), idxId), null);
         } finally {
@@ -343,7 +346,13 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
 
         Index<?> index = newIndex(tableId, tableIndexView);
 
-        tableManager.registerSortedIndex(tableId, tableIndexView.id(), binRow -> toIndexKey(tableIndexView, binRow));
+        if (index instanceof HashIndex) {
+            tableManager.registerHashIndex(tableId, tableIndexView.id(), binRow -> toIndexKey(tableIndexView, binRow));
+        } else if (index instanceof SortedIndex) {
+            tableManager.registerSortedIndex(tableId, tableIndexView.id(), binRow -> toIndexKey(tableIndexView, binRow));
+        } else {
+            throw new AssertionError("Unknown index type [type=" + index.getClass() + ']');
+        }
 
         fireEvent(IndexEvent.CREATE, new IndexEventParameters(causalityToken, index), null);
 
@@ -419,8 +428,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         } else if (indexView instanceof SortedIndexView) {
             names = ((SortedIndexView) indexView).columns().namedListKeys();
         } else {
-            // TODO replace with valid exception
-            throw new IllegalStateException();
+            throw new AssertionError("Unknown index type [type=" + indexView.getClass() + ']');
         }
 
         int[] result = new int[names.size()];
