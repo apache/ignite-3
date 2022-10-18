@@ -15,31 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.basic;
+package org.apache.ignite.internal.metastorage.common.command;
 
-import org.apache.ignite.internal.storage.DataRow;
-import org.apache.ignite.internal.storage.InvokeClosure;
-import org.apache.ignite.internal.storage.OperationType;
-import org.jetbrains.annotations.Nullable;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
-/** Invoke closure implementation for a remove operation. */
-public class SimpleRemoveInvokeClosure implements InvokeClosure<Void> {
-    /** {@inheritDoc} */
-    @Override
-    public void call(@Nullable DataRow row) {
-    }
+import org.junit.jupiter.api.Test;
 
-    /** {@inheritDoc} */
-    @Nullable
-    @Override
-    public DataRow newRow() {
-        return null;
-    }
+/**
+ * Tests that persisted enum ordinals have not been accidentally changed by a developer.
+ */
+class CompoundConditionTypeTest {
+    @Test
+    void testOrdinal() {
+        assertEquals(0, CompoundConditionType.AND.ordinal());
 
-    /** {@inheritDoc} */
-    @Nullable
-    @Override
-    public OperationType operationType() {
-        return OperationType.REMOVE;
+        assertEquals(1, CompoundConditionType.OR.ordinal());
     }
 }

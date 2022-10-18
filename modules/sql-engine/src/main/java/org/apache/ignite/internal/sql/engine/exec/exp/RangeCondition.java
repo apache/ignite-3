@@ -15,22 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage;
-
-import java.nio.ByteBuffer;
+package org.apache.ignite.internal.sql.engine.exec.exp;
 
 /**
- * Interface to be used as a key representation to search data in storage.
+ * A range condition is a search condition which represents a comparison predicate or a BETWEEN predicate.
+ *
+ * <p>Used to define bounds of a range scan.
  */
-public interface SearchRow {
-    /**
-     * Returns key bytes.
-     */
-    byte[] keyBytes();
+public interface RangeCondition<RowT> {
+    /** Lower search row. */
+    public RowT lower();
 
-    /**
-     * Returns key object as a byte buffer. Allows more effective memory management in certain cases. Position of the resulting buffer
-     * must be {@code 0}.
-     */
-    ByteBuffer key();
+    /** Upper search row. */
+    public RowT upper();
+
+    /** Inlusive search by lower row. */
+    public boolean lowerInclude();
+
+    /** Inlusive search by upper row. */
+    public boolean upperInclude();
 }

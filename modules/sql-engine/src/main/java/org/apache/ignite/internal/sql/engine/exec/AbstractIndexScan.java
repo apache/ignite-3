@@ -17,11 +17,13 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import com.google.common.collect.Streams;
 import java.util.Iterator;
 import java.util.function.Function;
 import java.util.function.Predicate;
-import java.util.function.Supplier;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.ignite.internal.sql.engine.exec.exp.RangeIterable;
+import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.FilteringIterator;
 import org.apache.ignite.internal.util.TransformingIterator;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -35,11 +37,8 @@ public abstract class AbstractIndexScan<RowT, IdxRowT> implements Iterable<RowT>
     /** Additional filters. */
     private final Predicate<RowT> filters;
 
-    /** Lower index scan bound. */
-    private final Supplier<RowT> lowerBound;
-
-    /** Upper index scan bound. */
-    private final Supplier<RowT> upperBound;
+    /** Index scan bounds. */
+    private final RangeIterable<RowT> ranges;
 
     private final Function<RowT, RowT> rowTransformer;
 
@@ -50,12 +49,11 @@ public abstract class AbstractIndexScan<RowT, IdxRowT> implements Iterable<RowT>
     /**
      * Constructor.
      *
-     * @param ectx       Execution context.
-     * @param rowType    Rel data type.
-     * @param idx        Physical index.
-     * @param filters    Additional filters.
-     * @param lowerBound Lower index scan bound.
-     * @param upperBound Upper index scan bound.
+     * @param ectx Execution context.
+     * @param rowType Rel data type.
+     * @param idx Physical index.
+     * @param filters Additional filters.
+     * @param ranges Index scan bounds.
      * @param rowTransformer Row transformer.
      */
     protected AbstractIndexScan(
@@ -63,37 +61,39 @@ public abstract class AbstractIndexScan<RowT, IdxRowT> implements Iterable<RowT>
             RelDataType rowType,
             TreeIndex<IdxRowT> idx,
             Predicate<RowT> filters,
-            Supplier<RowT> lowerBound,
-            Supplier<RowT> upperBound,
+            RangeIterable<RowT> ranges,
             Function<RowT, RowT> rowTransformer
     ) {
         this.ectx = ectx;
         this.rowType = rowType;
         this.idx = idx;
         this.filters = filters;
-        this.lowerBound = lowerBound;
-        this.upperBound = upperBound;
+        this.ranges = ranges;
         this.rowTransformer = rowTransformer;
     }
 
     /** {@inheritDoc} */
     @Override
     public synchronized Iterator<RowT> iterator() {
-        IdxRowT lower = lowerBound == null ? null : row2indexRow(lowerBound.get());
-        IdxRowT upper = upperBound == null ? null : row2indexRow(upperBound.get());
+        Iterable<RowT>[] iterables = Streams.stream(ranges)
+                .map(range -> new Iterable<RowT>() {
+                            @Override
+                            public Iterator<RowT> iterator() {
+                                Iterator<RowT> it = new TransformingIterator<>(
+                                        idx.find(row2indexRow(range.lower()), row2indexRow(range.upper()), range.lowerInclude(),
+                                                range.upperInclude()),
+                                        AbstractIndexScan.this::indexRow2Row
+                                );
 
-        Iterator<RowT> it = new TransformingIterator<>(
-                idx.find(lower, upper),
-                this::indexRow2Row
-        );
+                                it = new FilteringIterator<>(it, filters);
 
-        it = new FilteringIterator<>(it, filters);
+                                return (rowTransformer != null) ? new TransformingIterator<>(it, rowTransformer) : it;
+                            }
+                        }
+                )
+                .toArray(Iterable[]::new);
 
-        if (rowTransformer != null) {
-            it = new TransformingIterator<>(it, rowTransformer);
-        }
-
-        return it;
+        return CollectionUtils.concat(iterables).iterator();
     }
 
     protected abstract IdxRowT row2indexRow(RowT bound);

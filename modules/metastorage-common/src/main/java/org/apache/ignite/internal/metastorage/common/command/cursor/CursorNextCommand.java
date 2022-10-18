@@ -17,31 +17,19 @@
 
 package org.apache.ignite.internal.metastorage.common.command.cursor;
 
+import org.apache.ignite.internal.metastorage.common.command.MetastorageCommandsMessageGroup;
 import org.apache.ignite.lang.IgniteUuid;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Transferable;
 import org.apache.ignite.raft.client.WriteCommand;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Cursor {@code next} command for MetaStorageCommandListener that returns next element and moves cursor.
  */
-public class CursorNextCommand implements WriteCommand {
-    /** Cursor id. */
-    @NotNull
-    private final IgniteUuid cursorId;
-
-    /**
-     * Constructor.
-     *
-     * @param cursorId Cursor id.
-     */
-    public CursorNextCommand(@NotNull IgniteUuid cursorId) {
-        this.cursorId = cursorId;
-    }
-
+@Transferable(MetastorageCommandsMessageGroup.CURSOR_NEXT)
+public interface CursorNextCommand extends NetworkMessage, WriteCommand {
     /**
      * Returns cursor id.
      */
-    public @NotNull IgniteUuid cursorId() {
-        return cursorId;
-    }
+    IgniteUuid cursorId();
 }

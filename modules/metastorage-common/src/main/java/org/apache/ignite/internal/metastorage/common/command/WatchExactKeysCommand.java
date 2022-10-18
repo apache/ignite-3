@@ -22,81 +22,62 @@ import java.util.List;
 import java.util.Set;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteUuid;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Transferable;
 import org.apache.ignite.raft.client.WriteCommand;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Watch command for MetaStorageCommandListener that subscribes on meta storage updates matching the parameters.
  */
-public final class WatchExactKeysCommand implements WriteCommand {
-    /** The keys list. Couldn't be {@code null}. */
-    @NotNull
-    private final List<byte[]> keys;
-
-    /** Start revision inclusive. {@code 0} - all revisions. */
-    private final long revision;
-
-    /** Id of the node that requests watch. */
-    @NotNull
-    private final String requesterNodeId;
-
-    /** Id of cursor that is associated with the current command. */
-    @NotNull
-    private final IgniteUuid cursorId;
+@Transferable(MetastorageCommandsMessageGroup.WATCH_EXACT_KEYS)
+public interface WatchExactKeysCommand extends NetworkMessage, WriteCommand {
+    /**
+     * Returns the keys list. Couldn't be {@code null}.
+     */
+    List<byte[]> keys();
 
     /**
-     * Constructor.
+     * Returns start revision inclusive. {@code 0} - all revisions.
+     */
+    long revision();
+
+    /**
+     * Returns id of the node that requests range.
+     */
+    String requesterNodeId();
+
+    /**
+     * Returns id of cursor that is associated with the current command.
+     */
+    IgniteUuid cursorId();
+
+    /**
+     * Static constructor.
      *
+     * @param commandsFactory Commands factory.
      * @param keys            The keys collection. Couldn't be {@code null}.
      * @param revision        Start revision inclusive. {@code 0} - all revisions.
      * @param requesterNodeId Id of the node that requests watch.
      * @param cursorId        Id of cursor that is associated with the current command.
      */
-    public WatchExactKeysCommand(
-            @NotNull Set<ByteArray> keys,
+    static WatchExactKeysCommand watchExactKeysCommand(
+            MetaStorageCommandsFactory commandsFactory,
+            Set<ByteArray> keys,
             long revision,
-            @NotNull String requesterNodeId,
-            @NotNull IgniteUuid cursorId
+            String requesterNodeId,
+            IgniteUuid cursorId
     ) {
-        this.keys = new ArrayList<>(keys.size());
+        List<byte[]> list = new ArrayList<>(keys.size());
 
         for (ByteArray key : keys) {
-            this.keys.add(key.bytes());
+            list.add(key.bytes());
         }
 
-        this.revision = revision;
-
-        this.requesterNodeId = requesterNodeId;
-
-        this.cursorId = cursorId;
-    }
-
-    /**
-     * Returns the keys list. Couldn't be {@code null}.
-     */
-    public @NotNull List<byte[]> keys() {
-        return keys;
-    }
-
-    /**
-     * Returns start revision inclusive.
-     */
-    public @NotNull Long revision() {
-        return revision;
-    }
-
-    /**
-     * Returns id of the node that requests range.
-     */
-    public @NotNull String requesterNodeId() {
-        return requesterNodeId;
-    }
-
-    /**
-     * Returns id of cursor that is associated with the current command.
-     */
-    @NotNull
-    public IgniteUuid getCursorId() {
-        return cursorId;
+        return commandsFactory.watchExactKeysCommand()
+                .keys(list)
+                .revision(revision)
+                .requesterNodeId(requesterNodeId)
+                .cursorId(cursorId)
+                .build();
     }
 }

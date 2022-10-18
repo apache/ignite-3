@@ -21,34 +21,33 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import org.apache.ignite.lang.ByteArray;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Transferable;
 import org.apache.ignite.raft.client.WriteCommand;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Get and remove all command for MetaStorageCommandListener that removes entries for given keys and retrieves previous entries.
  */
-public final class GetAndRemoveAllCommand implements WriteCommand {
-    /** The keys collection. Couldn't be {@code null}. */
-    @NotNull
-    private final List<byte[]> keys;
-
-    /**
-     * Constructor.
-     *
-     * @param keys The keys collection. Couldn't be {@code null}.
-     */
-    public GetAndRemoveAllCommand(@NotNull Set<ByteArray> keys) {
-        this.keys = new ArrayList<>(keys.size());
-
-        for (ByteArray key : keys) {
-            this.keys.add(key.bytes());
-        }
-    }
-
+@Transferable(MetastorageCommandsMessageGroup.GET_AND_REMOVE_ALL)
+public interface GetAndRemoveAllCommand extends NetworkMessage, WriteCommand {
     /**
      * Returns the keys collection. Couldn't be {@code null}.
      */
-    public @NotNull List<byte[]> keys() {
-        return keys;
+    List<byte[]> keys();
+
+    /**
+     * Static constructor.
+     *
+     * @param commandsFactory Commands factory.
+     * @param keys The keys collection. Couldn't be {@code null}.
+     */
+    static GetAndRemoveAllCommand getAndRemoveAllCommand(MetaStorageCommandsFactory commandsFactory, Set<ByteArray> keys) {
+        List<byte[]> keysList = new ArrayList<>(keys.size());
+
+        for (ByteArray key : keys) {
+            keysList.add(key.bytes());
+        }
+
+        return commandsFactory.getAndRemoveAllCommand().keys(keysList).build();
     }
 }

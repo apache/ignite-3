@@ -15,16 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage;
+package org.apache.ignite.internal.metastorage.common;
 
-/** Operation types for {@link InvokeClosure}. */
-public enum OperationType {
-    /** Noop, signifies read operation. */
-    NOOP,
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
-    /** Remove operation. */
-    REMOVE,
+import org.junit.jupiter.api.Test;
 
-    /** Write/insert operation. */
-    WRITE
+/**
+ * Tests that persisted enum ordinals have not been accidentally changed by a developer.
+ */
+class OperationTypeTest {
+    @Test
+    void testOrdinal() {
+        assertEquals(0, OperationType.NO_OP.ordinal());
+
+        assertEquals(1, OperationType.PUT.ordinal());
+
+        assertEquals(2, OperationType.REMOVE.ordinal());
+    }
 }
