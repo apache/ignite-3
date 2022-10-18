@@ -15,20 +15,20 @@
  * limitations under the License.
  */
 
-apply from: "$rootDir/buildscripts/java-core.gradle"
-apply from: "$rootDir/buildscripts/publishing.gradle"
-apply from: "$rootDir/buildscripts/java-junit5.gradle"
+package org.apache.ignite.internal.metastorage.common.command;
 
-dependencies {
-    annotationProcessor project(":ignite-network-annotation-processor")
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
-    implementation project(':ignite-raft-client')
-    implementation project(':ignite-core')
-    implementation project(':ignite-network-api')
-    implementation libs.jetbrains.annotations
-    implementation libs.fastutil.core
+import org.junit.jupiter.api.Test;
 
-    testImplementation libs.junit5.api
+/**
+ * Tests that persisted enum ordinals have not been accidentally changed by a developer.
+ */
+class CompoundConditionTypeTest {
+    @Test
+    void testOrdinal() {
+        assertEquals(0, CompoundConditionType.AND.ordinal());
+
+        assertEquals(1, CompoundConditionType.OR.ordinal());
+    }
 }
-
-description = 'ignite-metastorage-common'
