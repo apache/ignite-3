@@ -77,6 +77,7 @@ import org.apache.ignite.configuration.validation.ConfigurationValidationExcepti
 import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.baseline.BaselineManager;
+import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.causality.VersionedValue;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -97,6 +98,8 @@ import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
+import org.apache.ignite.internal.schema.BinaryTupleSchema;
+import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
@@ -145,6 +148,7 @@ import org.apache.ignite.internal.tx.LockMode;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbTableStorage;
+import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteNameUtils;
@@ -2126,7 +2130,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         @Override
         public CompletableFuture<?> beforePut(UUID txId, RowId rowId, BinaryRow tableRow) {
-            return lockManager.acquire(txId, new LockKey(indexId, indexRowResolver.apply(tableRow)), LockMode.IX);
+            return indexRowResolver.apply(tableRow)
+                    .thenCompose(tuple -> lockManager.acquire(txId, new LockKey(indexId, tuple.byteBuffer()), LockMode.IX));
         }
 
         @Override
@@ -2136,7 +2141,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         @Override
         public CompletableFuture<?> beforeRemove(UUID txId, BinaryRow tableRow) {
-            return lockManager.acquire(txId, new LockKey(indexId, indexRowResolver.apply(tableRow)), LockMode.IX);
+            return indexRowResolver.apply(tableRow)
+                    .thenCompose(tuple -> lockManager.acquire(txId, new LockKey(indexId, tuple.byteBuffer()), LockMode.IX));
         }
 
         @Override
@@ -2148,6 +2154,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     private static class SortedTableIndex implements TableIndex {
+        private static final BinaryTuple POSITIVE_INF = new BinaryTuple(
+                BinaryTupleSchema.create(new Element[0]),
+                new BinaryTupleBuilder(0, false).build()
+        );
+
         private final UUID indexId;
         private final LockManager lockManager;
         private final SortedIndexStorage storage;
@@ -2175,10 +2186,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         if (cursor.hasNext()) {
                             nexKey = cursor.next().indexColumns();
                         } else { // otherwise INF
-                            nexKey = null;
+                            nexKey = POSITIVE_INF;
                         }
 
-                        var nextLockKey = new LockKey(indexId, nexKey);
+                        var nextLockKey = new LockKey(indexId, nexKey.byteBuffer());
 
                         Lock prevLock = lockManager.lock(txId, nextLockKey);
 
@@ -2191,10 +2202,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 .thenCompose(shortLock -> {
                                     afterPutClosures.put(new Key(txId, rowId), () -> {
                                         if (lockedInMode == null) {
-                                            lockManager.release(prevLock);
+                                            lockManager.release(shortLock);
                                         } else if (lockedInMode != LockMode.IX) {
                                             try {
-                                                lockManager.downgrade(prevLock, lockedInMode);
+                                                lockManager.downgrade(shortLock, lockedInMode);
                                             } catch (LockException ex) {
                                                 throw new RuntimeException(ex);
                                             }
@@ -2219,7 +2230,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         @Override
         public CompletableFuture<?> beforeRemove(UUID txId, BinaryRow tableRow) {
-            return lockManager.acquire(txId, new LockKey(indexId, indexRowResolver.apply(tableRow)), LockMode.IX);
+            return indexRowResolver.apply(tableRow)
+                    .thenCompose(tuple -> lockManager.acquire(txId, new LockKey(indexId, tuple.byteBuffer()), LockMode.IX));
         }
 
         @Override
