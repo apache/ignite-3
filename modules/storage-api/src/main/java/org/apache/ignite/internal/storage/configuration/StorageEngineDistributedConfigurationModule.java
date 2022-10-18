@@ -22,9 +22,9 @@ import java.util.Map;
 import java.util.ServiceLoader;
 import java.util.Set;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.configuration.schemas.store.ExistingDataStorage;
 import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.configuration.ConfigurationModule;
+import org.apache.ignite.internal.schema.configuration.storage.ExistingDataStorage;
 import org.apache.ignite.internal.storage.DataStorageModule;
 
 /**

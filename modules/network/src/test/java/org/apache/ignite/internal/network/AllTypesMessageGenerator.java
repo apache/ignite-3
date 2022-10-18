@@ -19,6 +19,7 @@ package org.apache.ignite.internal.network;
 
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
+import static java.util.stream.Collectors.toSet;
 
 import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
@@ -83,6 +84,10 @@ public class AllTypesMessageGenerator {
                 message.netMsgListY(IntStream.range(0, 10)
                         .mapToObj(unused -> generate(seed, false, fillArrays))
                         .collect(toList()));
+
+                message.netMsgSetY(IntStream.range(0, 10)
+                        .mapToObj(unused -> generate(seed, false, fillArrays))
+                        .collect(toSet()));
             }
 
             return message.build();

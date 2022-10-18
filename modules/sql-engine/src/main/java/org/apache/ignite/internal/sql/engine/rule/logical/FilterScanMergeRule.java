@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.rule.logical;
 
 import java.util.Arrays;
 import org.apache.calcite.plan.RelOptCluster;
+import org.apache.calcite.plan.RelOptPredicateList;
 import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelOptRuleCall;
 import org.apache.calcite.plan.RelRule;
@@ -29,6 +30,7 @@ import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexInputRef;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexShuttle;
+import org.apache.calcite.rex.RexSimplify;
 import org.apache.calcite.rex.RexUtil;
 import org.apache.ignite.internal.sql.engine.rel.ProjectableFilterableTableScan;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalIndexScan;
@@ -84,9 +86,13 @@ public abstract class FilterScanMergeRule<T extends ProjectableFilterableTableSc
             condition = RexUtil.composeConjunction(builder, Arrays.asList(scan.condition(), condition));
         }
 
+        // We need to replace RexLocalRef with RexInputRef because "simplify" doesn't understand local refs.
+        condition = RexUtils.replaceLocalRefs(condition);
+        condition = new RexSimplify(builder, RelOptPredicateList.EMPTY, call.getPlanner().getExecutor())
+                .simplifyUnknownAsFalse(condition);
+
         // We need to replace RexInputRef with RexLocalRef because TableScan doesn't have inputs.
-        // TODO SEARCH support
-        condition = RexUtils.replaceInputRefs(RexUtil.expandSearch(builder, null, condition));
+        condition = RexUtils.replaceInputRefs(condition);
 
         // Set default traits, real traits will be calculated for physical node.
         RelTraitSet trait = cluster.traitSet();
@@ -104,7 +110,8 @@ public abstract class FilterScanMergeRule<T extends ProjectableFilterableTableSc
         }
 
         /** {@inheritDoc} */
-        @Override protected IgniteLogicalIndexScan createNode(
+        @Override
+        protected IgniteLogicalIndexScan createNode(
                 RelOptCluster cluster,
                 IgniteLogicalIndexScan scan,
                 RelTraitSet traits,
@@ -121,7 +128,8 @@ public abstract class FilterScanMergeRule<T extends ProjectableFilterableTableSc
         }
 
         /** {@inheritDoc} */
-        @Override protected IgniteLogicalTableScan createNode(
+        @Override
+        protected IgniteLogicalTableScan createNode(
                 RelOptCluster cluster,
                 IgniteLogicalTableScan scan,
                 RelTraitSet traits,
@@ -164,7 +172,7 @@ public abstract class FilterScanMergeRule<T extends ProjectableFilterableTableSc
                     .withOperandSupplier(b -> b.operand(LogicalFilter.class)
                             .predicate(p -> !skipCorrelated || !RexUtils.hasCorrelation(p.getCondition()))
                             .oneInput(b1 -> b1.operand(scanCls).noInputs()))
-                .as(Config.class);
+                    .as(Config.class);
         }
     }
 }

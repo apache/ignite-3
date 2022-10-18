@@ -21,32 +21,39 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import org.apache.ignite.lang.ByteArray;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Transferable;
 import org.apache.ignite.raft.client.WriteCommand;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Put all command for MetaStorageCommandListener that inserts or updates entries with given keys and given values.
  */
-public final class PutAllCommand implements WriteCommand {
-    /** List of keys. */
-    private final List<byte[]> keys;
-
-    /** List of values. */
-    private final List<byte[]> vals;
+@Transferable(MetastorageCommandsMessageGroup.PUT_ALL)
+public interface PutAllCommand extends WriteCommand, NetworkMessage {
+    /**
+     * Returns entries keys.
+     */
+    List<byte[]> keys();
 
     /**
-     * Constructor.
-     *
-     * @param vals he map of keys and corresponding values. Couldn't be {@code null} or empty.
+     * Returns entries values.
      */
-    public PutAllCommand(@NotNull Map<ByteArray, byte[]> vals) {
+    List<byte[]> values();
+
+    /**
+     * Static constructor.
+     *
+     * @param commandsFactory Commands factory.
+     * @param vals The map of keys and corresponding values. Couldn't be {@code null} or empty.
+     */
+    static PutAllCommand putAllCommand(MetaStorageCommandsFactory commandsFactory, Map<ByteArray, byte[]> vals) {
         assert !vals.isEmpty();
 
         int size = vals.size();
 
-        this.keys = new ArrayList<>(size);
+        List<byte[]> keys = new ArrayList<>(size);
 
-        this.vals = new ArrayList<>(size);
+        List<byte[]> values = new ArrayList<>(size);
 
         for (Map.Entry<ByteArray, byte[]> e : vals.entrySet()) {
             byte[] key = e.getKey().bytes();
@@ -56,23 +63,11 @@ public final class PutAllCommand implements WriteCommand {
             assert key != null : "Key could not be null.";
             assert val != null : "Value could not be null.";
 
-            this.keys.add(key);
+            keys.add(key);
 
-            this.vals.add(val);
+            values.add(val);
         }
-    }
 
-    /**
-     * Returns entries values.
-     */
-    public @NotNull List<byte[]> keys() {
-        return keys;
-    }
-
-    /**
-     * Returns entries values.
-     */
-    public @NotNull List<byte[]> values() {
-        return vals;
+        return commandsFactory.putAllCommand().keys(keys).values(values).build();
     }
 }

@@ -18,11 +18,10 @@
 package org.apache.ignite.internal.storage.pagememory.index;
 
 import java.nio.file.Path;
-import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
-import org.apache.ignite.internal.storage.index.AbstractSortedIndexStorageTest;
+import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryTableStorage;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
@@ -37,7 +36,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Sorted index test implementation for persistent page memory storage.
  */
 @ExtendWith({ConfigurationExtension.class, WorkDirectoryExtension.class})
-class PersistentPageMemorySortedIndexStorageTest extends AbstractSortedIndexStorageTest {
+class PersistentPageMemorySortedIndexStorageTest extends AbstractPageMemorySortedIndexStorageTest {
     private PersistentPageMemoryStorageEngine engine;
 
     private PersistentPageMemoryTableStorage table;
@@ -64,7 +63,7 @@ class PersistentPageMemorySortedIndexStorageTest extends AbstractSortedIndexStor
 
         table.start();
 
-        initialize(table, tablesConfig);
+        initialize(table, tablesConfig, engineConfig);
     }
 
     @AfterEach

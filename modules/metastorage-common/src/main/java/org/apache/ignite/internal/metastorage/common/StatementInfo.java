@@ -19,6 +19,9 @@ package org.apache.ignite.internal.metastorage.common;
 
 import java.io.Serializable;
 import org.apache.ignite.internal.metastorage.common.command.IfInfo;
+import org.apache.ignite.internal.metastorage.common.command.MetastorageCommandsMessageGroup;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Transferable;
 
 /**
  * Definition of simple Either-like wrapper to hold one of the statement type: {@link IfInfo} or {@link UpdateInfo}.
@@ -28,51 +31,15 @@ import org.apache.ignite.internal.metastorage.common.command.IfInfo;
  * @see IfInfo
  * @see UpdateInfo
  */
-public class StatementInfo implements Serializable {
-    /** If definition holder. */
-    private final IfInfo iif;
-
-    /** Update definition holder. */
-    private final UpdateInfo update;
-
-    /**
-     * Constructs new {@link IfInfo} statement definition.
-     *
-     * @param iif If statement definition
-     */
-    public StatementInfo(IfInfo iif) {
-        this.iif = iif;
-        this.update = null;
-    }
-
-    /**
-     * Constructs new {@link UpdateInfo} terminal statement definition.
-     *
-     * @param update Update statement definition
-     */
-    public StatementInfo(UpdateInfo update) {
-        this.update = update;
-        this.iif = null;
-    }
-
-    /**
-     * Returns true, if statement has no nested statement (i.e. it is {@link UpdateInfo} statement definition).
-     *
-     * @return true, if statement has no nested statement (i.e. it is {@link UpdateInfo} statement definition).
-     */
-    public boolean isTerminal() {
-        return update != null;
-    }
-
+@Transferable(MetastorageCommandsMessageGroup.STATEMENT_INFO)
+public interface StatementInfo extends NetworkMessage, Serializable {
     /**
      * Returns {@link IfInfo} or {@code null}, if iif is not defined.
      * Note: check which field is filled by {@link #isTerminal()}
      *
      * @return {@link IfInfo} or {@code null}, if iif is not defined.
      */
-    public IfInfo iif() {
-        return iif;
-    }
+    IfInfo iif();
 
     /**
      * Returns {@link UpdateInfo} or {@code null}, if update is not defined.
@@ -80,7 +47,14 @@ public class StatementInfo implements Serializable {
      *
      * @return {@link UpdateInfo} or {@code null}, if update is not defined.
      */
-    public UpdateInfo update() {
-        return update;
+    UpdateInfo update();
+
+    /**
+     * Returns true, if statement has no nested statement (i.e. it is {@link UpdateInfo} statement definition).
+     *
+     * @return true, if statement has no nested statement (i.e. it is {@link UpdateInfo} statement definition).
+     */
+    default boolean isTerminal() {
+        return update() != null;
     }
 }

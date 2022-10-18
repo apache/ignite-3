@@ -28,12 +28,10 @@ import static org.hamcrest.Matchers.is;
 
 import java.util.Optional;
 import java.util.ServiceLoader;
-import org.apache.ignite.configuration.schemas.table.ColumnTypeValidator;
-import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.TableValidator;
 import org.apache.ignite.internal.configuration.ConfigurationModule;
+import org.apache.ignite.internal.schema.configuration.defaultvalue.ConstantValueDefaultConfigurationSchema;
+import org.apache.ignite.internal.schema.configuration.defaultvalue.FunctionCallDefaultConfigurationSchema;
+import org.apache.ignite.internal.schema.configuration.defaultvalue.NullValueDefaultConfigurationSchema;
 import org.junit.jupiter.api.Test;
 
 /**

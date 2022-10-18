@@ -17,6 +17,15 @@
 
 package org.apache.ignite.internal.cluster.management.network.messages;
 
+import org.apache.ignite.internal.cluster.management.ClusterState;
+import org.apache.ignite.internal.cluster.management.ClusterTag;
+import org.apache.ignite.internal.cluster.management.raft.commands.ClusterNodeMessage;
+import org.apache.ignite.internal.cluster.management.raft.commands.InitCmgStateCommand;
+import org.apache.ignite.internal.cluster.management.raft.commands.JoinReadyCommand;
+import org.apache.ignite.internal.cluster.management.raft.commands.JoinRequestCommand;
+import org.apache.ignite.internal.cluster.management.raft.commands.NodesLeaveCommand;
+import org.apache.ignite.internal.cluster.management.raft.commands.ReadLogicalTopologyCommand;
+import org.apache.ignite.internal.cluster.management.raft.commands.ReadStateCommand;
 import org.apache.ignite.network.annotations.MessageGroup;
 
 /**
@@ -53,4 +62,54 @@ public class CmgMessageGroup {
      * Message type for {@link SuccessResponseMessage}.
      */
     public static final short SUCCESS_RESPONSE = 6;
+
+    /**
+     * Message types for RAFT commands.
+     */
+    public interface Commands  {
+        /**
+         * Message type for {@link InitCmgStateCommand}.
+         */
+        int INIT_CMG_STATE = 40;
+
+        /**
+         * Message type for {@link ReadStateCommand}.
+         */
+        int READ_STATE = 41;
+
+        /**
+         * Message type for {@link ReadLogicalTopologyCommand}.
+         */
+        int READ_LOGICAL_TOPOLOGY = 42;
+
+        /**
+         * Message type for {@link JoinRequestCommand}.
+         */
+        int JOIN_REQUEST = 43;
+
+        /**
+         * Message type for {@link JoinReadyCommand}.
+         */
+        int JOIN_READY = 44;
+
+        /**
+         * Message type for {@link NodesLeaveCommand}.
+         */
+        int NODES_LEAVE = 45;
+
+        /**
+         * Message type for {@link ClusterNodeMessage}.
+         */
+        int CLUSTER_NODE = 60;
+
+        /**
+         * Message type for {@link ClusterState}.
+         */
+        int CLUSTER_STATE = 61;
+
+        /**
+         * Message type for {@link ClusterTag}.
+         */
+        int CLUSTER_TAG = 62;
+    }
 }
