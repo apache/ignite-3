@@ -109,9 +109,7 @@ public class TxManagerImpl implements TxManager {
     @Override
     public CompletableFuture<Lock> writeLock(UUID lockId, ByteBuffer keyData, UUID txId) {
         // TODO IGNITE-15933 process tx messages in strips to avoid races. But locks can be acquired from any thread !
-        TxState state = state(txId);
-
-        if (state != null && state != TxState.PENDING) {
+        if (state(txId) != null) {
             return failedFuture(new TransactionException(
                     "The operation is attempted for completed transaction"));
         }
@@ -125,9 +123,7 @@ public class TxManagerImpl implements TxManager {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Lock> readLock(UUID lockId, ByteBuffer keyData, UUID txId) {
-        TxState state = state(txId);
-
-        if (state != null && state != TxState.PENDING) {
+        if (state(txId) != null) {
             return failedFuture(new TransactionException(
                     "The operation is attempted for completed transaction"));
         }
@@ -161,7 +157,7 @@ public class TxManagerImpl implements TxManager {
 
         return replicaService.invoke(recipientNode, req)
                 // TODO: IGNITE-17638 TestOnly code, let's consider using Txn state map instead of states.
-                .thenRun(() -> changeState(txId, TxState.PENDING, commit ? TxState.COMMITED : TxState.ABORTED));
+                .thenRun(() -> changeState(txId, null, commit ? TxState.COMMITED : TxState.ABORTED));
     }
 
     /** {@inheritDoc} */

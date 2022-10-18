@@ -23,7 +23,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -326,11 +325,13 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
 
         checkDml(2 * ROW_COUNT, ses, "DELETE FROM TEST WHERE VAL0 >= 0");
 
-        assertEquals(ROW_COUNT + 1 + 1 + 1 + 1 + 1, txManagerInternal.finished() - txPrevCnt);
+        int expectedStatesCount = ROW_COUNT + 1 + 1 + 1 + 1 + 1;
+
+        assertEquals(expectedStatesCount, txManagerInternal.finished() - txPrevCnt);
 
         var states = (Map<UUID, TxState>) IgniteTestUtils.getFieldValue(txManagerInternal, TxManagerImpl.class, "states");
 
-        states.forEach((k, v) -> assertNotSame(v, TxState.PENDING));
+        assertEquals(expectedStatesCount, states.size() - txPrevCnt);
     }
 
     @Test

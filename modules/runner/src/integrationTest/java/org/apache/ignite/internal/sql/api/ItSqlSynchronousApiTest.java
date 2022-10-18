@@ -20,7 +20,6 @@ package org.apache.ignite.internal.sql.api;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -194,7 +193,7 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
 
         var states = (Map<UUID, TxState>) IgniteTestUtils.getFieldValue(txManagerInternal, TxManagerImpl.class, "states");
 
-        states.forEach((k, v) -> assertNotSame(v, TxState.PENDING));
+        assertEquals(ROW_COUNT, states.size() - txPrevCnt);
 
         checkDml(ROW_COUNT, ses, "UPDATE TEST SET VAL0 = VAL0 + ?", 1);
 
@@ -228,6 +227,11 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
     @Test
     public void errors() throws InterruptedException {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
+
+        TxManager txManagerInternal = (TxManager) IgniteTestUtils.getFieldValue(CLUSTER_NODES.get(0), IgniteImpl.class, "txManager");
+
+        int txPrevCnt = txManagerInternal.finished();
+
         for (int i = 0; i < ROW_COUNT; ++i) {
             sql("INSERT INTO TEST VALUES (?, ?)", i, i);
         }
@@ -277,11 +281,13 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
             assertThrowsWithCause(() -> rs.forEachRemaining(Object::hashCode), CursorClosedException.class);
         }
 
-        TxManager txManagerInternal = (TxManager) IgniteTestUtils.getFieldValue(CLUSTER_NODES.get(0), IgniteImpl.class, "txManager");
+        int expectedStatesCount = ROW_COUNT + 1;
+
+        assertEquals(expectedStatesCount, txManagerInternal.finished() - txPrevCnt);
 
         var states = (Map<UUID, TxState>) IgniteTestUtils.getFieldValue(txManagerInternal, TxManagerImpl.class, "states");
 
-        states.forEach((k, v) -> assertNotSame(v, TxState.PENDING));
+        assertEquals(expectedStatesCount, states.size() - txPrevCnt);
     }
 
     @Test

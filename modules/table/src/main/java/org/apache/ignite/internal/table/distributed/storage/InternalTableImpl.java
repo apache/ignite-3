@@ -51,7 +51,6 @@ import org.apache.ignite.internal.table.distributed.replication.request.ReadWrit
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
-import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -244,7 +243,7 @@ public class InternalTableImpl implements InternalTable {
     ) {
         final boolean implicit = tx == null;
 
-        if (!implicit && tx.state() != null && tx.state() != TxState.PENDING) {
+        if (!implicit && tx.state() != null) {
             return failedFuture(new TransactionException(
                     "The operation is attempted for completed transaction"));
         }
