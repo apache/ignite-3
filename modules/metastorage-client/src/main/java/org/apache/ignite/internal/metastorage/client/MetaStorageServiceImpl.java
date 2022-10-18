@@ -47,10 +47,22 @@ import org.apache.ignite.internal.metastorage.common.StatementInfo;
 import org.apache.ignite.internal.metastorage.common.StatementResultInfo;
 import org.apache.ignite.internal.metastorage.common.UpdateInfo;
 import org.apache.ignite.internal.metastorage.common.command.ConditionInfo;
+import org.apache.ignite.internal.metastorage.common.command.GetAllCommand;
+import org.apache.ignite.internal.metastorage.common.command.GetAndPutAllCommand;
+import org.apache.ignite.internal.metastorage.common.command.GetAndPutCommand;
+import org.apache.ignite.internal.metastorage.common.command.GetAndRemoveAllCommand;
+import org.apache.ignite.internal.metastorage.common.command.GetAndRemoveCommand;
+import org.apache.ignite.internal.metastorage.common.command.GetCommand;
 import org.apache.ignite.internal.metastorage.common.command.IfInfo;
+import org.apache.ignite.internal.metastorage.common.command.InvokeCommand;
 import org.apache.ignite.internal.metastorage.common.command.MetaStorageCommandsFactory;
+import org.apache.ignite.internal.metastorage.common.command.MultiInvokeCommand;
 import org.apache.ignite.internal.metastorage.common.command.MultipleEntryResponse;
+import org.apache.ignite.internal.metastorage.common.command.PutAllCommand;
+import org.apache.ignite.internal.metastorage.common.command.PutCommand;
 import org.apache.ignite.internal.metastorage.common.command.RangeCommand;
+import org.apache.ignite.internal.metastorage.common.command.RemoveAllCommand;
+import org.apache.ignite.internal.metastorage.common.command.RemoveCommand;
 import org.apache.ignite.internal.metastorage.common.command.SimpleConditionInfoBuilder;
 import org.apache.ignite.internal.metastorage.common.command.SingleEntryResponse;
 import org.apache.ignite.internal.util.Cursor;
@@ -106,81 +118,97 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Entry> get(@NotNull ByteArray key) {
-        return metaStorageRaftGrpSvc.run(commandsFactory.getCommand().key(key.bytes()).build())
-                .thenApply(MetaStorageServiceImpl::singleEntryResult);
+        GetCommand getCommand = commandsFactory.getCommand().key(key.bytes()).build();
+
+        return metaStorageRaftGrpSvc.run(getCommand).thenApply(MetaStorageServiceImpl::singleEntryResult);
     }
 
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Entry> get(@NotNull ByteArray key, long revUpperBound) {
-        return metaStorageRaftGrpSvc.run(commandsFactory.getCommand().key(key.bytes()).revision(revUpperBound).build())
-                .thenApply(MetaStorageServiceImpl::singleEntryResult);
+        GetCommand getCommand = commandsFactory.getCommand().key(key.bytes()).revision(revUpperBound).build();
+
+        return metaStorageRaftGrpSvc.run(getCommand).thenApply(MetaStorageServiceImpl::singleEntryResult);
     }
 
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Map<ByteArray, Entry>> getAll(Set<ByteArray> keys) {
-        return metaStorageRaftGrpSvc.run(getAllCommand(commandsFactory, keys, 0))
-                .thenApply(MetaStorageServiceImpl::multipleEntryResult);
+        GetAllCommand getAllCommand = getAllCommand(commandsFactory, keys, 0);
+
+        return metaStorageRaftGrpSvc.run(getAllCommand).thenApply(MetaStorageServiceImpl::multipleEntryResult);
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Map<ByteArray, Entry>> getAll(Set<ByteArray> keys, long revUpperBound) {
-        return metaStorageRaftGrpSvc.run(getAllCommand(commandsFactory, keys, revUpperBound))
-                .thenApply(MetaStorageServiceImpl::multipleEntryResult);
+        GetAllCommand getAllCommand = getAllCommand(commandsFactory, keys, revUpperBound);
+
+        return metaStorageRaftGrpSvc.run(getAllCommand).thenApply(MetaStorageServiceImpl::multipleEntryResult);
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> put(ByteArray key, byte[] value) {
-        return metaStorageRaftGrpSvc.run(commandsFactory.putCommand().key(key.bytes()).value(value).build());
+        PutCommand putCommand = commandsFactory.putCommand().key(key.bytes()).value(value).build();
+
+        return metaStorageRaftGrpSvc.run(putCommand);
     }
 
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Entry> getAndPut(ByteArray key, byte[] value) {
-        return metaStorageRaftGrpSvc.run(commandsFactory.getAndPutCommand().key(key.bytes()).value(value).build())
-                .thenApply(MetaStorageServiceImpl::singleEntryResult);
+        GetAndPutCommand getAndPutCommand = commandsFactory.getAndPutCommand().key(key.bytes()).value(value).build();
+
+        return metaStorageRaftGrpSvc.run(getAndPutCommand).thenApply(MetaStorageServiceImpl::singleEntryResult);
     }
 
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Void> putAll(@NotNull Map<ByteArray, byte[]> vals) {
-        return metaStorageRaftGrpSvc.run(putAllCommand(commandsFactory, vals));
+        PutAllCommand putAllCommand = putAllCommand(commandsFactory, vals);
+
+        return metaStorageRaftGrpSvc.run(putAllCommand);
     }
 
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Map<ByteArray, Entry>> getAndPutAll(@NotNull Map<ByteArray, byte[]> vals) {
-        return metaStorageRaftGrpSvc.run(getAndPutAllCommand(commandsFactory, vals))
-                .thenApply(MetaStorageServiceImpl::multipleEntryResult);
+        GetAndPutAllCommand getAndPutAllCommand = getAndPutAllCommand(commandsFactory, vals);
+
+        return metaStorageRaftGrpSvc.run(getAndPutAllCommand).thenApply(MetaStorageServiceImpl::multipleEntryResult);
     }
 
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Void> remove(@NotNull ByteArray key) {
-        return metaStorageRaftGrpSvc.run(commandsFactory.removeCommand().key(key.bytes()).build());
+        RemoveCommand removeCommand = commandsFactory.removeCommand().key(key.bytes()).build();
+
+        return metaStorageRaftGrpSvc.run(removeCommand);
     }
 
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Entry> getAndRemove(@NotNull ByteArray key) {
-        return metaStorageRaftGrpSvc.run(commandsFactory.getAndRemoveCommand().key(key.bytes()).build())
-                .thenApply(MetaStorageServiceImpl::singleEntryResult);
+        GetAndRemoveCommand getAndRemoveCommand = commandsFactory.getAndRemoveCommand().key(key.bytes()).build();
+
+        return metaStorageRaftGrpSvc.run(getAndRemoveCommand).thenApply(MetaStorageServiceImpl::singleEntryResult);
     }
 
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Void> removeAll(@NotNull Set<ByteArray> keys) {
-        return metaStorageRaftGrpSvc.run(removeAllCommand(commandsFactory, keys));
+        RemoveAllCommand removeAllCommand = removeAllCommand(commandsFactory, keys);
+
+        return metaStorageRaftGrpSvc.run(removeAllCommand);
     }
 
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Map<ByteArray, Entry>> getAndRemoveAll(@NotNull Set<ByteArray> keys) {
-        return metaStorageRaftGrpSvc.run(getAndRemoveAllCommand(commandsFactory, keys))
-                .thenApply(MetaStorageServiceImpl::multipleEntryResult);
+        GetAndRemoveAllCommand getAndRemoveAllCommand = getAndRemoveAllCommand(commandsFactory, keys);
+
+        return metaStorageRaftGrpSvc.run(getAndRemoveAllCommand).thenApply(MetaStorageServiceImpl::multipleEntryResult);
     }
 
     @Override
@@ -205,13 +233,17 @@ public class MetaStorageServiceImpl implements MetaStorageService {
 
         List<OperationInfo> failureOps = toOperationInfos(failure);
 
-        return metaStorageRaftGrpSvc.run(commandsFactory.invokeCommand().condition(cond).success(successOps).failure(failureOps).build());
+        InvokeCommand invokeCommand = commandsFactory.invokeCommand().condition(cond).success(successOps).failure(failureOps).build();
+
+        return metaStorageRaftGrpSvc.run(invokeCommand);
     }
 
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<StatementResult> invoke(@NotNull If iif) {
-        return metaStorageRaftGrpSvc.run(commandsFactory.multiInvokeCommand().iif(toIfInfo(iif)).build())
+        MultiInvokeCommand multiInvokeCommand = commandsFactory.multiInvokeCommand().iif(toIfInfo(iif)).build();
+
+        return metaStorageRaftGrpSvc.run(multiInvokeCommand)
                 .thenApply(bi -> new StatementResult(((StatementResultInfo) bi).result()));
     }
 

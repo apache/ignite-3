@@ -30,6 +30,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.common.MetaStorageException;
 import org.apache.ignite.internal.metastorage.common.command.MetaStorageCommandsFactory;
+import org.apache.ignite.internal.metastorage.common.command.cursor.CursorCloseCommand;
 import org.apache.ignite.internal.metastorage.common.command.cursor.CursorNextCommand;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteUuid;
@@ -82,8 +83,11 @@ public class CursorImpl<T> implements Cursor<T> {
     @Override
     public void close() {
         try {
-            initOp.thenCompose(
-                    cursorId -> metaStorageRaftGrpSvc.run(commandsFactory.cursorCloseCommand().cursorId(cursorId).build())).get();
+            initOp.thenCompose(cursorId -> {
+                CursorCloseCommand cursorCloseCommand = commandsFactory.cursorCloseCommand().cursorId(cursorId).build();
+
+                return metaStorageRaftGrpSvc.run(cursorCloseCommand);
+            }).get();
 
             ((InnerIterator) it).close();
         } catch (InterruptedException | ExecutionException e) {
