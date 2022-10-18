@@ -92,12 +92,12 @@ namespace Apache.Ignite.Tests.Sql
         {
             await using IResultSet<IIgniteTuple> resultSet = await Client.Sql.ExecuteAsync(
                 transaction: null,
-                statement: "select 1 where 2 = ?",
+                statement: "select 1 from TEST where VAL = ?",
                 args: new object?[] { null });
 
             var rows = await resultSet.ToListAsync();
 
-            Assert.AreEqual(1, rows.Single()[0]);
+            CollectionAssert.IsEmpty(rows);
         }
 
         [Test]
