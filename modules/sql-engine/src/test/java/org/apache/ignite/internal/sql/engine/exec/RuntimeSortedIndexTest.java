@@ -83,7 +83,7 @@ public class RuntimeSortedIndexTest extends IgniteAbstractTest {
                     Object[] lower = generateFindRow(rowIdLow, testIdx.getKey(), notUnique, testIdx.getValue());
                     Object[] upper = generateFindRow(rowIdUp, testIdx.getKey(), notUnique, testIdx.getValue());
 
-                    Cursor<Object[]> cur = idx0.find(lower, upper);
+                    Cursor<Object[]> cur = idx0.find(lower, upper, true, true);
 
                     int rows = 0;
                     while (cur.hasNext()) {

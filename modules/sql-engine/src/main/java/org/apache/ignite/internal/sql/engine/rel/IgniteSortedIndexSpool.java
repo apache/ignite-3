@@ -30,9 +30,10 @@ import org.apache.calcite.rel.RelWriter;
 import org.apache.calcite.rel.core.Spool;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rex.RexNode;
+import org.apache.ignite.internal.sql.engine.externalize.RelInputEx;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCost;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
-import org.apache.ignite.internal.sql.engine.util.IndexConditions;
+import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 
 /**
  * Relational operator that returns the sorted contents of a table and allow to lookup rows by specified bounds.
@@ -40,8 +41,8 @@ import org.apache.ignite.internal.sql.engine.util.IndexConditions;
 public class IgniteSortedIndexSpool extends AbstractIgniteSpool implements InternalIgniteRel {
     private final RelCollation collation;
 
-    /** Index condition. */
-    private final IndexConditions idxCond;
+    /** Index search conditions. */
+    private final List<SearchBounds> searchBounds;
 
     /** Filters. */
     protected final RexNode condition;
@@ -56,14 +57,14 @@ public class IgniteSortedIndexSpool extends AbstractIgniteSpool implements Inter
             RelNode input,
             RelCollation collation,
             RexNode condition,
-            IndexConditions idxCond
+            List<SearchBounds> searchBounds
     ) {
         super(cluster, traits, Type.LAZY, input);
 
-        assert Objects.nonNull(idxCond);
+        assert Objects.nonNull(searchBounds);
         assert Objects.nonNull(condition);
 
-        this.idxCond = idxCond;
+        this.searchBounds = searchBounds;
         this.condition = condition;
         this.collation = collation;
     }
@@ -79,7 +80,7 @@ public class IgniteSortedIndexSpool extends AbstractIgniteSpool implements Inter
                 input.getInputs().get(0),
                 input.getCollation(),
                 input.getExpression("condition"),
-                new IndexConditions(input)
+                ((RelInputEx) input).getSearchBounds("searchBounds")
         );
     }
 
@@ -95,13 +96,13 @@ public class IgniteSortedIndexSpool extends AbstractIgniteSpool implements Inter
      */
     @Override
     public IgniteRel clone(RelOptCluster cluster, List<IgniteRel> inputs) {
-        return new IgniteSortedIndexSpool(cluster, getTraitSet(), inputs.get(0), collation, condition, idxCond);
+        return new IgniteSortedIndexSpool(cluster, getTraitSet(), inputs.get(0), collation, condition, searchBounds);
     }
 
     /** {@inheritDoc} */
     @Override
     protected Spool copy(RelTraitSet traitSet, RelNode input, Type readType, Type writeType) {
-        return new IgniteSortedIndexSpool(getCluster(), traitSet, input, collation, condition, idxCond);
+        return new IgniteSortedIndexSpool(getCluster(), traitSet, input, collation, condition, searchBounds);
     }
 
     /** {@inheritDoc} */
@@ -120,8 +121,9 @@ public class IgniteSortedIndexSpool extends AbstractIgniteSpool implements Inter
 
         writer.item("condition", condition);
         writer.item("collation", collation);
+        writer.itemIf("searchBounds", searchBounds, searchBounds != null);
 
-        return idxCond.explainTerms(writer);
+        return writer;
     }
 
     /** {@inheritDoc} */
@@ -131,10 +133,10 @@ public class IgniteSortedIndexSpool extends AbstractIgniteSpool implements Inter
     }
 
     /**
-     * Get index condition.
+     * Get index search conditions.
      */
-    public IndexConditions indexCondition() {
-        return idxCond;
+    public List<SearchBounds> searchBounds() {
+        return searchBounds;
     }
 
     /**
@@ -160,7 +162,7 @@ public class IgniteSortedIndexSpool extends AbstractIgniteSpool implements Inter
         double totalBytes = rowCnt * bytesPerRow;
         double cpuCost;
 
-        if (idxCond.lowerCondition() != null) {
+        if (searchBounds != null) {
             cpuCost = Math.log(rowCnt) * IgniteCost.ROW_COMPARISON_COST;
         } else {
             cpuCost = rowCnt * IgniteCost.ROW_PASS_THROUGH_COST;
