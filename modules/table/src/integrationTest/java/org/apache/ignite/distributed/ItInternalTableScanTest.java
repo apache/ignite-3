@@ -46,7 +46,6 @@ import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
-import org.apache.ignite.internal.storage.DataRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
@@ -345,11 +344,11 @@ public class ItInternalTableScanTest {
     }
 
     /**
-     * Helper method to convert key and value to {@link DataRow}.
+     * Helper method to convert key and value to {@link BinaryRow}.
      *
      * @param entryKey Key.
      * @param entryVal Value
-     * @return {@link DataRow} based on given key and value.
+     * @return {@link BinaryRow} based on given key and value.
      * @throws java.io.IOException If failed to close output stream that was used to convertation.
      */
     private static @NotNull BinaryRow prepareRow(@NotNull String entryKey,
