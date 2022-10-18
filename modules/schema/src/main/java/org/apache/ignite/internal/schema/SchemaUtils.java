@@ -78,7 +78,10 @@ public class SchemaUtils {
 
                         Column oldIdx = oldDesc.column(newColView.name());
 
-                        mapper.add(newCol.schemaIndex(), oldIdx.schemaIndex());
+                        // rename
+                        if (oldIdx != null) {
+                            mapper.add(newCol.schemaIndex(), oldIdx.schemaIndex());
+                        }
                     }
                 } else {
                     if (mapper == null) {
