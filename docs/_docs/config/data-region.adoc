@@ -16,7 +16,7 @@
 
 You can set configuration for data regions by using HOCON format. You can configure your data regions to run either RocksDB or B+Tree storage, and fine-tune their performance. A cluster can have several data regions, and you can select the preferred storage type for each. Configuration parameters for data regions are available in the storage-related articles.
 
-We recommend to use B+ Tree storage for read-heavy workloads, and RocksDB for write-heavy workloads.
+We recommend to use B+Tree storage for read-heavy workloads, and RocksDB for write-heavy workloads.
 
 
 == Configuration Example
