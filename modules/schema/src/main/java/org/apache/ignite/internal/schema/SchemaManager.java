@@ -66,7 +66,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
     public static final int INITIAL_SCHEMA_VERSION = 1;
 
     /** Schema history key predicate part. */
-    public static final String SCHEMA_STORE_PREDICATE = ".sch-hist.";
+    public static final String SCHEMA_STORE_PREFIX = ".sch-hist.";
 
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -457,7 +457,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
      */
     private int latestSchemaVersion(UUID tblId) {
         try {
-            Cursor<Entry> cur = metastorageMgr.prefix(schemaHistPredicate(tblId));
+            Cursor<Entry> cur = metastorageMgr.prefix(schemaHistPrefix(tblId));
 
             int lastVer = INITIAL_SCHEMA_VERSION;
 
@@ -484,7 +484,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
      */
     private SortedMap<Integer, byte[]> collectAllSchemas(UUID tblId) {
         try {
-            Cursor<Entry> cur = metastorageMgr.prefix(schemaHistPredicate(tblId));
+            Cursor<Entry> cur = metastorageMgr.prefix(schemaHistPrefix(tblId));
 
             SortedMap<Integer, byte[]> schemes = new TreeMap<>();
 
@@ -517,7 +517,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
      * @return {@link ByteArray} representation.
      */
     private static ByteArray schemaWithVerHistKey(UUID tblId, int ver) {
-        return ByteArray.fromString(tblId + SCHEMA_STORE_PREDICATE + ver);
+        return ByteArray.fromString(tblId + SCHEMA_STORE_PREFIX + ver);
     }
 
     /**
@@ -526,7 +526,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
      * @param tblId Table id.
      * @return {@link ByteArray} representation.
      */
-    private static ByteArray schemaHistPredicate(UUID tblId) {
-        return ByteArray.fromString(tblId + SCHEMA_STORE_PREDICATE);
+    private static ByteArray schemaHistPrefix(UUID tblId) {
+        return ByteArray.fromString(tblId + SCHEMA_STORE_PREFIX);
     }
 }
