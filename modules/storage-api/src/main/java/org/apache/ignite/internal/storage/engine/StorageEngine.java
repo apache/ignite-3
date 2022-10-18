@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.storage.engine;
 
-import org.apache.ignite.configuration.schemas.table.TableConfiguration;
-import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
+import org.apache.ignite.internal.schema.configuration.TableConfiguration;
+import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.StorageException;
 
 /**
@@ -38,19 +38,6 @@ public interface StorageEngine {
      * @throws StorageException If an error has occurred during the engine stop.
      */
     void stop() throws StorageException;
-
-    /**
-     * Creates new table storage.
-     *
-     * @param tableCfg Table configuration.
-     * @throws StorageException If an error has occurs while creating the table.
-     *
-     * @deprecated Replaced with {@link MvTableStorage}.
-     */
-    @Deprecated
-    default TableStorage createTable(TableConfiguration tableCfg) throws StorageException {
-        throw new UnsupportedOperationException();
-    }
 
     /**
      * Creates new table storage.

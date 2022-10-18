@@ -37,14 +37,18 @@ import static org.apache.ignite.internal.util.GridUnsafe.SHORT_ARR_OFF;
 
 import java.lang.reflect.Array;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.RandomAccess;
+import java.util.Set;
 import java.util.UUID;
+import java.util.function.IntFunction;
 import org.apache.ignite.internal.network.serialization.PerSessionSerializationService;
 import org.apache.ignite.internal.util.ArrayFactory;
 import org.apache.ignite.internal.util.GridUnsafe;
@@ -64,6 +68,12 @@ import org.jetbrains.annotations.Nullable;
 public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     /** Poison object. */
     private static final Object NULL = new Object();
+
+    /** Flag that indicates that byte buffer is not null. */
+    private static final byte BYTE_BUFFER_NOT_NULL_FLAG = 1;
+
+    /** Flag that indicates that byte buffer has Big Endinan order. */
+    private static final byte BYTE_BUFFER_BIG_ENDIAN_FLAG = 2;
 
     /** Message serialization registry. */
     private final PerSessionSerializationService serializationService;
@@ -140,6 +150,10 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     private long uuidLeast;
 
     private long uuidLocId;
+
+    private int byteBufferState;
+
+    private byte byteBufferFlag;
 
     protected boolean lastFinished;
 
@@ -498,6 +512,54 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
     /** {@inheritDoc} */
     @Override
+    public void writeByteBuffer(ByteBuffer val) {
+        switch (byteBufferState) {
+            case 0:
+                byte flag = 0;
+
+                if (val != null) {
+                    flag |= BYTE_BUFFER_NOT_NULL_FLAG;
+
+                    if (val.order() == ByteOrder.BIG_ENDIAN) {
+                        flag |= BYTE_BUFFER_BIG_ENDIAN_FLAG;
+                    }
+                }
+
+                writeByte(flag);
+
+                if (!lastFinished || val == null) {
+                    return;
+                }
+
+                byteBufferState++;
+
+                //noinspection fallthrough
+            case 1:
+                assert !val.isReadOnly();
+
+                int position = val.position();
+                int length = val.limit() - position;
+
+                if (val.isDirect()) {
+                    lastFinished = writeArray(null, GridUnsafe.bufferAddress(val) + position, length, length);
+                } else {
+                    lastFinished = writeArray(val.array(), BYTE_ARR_OFF + val.arrayOffset() + position, length, length);
+                }
+
+                if (!lastFinished) {
+                    return;
+                }
+
+                byteBufferState = 0;
+                break;
+
+            default:
+                throw new IllegalArgumentException("Unknown byteBufferState: " + byteBufferState);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public void writeUuid(UUID val) {
         switch (uuidState) {
             case 0:
@@ -690,6 +752,11 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         } else {
             writeInt(-1);
         }
+    }
+
+    @Override
+    public <T> void writeSet(Set<T> set, MessageCollectionItemType itemType, MessageWriter writer) {
+        writeCollection(set, itemType, writer);
     }
 
     /**
@@ -1049,6 +1116,48 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         return arr != null ? BitSet.valueOf(arr) : null;
     }
 
+    @Override
+    public ByteBuffer readByteBuffer() {
+        byte[] bytes;
+
+        switch (byteBufferState) {
+            case 0:
+                byteBufferFlag = readByte();
+
+                boolean isNull = (byteBufferFlag & BYTE_BUFFER_NOT_NULL_FLAG) == 0;
+
+                if (!lastFinished || isNull) {
+                    return null;
+                }
+
+                byteBufferState++;
+
+                //noinspection fallthrough
+            case 1:
+                bytes = readByteArray();
+
+                if (!lastFinished) {
+                    return null;
+                }
+
+                byteBufferState = 0;
+                break;
+
+            default:
+                throw new IllegalArgumentException("Unknown byteBufferState: " + byteBufferState);
+        }
+
+        ByteBuffer val = ByteBuffer.wrap(bytes);
+
+        if ((byteBufferFlag & BYTE_BUFFER_BIG_ENDIAN_FLAG) == 0) {
+            val.order(ByteOrder.LITTLE_ENDIAN);
+        } else {
+            val.order(ByteOrder.BIG_ENDIAN);
+        }
+
+        return val;
+    }
+
     /** {@inheritDoc} */
     @Override
     public UUID readUuid() {
@@ -1258,6 +1367,30 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     @Override
     public <C extends Collection<?>> C readCollection(MessageCollectionItemType itemType,
             MessageReader reader) {
+        return (C) readCollection0(itemType, reader, ArrayList::new);
+    }
+
+    @Override
+    public <C extends Set<?>> C readSet(MessageCollectionItemType itemType, MessageReader reader) {
+        return (C) readCollection0(itemType, reader, HashSet::new);
+    }
+
+    /**
+     * Common implementation for {@link #readCollection(MessageCollectionItemType, MessageReader)} and
+     * {@link #readSet(MessageCollectionItemType, MessageReader)}. Reads a sequence of objects and puts it into a collection, created by
+     * {@code ctor}.
+     *
+     * @param itemType Collection item type.
+     * @param reader Message reader instance.
+     * @param ctor Factory for creating a collection using its length.
+     *
+     * @return Collection, read from the reader, or {@code null} if reading has not completed yet.
+     */
+    private @Nullable Collection<?> readCollection0(
+            MessageCollectionItemType itemType,
+            MessageReader reader,
+            IntFunction<Collection<Object>> ctor
+    ) {
         if (readSize == -1) {
             int size = readInt();
 
@@ -1270,7 +1403,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
         if (readSize >= 0) {
             if (col == null) {
-                col = new ArrayList<>(readSize);
+                col = ctor.apply(readSize);
             }
 
             for (int i = readItems; i < readSize; i++) {
@@ -1290,7 +1423,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         readItems = 0;
         cur = null;
 
-        C col0 = (C) col;
+        Collection<?> col0 = col;
 
         col = null;
 
@@ -1362,9 +1495,8 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
      * @param bytes Length in bytes.
      * @return Whether array was fully written.
      */
-    boolean writeArray(Object arr, long off, int len, int bytes) {
-        assert arr != null;
-        assert arr.getClass().isArray() && arr.getClass().getComponentType().isPrimitive();
+    boolean writeArray(@Nullable Object arr, long off, int len, int bytes) {
+        assert arr == null || arr.getClass().isArray() && arr.getClass().getComponentType().isPrimitive();
         assert off > 0;
         assert len >= 0;
         assert bytes >= 0;
@@ -1722,6 +1854,11 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
                 break;
 
+            case BYTE_BUFFER:
+                writeByteBuffer((ByteBuffer) val);
+
+                break;
+
             case UUID:
                 writeUuid((UUID) val);
 
@@ -1814,6 +1951,9 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
             case BIT_SET:
                 return readBitSet();
+
+            case BYTE_BUFFER:
+                return readByteBuffer();
 
             case UUID:
                 return readUuid();

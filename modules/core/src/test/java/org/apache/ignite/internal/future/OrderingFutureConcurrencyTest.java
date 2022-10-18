@@ -66,8 +66,13 @@ class OrderingFutureConcurrencyTest {
         thread1.start();
         thread2.start();
 
-        thread1.join();
-        thread2.join();
+        try {
+            thread1.join();
+            thread2.join();
+        } finally {
+            thread1.interrupt();
+            thread2.interrupt();
+        }
     }
 
     @Test

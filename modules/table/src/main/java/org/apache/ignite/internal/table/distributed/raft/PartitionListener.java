@@ -40,11 +40,8 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.storage.DataRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.storage.basic.BinarySearchRow;
-import org.apache.ignite.internal.storage.basic.DelegatingDataRow;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
 import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
@@ -60,7 +57,6 @@ import org.apache.ignite.raft.client.ReadCommand;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.apache.ignite.raft.client.service.CommandClosure;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -362,17 +358,6 @@ public class PartitionListener implements RaftGroupListener {
         } catch (Exception e) {
             throw new IgniteInternalException("Failed to close storage: " + e.getMessage(), e);
         }
-    }
-
-    /**
-     * Extracts a key and a value from the {@link BinaryRow} and wraps it in a {@link DataRow}.
-     *
-     * @param row Binary row.
-     * @return Data row.
-     */
-    @NotNull
-    private static DataRow extractAndWrapKeyValue(@NotNull BinaryRow row) {
-        return new DelegatingDataRow(new BinarySearchRow(row), row.bytes());
     }
 
     /**

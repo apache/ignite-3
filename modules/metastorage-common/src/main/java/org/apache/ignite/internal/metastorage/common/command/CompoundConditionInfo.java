@@ -17,57 +17,40 @@
 
 package org.apache.ignite.internal.metastorage.common.command;
 
+import org.apache.ignite.network.annotations.Transferable;
+
 /**
  * Defines compound multi-key condition for {@link MultiInvokeCommand}.
  */
-public class CompoundConditionInfo implements ConditionInfo {
-    /** Left condition. */
-    private final ConditionInfo leftCondInfo;
-
-    /** Right condition. */
-    private final ConditionInfo rightCondInfo;
-
-    /** Compound condition type. */
-    private final CompoundConditionType type;
-
-    /**
-     * Constructs new compound condition definition.
-     *
-     * @param leftCondInfo left condition definition.
-     * @param rightCondInfo right conditoin definition.
-     * @param type type of compound condition definition.
-     */
-    public CompoundConditionInfo(ConditionInfo leftCondInfo,
-            ConditionInfo rightCondInfo, CompoundConditionType type) {
-        this.leftCondInfo = leftCondInfo;
-        this.rightCondInfo = rightCondInfo;
-        this.type = type;
-    }
-
+@Transferable(MetastorageCommandsMessageGroup.COMPOUND_CONDITION_INFO)
+public interface CompoundConditionInfo extends ConditionInfo {
     /**
      * Returns left condition definition.
      *
      * @return left condition definition.
      */
-    public ConditionInfo leftConditionInfo() {
-        return leftCondInfo;
-    }
+    ConditionInfo leftConditionInfo();
 
     /**
      * Returns right condition definition.
      *
      * @return right condition definition.
      */
-    public ConditionInfo rightConditionInfo() {
-        return rightCondInfo;
-    }
+    ConditionInfo rightConditionInfo();
 
     /**
      * Returns definition for type of compound condition.
      *
      * @return definition for type of compound condition.
      */
-    public CompoundConditionType type() {
-        return type;
+    int conditionType();
+
+    /**
+     * Returns definition for type of compound condition.
+     *
+     * @return definition for type of compound condition.
+     */
+    default CompoundConditionType type() {
+        return CompoundConditionType.values()[conditionType()];
     }
 }

@@ -49,6 +49,7 @@ import org.apache.calcite.sql.SqlAggFunction;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.Pair;
 import org.apache.calcite.util.Util;
+import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -329,6 +330,12 @@ public class RelJsonReader {
         @Override
         public RelCollation getCollation(String tag) {
             return relJson.toCollation((List) get(tag));
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public List<SearchBounds> getSearchBounds(String tag) {
+            return relJson.toSearchBoundList(this, (List<Map<String, Object>>) get(tag));
         }
 
         /** {@inheritDoc} */

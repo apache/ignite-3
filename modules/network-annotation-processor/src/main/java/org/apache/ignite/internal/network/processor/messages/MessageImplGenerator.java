@@ -694,5 +694,4 @@ public class MessageImplGenerator {
         MESSAGE,
         MAP;
     }
-
 }

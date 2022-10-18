@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table;
 
 import static java.util.concurrent.CompletableFuture.allOf;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -37,6 +38,7 @@ import java.util.Map;
 import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.Flow;
@@ -284,6 +286,91 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         assertEquals(BALANCE_2 + DELTA, accounts.recordView().get(null, makeKey(2)).doubleValue("balance"));
 
         assertEquals(5, txManager(accounts).finished());
+    }
+
+    /**
+     * Tests positive transfer scenario.
+     */
+    @Test
+    public void testTxClosureAsync() {
+        double balance1 = 200.;
+        double balance2 = 300.;
+        double delta = 50.;
+        Tuple ret = transferAsync(balance1, balance2, delta).join();
+
+        RecordView<Tuple> view = accounts.recordView();
+
+        assertEquals(balance1 - delta, view.get(null, makeKey(1)).doubleValue("balance"));
+        assertEquals(balance2 + delta, view.get(null, makeKey(2)).doubleValue("balance"));
+        assertEquals(balance1, ret.doubleValue("balance1"));
+        assertEquals(balance2, ret.doubleValue("balance2"));
+    }
+
+    /**
+     * Tests negative transfer scenario.
+     */
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17861")
+    public void testTxClosureAbortAsync() {
+        double balance1 = 10.;
+        double balance2 = 300.;
+        double delta = 50.;
+        assertThrows(CompletionException.class, () -> transferAsync(balance1, balance2, delta).join());
+
+        RecordView<Tuple> view = accounts.recordView();
+
+        assertEquals(balance1, view.get(null, makeKey(1)).doubleValue("balance"));
+        assertEquals(balance2, view.get(null, makeKey(2)).doubleValue("balance"));
+    }
+
+    /**
+     * Tests uncaught exception in the closure.
+     */
+    @Test
+    public void testTxClosureUncaughtExceptionAsync() {
+        double balance = 10.;
+        double delta = 50.;
+
+        RecordView<Tuple> view = accounts.recordView();
+        view.upsert(null, makeValue(1, balance));
+
+        CompletableFuture<Double> fut0 = igniteTransactions.runInTransactionAsync(tx -> {
+            CompletableFuture<Double> fut = view.getAsync(tx, makeKey(1))
+                    .thenCompose(val2 -> {
+                        double prev = val2.doubleValue("balance");
+                        return view.upsertAsync(tx, makeValue(1, delta + 20)).thenApply(ignored -> prev);
+                    });
+
+            fut.join();
+
+            if (true) {
+                throw new IllegalArgumentException();
+            }
+
+            return fut;
+        });
+
+        var err = assertThrows(CompletionException.class, fut0::join);
+        assertEquals(IllegalArgumentException.class, err.getCause().getClass());
+        assertEquals(balance, view.get(null, makeKey(1)).doubleValue("balance"));
+    }
+
+    /**
+     * Tests uncaught exception in the chain.
+     */
+    @Test
+    public void testTxClosureUncaughtExceptionInChainAsync() {
+        RecordView<Tuple> view = accounts.recordView();
+
+        CompletableFuture<Double> fut0 = igniteTransactions.runInTransactionAsync(tx -> {
+            return view.getAsync(tx, makeKey(2))
+                    .thenCompose(val2 -> {
+                        double prev = val2.doubleValue("balance"); // val2 is null - NPE is thrown here
+                        return view.upsertAsync(tx, makeValue(1, 100)).thenApply(ignored -> prev);
+                    });
+        });
+
+        var err = assertThrows(CompletionException.class, fut0::join);
+        assertEquals(NullPointerException.class, err.getCause().getClass());
     }
 
     @Test
@@ -1646,7 +1733,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     protected abstract boolean assertPartitionsSame(Table table, int partId);
 
     /**
-     * Validates a balances.
+     * Validates balances.
      *
      * @param rows Rows.
      * @param expected Expected values.
@@ -1660,5 +1747,45 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
             double v = expected[i];
             assertEquals(v, rows0.get(i).doubleValue("balance"));
         }
+    }
+
+    /**
+     * Transfers money between accounts.
+     *
+     * @param balance1 First account initial balance.
+     * @param balance2 Second account initial balance.
+     * @param delta Delta.
+     * @return The future holding tuple with previous balances.
+     */
+    private CompletableFuture<Tuple> transferAsync(double balance1, double balance2, double delta) {
+        RecordView<Tuple> view = accounts.recordView();
+
+        view.upsert(null, makeValue(1, balance1));
+        view.upsert(null, makeValue(2, balance2));
+
+        return igniteTransactions.runInTransactionAsync(tx -> {
+            // Attempt to withdraw from first account.
+            CompletableFuture<Double> fut1 = view.getAsync(tx, makeKey(1))
+                    .thenCompose(val1 -> {
+                        double prev = val1.doubleValue("balance");
+                        double balance = prev - delta;
+
+                        if (balance < 0) {
+                            return tx.rollbackAsync().thenApply(ignored -> null);
+                        }
+
+                        return view.upsertAsync(tx, makeValue(1, balance)).thenApply(ignored -> prev);
+                    });
+
+            // Optimistically deposit to second account.
+            CompletableFuture<Double> fut2 = view.getAsync(tx, makeKey(2))
+                    .thenCompose(val2 -> {
+                        double prev = val2.doubleValue("balance");
+                        return view.upsertAsync(tx, makeValue(2, prev + delta)).thenApply(ignored -> prev);
+                    });
+
+            return fut1.thenCompose(val1 -> fut2.thenCompose(val2 ->
+                    completedFuture(Tuple.create().set("balance1", val1).set("balance2", val2))));
+        });
     }
 }

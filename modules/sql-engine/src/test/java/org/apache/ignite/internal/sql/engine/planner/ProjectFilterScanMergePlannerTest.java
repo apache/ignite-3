@@ -17,11 +17,16 @@
 
 package org.apache.ignite.internal.sql.engine.planner;
 
+import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collectors;
 import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.rel.IgniteAggregate;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
@@ -94,8 +99,7 @@ public class ProjectFilterScanMergePlannerTest extends AbstractPlannerTest {
                 .and(scan -> scan.condition() != null)
                 .and(scan -> "=($t2, 0)".equals(scan.condition().toString()))
                 .and(scan -> ImmutableBitSet.of(0, 1, 2).equals(scan.requiredColumns()))
-                .and(scan -> "[=($t2, 0)]".equals(scan.indexConditions().lowerCondition().toString()))
-                .and(scan -> "[=($t2, 0)]".equals(scan.indexConditions().upperCondition().toString()))
+                .and(scan -> "[=($t2, 0)]".equals(searchBoundsCondition(scan.searchBounds()).toString()))
         );
 
         // Index condition shifted according to requiredColumns.
@@ -105,8 +109,7 @@ public class ProjectFilterScanMergePlannerTest extends AbstractPlannerTest {
                 .and(scan -> scan.condition() != null)
                 .and(scan -> "=($t1, 0)".equals(scan.condition().toString()))
                 .and(scan -> ImmutableBitSet.of(1, 2).equals(scan.requiredColumns()))
-                .and(scan -> "[=($t1, 0)]".equals(scan.indexConditions().lowerCondition().toString()))
-                .and(scan -> "[=($t1, 0)]".equals(scan.indexConditions().upperCondition().toString()))
+                .and(scan -> "[=($t1, 0)]".equals(searchBoundsCondition(scan.searchBounds()).toString()))
         );
     }
 
@@ -122,8 +125,7 @@ public class ProjectFilterScanMergePlannerTest extends AbstractPlannerTest {
                 .and(scan -> scan.condition() != null)
                 .and(scan -> "=($t2, 0)".equals(scan.condition().toString()))
                 .and(scan -> ImmutableBitSet.of(0, 1, 2).equals(scan.requiredColumns()))
-                .and(scan -> "[=($t2, 0)]".equals(scan.indexConditions().lowerCondition().toString()))
-                .and(scan -> "[=($t2, 0)]".equals(scan.indexConditions().upperCondition().toString()))
+                .and(scan -> "[=($t2, 0)]".equals(searchBoundsCondition(scan.searchBounds()).toString()))
         );
 
         // Index condition shift and identity.
@@ -132,8 +134,7 @@ public class ProjectFilterScanMergePlannerTest extends AbstractPlannerTest {
                 .and(scan -> scan.condition() != null)
                 .and(scan -> "=($t1, 0)".equals(scan.condition().toString()))
                 .and(scan -> ImmutableBitSet.of(1, 2).equals(scan.requiredColumns()))
-                .and(scan -> "[=($t1, 0)]".equals(scan.indexConditions().lowerCondition().toString()))
-                .and(scan -> "[=($t1, 0)]".equals(scan.indexConditions().upperCondition().toString()))
+                .and(scan -> "[=($t1, 0)]".equals(searchBoundsCondition(scan.searchBounds()).toString()))
         );
     }
 
@@ -236,5 +237,12 @@ public class ProjectFilterScanMergePlannerTest extends AbstractPlannerTest {
                         .and(scan -> "AND(=($t0, 1), =($t1, 1))".equals(scan.condition().toString()))
                         .and(scan -> ImmutableBitSet.of(0, 2).equals(scan.requiredColumns())),
                 "ProjectFilterTransposeRule", "FilterProjectTransposeRule");
+    }
+
+    /**
+     * Convert search bounds to RexNodes.
+     */
+    private static List<RexNode> searchBoundsCondition(List<SearchBounds> searchBounds) {
+        return searchBounds.stream().filter(Objects::nonNull).map(SearchBounds::condition).collect(Collectors.toList());
     }
 }

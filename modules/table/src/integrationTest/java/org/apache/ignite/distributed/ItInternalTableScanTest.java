@@ -41,11 +41,11 @@ import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
+import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
-import org.apache.ignite.internal.storage.DataRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
@@ -73,6 +73,8 @@ public class ItInternalTableScanTest {
 
     /** Internal table to test. */
     private InternalTable internalTbl;
+
+    private final HybridClock clock = new HybridClock();
 
     /**
      * Prepare test environment using DummyInternalTableImpl and Mocked storage.
@@ -160,7 +162,7 @@ public class ItInternalTableScanTest {
 
         AtomicReference<Throwable> gotException = new AtomicReference<>();
 
-        when(mockStorage.scan(any(), any(HybridTimestamp.class))).thenAnswer(invocation -> {
+        when(mockStorage.scan(any(HybridTimestamp.class))).thenAnswer(invocation -> {
             var cursor = mock(PartitionTimestampCursor.class);
 
             when(cursor.hasNext()).thenAnswer(hnInvocation -> true);
@@ -218,7 +220,7 @@ public class ItInternalTableScanTest {
 
         AtomicReference<Throwable> gotException = new AtomicReference<>();
 
-        when(mockStorage.scan(any(), any(HybridTimestamp.class))).thenThrow(new StorageException("Some storage exception"));
+        when(mockStorage.scan(any(HybridTimestamp.class))).thenThrow(new StorageException("Some storage exception"));
 
         internalTbl.scan(0, null).subscribe(new Subscriber<>() {
 
@@ -342,11 +344,11 @@ public class ItInternalTableScanTest {
     }
 
     /**
-     * Helper method to convert key and value to {@link DataRow}.
+     * Helper method to convert key and value to {@link BinaryRow}.
      *
      * @param entryKey Key.
      * @param entryVal Value
-     * @return {@link DataRow} based on given key and value.
+     * @return {@link BinaryRow} based on given key and value.
      * @throws java.io.IOException If failed to close output stream that was used to convertation.
      */
     private static @NotNull BinaryRow prepareRow(@NotNull String entryKey,
@@ -373,13 +375,13 @@ public class ItInternalTableScanTest {
 
         List<BinaryRow> retrievedItems = Collections.synchronizedList(new ArrayList<>());
 
-        when(mockStorage.scan(any(), any(HybridTimestamp.class))).thenAnswer(invocation -> {
+        when(mockStorage.scan(any(HybridTimestamp.class))).thenAnswer(invocation -> {
             var cursor = mock(PartitionTimestampCursor.class);
 
             when(cursor.hasNext()).thenAnswer(hnInvocation -> cursorTouchCnt.get() < submittedItems.size());
 
             when(cursor.next()).thenAnswer(ninvocation ->
-                    ReadResult.createFromCommitted(submittedItems.get(cursorTouchCnt.getAndIncrement())));
+                    ReadResult.createFromCommitted(submittedItems.get(cursorTouchCnt.getAndIncrement()), clock.now()));
 
             return cursor;
         });
@@ -441,7 +443,7 @@ public class ItInternalTableScanTest {
         // and avoids the race between closing the cursor and stopping the node.
         CountDownLatch subscriberFinishedLatch = new CountDownLatch(1);
 
-        lenient().when(mockStorage.scan(any(), any(HybridTimestamp.class))).thenAnswer(invocation -> {
+        lenient().when(mockStorage.scan(any(HybridTimestamp.class))).thenAnswer(invocation -> {
             var cursor = mock(PartitionTimestampCursor.class);
 
             doAnswer(

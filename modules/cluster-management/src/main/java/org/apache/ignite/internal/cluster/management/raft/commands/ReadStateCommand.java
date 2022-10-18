@@ -18,10 +18,14 @@
 package org.apache.ignite.internal.cluster.management.raft.commands;
 
 import org.apache.ignite.internal.cluster.management.ClusterState;
+import org.apache.ignite.internal.cluster.management.network.messages.CmgMessageGroup;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Transferable;
 import org.apache.ignite.raft.client.ReadCommand;
 
 /**
  * Command for retrieving the current {@link ClusterState}.
  */
-public class ReadStateCommand implements ReadCommand {
+@Transferable(CmgMessageGroup.Commands.READ_STATE)
+public interface ReadStateCommand extends ReadCommand, NetworkMessage {
 }

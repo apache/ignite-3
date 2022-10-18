@@ -21,12 +21,18 @@ import static java.util.Collections.singletonList;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.Iterator;
+import java.util.List;
 import java.util.function.Predicate;
+import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
+import org.apache.ignite.internal.sql.engine.exec.exp.RangeIterable;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
@@ -122,8 +128,7 @@ public class SortedIndexSpoolExecutionTest extends AbstractExecutionTest {
                     RelCollations.of(ImmutableIntList.of(0)),
                     (o1, o2) -> o1[0] != null ? ((Comparable) o1[0]).compareTo(o2[0]) : 0,
                     testFilter,
-                    () -> lower,
-                    () -> upper
+                    new StaticRangeIterable(lower, upper)
             );
 
             spool.register(singletonList(scan));
@@ -132,28 +137,78 @@ public class SortedIndexSpoolExecutionTest extends AbstractExecutionTest {
             root.register(spool);
 
             for (TestParams param : testParams) {
-                log.info("Check: param=" + param);
-
                 // Set up bounds
                 testFilter.delegate = param.pred;
                 System.arraycopy(param.lower, 0, lower, 0, lower.length);
                 System.arraycopy(param.upper, 0, upper, 0, upper.length);
 
-                int cnt = 0;
-
-                while (root.hasNext()) {
-                    root.next();
-
-                    cnt++;
-                }
-
-                assertEquals(param.expectedResultSize, cnt, "Invalid result size");
+                assertEquals(param.expectedResultSize, root.rowsCount(), "Invalid result size");
 
                 root.rewind();
             }
 
             root.closeRewindableRoot();
         }
+    }
+
+    @Test
+    public void testUnspecifiedValuesInSearchRow() {
+        ExecutionContext<Object[]> ctx = executionContext();
+        IgniteTypeFactory tf = ctx.getTypeFactory();
+        RelDataType rowType = TypeUtils.createRowType(tf, int.class, String.class, int.class);
+
+        ScanNode<Object[]> scan = new ScanNode<>(
+                ctx,
+                rowType,
+                new TestTable(100, rowType, rowId -> rowId / 10, rowId -> rowId % 10, rowId -> rowId)
+        );
+
+        Object[] lower = new Object[3];
+        Object[] upper = new Object[3];
+
+        RelCollation collation = RelCollations.of(ImmutableIntList.of(0, 1));
+
+        IndexSpoolNode<Object[]> spool = IndexSpoolNode.createTreeSpool(
+                ctx,
+                rowType,
+                collation,
+                ctx.expressionFactory().comparator(collation),
+                v -> true,
+                new StaticRangeIterable(lower, upper)
+        );
+
+        spool.register(scan);
+
+        RootRewindable<Object[]> root = new RootRewindable<>(ctx, rowType);
+        root.register(spool);
+
+        Object x = ctx.unspecifiedValue(); // Unspecified filter value.
+
+        // Test tuple (lower, upper, expected result size).
+        List<TestParams> testBounds = Arrays.asList(
+                new TestParams(null, new Object[]{x, x, x}, new Object[]{x, x, x}, 100),
+                new TestParams(null, new Object[]{0, 0, x}, new Object[]{4, 9, x}, 50),
+                new TestParams(null, new Object[]{0, x, x}, new Object[]{4, 9, x}, 50),
+                new TestParams(null, new Object[]{0, 0, x}, new Object[]{4, x, x}, 50),
+                new TestParams(null, new Object[]{4, x, x}, new Object[]{4, x, x}, 10),
+                // This is a special case, we shouldn't compare the next field if current field bound value is null, or we
+                // can accidentally find wrong lower/upper row. So, {x, 4} bound must be converted to {x, x} and redunant
+                // rows must be filtered out by predicate.
+                new TestParams(null, new Object[]{x, 4, x}, new Object[]{x, 5, x}, 100)
+        );
+
+        for (TestParams bound : testBounds) {
+            log.info("Check: lowerBound=" + Arrays.toString(bound.lower)
+                    + ", upperBound=" + Arrays.toString(bound.upper));
+
+            // Set up bounds.
+            System.arraycopy(bound.lower, 0, lower, 0, lower.length);
+            System.arraycopy(bound.upper, 0, upper, 0, upper.length);
+
+            assertEquals(bound.expectedResultSize, root.rowsCount(), "Invalid result size");
+        }
+
+        root.closeRewindableRoot();
     }
 
     static class TestPredicate implements Predicate<Object[]> {
@@ -184,6 +239,51 @@ public class SortedIndexSpoolExecutionTest extends AbstractExecutionTest {
             this.lower = lower;
             this.upper = upper;
             this.expectedResultSize = expectedResultSize;
+        }
+    }
+
+    private static class StaticRangeIterable implements RangeIterable<Object[]> {
+        private final Object[] lower;
+
+        private final Object[] upper;
+
+        private StaticRangeIterable(Object[] lower, Object[] upper) {
+            this.lower = lower;
+            this.upper = upper;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public int size() {
+            return 1;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public Iterator<RangeCondition<Object[]>> iterator() {
+            RangeCondition<Object[]> range = new RangeCondition<Object[]>() {
+                @Override
+                public Object[] lower() {
+                    return lower;
+                }
+
+                @Override
+                public Object[] upper() {
+                    return upper;
+                }
+
+                @Override
+                public boolean lowerInclude() {
+                    return true;
+                }
+
+                @Override
+                public boolean upperInclude() {
+                    return true;
+                }
+            };
+
+            return Collections.singleton(range).iterator();
         }
     }
 }

@@ -19,14 +19,15 @@ package org.apache.ignite.internal.sql.engine.planner;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rex.RexFieldAccess;
-import org.apache.calcite.rex.RexLiteral;
-import org.apache.calcite.rex.RexNode;
+import org.apache.ignite.internal.sql.engine.prepare.bounds.ExactBounds;
+import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
@@ -98,28 +99,19 @@ public class CorrelatedNestedLoopJoinPlannerTest extends AbstractPlannerTest {
 
         IgniteIndexScan idxScan = findFirstNode(phys, byClass(IgniteIndexScan.class));
 
-        List<RexNode> lowerBound = idxScan.lowerBound();
+        List<SearchBounds> searchBounds = idxScan.searchBounds();
 
-        assertNotNull(lowerBound, "Invalid plan\n" + RelOptUtil.toString(phys));
-        assertEquals(3, lowerBound.size());
+        assertNotNull(searchBounds, "Invalid plan\n" + RelOptUtil.toString(phys));
+        assertEquals(3, searchBounds.size());
 
-        assertTrue(((RexLiteral) lowerBound.get(0)).isNull());
-        assertTrue(((RexLiteral) lowerBound.get(2)).isNull());
-        assertTrue(lowerBound.get(1) instanceof RexFieldAccess);
-
-        List<RexNode> upperBound = idxScan.upperBound();
-
-        assertNotNull(upperBound, "Invalid plan\n" + RelOptUtil.toString(phys));
-        assertEquals(3, upperBound.size());
-
-        assertTrue(((RexLiteral) upperBound.get(0)).isNull());
-        assertTrue(((RexLiteral) upperBound.get(2)).isNull());
-        assertTrue(upperBound.get(1) instanceof RexFieldAccess);
+        assertNull(searchBounds.get(0));
+        assertTrue(searchBounds.get(1) instanceof ExactBounds);
+        assertTrue(((ExactBounds) searchBounds.get(1)).bound() instanceof RexFieldAccess);
+        assertNull(searchBounds.get(2));
     }
 
     /**
-     * Check join with not equi condition. Current implementation of the CorrelatedNestedLoopJoinTest is not applicable
-     * for such case.
+     * Check join with not equi condition. Current implementation of the CorrelatedNestedLoopJoinTest is not applicable for such case.
      */
     @Test
     public void testInvalidIndexExpressions() throws Exception {

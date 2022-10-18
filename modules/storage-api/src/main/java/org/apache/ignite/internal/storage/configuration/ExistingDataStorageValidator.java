@@ -18,15 +18,15 @@
 package org.apache.ignite.internal.storage.configuration;
 
 import static java.util.stream.Collectors.toUnmodifiableSet;
-import static org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema.UNKNOWN_DATA_STORAGE;
+import static org.apache.ignite.internal.schema.configuration.storage.UnknownDataStorageConfigurationSchema.UNKNOWN_DATA_STORAGE;
 
 import java.util.Set;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
-import org.apache.ignite.configuration.schemas.store.ExistingDataStorage;
 import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
+import org.apache.ignite.internal.schema.configuration.storage.ExistingDataStorage;
 import org.apache.ignite.internal.storage.DataStorageModule;
 
 /**
