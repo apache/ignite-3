@@ -50,6 +50,7 @@ import org.apache.ignite.internal.metastorage.common.command.ConditionInfo;
 import org.apache.ignite.internal.metastorage.common.command.IfInfo;
 import org.apache.ignite.internal.metastorage.common.command.MetaStorageCommandsFactory;
 import org.apache.ignite.internal.metastorage.common.command.MultipleEntryResponse;
+import org.apache.ignite.internal.metastorage.common.command.RangeCommand;
 import org.apache.ignite.internal.metastorage.common.command.SimpleConditionInfoBuilder;
 import org.apache.ignite.internal.metastorage.common.command.SingleEntryResponse;
 import org.apache.ignite.internal.util.Cursor;
@@ -239,6 +240,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
                                 .cursorId(uuidGenerator.randomUuid())
                                 .revUpperBound(revUpperBound)
                                 .includeTombstones(includeTombstones)
+                                .batchSize(RangeCommand.DEFAULT_BATCH_SIZE)
                                 .build()
                 ),
                 MetaStorageServiceImpl::multipleEntryResultForCache
@@ -265,6 +267,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
                             .requesterNodeId(localNodeId)
                             .cursorId(uuidGenerator.randomUuid())
                             .includeTombstones(includeTombstones)
+                            .batchSize(RangeCommand.DEFAULT_BATCH_SIZE)
                             .build()
             ),
             MetaStorageServiceImpl::multipleEntryResultForCache
