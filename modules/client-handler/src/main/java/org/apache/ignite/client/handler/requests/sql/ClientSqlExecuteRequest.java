@@ -33,6 +33,7 @@ import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientSqlColumnTypeConverter;
+import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.sql.ColumnMetadata;
@@ -66,6 +67,11 @@ public class ClientSqlExecuteRequest {
         Session session = readSession(in, sql);
         Statement statement = readStatement(in, sql);
         Object[] arguments = in.unpackObjectArrayFromBinaryTuple();
+
+        if (arguments == null) {
+            // SQL engine requires non-null arguments, but we don't want to complicate the protocol with this requirement.
+            arguments = ArrayUtils.OBJECT_EMPTY_ARRAY;
+        }
 
         return session
                 .executeAsync(tx, statement, arguments)
