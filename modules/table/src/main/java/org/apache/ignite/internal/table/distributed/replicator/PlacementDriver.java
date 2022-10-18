@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.message.TablePartitionId;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.message.TxStateReplicaRequest;
 import org.apache.ignite.lang.IgniteBiTuple;
@@ -33,7 +34,7 @@ import org.apache.ignite.network.ClusterNode;
  */
 public class PlacementDriver {
     /** Assignment nodes per replication group. */
-    private final Map<String, LinkedHashSet<ClusterNode>> primaryReplicaMapping = new ConcurrentHashMap<>();
+    private final Map<TablePartitionId, LinkedHashSet<ClusterNode>> primaryReplicaMapping = new ConcurrentHashMap<>();
 
     /** Replication service. */
     private final ReplicaService replicaService;
@@ -54,7 +55,7 @@ public class PlacementDriver {
      * @param request Status request.
      * @return Result future.
      */
-    public CompletableFuture<TxMeta> sendMetaRequest(String replicaGrp, TxStateReplicaRequest request) {
+    public CompletableFuture<TxMeta> sendMetaRequest(TablePartitionId replicaGrp, TxStateReplicaRequest request) {
         CompletableFuture<TxMeta> resFut = new CompletableFuture<>();
 
         sendAndRetry(resFut, replicaGrp, request);
@@ -68,7 +69,7 @@ public class PlacementDriver {
      * @param replicaGrpId Replication group id.
      * @param assignment Assignment.
      */
-    public void updateAssignment(String replicaGrpId, Collection<ClusterNode> assignment) {
+    public void updateAssignment(TablePartitionId replicaGrpId, Collection<ClusterNode> assignment) {
         primaryReplicaMapping.put(replicaGrpId, new LinkedHashSet<>(assignment));
     }
 
@@ -80,7 +81,7 @@ public class PlacementDriver {
      * @param replicaGrp Replication group id.
      * @param request Request.
      */
-    private void sendAndRetry(CompletableFuture<TxMeta> resFut, String replicaGrp, TxStateReplicaRequest request) {
+    private void sendAndRetry(CompletableFuture<TxMeta> resFut, TablePartitionId replicaGrp, TxStateReplicaRequest request) {
         ClusterNode nodeToSend = primaryReplicaMapping.get(replicaGrp).iterator().next();
 
         replicaService.invoke(nodeToSend, request).thenAccept(resp -> {

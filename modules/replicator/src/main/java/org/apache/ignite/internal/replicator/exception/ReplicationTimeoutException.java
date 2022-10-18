@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.replicator.exception;
 
 import java.util.UUID;
+import org.apache.ignite.internal.replicator.message.TablePartitionId;
 import org.apache.ignite.lang.ErrorGroups.Replicator;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
@@ -31,7 +32,7 @@ public class ReplicationTimeoutException extends IgniteInternalException {
      *
      * @param replicaGrpId Replication group id.
      */
-    public ReplicationTimeoutException(String replicaGrpId) {
+    public ReplicationTimeoutException(TablePartitionId replicaGrpId) {
         super(Replicator.REPLICA_TIMEOUT_ERR, IgniteStringFormatter.format("Replication is timed out [replicaGrpId={}]", replicaGrpId));
     }
 

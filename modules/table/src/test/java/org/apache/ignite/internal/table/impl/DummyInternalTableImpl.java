@@ -33,6 +33,7 @@ import javax.naming.OperationNotSupportedException;
 import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
+import org.apache.ignite.internal.replicator.message.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -68,11 +69,13 @@ import org.mockito.Mockito;
 public class DummyInternalTableImpl extends InternalTableImpl {
     public static final NetworkAddress ADDR = new NetworkAddress("127.0.0.1", 2004);
 
+    private static final TablePartitionId crossTableGroupId = new TablePartitionId(UUID.randomUUID(), 0);
+
     private PartitionListener partitionListener;
 
     private ReplicaListener replicaListener;
 
-    private String groupId;
+    private TablePartitionId groupId;
 
     /**
      * Creates a new local table.
@@ -135,9 +138,9 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         );
         RaftGroupService svc = partitionMap.get(0);
 
-        groupId = crossTableUsage ? "testGrp-" + UUID.randomUUID() : "testGrp";
+        groupId = crossTableUsage ? new TablePartitionId(tableId(), 0) : crossTableGroupId;
 
-        lenient().doReturn(groupId).when(svc).groupId();
+        lenient().doReturn(groupId.toString()).when(svc).groupId();
         Peer leaderPeer = new Peer(ADDR);
         lenient().doReturn(leaderPeer).when(svc).leader();
         lenient().doReturn(CompletableFuture.completedFuture(new IgniteBiTuple<>(leaderPeer, 1L))).when(svc).refreshAndGetLeaderWithTerm();
@@ -206,7 +209,6 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 this.txManager,
                 this.txManager.lockManager(),
                 0,
-                groupId,
                 tableId(),
                 primaryIndex,
                 new HybridClock(),
@@ -233,18 +235,12 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         return replicaListener;
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public @NotNull UUID tableId() {
-        return UUID.randomUUID();
-    }
-
     /**
      * Group id of single partition of this table.
      *
      * @return Group id.
      */
-    public String groupId() {
+    public TablePartitionId groupId() {
         return groupId;
     }
 

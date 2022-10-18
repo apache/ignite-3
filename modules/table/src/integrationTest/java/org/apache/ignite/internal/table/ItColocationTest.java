@@ -54,6 +54,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.replicator.message.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.Column;
@@ -129,10 +130,11 @@ public class ItColocationTest {
         TxManager txManager = new TxManagerImpl(replicaService,  new HeapLockManager(), new HybridClock()) {
             @Override
             public CompletableFuture<Void> finish(
+                    TablePartitionId committedPartition,
                     ClusterNode recipientNode,
                     Long term,
                     boolean commit,
-                    Map<ClusterNode, List<IgniteBiTuple<String, Long>>> groups,
+                    Map<ClusterNode, List<IgniteBiTuple<TablePartitionId, Long>>> groups,
                     UUID txId) {
                 return completedFuture(null);
             }
@@ -140,7 +142,9 @@ public class ItColocationTest {
         txManager.start();
 
         Int2ObjectMap<RaftGroupService> partRafts = new Int2ObjectOpenHashMap<>();
-        Map<String, RaftGroupService> groupRafts = new HashMap<>();
+        Map<TablePartitionId, RaftGroupService> groupRafts = new HashMap<>();
+
+        UUID tblId = UUID.randomUUID();
 
         for (int i = 0; i < PARTS; ++i) {
             String groupId = "PUBLIC.TEST_part_" + i;
@@ -168,11 +172,12 @@ public class ItColocationTest {
             }).when(r).run(any());
 
             partRafts.put(i, r);
-            groupRafts.put(groupId, r);
+            groupRafts.put(new TablePartitionId(tblId, i), r);
         }
 
         when(replicaService.invoke(any(), any())).thenAnswer(invocation -> {
             ReplicaRequest request = invocation.getArgument(1);
+            var commitPartId = new TablePartitionId(UUID.randomUUID(), 0);
 
             RaftGroupService r = groupRafts.get(request.groupId());
 
@@ -181,17 +186,22 @@ public class ItColocationTest {
                         .stream()
                         .collect(toMap(row -> new RowId(0), row -> row));
 
-                return r.run(new UpdateAllCommand(rows, UUID.randomUUID()));
+                return r.run(new UpdateAllCommand(commitPartId, rows, UUID.randomUUID()));
             } else {
                 assertThat(request, is(instanceOf(ReadWriteSingleRowReplicaRequest.class)));
 
-                return r.run(new UpdateCommand(new RowId(0), ((ReadWriteSingleRowReplicaRequest) request).binaryRow(), UUID.randomUUID()));
+                return r.run(new UpdateCommand(
+                        commitPartId,
+                        new RowId(0),
+                        ((ReadWriteSingleRowReplicaRequest) request).binaryRow(),
+                        UUID.randomUUID())
+                );
             }
         });
 
         INT_TABLE = new InternalTableImpl(
                 "PUBLIC.TEST",
-                UUID.randomUUID(),
+                tblId,
                 partRafts,
                 PARTS,
                 null,

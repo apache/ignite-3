@@ -51,6 +51,7 @@ import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.message.TablePartitionId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
@@ -373,7 +374,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 var placementDriver = new PlacementDriver(replicaServices.get(node));
 
                 for (int part = 0; part < assignment.size(); part++) {
-                    String replicaGrpId = name + "-part-" + part;
+                    TablePartitionId replicaGrpId = new TablePartitionId(tblId, part);
 
                     placementDriver.updateAssignment(replicaGrpId, assignment.get(part));
                 }
@@ -398,14 +399,13 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                         raftSvc -> {
                             try {
                                 replicaManagers.get(node).startReplica(
-                                        grpId,
+                                        new TablePartitionId(tblId, partId),
                                         new PartitionReplicaListener(
                                                 testMpPartStorage,
                                                 raftSvc,
                                                 txManagers.get(node),
                                                 txManagers.get(node).lockManager(),
                                                 partId,
-                                                grpId,
                                                 tblId,
                                                 primaryIndex,
                                                 clocks.get(node),
@@ -494,11 +494,15 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
             ReplicaManager replicaMgr = replicaManagers.get(entry.getKey());
 
+            Set<TablePartitionId> replicaGrps = replicaMgr.startedGroups();
+
+            for (TablePartitionId grp : replicaGrps) {
+                replicaMgr.stopReplica(grp);
+            }
+
             Set<String> grps = rs.startedGroups();
 
             for (String grp : grps) {
-                replicaMgr.stopReplica(grp);
-
                 rs.stopRaftGroup(grp);
             }
 

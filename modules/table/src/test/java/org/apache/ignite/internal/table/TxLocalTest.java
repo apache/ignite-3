@@ -30,6 +30,7 @@ import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.replicator.message.TablePartitionId;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.tx.LockManager;
@@ -64,7 +65,7 @@ public class TxLocalTest extends TxAbstractTest {
 
         ReplicaService replicaSvc = mock(ReplicaService.class, RETURNS_DEEP_STUBS);
 
-        Map<String, DummyInternalTableImpl> tables = new HashMap<>();
+        Map<TablePartitionId, DummyInternalTableImpl> tables = new HashMap<>();
 
         lenient().doAnswer(
             invocationOnMock -> {

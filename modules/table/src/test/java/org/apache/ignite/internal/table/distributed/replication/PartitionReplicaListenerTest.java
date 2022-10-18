@@ -35,6 +35,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.hlc.HybridTimestamp;
+import org.apache.ignite.internal.replicator.message.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
@@ -87,7 +88,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     private static final UUID tblId = UUID.randomUUID();
 
     /** Replication group id. */
-    private static final String grpId = tblId + "_part_" + partId;
+    private static final TablePartitionId grpId = new TablePartitionId(tblId, partId);
 
     /** Primary index map. */
     private static final ConcurrentHashMap<ByteBuffer, RowId> primaryIndex = new ConcurrentHashMap<>();
@@ -179,7 +180,6 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 mock(TxManager.class),
                 new HeapLockManager(),
                 partId,
-                grpId,
                 tblId,
                 primaryIndex,
                 clock,

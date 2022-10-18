@@ -22,6 +22,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.internal.replicator.message.TablePartitionId;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxState;
@@ -94,7 +95,7 @@ public class FakeIgnite implements Ignite {
                     }
 
                     @Override
-                    public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndTerm(String partGroupId) {
+                    public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndTerm(TablePartitionId tablePartitionId) {
                         return null;
                     }
 
@@ -104,8 +105,18 @@ public class FakeIgnite implements Ignite {
                     }
 
                     @Override
+                    public boolean assignCommitPartition(TablePartitionId replicationGroupId) {
+                        return false;
+                    }
+
+                    @Override
+                    public TablePartitionId committedPartition() {
+                        return null;
+                    }
+
+                    @Override
                     public IgniteBiTuple<ClusterNode, Long> enlist(
-                            String replicationGroupId,
+                            TablePartitionId tablePartitionId,
                             IgniteBiTuple<ClusterNode, Long> nodeAndTerm) {
                         return null;
                     }

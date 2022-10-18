@@ -32,6 +32,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.IntStream;
 import org.apache.ignite.hlc.HybridTimestamp;
+import org.apache.ignite.internal.replicator.message.TablePartitionId;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.tx.TxMeta;
@@ -89,8 +90,8 @@ public abstract class TxStateStorageAbstractTest {
         }
     }
 
-    private List<String> generateEnlistedPartitions(int c) {
-        return IntStream.range(0, c).mapToObj(String::valueOf).collect(toList());
+    private List<TablePartitionId> generateEnlistedPartitions(int c) {
+        return IntStream.range(0, c).mapToObj(i -> new TablePartitionId(new UUID(c, i), i)).collect(toList());
     }
 
     private HybridTimestamp generateTimestamp(UUID uuid) {

@@ -20,6 +20,7 @@ package org.apache.ignite.internal.replicator;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.replicator.message.TablePartitionId;
 import org.apache.ignite.lang.IgniteStringFormatter;
 
 /**
@@ -27,7 +28,7 @@ import org.apache.ignite.lang.IgniteStringFormatter;
  */
 public class Replica {
     /** Replica group identity, this id is the same as the considered partition's id. */
-    private final String replicaGrpId;
+    private final TablePartitionId replicaGrpId;
 
     /** Replica listener. */
     private final ReplicaListener listener;
@@ -39,7 +40,7 @@ public class Replica {
      * @param listener Replica listener.
      */
     public Replica(
-            String replicaGrpId,
+            TablePartitionId replicaGrpId,
             ReplicaListener listener
     ) {
         this.replicaGrpId = replicaGrpId;

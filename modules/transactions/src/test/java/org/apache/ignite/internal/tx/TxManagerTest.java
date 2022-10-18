@@ -26,6 +26,7 @@ import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import java.util.UUID;
 import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.message.TablePartitionId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
@@ -83,7 +84,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         InternalTransaction tx = txManager.begin();
 
-        String replicationGroupName = "ReplicationGroupName";
+        TablePartitionId replicationGroupName = new TablePartitionId(UUID.randomUUID(), 1);
 
         ClusterNode node  = Mockito.mock(ClusterNode.class);
 

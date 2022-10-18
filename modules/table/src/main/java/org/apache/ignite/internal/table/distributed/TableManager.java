@@ -21,7 +21,6 @@ import static java.util.Collections.unmodifiableMap;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.getByInternalId;
 import static org.apache.ignite.internal.schema.SchemaManager.INITIAL_SCHEMA_VERSION;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
@@ -93,6 +92,7 @@ import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.storage.impl.LogStorageFactoryCreator;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.message.TablePartitionId;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableChange;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableConfiguration;
@@ -681,7 +681,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 String grpId = partitionRaftGroupName(tblId, partId);
 
-                placementDriver.updateAssignment(grpId, nodes);
+                TablePartitionId replicaGrpId = new TablePartitionId(tblId, partId);
+
+                placementDriver.updateAssignment(replicaGrpId, nodes);
 
                 CompletableFuture<Void> startGroupFut = CompletableFuture.completedFuture(null);
 
@@ -780,14 +782,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                         MvPartitionStorage partitionStorage = internalTbl.storage().getOrCreateMvPartition(partId);
 
                                         try {
-                                            replicaMgr.startReplica(grpId,
+                                            replicaMgr.startReplica(replicaGrpId,
                                                     new PartitionReplicaListener(
                                                             partitionStorage,
                                                             updatedRaftGroupService,
                                                             txManager,
                                                             lockMgr,
                                                             partId,
-                                                            grpId,
                                                             tblId,
                                                             primaryIndex,
                                                             clock,
@@ -903,7 +904,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 for (int p = 0; p < table.internalTable().partitions(); p++) {
                     raftMgr.stopRaftGroup(partitionRaftGroupName(table.tableId(), p));
 
-                    replicaMgr.stopReplica(partitionRaftGroupName(table.tableId(), p));
+                    replicaMgr.stopReplica(new TablePartitionId(table.tableId(), p));
                 }
 
                 table.internalTable().storage().stop();
@@ -1055,7 +1056,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             for (int p = 0; p < partitions; p++) {
                 raftMgr.stopRaftGroup(partitionRaftGroupName(tblId, p));
 
-                replicaMgr.stopReplica(partitionRaftGroupName(tblId, p));
+                replicaMgr.stopReplica(new TablePartitionId(tblId, p));
             }
 
             tablesByIdVv.update(causalityToken, (previousVal, e) -> inBusyLock(busyLock, () -> {
@@ -1658,7 +1659,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             ? ((List<Set<ClusterNode>>) ByteUtils.fromBytes(tblCfg.assignments().value())).get(partId)
                             : ByteUtils.fromBytes(stableAssignments);
 
-                    placementDriver.updateAssignment(grpId, assignments);
+                    TablePartitionId replicaGrpId = new TablePartitionId(tblId, partId);
+
+                    placementDriver.updateAssignment(replicaGrpId, assignments);
 
                     ClusterNode localMember = raftMgr.topologyService().localMember();
 
@@ -1713,14 +1716,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         if (replicaMgr.shouldHaveReplicationGroupLocally(deltaPeers)) {
                             MvPartitionStorage partitionStorage = tbl.internalTable().storage().getOrCreateMvPartition(partId);
 
-                            replicaMgr.startReplica(grpId,
+                            replicaMgr.startReplica(replicaGrpId,
                                     new PartitionReplicaListener(
                                             partitionStorage,
                                             tbl.internalTable().partitionRaftGroupService(partId),
                                             txManager,
                                             lockMgr,
                                             partId,
-                                            grpId,
                                             tblId,
                                             primaryIndex,
                                             clock,
@@ -1803,7 +1805,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         if (!stableAssignments.contains(localMember) && !pendingAssignments.contains(localMember)) {
                             raftMgr.stopRaftGroup(partId);
 
-                            replicaMgr.stopReplica(partId);
+                            replicaMgr.stopReplica(new TablePartitionId(tblId, part));
                         }
                     } catch (NodeStoppingException e) {
                         // no-op

@@ -22,7 +22,6 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.apache.ignite.raft.jraft.test.TestUtils.peersToIds;
-import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -443,7 +442,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         tableManager.stop();
 
         verify(rm, times(PARTITIONS)).stopRaftGroup(anyString());
-        verify(replicaMgr, times(PARTITIONS)).stopReplica(anyString());
+        verify(replicaMgr, times(PARTITIONS)).stopReplica(any());
     }
 
     /**

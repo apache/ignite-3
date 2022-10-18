@@ -19,6 +19,7 @@ package org.apache.ignite.internal.tx;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.replicator.message.TablePartitionId;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.Transaction;
@@ -38,12 +39,12 @@ public interface InternalTransaction extends Transaction {
     /**
      * Returns enlisted primary replica node associated with given replication group.
      *
-     * @param partGroupId Replication group id.
+     * @param tablePartitionId Table partition id.
      * @return Enlisted primary replica node and raft term associated with given replication group.
      */
     // TODO: IGNITE-17256 IgniteBiTuple along with second parameter term will be removed after introducing leased based primary replica
     // TODO: selection and failover engine.
-    IgniteBiTuple<ClusterNode, Long> enlistedNodeAndTerm(String partGroupId);
+    IgniteBiTuple<ClusterNode, Long> enlistedNodeAndTerm(TablePartitionId tablePartitionId);
 
     /**
      * Returns a transaction state.
@@ -53,13 +54,28 @@ public interface InternalTransaction extends Transaction {
     TxState state();
 
     /**
+     * Assign a replication group that will store the transaction state.
+     *
+     * @param replicationGroupId Committed partition id.
+     * @return True if the replication group was assigned as committed, false otherwise.
+     */
+    boolean assignCommitPartition(TablePartitionId replicationGroupId);
+
+    /**
+     * Gets a replication group id that stores the transaction state.
+     *
+     * @return Replication group id.
+     */
+    TablePartitionId committedPartition();
+
+    /**
      * Enlists a partition group into a transaction.
      *
-     * @param replicationGroupId Replication group id to enlist.
+     * @param tablePartitionId Table partition id to enlist.
      * @param nodeAndTerm Primary replica cluster node and raft term to enlist for given replication group.
      * @return {@code True} if a partition is enlisted into the transaction.
      */
-    IgniteBiTuple<ClusterNode, Long> enlist(String replicationGroupId, IgniteBiTuple<ClusterNode, Long> nodeAndTerm);
+    IgniteBiTuple<ClusterNode, Long> enlist(TablePartitionId tablePartitionId, IgniteBiTuple<ClusterNode, Long> nodeAndTerm);
 
     /**
      * Enlists operation future in transaction. It's used in order to wait corresponding tx operations before commit.

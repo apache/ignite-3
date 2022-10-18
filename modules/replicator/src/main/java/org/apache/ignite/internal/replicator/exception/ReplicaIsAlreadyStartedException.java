@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.replicator.exception;
 
 import java.util.UUID;
+import org.apache.ignite.internal.replicator.message.TablePartitionId;
 import org.apache.ignite.lang.ErrorGroups.Replicator;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
@@ -32,7 +33,7 @@ public class ReplicaIsAlreadyStartedException extends IgniteInternalException {
      *
      * @param replicaGrpId Replication group id.
      */
-    public ReplicaIsAlreadyStartedException(String replicaGrpId) {
+    public ReplicaIsAlreadyStartedException(TablePartitionId replicaGrpId) {
         super(Replicator.REPLICA_IS_ALREADY_STARTED_ERR,
                 IgniteStringFormatter.format("Replica is started already [replicaGrpId={}]", replicaGrpId));
     }
