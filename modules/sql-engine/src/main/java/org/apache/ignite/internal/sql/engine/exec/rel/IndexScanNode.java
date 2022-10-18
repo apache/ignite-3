@@ -19,8 +19,8 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
 
-import java.util.ArrayList;
 import java.util.BitSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.Flow;
@@ -70,7 +70,9 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
     /** Participating columns. */
     private final @Nullable BitSet requiredColumns;
 
-    private final List<RangeCondition<RowT>> rangeConditions;
+    private final RangeIterable<RowT> rangeConditions;
+
+    private Iterator<RangeCondition<RowT>> rangeConditionIterator;
 
     private int requested;
 
@@ -81,8 +83,6 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
     private Subscription activeSubscription;
 
     private int curPartIdx;
-
-    private int curRangeIdx;
 
     /**
      * Constructor.
@@ -115,15 +115,7 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
         this.filters = filters;
         this.rowTransformer = rowTransformer;
         this.requiredColumns = requiredColumns;
-
-        if (rangeConditions == null) {
-            this.rangeConditions = null;
-        } else {
-            this.rangeConditions = new ArrayList<>(rangeConditions.size());
-            for (RangeCondition<RowT> cond : rangeConditions) {
-                this.rangeConditions.add(cond);
-            }
-        }
+        this.rangeConditions = rangeConditions;
 
         factory = ctx.rowHandler().factory(ctx.getTypeFactory(), rowType);
 
@@ -162,7 +154,7 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
         requested = 0;
         waiting = 0;
         curPartIdx = 0;
-        curRangeIdx = 0;
+        rangeConditionIterator = null;
 
         if (activeSubscription != null) {
             activeSubscription.cancel();
@@ -255,7 +247,11 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
                     flags = SortedIndex.INCLUDE_LEFT | SortedIndex.INCLUDE_RIGHT;
                     curPartIdx++;
                 } else {
-                    RangeCondition<RowT> cond = rangeConditions.get(curRangeIdx++);
+                    if (rangeConditionIterator == null) {
+                        rangeConditionIterator = rangeConditions.iterator();
+                    }
+
+                    RangeCondition<RowT> cond = rangeConditionIterator.next();
 
                     lowerBound = toBinaryTuplePrefix(cond.lower());
                     upperBound = toBinaryTuplePrefix(cond.upper());
@@ -263,8 +259,8 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
                     flags |= (cond.lowerInclude()) ? SortedIndex.INCLUDE_LEFT : 0;
                     flags |= (cond.upperInclude()) ? SortedIndex.INCLUDE_RIGHT : 0;
 
-                    if (curRangeIdx == rangeConditions.size()) { // Switch to next partition and reset range index.
-                        curRangeIdx = 0;
+                    if (!rangeConditionIterator.hasNext()) { // Switch to next partition and reset range index.
+                        rangeConditionIterator = null;
                         curPartIdx++;
                     }
                 }
@@ -286,14 +282,18 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
                 if (rangeConditions == null) {
                     curPartIdx++;
                 } else {
-                    RangeCondition<RowT> cond = rangeConditions.get(curRangeIdx++);
+                    if (rangeConditionIterator == null) {
+                        rangeConditionIterator = rangeConditions.iterator();
+                    }
+
+                    RangeCondition<RowT> cond = rangeConditionIterator.next();
 
                     assert cond.lower() == cond.upper();
 
                     key = toBinaryTuple(cond.lower());
 
-                    if (curRangeIdx == rangeConditions.size()) { // Switch to next partition and reset range index.
-                        curRangeIdx = 0;
+                    if (!rangeConditionIterator.hasNext()) { // Switch to next partition and reset range index.
+                        rangeConditionIterator = null;
                         curPartIdx++;
                     }
                 }
