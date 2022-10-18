@@ -126,7 +126,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Map<ByteArray, Entry>> getAll(Set<ByteArray> keys, long revUpperBound) {
-        return metaStorageRaftGrpSvc.run(getAllCommand(commandsFactory, keys, 0))
+        return metaStorageRaftGrpSvc.run(getAllCommand(commandsFactory, keys, revUpperBound))
                 .thenApply(MetaStorageServiceImpl::multipleEntryResult);
     }
 
@@ -234,7 +234,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
                 metaStorageRaftGrpSvc.run(
                         commandsFactory.rangeCommand()
                                 .keyFrom(keyFrom.bytes())
-                                .keyTo(keyTo.bytes())
+                                .keyTo(keyTo == null ? null : keyTo.bytes())
                                 .requesterNodeId(localNodeId)
                                 .cursorId(uuidGenerator.randomUuid())
                                 .revUpperBound(revUpperBound)
@@ -260,7 +260,8 @@ public class MetaStorageServiceImpl implements MetaStorageService {
             metaStorageRaftGrpSvc.run(
                     commandsFactory.rangeCommand()
                             .keyFrom(keyFrom.bytes())
-                            .keyTo(keyTo.bytes())
+                            .keyTo(keyTo == null ? null : keyTo.bytes())
+                            .revUpperBound(-1)
                             .requesterNodeId(localNodeId)
                             .cursorId(uuidGenerator.randomUuid())
                             .includeTombstones(includeTombstones)
