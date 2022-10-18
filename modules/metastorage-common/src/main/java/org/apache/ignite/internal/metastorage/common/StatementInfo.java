@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.metastorage.common;
 
-import java.io.Serializable;
 import org.apache.ignite.internal.metastorage.common.command.IfInfo;
 import org.apache.ignite.internal.metastorage.common.command.MetastorageCommandsMessageGroup;
 import org.apache.ignite.network.NetworkMessage;
@@ -32,7 +31,7 @@ import org.apache.ignite.network.annotations.Transferable;
  * @see UpdateInfo
  */
 @Transferable(MetastorageCommandsMessageGroup.STATEMENT_INFO)
-public interface StatementInfo extends NetworkMessage, Serializable {
+public interface StatementInfo extends NetworkMessage {
     /**
      * Returns {@link IfInfo} or {@code null}, if iif is not defined.
      * Note: check which field is filled by {@link #isTerminal()}

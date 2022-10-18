@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.metastorage.common.command;
 
-import java.io.Serializable;
 import org.apache.ignite.internal.metastorage.common.StatementInfo;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
@@ -26,7 +25,7 @@ import org.apache.ignite.network.annotations.Transferable;
  * Defines if-statement for {@link MultiInvokeCommand}.
  */
 @Transferable(MetastorageCommandsMessageGroup.IF_INFO)
-public interface IfInfo extends NetworkMessage, Serializable {
+public interface IfInfo extends NetworkMessage {
     /**
      * Returns boolean condition definition.
      *
