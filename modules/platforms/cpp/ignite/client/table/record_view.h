@@ -18,51 +18,38 @@
 #pragma once
 
 #include "ignite/common/config.h"
-#include "ignite/client/table/record_view.h"
-#include "ignite/client/table/ignite_tuple.h"
+#include "ignite/common/ignite_result.h"
 
 #include <memory>
 #include <utility>
 
 namespace ignite {
 
-namespace detail {
-
-class table_impl;
-class tables_impl;
-
-} // namespace
-
 /**
- * Table view.
+ * Record view interface provides methods to access table records.
  */
-class table {
-    friend class detail::tables_impl;
-
+template<typename T>
+class record_view {
 public:
-    // Default
-    table() = default;
-    ~table() = default;
-    table(table &&) noexcept = default;
-    table &operator=(table &&) noexcept = default;
-
     // Deleted
-    table(const table &) = delete;
-    table &operator=(const table &) = delete;
+    record_view(const record_view &) = delete;
+    record_view &operator=(const record_view &) = delete;
+
+    // Default
+    record_view() = default;
+    ~record_view() = default;
+    record_view(record_view &&) noexcept = default;
+    record_view &operator=(record_view &&) noexcept = default;
 
     /**
-     * Gets table name.
+     * Gets a record by key.
      *
-     * @return Table name.
+     * @param key Key.
+     * @param callback Callback.
      */
-    [[nodiscard]] IGNITE_API const std::string &name() const noexcept;
+    IGNITE_API void get_async(T&& key, ignite_callback<T> callback) noexcept {
 
-    /**
-     * Gets the record binary view.
-     *
-     * @return Record binary view.
-     */
-    [[nodiscard]] IGNITE_API record_view<ignite_tuple> record_binary_view() const noexcept;
+    }
 
 private:
     /**
@@ -70,11 +57,11 @@ private:
      *
      * @param impl Implementation
      */
-    explicit table(std::shared_ptr<detail::table_impl> impl)
+    explicit record_view(std::shared_ptr<void> impl)
         : m_impl(std::move(impl)) { }
 
     /** Implementation. */
-    std::shared_ptr<detail::table_impl> m_impl;
+    std::shared_ptr<void> m_impl;
 };
 
 } // namespace ignite

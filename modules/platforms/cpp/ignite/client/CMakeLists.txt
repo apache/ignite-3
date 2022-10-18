@@ -21,6 +21,7 @@ set(TARGET ${PROJECT_NAME})
 
 set(SOURCES
     ignite_client.cpp
+        table/record_view.cpp
     table/table.cpp
     table/tables.cpp
     detail/cluster_connection.cpp
