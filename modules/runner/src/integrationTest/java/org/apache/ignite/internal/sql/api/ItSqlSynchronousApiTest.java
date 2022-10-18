@@ -193,7 +193,7 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
 
         var states = (Map<UUID, TxState>) IgniteTestUtils.getFieldValue(txManagerInternal, TxManagerImpl.class, "states");
 
-        assertEquals(ROW_COUNT, states.size() - txPrevCnt);
+        assertEquals(txManagerInternal.finished(), states.size());
 
         checkDml(ROW_COUNT, ses, "UPDATE TEST SET VAL0 = VAL0 + ?", 1);
 
@@ -281,13 +281,11 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
             assertThrowsWithCause(() -> rs.forEachRemaining(Object::hashCode), CursorClosedException.class);
         }
 
-        int expectedStatesCount = ROW_COUNT + 1;
-
-        assertEquals(expectedStatesCount, txManagerInternal.finished() - txPrevCnt);
+        assertEquals(ROW_COUNT + 1, txManagerInternal.finished() - txPrevCnt);
 
         var states = (Map<UUID, TxState>) IgniteTestUtils.getFieldValue(txManagerInternal, TxManagerImpl.class, "states");
 
-        assertEquals(expectedStatesCount, states.size() - txPrevCnt);
+        assertEquals(txManagerInternal.finished(), states.size());
     }
 
     @Test
