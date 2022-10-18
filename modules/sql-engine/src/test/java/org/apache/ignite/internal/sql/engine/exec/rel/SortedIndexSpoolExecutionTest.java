@@ -174,8 +174,7 @@ public class SortedIndexSpoolExecutionTest extends AbstractExecutionTest {
                 collation,
                 ctx.expressionFactory().comparator(collation),
                 v -> true,
-                () -> lower,
-                () -> upper
+                new StaticRangeIterable(lower, upper)
         );
 
         spool.register(scan);
