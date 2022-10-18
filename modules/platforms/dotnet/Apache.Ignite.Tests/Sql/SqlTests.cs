@@ -75,6 +75,32 @@ namespace Apache.Ignite.Tests.Sql
         }
 
         [Test]
+        public async Task TestNullArgs()
+        {
+            await using IResultSet<IIgniteTuple> resultSet = await Client.Sql.ExecuteAsync(
+                transaction: null,
+                statement: "select 1",
+                args: null);
+
+            var rows = await resultSet.ToListAsync();
+
+            Assert.AreEqual(1, rows.Single()[0]);
+        }
+
+        [Test]
+        public async Task TestNullArg()
+        {
+            await using IResultSet<IIgniteTuple> resultSet = await Client.Sql.ExecuteAsync(
+                transaction: null,
+                statement: "select 1 where 2 = ?",
+                args: new object?[] { null });
+
+            var rows = await resultSet.ToListAsync();
+
+            Assert.AreEqual(1, rows.Single()[0]);
+        }
+
+        [Test]
         public async Task TestGetAllMultiplePages()
         {
             var statement = new SqlStatement("SELECT ID, VAL FROM TEST ORDER BY VAL", pageSize: 4);
