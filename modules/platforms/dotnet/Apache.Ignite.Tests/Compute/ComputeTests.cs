@@ -136,6 +136,14 @@ namespace Apache.Ignite.Tests.Compute
         }
 
         [Test]
+        public async Task TestExecuteWithNullArgs()
+        {
+            var res = await Client.Compute.ExecuteAsync<string>(await Client.GetClusterNodesAsync(), ConcatJob, args: null);
+
+            Assert.IsNull(res);
+        }
+
+        [Test]
         public void TestJobErrorPropagatesToClientWithClassAndMessage()
         {
             var ex = Assert.ThrowsAsync<IgniteException>(async () =>
