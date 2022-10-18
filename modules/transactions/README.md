@@ -1,3 +1,6 @@
+The most recent version of the transaction protocol is described in the
+[IEP-91: Transaction protocol](https://cwiki.apache.org/confluence/display/IGNITE/IEP-91%3A+Transaction+protocol)
+
 # Ignite transactions
 This module provides transactions support for cross partition operations. Using the transactions, such operations are
 executed in atomic way (either all changes all applied, or nothing at all) with a strong isolation.
