@@ -18,9 +18,7 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static java.util.concurrent.CompletableFuture.allOf;
-import static java.util.concurrent.CompletableFuture.failedFuture;
 
-import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -30,10 +28,7 @@ import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.tx.Lock;
-import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
-import org.apache.ignite.internal.tx.LockMode;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
@@ -41,7 +36,6 @@ import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -97,40 +91,12 @@ public class TxManagerImpl implements TxManager {
     @Override
     public boolean changeState(UUID txId, TxState before, TxState after) {
         return states.compute(txId, (k, v) -> {
-            if (v == null || v == before) {
+            if (v == before) {
                 return after;
             } else {
                 return v;
             }
         }) == after;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<Lock> writeLock(UUID lockId, ByteBuffer keyData, UUID txId) {
-        // TODO IGNITE-15933 process tx messages in strips to avoid races. But locks can be acquired from any thread !
-        if (state(txId) != null) {
-            return failedFuture(new TransactionException(
-                    "The operation is attempted for completed transaction"));
-        }
-
-        // Should rollback tx on lock error.
-        LockKey lockKey = new LockKey(lockId, keyData);
-
-        return lockManager.acquire(txId, lockKey, LockMode.X);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<Lock> readLock(UUID lockId, ByteBuffer keyData, UUID txId) {
-        if (state(txId) != null) {
-            return failedFuture(new TransactionException(
-                    "The operation is attempted for completed transaction"));
-        }
-
-        LockKey lockKey = new LockKey(lockId, keyData);
-
-        return lockManager.acquire(txId, lockKey, LockMode.S);
     }
 
     /** {@inheritDoc} */
