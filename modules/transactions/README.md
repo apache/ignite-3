@@ -71,7 +71,7 @@ This functionality should be implemented by LockManager.
 # Tx metadata
 Each node maintains a persistent tx map:
 
-txid -> txstate(PENDING|ABORTED|COMMITED)
+txid -> txstate(ABORTED|COMMITED)
 
 This map is used for a failover and for reading. Oldest entries in txid map must be cleaned to avoid unlimited grow.
 
@@ -141,7 +141,6 @@ Tx client               TxCoordinator                                           
 tx.start
             --------->  
                         assign timestamp = ts
-                        txstate = PENDING
             <---------		   	               
 table.put(k,v)   
             --------->   
@@ -149,7 +148,6 @@ table.put(k,v)
                         lh = getLeaseholder(partition(k))
                         send UpsertCommand(k,ts) to lh
 				                                                      ------------>
-                                                                                     replicate txstate = PENDING
                                                                                      lockManager.tryAcquire(k,ts);
                                                                                      wait for completion async
                                                                                      prewrite(k,v,oldV,ts) -- replicate to all replicas
