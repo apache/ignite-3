@@ -359,7 +359,7 @@ public class IgniteImpl implements Ignite {
                 )
         );
 
-        schemaManager = new SchemaManager(registry, tablesConfiguration);
+        schemaManager = new SchemaManager(registry, tablesConfiguration, metaStorageMgr);
 
         volatileLogStorageFactoryCreator = new VolatileLogStorageFactoryCreator(workDir.resolve("volatile-log-spillout"));
 
