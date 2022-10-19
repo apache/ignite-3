@@ -443,6 +443,10 @@ Group(Sequence(
 NonTerminal('column_name'),
 NonTerminal('DATA TYPE'),
 Optional(Sequence(Optional('NOT'),NonTerminal('NULL'))),
+)
+
+[.diagram-container]
+ComplexDiagram(
 Optional(Sequence(NonTerminal('DEFAULT'), NonTerminal('literal_value'))),
 NonTerminal('PRIMARY KEY')
 ), 'column_definition')
