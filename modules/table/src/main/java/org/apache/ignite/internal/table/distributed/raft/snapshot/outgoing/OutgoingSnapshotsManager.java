@@ -39,6 +39,7 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.message.Snapsh
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -53,6 +54,7 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, OutgoingSn
 
     /** Map with outgoing snapshots. */
     private final Map<UUID, OutgoingSnapshot> snapshots = new ConcurrentHashMap<>();
+    // TODO: IGNITE-17935 - remove partition from this map when partition is closed/destroyed
     private final Map<PartitionKey, PartitionSnapshotsImpl> snapshotsByPartition = new ConcurrentHashMap<>();
 
     private final Object snapshotsLock = new Object();
@@ -94,12 +96,17 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, OutgoingSn
         synchronized (snapshotsLock) {
             snapshots.put(snapshotId, outgoingSnapshot);
 
-            PartitionSnapshotsImpl partitionSnapshots = snapshotsByPartition.computeIfAbsent(
-                    outgoingSnapshot.partitionKey(),
-                    key -> new PartitionSnapshotsImpl()
-            );
+            PartitionSnapshotsImpl partitionSnapshots = getPartitionSnapshots(outgoingSnapshot.partitionKey());
             partitionSnapshots.addUnderLock(outgoingSnapshot);
         }
+    }
+
+    @NotNull
+    private PartitionSnapshotsImpl getPartitionSnapshots(PartitionKey partitionKey) {
+        return snapshotsByPartition.computeIfAbsent(
+                partitionKey,
+                key -> new PartitionSnapshotsImpl()
+        );
     }
 
     /**
@@ -181,13 +188,7 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, OutgoingSn
 
     @Override
     public PartitionSnapshots partitionSnapshots(PartitionKey partitionKey) {
-        PartitionSnapshotsImpl partitionSnapshots = snapshotsByPartition.get(partitionKey);
-
-        if (partitionSnapshots == null) {
-            throw new IllegalStateException("No partition snapshots found for partition key " + partitionKey);
-        }
-
-        return partitionSnapshots;
+        return getPartitionSnapshots(partitionKey);
     }
 
     private static class PartitionSnapshotsImpl implements PartitionSnapshots {
