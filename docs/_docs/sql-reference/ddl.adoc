@@ -20,7 +20,7 @@ This section walks you through all data definition language (DDL) commands suppo
 
 Creates a new table.
 
-----
+
 [.diagram-container]
 Diagram(
 NonTerminal('CREATE'),
@@ -34,9 +34,7 @@ NonTerminal('column_definition'),
 NonTerminal(',')),
 NonTerminal(')')
 )
-----
 
-----
 [.diagram-container]
 Diagram(
 Optional(
@@ -54,7 +52,6 @@ NonTerminal('engine_name')
 ),
 Optional('WITH')
 )
-----
 
 
 Parameters:
@@ -129,7 +126,6 @@ Modifies the structure of an existing table.
 //
 * *ALTER TABLE IF EXISTS table ADD COLUMN IF NOT EXISTS (column1 int, column2 int)*
 
-----
 [.diagram-container]
 Diagram(
   NonTerminal('ALTER TABLE'),
@@ -140,7 +136,6 @@ Diagram(
   Optional('IF NOT EXISTS'),
   NonTerminal('column_definition_or_list')
 )
-----
 
 
 Parameters:
@@ -155,7 +150,6 @@ Parameters:
 
 * *ALTER TABLE IF EXISTS table DROP COLUMN IF EXISTS (column1, column2 int)*
 
-----
 [.diagram-container]
 Diagram(
 NonTerminal('ALTER TABLE'),
@@ -166,7 +160,6 @@ Optional('COLUMN'),
 Optional('IF EXISTS'),
 NonTerminal('column_list')
 )
-----
 
 
 Parameters:
@@ -255,14 +248,12 @@ ALTER TABLE Person DROP COLUMN (code, gdp);
 The `DROP TABLE` command drops an existing table.
 
 
-----
 [.diagram-container]
 Diagram(
 NonTerminal('DROP TABLE'),
 Optional('IF EXISTS'),
 NonTerminal('qualified_table_name')
 )
-----
 
 
 
@@ -290,7 +281,6 @@ DROP TABLE IF EXISTS "Person";
 
 Creates a new index.
 
-----
 [.diagram-container]
 Diagram(
   NonTerminal('CREATE INDEX'),
@@ -307,8 +297,6 @@ Diagram(
   Optional('column_definition')
 )
 
-
-----
 
 Parameters:
 
@@ -332,14 +320,12 @@ CREATE INDEX IF NOT EXISTS Persons ON Person (column1)
 
 == DROP INDEX
 
-----
 [.diagram-container]
 Diagram(
 NonTerminal('DROP INDEX'),
 Optional('IF EXISTS'),
 NonTerminal('indexName')
 )
-----
 
 Parameters:
 
@@ -361,7 +347,6 @@ DROP INDEX IF EXISTS Persons;
 
 === column_definition_or_list
 
-----
 [.diagram-container]
 Diagram(
 Group(Sequence(
@@ -377,8 +362,6 @@ NonTerminal(',')
 )
 
 
-----
-
 Referenced by:
 
 * link:sql-reference/ddl#alter-table[ALTER TABLE]
@@ -388,14 +371,12 @@ Referenced by:
 === column_list
 
 
-----
 [.diagram-container]
 Diagram(Group(Sequence(
 Optional('('),
 OneOrMore('column_name', ','),
 Optional(')')))
 )
-----
 
 
 Referenced by:
@@ -406,7 +387,6 @@ Referenced by:
 
 === constraint
 
-----
 [.diagram-container]
 Diagram(Group(Sequence(
 Optional(Sequence(NonTerminal('Constraint'),NonTerminal('constraint_name')
@@ -417,7 +397,6 @@ OneOrMore('column_name', ','),
 NonTerminal(')')
 ),'constraint')
 )
-----
 
 
 Referenced by:
@@ -428,7 +407,6 @@ Referenced by:
 
 === qualified_table_name
 
-----
 [.diagram-container]
 Diagram(Group(Sequence(
 Optional(Sequence(NonTerminal('schema'),NonTerminal('.')
@@ -436,7 +414,6 @@ Optional(Sequence(NonTerminal('schema'),NonTerminal('.')
 NonTerminal('table_name')
 ),'qualified_table_name')
 )
-----
 
 Referenced by:
 
@@ -449,7 +426,6 @@ Referenced by:
 === column_definition
 //NOTE: Replace code with image
 
-----
 [.diagram-container]
 Diagram(
 Group(Sequence(
@@ -460,7 +436,7 @@ Optional(Sequence(NonTerminal('DEFAULT'), NonTerminal('literal_value'))),
 NonTerminal('PRIMARY KEY')
 ), 'column_definition')
 )
-----
+
 Parameters:
 
 * `ASC` or `DESC` - specifies that the column should be sorted in an ascending or descending order respectively.
@@ -476,7 +452,6 @@ Referenced by:
 //NOTE: Replace code with image
 
 
-----
 [.diagram-container]
 Diagram(Group(Sequence(
 NonTerminal('columnName'),
@@ -488,7 +463,6 @@ Optional(Sequence(Optional('NOT'),NonTerminal('NULL')
 Optional('DEFAULT')
 ),'tableColumn')
 )
-----
 
 Parameters:
 
