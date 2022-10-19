@@ -20,14 +20,42 @@ This section walks you through all data definition language (DDL) commands suppo
 
 Creates a new table.
 
-[source,sql]
 ----
-CREATE TABLE [IF NOT EXISTS] [simpleName | schemaName.simpleName] (<tableColumn> [, <tableColumn>]...)
-[COLOCATE [BY] (columnName [, columnName]...)]
-[ENGINE engineName]
-[WITH paramName=paramValue [,paramName=paramValue]...]
-[PRIMARY KEY]
+[.diagram-container]
+Diagram(
+NonTerminal('CREATE'),
+NonTerminal('TABLE'),
+Optional('IF NOT EXISTS'),
+NonTerminal('table_name'),
+NonTerminal('('),
+Choice(1,
+NonTerminal('constraint'),
+NonTerminal('column_definition'),
+NonTerminal(',')),
+NonTerminal(')')
+)
 ----
+
+----
+[.diagram-container]
+Diagram(
+Optional(
+Sequence(
+NonTerminal('COLOCATE'),
+Optional('BY'),
+NonTerminal('column_list')
+)
+),
+Optional(
+Sequence(
+NonTerminal('ENGINE'),
+NonTerminal('engine_name')
+)
+),
+Optional('WITH')
+)
+----
+
 
 Parameters:
 
@@ -42,8 +70,6 @@ Parameters:
 ** `Partitions` - sets the number of table partitions.
 ** Other parameters, depending on the database engine.
 
-image::images/svg/create_table_bnf1.svg[Embedded,opts=inline]
-image::images/svg/create_table_bnf2.svg[Embedded,opts=inline]
 
 Examples:
 
@@ -103,10 +129,19 @@ Modifies the structure of an existing table.
 //
 * *ALTER TABLE IF EXISTS table ADD COLUMN IF NOT EXISTS (column1 int, column2 int)*
 
-[source,sql]
 ----
-ALTER TABLE [IF EXISTS] tableName {ADD [COLUMN] {[IF NOT EXISTS] (tableColumn [column1 int, column2 int])}
+[.diagram-container]
+Diagram(
+  NonTerminal('ALTER TABLE'),
+  Optional('IF EXISTS'),
+  NonTerminal('qualified_table_name'),
+  NonTerminal('ADD'),
+  Optional('COLUMN'),
+  Optional('IF NOT EXISTS'),
+  NonTerminal('column_definition_or_list')
+)
 ----
+
 
 Parameters:
 
@@ -117,15 +152,22 @@ Parameters:
 - `IF NOT EXISTS` - do not throw an error if a column with the same name already exists.
 - `column_definition_or_list` - definition of the column to add to the table.
 
-image::images/svg/alter_table_column_no_bnf1.svg[Embedded,opts=inline]
-image::images/svg/alter_table_column_no_bnf2.svg[Embedded,opts=inline]
 
 * *ALTER TABLE IF EXISTS table DROP COLUMN IF EXISTS (column1, column2 int)*
 
-[source,sql]
 ----
-ALTER TABLE [IF EXISTS] tableName DROP [COLUMN] {[IF NOT EXISTS] (columnName [column1, column2 int])}
+[.diagram-container]
+Diagram(
+NonTerminal('ALTER TABLE'),
+Optional('IF EXISTS'),
+NonTerminal('qualified_table_name'),
+NonTerminal('DROP'),
+Optional('COLUMN'),
+Optional('IF EXISTS'),
+NonTerminal('column_list')
+)
 ----
+
 
 Parameters:
 
@@ -134,8 +176,6 @@ Parameters:
 - `DROP` - removes an existing column or multiple columns from a table. Once a column is removed, it cannot be accessed within queries. Consider the following notes and limitations:
 - `column_list` - the name of the list of columns to be removed.
 
-image::images/svg/alter_table_column_yes_bnf1.svg[Embedded,opts=inline]
-image::images/svg/alter_table_column_yes_bnf2.svg[Embedded,opts=inline]
 
 - If the column was indexed, the index has to be dropped manually in advance by using the 'DROP INDEX' command.
 - It is not possible to remove a column if it represents the whole value stored in the cluster. The limitation is relevant for primitive values.
@@ -214,17 +254,23 @@ ALTER TABLE Person DROP COLUMN (code, gdp);
 
 The `DROP TABLE` command drops an existing table.
 
-[source,sql]
+
 ----
-DROP TABLE [IF EXISTS] tableName
+[.diagram-container]
+Diagram(
+NonTerminal('DROP TABLE'),
+Optional('IF EXISTS'),
+NonTerminal('qualified_table_name')
+)
 ----
+
+
 
 Parameters:
 
 - `tableName` - the name of the table. Can be schema-qualified.
 - `IF EXISTS` - do not throw an error if a table with the same name does not exist.
 
-image::images/svg/drop_table_bnf.svg[Embedded,opts=inline]
 
 //Both DDL and DML commands targeting the same table are blocked while the `DROP TABLE` is in progress.
 //Once the table is dropped, all pending commands will fail with appropriate errors.
@@ -244,11 +290,24 @@ DROP TABLE IF EXISTS "Person";
 
 Creates a new index.
 
-[source,sql]
 ----
-CREATE INDEX [IF NOT EXISTS] name ON tableName
-[USING { HASH | TREE }]
-(column_definition [, column_definition]...);
+[.diagram-container]
+Diagram(
+  NonTerminal('CREATE INDEX'),
+  Optional('IF NOT EXISTS'),
+  NonTerminal('name'),
+  NonTerminal('ON'),
+  NonTerminal('tableName'),
+  Optional(
+   Sequence(
+    NonTerminal('USING'),
+    Choice (0,'HASH','TREE')
+   )
+  ),
+  Optional('column_definition')
+)
+
+
 ----
 
 Parameters:
@@ -273,9 +332,13 @@ CREATE INDEX IF NOT EXISTS Persons ON Person (column1)
 
 == DROP INDEX
 
-[source,sql]
 ----
-DROP INDEX [IF EXISTS] indexName;
+[.diagram-container]
+Diagram(
+NonTerminal('DROP INDEX'),
+Optional('IF EXISTS'),
+NonTerminal('indexName')
+)
 ----
 
 Parameters:
@@ -298,7 +361,23 @@ DROP INDEX IF EXISTS Persons;
 
 === column_definition_or_list
 
-image::images/svg/column_definition_or_list_bnf.svg[Embedded,opts=inline]
+----
+[.diagram-container]
+Diagram(
+Group(Sequence(
+  Optional('('),
+  Choice(0,Sequence(
+NonTerminal('column_name'),
+NonTerminal('data_type')),
+
+NonTerminal(',')
+  ),
+  Optional(')')
+), 'column_definition_or_list')
+)
+
+
+----
 
 Referenced by:
 
@@ -308,7 +387,16 @@ Referenced by:
 
 === column_list
 
-image::images/svg/column_list_bnf.svg[Embedded,opts=inline]
+
+----
+[.diagram-container]
+Diagram(Group(Sequence(
+Optional('('),
+OneOrMore('column_name', ','),
+Optional(')')))
+)
+----
+
 
 Referenced by:
 
@@ -318,7 +406,19 @@ Referenced by:
 
 === constraint
 
-image::images/svg/pk_constraint_bnf.svg[Embedded,opts=inline]
+----
+[.diagram-container]
+Diagram(Group(Sequence(
+Optional(Sequence(NonTerminal('Constraint'),NonTerminal('constraint_name')
+)),
+NonTerminal('PRIMARY KEY'),
+NonTerminal('('),
+OneOrMore('column_name', ','),
+NonTerminal(')')
+),'constraint')
+)
+----
+
 
 Referenced by:
 
@@ -328,7 +428,15 @@ Referenced by:
 
 === qualified_table_name
 
-image::images/svg/qualified_table_name_bnf.svg[Embedded,opts=inline]
+----
+[.diagram-container]
+Diagram(Group(Sequence(
+Optional(Sequence(NonTerminal('schema'),NonTerminal('.')
+),),
+NonTerminal('table_name')
+),'qualified_table_name')
+)
+----
 
 Referenced by:
 
@@ -341,10 +449,18 @@ Referenced by:
 === column_definition
 //NOTE: Replace code with image
 
-```
-column_name [ASC | DESC] [NULLS {FIRST | LAST}]
-```
-
+----
+[.diagram-container]
+Diagram(
+Group(Sequence(
+NonTerminal('column_name'),
+NonTerminal('DATA TYPE'),
+Optional(Sequence(Optional('NOT'),NonTerminal('NULL'))),
+Optional(Sequence(NonTerminal('DEFAULT'), NonTerminal('literal_value'))),
+NonTerminal('PRIMARY KEY')
+), 'column_definition')
+)
+----
 Parameters:
 
 * `ASC` or `DESC` - specifies that the column should be sorted in an ascending or descending order respectively.
@@ -360,9 +476,19 @@ Referenced by:
 //NOTE: Replace code with image
 
 
-```
-columnName columnType [[NOT] NULL] [DEFAULT defaultValue]
-```
+----
+[.diagram-container]
+Diagram(Group(Sequence(
+NonTerminal('columnName'),
+NonTerminal('columnType'),
+
+
+Optional(Sequence(Optional('NOT'),NonTerminal('NULL')
+),),
+Optional('DEFAULT')
+),'tableColumn')
+)
+----
 
 Parameters:
 
