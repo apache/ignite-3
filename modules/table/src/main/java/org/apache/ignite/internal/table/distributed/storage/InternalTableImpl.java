@@ -19,7 +19,8 @@ package org.apache.ignite.internal.table.distributed.storage;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_INSUFFICIENT_RO_OPERATION;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_INSUFFICIENT_READ_ONLY_OPERATION;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_INSUFFICIENT_READ_WRITE_OPERATION;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
@@ -194,6 +195,18 @@ public class InternalTableImpl implements InternalTable {
             InternalTransaction tx,
             IgniteTriFunction<InternalTransaction, String, Long, ReplicaRequest> op
     ) {
+        // Check whether proposed tx is read-only. Complete future exceptionally if true.
+        // Attempting to enlist a read-only in a read-write transaction does not corrupt the transaction itself, thus read-write transaction
+        // won't be rolled back automatically - it's up to the user or outer engine.
+        if (tx != null && tx.isReadOnly()) {
+            return failedFuture(
+                    new TransactionException(
+                            TX_INSUFFICIENT_READ_WRITE_OPERATION,
+                            "Failed to enlist read-write operation into read-only transaction txId={" + tx.id() + '}'
+                    )
+            );
+        }
+
         final boolean implicit = tx == null;
 
         final InternalTransaction tx0 = implicit ? txManager.begin() : tx;
@@ -243,6 +256,19 @@ public class InternalTableImpl implements InternalTable {
             IgniteTetraFunction<Collection<BinaryRow>, InternalTransaction, String, Long, ReplicaRequest> op,
             Function<CompletableFuture<Object>[], CompletableFuture<T>> reducer
     ) {
+        // Check whether proposed tx is read-only. Complete future exceptionally if true.
+        // Attempting to enlist a read-only in a read-write transaction does not corrupt the transaction itself, thus read-write transaction
+        // won't be rolled back automatically - it's up to the user or outer engine.
+        if (tx != null && tx.isReadOnly()) {
+            return failedFuture(
+                    new TransactionException(
+                            TX_INSUFFICIENT_READ_WRITE_OPERATION,
+                            "Failed to enlist read-write operation into read-only transaction txId={" + tx.id() + '}'
+                    )
+            );
+        }
+
+
         final boolean implicit = tx == null;
 
         if (!implicit && tx.state() != null) {
@@ -454,8 +480,8 @@ public class InternalTableImpl implements InternalTable {
         if (tx != null && !tx.isReadOnly()) {
             return failedFuture(
                     new TransactionException(
-                            TX_INSUFFICIENT_RO_OPERATION,
-                            "Failed to enlist read-only get operation into read-write transaction. Read-write transaction is up and running"
+                            TX_INSUFFICIENT_READ_ONLY_OPERATION,
+                            "Failed to enlist read-only operation into read-write transaction. Read-write transaction is up and running"
                                     + " and thus won't be aborted automatically, txId={" + tx.id() + '}'
                     )
             );
@@ -503,8 +529,8 @@ public class InternalTableImpl implements InternalTable {
         if (tx != null && !tx.isReadOnly()) {
             return failedFuture(
                     new TransactionException(
-                            TX_INSUFFICIENT_RO_OPERATION,
-                            "Failed to enlist read-only get operation into read-write transaction. Read-write transaction is up and running"
+                            TX_INSUFFICIENT_READ_ONLY_OPERATION,
+                            "Failed to enlist read-only operation into read-write transaction. Read-write transaction is up and running"
                                     + " and thus won't be aborted automatically, txId={" + tx.id() + '}'
                     )
             );
@@ -760,6 +786,18 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public Publisher<BinaryRow> scan(int p, @Nullable InternalTransaction tx) {
+        // Check whether proposed tx is read-only. Complete future exceptionally if true.
+        // Attempting to enlist a read-only in a read-write transaction does not corrupt the transaction itself, thus read-write transaction
+        // won't be rolled back automatically - it's up to the user or outer engine.
+        if (tx != null && tx.isReadOnly()) {
+            throw new TransactionException(
+                    new TransactionException(
+                            TX_INSUFFICIENT_READ_WRITE_OPERATION,
+                            "Failed to enlist read-write operation into read-only transaction txId={" + tx.id() + '}'
+                    )
+            );
+        }
+
         validatePartitionIndex(p);
 
         final boolean implicit = tx == null;
@@ -784,8 +822,8 @@ public class InternalTableImpl implements InternalTable {
         // won't be rolled back automatically - it's up to the user or outer engine.
         if (tx != null && !tx.isReadOnly()) {
             throw new TransactionException(
-                    TX_INSUFFICIENT_RO_OPERATION,
-                    "Failed to enlist read-only get operation into read-write transaction. Read-write transaction is up and running "
+                    TX_INSUFFICIENT_READ_ONLY_OPERATION,
+                    "Failed to enlist read-only operation into read-write transaction. Read-write transaction is up and running "
                             + "and thus won't be aborted automatically, txId={" + tx.id() + '}'
             );
 

@@ -128,7 +128,7 @@ public class ItInternalTableReadOnlyOperationsTest {
     }
 
     @Test()
-    public void testEnlistingReadOnlyOperationIntoReadWriteThrowsAnException() {
+    public void testEnlistingReadOnlyOperationIntoReadWriteTransactionThrowsAnException() {
         InternalTransaction tx = mock(InternalTransaction.class);
         when(tx.isReadOnly()).thenReturn(false);
 
@@ -143,15 +143,53 @@ public class ItInternalTableReadOnlyOperationsTest {
             assertThat(ex.getCause(), is(instanceOf(TransactionException.class)));
             assertThat(
                     ex.getCause().getMessage(),
-                    containsString("Failed to enlist read-only get operation into read-write transaction."
+                    containsString("Failed to enlist read-only operation into read-write transaction."
                             + " Read-write transaction is up and running and thus won't be aborted automatically"));
         });
 
         TransactionException ex = assertThrows(TransactionException.class, () -> internalTbl.scan(0, tx, mock(ClusterNode.class)));
         assertThat(
                 ex.getMessage(),
-                containsString("Failed to enlist read-only get operation into read-write transaction."
+                containsString("Failed to enlist read-only operation into read-write transaction."
                         + " Read-write transaction is up and running and thus won't be aborted automatically"));
+    }
+
+    @Test()
+    public void testEnlistingReadWriteOperationIntoReadOnlyTransactionThrowsAnException() {
+        InternalTransaction tx = mock(InternalTransaction.class);
+        when(tx.isReadOnly()).thenReturn(true);
+
+        List<Executable> executables = List.of(
+                () -> internalTbl.get(null, tx).get(),
+                () -> internalTbl.getAll(null, tx).get(),
+                () -> internalTbl.delete(null, tx).get(),
+                () -> internalTbl.deleteAll(null, tx).get(),
+                () -> internalTbl.deleteExact(null, tx).get(),
+                () -> internalTbl.deleteAllExact(null, tx).get(),
+                () -> internalTbl.getAndDelete(null, tx).get(),
+                () -> internalTbl.getAndReplace(null, tx).get(),
+                () -> internalTbl.getAndUpsert(null, tx).get(),
+                () -> internalTbl.upsert(null, tx).get(),
+                () -> internalTbl.upsertAll(null, tx).get(),
+                () -> internalTbl.insert(null, tx).get(),
+                () -> internalTbl.insertAll(null, tx).get(),
+                () -> internalTbl.replace(null, tx).get(),
+                () -> internalTbl.replace(null, null, tx).get()
+        );
+
+        executables.forEach(executable -> {
+            ExecutionException ex = assertThrows(ExecutionException.class, executable);
+
+            assertThat(ex.getCause(), is(instanceOf(TransactionException.class)));
+            assertThat(
+                    ex.getCause().getMessage(),
+                    containsString("Failed to enlist read-write operation into read-only transaction"));
+        });
+
+        TransactionException ex = assertThrows(TransactionException.class, () -> internalTbl.scan(0, tx));
+        assertThat(
+                ex.getMessage(),
+                containsString("Failed to enlist read-write operation into read-only transaction"));
     }
 
     private void mockStorage(List<BinaryRow> submittedItems) {
