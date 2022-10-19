@@ -18,30 +18,19 @@
 package org.apache.ignite.internal.metastorage.common;
 
 import java.io.Serializable;
+import org.apache.ignite.internal.metastorage.common.command.MetastorageCommandsMessageGroup;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Transferable;
 
 /**
  * Simple result definition of statement execution, backed by byte[] array.
  */
-public class StatementResultInfo implements Serializable {
-    /** Result data. */
-    private final byte[] res;
-
-    /**
-     * Constructs result definition from the byte array.
-     *
-     * @param res byte array.
-     */
-    public StatementResultInfo(byte[] res) {
-        this.res = res;
-    }
-
+@Transferable(MetastorageCommandsMessageGroup.STATEMENT_RESULT_INFO)
+public interface StatementResultInfo extends NetworkMessage, Serializable {
     /**
      * Returns result as row byte array.
      *
      * @return result as row byte array.
      */
-    public byte[] result() {
-        return res;
-    }
-
+    byte[] result();
 }

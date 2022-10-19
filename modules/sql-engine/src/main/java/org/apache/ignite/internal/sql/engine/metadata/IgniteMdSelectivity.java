@@ -31,6 +31,9 @@ import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexUtil;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.util.BuiltInMethod;
+import org.apache.ignite.internal.sql.engine.prepare.bounds.ExactBounds;
+import org.apache.ignite.internal.sql.engine.prepare.bounds.RangeBounds;
+import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.rel.AbstractIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteHashIndexSpool;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSortedIndexSpool;
@@ -55,37 +58,32 @@ public class IgniteMdSelectivity extends RelMdSelectivity {
             return getSelectivity((ProjectableFilterableTableScan) rel, mq, predicate);
         }
 
-        List<RexNode> lowerCond = rel.lowerCondition();
-        List<RexNode> upperCond = rel.upperCondition();
+        List<SearchBounds> searchBounds = rel.searchBounds();
 
-        if (nullOrEmpty(lowerCond) && nullOrEmpty(upperCond)) {
+        if (nullOrEmpty(searchBounds)) {
             return RelMdUtil.guessSelectivity(rel.condition());
         }
 
         double idxSelectivity = 1.0;
-        int len = nullOrEmpty(lowerCond) ? upperCond.size() : nullOrEmpty(upperCond) ? lowerCond.size() :
-                Math.max(lowerCond.size(), upperCond.size());
-
-        for (int i = 0; i < len; i++) {
-            RexCall lower = nullOrEmpty(lowerCond) || lowerCond.size() <= i ? null : (RexCall) lowerCond.get(i);
-            RexCall upper = nullOrEmpty(upperCond) || upperCond.size() <= i ? null : (RexCall) upperCond.get(i);
-
-            assert lower != null || upper != null;
-
-            if (lower != null && upper != null) {
-                idxSelectivity *= lower.op.kind == SqlKind.EQUALS ? .1 : .2;
-            } else {
-                idxSelectivity *= .35;
-            }
-        }
 
         List<RexNode> conjunctions = RelOptUtil.conjunctions(rel.condition());
 
-        if (!nullOrEmpty(lowerCond)) {
-            conjunctions.removeAll(lowerCond);
-        }
-        if (!nullOrEmpty(upperCond)) {
-            conjunctions.removeAll(upperCond);
+        for (SearchBounds bounds : searchBounds) {
+            if (bounds != null) {
+                conjunctions.remove(bounds.condition());
+            }
+
+            if (bounds instanceof ExactBounds) {
+                idxSelectivity *= .1;
+            } else if (bounds instanceof RangeBounds) {
+                RangeBounds rangeBounds = (RangeBounds) bounds;
+
+                if (rangeBounds.condition() != null) {
+                    idxSelectivity *= ((RexCall) rangeBounds.condition()).op.kind == SqlKind.EQUALS ? .1 : .2;
+                } else {
+                    idxSelectivity *= .35;
+                }
+            }
         }
 
         RexNode remaining = RexUtil.composeConjunction(RexUtils.builder(rel), conjunctions, true);

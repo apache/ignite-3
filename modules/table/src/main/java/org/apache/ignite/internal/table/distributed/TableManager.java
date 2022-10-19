@@ -73,7 +73,6 @@ import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.ConfigurationProperty;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
-import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.baseline.BaselineManager;
@@ -101,9 +100,7 @@ import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.schema.NativeTypes;
-import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
-import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableChange;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableConfiguration;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableView;
@@ -113,7 +110,6 @@ import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.event.SchemaEvent;
 import org.apache.ignite.internal.schema.event.SchemaEventParameters;
-import org.apache.ignite.internal.schema.marshaller.schema.SchemaSerializerImpl;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
@@ -136,6 +132,7 @@ import org.apache.ignite.internal.table.distributed.raft.RebalanceRaftGroupEvent
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionSnapshotStorageFactory;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
+import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.table.event.TableEventParameters;
@@ -207,7 +204,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /**
      * If this property is set to {@code true} then an attempt to get the configuration property directly from the meta storage will be
      * skipped, and the local property will be returned.
-     * TODO: IGNITE-16774 This property and overall approach, access configuration directly through the Metostorage,
+     * TODO: IGNITE-16774 This property and overall approach, access configuration directly through the Metastorage,
      * TODO: will be removed after fix of the issue.
      */
     private final boolean getMetadataLocallyOnly = IgniteSystemProperties.getBoolean("IGNITE_GET_METADATA_LOCALLY_ONLY");
@@ -238,6 +235,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     /** Data storage manager. */
     private final DataStorageManager dataStorageMgr;
+
+    /** Placement driver. */
+    private final PlacementDriver placementDriver;
 
     /** Here a table future stores during creation (until the table can be provided to client). */
     private final Map<UUID, CompletableFuture<Table>> tableCreateFuts = new ConcurrentHashMap<>();
@@ -353,6 +353,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         this.schemaManager = schemaManager;
         this.volatileLogStorageFactoryCreator = volatileLogStorageFactoryCreator;
         this.clock = clock;
+
+        placementDriver = new PlacementDriver(replicaSvc);
 
         netAddrResolver = addr -> {
             ClusterNode node = topologyService.getByAddress(addr);
@@ -700,6 +702,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 String grpId = partitionRaftGroupName(tblId, partId);
 
+                placementDriver.updateAssignment(grpId, nodes);
+
                 CompletableFuture<Void> startGroupFut = CompletableFuture.completedFuture(null);
 
                 if (raftMgr.shouldHaveRaftGroupLocally(nodes)) {
@@ -807,7 +811,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                             tblId,
                                                             activeIndexes(tblId, partId),
                                                             createStorageForPk(tblId, partId, storage),
-                                                            clock
+                                                            clock,
+                                                            internalTbl.txStateStorage().getOrCreateTxStateStorage(partId),
+                                                            topologyService,
+                                                            placementDriver
                                                     )
                                             );
                                         } catch (NodeStoppingException ex) {
@@ -1176,34 +1183,16 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                         extConfCh.changeTableId(intTableId);
 
+                        extConfCh.changeSchemaId(INITIAL_SCHEMA_VERSION);
+
                         tableCreateFuts.put(extConfCh.id(), tblFut);
 
                         // Affinity assignments calculation.
                         extConfCh.changeAssignments(ByteUtils.toBytes(AffinityUtils.calculateAssignments(
-                                        baselineMgr.nodes(),
-                                        tableChange.partitions(),
-                                        tableChange.replicas(),
-                                        HashSet::new)))
-                                // Table schema preparation.
-                                .changeSchemas(schemasCh -> schemasCh.create(
-                                        String.valueOf(INITIAL_SCHEMA_VERSION),
-                                        schemaCh -> {
-                                            SchemaDescriptor schemaDesc;
-
-                                            //TODO IGNITE-15747 Remove try-catch and force configuration
-                                            // validation here to ensure a valid configuration passed to
-                                            // prepareSchemaDescriptor() method.
-                                            try {
-                                                schemaDesc = SchemaUtils.prepareSchemaDescriptor(
-                                                        ((ExtendedTableView) tableChange).schemas().size(),
-                                                        tableChange);
-                                            } catch (IllegalArgumentException ex) {
-                                                throw new ConfigurationValidationException(ex.getMessage());
-                                            }
-
-                                            schemaCh.changeSchema(SchemaSerializerImpl.INSTANCE.serialize(schemaDesc));
-                                        }
-                                ));
+                                baselineMgr.nodes(),
+                                tableChange.partitions(),
+                                tableChange.replicas(),
+                                HashSet::new)));
                     });
                 })).exceptionally(t -> {
                     Throwable ex = getRootCause(t);
@@ -1238,7 +1227,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      *                         </ul>
      * @see TableNotFoundException
      */
-    public CompletableFuture<Void> alterTableAsync(String name, Consumer<TableChange> tableChange) {
+    public CompletableFuture<Void> alterTableAsync(String name, Function<TableChange, Boolean> tableChange) {
         if (!busyLock.enterBusy()) {
             throw new IgniteException(new NodeStoppingException());
         }
@@ -1249,58 +1238,28 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
     }
 
-    /** See {@link #alterTableAsync(String, Consumer)} for details. */
-    private CompletableFuture<Void> alterTableAsyncInternal(String name, Consumer<TableChange> tableChange) {
+    /** See {@link #alterTableAsync(String, Function)} for details. */
+    private CompletableFuture<Void> alterTableAsyncInternal(String name, Function<TableChange, Boolean> tableChange) {
         CompletableFuture<Void> tblFut = new CompletableFuture<>();
 
         tableAsync(name).thenAccept(tbl -> {
             if (tbl == null) {
                 tblFut.completeExceptionally(new TableNotFoundException(DEFAULT_SCHEMA_NAME, name));
             } else {
-                TableImpl tblImpl = (TableImpl) tbl;
-
                 tablesCfg.tables().change(ch -> {
                     if (ch.get(name) == null) {
                         throw new TableNotFoundException(DEFAULT_SCHEMA_NAME, name);
                     }
 
                     ch.update(name, tblCh -> {
-                                tableChange.accept(tblCh);
+                        if (!tableChange.apply(tblCh)) {
+                            return;
+                        }
 
-                                ((ExtendedTableChange) tblCh).changeSchemas(schemasCh ->
-                                        schemasCh.createOrUpdate(String.valueOf(schemasCh.size() + 1), schemaCh -> {
-                                            ExtendedTableView currTableView = (ExtendedTableView) tablesCfg.tables().get(name).value();
+                        ExtendedTableChange exTblChange = (ExtendedTableChange) tblCh;
 
-                                            SchemaDescriptor descriptor;
-
-                                            //TODO IGNITE-15747 Remove try-catch and force configuration validation
-                                            // here to ensure a valid configuration passed to prepareSchemaDescriptor() method.
-                                            try {
-                                                descriptor = SchemaUtils.prepareSchemaDescriptor(
-                                                        ((ExtendedTableView) tblCh).schemas().size(),
-                                                        tblCh);
-
-                                                descriptor.columnMapping(SchemaUtils.columnMapper(
-                                                        tblImpl.schemaView().schema(currTableView.schemas().size()),
-                                                        currTableView.columns(),
-                                                        descriptor,
-                                                        tblCh.columns()));
-                                            } catch (IllegalArgumentException ex) {
-                                                // Convert unexpected exceptions here,
-                                                // because validation actually happens later,
-                                                // when bulk configuration update is applied.
-                                                ConfigurationValidationException e =
-                                                        new ConfigurationValidationException(ex.getMessage());
-
-                                                e.addSuppressed(ex);
-
-                                                throw e;
-                                            }
-
-                                            schemaCh.changeSchema(SchemaSerializerImpl.INSTANCE.serialize(descriptor));
-                                        }));
-                            }
-                    );
+                        exTblChange.changeSchemaId(exTblChange.schemaId() + 1);
+                    });
                 }).whenComplete((res, t) -> {
                     if (t != null) {
                         Throwable ex = getRootCause(t);
@@ -1797,6 +1756,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             ? ((List<Set<ClusterNode>>) ByteUtils.fromBytes(tblCfg.assignments().value())).get(partId)
                             : ByteUtils.fromBytes(stableAssignments);
 
+                    placementDriver.updateAssignment(grpId, assignments);
+
                     ClusterNode localMember = raftMgr.topologyService().localMember();
 
                     var deltaPeers = newPeers.stream()
@@ -1862,7 +1823,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                             tblId,
                                             activeIndexes(tblId, partId),
                                             createStorageForPk(tblId, partId, tbl.internalTable().storage()),
-                                            clock
+                                            clock,
+                                            tbl.internalTable().txStateStorage().getOrCreateTxStateStorage(partId),
+                                            raftMgr.topologyService(),
+                                            placementDriver
                                     )
                             );
                         }

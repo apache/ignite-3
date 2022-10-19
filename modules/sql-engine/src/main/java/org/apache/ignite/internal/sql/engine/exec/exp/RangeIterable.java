@@ -15,22 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage;
-
-import java.nio.ByteBuffer;
+package org.apache.ignite.internal.sql.engine.exec.exp;
 
 /**
- * Interface to be used as a key representation to search data in storage.
+ * Iterable over range conditions.
  */
-public interface SearchRow {
-    /**
-     * Returns key bytes.
-     */
-    byte[] keyBytes();
-
-    /**
-     * Returns key object as a byte buffer. Allows more effective memory management in certain cases. Position of the resulting buffer
-     * must be {@code 0}.
-     */
-    ByteBuffer key();
+public interface RangeIterable<RowT> extends Iterable<RangeCondition<RowT>> {
+    /** Count of ranges in iterable. */
+    public int size();
 }

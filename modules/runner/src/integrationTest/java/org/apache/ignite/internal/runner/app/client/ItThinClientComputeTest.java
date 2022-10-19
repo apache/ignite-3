@@ -245,7 +245,11 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     private static class ConcatJob implements ComputeJob<String> {
         @Override
         public String execute(JobExecutionContext context, Object... args) {
-            return Arrays.stream(args).map(Object::toString).collect(Collectors.joining("_"));
+            if (args == null) {
+                return null;
+            }
+
+            return Arrays.stream(args).map(o -> o == null ? "null" : o.toString()).collect(Collectors.joining("_"));
         }
     }
 

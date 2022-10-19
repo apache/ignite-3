@@ -217,7 +217,10 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 tableId,
                 List::of,
                 pkStorage,
-                new HybridClock()
+                new HybridClock(),
+                null,
+                null,
+                null
         );
 
         partitionListener = new PartitionListener(

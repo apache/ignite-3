@@ -15,31 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.basic;
+package org.apache.ignite.internal.sql.engine.exec.exp;
 
-import org.apache.ignite.internal.storage.DataRow;
-import org.apache.ignite.internal.storage.InvokeClosure;
-import org.apache.ignite.internal.storage.OperationType;
-import org.jetbrains.annotations.Nullable;
+/**
+ * A range condition is a search condition which represents a comparison predicate or a BETWEEN predicate.
+ *
+ * <p>Used to define bounds of a range scan.
+ */
+public interface RangeCondition<RowT> {
+    /** Lower search row. */
+    public RowT lower();
 
-/** Invoke closure implementation for a remove operation. */
-public class SimpleRemoveInvokeClosure implements InvokeClosure<Void> {
-    /** {@inheritDoc} */
-    @Override
-    public void call(@Nullable DataRow row) {
-    }
+    /** Upper search row. */
+    public RowT upper();
 
-    /** {@inheritDoc} */
-    @Nullable
-    @Override
-    public DataRow newRow() {
-        return null;
-    }
+    /** Inlusive search by lower row. */
+    public boolean lowerInclude();
 
-    /** {@inheritDoc} */
-    @Nullable
-    @Override
-    public OperationType operationType() {
-        return OperationType.REMOVE;
-    }
+    /** Inlusive search by upper row. */
+    public boolean upperInclude();
 }

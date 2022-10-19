@@ -23,9 +23,13 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.BitSet;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentMap;
@@ -65,14 +69,18 @@ import org.apache.ignite.internal.sql.engine.exec.exp.RexToLixTranslator.InputGe
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorWrapper;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorsFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
+import org.apache.ignite.internal.sql.engine.prepare.bounds.ExactBounds;
+import org.apache.ignite.internal.sql.engine.prepare.bounds.MultiBounds;
+import org.apache.ignite.internal.sql.engine.prepare.bounds.RangeBounds;
+import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.IgniteMethod;
 import org.apache.ignite.internal.sql.engine.util.Primitives;
 
 /**
- * Implements rex expression into a function object. Uses JaninoRexCompiler under the hood. Each expression compiles
- * into a class and a wrapper over it is returned.
+ * Implements rex expression into a function object. Uses JaninoRexCompiler under the hood. Each expression compiles into a class and a
+ * wrapper over it is returned.
  */
 public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
     private static final int CACHE_SIZE = 1024;
@@ -234,7 +242,8 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
     }
 
     /** {@inheritDoc} */
-    @Override public BiPredicate<RowT, RowT> biPredicate(RexNode filter, RelDataType rowType) {
+    @Override
+    public BiPredicate<RowT, RowT> biPredicate(RexNode filter, RelDataType rowType) {
         return new BiPredicateImpl(biScalar(filter, rowType));
     }
 
@@ -286,6 +295,127 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         }
 
         return rows;
+    }
+
+
+    /** {@inheritDoc} */
+    @Override
+    public RangeIterable<RowT> ranges(
+            List<SearchBounds> searchBounds,
+            RelCollation collation,
+            RelDataType rowType
+    ) {
+        RowFactory<RowT> rowFactory = ctx.rowHandler().factory(typeFactory, rowType);
+
+        List<RangeCondition<RowT>> ranges = new ArrayList<>();
+
+        expandBounds(
+                ranges,
+                searchBounds,
+                rowType,
+                rowFactory,
+                collation.getKeys(),
+                0,
+                Arrays.asList(new RexNode[searchBounds.size()]),
+                Arrays.asList(new RexNode[searchBounds.size()]),
+                true,
+                true
+        );
+
+        return new RangeIterableImpl(ranges, comparator(collation));
+    }
+
+    /**
+     * Expand column-oriented {@link SearchBounds} to a row-oriented list of ranges ({@link RangeCondition}).
+     *
+     * @param ranges List of ranges.
+     * @param searchBounds Search bounds.
+     * @param rowType Row type.
+     * @param rowFactory Row factory.
+     * @param collationKeys Collation keys.
+     * @param collationKeyIdx Current collation key index (field to process).
+     * @param curLower Current lower row.
+     * @param curUpper Current upper row.
+     * @param lowerInclude Include current lower row.
+     * @param upperInclude Include current upper row.
+     */
+    private void expandBounds(
+            List<RangeCondition<RowT>> ranges,
+            List<SearchBounds> searchBounds,
+            RelDataType rowType,
+            RowFactory<RowT> rowFactory,
+            List<Integer> collationKeys,
+            int collationKeyIdx,
+            List<RexNode> curLower,
+            List<RexNode> curUpper,
+            boolean lowerInclude,
+            boolean upperInclude
+    ) {
+        if ((collationKeyIdx >= collationKeys.size())
+                || (!lowerInclude && !upperInclude)
+                || searchBounds.get(collationKeys.get(collationKeyIdx)) == null) {
+            ranges.add(new RangeConditionImpl(
+                    scalar(curLower, rowType),
+                    scalar(curUpper, rowType),
+                    lowerInclude,
+                    upperInclude,
+                    rowFactory
+            ));
+
+            return;
+        }
+
+        int fieldIdx = collationKeys.get(collationKeyIdx);
+        SearchBounds fieldBounds = searchBounds.get(fieldIdx);
+
+        Collection<SearchBounds> fieldMultiBounds = fieldBounds instanceof MultiBounds
+                ? ((MultiBounds) fieldBounds).bounds()
+                : Collections.singleton(fieldBounds);
+
+        for (SearchBounds fieldSingleBounds : fieldMultiBounds) {
+            RexNode fieldLowerBound;
+            RexNode fieldUpperBound;
+            boolean fieldLowerInclude;
+            boolean fieldUpperInclude;
+
+            if (fieldSingleBounds instanceof ExactBounds) {
+                fieldLowerBound = fieldUpperBound = ((ExactBounds) fieldSingleBounds).bound();
+                fieldLowerInclude = fieldUpperInclude = true;
+            } else if (fieldSingleBounds instanceof RangeBounds) {
+                RangeBounds fieldRangeBounds = (RangeBounds) fieldSingleBounds;
+
+                fieldLowerBound = fieldRangeBounds.lowerBound();
+                fieldUpperBound = fieldRangeBounds.upperBound();
+                fieldLowerInclude = fieldRangeBounds.lowerInclude();
+                fieldUpperInclude = fieldRangeBounds.upperInclude();
+            } else {
+                throw new IllegalStateException("Unexpected bounds: " + fieldSingleBounds);
+            }
+
+            if (lowerInclude) {
+                curLower.set(fieldIdx, fieldLowerBound);
+            }
+
+            if (upperInclude) {
+                curUpper.set(fieldIdx, fieldUpperBound);
+            }
+
+            expandBounds(
+                    ranges,
+                    searchBounds,
+                    rowType,
+                    rowFactory,
+                    collationKeys,
+                    collationKeyIdx + 1,
+                    curLower,
+                    curUpper,
+                    lowerInclude && fieldLowerInclude,
+                    upperInclude && fieldUpperInclude
+            );
+        }
+
+        curLower.set(fieldIdx, null);
+        curLower.set(fieldIdx, null);
     }
 
     /**
@@ -428,7 +558,8 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
             b.append(node.getType().getFullTypeString());
 
             new RexShuttle() {
-                @Override public RexNode visitFieldAccess(RexFieldAccess fieldAccess) {
+                @Override
+                public RexNode visitFieldAccess(RexFieldAccess fieldAccess) {
                     b.append(", fldIdx=").append(fieldAccess.getField().getIndex());
 
                     return super.visitFieldAccess(fieldAccess);
@@ -492,7 +623,8 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         }
 
         /** {@inheritDoc} */
-        @Override public boolean test(RowT r1, RowT r2) {
+        @Override
+        public boolean test(RowT r1, RowT r2) {
             scalar.execute(ctx, r1, r2, out);
             return Boolean.TRUE == hnd.get(0, out);
         }
@@ -506,7 +638,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         /**
          * Constructor.
          *
-         * @param scalar  Scalar.
+         * @param scalar Scalar.
          * @param factory Row factory.
          */
         private ProjectImpl(SingleScalar scalar, RowFactory<RowT> factory) {
@@ -570,6 +702,120 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         }
     }
 
+    private class RangeConditionImpl implements RangeCondition<RowT> {
+        /** Lower bound expression. */
+        private final SingleScalar lowerBound;
+
+        /** Upper bound expression. */
+        private final SingleScalar upperBound;
+
+        /** Inclusive lower bound flag. */
+        private final boolean lowerInclude;
+
+        /** Inclusive upper bound flag. */
+        private final boolean upperInclude;
+
+        /** Lower row. */
+        private RowT lowerRow;
+
+        /** Upper row. */
+        private RowT upperRow;
+
+        /** Row factory. */
+        private final RowFactory<RowT> factory;
+
+        private RangeConditionImpl(
+                SingleScalar lowerBound,
+                SingleScalar upperBound,
+                boolean lowerInclude,
+                boolean upperInclude,
+                RowFactory<RowT> factory
+        ) {
+            this.lowerBound = lowerBound;
+            this.upperBound = upperBound;
+            this.lowerInclude = lowerInclude;
+            this.upperInclude = upperInclude;
+            this.factory = factory;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public RowT lower() {
+            return lowerRow != null ? lowerRow : (lowerRow = getRow(lowerBound));
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public RowT upper() {
+            return upperRow != null ? upperRow : (upperRow = getRow(upperBound));
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public boolean lowerInclude() {
+            return lowerInclude;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public boolean upperInclude() {
+            return upperInclude;
+        }
+
+        /** Compute row. */
+        private RowT getRow(SingleScalar scalar) {
+            RowT res = factory.create();
+            scalar.execute(ctx, null, res);
+
+            return res;
+        }
+
+        /** Clear cached rows. */
+        public void clearCache() {
+            lowerRow = upperRow = null;
+        }
+    }
+
+    private class RangeIterableImpl implements RangeIterable<RowT> {
+        private final List<RangeCondition<RowT>> ranges;
+
+        private final Comparator<RowT> comparator;
+
+        private boolean sorted;
+
+        public RangeIterableImpl(List<RangeCondition<RowT>> ranges, Comparator<RowT> comparator) {
+            this.ranges = ranges;
+            this.comparator = comparator;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public int size() {
+            return ranges.size();
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public Iterator<RangeCondition<RowT>> iterator() {
+            ranges.forEach(b -> ((RangeConditionImpl) b).clearCache());
+
+            if (ranges.size() == 1) {
+                return ranges.iterator();
+            }
+
+            // Sort ranges using collation comparator to produce sorted output. There should be no ranges
+            // intersection.
+            // Do not sort again if ranges already were sorted before, different values of correlated variables
+            // should not affect ordering.
+            if (!sorted) {
+                ranges.sort((o1, o2) -> comparator.compare(o1.lower(), o2.lower()));
+                sorted = true;
+            }
+
+            return ranges.iterator();
+        }
+    }
+
     private class BiFieldGetter extends CommonFieldGetter {
         private final Expression row2;
 
@@ -598,7 +844,8 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         }
 
         /** {@inheritDoc} */
-        @Override protected Expression fillExpressions(BlockBuilder list, int index) {
+        @Override
+        protected Expression fillExpressions(BlockBuilder list, int index) {
             Expression row = list.append("row", this.row);
 
             Expression field = Expressions.call(hnd,

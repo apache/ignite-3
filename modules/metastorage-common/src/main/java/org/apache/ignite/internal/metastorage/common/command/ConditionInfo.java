@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.metastorage.common.command;
 
 import java.io.Serializable;
+import org.apache.ignite.network.NetworkMessage;
 
 /**
  * Interface for condition definition.
@@ -25,5 +26,5 @@ import java.io.Serializable;
  * @see SimpleConditionInfo
  * @see CompoundConditionInfo
  */
-public interface ConditionInfo extends Serializable {
+public interface ConditionInfo extends NetworkMessage, Serializable {
 }

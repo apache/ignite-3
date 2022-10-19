@@ -15,17 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.configuration;
+package org.apache.ignite.internal.metastorage.common;
 
-import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.Value;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import org.junit.jupiter.api.Test;
 
 /**
- * Configuration schema of a table schema. Part of an internal configuration.
+ * Tests that persisted enum ordinals have not been accidentally changed by a developer.
  */
-@Config
-public class SchemaConfigurationSchema {
-    /** Serialized table schema configuration. */
-    @Value
-    public byte[] schema;
+class OperationTypeTest {
+    @Test
+    void testOrdinal() {
+        assertEquals(0, OperationType.NO_OP.ordinal());
+
+        assertEquals(1, OperationType.PUT.ordinal());
+
+        assertEquals(2, OperationType.REMOVE.ordinal());
+    }
 }

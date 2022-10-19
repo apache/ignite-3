@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage.pagememory.index.sorted;
 
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
+import static org.apache.ignite.internal.storage.pagememory.index.InlineUtils.canFullyInline;
 
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.InvokeClosure;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.OperationType;
@@ -32,7 +33,7 @@ import org.jetbrains.annotations.Nullable;
  */
 class InsertSortedIndexRowInvokeClosure implements InvokeClosure<SortedIndexRow> {
     /** Sorted index row instance for insertion. */
-    private final SortedIndexRow hashIndexRow;
+    private final SortedIndexRow sortedIndexRow;
 
     /** Free list to insert data into in case of necessity. */
     private final IndexColumnsFreeList freeList;
@@ -40,17 +41,22 @@ class InsertSortedIndexRowInvokeClosure implements InvokeClosure<SortedIndexRow>
     /** Operation type, either {@link OperationType#PUT} or {@link OperationType#NOOP} depending on the tree state. */
     private OperationType operationType = OperationType.PUT;
 
+    /** Inline size in bytes. */
+    private final int inlineSize;
+
     /**
      * Constructor.
      *
      * @param sortedIndexRow Sorted index row instance for insertion.
      * @param freeList Free list to insert data into in case of necessity.
+     * @param inlineSize Inline size in bytes.
      */
-    public InsertSortedIndexRowInvokeClosure(SortedIndexRow sortedIndexRow, IndexColumnsFreeList freeList) {
+    public InsertSortedIndexRowInvokeClosure(SortedIndexRow sortedIndexRow, IndexColumnsFreeList freeList, int inlineSize) {
         assert sortedIndexRow.indexColumns().link() == NULL_LINK;
 
-        this.hashIndexRow = sortedIndexRow;
+        this.sortedIndexRow = sortedIndexRow;
         this.freeList = freeList;
+        this.inlineSize = inlineSize;
     }
 
     @Override
@@ -61,12 +67,14 @@ class InsertSortedIndexRowInvokeClosure implements InvokeClosure<SortedIndexRow>
             return;
         }
 
-        freeList.insertDataRow(hashIndexRow.indexColumns());
+        if (!canFullyInline(sortedIndexRow.indexColumns().valueSize(), inlineSize)) {
+            freeList.insertDataRow(sortedIndexRow.indexColumns());
+        }
     }
 
     @Override
     public @Nullable SortedIndexRow newRow() {
-        return hashIndexRow;
+        return sortedIndexRow;
     }
 
     @Override

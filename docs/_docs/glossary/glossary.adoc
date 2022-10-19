@@ -1,0 +1,41 @@
+// Licensed to the Apache Software Foundation (ASF) under one or more
+// contributor license agreements.  See the NOTICE file distributed with
+// this work for additional information regarding copyright ownership.
+// The ASF licenses this file to You under the Apache License, Version 2.0
+// (the "License"); you may not use this file except in compliance with
+// the License.  You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+= Glossary
+
+==== C
+
+Cluster Management Group::A subset of Ignite nodes in a Raft cluster. Cluster group leader is responsible for managing nodes that enter or leave Ignite Cluster.
+
+==== D
+
+Data Region:: Data regions are used to control the amount of memory available to the storage. Depending on the type of storage the data region is assigned to, the data may be loaded into RAM or stored
+
+Data Rebalace:: Data rebalance is the process of redistributing partitions to make sure they are distributed equally across all nodes in the cluster.
+
+==== M
+
+Metastore::  Metastore holds additional information about Apache Ignite cluster that is required for its operation, for example the number and type of data regions configured.
+
+
+==== P
+
+Persistent Storage:: Persistent storage is the type of memory storage that is preserved regardless of cluster state. Some portion of data will be loaded into RAM to improve performance.
+
+
+==== V
+
+Volatile Storage:: Volatile storage is the type of memory storage that is only preserved while the cluster is active. Loss of power or unexpected cluster shutdown will lead to loss of data.
+
+

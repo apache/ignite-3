@@ -15,21 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage;
+package org.apache.ignite.internal.tx.message;
 
-import java.nio.ByteBuffer;
+import java.util.UUID;
+import org.apache.ignite.hlc.HybridTimestamp;
+import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.network.annotations.Marshallable;
+import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Interface that represents a data row from the storage - a key-value pair. Can be used as a {@link SearchRow}.
+ * Transaction state request.
  */
-public interface DataRow extends SearchRow {
-    /**
-     * Returns value bytes.
-     */
-    byte[] valueBytes();
+@Transferable(TxMessageGroup.TX_STATE_REQUEST)
+public interface TxStateReplicaRequest extends ReplicaRequest {
+    @Marshallable
+    UUID txId();
 
-    /**
-     * Returns value object as a byte buffer. Allows more effective memory management in certain cases.
-     */
-    ByteBuffer value();
+    @Marshallable
+    HybridTimestamp commitTimestamp();
 }

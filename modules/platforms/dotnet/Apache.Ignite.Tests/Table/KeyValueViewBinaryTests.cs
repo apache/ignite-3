@@ -29,6 +29,8 @@ using NUnit.Framework;
 /// </summary>
 public class KeyValueViewBinaryTests : IgniteTestsBase
 {
+    private IKeyValueView<IIgniteTuple, IIgniteTuple> KvView => Table.KeyValueBinaryView;
+
     [TearDown]
     public async Task CleanTable()
     {
