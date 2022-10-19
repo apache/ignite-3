@@ -21,7 +21,6 @@ package org.apache.ignite.internal.tx;
  * Transaction state.
  */
 public enum TxState {
-    PENDING,
     ABORTED,
     COMMITED;
 }
