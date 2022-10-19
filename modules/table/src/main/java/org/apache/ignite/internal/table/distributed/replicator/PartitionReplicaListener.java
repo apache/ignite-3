@@ -310,7 +310,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     private CompletableFuture<Object> processReadOnlyScanRetrieveBatchAction(ReadOnlyScanRetrieveBatchReplicaRequest request) {
         UUID txId = request.transactionId();
         int batchCount = request.batchSize();
-        HybridTimestamp timestamp = request.timestamp();
+        HybridTimestamp readTimestamp = request.readTimestamp();
 
         IgniteUuid cursorId = new IgniteUuid(txId, request.scanId());
 
@@ -320,7 +320,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 id -> mvDataStorage.scan(HybridTimestamp.MAX_VALUE));
 
         while (batchRows.size() < batchCount && cursor.hasNext()) {
-            BinaryRow resolvedReadResult = resolveReadResult(cursor.next(), timestamp, () -> cursor.committed(timestamp));
+            BinaryRow resolvedReadResult = resolveReadResult(cursor.next(), readTimestamp, () -> cursor.committed(readTimestamp));
 
             if (resolvedReadResult != null) {
                 batchRows.add(resolvedReadResult);
@@ -345,7 +345,9 @@ public class PartitionReplicaListener implements ReplicaListener {
         }
 
         //TODO: IGNITE-17868 Integrate indexes into rowIds resolution along with proper lock management on search rows.
-        try (PartitionTimestampCursor scan = mvDataStorage.scan(request.readTimestamp())) {
+        HybridTimestamp readTimestamp = request.readTimestamp();
+
+        try (PartitionTimestampCursor scan = mvDataStorage.scan(readTimestamp)) {
             while (scan.hasNext()) {
                 ReadResult readResult = scan.next();
                 if (readResult.binaryRow() == null) {
@@ -360,10 +362,22 @@ public class PartitionReplicaListener implements ReplicaListener {
                     }
 
                     if (candidate.keySlice().equals(searchKey)) {
-                        return CompletableFuture.completedFuture(resolveReadResult(readResult, request.readTimestamp()));
+                        return CompletableFuture.completedFuture(
+                                resolveReadResult(
+                                        readResult,
+                                        readTimestamp,
+                                        () -> scan.committed(readTimestamp)
+                                )
+                        );
                     }
                 } else if (readResult.binaryRow().keySlice().equals(searchKey)) {
-                    return CompletableFuture.completedFuture(resolveReadResult(readResult, request.readTimestamp()));
+                    return CompletableFuture.completedFuture(
+                            resolveReadResult(
+                                    readResult,
+                                    readTimestamp,
+                                    () -> scan.committed(readTimestamp)
+                            )
+                    );
                 }
             }
         } catch (Exception e) {
@@ -398,7 +412,9 @@ public class PartitionReplicaListener implements ReplicaListener {
         ArrayList<BinaryRow> result = new ArrayList<>(keyRows.size());
 
         //TODO: IGNITE-17868 Integrate indexes into rowIds resolution along with proper lock management on search rows.
-        try (PartitionTimestampCursor scan = mvDataStorage.scan(request.readTimestamp())) {
+        HybridTimestamp readTimestamp = request.readTimestamp();
+
+        try (PartitionTimestampCursor scan = mvDataStorage.scan(readTimestamp)) {
             while (scan.hasNext()) {
                 ReadResult readResult = scan.next();
 
@@ -415,10 +431,22 @@ public class PartitionReplicaListener implements ReplicaListener {
                         }
 
                         if (candidate.keySlice().equals(searchKey)) {
-                            result.add(resolveReadResult(readResult, request.readTimestamp()));
+                            result.add(
+                                    resolveReadResult(
+                                            readResult,
+                                            readTimestamp,
+                                            () -> scan.committed(readTimestamp)
+                                    )
+                            );
                         }
                     } else if (readResult.binaryRow().keySlice().equals(searchKey)) {
-                        result.add(resolveReadResult(readResult, request.readTimestamp()));
+                        result.add(
+                                resolveReadResult(
+                                        readResult,
+                                        readTimestamp,
+                                        () -> scan.committed(readTimestamp)
+                                )
+                        );
                     }
                 }
             }
@@ -1355,6 +1383,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Resolved binary row.
      */
     private BinaryRow resolveReadResult(ReadResult readResult, HybridTimestamp timestamp, Supplier<BinaryRow> lastCommitted) {
+
         return resolveReadResult(readResult, null, timestamp, lastCommitted);
     }
 
