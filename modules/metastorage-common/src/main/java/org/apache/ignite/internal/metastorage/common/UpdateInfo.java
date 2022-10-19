@@ -19,45 +19,27 @@ package org.apache.ignite.internal.metastorage.common;
 
 import java.io.Serializable;
 import java.util.Collection;
-import org.apache.ignite.internal.metastorage.common.command.OperationInfo;
+import org.apache.ignite.internal.metastorage.common.command.MetastorageCommandsMessageGroup;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Transferable;
 
 /**
  * Simple operations + result wrapper definition to describe the terminal branch
  * of {@link org.apache.ignite.internal.metastorage.common.command.IfInfo} execution.
  */
-public class UpdateInfo implements Serializable {
-    /** Operations. */
-    private final Collection<OperationInfo> ops;
-
-    /** Result. */
-    private final StatementResultInfo result;
-
-    /**
-     * Constructs new update definition.
-     *
-     * @param ops operations
-     * @param result result
-     */
-    public UpdateInfo(Collection<OperationInfo> ops, StatementResultInfo result) {
-        this.ops = ops;
-        this.result = result;
-    }
-
+@Transferable(MetastorageCommandsMessageGroup.UPDATE_INFO)
+public interface UpdateInfo extends NetworkMessage, Serializable {
     /**
      * Retunrs operations.
      *
      * @return operations.
      */
-    public Collection<OperationInfo> operations() {
-        return ops;
-    }
+    Collection<OperationInfo> operations();
 
     /**
      * Returns result.
      *
      * @return result.
      */
-    public StatementResultInfo result() {
-        return result;
-    }
+    StatementResultInfo result();
 }

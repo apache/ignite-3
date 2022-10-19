@@ -17,30 +17,19 @@
 
 package org.apache.ignite.internal.metastorage.common.command;
 
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Transferable;
 import org.apache.ignite.raft.client.WriteCommand;
 
 /**
  * Represents invoke command with nested conditions and execution branches.
  */
-public class MultiInvokeCommand implements WriteCommand {
-    /** If statement to invoke. */
-    private final IfInfo iif;
-
-    /**
-     * Constructs new multi-invoke command.
-     *
-     * @param iif if statement.
-     */
-    public MultiInvokeCommand(IfInfo iif) {
-        this.iif = iif;
-    }
-
+@Transferable(MetastorageCommandsMessageGroup.MULTI_INVOKE)
+public interface MultiInvokeCommand extends NetworkMessage, WriteCommand {
     /**
      * Returns if statement.
      *
      * @return if statement.
      */
-    public IfInfo iif() {
-        return iif;
-    }
+    IfInfo iif();
 }

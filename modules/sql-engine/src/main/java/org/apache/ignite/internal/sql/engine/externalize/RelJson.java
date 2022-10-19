@@ -104,6 +104,10 @@ import org.apache.calcite.sql.validate.SqlNameMatchers;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.Util;
+import org.apache.ignite.internal.sql.engine.prepare.bounds.ExactBounds;
+import org.apache.ignite.internal.sql.engine.prepare.bounds.MultiBounds;
+import org.apache.ignite.internal.sql.engine.prepare.bounds.RangeBounds;
+import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.rel.InternalIgniteRel;
 import org.apache.ignite.internal.sql.engine.trait.DistributionFunction;
 import org.apache.ignite.internal.sql.engine.trait.DistributionTrait;
@@ -300,6 +304,8 @@ class RelJson {
             return toJson((RelDataTypeField) value);
         } else if (value instanceof ByteString) {
             return toJson((ByteString) value);
+        } else if (value instanceof SearchBounds) {
+            return toJson((SearchBounds) value);
         } else {
             throw new UnsupportedOperationException("type not serializable: "
                     + value + " (type " + value.getClass().getCanonicalName() + ")");
@@ -355,7 +361,7 @@ class RelJson {
             map.put("type", toJson(node.getSqlTypeName()));
             map.put("elementType", toJson(node.getComponentType()));
             return map;
-        } else  if (node.getSqlTypeName() == SqlTypeName.MAP) {
+        } else if (node.getSqlTypeName() == SqlTypeName.MAP) {
             Map<String, Object> map = map();
             map.put("type", toJson(node.getSqlTypeName()));
             map.put("keyType", toJson(node.getKeyType()));
@@ -567,6 +573,59 @@ class RelJson {
         map.put("kind", toJson(operator.kind));
         map.put("syntax", toJson(operator.getSyntax()));
         return map;
+    }
+
+    private Object toJson(SearchBounds val) {
+        Map map = map();
+        map.put("type", val.type().name());
+
+        if (val instanceof ExactBounds) {
+            map.put("bound", toJson(((ExactBounds) val).bound()));
+        } else if (val instanceof MultiBounds) {
+            map.put("bounds", toJson(((MultiBounds) val).bounds()));
+        } else {
+            assert val instanceof RangeBounds : val;
+
+            RangeBounds val0 = (RangeBounds) val;
+
+            map.put("lowerBound", val0.lowerBound() == null ? null : toJson(val0.lowerBound()));
+            map.put("upperBound", val0.upperBound() == null ? null : toJson(val0.upperBound()));
+            map.put("lowerInclude", val0.lowerInclude());
+            map.put("upperInclude", val0.upperInclude());
+        }
+
+        return map;
+    }
+
+    private SearchBounds toSearchBound(RelInput input, Map<String, Object> map) {
+        if (map == null) {
+            return null;
+        }
+
+        String type = (String) map.get("type");
+
+        if (SearchBounds.Type.EXACT.name().equals(type)) {
+            return new ExactBounds(null, toRex(input, map.get("bound")));
+        } else if (SearchBounds.Type.MULTI.name().equals(type)) {
+            return new MultiBounds(null, toSearchBoundList(input, (List<Map<String, Object>>) map.get("bounds")));
+        } else if (SearchBounds.Type.RANGE.name().equals(type)) {
+            return new RangeBounds(null,
+                    toRex(input, map.get("lowerBound")),
+                    toRex(input, map.get("upperBound")),
+                    (Boolean) map.get("lowerInclude"),
+                    (Boolean) map.get("upperInclude")
+            );
+        }
+
+        throw new IllegalStateException("Unsupported search bound type: " + type);
+    }
+
+    List<SearchBounds> toSearchBoundList(RelInput input, List<Map<String, Object>> bounds) {
+        if (bounds == null) {
+            return null;
+        }
+
+        return bounds.stream().map(b -> toSearchBound(input, b)).collect(Collectors.toList());
     }
 
     RelCollation toCollation(List<Map<String, Object>> jsonFieldCollations) {
