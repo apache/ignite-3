@@ -15,9 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.hlc;
+package org.apache.ignite.internal.hlc;
 
-import static org.apache.ignite.hlc.HybridTimestamp.max;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.max;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import org.junit.jupiter.api.Test;

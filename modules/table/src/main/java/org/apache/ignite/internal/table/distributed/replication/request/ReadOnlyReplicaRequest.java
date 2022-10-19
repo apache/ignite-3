@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.replication.request;
 
-import org.apache.ignite.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.network.annotations.Marshallable;
 

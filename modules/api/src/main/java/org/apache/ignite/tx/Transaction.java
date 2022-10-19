@@ -18,7 +18,7 @@
 package org.apache.ignite.tx;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 
 /**
  * The transaction.

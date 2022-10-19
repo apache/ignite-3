@@ -21,9 +21,9 @@ import static org.apache.ignite.internal.client.ClientUtils.sync;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
-import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 

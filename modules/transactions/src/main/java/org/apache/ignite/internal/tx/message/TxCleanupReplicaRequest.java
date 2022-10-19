@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.tx.message;
 
 import java.util.UUID;
-import org.apache.ignite.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
 import org.apache.ignite.network.annotations.Marshallable;
