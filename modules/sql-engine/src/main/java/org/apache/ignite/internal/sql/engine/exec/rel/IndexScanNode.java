@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
 
 import java.util.BitSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.Flow;
@@ -27,7 +28,6 @@ import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.function.Function;
 import java.util.function.Predicate;
-import java.util.function.Supplier;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.index.SortedIndex;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -35,6 +35,8 @@ import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowConverter;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
+import org.apache.ignite.internal.sql.engine.exec.exp.RangeIterable;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
@@ -68,11 +70,9 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
     /** Participating columns. */
     private final @Nullable BitSet requiredColumns;
 
-    private final @Nullable Supplier<RowT> lowerCond;
+    private final RangeIterable<RowT> rangeConditions;
 
-    private final @Nullable Supplier<RowT> upperCond;
-
-    private final int flags;
+    private Iterator<RangeCondition<RowT>> rangeConditionIterator;
 
     private int requested;
 
@@ -84,10 +84,6 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
 
     private int curPartIdx;
 
-    private @Nullable BinaryTuple lowerBound;
-
-    private @Nullable BinaryTuple upperBound;
-
     /**
      * Constructor.
      *
@@ -95,6 +91,7 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
      * @param rowType Output type of the current node.
      * @param schemaTable The table this node should scan.
      * @param parts Partition numbers to scan.
+     * @param rangeConditions Range conditions.
      * @param filters Optional filter to filter out rows.
      * @param rowTransformer Optional projection function.
      * @param requiredColumns Optional set of column of interest.
@@ -105,8 +102,7 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
             IgniteIndex schemaIndex,
             InternalIgniteTable schemaTable,
             int[] parts,
-            @Nullable Supplier<RowT> lowerCond,
-            @Nullable Supplier<RowT> upperCond,
+            @Nullable RangeIterable<RowT> rangeConditions,
             @Nullable Predicate<RowT> filters,
             @Nullable Function<RowT, RowT> rowTransformer,
             @Nullable BitSet requiredColumns
@@ -116,18 +112,14 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
 
         this.schemaIndex = schemaIndex;
         this.parts = parts;
-        this.lowerCond = lowerCond;
-        this.upperCond = upperCond;
         this.filters = filters;
         this.rowTransformer = rowTransformer;
         this.requiredColumns = requiredColumns;
+        this.rangeConditions = rangeConditions;
 
         factory = ctx.rowHandler().factory(ctx.getTypeFactory(), rowType);
 
         indexRowSchema = RowConverter.createIndexRowSchema(schemaTable.descriptor(), schemaIndex.index().descriptor());
-
-        // TODO: create ticket to add flags support
-        flags = SortedIndex.INCLUDE_LEFT & SortedIndex.INCLUDE_RIGHT;
     }
 
     /** {@inheritDoc} */
@@ -162,8 +154,7 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
         requested = 0;
         waiting = 0;
         curPartIdx = 0;
-        lowerBound = null;
-        upperBound = null;
+        rangeConditionIterator = null;
 
         if (activeSubscription != null) {
             activeSubscription.cancel();
@@ -246,13 +237,36 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
             if (schemaIndex.type() == Type.SORTED) {
                 //TODO: https://issues.apache.org/jira/browse/IGNITE-17813
                 // Introduce new publisher using merge-sort algo to merge partition index publishers.
-                if (lowerBound == null && upperBound == null) {
-                    lowerBound = toBinaryTuplePrefix(lowerCond);
-                    upperBound = toBinaryTuplePrefix(upperCond);
+                int part = curPartIdx;
+
+                int flags = 0;
+                BinaryTuple lowerBound = null;
+                BinaryTuple upperBound = null;
+
+                if (rangeConditions == null) {
+                    flags = SortedIndex.INCLUDE_LEFT | SortedIndex.INCLUDE_RIGHT;
+                    curPartIdx++;
+                } else {
+                    if (rangeConditionIterator == null) {
+                        rangeConditionIterator = rangeConditions.iterator();
+                    }
+
+                    RangeCondition<RowT> cond = rangeConditionIterator.next();
+
+                    lowerBound = toBinaryTuplePrefix(cond.lower());
+                    upperBound = toBinaryTuplePrefix(cond.upper());
+
+                    flags |= (cond.lowerInclude()) ? SortedIndex.INCLUDE_LEFT : 0;
+                    flags |= (cond.upperInclude()) ? SortedIndex.INCLUDE_RIGHT : 0;
+
+                    if (!rangeConditionIterator.hasNext()) { // Switch to next partition and reset range index.
+                        rangeConditionIterator = null;
+                        curPartIdx++;
+                    }
                 }
 
                 ((SortedIndex) schemaIndex.index()).scan(
-                        parts[curPartIdx++],
+                        parts[part],
                         context().transaction(),
                         lowerBound,
                         upperBound,
@@ -261,16 +275,33 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
                 ).subscribe(new SubscriberImpl());
             } else {
                 assert schemaIndex.type() == Type.HASH;
-                assert lowerCond == upperCond;
 
-                if (lowerBound == null) {
-                    lowerBound = toBinaryTuple(lowerCond);
+                int part = curPartIdx;
+                BinaryTuple key = null;
+
+                if (rangeConditions == null) {
+                    curPartIdx++;
+                } else {
+                    if (rangeConditionIterator == null) {
+                        rangeConditionIterator = rangeConditions.iterator();
+                    }
+
+                    RangeCondition<RowT> cond = rangeConditionIterator.next();
+
+                    assert cond.lower() == cond.upper();
+
+                    key = toBinaryTuple(cond.lower());
+
+                    if (!rangeConditionIterator.hasNext()) { // Switch to next partition and reset range index.
+                        rangeConditionIterator = null;
+                        curPartIdx++;
+                    }
                 }
 
                 schemaIndex.index().scan(
-                        parts[curPartIdx++],
+                        parts[part],
                         context().transaction(),
-                        lowerBound,
+                        key,
                         requiredColumns
                 ).subscribe(new SubscriberImpl());
             }
@@ -330,21 +361,21 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
     }
 
     @Contract("null -> null")
-    private @Nullable BinaryTuple toBinaryTuplePrefix(@Nullable Supplier<RowT> conditionSupplier) {
-        if (conditionSupplier == null) {
+    private @Nullable BinaryTuple toBinaryTuplePrefix(@Nullable RowT condition) {
+        if (condition == null) {
             return null;
         }
 
-        return RowConverter.toBinaryTuplePrefix(context(), indexRowSchema, factory, conditionSupplier.get());
+        return RowConverter.toBinaryTuplePrefix(context(), indexRowSchema, factory, condition);
     }
 
     @Contract("null -> null")
-    private @Nullable BinaryTuple toBinaryTuple(@Nullable Supplier<RowT> conditionSupplier) {
-        if (conditionSupplier == null) {
+    private @Nullable BinaryTuple toBinaryTuple(@Nullable RowT condition) {
+        if (condition == null) {
             return null;
         }
 
-        return RowConverter.toBinaryTuple(context(), indexRowSchema, factory, conditionSupplier.get());
+        return RowConverter.toBinaryTuple(context(), indexRowSchema, factory, condition);
     }
 
     private RowT convert(BinaryTuple binaryTuple) {

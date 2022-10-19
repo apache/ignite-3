@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.storage.pagememory.index.hash;
 
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
-import static org.apache.ignite.internal.storage.pagememory.index.InlineUtils.isFullyInlined;
+import static org.apache.ignite.internal.storage.pagememory.index.InlineUtils.canFullyInline;
 
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.InvokeClosure;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.OperationType;
@@ -67,7 +67,7 @@ class InsertHashIndexRowInvokeClosure implements InvokeClosure<HashIndexRow> {
             return;
         }
 
-        if (!isFullyInlined(hashIndexRow.indexColumns().valueSize(), inlineSize)) {
+        if (!canFullyInline(hashIndexRow.indexColumns().valueSize(), inlineSize)) {
             freeList.insertDataRow(hashIndexRow.indexColumns());
         }
     }

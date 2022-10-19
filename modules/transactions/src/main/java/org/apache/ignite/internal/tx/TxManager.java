@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.tx;
 
-import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -70,34 +69,6 @@ public interface TxManager extends IgniteComponent {
     // TODO: IGNITE-17638 TestOnly code, let's consider using Txn state map instead of states.
     @Deprecated
     boolean changeState(UUID txId, @Nullable TxState before, TxState after);
-
-    /**
-     * Acqures a write lock.
-     *
-     * @param lockId Table ID.
-     * @param keyData The key data.
-     * @param txId Transaction id.
-     * @return The future.
-     * @throws LockException When a lock can't be taken due to possible deadlock.
-     *
-     * @deprecated @see LockManager#acquire(java.util.UUID, org.apache.ignite.internal.tx.LockKey, org.apache.ignite.internal.tx.LockMode)
-     */
-    @Deprecated
-    public CompletableFuture<Lock> writeLock(UUID lockId, ByteBuffer keyData, UUID txId);
-
-    /**
-     * Acqures a read lock.
-     *
-     * @param lockId Lock id.
-     * @param keyData The key data.
-     * @param txId Transaction id.
-     * @return The future.
-     * @throws LockException When a lock can't be taken due to possible deadlock.
-     *
-     * @deprecated @see LockManager#acquire(java.util.UUID, org.apache.ignite.internal.tx.LockKey, org.apache.ignite.internal.tx.LockMode)
-     */
-    @Deprecated
-    public CompletableFuture<Lock> readLock(UUID lockId, ByteBuffer keyData, UUID txId);
 
     /**
      * Returns lock manager.

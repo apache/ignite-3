@@ -73,7 +73,6 @@ public class TxManagerTest extends IgniteAbstractTest {
         InternalTransaction tx = txManager.begin();
 
         assertNotNull(tx.id());
-        assertEquals(TxState.PENDING, txManager.begin().state());
     }
 
     @Test

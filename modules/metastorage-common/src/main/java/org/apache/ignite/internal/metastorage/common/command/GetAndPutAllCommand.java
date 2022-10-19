@@ -21,51 +21,44 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import org.apache.ignite.lang.ByteArray;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Transferable;
 import org.apache.ignite.raft.client.WriteCommand;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Get and put all command for MetaStorageCommandListener that inserts or updates entries with given keys and given values and retrieves a
  * previous entries for given keys.
  */
-public final class GetAndPutAllCommand implements WriteCommand {
-    /** Keys. */
-    @NotNull
-    private final List<byte[]> keys;
-
-    /** Values. */
-    @NotNull
-    private final List<byte[]> vals;
-
-    /**
-     * Constructor.
-     *
-     * @param vals Values.
-     */
-    public GetAndPutAllCommand(@NotNull Map<ByteArray, byte[]> vals) {
-        int size = vals.size();
-
-        this.keys = new ArrayList<>(size);
-        this.vals = new ArrayList<>(size);
-
-        for (Map.Entry<ByteArray, byte[]> e : vals.entrySet()) {
-            this.keys.add(e.getKey().bytes());
-
-            this.vals.add(e.getValue());
-        }
-    }
-
+@Transferable(MetastorageCommandsMessageGroup.GET_AND_PUT_ALL)
+public interface GetAndPutAllCommand extends WriteCommand, NetworkMessage {
     /**
      * Returns keys.
      */
-    public @NotNull List<byte[]> keys() {
-        return keys;
-    }
+    List<byte[]> keys();
 
     /**
      * Returns values.
      */
-    public @NotNull List<byte[]> vals() {
-        return vals;
+    List<byte[]> values();
+
+    /**
+     * Static constructor.
+     *
+     * @param commandsFactory Commands factory.
+     * @param map Values.
+     */
+    static GetAndPutAllCommand getAndPutAllCommand(MetaStorageCommandsFactory commandsFactory, Map<ByteArray, byte[]> map) {
+        int size = map.size();
+
+        List<byte[]> keys = new ArrayList<>(size);
+        List<byte[]> values = new ArrayList<>(size);
+
+        for (Map.Entry<ByteArray, byte[]> e : map.entrySet()) {
+            keys.add(e.getKey().bytes());
+
+            values.add(e.getValue());
+        }
+
+        return commandsFactory.getAndPutAllCommand().keys(keys).values(values).build();
     }
 }

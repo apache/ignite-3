@@ -31,6 +31,7 @@ import org.apache.calcite.tools.RuleSet;
 import org.apache.calcite.util.CancelFlag;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
+import org.apache.ignite.internal.util.FastTimestamps;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -47,15 +48,23 @@ public final class PlanningContext implements Context {
 
     private IgnitePlanner planner;
 
+    private final long startTs;
+
+    private final long plannerTimeout;
+
     /**
      * Private constructor, used by a builder.
      */
     private PlanningContext(
             Context parentCtx,
-            String qry
+            String qry,
+            long plannerTimeout
     ) {
         this.qry = qry;
         this.parentCtx = parentCtx;
+
+        startTs = FastTimestamps.coarseCurrentTimeMillis();
+        this.plannerTimeout = plannerTimeout;
     }
 
     /**
@@ -93,6 +102,20 @@ public final class PlanningContext implements Context {
      */
     public SqlConformance conformance() {
         return config().getParserConfig().conformance();
+    }
+
+    /**
+     * Get start planning timestamp in millis.
+     */
+    public long startTs() {
+        return startTs;
+    }
+
+    /**
+     * Get planning timeout in millis.
+     */
+    public long plannerTimeout() {
+        return plannerTimeout;
     }
 
     /**
@@ -181,6 +204,8 @@ public final class PlanningContext implements Context {
 
         private String qry;
 
+        private long plannerTimeout;
+
         public Builder parentContext(@NotNull Context parentCtx) {
             this.parentCtx = parentCtx;
             return this;
@@ -191,13 +216,18 @@ public final class PlanningContext implements Context {
             return this;
         }
 
+        public Builder plannerTimeout(long plannerTimeout) {
+            this.plannerTimeout = plannerTimeout;
+            return this;
+        }
+
         /**
          * Builds planner context.
          *
          * @return Planner context.
          */
         public PlanningContext build() {
-            return new PlanningContext(parentCtx, qry);
+            return new PlanningContext(parentCtx, qry, plannerTimeout);
         }
     }
 }

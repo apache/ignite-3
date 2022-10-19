@@ -31,10 +31,11 @@ import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexUtil;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.ignite.internal.sql.engine.externalize.RelInputEx;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCost;
+import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
-import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
-import org.apache.ignite.internal.sql.engine.util.IndexConditions;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -43,7 +44,7 @@ import org.jetbrains.annotations.Nullable;
 public abstract class AbstractIndexScan extends ProjectableFilterableTableScan {
     protected final String idxName;
 
-    protected final IndexConditions idxCond;
+    protected final List<SearchBounds> searchBounds;
 
     protected final IgniteIndex.Type type;
 
@@ -56,7 +57,7 @@ public abstract class AbstractIndexScan extends ProjectableFilterableTableScan {
         super(input);
         idxName = input.getString("index");
         type = input.getEnum("type", IgniteIndex.Type.class);
-        idxCond = new IndexConditions(input);
+        searchBounds = ((RelInputEx) input).getSearchBounds("searchBounds");
     }
 
     /**
@@ -72,14 +73,14 @@ public abstract class AbstractIndexScan extends ProjectableFilterableTableScan {
             IgniteIndex.Type type,
             @Nullable List<RexNode> proj,
             @Nullable RexNode cond,
-            @Nullable IndexConditions idxCond,
+            @Nullable List<SearchBounds> searchBounds,
             @Nullable ImmutableBitSet reqColumns
     ) {
         super(cluster, traitSet, hints, table, proj, cond, reqColumns);
 
         this.idxName = idxName;
         this.type = type;
-        this.idxCond = idxCond;
+        this.searchBounds = searchBounds;
     }
 
     /** {@inheritDoc} */
@@ -88,8 +89,9 @@ public abstract class AbstractIndexScan extends ProjectableFilterableTableScan {
         pw = pw.item("index", idxName);
         pw = pw.item("type", type.name());
         pw = super.explainTerms0(pw);
+        pw = pw.itemIf("searchBounds", searchBounds, searchBounds != null);
 
-        return idxCond.explainTerms(pw);
+        return pw;
     }
 
     /**
@@ -100,71 +102,27 @@ public abstract class AbstractIndexScan extends ProjectableFilterableTableScan {
         return idxName;
     }
 
-    /**
-     * Get lower index condition.
-     */
-    public List<RexNode> lowerCondition() {
-        return idxCond == null ? null : idxCond.lowerCondition();
-    }
-
-    /**
-     * Get lower index condition.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public List<RexNode> lowerBound() {
-        return idxCond == null ? null : idxCond.lowerBound();
-    }
-
-    /**
-     * Get upper index condition.
-     */
-    public List<RexNode> upperCondition() {
-        return idxCond == null ? null : idxCond.upperCondition();
-    }
-
-    /**
-     * Get upper index condition.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public List<RexNode> upperBound() {
-        return idxCond == null ? null : idxCond.upperBound();
-    }
-
     /** {@inheritDoc} */
     @Override
     public RelOptCost computeSelfCost(RelOptPlanner planner, RelMetadataQuery mq) {
         double rows = table.getRowCount();
 
-        double cost = rows * IgniteCost.ROW_PASS_THROUGH_COST;
+        double cost;
 
-        if (condition != null) {
+        if (condition == null) {
+            cost = rows * IgniteCost.ROW_PASS_THROUGH_COST;
+        } else {
             RexBuilder builder = getCluster().getRexBuilder();
 
             double selectivity = 1;
 
             cost = 0;
 
-            // for hash index both bounds are set to the same search row
-            // because only lookup is possible. So if either bound is null,
-            // then there will be a full index scan.
-            if (type == Type.HASH && lowerBound() != null) {
-                cost += IgniteCost.HASH_LOOKUP_COST;
+            if (searchBounds != null) {
+                selectivity = mq.getSelectivity(this, RexUtil.composeConjunction(builder,
+                        Commons.transform(searchBounds, b -> b == null ? null : b.condition())));
 
-                selectivity -= 1 - mq.getSelectivity(this, RexUtil.composeConjunction(builder, List.of(condition)));
-            } else if (type == Type.SORTED) {
-                if (lowerCondition() != null) {
-                    double selectivity0 = mq.getSelectivity(this, RexUtil.composeConjunction(builder, lowerCondition()));
-
-                    selectivity -= 1 - selectivity0;
-
-                    cost += Math.log(rows);
-                }
-
-                if (upperCondition() != null && lowerCondition() != null && !lowerCondition().equals(upperCondition())) {
-                    double selectivity0 = mq.getSelectivity(this, RexUtil.composeConjunction(builder, upperCondition()));
-
-                    selectivity -= 1 - selectivity0;
-                }
+                cost = Math.log(rows) * IgniteCost.ROW_COMPARISON_COST;
             }
 
             rows *= selectivity;
@@ -184,7 +142,7 @@ public abstract class AbstractIndexScan extends ProjectableFilterableTableScan {
      * Get index conditions.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public IndexConditions indexConditions() {
-        return idxCond;
+    public List<SearchBounds> searchBounds() {
+        return searchBounds;
     }
 }

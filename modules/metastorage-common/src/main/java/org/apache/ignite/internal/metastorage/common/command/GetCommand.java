@@ -17,55 +17,22 @@
 
 package org.apache.ignite.internal.metastorage.common.command;
 
-import org.apache.ignite.lang.ByteArray;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Transferable;
 import org.apache.ignite.raft.client.ReadCommand;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Get command for MetaStorageCommandListener that retrieves an entry for the given key and the revision upper bound, if latter is present.
  */
-public final class GetCommand implements ReadCommand {
-    /** Key. */
-    @NotNull
-    private final byte[] key;
-
-    /** The upper bound for entry revisions. Must be positive. */
-    private long revUpperBound;
-
+@Transferable(MetastorageCommandsMessageGroup.GET)
+public interface GetCommand extends ReadCommand, NetworkMessage {
     /**
-     * Constructor.
-     *
-     * @param key Key. Couldn't be {@code null}.
+     * Returns key. Couldn't be {@code null}.
      */
-    public GetCommand(@NotNull ByteArray key) {
-        this.key = key.bytes();
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param key           Key. Couldn't be {@code null}.
-     * @param revUpperBound The upper bound for entry revisions. Must be positive.
-     */
-    public GetCommand(@NotNull ByteArray key, long revUpperBound) {
-        this.key = key.bytes();
-
-        assert revUpperBound > 0;
-
-        this.revUpperBound = revUpperBound;
-    }
-
-    /**
-     * Returns key.
-     */
-    public @NotNull byte[] key() {
-        return key;
-    }
+    byte[] key();
 
     /**
      * Returns the upper bound for entry revisions, or {@code null} if wasn't specified.
      */
-    public long revision() {
-        return revUpperBound;
-    }
+    long revision();
 }

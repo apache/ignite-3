@@ -15,31 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.basic;
+package org.apache.ignite.internal.storage;
 
-import org.apache.ignite.internal.storage.DataRow;
-import org.apache.ignite.internal.storage.InvokeClosure;
-import org.apache.ignite.internal.storage.OperationType;
-import org.jetbrains.annotations.Nullable;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** Invoke closure implementation for a remove operation. */
-public class SimpleRemoveInvokeClosure implements InvokeClosure<Void> {
-    /** {@inheritDoc} */
-    @Override
-    public void call(@Nullable DataRow row) {
+import org.junit.jupiter.api.Test;
+
+class ReadResultTest {
+    @Test
+    void resultInEmptyConstantIsEmpty() {
+        assertTrue(ReadResult.EMPTY.isEmpty());
     }
 
-    /** {@inheritDoc} */
-    @Nullable
-    @Override
-    public DataRow newRow() {
-        return null;
-    }
+    @Test
+    void resultWithNullRowIsEmpty() {
+        ReadResult result = ReadResult.createFromCommitted(null, null);
 
-    /** {@inheritDoc} */
-    @Nullable
-    @Override
-    public OperationType operationType() {
-        return OperationType.REMOVE;
+        assertTrue(result.isEmpty());
     }
 }

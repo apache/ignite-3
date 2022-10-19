@@ -15,40 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.basic;
+package org.apache.ignite.internal.metastorage.common;
 
-import java.nio.ByteBuffer;
-import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.storage.SearchRow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import org.junit.jupiter.api.Test;
 
 /**
- * Adapter that converts a {@link BinaryRow} into a {@link SearchRow}.
+ * Tests that persisted enum ordinals have not been accidentally changed by a developer.
  */
-public class BinarySearchRow implements SearchRow {
-    /** Key array. */
-    private final ByteBuffer key;
+class OperationTypeTest {
+    @Test
+    void testOrdinal() {
+        assertEquals(0, OperationType.NO_OP.ordinal());
 
-    /**
-     * The constructor.
-     *
-     * @param row The search row.
-     */
-    public BinarySearchRow(BinaryRow row) {
-        key = row.keySlice();
-    }
+        assertEquals(1, OperationType.PUT.ordinal());
 
-    @Override
-    public byte[] keyBytes() {
-        // TODO asch IGNITE-15934 can reuse thread local byte buffer
-        byte[] bytes = new byte[key.limit()];
-
-        key.rewind().get(bytes);
-
-        return bytes;
-    }
-
-    @Override
-    public ByteBuffer key() {
-        return key.rewind();
+        assertEquals(2, OperationType.REMOVE.ordinal());
     }
 }

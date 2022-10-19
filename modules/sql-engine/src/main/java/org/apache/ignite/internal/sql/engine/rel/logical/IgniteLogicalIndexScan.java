@@ -25,6 +25,7 @@ import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.mapping.Mappings;
+import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.rel.AbstractIndexScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
@@ -32,7 +33,6 @@ import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.internal.sql.engine.util.IndexConditions;
 import org.apache.ignite.internal.sql.engine.util.RexUtils;
 import org.jetbrains.annotations.Nullable;
 
@@ -62,11 +62,11 @@ public class IgniteLogicalIndexScan extends AbstractIndexScan {
             collation = collation.apply(targetMapping);
         }
 
-        IndexConditions idxCond;
+        List<SearchBounds> searchBounds;
         if (index.type() == Type.HASH) {
-            idxCond = buildHashIndexConditions(cluster, tbl, index.columns(), cond, requiredColumns);
+            searchBounds = buildHashIndexConditions(cluster, tbl, index.columns(), cond, requiredColumns);
         } else if (index.type() == Type.SORTED) {
-            idxCond = buildSortedIndexConditions(cluster, tbl, collation, cond, requiredColumns);
+            searchBounds = buildSortedIndexConditions(cluster, tbl, collation, cond, requiredColumns);
         } else {
             throw new AssertionError("Unknown index type [type=" + index.type() + "]");
         }
@@ -79,7 +79,7 @@ public class IgniteLogicalIndexScan extends AbstractIndexScan {
                 index.type(),
                 proj,
                 cond,
-                idxCond,
+                searchBounds,
                 requiredColumns);
     }
 
@@ -93,7 +93,7 @@ public class IgniteLogicalIndexScan extends AbstractIndexScan {
      * @param type Type of the index.
      * @param proj Projects.
      * @param cond Filters.
-     * @param idxCond Index conditions.
+     * @param searchBounds Index search conditions.
      * @param requiredCols Participating columns.
      */
     private IgniteLogicalIndexScan(
@@ -104,13 +104,13 @@ public class IgniteLogicalIndexScan extends AbstractIndexScan {
             IgniteIndex.Type type,
             @Nullable List<RexNode> proj,
             @Nullable RexNode cond,
-            @Nullable IndexConditions idxCond,
+            @Nullable List<SearchBounds> searchBounds,
             @Nullable ImmutableBitSet requiredCols
     ) {
-        super(cluster, traits, List.of(), tbl, idxName, type, proj, cond, idxCond, requiredCols);
+        super(cluster, traits, List.of(), tbl, idxName, type, proj, cond, searchBounds, requiredCols);
     }
 
-    private static IndexConditions buildSortedIndexConditions(
+    private static List<SearchBounds> buildSortedIndexConditions(
             RelOptCluster cluster,
             InternalIgniteTable table,
             RelCollation collation,
@@ -118,7 +118,7 @@ public class IgniteLogicalIndexScan extends AbstractIndexScan {
             @Nullable ImmutableBitSet requiredColumns
     ) {
         if (collation.getFieldCollations().isEmpty()) {
-            return new IndexConditions();
+            return List.of();
         }
 
         return RexUtils.buildSortedIndexConditions(
@@ -130,7 +130,7 @@ public class IgniteLogicalIndexScan extends AbstractIndexScan {
         );
     }
 
-    private static IndexConditions buildHashIndexConditions(
+    private static List<SearchBounds> buildHashIndexConditions(
             RelOptCluster cluster,
             InternalIgniteTable table,
             List<String> indexedColumns,

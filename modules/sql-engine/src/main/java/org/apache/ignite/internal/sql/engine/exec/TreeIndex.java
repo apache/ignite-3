@@ -30,7 +30,9 @@ public interface TreeIndex<R> {
      *
      * @param lower Lower bound.
      * @param upper Upper bound.
+     * @param lowerInclude Inclusive lower bound.
+     * @param upperInclude Inclusive upper bound.
      * @return Cursor over the rows within bounds.
      */
-    Cursor<R> find(R lower, R upper);
+    Cursor<R> find(R lower, R upper, boolean lowerInclude, boolean upperInclude);
 }

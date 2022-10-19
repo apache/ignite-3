@@ -25,7 +25,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscription;
-import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory.Builder;
@@ -41,6 +40,8 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
+import org.apache.ignite.internal.sql.engine.exec.exp.RangeIterable;
 import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
@@ -92,22 +93,22 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
         // Validate bounds.
         validateSortedIndexScan(
                 tableData,
-                () -> new Object[]{2, 1},
-                () -> new Object[]{3, 0},
+                new Object[]{2, 1},
+                new Object[]{3, 0},
                 result
         );
 
         validateSortedIndexScan(
                 tableData,
-                () -> new Object[]{2, 1},
-                () -> new Object[]{4},
+                new Object[]{2, 1},
+                new Object[]{4},
                 result
 
         );
 
         validateSortedIndexScan(
                 tableData,
-                () -> new Object[]{null},
+                new Object[]{null},
                 null,
                 result
         );
@@ -116,8 +117,8 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
         IgniteTestUtils.assertThrowsWithCause(() ->
                 validateSortedIndexScan(
                         tableData,
-                        () -> new Object[]{2, "Brutus"},
-                        () -> new Object[]{3.9, 0},
+                        new Object[]{2, "Brutus"},
+                        new Object[]{3.9, 0},
                         // TODO: sort data, once IndexScanNode will support merging.
                         EMPTY
                 ), ClassCastException.class);
@@ -152,31 +153,31 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
         // Validate bounds.
         validateHashIndexScan(
                 tableData,
-                () -> new Object[]{4, 2},
+                new Object[]{4, 2},
                 tableData);
 
         validateHashIndexScan(
                 tableData,
-                () -> new Object[]{null, null},
+                new Object[]{null, null},
                 tableData);
 
         // Validate failure due to incorrect bounds.
         IgniteTestUtils.assertThrowsWithCause(() ->
                 validateHashIndexScan(
                         tableData,
-                        () -> new Object[]{2},
+                        new Object[]{2},
                         EMPTY
                 ), AssertionError.class, "Invalid lookup condition");
 
         IgniteTestUtils.assertThrowsWithCause(() ->
                 validateHashIndexScan(
                         tableData,
-                        () -> new Object[]{2, "Brutus"},
+                        new Object[]{2, "Brutus"},
                         EMPTY
                 ), ClassCastException.class);
     }
 
-    private void validateHashIndexScan(Object[][] tableData, @Nullable Supplier<Object[]> key, Object[][] expRes) {
+    private void validateHashIndexScan(Object[][] tableData, @Nullable Object[] key, Object[][] expRes) {
         SchemaDescriptor schemaDescriptor = new SchemaDescriptor(
                 1,
                 new Column[]{new Column("key", NativeTypes.INT64, false)},
@@ -214,8 +215,8 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
 
     private void validateSortedIndexScan(
             Object[][] tableData,
-            Supplier<Object[]> lowerBound,
-            Supplier<Object[]> upperBound,
+            Object[] lowerBound,
+            Object[] upperBound,
             Object[][] expectedData
     ) {
         SchemaDescriptor schemaDescriptor = new SchemaDescriptor(
@@ -264,13 +265,29 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
             Object[][] tableData,
             SchemaDescriptor schemaDescriptor,
             IgniteIndex index,
-            Supplier<Object[]> lowerBound,
-            Supplier<Object[]> upperBound,
+            Object[] lowerBound,
+            Object[] upperBound,
             Object[][] expectedData
     ) {
         ExecutionContext<Object[]> ectx = executionContext(true);
 
         RelDataType rowType = createRowTypeFromSchema(ectx.getTypeFactory(), schemaDescriptor);
+
+        RangeIterable<Object[]> rangeIterable = null;
+
+        if (lowerBound != null || upperBound != null) {
+            RangeCondition<Object[]> range = Mockito.mock(RangeCondition.class);
+
+            Mockito.doReturn(lowerBound).when(range).lower();
+            Mockito.doReturn(upperBound).when(range).upper();
+            Mockito.doReturn(true).when(range).lowerInclude();
+            Mockito.doReturn(true).when(range).upperInclude();
+
+            rangeIterable = Mockito.mock(RangeIterable.class);
+
+            Mockito.doReturn(1).when(rangeIterable).size();
+            Mockito.doAnswer(inv -> List.of(range).iterator()).when(rangeIterable).iterator();
+        }
 
         IndexScanNode<Object[]> scanNode = new IndexScanNode<>(
                 ectx,
@@ -278,8 +295,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
                 index,
                 new TestTable(rowType),
                 new int[]{0, 2},
-                lowerBound,
-                upperBound,
+                rangeIterable,
                 null,
                 null,
                 null
@@ -306,7 +322,6 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
 
         return rowTypeBuilder.build();
     }
-
 
     private BinaryTuple[] partitionData(Object[][] tableData, SchemaDescriptor schemaDescriptor, int partition) {
         BinaryTupleSchema binaryTupleSchema = BinaryTupleSchema.createRowSchema(schemaDescriptor);

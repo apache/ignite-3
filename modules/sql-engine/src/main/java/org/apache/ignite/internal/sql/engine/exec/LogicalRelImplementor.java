@@ -42,6 +42,7 @@ import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactory;
+import org.apache.ignite.internal.sql.engine.exec.exp.RangeIterable;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorWrapper;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
 import org.apache.ignite.internal.sql.engine.exec.rel.AbstractSetOpNode;
@@ -68,6 +69,7 @@ import org.apache.ignite.internal.sql.engine.exec.rel.TableSpoolNode;
 import org.apache.ignite.internal.sql.engine.exec.rel.UnionAllNode;
 import org.apache.ignite.internal.sql.engine.metadata.AffinityService;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
+import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.rel.IgniteCorrelatedNestedLoopJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
 import org.apache.ignite.internal.sql.engine.rel.IgniteFilter;
@@ -126,10 +128,10 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
     /**
      * Constructor.
      *
-     * @param ctx             Root context.
-     * @param affSrvc         Affinity service.
+     * @param ctx Root context.
+     * @param affSrvc Affinity service.
      * @param mailboxRegistry Mailbox registry.
-     * @param exchangeSvc     Exchange service.
+     * @param exchangeSvc Exchange service.
      */
     public LogicalRelImplementor(
             ExecutionContext<RowT> ctx,
@@ -290,21 +292,20 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         ImmutableBitSet requiredColumns = rel.requiredColumns();
         RelDataType rowType = tbl.getRowType(typeFactory, requiredColumns);
 
-        List<RexNode> lowerCond = rel.lowerBound();
-        List<RexNode> upperCond = rel.upperBound();
+        List<SearchBounds> searchBounds = rel.searchBounds();
         RexNode condition = rel.condition();
         List<RexNode> projects = rel.projects();
 
-        Supplier<RowT> lower = lowerCond == null ? null : expressionFactory.rowSource(lowerCond);
-        Supplier<RowT> upper = upperCond == null ? null : expressionFactory.rowSource(upperCond);
         Predicate<RowT> filters = condition == null ? null : expressionFactory.predicate(condition, rowType);
         Function<RowT, RowT> prj = projects == null ? null : expressionFactory.project(projects, rowType);
+        RangeIterable<RowT> ranges = searchBounds == null ? null :
+                expressionFactory.ranges(searchBounds, rel.collation(), tbl.getRowType(typeFactory));
 
         IgniteIndex idx = tbl.getIndex(rel.indexName());
         ColocationGroup group = ctx.group(rel.sourceId());
         int[] parts = group.partitions(ctx.localNodeId());
 
-        return new IndexScanNode<>(ctx, rowType, idx, tbl, parts, lower, upper, filters, prj, requiredColumns.toBitSet());
+        return new IndexScanNode<>(ctx, rowType, idx, tbl, parts, ranges, filters, prj, requiredColumns.toBitSet());
     }
 
     /** {@inheritDoc} */
@@ -410,14 +411,10 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
     public Node<RowT> visit(IgniteSortedIndexSpool rel) {
         RelCollation collation = rel.collation();
 
-        assert rel.indexCondition() != null : rel;
-
-        List<RexNode> lowerBound = rel.indexCondition().lowerBound();
-        List<RexNode> upperBound = rel.indexCondition().upperBound();
+        assert rel.searchBounds() != null : rel;
 
         Predicate<RowT> filter = expressionFactory.predicate(rel.condition(), rel.getRowType());
-        Supplier<RowT> lower = lowerBound == null ? null : expressionFactory.rowSource(lowerBound);
-        Supplier<RowT> upper = upperBound == null ? null : expressionFactory.rowSource(upperBound);
+        RangeIterable<RowT> ranges = expressionFactory.ranges(rel.searchBounds(), collation, rel.getRowType());
 
         IndexSpoolNode<RowT> node = IndexSpoolNode.createTreeSpool(
                 ctx,
@@ -425,8 +422,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
                 collation,
                 expressionFactory.comparator(collation),
                 filter,
-                lower,
-                upper
+                ranges
         );
 
         Node<RowT> input = visit(rel.getInput());
