@@ -27,13 +27,12 @@ import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Subscriber;
@@ -45,15 +44,16 @@ import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.ByteBufferRow;
+import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.NativeTypes;
+import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
-import org.apache.ignite.internal.util.ByteUtils;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
@@ -349,18 +349,18 @@ public class ItInternalTableScanTest {
      * @param entryKey Key.
      * @param entryVal Value
      * @return {@link BinaryRow} based on given key and value.
-     * @throws java.io.IOException If failed to close output stream that was used to convertation.
      */
-    private static @NotNull BinaryRow prepareRow(@NotNull String entryKey,
-            @NotNull String entryVal) throws IOException {
-        byte[] keyBytes = ByteUtils.toBytes(entryKey);
-
-        try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
-            outputStream.write(keyBytes);
-            outputStream.write(ByteUtils.toBytes(entryVal));
-
-            return new ByteBufferRow(keyBytes);
-        }
+    private static BinaryRow prepareRow(String entryKey, String entryVal) {
+        return new RowAssembler(
+                new SchemaDescriptor(
+                        1,
+                        new Column[]{new Column("key", NativeTypes.stringOf(100), false)},
+                        new Column[]{new Column("val", NativeTypes.stringOf(100), false)}
+                ), 1, 1
+        )
+                .appendString(Objects.requireNonNull(entryKey, "entryKey"))
+                .appendString(Objects.requireNonNull(entryVal, "entryVal"))
+                .build();
     }
 
     /**

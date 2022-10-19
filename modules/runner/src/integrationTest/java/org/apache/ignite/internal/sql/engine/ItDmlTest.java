@@ -72,7 +72,6 @@ public class ItDmlTest extends AbstractBasicIntegrationTest {
     @Test
     public void pkConstraintConsistencyTest() {
         sql("CREATE TABLE my (id INT PRIMARY KEY, val INT)");
-        sql("CREATE INDEX my_val_idx ON my (val)");
         sql("INSERT INTO my VALUES (?, ?)", 0, 1);
         assertQuery("SELECT val FROM my WHERE id = 0")
                 .returns(1)

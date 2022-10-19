@@ -24,7 +24,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -33,7 +32,6 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -51,10 +49,14 @@ import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
-import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
+import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
+import org.apache.ignite.internal.storage.index.HashIndexDescriptor.HashIndexColumnDescriptor;
+import org.apache.ignite.internal.storage.index.HashIndexStorage;
+import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TxAbstractTest;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
@@ -380,7 +382,10 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
                 int partId = p;
 
-                ConcurrentHashMap<ByteBuffer, RowId> primaryIndex = new ConcurrentHashMap<>();
+                HashIndexStorage pkStorage = new TestHashIndexStorage(new HashIndexDescriptor(
+                        UUID.randomUUID(),
+                        List.of(new HashIndexColumnDescriptor("__rawKey", NativeTypes.BYTES, false))
+                ));
 
                 CompletableFuture<Void> partitionReadyFuture = raftServers.get(node).prepareRaftGroup(
                         grpId,
@@ -391,7 +396,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                                     txSateStorage,
                                     txManagers.get(node),
                                     List::of,
-                                    null
+                                    pkStorage
                             );
                         },
                         RaftGroupOptions.defaults()
@@ -409,7 +414,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                                                 grpId,
                                                 tblId,
                                                 List::of,
-                                                null,
+                                                pkStorage,
                                                 clocks.get(node),
                                                 txSateStorage,
                                                 topologyServices.get(node),
