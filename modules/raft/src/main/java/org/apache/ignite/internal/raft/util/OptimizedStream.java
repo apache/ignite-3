@@ -34,6 +34,8 @@ class OptimizedStream extends DirectByteBufferStreamImplV1 {
      */
     public OptimizedStream(MessageSerializationRegistry serializationRegistry) {
         super(serializationRegistry);
+
+        lastFinished = true;
     }
 
     @Override
