@@ -19,7 +19,9 @@ package org.apache.ignite.distributed;
 
 import static org.apache.ignite.raft.jraft.test.TestUtils.waitForTopology;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -82,9 +84,11 @@ import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupServiceImpl;
 import org.apache.ignite.table.Table;
+import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mockito;
@@ -561,5 +565,21 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
         }
 
         return true;
+    }
+
+    @Test
+    public void testIgniteTransactionsAndReadTimestamp() {
+        Transaction readWriteTx = igniteTransactions.begin();
+        assertFalse(readWriteTx.isReadOnly());
+        assertNull(readWriteTx.readTimestamp());
+
+        Transaction readOnlyTx = igniteTransactions.readOnly().begin();
+        assertTrue(readOnlyTx.isReadOnly());
+        assertNotNull(readOnlyTx.readTimestamp());
+
+        readWriteTx.commit();
+
+        Transaction readOnlyTx2 = igniteTransactions.readOnly().begin();
+        readOnlyTx2.rollback();
     }
 }

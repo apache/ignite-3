@@ -53,6 +53,17 @@ public class TransactionException extends IgniteException {
     }
 
     /**
+     * Creates a new transaction exception with the given error code and detail message.
+     *
+     * @param code Full error code.
+     * @param message Detail message.
+     */
+    public TransactionException(int code, String message) {
+        super(code, message);
+    }
+
+
+    /**
      * Creates a new transaction exception with the given trace id, error code and cause.
      *
      * @param traceId Unique identifier of this exception.

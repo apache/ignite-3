@@ -19,6 +19,8 @@ package org.apache.ignite.internal.table.distributed.replicator;
 
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
+import static org.apache.ignite.lang.ErrorGroups.Replicator.CURSOR_CLOSE_ERR;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -237,19 +239,45 @@ public class PartitionReplicaListener implements ReplicaListener {
     private CompletableFuture<Object> processReadOnlySingleEntryAction(ReadOnlySingleRowReplicaRequest request) {
         ByteBuffer searchKey = request.binaryRow().keySlice();
 
-        UUID indexId = indexIdOrDefault(indexScanId/*request.indexToUse()*/);
-
-        if (request.requestType() !=  RequestType.RO_GET) {
+        if (request.requestType() != RequestType.RO_GET) {
             throw new IgniteInternalException(Replicator.REPLICA_COMMON_ERR,
                     IgniteStringFormatter.format("Unknown single request [actionType={}]", request.requestType()));
         }
 
         //TODO: IGNITE-17868 Integrate indexes into rowIds resolution along with proper lock management on search rows.
-        RowId rowId = rowIdByKey(indexId, searchKey);
+        try (PartitionTimestampCursor scan = mvDataStorage.scan(request.readTimestamp())) {
+            while (scan.hasNext()) {
+                ReadResult readResult = scan.next();
+                if (readResult.binaryRow() == null) {
+                    HybridTimestamp newestCommitTimestamp = readResult.newestCommitTimestamp();
+                    if (newestCommitTimestamp == null) {
+                        throw new AssertionError("Unexpected null value of the newest committed timestamp.");
+                    }
 
-        BinaryRow result = rowId != null ? resolveReadResult(mvDataStorage.read(rowId, request.timestamp()), null) : null;
+                    BinaryRow candidate = scan.committed(readResult.newestCommitTimestamp());
+                    if (candidate == null) {
+                        throw new AssertionError("Unexpected null value of the candidate binary row.");
+                    }
 
-        return CompletableFuture.completedFuture(result);
+                    if (candidate.keySlice().equals(searchKey)) {
+                        return CompletableFuture.completedFuture(resolveReadResult(readResult, null));
+                    }
+                } else if (readResult.binaryRow().keySlice().equals(searchKey)) {
+                    return CompletableFuture.completedFuture(resolveReadResult(readResult, null));
+                }
+            }
+        } catch (Exception e) {
+            return failedFuture(
+                    withCause(
+                            ReplicationException::new,
+                            CURSOR_CLOSE_ERR,
+                            "Failed to close cursor.",
+                            e
+                    )
+            );
+        }
+
+        return CompletableFuture.completedFuture(null);
     }
 
     /**
@@ -262,8 +290,6 @@ public class PartitionReplicaListener implements ReplicaListener {
         Collection<ByteBuffer> keyRows = request.binaryRows().stream().map(br -> br.keySlice()).collect(
                 Collectors.toList());
 
-        UUID indexId = indexIdOrDefault(indexScanId/*request.indexToUse()*/);
-
         if (request.requestType() !=  RequestType.RO_GET_ALL) {
             throw new IgniteInternalException(Replicator.REPLICA_COMMON_ERR,
                     IgniteStringFormatter.format("Unknown single request [actionType={}]", request.requestType()));
@@ -271,11 +297,40 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         ArrayList<BinaryRow> result = new ArrayList<>(keyRows.size());
 
-        for (ByteBuffer searchKey : keyRows) {
-            //TODO: IGNITE-17868 Integrate indexes into rowIds resolution along with proper lock management on search rows.
-            RowId rowId = rowIdByKey(indexId, searchKey);
+        //TODO: IGNITE-17868 Integrate indexes into rowIds resolution along with proper lock management on search rows.
+        try (PartitionTimestampCursor scan = mvDataStorage.scan(request.readTimestamp())) {
+            while (scan.hasNext()) {
+                ReadResult readResult = scan.next();
 
-            result.add(rowId != null ? resolveReadResult(mvDataStorage.read(rowId, request.timestamp()), null) : null);
+                for (ByteBuffer searchKey : keyRows) {
+                    if (readResult.binaryRow() == null) {
+                        HybridTimestamp newestCommitTimestamp = readResult.newestCommitTimestamp();
+                        if (newestCommitTimestamp == null) {
+                            throw new AssertionError("Unexpected null value of the newest committed timestamp.");
+                        }
+
+                        BinaryRow candidate = scan.committed(readResult.newestCommitTimestamp());
+                        if (candidate == null) {
+                            throw new AssertionError("Unexpected null value of the candidate binary row.");
+                        }
+
+                        if (candidate.keySlice().equals(searchKey)) {
+                            result.add(resolveReadResult(readResult, null));
+                        }
+                    } else if (readResult.binaryRow().keySlice().equals(searchKey)) {
+                        result.add(resolveReadResult(readResult, null));
+                    }
+                }
+            }
+        } catch (Exception e) {
+            return failedFuture(
+                    withCause(
+                            ReplicationException::new,
+                            CURSOR_CLOSE_ERR,
+                            "Failed to close cursor.",
+                            e
+                    )
+            );
         }
 
         return CompletableFuture.completedFuture(result);

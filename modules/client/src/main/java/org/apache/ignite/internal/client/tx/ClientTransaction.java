@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.client.ClientUtils.sync;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.tx.Transaction;
@@ -117,5 +118,19 @@ public class ClientTransaction implements Transaction {
                 : "Transaction is already rolled back.";
 
         throw new TransactionException(message);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean isReadOnly() {
+        // TODO: IGNITE-17929 Add read-only support to ClientTransactions
+        return false;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public HybridTimestamp readTimestamp() {
+        // TODO: IGNITE-17929 Add read-only support to ClientTransactions
+        return null;
     }
 }

@@ -15,16 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.replication.request;
+package org.apache.ignite.distributed;
 
-import java.util.UUID;
-import org.apache.ignite.internal.table.distributed.TableMessageGroup;
-import org.apache.ignite.network.annotations.Transferable;
+import java.util.concurrent.Flow.Publisher;
+import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.tx.InternalTransaction;
 
 /**
- * Scan retrieve batch replica request.
+ * Tests for {@link InternalTable#scan(int, org.apache.ignite.internal.tx.InternalTransaction)}.
  */
-@Transferable(TableMessageGroup.RO_SCAN_RETRIEVE_BATCH_REPLICA_REQUEST)
-public interface ReadOnlyScanRetrieveBatchReplicaRequest extends ScanRetrieveBatchReplicaRequest, ReadOnlyReplicaRequest {
-    UUID transactionId();
+public class ItInternalTableReadWriteScanTest extends ItAbstractInternalTableScanTest {
+    /** {@inheritDoc} */
+    @Override
+    protected Publisher<BinaryRow> scan(int part, InternalTransaction tx) {
+        return internalTbl.scan(part, tx);
+    }
 }

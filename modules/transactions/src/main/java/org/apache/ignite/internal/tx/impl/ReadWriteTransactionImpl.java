@@ -17,10 +17,6 @@
 
 package org.apache.ignite.internal.tx.impl;
 
-import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_COMMIT_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ROLLBACK_ERR;
-
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -29,30 +25,20 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
-import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 /**
- * The implementation of an internal transaction.
- *
- * <p>Delegates state management to tx manager.
+ * The read-write implementation of an internal transaction.
  */
-public class TransactionImpl implements InternalTransaction {
+public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     private static final IgniteLogger LOG = Loggers.forClass(InternalTransaction.class);
-
-    /** The id. */
-    private final UUID id;
-
-    /** The transaction manager. */
-    private final TxManager txManager;
 
     /** Enlisted replication groups: replication group id -> (primary replica node, raft term). */
     private final Map<String, IgniteBiTuple<ClusterNode, Long>> enlisted = new ConcurrentSkipListMap<>();
@@ -66,29 +52,14 @@ public class TransactionImpl implements InternalTransaction {
      * @param txManager The tx manager.
      * @param id The id.
      */
-    public TransactionImpl(TxManager txManager, @NotNull UUID id) {
-        this.txManager = txManager;
-        this.id = id;
-    }
-
-    /** {@inheritDoc} */
-    @NotNull
-    @Override
-    public UUID id() {
-        return id;
+    public ReadWriteTransactionImpl(TxManager txManager, @NotNull UUID id) {
+        super(txManager, id);
     }
 
     /** {@inheritDoc} */
     @Override
     public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndTerm(String partGroupId) {
         return enlisted.get(partGroupId);
-    }
-
-    /** {@inheritDoc} */
-    @Nullable
-    @Override
-    public TxState state() {
-        return txManager.state(id);
     }
 
     /** {@inheritDoc} */
@@ -101,43 +72,7 @@ public class TransactionImpl implements InternalTransaction {
 
     /** {@inheritDoc} */
     @Override
-    public void commit() throws TransactionException {
-        try {
-            commitAsync().get();
-        } catch (Exception e) {
-            throw withCause(TransactionException::new, TX_COMMIT_ERR, e);
-        }
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<Void> commitAsync() {
-        return finish(true);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void rollback() throws TransactionException {
-        try {
-            rollbackAsync().get();
-        } catch (Exception e) {
-            throw withCause(TransactionException::new, TX_ROLLBACK_ERR, e);
-        }
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<Void> rollbackAsync() {
-        return finish(false);
-    }
-
-    /**
-     * Finishes a transaction.
-     *
-     * @param commit {@code true} to commit, false to rollback.
-     * @return The future.
-     */
-    private CompletableFuture<Void> finish(boolean commit) {
+    protected CompletableFuture<Void> finish(boolean commit) {
         // TODO: https://issues.apache.org/jira/browse/IGNITE-17688 Add proper exception handling.
         return CompletableFuture
                 .allOf(enlistedResults.toArray(new CompletableFuture[0]))
@@ -164,14 +99,14 @@ public class TransactionImpl implements InternalTransaction {
                                 Long term = enlisted.entrySet().iterator().next().getValue().get2();
 
                                 LOG.debug("Finish [recipientNode={}, term={} commit={}, txId={}, groups={}",
-                                        recipientNode, term, commit, id, groups);
+                                        recipientNode, term, commit, id(), groups);
 
                                 return txManager.finish(
                                         recipientNode,
                                         term,
                                         commit,
                                         groups,
-                                        id
+                                        id()
                                 );
                             } else {
                                 return CompletableFuture.completedFuture(null);
@@ -184,5 +119,17 @@ public class TransactionImpl implements InternalTransaction {
     @Override
     public void enlistResultFuture(CompletableFuture<?> resultFuture) {
         enlistedResults.add(resultFuture);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean isReadOnly() {
+        return false;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public HybridTimestamp readTimestamp() {
+        return null;
     }
 }

@@ -34,11 +34,20 @@ import org.jetbrains.annotations.TestOnly;
  */
 public interface TxManager extends IgniteComponent {
     /**
-     * Starts a transaction coordinated by a local node.
+     * Starts a read-write transaction coordinated by a local node.
      *
      * @return The transaction.
      */
     InternalTransaction begin();
+
+    /**
+     * Starts either read-write or read-only transaction, depending on {@code readOnly} parameter value.
+     *
+     * @param readOnly {@code true} in order to start a read-only transaction, {@code false} in order to start read-write one.
+     *      Calling begin with readOnly {@code false} is an equivalent of TxManager#begin().
+     * @return The started transaction.
+     */
+    InternalTransaction begin(boolean readOnly);
 
     /**
      * Returns a transaction state.

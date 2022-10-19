@@ -82,11 +82,17 @@ public class TxManagerImpl implements TxManager {
     /** {@inheritDoc} */
     @Override
     public InternalTransaction begin() {
+        return begin(false);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public InternalTransaction begin(boolean readOnly) {
         UUID txId = Timestamp.nextVersion().toUuid();
 
         states.put(txId, TxState.PENDING);
 
-        return new TransactionImpl(this, txId);
+        return readOnly ? new ReadOnlyTransactionImpl(this, txId, clock.now()) : new ReadWriteTransactionImpl(this, txId);
     }
 
     /** {@inheritDoc} */

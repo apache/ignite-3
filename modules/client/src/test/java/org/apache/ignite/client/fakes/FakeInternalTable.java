@@ -36,6 +36,7 @@ import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.client.service.RaftGroupService;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -99,6 +100,12 @@ public class FakeInternalTable implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
+    public CompletableFuture<BinaryRow> get(BinaryRowEx keyRow, @Nullable InternalTransaction tx, @NotNull ClusterNode recipientNode) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public CompletableFuture<Collection<BinaryRow>> getAll(Collection<BinaryRowEx> keyRows,
             @Nullable InternalTransaction tx) {
         var res = new ArrayList<BinaryRow>();
@@ -113,6 +120,14 @@ public class FakeInternalTable implements InternalTable {
 
         onDataAccess("getAll", keyRows);
         return CompletableFuture.completedFuture(res);
+    }
+
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Collection<BinaryRow>> getAll(Collection<BinaryRowEx> keyRows, @Nullable InternalTransaction tx,
+            @NotNull ClusterNode recipientNode) {
+        return null;
     }
 
     /** {@inheritDoc} */
@@ -300,6 +315,12 @@ public class FakeInternalTable implements InternalTable {
     @Override
     public Publisher<BinaryRow> scan(int p, @Nullable InternalTransaction tx) {
         throw new IgniteInternalException(new OperationNotSupportedException());
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Publisher<BinaryRow> scan(int p, @Nullable InternalTransaction tx, @NotNull ClusterNode recipientNode) {
+        return null;
     }
 
     /** {@inheritDoc} */

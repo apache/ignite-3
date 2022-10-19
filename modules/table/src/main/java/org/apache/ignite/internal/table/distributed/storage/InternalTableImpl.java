@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table.distributed.storage;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_INSUFFICIENT_RO_OPERATION;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
@@ -46,6 +47,7 @@ import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
+import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlyScanRetrieveBatchReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteScanRetrieveBatchReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteScanRetrieveBatchReplicaRequestBuilder;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
@@ -442,6 +444,38 @@ public class InternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
+    public CompletableFuture<BinaryRow> get(
+            BinaryRowEx keyRow,
+            @Nullable InternalTransaction tx,
+            @NotNull ClusterNode recipientNode
+    ) {
+        // Check whether proposed tx is read-only. Complete future exceptionally if true.
+        // Attempting to enlist a read-only in a read-write transaction does not corrupt the transaction itself, thus read-write transaction
+        // won't be rolled back automatically - it's up to the user or outer engine.
+        if (tx != null && !tx.isReadOnly()) {
+            return failedFuture(
+                    new TransactionException(
+                            TX_INSUFFICIENT_RO_OPERATION,
+                            "Failed to enlist read-only get operation into read-write transaction. Read-write transaction is up and running"
+                                    + " and thus won't be aborted automatically, txId={" + tx.id() + '}'
+                    )
+            );
+        }
+
+        int partId = partId(keyRow);
+        String partGroupId = partitionMap.get(partId).groupId();
+
+        return replicaSvc.invoke(recipientNode, tableMessagesFactory.readOnlySingleRowReplicaRequest()
+                .groupId(partGroupId)
+                .binaryRow(keyRow)
+                .requestType(RequestType.RO_GET)
+                .readTimestamp(clock.now())
+                .build()
+        );
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public CompletableFuture<Collection<BinaryRow>> getAll(Collection<BinaryRowEx> keyRows, InternalTransaction tx) {
         return enlistInTx(
                 keyRows,
@@ -455,6 +489,49 @@ public class InternalTableImpl implements InternalTable {
                         .timestamp(clock.now())
                         .build(),
                 this::collectMultiRowsResponses);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Collection<BinaryRow>> getAll(
+            Collection<BinaryRowEx> keyRows,
+            @Nullable InternalTransaction tx,
+            @NotNull ClusterNode recipientNode
+    ) {
+        // Check whether proposed tx is read-only. Complete future exceptionally if true.
+        // Attempting to enlist a read-only in a read-write transaction does not corrupt the transaction itself, thus read-write transaction
+        // won't be rolled back automatically - it's up to the user or outer engine.
+        if (tx != null && !tx.isReadOnly()) {
+            return failedFuture(
+                    new TransactionException(
+                            TX_INSUFFICIENT_RO_OPERATION,
+                            "Failed to enlist read-only get operation into read-write transaction. Read-write transaction is up and running"
+                                    + " and thus won't be aborted automatically, txId={" + tx.id() + '}'
+                    )
+            );
+        }
+
+        Int2ObjectOpenHashMap<List<BinaryRow>> keyRowsByPartition = mapRowsToPartitions(keyRows);
+
+        CompletableFuture<Object>[] futures = new CompletableFuture[keyRowsByPartition.size()];
+
+        int batchNum = 0;
+
+        for (Int2ObjectOpenHashMap.Entry<List<BinaryRow>> partToRows : keyRowsByPartition.int2ObjectEntrySet()) {
+            String partGroupId = partitionMap.get(partToRows.getIntKey()).groupId();
+
+            CompletableFuture<Object> fut = replicaSvc.invoke(recipientNode, tableMessagesFactory.readOnlyMultiRowReplicaRequest()
+                    .groupId(partGroupId)
+                    .binaryRows(partToRows.getValue())
+                    .requestType(RequestType.RO_GET_ALL)
+                    .readTimestamp(clock.now())
+                    .build()
+            );
+
+            futures[batchNum++] = fut;
+        }
+
+        return collectMultiRowsResponses(futures);
     }
 
     /** {@inheritDoc} */
@@ -684,6 +761,68 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public Publisher<BinaryRow> scan(int p, @Nullable InternalTransaction tx) {
+        validatePartitionIndex(p);
+
+        final boolean implicit = tx == null;
+
+        final InternalTransaction tx0 = implicit ? txManager.begin() : tx;
+
+        return new PartitionScanPublisher(
+                (scanId, batchSize) -> enlistCursorInTx(tx0, p, scanId, batchSize),
+                fut -> postEnlist(fut, implicit, tx0)
+        );
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Publisher<BinaryRow> scan(
+            int p,
+            @Nullable InternalTransaction tx,
+            @NotNull ClusterNode recipientNode
+    ) {
+        // Check whether proposed tx is read-only. Throw corresponding exception if true.
+        // Attempting to enlist a read-only in a read-write transaction does not corrupt the transaction itself, thus read-write transaction
+        // won't be rolled back automatically - it's up to the user or outer engine.
+        if (tx != null && !tx.isReadOnly()) {
+            throw new TransactionException(
+                    TX_INSUFFICIENT_RO_OPERATION,
+                    "Failed to enlist read-only get operation into read-write transaction. Read-write transaction is up and running "
+                            + "and thus won't be aborted automatically, txId={" + tx.id() + '}'
+            );
+
+        }
+
+        validatePartitionIndex(p);
+
+        final boolean implicit = tx == null;
+
+        final InternalTransaction tx0 = implicit ? txManager.begin() : tx;
+
+        return new PartitionScanPublisher(
+                (scanId, batchSize) -> {
+                    String partGroupId = partitionMap.get(p).groupId();
+
+                    ReadOnlyScanRetrieveBatchReplicaRequest request = tableMessagesFactory.readOnlyScanRetrieveBatchReplicaRequest()
+                            .groupId(partGroupId)
+                            .transactionId(tx0.id())
+                            .scanId(scanId)
+                            .batchSize(batchSize)
+                            .readTimestamp(clock.now())
+                            .build();
+
+                    return replicaSvc.invoke(recipientNode, request);
+                },
+                // TODO: IGNITE-17666 Close cursor tx finish.
+                Function.identity());
+    }
+
+    /**
+     * Validates partition index.
+     *
+     * @param p Partition index.
+     * @throws IllegalArgumentException If proposed partition is out of bounds.
+     */
+    private void validatePartitionIndex(int p) {
         if (p < 0 || p >= partitions) {
             throw new IllegalArgumentException(
                     IgniteStringFormatter.format(
@@ -694,15 +833,6 @@ public class InternalTableImpl implements InternalTable {
                     )
             );
         }
-
-        final boolean implicit = tx == null;
-
-        final InternalTransaction tx0 = implicit ? txManager.begin() : tx;
-
-        return new PartitionScanPublisher(
-                (scanId, batchSize) -> enlistCursorInTx(tx0, p, scanId, batchSize),
-                fut -> postEnlist(fut, implicit, tx0)
-        );
     }
 
     /**

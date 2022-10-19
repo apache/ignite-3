@@ -131,7 +131,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 mock(MvTableStorage.class),
                 mock(TxStateTableStorage.class),
                 replicaSvc,
-                mock(HybridClock.class)
+                new HybridClock()
         );
         RaftGroupService svc = partitionMap.get(0);
 

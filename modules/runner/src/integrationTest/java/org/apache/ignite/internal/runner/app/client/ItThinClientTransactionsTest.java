@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
@@ -231,6 +232,16 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
 
             @Override
             public CompletableFuture<Void> rollbackAsync() {
+                return null;
+            }
+
+            @Override
+            public boolean isReadOnly() {
+                return false;
+            }
+
+            @Override
+            public HybridTimestamp readTimestamp() {
                 return null;
             }
         };

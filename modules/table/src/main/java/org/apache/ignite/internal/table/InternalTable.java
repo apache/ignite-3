@@ -30,6 +30,8 @@ import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.client.service.RaftGroupService;
+import org.apache.ignite.tx.TransactionException;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -69,6 +71,22 @@ public interface InternalTable extends AutoCloseable {
     CompletableFuture<BinaryRow> get(BinaryRowEx keyRow, @Nullable InternalTransaction tx);
 
     /**
+     * Asynchronously gets a row with same key columns values as given one from the table on a specific node
+     * within the context of a read-only transaction.
+     *
+     * @param keyRow Row with key columns set.
+     * @param tx     The transaction.
+     * @param recipientNode Cluster node that will handle given get request.
+     * @return Future representing pending completion of the operation.
+     * @throws LockException If a lock can't be acquired by some reason.
+     */
+    CompletableFuture<BinaryRow> get(
+            BinaryRowEx keyRow,
+            @Nullable InternalTransaction tx,
+            @NotNull ClusterNode recipientNode
+    );
+
+    /**
      * Asynchronously get rows from the table.
      *
      * @param keyRows Rows with key columns set.
@@ -76,6 +94,20 @@ public interface InternalTable extends AutoCloseable {
      * @return Future representing pending completion of the operation.
      */
     CompletableFuture<Collection<BinaryRow>> getAll(Collection<BinaryRowEx> keyRows, @Nullable InternalTransaction tx);
+
+    /**
+     * Asynchronously get rows from the table within the context of read-only transaction.
+     *
+     * @param keyRows Rows with key columns set.
+     * @param tx      The transaction.
+     * @return Future representing pending completion of the operation.
+     */
+    CompletableFuture<Collection<BinaryRow>> getAll(
+            Collection<BinaryRowEx> keyRows,
+            @Nullable InternalTransaction tx,
+            @NotNull ClusterNode recipientNode
+    );
+
 
     /**
      * Asynchronously inserts a row into the table if does not exist or replaces the existed one.
@@ -210,8 +242,25 @@ public interface InternalTable extends AutoCloseable {
      * @param p  The partition.
      * @param tx The transaction.
      * @return {@link Publisher} that reactively notifies about partition rows.
+     * @throws IllegalArgumentException If proposed partition index {@code p} is out of bounds.
      */
     Publisher<BinaryRow> scan(int p, @Nullable InternalTransaction tx);
+
+    /**
+     * Scans given partition within the context of a read-only transaction, providing {@link Publisher} that reactively notifies about
+     * partition rows.
+     *
+     * @param p  The partition.
+     * @param tx The transaction.
+     * @return {@link Publisher} that reactively notifies about partition rows.
+     * @throws IllegalArgumentException If proposed partition index {@code p} is out of bounds.
+     * @throws TransactionException If proposed {@code tx} is read-write. Transaction itself won't be automatically rolled back.
+     */
+    Publisher<BinaryRow> scan(
+            int p,
+            @Nullable InternalTransaction tx,
+            @NotNull ClusterNode recipientNode
+    );
 
     /**
      * Gets a count of partitions of the table.

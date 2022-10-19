@@ -22,6 +22,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxState;
@@ -132,7 +133,23 @@ public class FakeIgnite implements Ignite {
                     public CompletableFuture<Void> rollbackAsync() {
                         return CompletableFuture.completedFuture(null);
                     }
+
+                    @Override
+                    public boolean isReadOnly() {
+                        return false;
+                    }
+
+                    @Override
+                    public HybridTimestamp readTimestamp() {
+                        return null;
+                    }
                 });
+            }
+
+            /** {@inheritDoc} */
+            @Override
+            public IgniteTransactions readOnly() {
+                throw new UnsupportedOperationException();
             }
         };
     }
