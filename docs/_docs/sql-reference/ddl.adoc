@@ -442,15 +442,18 @@ ComplexDiagram(
 Group(Sequence(
 NonTerminal('column_name'),
 NonTerminal('DATA TYPE'),
-Optional(Sequence(Optional('NOT'),NonTerminal('NULL'))),
+Optional(Sequence(Optional('NOT'),NonTerminal('NULL')))
+), 'column_definition')
 )
 
 [.diagram-container]
 ComplexDiagram(
+Group(Sequence(
 Optional(Sequence(NonTerminal('DEFAULT'), NonTerminal('literal_value'))),
 NonTerminal('PRIMARY KEY')
 ), 'column_definition')
 )
+
 
 Parameters:
 
