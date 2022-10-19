@@ -23,11 +23,9 @@ import static org.mockito.Mockito.mock;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import java.io.Serializable;
-import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import javax.naming.OperationNotSupportedException;
 import org.apache.ignite.hlc.HybridClock;
@@ -35,10 +33,14 @@ import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
+import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
-import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
+import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
+import org.apache.ignite.internal.storage.index.HashIndexDescriptor.HashIndexColumnDescriptor;
+import org.apache.ignite.internal.storage.index.HashIndexStorage;
+import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
@@ -198,7 +200,12 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 }
         ).when(svc).run(any());
 
-        var primaryIndex = new ConcurrentHashMap<ByteBuffer, RowId>();
+        UUID tableId = tableId();
+
+        HashIndexStorage pkStorage = new TestHashIndexStorage(new HashIndexDescriptor(
+                new UUID(tableId.getMostSignificantBits(), tableId.getLeastSignificantBits() + 1),
+                List.of(new HashIndexColumnDescriptor("__rawKey", NativeTypes.BYTES, false))
+        ));
 
         replicaListener = new PartitionReplicaListener(
                 mvPartStorage,
@@ -207,9 +214,9 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 this.txManager.lockManager(),
                 0,
                 groupId,
-                tableId(),
+                tableId,
                 List::of,
-                null,
+                pkStorage,
                 new HybridClock()
         );
 
@@ -218,7 +225,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 new TestConcurrentHashMapTxStateStorage(),
                 this.txManager,
                 List::of,
-                null
+                pkStorage
         );
     }
 

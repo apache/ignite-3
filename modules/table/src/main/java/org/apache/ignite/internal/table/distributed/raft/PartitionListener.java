@@ -63,6 +63,7 @@ import org.apache.ignite.raft.client.ReadCommand;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.apache.ignite.raft.client.service.CommandClosure;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -199,15 +200,6 @@ public class PartitionListener implements RaftGroupListener {
 
                     txsPendingRowIds.computeIfAbsent(txId, entry0 -> new HashSet<>()).add(rowId);
 
-                    pkIndexStorage.put(
-                            new IndexRowImpl(
-                                    new BinaryTuple(PK_KEY_SCHEMA, new BinaryTupleBuilder(1, false)
-                                            .appendElementBytes(row.keySlice())
-                                            .build()),
-                                    rowId
-                            )
-                    );
-
                     addToIndexes(row, rowId);
                 }
             }
@@ -316,10 +308,19 @@ public class PartitionListener implements RaftGroupListener {
         }
     }
 
-    private void addToIndexes(BinaryRow tableRow, RowId rowId) {
-        if (!tableRow.hasValue()) { // skip removes
+    private void addToIndexes(@Nullable BinaryRow tableRow, RowId rowId) {
+        if (tableRow == null || !tableRow.hasValue()) { // skip removes
             return;
         }
+
+        pkIndexStorage.put(
+                new IndexRowImpl(
+                        new BinaryTuple(PK_KEY_SCHEMA, new BinaryTupleBuilder(1, false)
+                                .appendElementBytes(tableRow.keySlice())
+                                .build()),
+                        rowId
+                )
+        );
 
         List<TableIndex> indexes = activeIndexes.get();
 

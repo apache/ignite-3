@@ -452,7 +452,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Value or {@code null} if the key does not determine a value.
      */
     private CompletableFuture<@Nullable RowId> rowIdByKey(ByteBuffer key, UUID txId) {
-        return lockManager.acquire(txId, new LockKey(tableId, new LockKey(key)), LockMode.S)
+        return lockManager.acquire(txId, new LockKey(tableId, key), LockMode.S)
                 .thenApply(ignored -> rowIdByKey(key, HybridTimestamp.MAX_VALUE, txId));
 
     }
@@ -869,7 +869,8 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                             return lockFut
                                     .thenCompose(ignored -> {
-                                        BinaryRow value = resolveReadResult(mvDataStorage.read(rowId, HybridTimestamp.MAX_VALUE), txId);
+                                        BinaryRow value = insert ? null
+                                                : resolveReadResult(mvDataStorage.read(rowId, HybridTimestamp.MAX_VALUE), txId);
 
                                         return applyCmdWithExceptionHandling(new UpdateCommand(rowId0, searchRow, txId))
                                                 .thenCompose(ignored0 -> releaseAfterPutLockOnIndexes(indexes, searchRow, rowId0, txId))
