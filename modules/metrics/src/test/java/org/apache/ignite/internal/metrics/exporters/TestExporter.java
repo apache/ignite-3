@@ -50,10 +50,10 @@ public class TestExporter extends BasicMetricExporter<TestExporterView> {
     }
 
     @Override
-    public void reconfigure(@Nullable TestExporterView newValue) {
+    public synchronized void reconfigure(@Nullable TestExporterView newValue) {
         super.reconfigure(newValue);
 
-        port = configuration.port();
+        port = configuration().port();
     }
 
     @Override

@@ -53,6 +53,11 @@ public interface MetricExporter<CfgT extends ExporterView> {
     /**
      * Invokes, when exporter's configuration was updated.
      *
+     * TODO: KKK rewrite doc in human-readable manner.
+     * Be careful: this method will be invoked from the separate configuration events thread pool.
+     * Appropriate handling of async calls up to exporter implementation.
+     * And: don't call this method by hand - all configuration changes must be done through configuration framework.
+     *
      * @param newValue new configuration.
      */
     void reconfigure(CfgT newValue);

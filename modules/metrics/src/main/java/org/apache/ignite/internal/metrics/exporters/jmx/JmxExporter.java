@@ -2,7 +2,6 @@ package org.apache.ignite.internal.metrics.exporters.jmx;
 
 import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import javax.management.JMException;
 import javax.management.ObjectName;
@@ -21,10 +20,10 @@ public class JmxExporter extends BasicMetricExporter<JmxExporterView> {
 
     private static IgniteLogger LOG = Loggers.forClass(JmxExporter.class);
 
-    private final List<ObjectName> mBeans = Collections.synchronizedList(new ArrayList<>());
+    private final List<ObjectName> mBeans = new ArrayList<>();
 
     @Override
-    public void start(MetricProvider metricsProvider, JmxExporterView configuration) {
+    public synchronized void start(MetricProvider metricsProvider, JmxExporterView configuration) {
         super.start(metricsProvider, configuration);
 
         for(MetricSet metricSet: metricsProvider.metrics().get1().values()) {
@@ -33,7 +32,7 @@ public class JmxExporter extends BasicMetricExporter<JmxExporterView> {
     }
 
     @Override
-    public void stop() {
+    public synchronized void stop() {
         mBeans.forEach(this::unregBean);
 
         mBeans.clear();
@@ -45,12 +44,12 @@ public class JmxExporter extends BasicMetricExporter<JmxExporterView> {
     }
 
     @Override
-    public void addMetricSet(MetricSet metricSet) {
+    public synchronized void addMetricSet(MetricSet metricSet) {
         register(metricSet);
     }
 
     @Override
-    public void removeMetricSet(String metricSet) {
+    public synchronized void removeMetricSet(String metricSet) {
         unregister(metricSet);
     }
 
