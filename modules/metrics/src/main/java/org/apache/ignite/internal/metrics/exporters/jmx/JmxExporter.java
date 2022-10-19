@@ -5,23 +5,19 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import javax.management.JMException;
-import javax.management.MBeanServer;
-import javax.management.MBeanServerFactory;
-import javax.management.MalformedObjectNameException;
 import javax.management.ObjectName;
-import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.metrics.Metric;
 import org.apache.ignite.internal.metrics.MetricProvider;
 import org.apache.ignite.internal.metrics.MetricSet;
-import org.apache.ignite.internal.metrics.MetricSource;
 import org.apache.ignite.internal.metrics.exporters.BasicMetricExporter;
 import org.apache.ignite.internal.metrics.exporters.configuration.JmxExporterView;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteBiTuple;
 
 public class JmxExporter extends BasicMetricExporter<JmxExporterView> {
+
+    public static final String JMX_EXPORTER_NAME = "jmx";
 
     private static IgniteLogger LOG = Loggers.forClass(JmxExporter.class);
 
@@ -38,12 +34,14 @@ public class JmxExporter extends BasicMetricExporter<JmxExporterView> {
 
     @Override
     public void stop() {
+        mBeans.forEach(this::unregBean);
 
+        mBeans.clear();
     }
 
     @Override
     public String name() {
-        return null;
+        return JMX_EXPORTER_NAME;
     }
 
     @Override
@@ -87,9 +85,11 @@ public class JmxExporter extends BasicMetricExporter<JmxExporterView> {
 
             boolean rmv = mBeans.remove(mbeanName);
 
-            assert rmv;
-
-            unregBean(mbeanName);
+            if (rmv) {
+                unregBean(mbeanName);
+            } else {
+                LOG.warn("Tried to unregister the MBean for non-registered metric set " + metricSetName);
+            }
 //        }
 //        catch (MalformedObjectNameException e) {
 //            LOG.error("MBean for metric registry '" + n.get1() + ',' + n.get2() + "' can't be unregistered.", e);
@@ -102,8 +102,7 @@ public class JmxExporter extends BasicMetricExporter<JmxExporterView> {
     private void unregBean(ObjectName bean) {
         try {
             ManagementFactory.getPlatformMBeanServer().unregisterMBean(bean);
-        }
-        catch (JMException e) {
+        } catch (JMException e) {
             LOG.error("Failed to unregister MBean: " + bean, e);
         }
     }

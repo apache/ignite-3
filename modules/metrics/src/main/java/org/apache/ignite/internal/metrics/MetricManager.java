@@ -107,6 +107,8 @@ public class MetricManager implements IgniteComponent {
         for (MetricExporter metricExporter : enabledMetricExporters.values()) {
             metricExporter.stop();
         }
+
+        enabledMetricExporters.clear();
     }
 
     /**
