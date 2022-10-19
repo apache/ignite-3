@@ -20,6 +20,7 @@ package org.apache.ignite.internal.metrics.exporters.configuration;
 import static org.apache.ignite.internal.metrics.exporters.jmx.JmxExporter.JMX_EXPORTER_NAME;
 
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+import org.apache.ignite.configuration.annotation.Value;
 
 /**
  * Jmx exporter configuration.

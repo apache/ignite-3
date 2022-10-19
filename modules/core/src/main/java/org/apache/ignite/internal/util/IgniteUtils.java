@@ -110,6 +110,8 @@ public class IgniteUtils {
     /** Class cache. */
     private static final ConcurrentMap<ClassLoader, ConcurrentMap<String, Class<?>>> classCache = new ConcurrentHashMap<>();
 
+    private static final String JMX_BEAN_PACKAGE = "org.apache";
+
     /**
      * Get JDK version.
      *
@@ -886,5 +888,10 @@ public class IgniteUtils {
         assert name != null;
 
         return mbeanSrv.registerMBean(impl, name).getObjectName();
+    }
+
+    public static ObjectName makeMBeanName(String group, String name) throws MalformedObjectNameException {
+        // TODO: KKK implement
+        return new ObjectName(String.format("%s:group=%s,name=%s", JMX_BEAN_PACKAGE, group, name));
     }
 }

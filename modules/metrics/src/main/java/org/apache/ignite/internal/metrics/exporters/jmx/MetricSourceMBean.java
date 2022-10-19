@@ -70,6 +70,16 @@ public class MetricSourceMBean implements DynamicMBean {
 
     @Override
     public Object invoke(String actionName, Object[] params, String[] signature) throws MBeanException, ReflectionException {
+        try {
+            if ("getAttribute".equals(actionName))
+                return getAttribute((String)params[0]);
+            else if ("invoke".equals(actionName))
+                return invoke((String)params[0], (Object[])params[1], (String[])params[2]);
+        }
+        catch (AttributeNotFoundException e) {
+            throw new MBeanException(e);
+        }
+
         throw new UnsupportedOperationException("invoke is not supported.");
     }
 
