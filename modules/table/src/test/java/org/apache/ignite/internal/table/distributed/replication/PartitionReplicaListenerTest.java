@@ -161,7 +161,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         when(placementDriver.sendMetaRequest(eq(grpId), any())).thenAnswer(invocationOnMock -> {
             TxMeta txMeta;
 
-            if (txState == TxState.PENDING) {
+            if (txState == null) {
                 txMeta = null;
             } else if (txState == TxState.COMMITED) {
                 txMeta = new TxMeta(TxState.COMMITED, Collections.singletonList(grpId), txFixedTimestamp);
@@ -204,7 +204,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     @BeforeEach
     private void beforeTest() {
         localLeader = true;
-        txState = TxState.PENDING;
+        txState = null;
         primaryIndex.clear();
     }
 

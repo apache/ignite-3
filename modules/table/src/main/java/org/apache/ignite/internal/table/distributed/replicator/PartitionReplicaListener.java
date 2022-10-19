@@ -564,7 +564,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         aggregatedGroupIds
                 )
         ).whenComplete((o, throwable) -> {
-            fut.complete(new TxMeta(commit ? TxState.COMMITED :TxState.ABORTED, aggregatedGroupIds, commitTimestamp));
+            fut.complete(new TxMeta(commit ? TxState.COMMITED : TxState.ABORTED, aggregatedGroupIds, commitTimestamp));
 
             txTimestampUpdateMap.remove(txId);
         });
