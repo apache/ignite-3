@@ -123,6 +123,7 @@ import org.apache.ignite.internal.table.distributed.raft.RebalanceRaftGroupEvent
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionSnapshotStorageFactory;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
+import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.table.event.TableEventParameters;
@@ -219,6 +220,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     /** Data storage manager. */
     private final DataStorageManager dataStorageMgr;
+
+    /** Placement driver. */
+    private final PlacementDriver placementDriver;
 
     /** Here a table future stores during creation (until the table can be provided to client). */
     private final Map<UUID, CompletableFuture<Table>> tableCreateFuts = new ConcurrentHashMap<>();
@@ -332,6 +336,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         this.schemaManager = schemaManager;
         this.volatileLogStorageFactoryCreator = volatileLogStorageFactoryCreator;
         this.clock = clock;
+
+        placementDriver = new PlacementDriver(replicaSvc);
 
         netAddrResolver = addr -> {
             ClusterNode node = topologyService.getByAddress(addr);
@@ -679,6 +685,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 String grpId = partitionRaftGroupName(tblId, partId);
 
+                placementDriver.updateAssignment(grpId, nodes);
+
                 CompletableFuture<Void> startGroupFut = CompletableFuture.completedFuture(null);
 
                 ConcurrentHashMap<ByteBuffer, RowId> primaryIndex = new ConcurrentHashMap<>();
@@ -786,7 +794,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                             grpId,
                                                             tblId,
                                                             primaryIndex,
-                                                            clock
+                                                            clock,
+                                                            internalTbl.txStateStorage().getOrCreateTxStateStorage(partId),
+                                                            topologyService,
+                                                            placementDriver
                                                     )
                                             );
                                         } catch (NodeStoppingException ex) {
@@ -1699,6 +1710,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             ? ((List<Set<ClusterNode>>) ByteUtils.fromBytes(tblCfg.assignments().value())).get(partId)
                             : ByteUtils.fromBytes(stableAssignments);
 
+                    placementDriver.updateAssignment(grpId, assignments);
+
                     ClusterNode localMember = raftMgr.topologyService().localMember();
 
                     var deltaPeers = newPeers.stream()
@@ -1762,7 +1775,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                             grpId,
                                             tblId,
                                             primaryIndex,
-                                            clock
+                                            clock,
+                                            tbl.internalTable().txStateStorage().getOrCreateTxStateStorage(partId),
+                                            raftMgr.topologyService(),
+                                            placementDriver
                                     )
                             );
                         }
