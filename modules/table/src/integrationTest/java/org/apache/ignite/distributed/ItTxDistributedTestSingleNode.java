@@ -62,6 +62,7 @@ import org.apache.ignite.internal.table.TxAbstractTest;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
+import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -79,6 +80,7 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeFinder;
 import org.apache.ignite.network.StaticNodeFinder;
+import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
@@ -122,6 +124,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
     protected Map<ClusterNode, ReplicaService> replicaServices;
 
     protected Map<ClusterNode, TxManager> txManagers;
+
+    protected Map<ClusterNode, TopologyService> topologyServices;
 
     protected Int2ObjectOpenHashMap<RaftGroupService> accRaftClients;
 
@@ -228,6 +232,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
         // Start raft servers. Each raft server can hold multiple groups.
         clocks = new HashMap<>(nodes);
         raftServers = new HashMap<>(nodes);
+        topologyServices = new HashMap<>(nodes);
         replicaManagers = new HashMap<>(nodes);
         replicaServices = new HashMap<>(nodes);
         txManagers = new HashMap<>(nodes);
@@ -247,6 +252,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
             raftSrv.start();
 
             raftServers.put(node, raftSrv);
+
+            topologyServices.put(node, cluster.get(i).topologyService());
 
             ReplicaManager replicaMgr = new ReplicaManager(
                     cluster.get(i),
@@ -366,6 +373,14 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
             for (ClusterNode node : partNodes) {
                 var testMpPartStorage = new TestMvPartitionStorage(0);
+                var txSateStorage = new TestConcurrentHashMapTxStateStorage();
+                var placementDriver = new PlacementDriver(replicaServices.get(node));
+
+                for (int part = 0; part < assignment.size(); part++) {
+                    String replicaGrpId = name + "-part-" + part;
+
+                    placementDriver.updateAssignment(replicaGrpId, assignment.get(part));
+                }
 
                 int partId = p;
 
@@ -377,7 +392,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                         () -> {
                             return new PartitionListener(
                                     testMpPartStorage,
-                                    new TestConcurrentHashMapTxStateStorage(),
+                                    txSateStorage,
                                     txManagers.get(node),
                                     primaryIndex
                             );
@@ -397,7 +412,10 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                                                 grpId,
                                                 tblId,
                                                 primaryIndex,
-                                                clocks.get(node)
+                                                clocks.get(node),
+                                                txSateStorage,
+                                                topologyServices.get(node),
+                                                placementDriver
                                         ));
                             } catch (NodeStoppingException e) {
                                 fail("Unexpected node stopping", e);
