@@ -279,6 +279,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** Assignment change event listeners. */
     private final CopyOnWriteArrayList<Consumer<IgniteTablesInternal>> assignmentsChangeListeners = new CopyOnWriteArrayList<>();
 
+    /** Incoming RAFT snapshots executor. */
+    private final ExecutorService incomingSnapshotsExecutor;
+
     /** Rebalance scheduler pool size. */
     private static final int REBALANCE_SCHEDULER_POOL_SIZE = Math.min(Utils.cpus() * 3, 20);
 
@@ -404,6 +407,15 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 TimeUnit.MILLISECONDS,
                 new LinkedBlockingQueue<>(),
                 NamedThreadFactory.create(nodeName, "tableManager-io", LOG));
+
+        incomingSnapshotsExecutor = new ThreadPoolExecutor(
+                Utils.cpus(),
+                Integer.MAX_VALUE,
+                100,
+                TimeUnit.MILLISECONDS,
+                new LinkedBlockingQueue<>(),
+                NamedThreadFactory.create(nodeName, "incoming-raft-snapshot", LOG)
+        );
     }
 
     /** {@inheritDoc} */
@@ -863,7 +875,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 new OutgoingSnapshotsManager(raftMgr.messagingService()),
                 partitionStorage::persistedIndex,
                 peers.stream().map(n -> new Peer(n.address())).map(PeerId::fromPeer).map(Object::toString).collect(Collectors.toList()),
-                List.of()
+                List.of(),
+                incomingSnapshotsExecutor
         ));
 
         return raftGroupOptions;
@@ -890,6 +903,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         shutdownAndAwaitTermination(ioExecutor, 10, TimeUnit.SECONDS);
         shutdownAndAwaitTermination(txStateStoragePool, 10, TimeUnit.SECONDS);
         shutdownAndAwaitTermination(txStateStorageScheduledPool, 10, TimeUnit.SECONDS);
+        shutdownAndAwaitTermination(incomingSnapshotsExecutor, 10, TimeUnit.SECONDS);
     }
 
     /**

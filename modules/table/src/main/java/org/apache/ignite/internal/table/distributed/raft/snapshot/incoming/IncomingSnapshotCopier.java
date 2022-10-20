@@ -18,39 +18,43 @@
 package org.apache.ignite.internal.table.distributed.raft.snapshot.incoming;
 
 import java.io.IOException;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.ExecutionException;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionSnapshotStorage;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.SnapshotUri;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMetaRequest;
-import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMetaResponse;
+import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.MessagingService;
-import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
-import org.apache.ignite.raft.jraft.storage.SnapshotStorage;
+import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotCopier;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Snapshot copier implementation for partitions. Used to stream partition data from the leader to the local node.
  */
+// TODO: IGNITE-17894 реализовать и добвить все что нужно можно смотреть на LocalSnapshotCopier
 public class IncomingSnapshotCopier extends SnapshotCopier {
-    /** Messages factory. */
-    private static final TableMessagesFactory MSG_FACTORY = new TableMessagesFactory();
+    private static final IgniteLogger LOG = Loggers.forClass(IncomingSnapshotCopier.class);
 
-    /** {@link SnapshotStorage} instance for the partition. */
+    private static final TableMessagesFactory MSG_FACTORY = new TableMessagesFactory();
     private final PartitionSnapshotStorage snapshotStorage;
 
     /** Snapshot URI. */
     private final SnapshotUri snapshotUri;
 
-    /** Rebalance thread-pool, used to write data into a storage. */
-    //TODO https://issues.apache.org/jira/browse/IGNITE-17262
-    // Use external pool.
-    private final ExecutorService threadPool = Executors.newSingleThreadExecutor();
+    private final IgniteSpinBusyLock cancelLock = new IgniteSpinBusyLock();
+
+    @Nullable
+    private volatile CompletableFuture<?> future;
+
+    // TODO: IGNITE-17894 реализовать по нормальному и конкурентному
 
     /**
      * Snapshot meta read from the leader.
@@ -71,25 +75,74 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
     }
 
     @Override
-    public void cancel() {
-        //TODO https://issues.apache.org/jira/browse/IGNITE-17262
-        // Implement.
+    public void start() {
+        future = CompletableFuture.runAsync(this::startCopy, snapshotStorage.getIncomingSnapshotsExecutor());
     }
 
     @Override
     public void join() throws InterruptedException {
-        //TODO https://issues.apache.org/jira/browse/IGNITE-17262
-        // Implement proper join.
+        CompletableFuture<?> fut = future;
+
+        assert fut != null;
+
+        try {
+            fut.get();
+        } catch (CancellationException e) {
+            // Ignored.
+        } catch (ExecutionException e) {
+            throw new IllegalStateException(e.getCause());
+        }
     }
 
     @Override
-    public void start() {
+    public void cancel() {
+        cancelLock.block();
+
+        CompletableFuture<?> fut = future;
+
+        assert fut != null;
+
+        if (!isOk()) {
+            setError(RaftError.ECANCELED, "Copier has been cancelled");
+        }
+
+        fut.cancel(true);
+    }
+
+    @Override
+    public void close() throws IOException {
+        cancel();
+
+        try {
+            join();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    @Override
+    public SnapshotReader getReader() {
+        // This one's called when "join" is complete.
+        return new IncomingSnapshotReader(snapshotMeta);
+    }
+
+    private void startCopy() {
+        // TODO: 20.10.2022 реализовать
+        // TODO: 20.10.2022 шаги:
+        // TODO: 20.10.2022 1) пересоздать партицию : уничтожить её и создать заново
+        // TODO: 20.10.2022 2) что-то сделать с appliedIndex или вроде того
+        // TODO: 20.10.2022 3) начать скачивать записи наверное пачкой
+        // TODO: 20.10.2022 4) записывать записи в партицию наверное пачкой
+        // TODO: 20.10.2022 5) что-то сделать с appliedIndex или вроде того
+        // TODO: 20.10.2022 ****) на кажом шаге может что-то отъебывать надо как-то это хендлить
+
         //TODO https://issues.apache.org/jira/browse/IGNITE-17262
         // What if node can't be resolved?
         ClusterNode sourceNode = snapshotStorage.topologyService().getByConsistentId(snapshotUri.nodeName);
 
         MessagingService messagingService = snapshotStorage.outgoingSnapshotsManager().messagingService();
 
+        /*
         threadPool.submit(() -> {
             //TODO https://issues.apache.org/jira/browse/IGNITE-17262
             // Following code is just an example of what I expect and shouldn't be considered a template.
@@ -105,16 +158,6 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
                 snapshotMeta = metaResponse.meta();
             });
         });
-    }
-
-    @Override
-    public SnapshotReader getReader() {
-        // This one's called when "join" is complete.
-        return new IncomingSnapshotReader(snapshotMeta);
-    }
-
-    @Override
-    public void close() throws IOException {
-        threadPool.shutdownNow();
+         */
     }
 }
