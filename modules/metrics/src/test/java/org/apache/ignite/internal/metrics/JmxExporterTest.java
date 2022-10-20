@@ -24,6 +24,7 @@ import static org.mockito.Mockito.when;
 
 import java.lang.management.ManagementFactory;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 import javax.management.AttributeNotFoundException;
 import javax.management.DynamicMBean;
@@ -53,7 +54,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 
 @ExtendWith({ConfigurationExtension.class})
 public class JmxExporterTest {
-
     @InjectConfiguration(
             value = "mock.exporters = {"
                     + "jmx = {exporterName = jmx}"
@@ -76,7 +76,19 @@ public class JmxExporterTest {
     private static final MetricSet metricSet =
             new MetricSet(
                     SRC_NAME,
-                    Map.of(MTRC_NAME, new IntGauge(MTRC_NAME, "", () -> 1))
+                    Map.of(
+                            "intGauge", new IntGauge("intGauge", "", () -> 1),
+                            "longGauge", new LongGauge("longGauge", "", () -> 1l),
+                            "doubleGauge", new DoubleGauge("doubleGauge", "", () -> 1d),
+                            "atomicInt", new AtomicIntMetric("atomicInt", ""),
+                            "atomicLong", new AtomicLongMetric("atomicLong", ""),
+                            "atomicDouble", new AtomicDoubleMetric("atomicDouble", ""),
+                            "longAdder", new LongAdderMetric("longAdder", ""),
+                            "doubleAdder", new DoubleAdderMetric("doubleAdder", ""),
+//TODO: KKK uncomment when composite metrics will be supported
+//                            "distributionMetric", new DistributionMetric("distributionMetric", "", new long[] {0, 1}),
+                            "hitRate", new HitRateMetric("hitRate", "", Long.MAX_VALUE)
+                    )
             );
 
     private ObjectName mbeanName;
@@ -114,7 +126,7 @@ public class JmxExporterTest {
 
         jmxExporter.start(metricsProvider, jmxExporterConf);
 
-        assertEquals(1, mBean().getAttribute(MTRC_NAME));
+        assertThatMBeanAttributeAndMetricValuesAreTheSame();
     }
 
     @Test
@@ -129,7 +141,7 @@ public class JmxExporterTest {
 
         jmxExporter.addMetricSet(metricSet);
 
-        assertEquals(1, mBean().getAttribute(MTRC_NAME));
+        assertThatMBeanAttributeAndMetricValuesAreTheSame();
     }
 
     @Test
@@ -141,12 +153,30 @@ public class JmxExporterTest {
 
         jmxExporter.start(metricsProvider, jmxExporterConf);
 
-        assertEquals(1, mBean().getAttribute("testMetric"));
+        assertThatMBeanAttributeAndMetricValuesAreTheSame();
 
         jmxExporter.removeMetricSet("testSource");
 
         assertThrows(InstanceNotFoundException.class, this::getMBeanInfo,
                 "Expected that mbean won't find, but it was");
+    }
+
+    private void assertThatMBeanAttributeAndMetricValuesAreTheSame() throws ReflectionException, AttributeNotFoundException, MBeanException {
+        for (Iterator<Metric> it = metricSet.iterator(); it.hasNext(); ) {
+            Metric metric = it.next();
+
+            Object beanAttribute = mBean().getAttribute(metric.name());
+
+            String errorMsg = "Wrong MBean attribute value for the metric with name " + metric.name();
+
+            if (metric instanceof IntMetric) {
+                assertEquals(((IntMetric) metric).value(), beanAttribute, errorMsg);
+            } else if (metric instanceof LongMetric) {
+                assertEquals(((LongMetric) metric).value(), beanAttribute, errorMsg);
+            } else if (metric instanceof DoubleMetric) {
+                assertEquals(((DoubleMetric) metric).value(), beanAttribute, errorMsg);
+            }
+        }
     }
 
     private DynamicMBean mBean() {
