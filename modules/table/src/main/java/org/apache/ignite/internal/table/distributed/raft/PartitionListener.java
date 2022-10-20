@@ -87,6 +87,8 @@ public class PartitionListener implements RaftGroupListener {
      * @param store  The storage.
      * @param txStateStorage Transaction state storage.
      * @param txManager Transaction manager.
+     * @param activeIndexes Supplier of indexes which considered to be active on the moment of issuing.
+     * @param pkIndexStorage Storage for a primary key constraint.
      */
     public PartitionListener(
             MvPartitionStorage store,

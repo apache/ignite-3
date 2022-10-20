@@ -67,6 +67,12 @@ import org.mockito.junit.jupiter.MockitoExtension;
  */
 @ExtendWith(MockitoExtension.class)
 public class ItInternalTableScanTest {
+    private static final SchemaDescriptor ROW_SCHEMA = new SchemaDescriptor(
+            1,
+            new Column[]{new Column("key", NativeTypes.stringOf(100), false)},
+            new Column[]{new Column("val", NativeTypes.stringOf(100), false)}
+    );
+
     /** Mock partition storage. */
     @Mock
     private MvPartitionStorage mockStorage;
@@ -351,13 +357,7 @@ public class ItInternalTableScanTest {
      * @return {@link BinaryRow} based on given key and value.
      */
     private static BinaryRow prepareRow(String entryKey, String entryVal) {
-        return new RowAssembler(
-                new SchemaDescriptor(
-                        1,
-                        new Column[]{new Column("key", NativeTypes.stringOf(100), false)},
-                        new Column[]{new Column("val", NativeTypes.stringOf(100), false)}
-                ), 1, 1
-        )
+        return new RowAssembler(ROW_SCHEMA, 1, 1)
                 .appendString(Objects.requireNonNull(entryKey, "entryKey"))
                 .appendString(Objects.requireNonNull(entryVal, "entryVal"))
                 .build();

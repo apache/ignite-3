@@ -99,6 +99,9 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     /** The storage stores partition data. */
     private static final TestMvPartitionStorage testMvPartitionStorage = new TestMvPartitionStorage(partId);
 
+    /** Primary index map. */
+    private static PkStorage primaryIndex = PkStorage.createPkStorage(UUID.randomUUID(), TestHashIndexStorage::new);
+
     /** Local cluster node. */
     private static final ClusterNode localNode = new ClusterNode("node1", "node1", NetworkAddress.from("127.0.0.1:127"));
 
@@ -112,9 +115,6 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     @Mock
     private static TopologyService topologySrv = mock(TopologyService.class);
-
-    /** Primary index map. */
-    private static PkStorage primaryIndex;
 
     /** Default reflection marshaller factory. */
     protected static MarshallerFactory marshallerFactory;
@@ -207,7 +207,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     private void beforeTest() {
         localLeader = true;
         txState = null;
-        primaryIndex = PkStorage.createPkStorage(UUID.randomUUID(), TestHashIndexStorage::new);
+        ((TestHashIndexStorage) primaryIndex.storage()).destroy();
     }
 
     @Test

@@ -40,12 +40,8 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.hlc.HybridTimestamp;
-import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.BinaryTuple;
-import org.apache.ignite.internal.schema.BinaryTupleSchema;
-import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -79,10 +75,6 @@ import org.mockito.Mockito;
  * Tests for the table command listener.
  */
 public class PartitionCommandListenerTest {
-    private static final BinaryTupleSchema PK_KEY_SCHEMA = BinaryTupleSchema.create(new Element[]{
-            new Element(NativeTypes.BYTES, false)
-    });
-
     /** Key count. */
     public static final int KEY_COUNT = 100;
 
@@ -461,15 +453,6 @@ public class PartitionCommandListenerTest {
         rowBuilder.appendInt(val);
 
         return new Row(SCHEMA, rowBuilder.build());
-    }
-
-    private BinaryTuple toPkKey(ByteBuffer buffer) {
-        return new BinaryTuple(
-                PK_KEY_SCHEMA,
-                new BinaryTupleBuilder(1, false)
-                        .appendElementBytes(buffer)
-                        .build()
-        );
     }
 
     private void invokeBatchedCommand(WriteCommand cmd) {

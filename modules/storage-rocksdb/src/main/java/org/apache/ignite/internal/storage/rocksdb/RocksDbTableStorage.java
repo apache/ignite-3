@@ -454,7 +454,7 @@ public class RocksDbTableStorage implements MvTableStorage {
 
     @Override
     public HashIndexStorage getOrCreateHashIndex(int partitionId, HashIndexDescriptor descriptor) {
-        HashIndex storages = hashIndices.computeIfAbsent(descriptor.id(), id -> new HashIndex(hashIndexCf, descriptor));
+        HashIndex index = hashIndices.computeIfAbsent(descriptor.id(), id -> new HashIndex(hashIndexCf, descriptor));
 
         RocksDbMvPartitionStorage partitionStorage = getMvPartition(partitionId);
 
@@ -462,7 +462,7 @@ public class RocksDbTableStorage implements MvTableStorage {
             throw new StorageException(String.format("Partition ID %d does not exist", partitionId));
         }
 
-        return storages.getOrCreateStorage(partitionStorage);
+        return index.getOrCreateStorage(partitionStorage);
     }
 
     /** {@inheritDoc} */

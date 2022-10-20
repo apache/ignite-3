@@ -82,6 +82,11 @@ public class PkStorage {
         storage.put(new IndexRowImpl(toPkKeyTuple(key), rowId));
     }
 
+    /** Returns underlying storage. */
+    public IndexStorage storage() {
+        return storage;
+    }
+
     private static BinaryTuple toPkKeyTuple(ByteBuffer bytes) {
         return new BinaryTuple(
                 PK_KEY_SCHEMA,
