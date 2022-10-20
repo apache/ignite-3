@@ -19,12 +19,10 @@ package org.apache.ignite.internal.metrics;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.lang.management.ManagementFactory;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import javax.management.AttributeNotFoundException;
@@ -32,6 +30,8 @@ import javax.management.DynamicMBean;
 import javax.management.InstanceNotFoundException;
 import javax.management.IntrospectionException;
 import javax.management.MBeanException;
+import javax.management.MBeanInfo;
+import javax.management.MBeanRegistrationException;
 import javax.management.MBeanServer;
 import javax.management.MBeanServerInvocationHandler;
 import javax.management.MalformedObjectNameException;
@@ -42,11 +42,12 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
 import org.apache.ignite.internal.metrics.exporters.TestPullMetricsExporterConfigurationSchema;
 import org.apache.ignite.internal.metrics.exporters.TestPushMetricsExporterConfigurationSchema;
-import org.apache.ignite.internal.metrics.exporters.configuration.JmxExporterConfiguration;
 import org.apache.ignite.internal.metrics.exporters.configuration.JmxExporterView;
 import org.apache.ignite.internal.metrics.exporters.jmx.JmxExporter;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteBiTuple;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -64,69 +65,95 @@ public class JmxExporterTest {
     )
     private MetricConfiguration metricConfiguration;
 
+    private JmxExporterView jmxExporterConf;
+
+    private static final MBeanServer mbeanSrv = ManagementFactory.getPlatformMBeanServer();
+
+    private static final String SRC_NAME = "testSource";
+
+    private static final String MTRC_NAME = "testMetric";
+
+    private static final MetricSet metricSet =
+            new MetricSet(
+                    SRC_NAME,
+                    Map.of(MTRC_NAME, new IntGauge(MTRC_NAME, "", () -> 1))
+            );
+
+    private ObjectName mbeanName;
+
+    private MetricProvider metricsProvider;
+
+    private JmxExporter jmxExporter;
+
+    @BeforeEach
+    void setUp() throws MalformedObjectNameException {
+        jmxExporterConf = (JmxExporterView) metricConfiguration.exporters().get("jmx").value();
+
+        mbeanName = IgniteUtils.makeMBeanName("metrics", SRC_NAME);
+
+        jmxExporter = new JmxExporter();
+
+        metricsProvider = mock(MetricProvider.class);
+    }
+
+    @AfterEach
+    void tearDown() throws MBeanRegistrationException {
+        try {
+            mbeanSrv.unregisterMBean(mbeanName);
+        } catch (InstanceNotFoundException e) {
+            // No op
+        }
+    }
+
     @Test
     public void testStart()
-            throws MalformedObjectNameException, ReflectionException, InstanceNotFoundException, IntrospectionException, AttributeNotFoundException, MBeanException {
-        var exporter = new JmxExporter();
+            throws ReflectionException, AttributeNotFoundException, MBeanException {
+        Map<String, MetricSet> metrics = Map.of(metricSet.name(), metricSet);
 
-        var metrics = new HashMap<String, MetricSet>();
-        metrics.put("testSource", new MetricSet("testSource", Map.of("testMetric", new IntGauge("testMetric", "", () -> 1))));
-        var metricsProvider = mock(MetricProvider.class);
         when(metricsProvider.metrics()).thenReturn(new IgniteBiTuple<>(metrics, 1L));
 
-        exporter.start(metricsProvider, (JmxExporterView) metricConfiguration.exporters().get("jmx").value());
+        jmxExporter.start(metricsProvider, jmxExporterConf);
 
-        DynamicMBean mBean = getMxBean("metrics", "testSource");
-
-        assertEquals(1, mBean.getAttribute("testMetric"));
+        assertEquals(1, mBean().getAttribute(MTRC_NAME));
     }
 
     @Test
     public void testAddMetric()
-            throws MalformedObjectNameException, ReflectionException, InstanceNotFoundException, IntrospectionException, AttributeNotFoundException, MBeanException {
-        var exporter = new JmxExporter();
-
-        var metricsProvider = mock(MetricProvider.class);
+            throws ReflectionException, AttributeNotFoundException, MBeanException {
         when(metricsProvider.metrics()).thenReturn(new IgniteBiTuple<>(new HashMap<>(), 1L));
 
-        exporter.start(metricsProvider, (JmxExporterView) metricConfiguration.exporters().get("jmx").value());
+        jmxExporter.start(metricsProvider, jmxExporterConf);
 
-        assertThrows(InstanceNotFoundException.class, () -> ManagementFactory.getPlatformMBeanServer().getMBeanInfo(IgniteUtils.makeMBeanName("metrics", "testSource")),
+        assertThrows(InstanceNotFoundException.class, this::getMBeanInfo,
             "Expected that mbean won't find, but it was");
 
-        exporter.addMetricSet(new MetricSet("testSource", Map.of("testMetric", new IntGauge("testMetric", "", () -> 1))));
+        jmxExporter.addMetricSet(metricSet);
 
-        DynamicMBean mBean = getMxBean("metrics", "testSource");
-
-        assertEquals(1, mBean.getAttribute("testMetric"));
+        assertEquals(1, mBean().getAttribute(MTRC_NAME));
     }
 
     @Test
     public void testRemoveMetrics()
-            throws MalformedObjectNameException, ReflectionException, InstanceNotFoundException, IntrospectionException, AttributeNotFoundException, MBeanException {
-        var exporter = new JmxExporter();
-        var metrics = new HashMap<String, MetricSet>();
-        metrics.put("testSource", new MetricSet("testSource", Map.of("testMetric", new IntGauge("testMetric", "", () -> 1))));
-        var metricsProvider = mock(MetricProvider.class);
+            throws ReflectionException, AttributeNotFoundException, MBeanException {
+        Map<String, MetricSet> metrics = Map.of(metricSet.name(), metricSet);
+
         when(metricsProvider.metrics()).thenReturn(new IgniteBiTuple<>(metrics, 1L));
 
-        exporter.start(metricsProvider, (JmxExporterView) metricConfiguration.exporters().get("jmx").value());
+        jmxExporter.start(metricsProvider, jmxExporterConf);
 
-        DynamicMBean mBean = getMxBean("metrics", "testSource");
+        assertEquals(1, mBean().getAttribute("testMetric"));
 
-        assertEquals(1, mBean.getAttribute("testMetric"));
+        jmxExporter.removeMetricSet("testSource");
 
-        exporter.removeMetricSet("testSource");
-
-        assertThrows(InstanceNotFoundException.class, () -> ManagementFactory.getPlatformMBeanServer().getMBeanInfo(IgniteUtils.makeMBeanName("metrics", "testSource")),
+        assertThrows(InstanceNotFoundException.class, this::getMBeanInfo,
                 "Expected that mbean won't find, but it was");
     }
 
-    public static DynamicMBean getMxBean(String grp, String name) throws MalformedObjectNameException {
-        ObjectName mbeanName = IgniteUtils.makeMBeanName(grp, name);
-
-        MBeanServer mbeanSrv = ManagementFactory.getPlatformMBeanServer();
-
+    private DynamicMBean mBean() {
         return MBeanServerInvocationHandler.newProxyInstance(mbeanSrv, mbeanName, DynamicMBean.class, false);
+    }
+
+    private MBeanInfo getMBeanInfo() throws ReflectionException, InstanceNotFoundException, IntrospectionException {
+        return ManagementFactory.getPlatformMBeanServer().getMBeanInfo(mbeanName);
     }
 }
