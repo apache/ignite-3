@@ -16,7 +16,6 @@
  */
 package org.apache.ignite.raft.jraft.option;
 
-import java.util.UUID;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.StateMachine;
@@ -44,7 +43,6 @@ public class FSMCallerOptions {
     private RaftMessagesFactory raftMessagesFactory;
     private StripedDisruptor<FSMCallerImpl.ApplyTask> fSMCallerExecutorDisruptor;
     private SafeTimeCandidateManager safeTimeCandidateManager;
-    private UUID uuid;
 
     public String getGroupId() {
         return groupId;
@@ -126,13 +124,5 @@ public class FSMCallerOptions {
 
     public void setSafeTimeCandidateManager(SafeTimeCandidateManager safeTimeCandidateManager) {
         this.safeTimeCandidateManager = safeTimeCandidateManager;
-    }
-
-    public UUID uuid() {
-        return uuid;
-    }
-
-    public void setUuid(UUID uuid) {
-        this.uuid = uuid;
     }
 }

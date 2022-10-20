@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.raft.jraft;
+package org.apache.ignite.raft.server;
 
 import static org.apache.ignite.internal.raft.server.RaftGroupOptions.forVolatileStores;
 import static org.apache.ignite.raft.jraft.test.TestUtils.waitForTopology;
@@ -44,7 +44,8 @@ import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.ReplicationGroupOptions;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
-import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
@@ -55,19 +56,21 @@ import org.apache.ignite.raft.client.WriteCommand;
 import org.apache.ignite.raft.client.service.CommandClosure;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
 import org.apache.ignite.raft.client.service.RaftGroupService;
+import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupServiceImpl;
 import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.apache.ignite.raft.server.snasphot.TestWriteCommand;
 import org.apache.ignite.raft.server.snasphot.UpdateCountRaftListener;
-import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.MockedStatic;
 
-public class SafeTimeIntegrationTest extends IgniteAbstractTest {
+@ExtendWith(WorkDirectoryExtension.class)
+public class SafeTimeIntegrationTest extends RaftServerAbstractTest {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(SafeTimeIntegrationTest.class);
 
@@ -84,10 +87,13 @@ public class SafeTimeIntegrationTest extends IgniteAbstractTest {
     private static final RaftMessagesFactory FACTORY = new RaftMessagesFactory();
 
     /** Cluster. */
-    private final ArrayList<ClusterService> cluster = new ArrayList<>();
+    private final ArrayList<ClusterService> clusterServices = new ArrayList<>();
 
     /** Executor for raft group services. */
     private ScheduledExecutorService executor;
+
+    @WorkDirectory
+    private Path workDir;
 
     /**
      * Mock of a system clock.
@@ -100,14 +106,13 @@ public class SafeTimeIntegrationTest extends IgniteAbstractTest {
 
         var nodeFinder = new StaticNodeFinder(localAddresses);
 
-        localAddresses.stream()
-            .map(addr -> ClusterServiceTestUtils.clusterService(testInfo, addr.port(), nodeFinder))
-            .forEach(clusterService -> {
-                clusterService.start();
-                cluster.add(clusterService);
-            });
+        var addr = new NetworkAddress("localhost", PORT);
 
-        for (ClusterService node : cluster) {
+        for (int i = 0; i < NODES; i++) {
+            clusterServices.add(clusterService(PORT + i, List.of(addr), true));
+        }
+
+        for (ClusterService node : clusterServices) {
             assertTrue(waitForTopology(node, NODES, 1000));
         }
 
@@ -136,7 +141,7 @@ public class SafeTimeIntegrationTest extends IgniteAbstractTest {
         HashMap<Path, Integer> snapshotDataStorage = new HashMap<>();
 
         for (int i = 0; i < NODES; i++) {
-            ClusterService clusterService = cluster.get(i);
+            ClusterService clusterService = clusterServices.get(i);
 
             peers.add(new Peer(clusterService.topologyService().localMember().address()));
 
@@ -147,8 +152,8 @@ public class SafeTimeIntegrationTest extends IgniteAbstractTest {
             safeTimeClocks.add(safeTimeClock);
 
             NodeOptions opts = new NodeOptions();
-            opts.setClock(clock);
-            opts.setSafeTimeClock(safeTimeClock);
+            //opts.setClock(clock);
+            //opts.setSafeTimeClock(safeTimeClock);
 
             RaftServer srv = new JraftServerImpl(clusterService, workDir.resolve("node" + i), opts);
             srv.start();

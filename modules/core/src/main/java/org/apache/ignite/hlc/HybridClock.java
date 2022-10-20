@@ -20,7 +20,9 @@ package org.apache.ignite.hlc;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.time.Clock;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.tostring.S;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * A Hybrid Logical Clock.
@@ -30,6 +32,8 @@ public class HybridClock {
      * Var handle for {@link #latestTime}.
      */
     private static final VarHandle LATEST_TIME;
+
+    private final Supplier<Long> currentTimeMillisProvider;
 
     static {
         try {
@@ -46,7 +50,19 @@ public class HybridClock {
      * The constructor which initializes the latest time to current time by system clock.
      */
     public HybridClock() {
-        this.latestTime = new HybridTimestamp(Clock.systemUTC().instant().toEpochMilli(), 0);
+        this.currentTimeMillisProvider = Clock.systemUTC().instant()::toEpochMilli;
+
+        this.latestTime = new HybridTimestamp(currentTimeMillisProvider.get(), 0);
+    }
+
+    /**
+     * The constructor which initializes the latest time to current time by system clock.
+     */
+    @TestOnly
+    public HybridClock(Supplier<Long> currentTimeMillisProvider) {
+        this.currentTimeMillisProvider = currentTimeMillisProvider;
+
+        this.latestTime = new HybridTimestamp(currentTimeMillisProvider.get(), 0);
     }
 
     /**
@@ -56,7 +72,7 @@ public class HybridClock {
      */
     public HybridTimestamp now() {
         while (true) {
-            long currentTimeMillis = Clock.systemUTC().instant().toEpochMilli();
+            long currentTimeMillis = currentTimeMillisProvider.get();
 
             // Read the latest time after accessing UTC time to reduce contention.
             HybridTimestamp latestTime = this.latestTime;
@@ -78,13 +94,26 @@ public class HybridClock {
     }
 
     /**
-     * Synchronizes this timestamp with a timestamp from request.
+     * Synchronizes this timestamp with a timestamp from request, if the latter is greater.
      *
      * @param requestTime Timestamp from request.
      * @return The hybrid timestamp.
      */
     public HybridTimestamp sync(HybridTimestamp requestTime) {
-        return update(requestTime, false);
+        while (true) {
+            // Read the latest time after accessing UTC time to reduce contention.
+            HybridTimestamp latestTime = this.latestTime;
+
+            if (requestTime.compareTo(latestTime) > 0) {
+                if (LATEST_TIME.compareAndSet(this, latestTime, requestTime)) {
+                    onUpdate(requestTime);
+
+                    return requestTime;
+                }
+            } else {
+                return latestTime;
+            }
+        }
     }
 
     /**
@@ -94,26 +123,15 @@ public class HybridClock {
      * @return The hybrid timestamp.
      */
     public HybridTimestamp update(HybridTimestamp requestTime) {
-        return update(requestTime, true);
-    }
-
-    /**
-     * Creates a timestamp for a received event.
-     *
-     * @param requestTime Timestamp from request.
-     * @param addTick Whether to add a tick to the time.
-     * @return The hybrid timestamp.
-     */
-    private HybridTimestamp update(HybridTimestamp requestTime, boolean addTick) {
         while (true) {
-            HybridTimestamp now = new HybridTimestamp(Clock.systemUTC().instant().toEpochMilli(), addTick ? -1 : 0);
+            HybridTimestamp now = new HybridTimestamp(currentTimeMillisProvider.get(), -1);
 
             // Read the latest time after accessing UTC time to reduce contention.
             HybridTimestamp latestTime = this.latestTime;
 
             HybridTimestamp maxLatestTime = HybridTimestamp.max(now, requestTime, latestTime);
 
-            HybridTimestamp newLatestTime = addTick ? maxLatestTime.addTicks(1) : maxLatestTime;
+            HybridTimestamp newLatestTime = maxLatestTime.addTicks(1);
 
             if (LATEST_TIME.compareAndSet(this, latestTime, newLatestTime)) {
                 onUpdate(newLatestTime);

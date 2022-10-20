@@ -25,10 +25,8 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ScheduledFuture;
@@ -42,7 +40,6 @@ import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.FSMCaller;
@@ -216,7 +213,6 @@ public class NodeImpl implements Node, RaftServerService {
 
     private NodeId nodeId;
     private JRaftServiceFactory serviceFactory;
-    private UUID uuid = UUID.randomUUID();
 
     /**
      * ReplicatorStateListeners
@@ -831,7 +827,6 @@ public class NodeImpl implements Node, RaftServerService {
         opts.setfSMCallerExecutorDisruptor(options.getfSMCallerExecutorDisruptor());
         opts.setGroupId(groupId);
         opts.setSafeTimeCandidateManager(safeTimeCandidateManager);
-        opts.setUuid(uuid);
 
         return this.fsmCaller.init(opts);
     }
@@ -868,7 +863,7 @@ public class NodeImpl implements Node, RaftServerService {
         this.serviceFactory = opts.getServiceFactory();
         this.clock = opts.getNodeOptions().getClock();
         if (opts.getNodeOptions().getSafeTimeClock() != null) {
-            this.safeTimeCandidateManager = new SafeTimeCandidateManager(opts.getNodeOptions().getSafeTimeClock(), uuid);
+            this.safeTimeCandidateManager = new SafeTimeCandidateManager(opts.getNodeOptions().getSafeTimeClock());
         }
         // Term is not an option since changing it is very dangerous
         final long bootstrapLogTerm = opts.getLastLogIndex() > 0 ? 1 : 0;
@@ -969,7 +964,7 @@ public class NodeImpl implements Node, RaftServerService {
         this.serviceFactory = opts.getServiceFactory();
         this.clock = opts.getClock();
         if (opts.getSafeTimeClock() != null) {
-            this.safeTimeCandidateManager = new SafeTimeCandidateManager(opts.getSafeTimeClock(), uuid);
+            this.safeTimeCandidateManager = new SafeTimeCandidateManager(opts.getSafeTimeClock());
         }
         this.options = opts;
         this.raftOptions = opts.getRaftOptions();
@@ -2102,7 +2097,6 @@ public class NodeImpl implements Node, RaftServerService {
         final long startMs = Utils.monotonicMs();
         this.writeLock.lock();
         final int entriesCount = Utils.size(request.entriesList());
-        System.out.println("qqq handling appendEntries request uuid=" + uuid);
         try {
             if (!this.state.isActive()) {
                 LOG.warn("Node {} is not in active state, currTerm={}.", getNodeId(), this.currTerm);

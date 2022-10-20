@@ -140,7 +140,9 @@ public class RaftGroupOptions {
     /**
      * Set the replication group options.
      */
-    public void replicationGroupOptions(ReplicationGroupOptions replicationGroupOptions) {
+    public RaftGroupOptions replicationGroupOptions(ReplicationGroupOptions replicationGroupOptions) {
         this.replicationGroupOptions = replicationGroupOptions;
+
+        return this;
     }
 }

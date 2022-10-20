@@ -105,13 +105,13 @@ class HybridClockTest {
         assertTimestampEquals(100, new HybridTimestamp(100, 0),
             () -> clock.sync(new HybridTimestamp(60, 1000)));
 
-        assertTimestampEquals(200, new HybridTimestamp(200, 0),
+        assertTimestampEquals(200, new HybridTimestamp(100, 0),
             () -> clock.sync(new HybridTimestamp(70, 1)));
 
-        assertTimestampEquals(50, new HybridTimestamp(200, 0),
+        assertTimestampEquals(50, new HybridTimestamp(100, 0),
             () -> clock.sync(new HybridTimestamp(70, 1)));
 
-        assertTimestampEquals(500, new HybridTimestamp(500, 0),
+        assertTimestampEquals(500, new HybridTimestamp(100, 0),
             () -> clock.sync(new HybridTimestamp(70, 1)));
 
         assertTimestampEquals(500, new HybridTimestamp(600, 0),

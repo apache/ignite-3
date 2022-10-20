@@ -19,28 +19,26 @@ package org.apache.ignite.raft.jraft.util;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.hlc.HybridTimestamp;
 
+/**
+ * This manager stores safe time candidates coming with appendEntries requests, and applies them after committing corresponding
+ * indexes.
+ */
 public class SafeTimeCandidateManager {
-    private final UUID uuid;
+    /** Safe time clock. */
     private final HybridClock safeTimeClock;
+
+    /** Candidates map. */
     private final Map<Long, Map<Long, HybridTimestamp>> safeTimeCandidates = new ConcurrentHashMap<>();
 
     public SafeTimeCandidateManager(HybridClock safeTimeClock) {
-        this(safeTimeClock, UUID.randomUUID());
-    }
-
-    public SafeTimeCandidateManager(HybridClock safeTimeClock, UUID uuid) {
         this.safeTimeClock = safeTimeClock;
-        this.uuid = uuid;
-        new Exception("qqq create SafeTimeCandidateManager uuid=" + uuid).printStackTrace(System.out);
     }
 
     public void addSafeTimeCandidate(long index, long term, HybridTimestamp safeTime) {
-        System.out.println("qqq addSafeTimeCandidate uuid=" + uuid + ", index=" + index + ", term=" + term + ", safeTime=" + safeTime);
         safeTimeCandidates.compute(index, (i, candidates) -> {
             if (candidates == null) {
                 candidates = new HashMap<>();
@@ -53,27 +51,24 @@ public class SafeTimeCandidateManager {
     }
 
     public void commitIndex(long prevIndex, long index, long term) {
-        System.out.println("qqq commitIndex  uuid=" + uuid + ", prevIndex=" + prevIndex + ", index=" + index + ", term=" + term);
         long currentIndex = prevIndex + 1;
 
         while (currentIndex <= index) {
             Map<Long, HybridTimestamp> candidates = safeTimeCandidates.remove(currentIndex);
 
-            if (candidates == null) {
-                continue;
-            }
+            if (candidates != null) {
+                HybridTimestamp safeTime = null;
 
-            HybridTimestamp safeTime = null;
-
-            for (Map.Entry<Long, HybridTimestamp> e : candidates.entrySet()) {
-                if (e.getKey() == term) {
-                    safeTime = e.getValue();
+                for (Map.Entry<Long, HybridTimestamp> e : candidates.entrySet()) {
+                    if (e.getKey() == term) {
+                        safeTime = e.getValue();
+                    }
                 }
+
+                assert safeTime != null;
+
+                safeTimeClock.sync(safeTime);
             }
-
-            assert safeTime != null;
-
-            safeTimeClock.sync(safeTime);
 
             currentIndex++;
         }

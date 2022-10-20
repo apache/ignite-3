@@ -23,7 +23,6 @@ import com.lmax.disruptor.EventTranslator;
 import com.lmax.disruptor.RingBuffer;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicLong;
@@ -158,7 +157,6 @@ public class FSMCallerImpl implements FSMCaller {
     private final CopyOnWriteArrayList<LastAppliedLogIndexListener> lastAppliedLogIndexListeners = new CopyOnWriteArrayList<>();
     private RaftMessagesFactory msgFactory;
     private SafeTimeCandidateManager safeTimeCandidateManager;
-    private UUID uuid;
 
     public FSMCallerImpl() {
         super();
@@ -191,7 +189,6 @@ public class FSMCallerImpl implements FSMCaller {
         this.error = new RaftException(ErrorType.ERROR_TYPE_NONE);
         this.msgFactory = opts.getRaftMessagesFactory();
         this.safeTimeCandidateManager = opts.getSafeTimeCandidateManager();
-        this.uuid = opts.uuid();
         LOG.info("Starts FSMCaller successfully.");
         return true;
     }
