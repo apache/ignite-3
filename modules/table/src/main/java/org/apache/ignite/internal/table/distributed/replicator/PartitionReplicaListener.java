@@ -326,15 +326,15 @@ public class PartitionReplicaListener implements ReplicaListener {
                 id -> mvDataStorage.scan(HybridTimestamp.MAX_VALUE));
 
         return safeTimeClock.waitFor(request.timestamp()).thenApply(v -> {
-                while (batchRows.size() < batchCount && cursor.hasNext()) {
-                    BinaryRow resolvedReadResult = resolveReadResult(cursor.next(), timestamp, () -> cursor.committed(timestamp));
+            while (batchRows.size() < batchCount && cursor.hasNext()) {
+                BinaryRow resolvedReadResult = resolveReadResult(cursor.next(), timestamp, () -> cursor.committed(timestamp));
 
-                    if (resolvedReadResult != null) {
-                        batchRows.add(resolvedReadResult);
-                    }
+                if (resolvedReadResult != null) {
+                    batchRows.add(resolvedReadResult);
                 }
+            }
 
-                return batchRows;
+            return batchRows;
         });
     }
 
@@ -358,9 +358,9 @@ public class PartitionReplicaListener implements ReplicaListener {
         RowId rowId = rowIdByKey(indexId, searchKey);
 
         return safeTimeClock.waitFor(request.timestamp()).thenApply(v -> {
-                ReadResult readResult = rowId == null ? null : mvDataStorage.read(rowId, request.timestamp());
+            ReadResult readResult = rowId == null ? null : mvDataStorage.read(rowId, request.timestamp());
 
-                BinaryRow result = readResult == null ? null : resolveReadResult(readResult, request.timestamp(), () -> {
+            BinaryRow result = readResult == null ? null : resolveReadResult(readResult, request.timestamp(), () -> {
                     if (readResult.newestCommitTimestamp() == null) {
                         return null;
                     }
@@ -372,9 +372,10 @@ public class PartitionReplicaListener implements ReplicaListener {
                             + readResult.newestCommitTimestamp() + ']';
 
                     return committedReadResult.binaryRow();
-                });
+                }
+            );
 
-                return result;
+            return result;
         });
     }
 

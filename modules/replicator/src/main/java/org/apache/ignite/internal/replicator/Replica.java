@@ -26,7 +26,6 @@ import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 
 /**

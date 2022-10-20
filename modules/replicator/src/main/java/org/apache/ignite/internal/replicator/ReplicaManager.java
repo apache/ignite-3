@@ -89,7 +89,7 @@ public class ReplicaManager implements IgniteComponent {
 
     /** Scheduled executor for idle safe time sync. */
     private final ScheduledExecutorService scheduledIdleSafeTimeSyncExecutor =
-        Executors.newScheduledThreadPool(1, new NamedThreadFactory("scheduled-idle-safe-time-sync-thread", LOG));
+            Executors.newScheduledThreadPool(1, new NamedThreadFactory("scheduled-idle-safe-time-sync-thread", LOG));
 
     /** Set of message groups to handler as replica requests. */
     Set<Class<?>> messageGroupsToHandle;

@@ -53,7 +53,7 @@ import org.junit.jupiter.api.BeforeEach;
 /**
  * Abstract class for raft tests using JRaftServer.
  */
-public abstract class JRaftAbstractTest extends RaftServerAbstractTest {
+public abstract class JraftAbstractTest extends RaftServerAbstractTest {
     /**
      * The logger.
      */
@@ -73,9 +73,9 @@ public abstract class JRaftAbstractTest extends RaftServerAbstractTest {
      * Initial configuration.
      */
     protected static final List<Peer> INITIAL_CONF = IntStream.rangeClosed(0, 2)
-        .mapToObj(i -> new NetworkAddress(getLocalAddress(), PORT + i))
-        .map(Peer::new)
-        .collect(Collectors.toUnmodifiableList());
+            .mapToObj(i -> new NetworkAddress(getLocalAddress(), PORT + i))
+            .map(Peer::new)
+            .collect(Collectors.toUnmodifiableList());
 
     /**
      * Servers list.
@@ -209,7 +209,7 @@ public abstract class JRaftAbstractTest extends RaftServerAbstractTest {
         ClusterService clientNode = clusterService(CLIENT_PORT + clients.size(), List.of(addr), true);
 
         RaftGroupService client = RaftGroupServiceImpl.start(groupId, clientNode, FACTORY, 10_000,
-            List.of(new Peer(addr)), false, 200, executor).get(3, TimeUnit.SECONDS);
+                List.of(new Peer(addr)), false, 200, executor).get(3, TimeUnit.SECONDS);
 
         clients.add(client);
 

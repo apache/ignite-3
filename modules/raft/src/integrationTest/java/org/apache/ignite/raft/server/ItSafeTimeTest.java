@@ -41,7 +41,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Integration test for checking safe time propagation.
  */
 @ExtendWith(WorkDirectoryExtension.class)
-public class ItSafeTimeTest extends JRaftAbstractTest {
+public class ItSafeTimeTest extends JraftAbstractTest {
     /** Raft group name. */
     private static final String RAFT_GROUP_NAME = "testGroup";
 

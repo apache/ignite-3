@@ -81,7 +81,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Jraft server.
  */
 @ExtendWith(WorkDirectoryExtension.class)
-class ItJraftCounterServerTest extends JRaftAbstractTest {
+class ItJraftCounterServerTest extends JraftAbstractTest {
     /**
      * Counter group name 0.
      */

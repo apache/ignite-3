@@ -100,25 +100,25 @@ class HybridClockTest {
         HybridClock clock = new HybridClock();
 
         assertTimestampEquals(100, new HybridTimestamp(100, 0),
-            () -> clock.sync(new HybridTimestamp(50, 1)));
+                () -> clock.sync(new HybridTimestamp(50, 1)));
 
         assertTimestampEquals(100, new HybridTimestamp(100, 0),
-            () -> clock.sync(new HybridTimestamp(60, 1000)));
+                () -> clock.sync(new HybridTimestamp(60, 1000)));
 
         assertTimestampEquals(200, new HybridTimestamp(100, 0),
-            () -> clock.sync(new HybridTimestamp(70, 1)));
+                () -> clock.sync(new HybridTimestamp(70, 1)));
 
         assertTimestampEquals(50, new HybridTimestamp(100, 0),
-            () -> clock.sync(new HybridTimestamp(70, 1)));
+                () -> clock.sync(new HybridTimestamp(70, 1)));
 
         assertTimestampEquals(500, new HybridTimestamp(100, 0),
-            () -> clock.sync(new HybridTimestamp(70, 1)));
+                () -> clock.sync(new HybridTimestamp(70, 1)));
 
         assertTimestampEquals(500, new HybridTimestamp(600, 0),
-            () -> clock.sync(new HybridTimestamp(600, 0)));
+                () -> clock.sync(new HybridTimestamp(600, 0)));
 
         assertTimestampEquals(500, new HybridTimestamp(600, 0),
-            () -> clock.sync(new HybridTimestamp(600, 0)));
+                () -> clock.sync(new HybridTimestamp(600, 0)));
     }
 
     private void assertTimestampEquals(long sysTime, HybridTimestamp expTs, Supplier<HybridTimestamp> clo) {
