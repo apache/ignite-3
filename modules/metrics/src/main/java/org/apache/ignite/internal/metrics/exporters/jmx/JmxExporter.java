@@ -1,5 +1,7 @@
 package org.apache.ignite.internal.metrics.exporters.jmx;
 
+import static org.apache.ignite.internal.util.IgniteUtils.makeMBeanName;
+
 import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
 import java.util.List;
@@ -13,13 +15,12 @@ import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.metrics.exporters.BasicMetricExporter;
 import org.apache.ignite.internal.metrics.exporters.configuration.JmxExporterView;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.IgniteBiTuple;
 
 public class JmxExporter extends BasicMetricExporter<JmxExporterView> {
 
     public static final String JMX_EXPORTER_NAME = "jmx";
 
-    private static final String JMX_PKG = "org.apache";
+    private static final String JMX_METRIC_GROUP = "metrics";
 
     private static IgniteLogger LOG = Loggers.forClass(JmxExporter.class);
 
@@ -62,7 +63,7 @@ public class JmxExporter extends BasicMetricExporter<JmxExporterView> {
 
             ObjectName mbean = IgniteUtils.registerMBean(
                     ManagementFactory.getPlatformMBeanServer(),
-                    makeMBeanName(JMX_PKG, metricSet.name()),
+                    makeMBeanName(JMX_METRIC_GROUP, metricSet.name()),
                     mregBean);
 
             mBeans.add(mbean);
@@ -79,7 +80,7 @@ public class JmxExporter extends BasicMetricExporter<JmxExporterView> {
      */
     private void unregister(String metricSetName) {
         try {
-            ObjectName mbeanName = makeMBeanName(JMX_PKG, metricSetName);
+            ObjectName mbeanName = makeMBeanName(JMX_METRIC_GROUP, metricSetName);
 
             boolean rmv = mBeans.remove(mbeanName);
 
@@ -90,7 +91,7 @@ public class JmxExporter extends BasicMetricExporter<JmxExporterView> {
             }
         }
         catch (MalformedObjectNameException e) {
-            LOG.error("MBean for metric registry '" + JMX_PKG + ',' + metricSetName + "' can't be unregistered.", e);
+            LOG.error("MBean for metric source '" + metricSetName + "' can't be unregistered.", e);
         }
     }
 
@@ -103,23 +104,5 @@ public class JmxExporter extends BasicMetricExporter<JmxExporterView> {
         } catch (JMException e) {
             LOG.error("Failed to unregister MBean: " + bean, e);
         }
-    }
-
-    private IgniteBiTuple<String, String> parse(String regName) {
-        int firstDot = regName.indexOf('.');
-
-        if (firstDot == -1)
-            // TODO: KKK appropriate exception here
-            throw  new RuntimeException("Incorrect metric name, can't parse.");
-
-        String grp = regName.substring(0, firstDot);
-        String beanName = regName.substring(firstDot + 1);
-
-        return new IgniteBiTuple<>(grp, beanName);
-    }
-
-    private ObjectName makeMBeanName(String pkg, String name) throws MalformedObjectNameException {
-        // TODO: KKK implement
-        return new ObjectName(String.format("%s:group=metrics,name=%s", pkg, name));
     }
 }

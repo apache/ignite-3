@@ -58,11 +58,7 @@ public class JmxExporterTest {
     @InjectConfiguration(
             value = "mock.exporters = {"
                     + "jmx = {exporterName = jmx}"
-                    + "}",
-            polymorphicExtensions = {
-                    TestPushMetricsExporterConfigurationSchema.class,
-                    TestPullMetricsExporterConfigurationSchema.class
-            }
+                    + "}"
     )
     private MetricConfiguration metricConfiguration;
 

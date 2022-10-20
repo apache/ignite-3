@@ -20,7 +20,6 @@ package org.apache.ignite.internal.util;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import java.io.IOException;
-import java.lang.management.ManagementFactory;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.nio.ByteBuffer;
@@ -891,7 +890,6 @@ public class IgniteUtils {
     }
 
     public static ObjectName makeMBeanName(String group, String name) throws MalformedObjectNameException {
-        // TODO: KKK implement
         return new ObjectName(String.format("%s:group=%s,name=%s", JMX_BEAN_PACKAGE, group, name));
     }
 }
