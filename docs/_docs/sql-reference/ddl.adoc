@@ -136,10 +136,12 @@ Diagram(
   NonTerminal('qualified_table_name'),
   NonTerminal('ADD'),
   Optional('COLUMN'),
+End({type:'complex'})
 )
 
 [.diagram-container]
 Diagram(
+  Start({type:'complex'}),
   Optional('IF NOT EXISTS'),
   NonTerminal('column_definition_or_list')
 )
@@ -164,7 +166,7 @@ NonTerminal('ALTER TABLE'),
 Optional('IF EXISTS'),
 NonTerminal('qualified_table_name'),
 NonTerminal('DROP'),
-Optional('COLUMN'),,
+Optional('COLUMN'),
 End({type:'complex'})
 )
 
