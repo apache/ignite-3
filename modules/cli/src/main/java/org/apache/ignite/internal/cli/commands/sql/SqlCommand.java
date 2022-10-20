@@ -83,6 +83,7 @@ public class SqlCommand extends BaseCommand implements Callable<Integer> {
                     .output(spec.commandLine().getOut())
                     .errOutput(spec.commandLine().getErr())
                     .decorator(new SqlQueryResultDecorator(tableDecorator))
+                    .verbose(verbose)
                     .build().runPipeline();
         } catch (SQLException e) {
             return new SqlExceptionHandler().handle(ExceptionWriter.fromPrintWriter(spec.commandLine().getErr()), e);

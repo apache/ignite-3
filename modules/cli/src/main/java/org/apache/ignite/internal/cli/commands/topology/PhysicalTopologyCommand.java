@@ -54,6 +54,7 @@ public class PhysicalTopologyCommand extends BaseCommand implements Callable<Int
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
                 .decorator(topologyDecorator)
+                .verbose(verbose)
                 .build()
                 .runPipeline();
     }

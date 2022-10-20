@@ -20,11 +20,12 @@ package org.apache.ignite.internal.cli.commands.flow;
 import org.apache.ignite.internal.cli.core.call.Call;
 import org.apache.ignite.internal.cli.core.call.CallOutput;
 import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
+import org.apache.ignite.internal.cli.core.call.StringCallInput;
 
-class StrCall implements Call<StrCallInput, String> {
+class StrCall implements Call<StringCallInput, String> {
 
     @Override
-    public CallOutput<String> execute(StrCallInput input) {
-        return DefaultCallOutput.success("You are unlucky, your number |" + input.value + "|");
+    public CallOutput<String> execute(StringCallInput input) {
+        return DefaultCallOutput.success("You are unlucky, your number |" + input.getString() + "|");
     }
 }

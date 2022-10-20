@@ -15,15 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.flow;
+package org.apache.ignite.internal.cli.core.call;
 
-import org.apache.ignite.internal.cli.core.call.Call;
-import org.apache.ignite.internal.cli.core.call.CallOutput;
-import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
-
-class ThrowingStrCall implements Call<StrCallInput, String> {
+/** Test call that throws a runtime exception. **/
+public class ThrowingStrCall implements Call<StringCallInput, String> {
     @Override
-    public CallOutput<String> execute(StrCallInput input) {
+    public CallOutput<String> execute(StringCallInput input) {
         return DefaultCallOutput.failure(new RuntimeException("Ooops!"));
     }
 }

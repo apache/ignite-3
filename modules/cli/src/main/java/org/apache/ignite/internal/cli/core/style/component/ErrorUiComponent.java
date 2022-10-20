@@ -25,6 +25,7 @@ import org.apache.ignite.internal.cli.core.style.AnsiStringSupport.Color;
 import org.apache.ignite.internal.cli.core.style.AnsiStringSupport.Style;
 import org.apache.ignite.internal.cli.core.style.element.UiElement;
 import org.apache.ignite.internal.cli.core.style.element.UiString;
+import org.apache.ignite.internal.cli.logger.CliLoggers;
 
 /**
  * UI component that represent any error message.
@@ -38,6 +39,10 @@ public class ErrorUiComponent implements UiComponent {
 
     private final UiElement[] detailsUiElements;
 
+    private final String verbose;
+
+    private final UiElement[] verboseUiElements;
+
     private final UUID traceId;
 
     private final String errorCode;
@@ -45,12 +50,15 @@ public class ErrorUiComponent implements UiComponent {
     private ErrorUiComponent(
             String header, UiElement[] headerUiElements,
             String details, UiElement[] detailsUiElements,
+            String verbose, UiElement[] verboseUiElements,
             UUID traceId,
             String errorCode) {
         this.header = header;
         this.headerUiElements = headerUiElements;
         this.details = details;
         this.detailsUiElements = detailsUiElements;
+        this.verbose = verbose;
+        this.verboseUiElements = verboseUiElements;
         this.traceId = traceId;
         this.errorCode = errorCode;
     }
@@ -80,11 +88,16 @@ public class ErrorUiComponent implements UiComponent {
                         + traceDetails()
                         + fg(Color.RED).with(Style.BOLD).mark(ansi(UiString.format(header, headerUiElements)))
                         + (details == null ? "" : System.lineSeparator() + UiString.format(details, detailsUiElements))
+                        + verboseDetails()
         );
     }
 
     private String traceDetails() {
         return traceId == null ? "" : fg(Color.GRAY).mark(" Trace ID: " + traceId + System.lineSeparator());
+    }
+
+    private String verboseDetails() {
+        return verbose == null || !CliLoggers.isVerbose() ? "" : System.lineSeparator() + UiString.format(verbose, verboseUiElements);
     }
 
     /** Builder. */
@@ -95,7 +108,11 @@ public class ErrorUiComponent implements UiComponent {
 
         private String details;
 
-        private UiElement[] detailsUiElement;
+        private UiElement[] detailsUiElements;
+
+        private String verbose;
+
+        private UiElement[] verboseUiElements;
 
         private UUID traceId;
 
@@ -111,22 +128,38 @@ public class ErrorUiComponent implements UiComponent {
         /** Sets details. */
         public ErrorComponentBuilder details(String details, UiElement... uiElements) {
             this.details = details;
-            this.detailsUiElement = uiElements;
+            this.detailsUiElements = uiElements;
             return this;
         }
 
+        /** Sets verbose. */
+        public ErrorComponentBuilder verbose(String verbose, UiElement... uiElements) {
+            this.verbose = verbose;
+            this.verboseUiElements = uiElements;
+            return this;
+        }
+
+        /** Sets trace id. */
         public ErrorComponentBuilder traceId(UUID traceId) {
             this.traceId = traceId;
             return this;
         }
 
+        /** Sets error code. */
         public ErrorComponentBuilder errorCode(String errorCode) {
             this.errorCode = errorCode;
             return this;
         }
 
+        /** Builds the component. */
         public ErrorUiComponent build() {
-            return new ErrorUiComponent(header, headerUiElements, details, detailsUiElement, traceId, errorCode);
+            return new ErrorUiComponent(
+                    header, headerUiElements,
+                    details, detailsUiElements,
+                    verbose, verboseUiElements,
+                    traceId,
+                    errorCode
+            );
         }
     }
 }
