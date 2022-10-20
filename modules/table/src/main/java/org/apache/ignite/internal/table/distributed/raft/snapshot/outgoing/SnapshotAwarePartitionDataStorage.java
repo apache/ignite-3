@@ -21,85 +21,96 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lock.AutoLockup;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.storage.DelegatingMvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
+import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionKey;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * {@link MvPartitionStorage} decorator that adds snapshot awareness. This means that writes coordinate with ongoing
  * snapshots to make sure that the writes do not interfere with the snapshots.
  */
-public class SnapshotAwareMvPartitionStorage extends DelegatingMvPartitionStorage {
+public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
+    private final MvPartitionStorage partitionStorage;
     private final PartitionsSnapshots partitionsSnapshots;
     private final PartitionKey partitionKey;
 
     /**
      * Creates a new instance.
      */
-    public SnapshotAwareMvPartitionStorage(MvPartitionStorage storage, PartitionsSnapshots partitionsSnapshots, PartitionKey partitionKey) {
-        super(storage);
-
+    public SnapshotAwarePartitionDataStorage(
+            MvPartitionStorage partitionStorage,
+            PartitionsSnapshots partitionsSnapshots,
+            PartitionKey partitionKey
+    ) {
+        this.partitionStorage = partitionStorage;
         this.partitionsSnapshots = partitionsSnapshots;
         this.partitionKey = partitionKey;
     }
 
     @Override
+    public <V> V runConsistently(WriteClosure<V> closure) throws StorageException {
+        return partitionStorage.runConsistently(closure);
+    }
+
+    @Override
+    public AutoLockup acquirePartitionSnapshotsReadLock() {
+        PartitionSnapshots partitionSnapshots = partitionsSnapshots.partitionSnapshots(partitionKey);
+
+        return partitionSnapshots.acquireReadLock();
+    }
+
+    @Override
+    public CompletableFuture<Void> flush() {
+        return partitionStorage.flush();
+    }
+
+    @Override
+    public long lastAppliedIndex() {
+        return partitionStorage.lastAppliedIndex();
+    }
+
+    @Override
+    public void lastAppliedIndex(long lastAppliedIndex) throws StorageException {
+        partitionStorage.lastAppliedIndex(lastAppliedIndex);
+    }
+
+    @Override
     public @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, UUID commitTableId,
             int commitPartitionId) throws TxIdMismatchException, StorageException {
-        PartitionSnapshots partitionSnapshots = acquireReadLockOnPartitionSnapshots();
+        sendRowOutOfOrderToInterferingSnapshots(rowId);
 
-        try {
-            sendRowOutOfOrderToInterferingSnapshots(rowId, partitionSnapshots);
-
-            return super.addWrite(rowId, row, txId, commitTableId, commitPartitionId);
-        } finally {
-            partitionSnapshots.releaseReadLock();
-        }
+        return partitionStorage.addWrite(rowId, row, txId, commitTableId, commitPartitionId);
     }
 
     @Override
     public @Nullable BinaryRow abortWrite(RowId rowId) throws StorageException {
-        PartitionSnapshots partitionSnapshots = acquireReadLockOnPartitionSnapshots();
+        sendRowOutOfOrderToInterferingSnapshots(rowId);
 
-        try {
-            sendRowOutOfOrderToInterferingSnapshots(rowId, partitionSnapshots);
-
-            return super.abortWrite(rowId);
-        } finally {
-            partitionSnapshots.releaseReadLock();
-        }
+        return partitionStorage.abortWrite(rowId);
     }
 
     @Override
     public void commitWrite(RowId rowId, HybridTimestamp timestamp) throws StorageException {
-        PartitionSnapshots partitionSnapshots = acquireReadLockOnPartitionSnapshots();
+        sendRowOutOfOrderToInterferingSnapshots(rowId);
 
-        try {
-            sendRowOutOfOrderToInterferingSnapshots(rowId, partitionSnapshots);
-
-            super.commitWrite(rowId, timestamp);
-        } finally {
-            partitionSnapshots.releaseReadLock();
-        }
+        partitionStorage.commitWrite(rowId, timestamp);
     }
 
-    private PartitionSnapshots acquireReadLockOnPartitionSnapshots() {
+    private void sendRowOutOfOrderToInterferingSnapshots(RowId rowId) {
         PartitionSnapshots partitionSnapshots = partitionsSnapshots.partitionSnapshots(partitionKey);
 
-        partitionSnapshots.acquireReadLock();
-
-        return partitionSnapshots;
-    }
-
-    private void sendRowOutOfOrderToInterferingSnapshots(RowId rowId, PartitionSnapshots partitionSnapshots) {
         for (OutgoingSnapshot snapshot : partitionSnapshots.ongoingSnapshots()) {
             snapshot.acquireLock();
 
@@ -126,7 +137,7 @@ public class SnapshotAwareMvPartitionStorage extends DelegatingMvPartitionStorag
     private List<ReadResult> rowVersions(RowId rowId) {
         List<ReadResult> versions = new ArrayList<>();
 
-        try (Cursor<ReadResult> cursor = scanVersions(rowId)) {
+        try (Cursor<ReadResult> cursor = partitionStorage.scanVersions(rowId)) {
             for (ReadResult version : cursor) {
                 versions.add(version);
             }
@@ -141,14 +152,15 @@ public class SnapshotAwareMvPartitionStorage extends DelegatingMvPartitionStorag
     }
 
     @Override
-    public void addWriteCommitted(RowId rowId, BinaryRow row, HybridTimestamp commitTimestamp) throws StorageException {
-        throw new UnsupportedOperationException("This method is not supposed to be called here, this is probably a mistake");
-    }
-
-    @Override
     public void close() throws Exception {
         // TODO: IGNITE-17935 - terminate all snapshots of this partition considering correct locking to do it consistently
 
-        super.close();
+        partitionStorage.close();
+    }
+
+    @Override
+    @TestOnly
+    public MvPartitionStorage getStorage() {
+        return partitionStorage;
     }
 }

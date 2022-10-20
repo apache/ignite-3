@@ -114,13 +114,14 @@ import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.message.HasDataRequest;
 import org.apache.ignite.internal.table.distributed.message.HasDataRequestBuilder;
 import org.apache.ignite.internal.table.distributed.message.HasDataResponse;
+import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.raft.RebalanceRaftGroupEventsListener;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.MvStoragePartitionAccess;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionKey;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionSnapshotStorageFactory;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
-import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.SnapshotAwareMvPartitionStorage;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.SnapshotAwarePartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
@@ -696,7 +697,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 if (raftMgr.shouldHaveRaftGroupLocally(nodes)) {
                     startGroupFut = CompletableFuture
-                            .supplyAsync(() -> getOrCreateSnapshotAwareMvPartition(internalTbl, partId), ioExecutor)
+                            .supplyAsync(() -> getOrCreateMvPartition(internalTbl, partId), ioExecutor)
                             .thenComposeAsync((partitionStorage) -> {
                                 boolean hasData = partitionStorage.lastAppliedIndex() > 0;
 
@@ -744,11 +745,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                 grpId,
                                                 newPartAssignment,
                                                 new PartitionListener(
-                                                    partitionStorage,
-                                                    internalTbl.txStateStorage().getOrCreateTxStateStorage(partId),
-                                                    txManager,
-                                                    primaryIndex
-                                            ),
+                                                        partitionDataStorage(partitionStorage, internalTbl, partId),
+                                                        internalTbl.txStateStorage().getOrCreateTxStateStorage(partId),
+                                                        txManager,
+                                                        primaryIndex
+                                                ),
                                                 new RebalanceRaftGroupEventsListener(
                                                         metaStorageMgr,
                                                         tablesCfg.tables().get(tablesById.get(tblId).name()),
@@ -821,10 +822,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         CompletableFuture.allOf(futures).join();
     }
 
-    private SnapshotAwareMvPartitionStorage getOrCreateSnapshotAwareMvPartition(InternalTable internalTbl, int partId) {
-        MvPartitionStorage storage = getOrCreateMvPartition(internalTbl, partId);
+    private PartitionDataStorage partitionDataStorage(MvPartitionStorage partitionStorage, InternalTable internalTbl, int partId) {
+        return new SnapshotAwarePartitionDataStorage(partitionStorage, outgoingSnapshotsManager, partitionKey(internalTbl, partId));
+    }
 
-        return new SnapshotAwareMvPartitionStorage(storage, outgoingSnapshotsManager, new PartitionKey(internalTbl.tableId(), partId));
+    private PartitionKey partitionKey(InternalTable internalTbl, int partId) {
+        return new PartitionKey(internalTbl.tableId(), partId);
     }
 
     private static MvPartitionStorage getOrCreateMvPartition(InternalTable internalTbl, int partId) {
@@ -879,7 +882,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 raftMgr.topologyService(),
                 //TODO IGNITE-17302 Use miniumum from mv storage and tx state storage.
                 outgoingSnapshotsManager,
-                new MvStoragePartitionAccess(new PartitionKey(internalTbl.tableId(), partId), partitionStorage),
+                new MvStoragePartitionAccess(partitionKey(internalTbl, partId), partitionStorage),
                 peers.stream().map(n -> new Peer(n.address())).map(PeerId::fromPeer).map(Object::toString).collect(Collectors.toList()),
                 List.of()
         ));
@@ -1692,7 +1695,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 pendingAssignmentsWatchEvent.key(), partId, tbl.name(), localMember.address());
 
                         if (raftMgr.shouldHaveRaftGroupLocally(deltaPeers)) {
-                            MvPartitionStorage partitionStorage = getOrCreateSnapshotAwareMvPartition(tbl.internalTable(), partId);
+                            MvPartitionStorage partitionStorage = getOrCreateMvPartition(tbl.internalTable(), partId);
 
                             RaftGroupOptions groupOptions = groupOptionsForPartition(
                                     tbl.internalTable(),
@@ -1703,7 +1706,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             );
 
                             RaftGroupListener raftGrpLsnr = new PartitionListener(
-                                    partitionStorage,
+                                    partitionDataStorage(partitionStorage, tbl.internalTable(), partId),
                                     tbl.internalTable().txStateStorage().getOrCreateTxStateStorage(partId),
                                     txManager,
                                     primaryIndex

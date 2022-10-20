@@ -46,7 +46,7 @@ import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentHashSet;
 /**
  * Outgoing snapshot. It corresponds to exactly one partition.
  *
- * <p>The snapshot has a lock needed for interaction with {@link SnapshotAwareMvPartitionStorage}.
+ * <p>The snapshot has a lock needed for interaction with {@link SnapshotAwarePartitionDataStorage}.
  */
 public class OutgoingSnapshot {
     private static final TableMessagesFactory messagesFactory = new TableMessagesFactory();
@@ -59,7 +59,7 @@ public class OutgoingSnapshot {
 
     /**
      * Lock that is used for mutual exclusion of snapshot reading (by this class) and threads that write to the same
-     * partition (currently, via {@link SnapshotAwareMvPartitionStorage}).
+     * partition (currently, via {@link SnapshotAwarePartitionDataStorage}).
      */
     private final Lock rowOperationsLock = new ReentrantLock();
 

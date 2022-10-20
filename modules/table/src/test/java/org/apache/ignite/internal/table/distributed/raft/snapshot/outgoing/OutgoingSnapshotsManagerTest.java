@@ -22,6 +22,7 @@ import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.is;
 
 import java.util.UUID;
+import org.apache.ignite.internal.lock.AutoLockup;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionKey;
 import org.apache.ignite.network.MessagingService;
 import org.junit.jupiter.api.Test;
@@ -38,9 +39,21 @@ class OutgoingSnapshotsManagerTest {
     @InjectMocks
     private OutgoingSnapshotsManager manager;
 
+    private final PartitionKey partitionKey = new PartitionKey(UUID.randomUUID(), 1);
+
+    @SuppressWarnings("EmptyTryBlock")
+    @Test
+    void readLockOnPartitionSnapshotsWorks() {
+        PartitionSnapshots snapshots = manager.partitionSnapshots(partitionKey);
+
+        try (AutoLockup ignored = snapshots.acquireReadLock()) {
+            // Do nothing.
+        }
+    }
+
     @Test
     void emptyOngoingSnapshotsIfNoSnapshotWasRegistered() {
-        PartitionSnapshots snapshots = manager.partitionSnapshots(new PartitionKey(UUID.randomUUID(), 1));
+        PartitionSnapshots snapshots = manager.partitionSnapshots(partitionKey);
 
         assertThat(snapshots.ongoingSnapshots(), is(empty()));
     }

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing;
 
 import java.util.List;
+import org.apache.ignite.internal.lock.AutoLockup;
 
 /**
  * Provides read access to the list of ongoing snapshots of just one partition.
@@ -26,13 +27,10 @@ import java.util.List;
 public interface PartitionSnapshots {
     /**
      * Acquires the read lock. This lock is required to access {@link #ongoingSnapshots()}.
+     *
+     * @return The acquired lockup. It will be released through {@link AutoLockup#close()} invocation.
      */
-    void acquireReadLock();
-
-    /**
-     * Releases the read lock earlier acquired with {@link #acquireReadLock()}.
-     */
-    void releaseReadLock();
+    AutoLockup acquireReadLock();
 
     /**
      * Returns snapshots that are currently active on the partition corresponding to this instance. This method must

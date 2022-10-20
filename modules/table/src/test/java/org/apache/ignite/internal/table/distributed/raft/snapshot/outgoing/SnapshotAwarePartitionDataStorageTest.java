@@ -19,7 +19,7 @@ package org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.hamcrest.Matchers.sameInstance;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyInt;
 import static org.mockito.Mockito.doReturn;
@@ -31,8 +31,10 @@ import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lock.AutoLockup;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.ReadResult;
@@ -50,9 +52,9 @@ import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-class SnapshotAwareMvPartitionStorageTest {
+class SnapshotAwarePartitionDataStorageTest {
     @Mock
-    private MvPartitionStorage realStorage;
+    private MvPartitionStorage partitionStorage;
 
     @Mock
     private PartitionsSnapshots partitionsSnapshots;
@@ -61,7 +63,7 @@ class SnapshotAwareMvPartitionStorageTest {
     private final PartitionKey partitionKey = new PartitionKey(UUID.randomUUID(), 1);
 
     @InjectMocks
-    private SnapshotAwareMvPartitionStorage testedStorage;
+    private SnapshotAwarePartitionDataStorage testedStorage;
 
     @Mock
     private PartitionSnapshots partitionSnapshots;
@@ -77,27 +79,65 @@ class SnapshotAwareMvPartitionStorageTest {
     }
 
     @Test
+    void delegatesRunConsistently() {
+        Object token = new Object();
+
+        when(partitionStorage.runConsistently(any())).then(invocation -> {
+            MvPartitionStorage.WriteClosure<?> closure = invocation.getArgument(0);
+            return closure.execute();
+        });
+
+        MvPartitionStorage.WriteClosure<Object> closure = () -> token;
+
+        assertThat(testedStorage.runConsistently(closure), is(sameInstance(token)));
+        verify(partitionStorage).runConsistently(closure);
+    }
+
+    @Test
+    void delegatesFlush() {
+        CompletableFuture<Void> future = CompletableFuture.completedFuture(null);
+
+        when(partitionStorage.flush()).thenReturn(future);
+
+        assertThat(testedStorage.flush(), is(future));
+    }
+
+    @Test
+    void delegatesLastAppliedIndexGetter() {
+        when(partitionStorage.lastAppliedIndex()).thenReturn(42L);
+
+        assertThat(testedStorage.lastAppliedIndex(), is(42L));
+    }
+
+    @Test
+    void delegatesLastAppliedIndexSetter() {
+        testedStorage.lastAppliedIndex(42L);
+
+        verify(partitionStorage).lastAppliedIndex(42L);
+    }
+
+    @Test
     void delegatesAddWrite() {
         BinaryRow resultRow = mock(BinaryRow.class);
 
-        when(realStorage.addWrite(any(), any(), any(), any(), anyInt())).thenReturn(resultRow);
+        when(partitionStorage.addWrite(any(), any(), any(), any(), anyInt())).thenReturn(resultRow);
 
         BinaryRow argumentRow = mock(BinaryRow.class);
         UUID txId = UUID.randomUUID();
         UUID commitTableId = UUID.randomUUID();
 
         assertThat(testedStorage.addWrite(rowId, argumentRow, txId, commitTableId, 42), is(resultRow));
-        verify(realStorage).addWrite(rowId, argumentRow, txId, commitTableId, 42);
+        verify(partitionStorage).addWrite(rowId, argumentRow, txId, commitTableId, 42);
     }
 
     @Test
     void delegatesAbortWrite() {
         BinaryRow resultRow = mock(BinaryRow.class);
 
-        when(realStorage.abortWrite(any())).thenReturn(resultRow);
+        when(partitionStorage.abortWrite(any())).thenReturn(resultRow);
 
         assertThat(testedStorage.abortWrite(rowId), is(resultRow));
-        verify(realStorage).abortWrite(rowId);
+        verify(partitionStorage).abortWrite(rowId);
     }
 
     @Test
@@ -106,22 +146,23 @@ class SnapshotAwareMvPartitionStorageTest {
 
         testedStorage.commitWrite(rowId, commitTs);
 
-        verify(realStorage).commitWrite(rowId, commitTs);
+        verify(partitionStorage).commitWrite(rowId, commitTs);
     }
 
     @Test
     void delegatesClose() throws Exception {
         testedStorage.close();
 
-        verify(realStorage).close();
+        verify(partitionStorage).close();
     }
 
     @Test
-    void throwsOnAddWriteCommitted() {
-        assertThrows(
-                UnsupportedOperationException.class,
-                () -> testedStorage.addWriteCommitted(rowId, mock(BinaryRow.class), new HybridClock().now())
-        );
+    void delgatesAcquirePartitionSnapshotsReadLock() {
+        AutoLockup lockup = mock(AutoLockup.class);
+
+        when(partitionSnapshots.acquireReadLock()).thenReturn(lockup);
+
+        assertThat(testedStorage.acquirePartitionSnapshotsReadLock(), is(lockup));
     }
 
     @ParameterizedTest
@@ -130,7 +171,7 @@ class SnapshotAwareMvPartitionStorageTest {
         ReadResult result1 = mock(ReadResult.class);
 
         when(partitionSnapshots.ongoingSnapshots()).thenReturn(List.of(snapshot));
-        when(realStorage.scanVersions(any())).then(invocation -> Cursor.fromIterator(List.of(result1).iterator()));
+        when(partitionStorage.scanVersions(any())).then(invocation -> Cursor.fromIterator(List.of(result1).iterator()));
 
         doReturn(false).when(snapshot).isFinished();
         doReturn(false).when(snapshot).alreadyPassed(any());
@@ -187,7 +228,7 @@ class SnapshotAwareMvPartitionStorageTest {
         ReadResult result2 = mock(ReadResult.class);
 
         when(partitionSnapshots.ongoingSnapshots()).thenReturn(List.of(snapshot));
-        when(realStorage.scanVersions(any())).then(invocation -> Cursor.fromIterator(List.of(result1, result2).iterator()));
+        when(partitionStorage.scanVersions(any())).then(invocation -> Cursor.fromIterator(List.of(result1, result2).iterator()));
 
         configureSnapshotToLetSendOutOfOrderRow(snapshot);
 
@@ -211,7 +252,7 @@ class SnapshotAwareMvPartitionStorageTest {
         ReadResult result2 = mock(ReadResult.class);
 
         when(partitionSnapshots.ongoingSnapshots()).thenReturn(List.of(snapshot, snapshot2));
-        when(realStorage.scanVersions(any())).then(invocation -> Cursor.fromIterator(List.of(result1, result2).iterator()));
+        when(partitionStorage.scanVersions(any())).then(invocation -> Cursor.fromIterator(List.of(result1, result2).iterator()));
 
         configureSnapshotToLetSendOutOfOrderRow(snapshot);
         configureSnapshotToLetSendOutOfOrderRow(snapshot2);
@@ -225,23 +266,23 @@ class SnapshotAwareMvPartitionStorageTest {
     private enum WriteAction {
         ADD_WRITE {
             @Override
-            void executeOn(SnapshotAwareMvPartitionStorage storage, RowId rowId) {
+            void executeOn(SnapshotAwarePartitionDataStorage storage, RowId rowId) {
                 storage.addWrite(rowId, mock(BinaryRow.class), UUID.randomUUID(), UUID.randomUUID(), 42);
             }
         },
         ABORT_WRITE {
             @Override
-            void executeOn(SnapshotAwareMvPartitionStorage storage, RowId rowId) {
+            void executeOn(SnapshotAwarePartitionDataStorage storage, RowId rowId) {
                 storage.abortWrite(rowId);
             }
         },
         COMMIT_WRITE {
             @Override
-            void executeOn(SnapshotAwareMvPartitionStorage storage, RowId rowId) {
+            void executeOn(SnapshotAwarePartitionDataStorage storage, RowId rowId) {
                 storage.commitWrite(rowId, new HybridClock().now());
             }
         };
 
-        abstract void executeOn(SnapshotAwareMvPartitionStorage storage, RowId rowId);
+        abstract void executeOn(SnapshotAwarePartitionDataStorage storage, RowId rowId);
     }
 }

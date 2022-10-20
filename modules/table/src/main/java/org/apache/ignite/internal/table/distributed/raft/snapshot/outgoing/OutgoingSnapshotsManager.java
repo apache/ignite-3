@@ -27,6 +27,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import org.apache.ignite.internal.lock.AutoLockup;
+import org.apache.ignite.internal.lock.ReusableLockLockup;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -197,6 +199,7 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, OutgoingSn
         private final List<OutgoingSnapshot> unmodifiableSnapshotsView = unmodifiableList(snapshots);
 
         private final ReadWriteLock lock = new ReentrantReadWriteLock();
+        private final ReusableLockLockup readLockLockup = new ReusableLockLockup(lock.readLock());
 
         private void addUnderLock(OutgoingSnapshot snapshot) {
             lock.writeLock().lock();
@@ -217,13 +220,8 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, OutgoingSn
         }
 
         @Override
-        public void acquireReadLock() {
-            lock.readLock().lock();
-        }
-
-        @Override
-        public void releaseReadLock() {
-            lock.readLock().unlock();
+        public AutoLockup acquireReadLock() {
+            return readLockLockup.acquireLock();
         }
 
         @Override

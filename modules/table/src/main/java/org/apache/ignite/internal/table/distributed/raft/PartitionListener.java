@@ -36,6 +36,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.lock.AutoLockup;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -66,7 +67,7 @@ public class PartitionListener implements RaftGroupListener {
     private static final IgniteLogger LOG = Loggers.forClass(PartitionListener.class);
 
     /** Versioned partition storage. */
-    private final MvPartitionStorage storage;
+    private final PartitionDataStorage storage;
 
     /** Transaction state storage. */
     private final TxStateStorage txStateStorage;
@@ -96,7 +97,7 @@ public class PartitionListener implements RaftGroupListener {
      * @param primaryIndex Primary index map.
      */
     public PartitionListener(
-            MvPartitionStorage store,
+            PartitionDataStorage store,
             TxStateStorage txStateStorage,
             TxManager txManager,
             ConcurrentHashMap<ByteBuffer, RowId> primaryIndex
@@ -131,7 +132,7 @@ public class PartitionListener implements RaftGroupListener {
                     : "Pending write command has a higher index than already processed commands [commandIndex=" + commandIndex
                     + ", storageAppliedIndex=" + storageAppliedIndex + ']';
 
-            try {
+            try (AutoLockup ignoredPartitionSnapshotsReadLockup = storage.acquirePartitionSnapshotsReadLock()) {
                 if (command instanceof UpdateCommand) {
                     handleUpdateCommand((UpdateCommand) command, commandIndex);
                 } else if (command instanceof UpdateAllCommand) {
@@ -364,7 +365,7 @@ public class PartitionListener implements RaftGroupListener {
      */
     @TestOnly
     public MvPartitionStorage getStorage() {
-        return storage;
+        return storage.getStorage();
     }
 
     /**

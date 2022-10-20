@@ -387,7 +387,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                         partNodes,
                         () -> {
                             return new PartitionListener(
-                                    testMpPartStorage,
+                                    new TestPartitionDataStorage(testMpPartStorage),
                                     txSateStorage,
                                     txManagers.get(node),
                                     primaryIndex
@@ -563,7 +563,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
         int hash = 0;
 
         for (Map.Entry<ClusterNode, Loza> entry : raftServers.entrySet()) {
-            Loza svc = (Loza) entry.getValue();
+            Loza svc = entry.getValue();
             JraftServerImpl server = (JraftServerImpl) svc.server();
             org.apache.ignite.raft.jraft.RaftGroupService grp = server.raftGroupService(table.name() + "-part-" + partId);
             JraftServerImpl.DelegatingStateMachine fsm = (JraftServerImpl.DelegatingStateMachine) grp
