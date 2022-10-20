@@ -25,6 +25,7 @@ namespace Apache.Ignite.Internal.Table
     using Ignite.Table;
     using Ignite.Transactions;
     using Proto;
+    using Proto.BinaryTuple;
     using Serialization;
     using Transactions;
 
@@ -377,6 +378,10 @@ namespace Apache.Ignite.Internal.Table
 
             using var writer = ProtoCommon.GetMessageWriter();
             _ser.Write(writer, tx, schema, record, keyOnly);
+
+            // TODO: Compute hash from resulting BinaryTuple
+            var binaryTupleMem = writer.GetWrittenMemory();
+            var hash = HashCalculator.CalculateBinaryTupleHash(binaryTupleMem, keyOnly, schema);
 
             return await DoOutInOpAsync(op, tx, writer).ConfigureAwait(false);
         }
