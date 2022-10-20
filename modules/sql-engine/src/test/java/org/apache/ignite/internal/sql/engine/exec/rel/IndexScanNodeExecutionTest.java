@@ -295,6 +295,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
                 index,
                 new TestTable(rowType),
                 new int[]{0, 2},
+                null,
                 rangeIterable,
                 null,
                 null,

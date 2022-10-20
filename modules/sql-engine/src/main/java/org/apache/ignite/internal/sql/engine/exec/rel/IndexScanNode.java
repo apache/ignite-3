@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
 
 import java.util.BitSet;
+import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Queue;
@@ -84,6 +85,8 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
 
     private int curPartIdx;
 
+    Comparator<BinaryTuple> cmp;
+
     /**
      * Constructor.
      *
@@ -102,6 +105,7 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
             IgniteIndex schemaIndex,
             InternalIgniteTable schemaTable,
             int[] parts,
+            Comparator<RowT> cmp,
             @Nullable RangeIterable<RowT> rangeConditions,
             @Nullable Predicate<RowT> filters,
             @Nullable Function<RowT, RowT> rowTransformer,
@@ -116,6 +120,7 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
         this.rowTransformer = rowTransformer;
         this.requiredColumns = requiredColumns;
         this.rangeConditions = rangeConditions;
+        this.cmp = cmp == null ? null : (o1, o2) -> cmp.compare(convert(o1), convert(o2));
 
         factory = ctx.rowHandler().factory(ctx.getTypeFactory(), rowType);
 
