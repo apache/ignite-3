@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metrics;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
@@ -85,8 +86,7 @@ public class JmxExporterTest {
                             "atomicDouble", new AtomicDoubleMetric("atomicDouble", ""),
                             "longAdder", new LongAdderMetric("longAdder", ""),
                             "doubleAdder", new DoubleAdderMetric("doubleAdder", ""),
-//TODO: KKK uncomment when composite metrics will be supported
-//                            "distributionMetric", new DistributionMetric("distributionMetric", "", new long[] {0, 1}),
+                            "distributionMetric", new DistributionMetric("distributionMetric", "", new long[] {0, 1}),
                             "hitRate", new HitRateMetric("hitRate", "", Long.MAX_VALUE)
                     )
             );
@@ -161,6 +161,23 @@ public class JmxExporterTest {
                 "Expected that mbean won't find, but it was");
     }
 
+    @Test
+    public void testMetricUpdate() throws ReflectionException, AttributeNotFoundException, MBeanException {
+        var intMetric = new AtomicIntMetric(MTRC_NAME, "");
+
+        MetricSet metricSet = new MetricSet(SRC_NAME, Map.of(MTRC_NAME, intMetric));
+
+        when(metricsProvider.metrics()).thenReturn(new IgniteBiTuple<>(Map.of(metricSet.name(), metricSet), 1L));
+
+        jmxExporter.start(metricsProvider, jmxExporterConf);
+
+        assertEquals(0, mBean().getAttribute(MTRC_NAME));
+
+        intMetric.add(1);
+
+        assertEquals(1, mBean().getAttribute(MTRC_NAME));
+    }
+
     private void assertThatMBeanAttributeAndMetricValuesAreTheSame() throws ReflectionException, AttributeNotFoundException, MBeanException {
         for (Iterator<Metric> it = metricSet.iterator(); it.hasNext(); ) {
             Metric metric = it.next();
@@ -175,6 +192,8 @@ public class JmxExporterTest {
                 assertEquals(((LongMetric) metric).value(), beanAttribute, errorMsg);
             } else if (metric instanceof DoubleMetric) {
                 assertEquals(((DoubleMetric) metric).value(), beanAttribute, errorMsg);
+            } else if (metric instanceof DistributionMetric) {
+                assertArrayEquals(((DistributionMetric) metric).value(), (long[]) beanAttribute, errorMsg);
             }
         }
     }

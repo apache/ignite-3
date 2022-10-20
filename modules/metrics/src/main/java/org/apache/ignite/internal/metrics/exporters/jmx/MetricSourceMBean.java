@@ -13,6 +13,7 @@ import javax.management.MBeanException;
 import javax.management.MBeanInfo;
 import javax.management.ReflectionException;
 import org.apache.ignite.internal.metrics.CompositeMetric;
+import org.apache.ignite.internal.metrics.DistributionMetric;
 import org.apache.ignite.internal.metrics.DoubleMetric;
 import org.apache.ignite.internal.metrics.IntMetric;
 import org.apache.ignite.internal.metrics.LongMetric;
@@ -36,14 +37,13 @@ public class MetricSourceMBean implements DynamicMBean {
         Metric metric = metricSet.get(attribute);
 
         if (metric instanceof DoubleMetric)
-            return ((DoubleMetric)metric).value();
+            return ((DoubleMetric) metric).value();
         else if (metric instanceof IntMetric)
-            return ((IntMetric)metric).value();
+            return ((IntMetric) metric).value();
         else if (metric instanceof LongMetric)
-            return ((LongMetric)metric).value();
-        else if (metric instanceof CompositeMetric)
-            // TODO: KKK suport composite metrics
-            throw new UnsupportedOperationException("Composite metrics is not supported yet");
+            return ((LongMetric) metric).value();
+        else if (metric instanceof DistributionMetric)
+            return ((DistributionMetric) metric).value();
 
         throw new IllegalArgumentException("Unknown metric class. " + metric.getClass());
     }
@@ -116,9 +116,9 @@ public class MetricSourceMBean implements DynamicMBean {
             return IntMetric.class.getName();
         else if (metric instanceof LongMetric)
             return LongMetric.class.getName();
-        else if (metric instanceof CompositeMetric)
+        else if (metric instanceof DistributionMetric)
             // TODO: KKK suport composite metrics
-            throw new UnsupportedOperationException("Composite metrics is not supported yet");
+            return DistributionMetric.class.getName();
 
         throw new IllegalArgumentException("Unknown metric class. " + metric.getClass());
     }
