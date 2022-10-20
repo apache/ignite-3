@@ -19,6 +19,7 @@ package org.apache.ignite.internal.storage.pagememory.index;
 
 import static org.apache.ignite.internal.binarytuple.BinaryTupleCommon.valueSizeToEntrySize;
 import static org.apache.ignite.internal.pagememory.tree.io.BplusInnerIo.CHILD_LINK_SIZE;
+import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.PARTITIONLESS_LINK_SIZE_BYTES;
 import static org.apache.ignite.internal.util.Constants.KiB;
 
 import java.math.BigDecimal;
@@ -193,5 +194,15 @@ public class InlineUtils {
         int additionalNodeItemBytes = remainingNodePayloadSize / nodeItemCount;
 
         return itemSize + additionalNodeItemBytes;
+    }
+
+    /**
+     * Checks if index columns can be fully inlined.
+     *
+     * @param indexColumnsSize Index columns size in bytes.
+     * @param inlineSize Inline size in bytes.
+     */
+    public static boolean canFullyInline(int indexColumnsSize, int inlineSize) {
+        return indexColumnsSize <= inlineSize + PARTITIONLESS_LINK_SIZE_BYTES;
     }
 }

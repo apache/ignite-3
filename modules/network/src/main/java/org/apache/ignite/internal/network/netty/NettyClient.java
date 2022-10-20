@@ -22,10 +22,12 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.socket.SocketChannel;
 import java.net.SocketAddress;
+import java.util.Objects;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import org.apache.ignite.internal.future.OrderingFuture;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
 import org.apache.ignite.internal.network.serialization.PerSessionSerializationService;
 import org.apache.ignite.internal.network.serialization.SerializationService;
@@ -47,10 +49,10 @@ public class NettyClient {
 
     /** Future that resolves when the client finished the handshake. */
     @Nullable
-    private volatile CompletableFuture<NettySender> clientFuture = null;
+    private volatile OrderingFuture<NettySender> senderFuture = null;
 
     /** Future that resolves when the client channel is opened. */
-    private CompletableFuture<Void> channelFuture = new CompletableFuture<>();
+    private final CompletableFuture<Void> channelFuture = new CompletableFuture<>();
 
     /** Client channel. */
     @Nullable
@@ -91,13 +93,13 @@ public class NettyClient {
      * @param bootstrapTemplate Template client bootstrap.
      * @return Future that resolves when client channel is opened.
      */
-    public CompletableFuture<NettySender> start(Bootstrap bootstrapTemplate) {
+    public OrderingFuture<NettySender> start(Bootstrap bootstrapTemplate) {
         synchronized (startStopLock) {
             if (stopped) {
                 throw new IgniteInternalException("Attempted to start an already stopped NettyClient");
             }
 
-            if (clientFuture != null) {
+            if (senderFuture != null) {
                 throw new IgniteInternalException("Attempted to start an already started NettyClient");
             }
 
@@ -113,7 +115,7 @@ public class NettyClient {
                 }
             });
 
-            clientFuture = NettyUtils.toChannelCompletableFuture(bootstrap.connect(address))
+            CompletableFuture<NettySender> senderCompletableFuture = NettyUtils.toChannelCompletableFuture(bootstrap.connect(address))
                     .handle((channel, throwable) -> {
                         synchronized (startStopLock) {
                             this.channel = channel;
@@ -134,8 +136,9 @@ public class NettyClient {
                         }
                     })
                     .thenCompose(Function.identity());
+            senderFuture = OrderingFuture.adapt(senderCompletableFuture);
 
-            return clientFuture;
+            return senderFuture;
         }
     }
 
@@ -144,9 +147,10 @@ public class NettyClient {
      *
      * @return Client start future.
      */
-    @Nullable
-    public CompletableFuture<NettySender> sender() {
-        return clientFuture;
+    public OrderingFuture<NettySender> sender() {
+        Objects.requireNonNull(senderFuture, "NettyClient is not connected yet");
+
+        return senderFuture;
     }
 
     /**
@@ -162,7 +166,7 @@ public class NettyClient {
 
             stopped = true;
 
-            if (clientFuture == null) {
+            if (senderFuture == null) {
                 return CompletableFuture.completedFuture(null);
             }
 
@@ -180,7 +184,9 @@ public class NettyClient {
      * @return {@code true} if the client has failed to connect to the remote server, {@code false} otherwise.
      */
     public boolean failedToConnect() {
-        return clientFuture != null && clientFuture.isCompletedExceptionally();
+        OrderingFuture<NettySender> currentFuture = senderFuture;
+
+        return currentFuture != null && currentFuture.isCompletedExceptionally();
     }
 
     /**
@@ -189,6 +195,8 @@ public class NettyClient {
      * @return {@code true} if the client has lost the connection or has been stopped, {@code false} otherwise.
      */
     public boolean isDisconnected() {
-        return (channel != null && !channel.isOpen()) || stopped;
+        Channel currentChannel = channel;
+
+        return (currentChannel != null && !currentChannel.isOpen()) || stopped;
     }
 }

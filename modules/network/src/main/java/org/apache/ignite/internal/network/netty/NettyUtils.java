@@ -22,6 +22,7 @@ import io.netty.channel.ChannelFuture;
 import io.netty.util.concurrent.Future;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import org.jetbrains.annotations.Async.Execute;
 import org.jetbrains.annotations.Async.Schedule;
 
@@ -43,19 +44,38 @@ public class NettyUtils {
             @Schedule F nettyFuture,
             Function<F, T> mapper
     ) {
-        var fut = new CompletableFuture<T>();
+        return toCompletableFuture(nettyFuture, mapper, CompletableFuture::new);
+    }
 
-        nettyFuture.addListener((@Execute F future) -> {
-            if (future.isSuccess()) {
-                fut.complete(mapper.apply(future));
-            } else if (future.isCancelled()) {
-                fut.cancel(true);
+    /**
+     * Convert a Netty {@link Future} to a {@link CompletableFuture}.
+     *
+     * @param nettyFuture Netty future.
+     * @param mapper      Function that maps successfully resolved Netty future to a value for a CompletableFuture.
+     * @param completableFutureFactory Factory used to produce a fresh instance of a {@link CompletableFuture}.
+     * @param <T>         Resulting future type.
+     * @param <R>         Netty future result type.
+     * @param <F>         Netty future type.
+     * @return CompletableFuture.
+     */
+    public static <T, R, F extends Future<R>> CompletableFuture<T> toCompletableFuture(
+            @Schedule F nettyFuture,
+            Function<F, T> mapper,
+            Supplier<? extends CompletableFuture<T>> completableFutureFactory
+    ) {
+        CompletableFuture<T> completableFuture = completableFutureFactory.get();
+
+        nettyFuture.addListener((@Execute F doneFuture) -> {
+            if (doneFuture.isSuccess()) {
+                completableFuture.complete(mapper.apply(doneFuture));
+            } else if (doneFuture.isCancelled()) {
+                completableFuture.cancel(true);
             } else {
-                fut.completeExceptionally(future.cause());
+                completableFuture.completeExceptionally(doneFuture.cause());
             }
         });
 
-        return fut;
+        return completableFuture;
     }
 
     /**
@@ -76,6 +96,6 @@ public class NettyUtils {
      * @return CompletableFuture.
      */
     public static CompletableFuture<Channel> toChannelCompletableFuture(ChannelFuture channelFuture) {
-        return toCompletableFuture(channelFuture, ChannelFuture::channel);
+        return toCompletableFuture(channelFuture, ChannelFuture::channel, CompletableFuture::new);
     }
 }

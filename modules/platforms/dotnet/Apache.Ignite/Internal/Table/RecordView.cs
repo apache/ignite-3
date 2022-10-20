@@ -33,7 +33,7 @@ namespace Apache.Ignite.Internal.Table
     /// </summary>
     /// <typeparam name="T">Record type.</typeparam>
     internal sealed class RecordView<T> : IRecordView<T>
-        where T : class
+        where T : notnull
     {
         /** Table. */
         private readonly Table _table;
@@ -58,7 +58,7 @@ namespace Apache.Ignite.Internal.Table
         public RecordSerializer<T> RecordSerializer => _ser;
 
         /// <inheritdoc/>
-        public async Task<T?> GetAsync(ITransaction? transaction, T key)
+        public async Task<Option<T>> GetAsync(ITransaction? transaction, T key)
         {
             IgniteArgumentCheck.NotNull(key, nameof(key));
 
@@ -69,7 +69,34 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <inheritdoc/>
-        public async Task<IList<T?>> GetAllAsync(ITransaction? transaction, IEnumerable<T> keys)
+        public async Task<IList<Option<T>>> GetAllAsync(ITransaction? transaction, IEnumerable<T> keys) =>
+            await GetAllAsync(
+                transaction: transaction,
+                keys: keys,
+                resultFactory: static count => count == 0
+                    ? (IList<Option<T>>)Array.Empty<Option<T>>()
+                    : new List<Option<T>>(count),
+                addAction: static (res, item) => res.Add(item));
+
+        /// <summary>
+        /// Gets multiple records by keys.
+        /// </summary>
+        /// <param name="transaction">The transaction or <c>null</c> to auto commit.</param>
+        /// <param name="keys">Collection of records with key columns set.</param>
+        /// <param name="resultFactory">Result factory.</param>
+        /// <param name="addAction">Add action.</param>
+        /// <typeparam name="TRes">Result type.</typeparam>
+        /// <returns>
+        /// A <see cref="Task"/> representing the asynchronous operation.
+        /// The task result contains matching records with all columns filled from the table. The order of collection
+        /// elements is guaranteed to be the same as the order of <paramref name="keys"/>. If a record does not exist,
+        /// the element at the corresponding index of the resulting collection will be empty <see cref="Option{T}"/>.
+        /// </returns>
+        public async Task<TRes> GetAllAsync<TRes>(
+            ITransaction? transaction,
+            IEnumerable<T> keys,
+            Func<int, TRes> resultFactory,
+            Action<TRes, Option<T>> addAction)
         {
             IgniteArgumentCheck.NotNull(keys, nameof(keys));
 
@@ -77,7 +104,7 @@ namespace Apache.Ignite.Internal.Table
 
             if (!iterator.MoveNext())
             {
-                return Array.Empty<T>();
+                return resultFactory(0);
             }
 
             var schema = await _table.GetLatestSchemaAsync().ConfigureAwait(false);
@@ -90,7 +117,7 @@ namespace Apache.Ignite.Internal.Table
             var resSchema = await _table.ReadSchemaAsync(resBuf).ConfigureAwait(false);
 
             // TODO: Read value parts only (IGNITE-16022).
-            return _ser.ReadMultipleNullable(resBuf, resSchema);
+            return _ser.ReadMultipleNullable(resBuf, resSchema, resultFactory, addAction);
         }
 
         /// <inheritdoc/>
@@ -123,7 +150,7 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <inheritdoc/>
-        public async Task<T?> GetAndUpsertAsync(ITransaction? transaction, T record)
+        public async Task<Option<T>> GetAndUpsertAsync(ITransaction? transaction, T record)
         {
             IgniteArgumentCheck.NotNull(record, nameof(record));
 
@@ -164,7 +191,14 @@ namespace Apache.Ignite.Internal.Table
             var resSchema = await _table.ReadSchemaAsync(resBuf).ConfigureAwait(false);
 
             // TODO: Read value parts only (IGNITE-16022).
-            return _ser.ReadMultiple(resBuf, resSchema);
+            return _ser.ReadMultiple(
+                buf: resBuf,
+                schema: resSchema,
+                keyOnly: false,
+                resultFactory: static count => count == 0
+                    ? (IList<T>)Array.Empty<T>()
+                    : new List<T>(count),
+                addAction: static (res, item) => res.Add(item));
         }
 
         /// <inheritdoc/>
@@ -192,7 +226,7 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <inheritdoc/>
-        public async Task<T?> GetAndReplaceAsync(ITransaction? transaction, T record)
+        public async Task<Option<T>> GetAndReplaceAsync(ITransaction? transaction, T record)
         {
             IgniteArgumentCheck.NotNull(record, nameof(record));
 
@@ -221,7 +255,7 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <inheritdoc/>
-        public async Task<T?> GetAndDeleteAsync(ITransaction? transaction, T key)
+        public async Task<Option<T>> GetAndDeleteAsync(ITransaction? transaction, T key)
         {
             IgniteArgumentCheck.NotNull(key, nameof(key));
 
@@ -232,32 +266,52 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <inheritdoc/>
-        public async Task<IList<T>> DeleteAllAsync(ITransaction? transaction, IEnumerable<T> keys)
-        {
-            IgniteArgumentCheck.NotNull(keys, nameof(keys));
-
-            using var iterator = keys.GetEnumerator();
-
-            if (!iterator.MoveNext())
-            {
-                return Array.Empty<T>();
-            }
-
-            var schema = await _table.GetLatestSchemaAsync().ConfigureAwait(false);
-            var tx = transaction.ToInternal();
-
-            using var writer = ProtoCommon.GetMessageWriter();
-            _ser.WriteMultiple(writer, tx, schema, iterator, keyOnly: true);
-
-            using var resBuf = await DoOutInOpAsync(ClientOp.TupleDeleteAll, tx, writer).ConfigureAwait(false);
-            var resSchema = await _table.ReadSchemaAsync(resBuf).ConfigureAwait(false);
-
-            // TODO: Read value parts only (IGNITE-16022).
-            return _ser.ReadMultiple(resBuf, resSchema, keyOnly: true);
-        }
+        public async Task<IList<T>> DeleteAllAsync(ITransaction? transaction, IEnumerable<T> keys) =>
+            await DeleteAllAsync(transaction, keys, exact: false);
 
         /// <inheritdoc/>
-        public async Task<IList<T>> DeleteAllExactAsync(ITransaction? transaction, IEnumerable<T> records)
+        public async Task<IList<T>> DeleteAllExactAsync(ITransaction? transaction, IEnumerable<T> records) =>
+            await DeleteAllAsync(transaction, records, exact: true);
+
+        /// <summary>
+        /// Deletes multiple records. If one or more keys do not exist, other records are still deleted.
+        /// </summary>
+        /// <param name="transaction">The transaction or <c>null</c> to auto commit.</param>
+        /// <param name="records">Record keys to delete.</param>
+        /// <param name="exact">Whether to match on both key and value.</param>
+        /// <returns>
+        /// A <see cref="Task"/> representing the asynchronous operation.
+        /// The task result contains records from <paramref name="records"/> that did not exist.
+        /// </returns>
+        public async Task<IList<T>> DeleteAllAsync(ITransaction? transaction, IEnumerable<T> records, bool exact) =>
+            await DeleteAllAsync(
+                transaction,
+                records,
+                resultFactory: static count => count == 0
+                    ? (IList<T>)Array.Empty<T>()
+                    : new List<T>(count),
+                addAction: static (res, item) => res.Add(item),
+                exact: exact);
+
+        /// <summary>
+        /// Deletes multiple records. If one or more keys do not exist, other records are still deleted.
+        /// </summary>
+        /// <param name="transaction">The transaction or <c>null</c> to auto commit.</param>
+        /// <param name="records">Record keys to delete.</param>
+        /// <param name="resultFactory">Result factory.</param>
+        /// <param name="addAction">Add action.</param>
+        /// <param name="exact">Whether to match on both key and value.</param>
+        /// <typeparam name="TRes">Result type.</typeparam>
+        /// <returns>
+        /// A <see cref="Task"/> representing the asynchronous operation.
+        /// The task result contains records from <paramref name="records"/> that did not exist.
+        /// </returns>
+        public async Task<TRes> DeleteAllAsync<TRes>(
+            ITransaction? transaction,
+            IEnumerable<T> records,
+            Func<int, TRes> resultFactory,
+            Action<TRes, T> addAction,
+            bool exact)
         {
             IgniteArgumentCheck.NotNull(records, nameof(records));
 
@@ -265,19 +319,43 @@ namespace Apache.Ignite.Internal.Table
 
             if (!iterator.MoveNext())
             {
-                return Array.Empty<T>();
+                return resultFactory(0);
             }
 
             var schema = await _table.GetLatestSchemaAsync().ConfigureAwait(false);
             var tx = transaction.ToInternal();
 
             using var writer = ProtoCommon.GetMessageWriter();
-            _ser.WriteMultiple(writer, tx, schema, iterator);
+            _ser.WriteMultiple(writer, tx, schema, iterator, keyOnly: !exact);
 
-            using var resBuf = await DoOutInOpAsync(ClientOp.TupleDeleteAllExact, tx, writer).ConfigureAwait(false);
+            var clientOp = exact ? ClientOp.TupleDeleteAllExact : ClientOp.TupleDeleteAll;
+            using var resBuf = await DoOutInOpAsync(clientOp, tx, writer).ConfigureAwait(false);
             var resSchema = await _table.ReadSchemaAsync(resBuf).ConfigureAwait(false);
 
-            return _ser.ReadMultiple(resBuf, resSchema);
+            // TODO: Read value parts only (IGNITE-16022).
+            return _ser.ReadMultiple(
+                buf: resBuf,
+                schema: resSchema,
+                keyOnly: !exact,
+                resultFactory: resultFactory,
+                addAction: addAction);
+        }
+
+        /// <summary>
+        /// Determines if the table contains an entry for the specified key.
+        /// </summary>
+        /// <param name="transaction">Transaction.</param>
+        /// <param name="key">Key.</param>
+        /// <returns>
+        /// A <see cref="Task"/> representing the asynchronous operation.
+        /// The task result contains a value indicating whether a record with the specified key exists in the table.
+        /// </returns>
+        internal async Task<bool> ContainsKey(ITransaction? transaction, T key)
+        {
+            IgniteArgumentCheck.NotNull(key, nameof(key));
+
+            using var resBuf = await DoRecordOutOpAsync(ClientOp.TupleContainsKey, transaction, key, keyOnly: true).ConfigureAwait(false);
+            return resBuf.GetReader().ReadBoolean();
         }
 
         private async Task<PooledBuffer> DoOutInOpAsync(

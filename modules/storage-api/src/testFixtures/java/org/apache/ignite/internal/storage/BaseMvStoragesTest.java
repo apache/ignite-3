@@ -129,13 +129,7 @@ public abstract class BaseMvStoragesTest {
         return new IgniteBiTuple<>(key(binaryRow), value(binaryRow));
     }
 
-    protected static List<IgniteBiTuple<TestKey, TestValue>> toList(Cursor<BinaryRow> cursor) throws Exception {
-        try (cursor) {
-            return cursor.stream().map(BaseMvStoragesTest::unwrap).collect(Collectors.toList());
-        }
-    }
-
-    protected static List<IgniteBiTuple<TestKey, TestValue>> toList(PartitionTimestampCursor cursor) throws Exception {
+    protected static List<IgniteBiTuple<TestKey, TestValue>> toList(Cursor<ReadResult> cursor) throws Exception {
         try (cursor) {
             return cursor.stream().map(BaseMvStoragesTest::unwrap).collect(Collectors.toList());
         }

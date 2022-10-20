@@ -179,10 +179,14 @@
                 <dependencies>
                     <dependency>
                         <groupId>org.apache.ignite</groupId>
+                        <artifactId>ignite-configuration-annotation-processor</artifactId>
+                        <version>${project.version}</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>org.apache.ignite</groupId>
                         <artifactId>ignite-network-annotation-processor</artifactId>
                         <version>${project.version}</version>
                     </dependency>
-
                     <dependency>
                         <groupId>org.openjdk.jmh</groupId>
                         <artifactId>jmh-generator-annprocess</artifactId>
@@ -191,6 +195,11 @@
                 </dependencies>
                 <configuration>
                     <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.apache.ignite</groupId>
+                            <artifactId>ignite-configuration-annotation-processor</artifactId>
+                            <version>${project.version}</version>
+                        </path>
                         <path>
                             <groupId>org.apache.ignite</groupId>
                             <artifactId>ignite-network-annotation-processor</artifactId>

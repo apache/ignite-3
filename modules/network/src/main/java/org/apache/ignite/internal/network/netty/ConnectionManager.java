@@ -31,11 +31,13 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
-import org.apache.ignite.configuration.schemas.network.NetworkView;
+import org.apache.ignite.internal.future.OrderingFuture;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
+import org.apache.ignite.internal.network.configuration.NetworkView;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
+import org.apache.ignite.internal.network.recovery.RecoveryClientHandhakeManagerFactory;
 import org.apache.ignite.internal.network.recovery.RecoveryClientHandshakeManager;
 import org.apache.ignite.internal.network.recovery.RecoveryDescriptorProvider;
 import org.apache.ignite.internal.network.recovery.RecoveryServerHandshakeManager;
@@ -83,6 +85,9 @@ public class ConnectionManager {
     /** Node launch id. As opposed to {@link #consistentId}, this identifier changes between restarts. */
     private final UUID launchId;
 
+    /** Factory producing {@link RecoveryClientHandshakeManager} instances. */
+    private final RecoveryClientHandhakeManagerFactory clientHandhakeManagerFactory;
+
     /** Start flag. */
     private final AtomicBoolean started = new AtomicBoolean(false);
 
@@ -108,9 +113,38 @@ public class ConnectionManager {
             String consistentId,
             NettyBootstrapFactory bootstrapFactory
     ) {
+        this(
+                networkConfiguration,
+                serializationService,
+                launchId,
+                consistentId,
+                bootstrapFactory,
+                new DefaultRecoveryClientHandhakeManagerFactory()
+        );
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param networkConfiguration          Network configuration.
+     * @param serializationService          Serialization service.
+     * @param launchId                      Launch id of this node.
+     * @param consistentId                  Consistent id of this node.
+     * @param bootstrapFactory              Bootstrap factory.
+     * @param clientHandhakeManagerFactory  Factory for {@link RecoveryClientHandshakeManager} instances.
+     */
+    public ConnectionManager(
+            NetworkView networkConfiguration,
+            SerializationService serializationService,
+            UUID launchId,
+            String consistentId,
+            NettyBootstrapFactory bootstrapFactory,
+            RecoveryClientHandhakeManagerFactory clientHandhakeManagerFactory
+    ) {
         this.serializationService = serializationService;
         this.launchId = launchId;
         this.consistentId = consistentId;
+        this.clientHandhakeManagerFactory = clientHandhakeManagerFactory;
 
         this.server = new NettyServer(
                 networkConfiguration,
@@ -170,7 +204,7 @@ public class ConnectionManager {
      * @param address      Another node's address.
      * @return Sender.
      */
-    public CompletableFuture<NettySender> channel(@Nullable String consistentId, SocketAddress address) {
+    public OrderingFuture<NettySender> channel(@Nullable String consistentId, SocketAddress address) {
         if (consistentId != null) {
             // If consistent id is known, try looking up a channel by consistent id. There can be an outbound connection
             // or an inbound connection associated with that consistent id.
@@ -180,7 +214,7 @@ public class ConnectionManager {
             );
 
             if (channel != null) {
-                return CompletableFuture.completedFuture(channel);
+                return OrderingFuture.completedFuture(channel);
             }
         }
 
@@ -193,11 +227,7 @@ public class ConnectionManager {
                         ? existingClient : connect(addr, (short) 0)
         );
 
-        CompletableFuture<NettySender> sender = client.sender();
-
-        assert sender != null;
-
-        return sender;
+        return client.sender();
     }
 
     /**
@@ -292,7 +322,12 @@ public class ConnectionManager {
     }
 
     private HandshakeManager createClientHandshakeManager(short connectionId) {
-        return new RecoveryClientHandshakeManager(launchId, consistentId, connectionId, FACTORY, descriptorProvider);
+        return clientHandhakeManagerFactory.create(
+                launchId,
+                consistentId,
+                connectionId,
+                descriptorProvider
+        );
     }
 
     private HandshakeManager createServerHandshakeManager() {
@@ -314,7 +349,6 @@ public class ConnectionManager {
      *
      * @return This node's consistent id.
      */
-    @TestOnly
     public String consistentId() {
         return consistentId;
     }
@@ -337,5 +371,16 @@ public class ConnectionManager {
     @TestOnly
     public Map<String, NettySender> channels() {
         return Collections.unmodifiableMap(channels);
+    }
+
+    /**
+     * Factory producing vanilla {@link RecoveryClientHandshakeManager} instances.
+     */
+    private static class DefaultRecoveryClientHandhakeManagerFactory implements RecoveryClientHandhakeManagerFactory {
+        @Override
+        public RecoveryClientHandshakeManager create(UUID launchId, String consistentId, short connectionId,
+                RecoveryDescriptorProvider recoveryDescriptorProvider) {
+            return new RecoveryClientHandshakeManager(launchId, consistentId, connectionId, recoveryDescriptorProvider);
+        }
     }
 }

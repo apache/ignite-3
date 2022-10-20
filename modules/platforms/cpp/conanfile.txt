@@ -18,7 +18,6 @@
 [requires]
 msgpack-c/4.0.0
 gtest/1.12.1
-boost/1.72.0
 
 [generators]
 cmake_find_package

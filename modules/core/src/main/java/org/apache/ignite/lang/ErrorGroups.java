@@ -301,4 +301,13 @@ public class ErrorGroups {
         /** The error happens when the replica is not the current primary replica. */
         public static final int REPLICA_MISS_ERR = REPLICATOR_ERR_GROUP.registerErrorCode(6);
     }
+
+    /** Storage error group. */
+    public static class Storage {
+        /** Storage error group. */
+        public static final ErrorGroup STORAGE_ERR_GROUP = ErrorGroup.newGroup("STORAGE", 9);
+
+        /** Failed to create a directory. */
+        public static final int DIRECTORY_CREATION_ERR = STORAGE_ERR_GROUP.registerErrorCode(1);
+    }
 }

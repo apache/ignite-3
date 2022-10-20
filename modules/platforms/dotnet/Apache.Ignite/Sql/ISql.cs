@@ -33,7 +33,7 @@ namespace Apache.Ignite.Sql
         /// <param name="statement">Statement to execute.</param>
         /// <param name="args">Arguments for the statement.</param>
         /// <returns>SQL result set.</returns>
-        Task<IResultSet<IIgniteTuple>> ExecuteAsync(ITransaction? transaction, SqlStatement statement, params object[] args);
+        Task<IResultSet<IIgniteTuple>> ExecuteAsync(ITransaction? transaction, SqlStatement statement, params object?[]? args);
 
         /// <summary>
         /// Executes single SQL statement and returns rows deserialized into the specified user type <typeparamref name="T"/>.
@@ -43,7 +43,6 @@ namespace Apache.Ignite.Sql
         /// <param name="args">Arguments for the statement.</param>
         /// <typeparam name="T">Row type.</typeparam>
         /// <returns>SQL result set.</returns>
-        Task<IResultSet<T>> ExecuteAsync<T>(ITransaction? transaction, SqlStatement statement, params object[] args)
-            where T : class; // TODO: Remove class constraint (IGNITE-16355)
+        Task<IResultSet<T>> ExecuteAsync<T>(ITransaction? transaction, SqlStatement statement, params object?[]? args);
     }
 }

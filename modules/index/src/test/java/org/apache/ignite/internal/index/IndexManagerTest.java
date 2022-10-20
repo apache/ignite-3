@@ -39,32 +39,32 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.configuration.NamedConfigurationTree;
-import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.HashIndexChange;
-import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.IndexValidator;
-import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.SortedIndexChange;
-import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.TableChange;
-import org.apache.ignite.configuration.schemas.table.TableConfiguration;
-import org.apache.ignite.configuration.schemas.table.TableIndexConfiguration;
-import org.apache.ignite.configuration.schemas.table.TableView;
-import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.NamedListConfiguration;
-import org.apache.ignite.internal.configuration.schema.ExtendedTableChange;
-import org.apache.ignite.internal.configuration.schema.ExtendedTableConfigurationSchema;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.tree.ConverterToMapVisitor;
 import org.apache.ignite.internal.configuration.tree.TraversableTreeNode;
 import org.apache.ignite.internal.index.event.IndexEvent;
 import org.apache.ignite.internal.index.event.IndexEventParameters;
-import org.apache.ignite.internal.schema.configuration.IndexValidatorImpl;
+import org.apache.ignite.internal.schema.configuration.ExtendedTableChange;
+import org.apache.ignite.internal.schema.configuration.ExtendedTableConfigurationSchema;
+import org.apache.ignite.internal.schema.configuration.TableChange;
+import org.apache.ignite.internal.schema.configuration.TableConfiguration;
+import org.apache.ignite.internal.schema.configuration.TableView;
+import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
+import org.apache.ignite.internal.schema.configuration.defaultvalue.ConstantValueDefaultConfigurationSchema;
+import org.apache.ignite.internal.schema.configuration.defaultvalue.FunctionCallDefaultConfigurationSchema;
+import org.apache.ignite.internal.schema.configuration.defaultvalue.NullValueDefaultConfigurationSchema;
+import org.apache.ignite.internal.schema.configuration.index.HashIndexChange;
+import org.apache.ignite.internal.schema.configuration.index.HashIndexConfigurationSchema;
+import org.apache.ignite.internal.schema.configuration.index.IndexValidator;
+import org.apache.ignite.internal.schema.configuration.index.IndexValidatorImpl;
+import org.apache.ignite.internal.schema.configuration.index.SortedIndexChange;
+import org.apache.ignite.internal.schema.configuration.index.SortedIndexConfigurationSchema;
+import org.apache.ignite.internal.schema.configuration.index.TableIndexConfiguration;
+import org.apache.ignite.internal.schema.configuration.storage.UnknownDataStorageConfigurationSchema;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -127,7 +127,7 @@ public class IndexManagerTest {
 
             chg.changePrimaryKey(pk -> pk.changeColumns("c1").changeColocationColumns("c1"));
 
-            ((ExtendedTableChange) chg).changeAssignments((byte) 1);
+            ((ExtendedTableChange) chg).changeAssignments((byte) 1).changeSchemaId(1);
         })).get();
     }
 

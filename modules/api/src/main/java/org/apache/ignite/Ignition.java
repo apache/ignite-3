@@ -86,8 +86,7 @@ public interface Ignition {
      * REST endpoint is functional).
      *
      * @param nodeName Name of the node. Must not be {@code null}.
-     * @param config Optional node configuration based on
-     *      {@link org.apache.ignite.configuration.schemas.network.NetworkConfigurationSchema}.
+     * @param config Optional node configuration.
      *      Following rules are used for applying the configuration properties:
      *      <ol>
      *        <li>Specified property overrides existing one or just applies itself if it wasn't

@@ -148,4 +148,13 @@ public class WatchListenerInhibitor implements WatchListener {
 
         inhibitEvents.clear();
     }
+
+    /**
+     * Stops silently, no events resend.
+     */
+    public synchronized void stopWithoutResend() {
+        inhibit = false;
+
+        inhibitEvents.clear();
+    }
 }

@@ -37,22 +37,12 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorConfiguration;
-import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
-import org.apache.ignite.configuration.schemas.rest.RestConfiguration;
-import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
+import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
-import org.apache.ignite.internal.configuration.schema.ExtendedTableConfiguration;
-import org.apache.ignite.internal.configuration.schema.ExtendedTableConfigurationSchema;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -60,6 +50,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
+import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
@@ -67,7 +58,16 @@ import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.rest.configuration.RestConfiguration;
 import org.apache.ignite.internal.schema.SchemaManager;
+import org.apache.ignite.internal.schema.configuration.ExtendedTableConfiguration;
+import org.apache.ignite.internal.schema.configuration.ExtendedTableConfigurationSchema;
+import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
+import org.apache.ignite.internal.schema.configuration.defaultvalue.ConstantValueDefaultConfigurationSchema;
+import org.apache.ignite.internal.schema.configuration.defaultvalue.FunctionCallDefaultConfigurationSchema;
+import org.apache.ignite.internal.schema.configuration.defaultvalue.NullValueDefaultConfigurationSchema;
+import org.apache.ignite.internal.schema.configuration.index.HashIndexConfigurationSchema;
+import org.apache.ignite.internal.schema.configuration.storage.UnknownDataStorageConfigurationSchema;
 import org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter;
 import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
@@ -175,7 +175,10 @@ public class ItRebalanceDistributedTest {
         assertEquals(1, nodes.get(0).clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY)
                 .tables().get("TBL1").replicas().value());
 
-        await(nodes.get(0).tableManager.alterTableAsync("TBL1", ch -> ch.changeReplicas(2)));
+        await(nodes.get(0).tableManager.alterTableAsync("TBL1", ch -> {
+            ch.changeReplicas(2);
+            return true;
+        }));
 
         waitPartitionAssignmentsSyncedToExpected(0, 2);
 
@@ -200,8 +203,15 @@ public class ItRebalanceDistributedTest {
         assertEquals(1, nodes.get(0).clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY).tables()
                 .get("TBL1").replicas().value());
 
-        await(nodes.get(0).tableManager.alterTableAsync("TBL1", ch -> ch.changeReplicas(2)));
-        await(nodes.get(0).tableManager.alterTableAsync("TBL1", ch -> ch.changeReplicas(3)));
+        await(nodes.get(0).tableManager.alterTableAsync("TBL1", ch -> {
+            ch.changeReplicas(2);
+            return true;
+        }));
+
+        await(nodes.get(0).tableManager.alterTableAsync("TBL1", ch -> {
+            ch.changeReplicas(3);
+            return true;
+        }));
 
         waitPartitionAssignmentsSyncedToExpected(0, 3);
 
@@ -226,9 +236,20 @@ public class ItRebalanceDistributedTest {
         assertEquals(1, nodes.get(0).clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY).tables()
                 .get("TBL1").replicas().value());
 
-        await(nodes.get(0).tableManager.alterTableAsync("TBL1", ch -> ch.changeReplicas(2)));
-        await(nodes.get(0).tableManager.alterTableAsync("TBL1", ch -> ch.changeReplicas(3)));
-        await(nodes.get(0).tableManager.alterTableAsync("TBL1", ch -> ch.changeReplicas(2)));
+        await(nodes.get(0).tableManager.alterTableAsync("TBL1", ch -> {
+            ch.changeReplicas(2);
+            return true;
+        }));
+
+        await(nodes.get(0).tableManager.alterTableAsync("TBL1", ch -> {
+            ch.changeReplicas(3);
+            return true;
+        }));
+
+        await(nodes.get(0).tableManager.alterTableAsync("TBL1", ch -> {
+            ch.changeReplicas(2);
+            return true;
+        }));
 
         waitPartitionAssignmentsSyncedToExpected(0, 2);
 
@@ -277,7 +298,10 @@ public class ItRebalanceDistributedTest {
                     return false;
                 });
 
-        await(nodes.get(0).tableManager.alterTableAsync("TBL1", ch -> ch.changeReplicas(3)));
+        await(nodes.get(0).tableManager.alterTableAsync("TBL1", ch -> {
+            ch.changeReplicas(3);
+            return true;
+        }));
 
         countDownLatch.await();
 
@@ -308,7 +332,10 @@ public class ItRebalanceDistributedTest {
         assertEquals(1, nodes.get(0).clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY)
                 .tables().get("TBL1").replicas().value());
 
-        await(nodes.get(0).tableManager.alterTableAsync("TBL1", ch -> ch.changeReplicas(1)));
+        await(nodes.get(0).tableManager.alterTableAsync("TBL1", ch -> {
+            ch.changeReplicas(1);
+            return true;
+        }));
 
         waitPartitionAssignmentsSyncedToExpected(0, 1);
 
@@ -331,7 +358,10 @@ public class ItRebalanceDistributedTest {
             return false;
         });
 
-        await(nodes.get(0).tableManager.alterTableAsync("TBL1", ch -> ch.changeReplicas(3)));
+        await(nodes.get(0).tableManager.alterTableAsync("TBL1", ch -> {
+            ch.changeReplicas(3);
+            return true;
+        }));
 
         waitPartitionAssignmentsSyncedToExpected(0, 3);
 
@@ -506,7 +536,7 @@ public class ItRebalanceDistributedTest {
                     metaStorageManager,
                     clusterService);
 
-            schemaManager = new SchemaManager(registry, tablesCfg);
+            schemaManager = new SchemaManager(registry, tablesCfg, metaStorageManager);
 
             tableManager = new TableManager(
                     name,

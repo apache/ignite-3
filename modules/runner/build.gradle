@@ -16,6 +16,7 @@
  */
 
 apply from: "$rootDir/buildscripts/java-core.gradle"
+apply from: "$rootDir/buildscripts/publishing.gradle"
 apply from: "$rootDir/buildscripts/java-junit5.gradle"
 apply from: "$rootDir/buildscripts/java-integration-test.gradle"
 
@@ -49,6 +50,7 @@ dependencies {
     implementation project(':ignite-core')
     implementation project(':ignite-cluster-management')
     implementation project(':ignite-metrics')
+    implementation project(':ignite-replicator')
     implementation libs.jetbrains.annotations
     implementation libs.micronaut.inject
     implementation libs.micronaut.validation
@@ -79,7 +81,6 @@ dependencies {
     testImplementation libs.jsonpath.assert
 
     integrationTestAnnotationProcessor project(':ignite-configuration-annotation-processor')
-    integrationTestImplementation project(':ignite-extended-api')
     integrationTestImplementation project(':ignite-page-memory')
     integrationTestImplementation project(':ignite-raft-client')
     integrationTestImplementation project(':ignite-client')
@@ -94,6 +95,30 @@ dependencies {
     integrationTestImplementation libs.jsonpath.assert
     integrationTestImplementation libs.typesafe.config
 
+}
+
+def sqlIntegrationTest = tasks.register("sqlIntegrationTest", Test) {
+    description = 'Runs sql integration tests.'
+    group = 'verification'
+    useJUnitPlatform {
+        includeTags "sqllogic"
+    }
+    maxHeapSize = "16g"
+
+    testClassesDirs = sourceSets.integrationTest.output.classesDirs
+    classpath = sourceSets.integrationTest.runtimeClasspath
+}
+
+def runnerPlatformTest = tasks.register("runnerPlatformTest", JavaExec) {
+    mainClass = "org.apache.ignite.internal.runner.app.PlatformTestNodeRunner"
+
+    classpath = sourceSets.integrationTest.runtimeClasspath
+}
+
+integrationTest {
+    useJUnitPlatform {
+        excludeTags "sqllogic"
+    }
 }
 
 checkstyleMain {

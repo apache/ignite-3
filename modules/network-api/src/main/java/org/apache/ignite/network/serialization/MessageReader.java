@@ -21,7 +21,9 @@ import java.nio.ByteBuffer;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.network.NetworkMessage;
@@ -214,6 +216,14 @@ public interface MessageReader {
     public BitSet readBitSet(String name);
 
     /**
+     * Reads a {@link ByteBuffer}.
+     *
+     * @param name Field name.
+     * @return {@link ByteBuffer}.
+     */
+    ByteBuffer readByteBuffer(String name);
+
+    /**
      * Reads an {@link UUID}.
      *
      * @param name Field name.
@@ -252,12 +262,32 @@ public interface MessageReader {
     /**
      * Reads a collection.
      *
-     * @param <C>      Type of a collection.
+     * @param <C>      Type of collection.
      * @param name     Field name.
-     * @param itemType An item type of the Collection.
+     * @param itemType An item type of the collection.
      * @return Collection.
      */
     public <C extends Collection<?>> C readCollection(String name, MessageCollectionItemType itemType);
+
+    /**
+     * Reads a list.
+     *
+     * @param <C>      Type of list.
+     * @param name     Field name.
+     * @param itemType An item type of the list.
+     * @return List.
+     */
+    public <C extends List<?>> C readList(String name, MessageCollectionItemType itemType);
+
+    /**
+     * Reads a set.
+     *
+     * @param <C>      Type of set.
+     * @param name     Field name.
+     * @param itemType An item type of the set.
+     * @return Set.
+     */
+    public <C extends Set<?>> C readSet(String name, MessageCollectionItemType itemType);
 
     /**
      * Reads a map.

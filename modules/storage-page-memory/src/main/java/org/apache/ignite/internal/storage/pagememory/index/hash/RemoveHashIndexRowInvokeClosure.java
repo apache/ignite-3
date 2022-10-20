@@ -48,7 +48,7 @@ class RemoveHashIndexRowInvokeClosure implements InvokeClosure<HashIndexRow> {
      * @param freeList Free list to insert data into in case of necessity.
      */
     public RemoveHashIndexRowInvokeClosure(HashIndexRow hashIndexRow, IndexColumnsFreeList freeList) {
-        assert hashIndexRow.indexColumns().link() == 0L;
+        assert hashIndexRow.indexColumns().link() == NULL_LINK;
 
         this.hashIndexRow = hashIndexRow;
         this.freeList = freeList;

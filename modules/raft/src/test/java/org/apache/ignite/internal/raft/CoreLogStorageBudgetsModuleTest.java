@@ -22,9 +22,9 @@ import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 
-import org.apache.ignite.configuration.schemas.table.EntryCountBudgetConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.EntryCountBudgetView;
-import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
+import org.apache.ignite.internal.raft.configuration.EntryCountBudgetConfigurationSchema;
+import org.apache.ignite.internal.raft.configuration.EntryCountBudgetView;
+import org.apache.ignite.internal.raft.configuration.UnlimitedBudgetConfigurationSchema;
 import org.apache.ignite.raft.jraft.core.LogStorageBudgetFactory;
 import org.apache.ignite.raft.jraft.storage.impl.EntryCountBudget;
 import org.apache.ignite.raft.jraft.storage.impl.UnlimitedBudget;

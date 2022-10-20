@@ -112,6 +112,11 @@ namespace Apache.Ignite
         TupleGetAndDelete,
 
         /// <summary>
+        /// Contains key (<see cref="IKeyValueView{TK,TV}.ContainsAsync"/>).
+        /// </summary>
+        TupleContainsKey,
+
+        /// <summary>
         /// Compute (<see cref="ICompute.ExecuteAsync{T}"/>, <see cref="ICompute.BroadcastAsync{T}"/>).
         /// </summary>
         ComputeExecute,

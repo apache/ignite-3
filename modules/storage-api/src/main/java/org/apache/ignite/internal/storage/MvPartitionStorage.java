@@ -20,7 +20,6 @@ package org.apache.ignite.internal.storage;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiConsumer;
-import java.util.function.Predicate;
 import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.util.Cursor;
@@ -98,6 +97,9 @@ public interface MvPartitionStorage extends AutoCloseable {
      *     <li>There are commits but they're all newer than timestamp - return nothing.</li>
      * </ol>
      *
+     * <p>{@link ReadResult#newestCommitTimestamp()} is filled by this method for intents having preceding committed
+     * versions.
+     *
      * @param rowId Row id.
      * @param timestamp Timestamp.
      * @return Read result that corresponds to the key.
@@ -143,22 +145,39 @@ public interface MvPartitionStorage extends AutoCloseable {
     void commitWrite(RowId rowId, HybridTimestamp timestamp) throws StorageException;
 
     /**
-     * Scans all versions of a single row.
+     * Creates a committed version.
+     * In details:
+     * - if there is no uncommitted version, a new committed version is added
+     * - if there is an uncommitted version, this method may fail with a system exception (this method should not be called if there
+     *   is already something uncommitted for the given row).
      *
      * @param rowId Row id.
+     * @param row Binary row to update. Key only row means value removal.
+     * @param commitTimestamp Timestamp to associate with committed value.
+     * @throws StorageException If failed to write data to the storage.
      */
-    Cursor<BinaryRow> scanVersions(RowId rowId) throws StorageException;
+    void addWriteCommitted(RowId rowId, BinaryRow row, HybridTimestamp commitTimestamp) throws StorageException;
+
+    /**
+     * Scans all versions of a single row.
+     *
+     * <p>{@link ReadResult#newestCommitTimestamp()} is NOT filled by this method for intents having preceding committed
+     * versions.
+     *
+     * @param rowId Row id.
+     * @return Cursor of results including both rows data and transaction-related context. The versions are ordered from newest to oldest.
+     */
+    Cursor<ReadResult> scanVersions(RowId rowId) throws StorageException;
 
     /**
      * Scans the partition and returns a cursor of values at the given timestamp.
      *
-     * @param keyFilter Key filter. Binary rows passed to the filter may or may not have a value, filter should only check keys.
      * @param timestamp Timestamp. Can't be {@code null}.
      * @return Cursor.
      * @throws TxIdMismatchException If there's another pending update associated with different transaction id.
      * @throws StorageException If failed to read data from the storage.
      */
-    PartitionTimestampCursor scan(Predicate<BinaryRow> keyFilter, HybridTimestamp timestamp) throws StorageException;
+    PartitionTimestampCursor scan(HybridTimestamp timestamp) throws StorageException;
 
     /**
      * Returns a row id, existing in the storage, that's greater or equal than the lower bound. {@code null} if not found.

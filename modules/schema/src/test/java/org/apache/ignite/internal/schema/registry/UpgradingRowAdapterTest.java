@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.schema.registry;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.schema.NativeTypes.BYTES;
 import static org.apache.ignite.internal.schema.NativeTypes.DATE;
 import static org.apache.ignite.internal.schema.NativeTypes.DOUBLE;
@@ -151,12 +152,14 @@ public class UpgradingRowAdapterTest {
         ByteBufferRow row = new ByteBufferRow(serializeValuesToRow(schema, values));
 
         // Validate row.
-        validateRow(values, new SchemaRegistryImpl(v -> v == 1 ? schema : schema2, () -> INITIAL_SCHEMA_VERSION, schema), row);
+        validateRow(values, new SchemaRegistryImpl(v -> v == 1 ? completedFuture(schema) : completedFuture(schema2),
+                () -> INITIAL_SCHEMA_VERSION, schema), row);
 
         // Validate upgraded row.
         values.add(addedColumnIndex, null);
 
-        validateRow(values, new SchemaRegistryImpl(v -> v == 1 ? schema : schema2, () -> schema2.version(), schema2), row);
+        validateRow(values, new SchemaRegistryImpl(v -> v == 1 ? completedFuture(schema) : completedFuture(schema2),
+                () -> schema2.version(), schema2), row);
     }
 
     private void validateRow(List<Object> values, SchemaRegistryImpl schemaRegistry, ByteBufferRow binaryRow) {

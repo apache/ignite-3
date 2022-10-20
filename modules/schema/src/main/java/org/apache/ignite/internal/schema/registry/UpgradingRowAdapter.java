@@ -77,7 +77,7 @@ class UpgradingRowAdapter extends Row {
      * Map column.
      *
      * @param colIdx Column index in source schema.
-     * @return Column index in targer schema.
+     * @return Column index in target schema.
      */
     private int mapColumn(int colIdx) throws InvalidTypeException {
         return mapper.map(colIdx);

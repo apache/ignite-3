@@ -210,6 +210,10 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 groupId,
                 tableId(),
                 primaryIndex,
+                new HybridClock(),
+                null,
+                null,
+                null,
                 new TrackableHybridClock()
         );
 

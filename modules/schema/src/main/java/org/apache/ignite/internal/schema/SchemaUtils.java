@@ -19,9 +19,9 @@ package org.apache.ignite.internal.schema;
 
 import java.util.Optional;
 import org.apache.ignite.configuration.NamedListView;
-import org.apache.ignite.configuration.schemas.table.ColumnView;
-import org.apache.ignite.configuration.schemas.table.TableView;
+import org.apache.ignite.internal.schema.configuration.ColumnView;
 import org.apache.ignite.internal.schema.configuration.ConfigurationToSchemaDescriptorConverter;
+import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.mapping.ColumnMapper;
 import org.apache.ignite.internal.schema.mapping.ColumnMapping;
 import org.apache.ignite.lang.IgniteStringFormatter;
@@ -58,37 +58,39 @@ public class SchemaUtils {
     ) {
         ColumnMapper mapper = null;
 
-        // since newTblColumns comes from a Change class, it can only be of the same size or larger than the previous configuration,
-        // because removed keys are simply replaced with nulls
-        assert newTblColumns.size() >= oldTblColumns.size();
-
         for (int i = 0; i < newTblColumns.size(); ++i) {
             ColumnView newColView = newTblColumns.get(i);
 
-            // new value can be null if a column has been deleted
-            if (newColView == null) {
-                continue;
-            }
+            assert newColView != null;
+
+            Column newCol = newDesc.column(newColView.name());
 
             if (i < oldTblColumns.size()) {
                 ColumnView oldColView = oldTblColumns.get(i);
 
-                Column newCol = newDesc.column(newColView.name());
                 Column oldCol = oldDesc.column(oldColView.name());
 
                 if (newCol.schemaIndex() == oldCol.schemaIndex()) {
-                    continue;
-                }
+                    if (!newCol.name().equals(oldCol.name())) {
+                        if (mapper == null) {
+                            mapper = ColumnMapping.createMapper(newDesc);
+                        }
 
-                if (mapper == null) {
-                    mapper = ColumnMapping.createMapper(newDesc);
-                }
+                        Column oldIdx = oldDesc.column(newColView.name());
 
-                mapper.add(newCol.schemaIndex(), oldCol.schemaIndex());
+                        // rename
+                        if (oldIdx != null) {
+                            mapper.add(newCol.schemaIndex(), oldIdx.schemaIndex());
+                        }
+                    }
+                } else {
+                    if (mapper == null) {
+                        mapper = ColumnMapping.createMapper(newDesc);
+                    }
+
+                    mapper.add(newCol.schemaIndex(), oldCol.schemaIndex());
+                }
             } else {
-                // if the new Named List is larger than the old one, it can only mean that a new column has been added
-                Column newCol = newDesc.column(newColView.name());
-
                 assert !newDesc.isKeyColumn(newCol.schemaIndex());
 
                 if (mapper == null) {

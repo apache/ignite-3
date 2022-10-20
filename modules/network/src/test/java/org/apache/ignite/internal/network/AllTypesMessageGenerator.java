@@ -19,8 +19,11 @@ package org.apache.ignite.internal.network;
 
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
+import static java.util.stream.Collectors.toSet;
 
 import java.lang.reflect.Field;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.BitSet;
 import java.util.Random;
 import java.util.UUID;
@@ -74,9 +77,17 @@ public class AllTypesMessageGenerator {
                         .mapToObj(unused -> generate(seed, false, fillArrays))
                         .collect(toList()));
 
-                message.newMsgMapX(IntStream.range(0, 10)
+                message.netMsgMapX(IntStream.range(0, 10)
                         .boxed()
                         .collect(toMap(String::valueOf, unused -> generate(seed, false, fillArrays))));
+
+                message.netMsgListY(IntStream.range(0, 10)
+                        .mapToObj(unused -> generate(seed, false, fillArrays))
+                        .collect(toList()));
+
+                message.netMsgSetY(IntStream.range(0, 10)
+                        .mapToObj(unused -> generate(seed, false, fillArrays))
+                        .collect(toSet()));
             }
 
             return message.build();
@@ -199,6 +210,19 @@ public class AllTypesMessageGenerator {
                 return generate(random.nextLong(), false);
             }
             return null;
+        } else if (type == ByteBuffer.class) {
+            byte[] bytes = new byte[16];
+            random.nextBytes(bytes);
+
+            ByteBuffer outerBuffer = random.nextBoolean() ? ByteBuffer.allocate(20) : ByteBuffer.allocateDirect(20);
+            ByteBuffer buffer = outerBuffer.position(2).limit(18).slice();
+            buffer.put(bytes);
+
+            buffer.order(random.nextBoolean() ? ByteOrder.LITTLE_ENDIAN : ByteOrder.BIG_ENDIAN);
+            buffer.position(random.nextInt(3));
+            buffer.limit(14 + random.nextInt(3));
+
+            return buffer;
         } else {
             return null;
         }

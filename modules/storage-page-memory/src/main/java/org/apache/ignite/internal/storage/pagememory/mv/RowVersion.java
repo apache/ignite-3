@@ -67,6 +67,13 @@ public final class RowVersion implements Storable {
     /**
      * Constructor.
      */
+    public RowVersion(int partitionId, HybridTimestamp commitTimestamp, long nextLink, ByteBuffer value) {
+        this(partitionId, 0, commitTimestamp, nextLink, value);
+    }
+
+    /**
+     * Constructor.
+     */
     public RowVersion(int partitionId, long link, @Nullable HybridTimestamp timestamp, long nextLink, @Nullable ByteBuffer value) {
         this.partitionId = partitionId;
         link(link);

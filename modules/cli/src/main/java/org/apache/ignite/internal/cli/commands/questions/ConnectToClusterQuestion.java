@@ -25,7 +25,6 @@ import org.apache.ignite.internal.cli.call.connect.ConnectCallInput;
 import org.apache.ignite.internal.cli.config.ConfigConstants;
 import org.apache.ignite.internal.cli.config.ConfigManagerProvider;
 import org.apache.ignite.internal.cli.config.StateConfigProvider;
-import org.apache.ignite.internal.cli.core.flow.Flowable;
 import org.apache.ignite.internal.cli.core.flow.builder.FlowBuilder;
 import org.apache.ignite.internal.cli.core.flow.builder.Flows;
 import org.apache.ignite.internal.cli.core.repl.Session;
@@ -66,16 +65,16 @@ public class ConnectToClusterQuestion {
         );
 
         return Flows.from(clusterUrlOrSessionNode(clusterUrl))
-                .ifThen(Objects::isNull, Flows.<String, ConnectCallInput>acceptQuestion(questionUiComponent,
-                                () -> new ConnectCallInput(defaultUrl))
-                        .then(Flows.fromCall(connectCall))
-                        .print()
-                        .build())
-                .then(prevUrl -> {
-                    // If inner flow from ifThen is interrupted we should interrupt outer flow as well.
-                    // TODO https://issues.apache.org/jira/browse/IGNITE-17553
-                    String url = clusterUrlOrSessionNode(clusterUrl);
-                    return url != null ? Flowable.success(url) : Flowable.interrupt();
+                .flatMap(v -> {
+                    if (Objects.isNull(v)) {
+                        return Flows.<String, ConnectCallInput>acceptQuestion(questionUiComponent,
+                                        () -> new ConnectCallInput(defaultUrl))
+                                .then(Flows.fromCall(connectCall))
+                                .print()
+                                .map(ignored -> clusterUrlOrSessionNode(clusterUrl));
+                    } else {
+                        return Flows.identity();
+                    }
                 });
     }
 
@@ -110,7 +109,7 @@ public class ConnectToClusterQuestion {
                 .print()
                 .ifThen(s -> !Objects.equals(clusterUrl, defaultUrl) && session.isConnectedToNode(),
                         defaultUrlQuestion(clusterUrl).print().build())
-                .build().start(Flowable.empty());
+                .start();
     }
 
     private FlowBuilder<String, String> defaultUrlQuestion(String lastConnectedUrl) {

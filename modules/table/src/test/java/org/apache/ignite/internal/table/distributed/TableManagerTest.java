@@ -48,6 +48,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -65,15 +66,10 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.NamedListView;
-import org.apache.ignite.configuration.schemas.table.TableChange;
-import org.apache.ignite.configuration.schemas.table.TableView;
-import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.notifications.ConfigurationStorageRevisionListenerHolder;
-import org.apache.ignite.internal.configuration.schema.ExtendedTableChange;
-import org.apache.ignite.internal.configuration.schema.ExtendedTableView;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.testframework.InjectRevisionListenerHolder;
@@ -82,12 +78,14 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
-import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaUtils;
-import org.apache.ignite.internal.schema.marshaller.schema.SchemaSerializerImpl;
+import org.apache.ignite.internal.schema.configuration.ExtendedTableChange;
+import org.apache.ignite.internal.schema.configuration.TableChange;
+import org.apache.ignite.internal.schema.configuration.TableView;
+import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter;
 import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
@@ -105,6 +103,7 @@ import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.ByteUtils;
+import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
@@ -283,6 +282,8 @@ public class TableManagerTest extends IgniteAbstractTest {
                 SchemaBuilders.column("val", ColumnType.INT64).asNullable(true).build()
         ).withPrimaryKey("key").build();
 
+        mockMetastore();
+
         tblsCfg.tables().change(tablesChange -> {
             tablesChange.create(scmTbl.name(), tableChange -> {
                 (SchemaConfigurationConverter.convert(scmTbl, tableChange))
@@ -299,17 +300,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                     assignment.add(new HashSet<>(Collections.singleton(node)));
                 }
 
-                extConfCh.changeAssignments(ByteUtils.toBytes(assignment))
-                        .changeSchemas(schemasCh -> schemasCh.create(
-                                String.valueOf(1),
-                                schemaCh -> {
-                                    SchemaDescriptor schemaDesc = SchemaUtils.prepareSchemaDescriptor(
-                                            ((ExtendedTableView) tableChange).schemas().size(),
-                                            tableChange);
-
-                                    schemaCh.changeSchema(SchemaSerializerImpl.INSTANCE.serialize(schemaDesc));
-                                }
-                        ));
+                extConfCh.changeAssignments(ByteUtils.toBytes(assignment)).changeSchemaId(1);
             });
         }).join();
 
@@ -384,15 +375,18 @@ public class TableManagerTest extends IgniteAbstractTest {
                         .changeReplicas(REPLICAS)
                         .changePartitions(PARTITIONS);
 
-        final Consumer<TableChange> addColumnChange = (TableChange change) ->
-                change.changeColumns(cols -> {
-                    int colIdx = change.columns().namedListKeys().stream().mapToInt(Integer::parseInt).max().getAsInt() + 1;
+        final Function<TableChange, Boolean> addColumnChange = (TableChange change) -> {
+            change.changeColumns(cols -> {
+                int colIdx = change.columns().namedListKeys().stream().mapToInt(Integer::parseInt).max().getAsInt() + 1;
 
-                    cols.create(String.valueOf(colIdx),
-                            colChg -> SchemaConfigurationConverter.convert(SchemaBuilders.column("name", ColumnType.string()).build(),
-                                    colChg));
+                cols.create(String.valueOf(colIdx),
+                        colChg -> SchemaConfigurationConverter.convert(SchemaBuilders.column("name", ColumnType.string()).build(),
+                                colChg));
 
-                });
+            });
+
+            return true;
+        };
 
         TableManager igniteTables = tableManager;
 
@@ -511,6 +505,8 @@ public class TableManagerTest extends IgniteAbstractTest {
                 .withPrimaryKey("key")
                 .build();
 
+        when(msm.put(any(), any())).thenReturn(completedFuture(null));
+
         Table table = mockManagersAndCreateTable(scmTbl, tblManagerFut);
 
         assertNotNull(table);
@@ -537,6 +533,15 @@ public class TableManagerTest extends IgniteAbstractTest {
             CompletableFuture<TableManager> tblManagerFut
     ) throws Exception {
         return mockManagersAndCreateTableWithDelay(tableDefinition, tblManagerFut, null);
+    }
+
+    /** Dummy metastore activity mock. */
+    private void mockMetastore() throws Exception {
+        Cursor cursorMocked = mock(Cursor.class);
+        Iterator itMock = mock(Iterator.class);
+        when(itMock.hasNext()).thenReturn(false);
+        when(msm.prefix(any())).thenReturn(cursorMocked);
+        when(cursorMocked.iterator()).thenReturn(itMock);
     }
 
     /**
@@ -618,6 +623,8 @@ public class TableManagerTest extends IgniteAbstractTest {
                         .changeReplicas(REPLICAS)
                         .changePartitions(PARTITIONS)
         );
+
+        mockMetastore();
 
         assertTrue(createTblLatch.await(10, TimeUnit.SECONDS));
 
@@ -759,7 +766,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                 dsm = createDataStorageManager(configRegistry, workDir, rocksDbEngineConfig),
                 workDir,
                 msm,
-                sm = new SchemaManager(revisionUpdater, tblsCfg),
+                sm = new SchemaManager(revisionUpdater, tblsCfg, msm),
                 budgetView -> new LocalLogStorageFactory(),
                 null
         );

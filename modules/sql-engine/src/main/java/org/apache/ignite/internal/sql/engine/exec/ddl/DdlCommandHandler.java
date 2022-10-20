@@ -37,17 +37,6 @@ import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.NamedListView;
-import org.apache.ignite.configuration.schemas.table.ColumnChange;
-import org.apache.ignite.configuration.schemas.table.ColumnTypeChange;
-import org.apache.ignite.configuration.schemas.table.ColumnView;
-import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultChange;
-import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultChange;
-import org.apache.ignite.configuration.schemas.table.HashIndexChange;
-import org.apache.ignite.configuration.schemas.table.NullValueDefaultChange;
-import org.apache.ignite.configuration.schemas.table.PrimaryKeyView;
-import org.apache.ignite.configuration.schemas.table.SortedIndexChange;
-import org.apache.ignite.configuration.schemas.table.TableChange;
-import org.apache.ignite.configuration.schemas.table.TableIndexChange;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.schema.BitmaskNativeType;
 import org.apache.ignite.internal.schema.DecimalNativeType;
@@ -56,7 +45,18 @@ import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.NumberNativeType;
 import org.apache.ignite.internal.schema.TemporalNativeType;
 import org.apache.ignite.internal.schema.VarlenNativeType;
+import org.apache.ignite.internal.schema.configuration.ColumnChange;
+import org.apache.ignite.internal.schema.configuration.ColumnTypeChange;
+import org.apache.ignite.internal.schema.configuration.ColumnView;
+import org.apache.ignite.internal.schema.configuration.PrimaryKeyView;
+import org.apache.ignite.internal.schema.configuration.TableChange;
 import org.apache.ignite.internal.schema.configuration.ValueSerializationHelper;
+import org.apache.ignite.internal.schema.configuration.defaultvalue.ConstantValueDefaultChange;
+import org.apache.ignite.internal.schema.configuration.defaultvalue.FunctionCallDefaultChange;
+import org.apache.ignite.internal.schema.configuration.defaultvalue.NullValueDefaultChange;
+import org.apache.ignite.internal.schema.configuration.index.HashIndexChange;
+import org.apache.ignite.internal.schema.configuration.index.SortedIndexChange;
+import org.apache.ignite.internal.schema.configuration.index.TableIndexChange;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AbstractTableDdlCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterTableAddCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterTableDropCommand;
@@ -282,43 +282,51 @@ public class DdlCommandHandler {
      * @return {@code true} if the full columns set is applied successfully. Otherwise, returns {@code false}.
      */
     private CompletableFuture<Boolean> addColumnInternal(String fullName, List<ColumnDefinition> colsDef, boolean ignoreColumnExistance) {
-        AtomicBoolean ret = new AtomicBoolean(true);
+        AtomicBoolean retUsr = new AtomicBoolean(true);
 
         return tableManager.alterTableAsync(
                 fullName,
-                chng -> chng.changeColumns(cols -> {
-                    ret.set(true); // Reset state if closure have been restarted.
+                chng -> {
+                    AtomicBoolean retTbl = new AtomicBoolean();
 
-                    Map<String, String> colNamesToOrders = columnOrdersToNames(chng.columns());
+                    chng.changeColumns(cols -> {
+                        retUsr.set(true); // Reset state if closure have been restarted.
 
-                    List<ColumnDefinition> colsDef0;
+                        Map<String, String> colNamesToOrders = columnOrdersToNames(chng.columns());
 
-                    if (ignoreColumnExistance) {
-                        colsDef0 = colsDef.stream().filter(k -> {
-                            if (colNamesToOrders.containsKey(k.name())) {
-                                ret.set(false);
+                        List<ColumnDefinition> colsDef0;
 
-                                return false;
-                            } else {
-                                return true;
-                            }
-                        }).collect(Collectors.toList());
-                    } else {
-                        colsDef.stream()
-                                .filter(k -> colNamesToOrders.containsKey(k.name()))
-                                .findAny()
-                                .ifPresent(c -> {
-                                    throw new ColumnAlreadyExistsException(c.name());
-                                });
+                        if (ignoreColumnExistance) {
+                            colsDef0 = colsDef.stream().filter(k -> {
+                                if (colNamesToOrders.containsKey(k.name())) {
+                                    retUsr.set(false);
 
-                        colsDef0 = colsDef;
-                    }
+                                    return false;
+                                } else {
+                                    return true;
+                                }
+                            }).collect(Collectors.toList());
+                        } else {
+                            colsDef.stream()
+                                    .filter(k -> colNamesToOrders.containsKey(k.name()))
+                                    .findAny()
+                                    .ifPresent(c -> {
+                                        throw new ColumnAlreadyExistsException(c.name());
+                                    });
 
-                    for (ColumnDefinition col : colsDef0) {
-                        cols.create(col.name(), colChg -> convertColumnDefinition(col, colChg));
-                    }
-                })
-        ).thenApply(v -> ret.get());
+                            colsDef0 = colsDef;
+                        }
+
+                        for (ColumnDefinition col : colsDef0) {
+                            cols.create(col.name(), colChg -> convertColumnDefinition(col, colChg));
+                        }
+
+                        retTbl.set(!colsDef0.isEmpty());
+                    });
+
+                    return retTbl.get();
+                }
+        ).thenApply(v -> retUsr.get());
     }
 
     private void convertColumnDefinition(ColumnDefinition definition, ColumnChange columnChange) {
@@ -368,37 +376,40 @@ public class DdlCommandHandler {
 
         return tableManager.alterTableAsync(
                 tableName,
-                chng -> chng.changeColumns(cols -> {
-                    ret.set(true); // Reset state if closure have been restarted.
+                chng -> {
+                    chng.changeColumns(cols -> {
+                        ret.set(true); // Reset state if closure have been restarted.
 
-                    PrimaryKeyView priKey = chng.primaryKey();
+                        PrimaryKeyView priKey = chng.primaryKey();
 
-                    Map<String, String> colNamesToOrders = columnOrdersToNames(chng.columns());
+                        Map<String, String> colNamesToOrders = columnOrdersToNames(chng.columns());
 
-                    Set<String> colNames0 = new HashSet<>();
+                        Set<String> colNames0 = new HashSet<>();
 
-                    Set<String> primaryCols = Set.of(priKey.columns());
+                        Set<String> primaryCols = Set.of(priKey.columns());
 
-                    for (String colName : colNames) {
-                        if (!colNamesToOrders.containsKey(colName)) {
-                            ret.set(false);
+                        for (String colName : colNames) {
+                            if (!colNamesToOrders.containsKey(colName)) {
+                                ret.set(false);
 
-                            if (!ignoreColumnExistence) {
-                                throw new ColumnNotFoundException(DEFAULT_SCHEMA_NAME, tableName, colName);
+                                if (!ignoreColumnExistence) {
+                                    throw new ColumnNotFoundException(DEFAULT_SCHEMA_NAME, tableName, colName);
+                                }
+                            } else {
+                                colNames0.add(colName);
                             }
-                        } else {
-                            colNames0.add(colName);
+
+                            if (primaryCols.contains(colName)) {
+                                throw new SqlException(DEL_PK_COMUMN_CONSTRAINT_ERR, IgniteStringFormatter
+                                        .format("Can`t delete column, belongs to primary key: [name={}]", colName));
+                            }
                         }
 
-                        if (primaryCols.contains(colName)) {
-                            throw new SqlException(DEL_PK_COMUMN_CONSTRAINT_ERR, IgniteStringFormatter
-                                    .format("Can`t delete column, belongs to primary key: [name={}]", colName));
-                        }
-                    }
+                        colNames0.forEach(k -> cols.delete(colNamesToOrders.get(k)));
+                    });
 
-                    colNames0.forEach(k -> cols.delete(colNamesToOrders.get(k)));
-                }))
-                .thenApply(v -> ret.get());
+                    return ret.get();
+                }).thenApply(v -> ret.get());
     }
 
     private static void convert(NativeType colType, ColumnTypeChange colTypeChg) {

@@ -69,7 +69,7 @@ namespace Apache.Ignite.Internal.Proto
         /// </summary>
         /// <param name="writer">Writer.</param>
         /// <param name="arr">Array.</param>
-        public static void WriteObjectArrayAsBinaryTuple(this ref MessagePackWriter writer, object[]? arr)
+        public static void WriteObjectArrayAsBinaryTuple(this ref MessagePackWriter writer, object?[]? arr)
         {
             if (arr == null)
             {

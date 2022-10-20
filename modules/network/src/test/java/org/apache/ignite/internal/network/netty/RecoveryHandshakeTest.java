@@ -447,7 +447,7 @@ public class RecoveryHandshakeTest {
 
     private RecoveryClientHandshakeManager createRecoveryClientHandshakeManager(String consistentId, UUID launchId,
             RecoveryDescriptorProvider provider) {
-        return new RecoveryClientHandshakeManager(launchId, consistentId, CONNECTION_ID, MESSAGE_FACTORY, provider);
+        return new RecoveryClientHandshakeManager(launchId, consistentId, CONNECTION_ID, provider);
     }
 
     private RecoveryServerHandshakeManager createRecoveryServerHandshakeManager(RecoveryDescriptorProvider provider) {

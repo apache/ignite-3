@@ -22,10 +22,10 @@ import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.nio.file.Path;
-import org.apache.ignite.configuration.schemas.table.TableConfiguration;
-import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.schema.configuration.TableConfiguration;
+import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.AbstractMvPartitionStorageTest;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageView;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
@@ -77,5 +77,13 @@ public class RocksDbMvPartitionStorageTest extends AbstractMvPartitionStorageTes
                 table == null ? null : table::stop,
                 engine == null ? null : engine::stop
         );
+    }
+
+    @Override
+    public void addWriteCommittedThrowsIfUncommittedVersionExists() {
+        // Disable this test because RocksDbMvPartitionStorage does not throw. It does not throw because this
+        // exception is thrown only to ease debugging as the caller must make sure that no write intent exists
+        // before calling addWriteCommitted(). For RocksDbMvPartitionStorage, it is not that cheap to check whether
+        // there is a write intent in the storage, so we do not require it to throw this optional exception.
     }
 }

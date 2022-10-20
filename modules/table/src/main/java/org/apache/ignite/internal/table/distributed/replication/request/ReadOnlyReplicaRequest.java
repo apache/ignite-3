@@ -26,7 +26,6 @@ import org.apache.ignite.network.annotations.Marshallable;
  * Read only replica request.
  */
 public interface ReadOnlyReplicaRequest extends ReplicaRequest {
-    @Marshallable
     UUID transactionId();
 
     @Marshallable

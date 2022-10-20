@@ -79,6 +79,9 @@ namespace Apache.Ignite.Internal.Proto
         /** Get and delete tuple. */
         TupleGetAndDelete = 32,
 
+        /** Contains tuple. */
+        TupleContainsKey = 33,
+
         /** Begin transaction. */
         TxBegin = 43,
 

@@ -130,9 +130,17 @@ namespace Apache.Ignite.Tests.Compute
         [Test]
         public async Task TestExecuteWithArgs()
         {
-            var res = await Client.Compute.ExecuteAsync<string>(await Client.GetClusterNodesAsync(), ConcatJob, 1.1, Guid.Empty, "3");
+            var res = await Client.Compute.ExecuteAsync<string>(await Client.GetClusterNodesAsync(), ConcatJob, 1.1, Guid.Empty, "3", null);
 
-            Assert.AreEqual("1.1_00000000-0000-0000-0000-000000000000_3", res);
+            Assert.AreEqual("1.1_00000000-0000-0000-0000-000000000000_3_null", res);
+        }
+
+        [Test]
+        public async Task TestExecuteWithNullArgs()
+        {
+            var res = await Client.Compute.ExecuteAsync<string>(await Client.GetClusterNodesAsync(), ConcatJob, args: null);
+
+            Assert.IsNull(res);
         }
 
         [Test]
@@ -226,9 +234,13 @@ namespace Apache.Ignite.Tests.Compute
             var keyPoco = new Poco { Key = key };
             var resNodeName2 = await Client.Compute.ExecuteColocatedAsync<string, Poco>(TableName, keyPoco, NodeNameJob);
 
+            var keyPocoStruct = new PocoStruct(key, null);
+            var resNodeName3 = await Client.Compute.ExecuteColocatedAsync<string, PocoStruct>(TableName, keyPocoStruct, NodeNameJob);
+
             var expectedNodeName = PlatformTestNodeRunner + nodeName;
             Assert.AreEqual(expectedNodeName, resNodeName);
             Assert.AreEqual(expectedNodeName, resNodeName2);
+            Assert.AreEqual(expectedNodeName, resNodeName3);
         }
 
         [Test]

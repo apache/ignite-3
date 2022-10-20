@@ -33,8 +33,8 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
-import org.apache.ignite.configuration.schemas.table.ColumnChange;
-import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultChange;
+import org.apache.ignite.internal.schema.configuration.ColumnChange;
+import org.apache.ignite.internal.schema.configuration.defaultvalue.ConstantValueDefaultChange;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -232,11 +232,12 @@ abstract class AbstractSchemaChangeTest {
      */
     protected static void renameColumn(List<Ignite> nodes, String oldName, String newName) {
         await(((TableManager) nodes.get(0).tables()).alterTableAsync(TABLE,
-                tblChanger -> tblChanger.changeColumns(
-                        colListChanger -> colListChanger
-                                .rename(IgniteNameUtils.parseSimpleName(oldName), IgniteNameUtils.parseSimpleName(newName))
-                )
-        ));
+                tblChanger -> {
+                    tblChanger.changeColumns(
+                            colListChanger -> colListChanger
+                                .rename(IgniteNameUtils.parseSimpleName(oldName), IgniteNameUtils.parseSimpleName(newName)));
+                    return true;
+            }));
     }
 
     /**
@@ -247,16 +248,16 @@ abstract class AbstractSchemaChangeTest {
      * @param defSup Default value supplier.
      */
     protected static void changeDefault(List<Ignite> nodes, String colName, Supplier<Object> defSup) {
-        await(((TableManager) nodes.get(0).tables()).alterTableAsync(TABLE,
-                tblChanger -> tblChanger.changeColumns(
-                        colListChanger -> colListChanger
-                                .update(
-                                        IgniteNameUtils.parseSimpleName(colName),
-                                        colChanger -> colChanger.changeDefaultValueProvider(colDefChange -> colDefChange.convert(
-                                                ConstantValueDefaultChange.class).changeDefaultValue(defSup.get().toString()))
-                                )
-                )
-        ));
+        await(((TableManager) nodes.get(0).tables()).alterTableAsync(TABLE, tblChanger -> {
+            tblChanger.changeColumns(
+                    colListChanger -> colListChanger
+                            .update(
+                                    IgniteNameUtils.parseSimpleName(colName),
+                                    colChanger -> colChanger.changeDefaultValueProvider(colDefChange -> colDefChange.convert(
+                                            ConstantValueDefaultChange.class).changeDefaultValue(defSup.get().toString()))
+                            ));
+            return true;
+        }));
     }
 
     /**
@@ -268,11 +269,12 @@ abstract class AbstractSchemaChangeTest {
      */
     private static void assertColumnChangeFailed(List<Ignite> grid, String colName, Consumer<ColumnChange> colChanger) {
         assertThrows(IgniteException.class, () ->
-                await(((TableManager) grid.get(0).tables()).alterTableAsync(TABLE,
-                        tblChanger -> tblChanger.changeColumns(
-                                listChanger -> listChanger.update(IgniteNameUtils.parseSimpleName(colName), colChanger)
-                        )
-                ))
+                await(((TableManager) grid.get(0).tables()).alterTableAsync(TABLE, tblChanger -> {
+                    tblChanger.changeColumns(
+                            listChanger ->
+                                    listChanger.update(IgniteNameUtils.parseSimpleName(colName), colChanger));
+                    return true;
+                }))
         );
     }
 

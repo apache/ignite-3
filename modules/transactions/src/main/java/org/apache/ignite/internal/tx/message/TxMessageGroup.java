@@ -38,4 +38,9 @@ public class TxMessageGroup {
      * Message type for {@link TxCleanupReplicaRequest}.
      */
     public static final short TX_CLEANUP_REQUEST = 2;
+
+    /**
+     * Message type for {@link TxStateReplicaRequest}.
+     */
+    public static final short TX_STATE_REQUEST = 3;
 }

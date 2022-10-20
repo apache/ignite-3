@@ -18,9 +18,6 @@
 package org.apache.ignite.internal.schema.configuration;
 
 import java.util.Objects;
-import org.apache.ignite.configuration.schemas.table.ColumnTypeValidator;
-import org.apache.ignite.configuration.schemas.table.ColumnTypeView;
-import org.apache.ignite.configuration.schemas.table.ColumnView;
 import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;

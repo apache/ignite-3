@@ -20,7 +20,9 @@ package org.apache.ignite.internal.network.direct;
 import java.nio.ByteBuffer;
 import java.util.BitSet;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import org.apache.ignite.internal.network.direct.state.DirectMessageState;
 import org.apache.ignite.internal.network.direct.state.DirectMessageStateItem;
@@ -310,6 +312,17 @@ public class DirectMessageReader implements MessageReader {
         return val;
     }
 
+    @Override
+    public ByteBuffer readByteBuffer(String name) {
+        DirectByteBufferStream stream = state.item().stream;
+
+        ByteBuffer val = stream.readByteBuffer();
+
+        lastRead = stream.lastFinished();
+
+        return val;
+    }
+
     /** {@inheritDoc} */
     @Override
     public UUID readUuid(String name) {
@@ -365,6 +378,32 @@ public class DirectMessageReader implements MessageReader {
         DirectByteBufferStream stream = state.item().stream;
 
         C col = stream.readCollection(itemType, this);
+
+        lastRead = stream.lastFinished();
+
+        return col;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public <C extends List<?>> C readList(String name, MessageCollectionItemType itemType) {
+        DirectByteBufferStream stream = state.item().stream;
+
+        Collection<?> col = stream.readCollection(itemType, this);
+
+        lastRead = stream.lastFinished();
+
+        assert col == null || col instanceof List : col;
+
+        return (C) col;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public <C extends Set<?>> C readSet(String name, MessageCollectionItemType itemType) {
+        DirectByteBufferStream stream = state.item().stream;
+
+        C col = stream.readSet(itemType, this);
 
         lastRead = stream.lastFinished();
 

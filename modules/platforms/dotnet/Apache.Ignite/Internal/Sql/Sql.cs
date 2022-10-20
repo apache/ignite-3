@@ -46,7 +46,7 @@ namespace Apache.Ignite.Internal.Sql
         }
 
         /// <inheritdoc/>
-        public async Task<IResultSet<IIgniteTuple>> ExecuteAsync(ITransaction? transaction, SqlStatement statement, params object[] args)
+        public async Task<IResultSet<IIgniteTuple>> ExecuteAsync(ITransaction? transaction, SqlStatement statement, params object?[]? args)
         {
             IgniteArgumentCheck.NotNull(statement, nameof(statement));
 
@@ -90,8 +90,7 @@ namespace Apache.Ignite.Internal.Sql
         }
 
         /// <inheritdoc/>
-        public Task<IResultSet<T>> ExecuteAsync<T>(ITransaction? transaction, SqlStatement statement, params object[] args)
-            where T : class
+        public Task<IResultSet<T>> ExecuteAsync<T>(ITransaction? transaction, SqlStatement statement, params object?[]? args)
         {
             // TODO: IGNITE-17333 SQL ResultSet object mapping
             throw new NotSupportedException();
