@@ -174,6 +174,9 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             return CompletableFuture.completedFuture(txMeta);
         });
 
+        TrackableHybridClock safeTimeClock = mock(TrackableHybridClock.class);
+        when(safeTimeClock.waitFor(any())).thenReturn(CompletableFuture.completedFuture(null));
+
         partitionReplicaListener = new PartitionReplicaListener(
                 testMvPartitionStorage,
                 mockRaftClient,
@@ -184,7 +187,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 tblId,
                 primaryIndex,
                 clock,
-                new TrackableHybridClock(),
+                safeTimeClock,
                 txStateStorage,
                 topologySrv,
                 placementDriver
