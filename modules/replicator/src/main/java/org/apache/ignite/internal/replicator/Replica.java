@@ -58,6 +58,7 @@ public class Replica {
     public Replica(
             String replicaGrpId,
             ReplicaListener listener,
+            // TODO https://issues.apache.org/jira/browse/IGNITE-17256 remove raftClient, clusterNodeResolver, localNodeSupplier
             RaftGroupService raftClient,
             Function<NetworkAddress, ClusterNode> clusterNodeResolver,
             Supplier<ClusterNode> localNodeSupplier
