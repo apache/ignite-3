@@ -39,7 +39,6 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.hlc.HybridTimestamp;
-import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
@@ -47,15 +46,11 @@ import org.apache.ignite.internal.replicator.exception.UnsupportedReplicaRequest
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.BinaryTuple;
-import org.apache.ignite.internal.schema.BinaryTupleSchema;
-import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
-import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.storage.index.HashIndexStorage;
+import org.apache.ignite.internal.table.distributed.PkStorage;
 import org.apache.ignite.internal.table.distributed.TableManager.TableIndex;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
 import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
@@ -96,10 +91,6 @@ import org.jetbrains.annotations.Nullable;
 
 /** Partition replication listener. */
 public class PartitionReplicaListener implements ReplicaListener {
-    private static final BinaryTupleSchema PK_KEY_SCHEMA = BinaryTupleSchema.create(new Element[]{
-            new Element(NativeTypes.BYTES, false)
-    });
-
     /** Tx messages factory. */
     private static final TxMessagesFactory FACTORY = new TxMessagesFactory();
 
@@ -110,7 +101,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     private final int partId;
 
     /** Primary key index. */
-    public final HashIndexStorage pkConstraintStorage;
+    public final PkStorage pkConstraintStorage;
 
     /** Table id. */
     private final UUID tableId;
@@ -177,7 +168,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             String replicationGroupId,
             UUID tableId,
             Supplier<List<TableIndex>> activeIndexes,
-            HashIndexStorage pkConstraintStorage,
+            PkStorage pkConstraintStorage,
             HybridClock hybridClock,
             TxStateStorage txStateStorage,
             TopologyService topologyService,
@@ -609,7 +600,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     private @Nullable RowId rowIdByKey(ByteBuffer key, HybridTimestamp ts, Supplier<BinaryRow> lastCommitted) {
-        try (Cursor<RowId> cursor = pkConstraintStorage.get(toPkIndexKey(key))) {
+        try (Cursor<RowId> cursor = pkConstraintStorage.get(key)) {
             for (RowId rowId : cursor) {
                 BinaryRow row = resolveReadResult(mvDataStorage.read(rowId, ts), ts, lastCommitted);
 
@@ -626,7 +617,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     private @Nullable RowId rowIdByKey(ByteBuffer key, HybridTimestamp ts, @Nullable UUID txId) {
-        try (Cursor<RowId> cursor = pkConstraintStorage.get(toPkIndexKey(key))) {
+        try (Cursor<RowId> cursor = pkConstraintStorage.get(key)) {
             for (RowId rowId : cursor) {
                 BinaryRow row = resolveReadResult(mvDataStorage.read(rowId, ts), txId);
 
@@ -1143,15 +1134,6 @@ public class PartitionReplicaListener implements ReplicaListener {
         }
 
         return CompletableFuture.allOf(locks);
-    }
-
-    private BinaryTuple toPkIndexKey(ByteBuffer bytes) {
-        return new BinaryTuple(
-                PK_KEY_SCHEMA,
-                new BinaryTupleBuilder(1, false)
-                .appendElementBytes(bytes)
-                .build()
-        );
     }
 
     /**

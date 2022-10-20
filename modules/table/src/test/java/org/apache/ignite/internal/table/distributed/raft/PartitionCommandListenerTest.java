@@ -55,10 +55,8 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
-import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
-import org.apache.ignite.internal.storage.index.HashIndexDescriptor.HashIndexColumnDescriptor;
-import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
+import org.apache.ignite.internal.table.distributed.PkStorage;
 import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
@@ -108,10 +106,7 @@ public class PartitionCommandListenerTest {
     private final AtomicLong raftIndex = new AtomicLong();
 
     /** Primary index. */
-    private final HashIndexStorage primaryIndex = new TestHashIndexStorage(new HashIndexDescriptor(
-            UUID.randomUUID(),
-            List.of(new HashIndexColumnDescriptor("__rawKey", NativeTypes.BYTES, false))
-    ));
+    private final PkStorage pkStorage = PkStorage.createPkStorage(UUID.randomUUID(), TestHashIndexStorage::new);
 
     /** Partition storage. */
     private final MvPartitionStorage mvPartitionStorage = new TestMvPartitionStorage(PARTITION_ID);
@@ -132,7 +127,7 @@ public class PartitionCommandListenerTest {
                 new TestConcurrentHashMapTxStateStorage(),
                 new TxManagerImpl(replicaService, new HeapLockManager(), new HybridClock()),
                 List::of,
-                primaryIndex
+                pkStorage
         );
     }
 
@@ -492,7 +487,7 @@ public class PartitionCommandListenerTest {
     }
 
     private RowId readRow(ByteBuffer keySlice) {
-        try (Cursor<RowId> cursor = primaryIndex.get(toPkKey(keySlice))) {
+        try (Cursor<RowId> cursor = pkStorage.get(keySlice)) {
             while (cursor.hasNext()) {
                 RowId rowId = cursor.next();
 

@@ -34,19 +34,12 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
-import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.BinaryTuple;
-import org.apache.ignite.internal.schema.BinaryTupleSchema;
-import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
-import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.storage.index.HashIndexStorage;
-import org.apache.ignite.internal.storage.index.IndexRowImpl;
-import org.apache.ignite.internal.storage.index.IndexStorage;
+import org.apache.ignite.internal.table.distributed.PkStorage;
 import org.apache.ignite.internal.table.distributed.TableManager.TableIndex;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
 import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
@@ -69,10 +62,6 @@ import org.jetbrains.annotations.TestOnly;
  * Partition command handler.
  */
 public class PartitionListener implements RaftGroupListener {
-    private static final BinaryTupleSchema PK_KEY_SCHEMA = BinaryTupleSchema.create(new Element[]{
-            new Element(NativeTypes.BYTES, false)
-    });
-
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(PartitionListener.class);
 
@@ -85,12 +74,12 @@ public class PartitionListener implements RaftGroupListener {
     /** Transaction manager. */
     private final TxManager txManager;
 
-    private final HashIndexStorage pkIndexStorage;
+    private final PkStorage pkIndexStorage;
 
     private final Supplier<List<TableIndex>> activeIndexes;
 
     /** Rows that were inserted, updated or removed. */
-    private HashMap<UUID, Set<RowId>> txsPendingRowIds = new HashMap<>();
+    private final HashMap<UUID, Set<RowId>> txsPendingRowIds = new HashMap<>();
 
     /**
      * The constructor.
@@ -104,7 +93,7 @@ public class PartitionListener implements RaftGroupListener {
             TxStateStorage txStateStorage,
             TxManager txManager,
             Supplier<List<TableIndex>> activeIndexes,
-            HashIndexStorage pkIndexStorage
+            PkStorage pkIndexStorage
     ) {
         this.storage = store;
         this.txStateStorage = txStateStorage;
@@ -312,14 +301,7 @@ public class PartitionListener implements RaftGroupListener {
             return;
         }
 
-        pkIndexStorage.put(
-                new IndexRowImpl(
-                        new BinaryTuple(PK_KEY_SCHEMA, new BinaryTupleBuilder(1, false)
-                                .appendElementBytes(tableRow.keySlice())
-                                .build()),
-                        rowId
-                )
-        );
+        pkIndexStorage.put(rowId, tableRow.keySlice());
 
         List<TableIndex> indexes = activeIndexes.get();
 
@@ -344,7 +326,7 @@ public class PartitionListener implements RaftGroupListener {
      * Returns a primary index map.
      */
     @TestOnly
-    public IndexStorage getPk() {
+    public PkStorage getPk() {
         return pkIndexStorage;
     }
 }

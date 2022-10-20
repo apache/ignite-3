@@ -33,14 +33,11 @@ import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
-import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
-import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
-import org.apache.ignite.internal.storage.index.HashIndexDescriptor.HashIndexColumnDescriptor;
-import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
+import org.apache.ignite.internal.table.distributed.PkStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
@@ -202,10 +199,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
         UUID tableId = tableId();
 
-        HashIndexStorage pkStorage = new TestHashIndexStorage(new HashIndexDescriptor(
-                new UUID(tableId.getMostSignificantBits(), tableId.getLeastSignificantBits() + 1),
-                List.of(new HashIndexColumnDescriptor("__rawKey", NativeTypes.BYTES, false))
-        ));
+        PkStorage pkStorage = PkStorage.createPkStorage(UUID.randomUUID(), TestHashIndexStorage::new);
 
         replicaListener = new PartitionReplicaListener(
                 mvPartStorage,

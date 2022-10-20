@@ -37,7 +37,6 @@ import static org.apache.ignite.internal.utils.RebalanceUtil.updatePendingAssign
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -99,7 +98,6 @@ import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
-import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableChange;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableConfiguration;
@@ -115,8 +113,6 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
-import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
-import org.apache.ignite.internal.storage.index.HashIndexDescriptor.HashIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
@@ -751,6 +747,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                     RaftGroupOptions groupOptions = groupOptionsForPartition(internalTbl, tblCfg, partitionStorage,
                                             newPartAssignment);
 
+                                    PkStorage pkStorage = PkStorage.createPkStorage(tblId, desc ->
+                                            storage.getOrCreateHashIndex(partId, desc));
+
                                     try {
                                         raftMgr.startRaftGroupNode(
                                                 grpId,
@@ -760,7 +759,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                         internalTbl.txStateStorage().getOrCreateTxStateStorage(partId),
                                                         txManager,
                                                         activeIndexes(tblId, partId),
-                                                        createStorageForPk(tblId, partId, storage)
+                                                        pkStorage
                                                 ),
                                                 new RebalanceRaftGroupEventsListener(
                                                         metaStorageMgr,
@@ -798,6 +797,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                                     if (replicaMgr.shouldHaveReplicationGroupLocally(nodes)) {
                                         MvPartitionStorage partitionStorage = internalTbl.storage().getOrCreateMvPartition(partId);
+                                        PkStorage pkStorage = PkStorage.createPkStorage(tblId, desc ->
+                                                storage.getOrCreateHashIndex(partId, desc));
 
                                         try {
                                             replicaMgr.startReplica(grpId,
@@ -810,7 +811,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                             grpId,
                                                             tblId,
                                                             activeIndexes(tblId, partId),
-                                                            createStorageForPk(tblId, partId, storage),
+                                                            pkStorage,
                                                             clock,
                                                             internalTbl.txStateStorage().getOrCreateTxStateStorage(partId),
                                                             topologyService,
@@ -833,13 +834,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
 
         CompletableFuture.allOf(futures).join();
-    }
-
-    private HashIndexStorage createStorageForPk(UUID tableId, int partId, MvTableStorage  tableStorage) {
-        return tableStorage.getOrCreateHashIndex(partId, new HashIndexDescriptor(
-                new UUID(tableId.getMostSignificantBits(), tableId.getLeastSignificantBits() + 1),
-                List.of(new HashIndexColumnDescriptor("__rawKey", NativeTypes.BYTES, false))
-        ));
     }
 
     /**
@@ -1764,8 +1758,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             .filter(p -> !assignments.contains(p))
                             .collect(Collectors.toList());
 
-                    ConcurrentHashMap<ByteBuffer, RowId> primaryIndex = new ConcurrentHashMap<>();
-
                     try {
                         LOG.info("Received update on pending assignments. Check if new raft group should be started"
                                         + " [key={}, partition={}, table={}, localMemberAddress={}]",
@@ -1773,7 +1765,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                         if (raftMgr.shouldHaveRaftGroupLocally(deltaPeers)) {
                             MvPartitionStorage partitionStorage = tbl.internalTable().storage().getOrCreateMvPartition(partId);
-
+                            PkStorage pkStorage = PkStorage.createPkStorage(tblId, desc ->
+                                    tbl.internalTable().storage().getOrCreateHashIndex(partId, desc));
                             RaftGroupOptions groupOptions = groupOptionsForPartition(
                                     tbl.internalTable(),
                                     tblCfg,
@@ -1786,7 +1779,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                     tbl.internalTable().txStateStorage().getOrCreateTxStateStorage(partId),
                                     txManager,
                                     activeIndexes(tblId, partId),
-                                    createStorageForPk(tblId, partId, tbl.internalTable().storage())
+                                    pkStorage
                             );
 
                             RaftGroupEventsListener raftGrpEvtsLsnr = new RebalanceRaftGroupEventsListener(
@@ -1811,6 +1804,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                         if (replicaMgr.shouldHaveReplicationGroupLocally(deltaPeers)) {
                             MvPartitionStorage partitionStorage = tbl.internalTable().storage().getOrCreateMvPartition(partId);
+                            PkStorage pkStorage = PkStorage.createPkStorage(tblId, desc ->
+                                    tbl.internalTable().storage().getOrCreateHashIndex(partId, desc));
 
                             replicaMgr.startReplica(grpId,
                                     new PartitionReplicaListener(
@@ -1822,7 +1817,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                             grpId,
                                             tblId,
                                             activeIndexes(tblId, partId),
-                                            createStorageForPk(tblId, partId, tbl.internalTable().storage()),
+                                            pkStorage,
                                             clock,
                                             tbl.internalTable().txStateStorage().getOrCreateTxStateStorage(partId),
                                             raftMgr.topologyService(),

@@ -26,7 +26,6 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import java.nio.ByteBuffer;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
@@ -35,11 +34,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.hlc.HybridTimestamp;
-import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.BinaryTuple;
-import org.apache.ignite.internal.schema.BinaryTupleSchema;
-import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -50,10 +45,8 @@ import org.apache.ignite.internal.schema.marshaller.reflection.ReflectionMarshal
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
-import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
-import org.apache.ignite.internal.storage.index.HashIndexDescriptor.HashIndexColumnDescriptor;
-import org.apache.ignite.internal.storage.index.IndexRowImpl;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
+import org.apache.ignite.internal.table.distributed.PkStorage;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
@@ -82,10 +75,6 @@ import org.mockito.Mock;
 
 /** There are tests for partition replica listener. */
 public class PartitionReplicaListenerTest extends IgniteAbstractTest {
-    private static final BinaryTupleSchema PK_KEY_SCHEMA = BinaryTupleSchema.create(new Element[]{
-            new Element(NativeTypes.BYTES, false)
-    });
-
     /** Tx messages factory. */
     private static final TxMessagesFactory TX_MESSAGES_FACTORY = new TxMessagesFactory();
 
@@ -100,12 +89,6 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     /** Replication group id. */
     private static final String grpId = tblId + "_part_" + partId;
-
-    /** Primary index map. */
-    private static final TestHashIndexStorage primaryIndex = new TestHashIndexStorage(new HashIndexDescriptor(
-            UUID.randomUUID(),
-            List.of(new HashIndexColumnDescriptor("__rawKey", NativeTypes.BYTES, false))
-    ));
 
     /** Hybrid clock. */
     private static final HybridClock clock = new HybridClock();
@@ -129,6 +112,9 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     @Mock
     private static TopologyService topologySrv = mock(TopologyService.class);
+
+    /** Primary index map. */
+    private static PkStorage primaryIndex;
 
     /** Default reflection marshaller factory. */
     protected static MarshallerFactory marshallerFactory;
@@ -221,7 +207,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     private void beforeTest() {
         localLeader = true;
         txState = null;
-        primaryIndex.destroy();
+        primaryIndex = PkStorage.createPkStorage(UUID.randomUUID(), TestHashIndexStorage::new);
     }
 
     @Test
@@ -299,7 +285,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         BinaryRow testBinaryRow = binaryRow(key(testBinaryKey), new TestValue(1, "v1"));
         var rowId = new RowId(partId);
 
-        primaryIndex.put(new IndexRowImpl(toPkKey(testBinaryKey.keySlice()), rowId));
+        primaryIndex.put(rowId, testBinaryKey.keySlice());
         testMvPartitionStorage.addWrite(rowId, testBinaryRow, txId, tblId, partId);
         testMvPartitionStorage.commitWrite(rowId, clock.now());
 
@@ -324,7 +310,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         var rowId = new RowId(partId);
         txState = TxState.COMMITED;
 
-        primaryIndex.put(new IndexRowImpl(toPkKey(testBinaryKey.keySlice()), rowId));
+        primaryIndex.put(rowId, testBinaryKey.keySlice());
         testMvPartitionStorage.addWrite(rowId, testBinaryRow, txId, tblId, partId);
 
         CompletableFuture fut = partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readOnlySingleRowReplicaRequest()
@@ -347,7 +333,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         BinaryRow testBinaryRow = binaryRow(key(testBinaryKey), new TestValue(1, "v1"));
         var rowId = new RowId(partId);
 
-        primaryIndex.put(new IndexRowImpl(toPkKey(testBinaryKey.keySlice()), rowId));
+        primaryIndex.put(rowId, testBinaryKey.keySlice());
         testMvPartitionStorage.addWrite(rowId, testBinaryRow, txId, tblId, partId);
 
         CompletableFuture fut = partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readOnlySingleRowReplicaRequest()
@@ -371,7 +357,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         var rowId = new RowId(partId);
         txState = TxState.ABORTED;
 
-        primaryIndex.put(new IndexRowImpl(toPkKey(testBinaryKey.keySlice()), rowId));
+        primaryIndex.put(rowId, testBinaryKey.keySlice());
         testMvPartitionStorage.addWrite(rowId, testBinaryRow, txId, tblId, partId);
 
         CompletableFuture fut = partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readOnlySingleRowReplicaRequest()
@@ -509,14 +495,5 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         public String toString() {
             return S.toString(TestValue.class, this);
         }
-    }
-
-    private BinaryTuple toPkKey(ByteBuffer buffer) {
-        return new BinaryTuple(
-                PK_KEY_SCHEMA,
-                new BinaryTupleBuilder(1, false)
-                        .appendElementBytes(buffer)
-                        .build()
-        );
     }
 }

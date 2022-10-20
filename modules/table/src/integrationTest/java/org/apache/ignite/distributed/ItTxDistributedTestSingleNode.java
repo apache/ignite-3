@@ -49,16 +49,13 @@ import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
-import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
-import org.apache.ignite.internal.storage.index.HashIndexDescriptor.HashIndexColumnDescriptor;
-import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TxAbstractTest;
+import org.apache.ignite.internal.table.distributed.PkStorage;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
@@ -382,10 +379,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
                 int partId = p;
 
-                HashIndexStorage pkStorage = new TestHashIndexStorage(new HashIndexDescriptor(
-                        UUID.randomUUID(),
-                        List.of(new HashIndexColumnDescriptor("__rawKey", NativeTypes.BYTES, false))
-                ));
+                PkStorage pkStorage = PkStorage.createPkStorage(UUID.randomUUID(), TestHashIndexStorage::new);
 
                 CompletableFuture<Void> partitionReadyFuture = raftServers.get(node).prepareRaftGroup(
                         grpId,
