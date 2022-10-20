@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.table.distributed.command;
 
 import java.util.UUID;
-import org.apache.ignite.internal.replicator.message.TablePartitionId;
+import org.apache.ignite.internal.replicator.message.ReplicationGroupId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.storage.RowId;
@@ -30,7 +30,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class UpdateCommand extends PartitionCommand {
     /** Committed table partition id. */
-    private final TablePartitionId commitTablePartitionId;
+    private final ReplicationGroupId commitReplicationGroupId;
 
     /** Id of a row that will be updated. */
     private final RowId rowId;
@@ -44,21 +44,21 @@ public class UpdateCommand extends PartitionCommand {
     /**
      * Creates a new instance of UpdateCommand with the given row to be updated. The {@code rowId} should not be {@code null}.
      *
-     * @param commitTablePartitionId Committed table partition id.
+     * @param commitReplicationGroupId Committed table partition id.
      * @param rowId Row id.
      * @param row   Binary row.
      * @param txId  The transaction id.
      * @see PartitionCommand
      */
     public UpdateCommand(
-            @NotNull TablePartitionId commitTablePartitionId,
+            @NotNull ReplicationGroupId commitReplicationGroupId,
             @NotNull RowId rowId,
             @Nullable BinaryRow row,
             @NotNull UUID txId
     ) {
         super(txId);
 
-        this.commitTablePartitionId = commitTablePartitionId;
+        this.commitReplicationGroupId = commitReplicationGroupId;
         this.rowId = rowId;
         this.row = row;
 
@@ -68,12 +68,12 @@ public class UpdateCommand extends PartitionCommand {
     /**
      * Constructor for remove operation.
      *
-     * @param commitTablePartitionId Committed table partition id.
+     * @param commitReplicationGroupId Committed table partition id.
      * @param rowId Row id.
      * @param txId Transaction id.
      */
-    public UpdateCommand(@NotNull TablePartitionId commitTablePartitionId, @NotNull RowId rowId, @NotNull UUID txId) {
-        this(commitTablePartitionId, rowId, null, txId);
+    public UpdateCommand(@NotNull ReplicationGroupId commitReplicationGroupId, @NotNull RowId rowId, @NotNull UUID txId) {
+        this(commitReplicationGroupId, rowId, null, txId);
     }
 
     /**
@@ -81,8 +81,8 @@ public class UpdateCommand extends PartitionCommand {
      *
      * @return Table partition id.
      */
-    public TablePartitionId getCommitTablePartitionId() {
-        return commitTablePartitionId;
+    public ReplicationGroupId getCommitTablePartitionId() {
+        return commitReplicationGroupId;
     }
 
     /**

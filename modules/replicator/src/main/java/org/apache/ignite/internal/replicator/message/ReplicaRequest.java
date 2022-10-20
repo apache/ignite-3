@@ -30,5 +30,5 @@ public interface ReplicaRequest extends NetworkMessage {
      * @return Replication group id.
      */
     @Marshallable
-    TablePartitionId groupId();
+    ReplicationGroupId groupId();
 }

@@ -20,7 +20,7 @@ package org.apache.ignite.internal.replicator.exception;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_COMMON_ERR;
 
 import java.util.UUID;
-import org.apache.ignite.internal.replicator.message.TablePartitionId;
+import org.apache.ignite.internal.replicator.message.ReplicationGroupId;
 import org.apache.ignite.lang.IgniteInternalException;
 
 /**
@@ -32,7 +32,7 @@ public class ReplicationException extends IgniteInternalException {
      *
      * @param replicaGrpId Replication group id.
      */
-    public ReplicationException(TablePartitionId replicaGrpId) {
+    public ReplicationException(ReplicationGroupId replicaGrpId) {
         this(replicaGrpId, null);
     }
 
@@ -42,7 +42,7 @@ public class ReplicationException extends IgniteInternalException {
      * @param replicaGrpId Replication group id.
      * @param cause        Optional nested exception (can be {@code null}).
      */
-    public ReplicationException(TablePartitionId replicaGrpId, Throwable cause) {
+    public ReplicationException(ReplicationGroupId replicaGrpId, Throwable cause) {
         this(REPLICA_COMMON_ERR, "Failed to process replica request [replicaGroupId=" + replicaGrpId + ']', cause);
     }
 

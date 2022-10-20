@@ -54,7 +54,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
-import org.apache.ignite.internal.replicator.message.TablePartitionId;
+import org.apache.ignite.internal.replicator.message.ReplicationGroupId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.Column;
@@ -130,11 +130,11 @@ public class ItColocationTest {
         TxManager txManager = new TxManagerImpl(replicaService,  new HeapLockManager(), new HybridClock()) {
             @Override
             public CompletableFuture<Void> finish(
-                    TablePartitionId committedPartition,
+                    ReplicationGroupId committedPartition,
                     ClusterNode recipientNode,
                     Long term,
                     boolean commit,
-                    Map<ClusterNode, List<IgniteBiTuple<TablePartitionId, Long>>> groups,
+                    Map<ClusterNode, List<IgniteBiTuple<ReplicationGroupId, Long>>> groups,
                     UUID txId) {
                 return completedFuture(null);
             }
@@ -142,7 +142,7 @@ public class ItColocationTest {
         txManager.start();
 
         Int2ObjectMap<RaftGroupService> partRafts = new Int2ObjectOpenHashMap<>();
-        Map<TablePartitionId, RaftGroupService> groupRafts = new HashMap<>();
+        Map<ReplicationGroupId, RaftGroupService> groupRafts = new HashMap<>();
 
         UUID tblId = UUID.randomUUID();
 
@@ -172,12 +172,12 @@ public class ItColocationTest {
             }).when(r).run(any());
 
             partRafts.put(i, r);
-            groupRafts.put(new TablePartitionId(tblId, i), r);
+            groupRafts.put(new ReplicationGroupId(tblId, i), r);
         }
 
         when(replicaService.invoke(any(), any())).thenAnswer(invocation -> {
             ReplicaRequest request = invocation.getArgument(1);
-            var commitPartId = new TablePartitionId(UUID.randomUUID(), 0);
+            var commitPartId = new ReplicationGroupId(UUID.randomUUID(), 0);
 
             RaftGroupService r = groupRafts.get(request.groupId());
 

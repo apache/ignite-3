@@ -43,7 +43,7 @@ import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutExcepti
 import org.apache.ignite.internal.replicator.exception.UnsupportedReplicaRequestException;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
-import org.apache.ignite.internal.replicator.message.TablePartitionId;
+import org.apache.ignite.internal.replicator.message.ReplicationGroupId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
@@ -93,7 +93,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     private static final TxMessagesFactory FACTORY = new TxMessagesFactory();
 
     /** Replication group id. */
-    private final TablePartitionId replicationGroupId;
+    private final ReplicationGroupId replicationGroupId;
 
     /** Partition id. */
     private final int partId;
@@ -190,7 +190,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         //TODO: IGNITE-17479 Integrate indexes into replicaListener command handlers
         this.indexScanId = new UUID(tableId.getMostSignificantBits(), tableId.getLeastSignificantBits() + 1);
         this.indexPkId = new UUID(tableId.getMostSignificantBits(), tableId.getLeastSignificantBits() + 2);
-        this.replicationGroupId = new TablePartitionId(tableId, partId);
+        this.replicationGroupId = new ReplicationGroupId(tableId, partId);
 
         cursors = new ConcurrentSkipListMap<>((o1, o2) -> {
             if (o1 == o2) {
@@ -510,7 +510,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      */
     // TODO: need to properly handle primary replica changes https://issues.apache.org/jira/browse/IGNITE-17615
     private CompletableFuture<Object> processTxFinishAction(TxFinishReplicaRequest request) {
-        List<TablePartitionId> aggregatedGroupIds = request.groups().values().stream()
+        List<ReplicationGroupId> aggregatedGroupIds = request.groups().values().stream()
                 .flatMap(List::stream).map(IgniteBiTuple::get1).collect(Collectors.toList());
 
         UUID txId = request.txId();
@@ -547,7 +547,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param commit True is the transaction is committed, false otherwise.
      * @return Future to wait of the finish.
      */
-    private CompletableFuture<Object> finishTransaction(List<TablePartitionId> aggregatedGroupIds, UUID txId, boolean commit) {
+    private CompletableFuture<Object> finishTransaction(List<ReplicationGroupId> aggregatedGroupIds, UUID txId, boolean commit) {
         // TODO: IGNITE-17261 Timestamp from request is not using until the issue has not been fixed (request.commitTimestamp())
         var fut = new CompletableFuture<TxMeta>();
 
@@ -661,7 +661,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         UUID indexId = indexIdOrDefault(indexPkId/*request.indexToUse()*/);
 
         UUID txId = request.transactionId();
-        TablePartitionId committedPartitionId = request.committedPartitionId();
+        ReplicationGroupId committedPartitionId = request.committedPartitionId();
 
         assert committedPartitionId != null || request.requestType() == RequestType.RW_GET_ALL
                 : "Committed partition partition is null [type=" + request.requestType() + ']';
@@ -857,7 +857,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     private CompletableFuture<Object> processSingleEntryAction(ReadWriteSingleRowReplicaRequest request) {
         UUID txId = request.transactionId();
         BinaryRow searchRow = request.binaryRow();
-        TablePartitionId committedPartitionId = request.committedPartitionId();
+        ReplicationGroupId committedPartitionId = request.committedPartitionId();
 
         assert committedPartitionId != null || request.requestType() == RequestType.RW_GET :
                 "Committed partition partition is null [type=" + request.requestType() + ']';
@@ -1209,7 +1209,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     private CompletableFuture<Object> processTwoEntriesAction(ReadWriteSwapRowReplicaRequest request) {
         BinaryRow searchRow = request.binaryRow();
         BinaryRow oldRow = request.oldBinaryRow();
-        TablePartitionId committedPartitionId = request.committedPartitionId();
+        ReplicationGroupId committedPartitionId = request.committedPartitionId();
 
         assert committedPartitionId != null : "Committed partition partition is null [type=" + request.requestType() + ']';
 
@@ -1413,7 +1413,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             HybridTimestamp timestamp,
             Supplier<BinaryRow> lastCommitted
     ) {
-        TablePartitionId commitGrpId = new TablePartitionId(readResult.commitTableId(), readResult.commitPartitionId());
+        ReplicationGroupId commitGrpId = new ReplicationGroupId(readResult.commitTableId(), readResult.commitPartitionId());
 
         return placementDriver.sendMetaRequest(commitGrpId, FACTORY.txStateReplicaRequest()
                         .groupId(commitGrpId)

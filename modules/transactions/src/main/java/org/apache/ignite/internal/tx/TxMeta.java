@@ -22,7 +22,7 @@ import static java.util.Collections.unmodifiableList;
 import java.io.Serializable;
 import java.util.List;
 import org.apache.ignite.hlc.HybridTimestamp;
-import org.apache.ignite.internal.replicator.message.TablePartitionId;
+import org.apache.ignite.internal.replicator.message.ReplicationGroupId;
 import org.apache.ignite.internal.tostring.S;
 
 /** Transaction meta. */
@@ -34,7 +34,7 @@ public class TxMeta implements Serializable {
     private final TxState txState;
 
     /** The list of enlisted partitions. */
-    private final List<TablePartitionId> enlistedPartitions;
+    private final List<ReplicationGroupId> enlistedPartitions;
 
     /** Commit timestamp. */
     private final HybridTimestamp commitTimestamp;
@@ -46,7 +46,7 @@ public class TxMeta implements Serializable {
      * @param enlistedPartitions The list of enlisted partitions.
      * @param commitTimestamp Commit timestamp.
      */
-    public TxMeta(TxState txState, List<TablePartitionId> enlistedPartitions, HybridTimestamp commitTimestamp) {
+    public TxMeta(TxState txState, List<ReplicationGroupId> enlistedPartitions, HybridTimestamp commitTimestamp) {
         this.txState = txState;
         this.enlistedPartitions = enlistedPartitions;
         this.commitTimestamp = commitTimestamp;
@@ -56,7 +56,7 @@ public class TxMeta implements Serializable {
         return txState;
     }
 
-    public List<TablePartitionId> enlistedPartitions() {
+    public List<ReplicationGroupId> enlistedPartitions() {
         return unmodifiableList(enlistedPartitions);
     }
 

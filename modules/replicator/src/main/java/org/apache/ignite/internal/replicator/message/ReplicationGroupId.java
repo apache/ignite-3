@@ -20,12 +20,13 @@ package org.apache.ignite.internal.replicator.message;
 import java.io.Serializable;
 import java.util.UUID;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * The class stores a table id together with a partition id.
  * It is used as a replication group identifier.
  */
-public class TablePartitionId implements Comparable<TablePartitionId>, Serializable {
+public class ReplicationGroupId implements Comparable<ReplicationGroupId>, Serializable {
     /** Table id. */
     private final UUID tableId;
 
@@ -38,7 +39,7 @@ public class TablePartitionId implements Comparable<TablePartitionId>, Serializa
      * @param tableId Table id.
      * @param partId Partition id.
      */
-    public TablePartitionId(UUID tableId, int partId) {
+    public ReplicationGroupId(@Nullable UUID tableId, int partId) {
         this.tableId = tableId;
         this.partId = partId;
     }
@@ -62,8 +63,8 @@ public class TablePartitionId implements Comparable<TablePartitionId>, Serializa
     }
 
     @Override
-    public int compareTo(@NotNull TablePartitionId o) {
-        int tblCmp = tableId.compareTo(o.tableId);
+    public int compareTo(@NotNull ReplicationGroupId o) {
+        int tblCmp = tableId == o.tableId ? 0 : tableId.compareTo(o.tableId);
 
         if (tblCmp != 0) {
             return tblCmp;
@@ -82,14 +83,14 @@ public class TablePartitionId implements Comparable<TablePartitionId>, Serializa
             return false;
         }
 
-        TablePartitionId that = (TablePartitionId) o;
+        ReplicationGroupId that = (ReplicationGroupId) o;
 
-        return partId == that.partId && tableId.equals(that.tableId);
+        return partId == that.partId && (tableId == that.tableId || tableId.equals(that.tableId));
     }
 
     @Override
     public int hashCode() {
-        return tableId.hashCode() ^ partId;
+        return tableId != null ? tableId.hashCode() ^ partId : partId;
     }
 
     @Override

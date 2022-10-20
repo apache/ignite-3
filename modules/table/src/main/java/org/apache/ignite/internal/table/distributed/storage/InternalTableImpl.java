@@ -41,7 +41,7 @@ import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
-import org.apache.ignite.internal.replicator.message.TablePartitionId;
+import org.apache.ignite.internal.replicator.message.ReplicationGroupId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
@@ -191,7 +191,7 @@ public class InternalTableImpl implements InternalTable {
     private <R> CompletableFuture<R> enlistInTx(
             BinaryRowEx row,
             InternalTransaction tx,
-            IgniteTetraFunction<TablePartitionId, InternalTransaction, TablePartitionId, Long, ReplicaRequest> op
+            IgniteTetraFunction<ReplicationGroupId, InternalTransaction, ReplicationGroupId, Long, ReplicaRequest> op
     ) {
         final boolean implicit = tx == null;
 
@@ -199,14 +199,14 @@ public class InternalTableImpl implements InternalTable {
 
         int partId = partId(row);
 
-        TablePartitionId partGroupId = new TablePartitionId(tableId, partId);
+        ReplicationGroupId partGroupId = new ReplicationGroupId(tableId, partId);
 
         IgniteBiTuple<ClusterNode, Long> primaryReplicaAndTerm = tx0.enlistedNodeAndTerm(partGroupId);
 
         CompletableFuture<R> fut;
 
         if (primaryReplicaAndTerm != null) {
-            TablePartitionId commitPart = tx.committedPartition();
+            ReplicationGroupId commitPart = tx.committedPartition();
 
             ReplicaRequest request = op.apply(commitPart, tx0, partGroupId, primaryReplicaAndTerm.get2());
 
@@ -241,7 +241,7 @@ public class InternalTableImpl implements InternalTable {
     private <T> CompletableFuture<T> enlistInTx(
             Collection<BinaryRowEx> keyRows,
             InternalTransaction tx,
-            IgniteFiveFunction<TablePartitionId, Collection<BinaryRow>, InternalTransaction, TablePartitionId, Long, ReplicaRequest> op,
+            IgniteFiveFunction<ReplicationGroupId, Collection<BinaryRow>, InternalTransaction, ReplicationGroupId, Long, ReplicaRequest> op,
             Function<CompletableFuture<Object>[], CompletableFuture<T>> reducer
     ) {
         final boolean implicit = tx == null;
@@ -260,14 +260,14 @@ public class InternalTableImpl implements InternalTable {
         int batchNum = 0;
 
         for (Int2ObjectOpenHashMap.Entry<List<BinaryRow>> partToRows : keyRowsByPartition.int2ObjectEntrySet()) {
-            TablePartitionId partGroupId = new TablePartitionId(tableId, partToRows.getIntKey());
+            ReplicationGroupId partGroupId = new ReplicationGroupId(tableId, partToRows.getIntKey());
 
             IgniteBiTuple<ClusterNode, Long> primaryReplicaAndTerm = tx0.enlistedNodeAndTerm(partGroupId);
 
             CompletableFuture<Object> fut;
 
             if (primaryReplicaAndTerm != null) {
-                TablePartitionId commitPart = tx.committedPartition();
+                ReplicationGroupId commitPart = tx.committedPartition();
 
                 ReplicaRequest request = op.apply(commitPart, partToRows.getValue(), tx0, partGroupId, primaryReplicaAndTerm.get2());
 
@@ -310,7 +310,7 @@ public class InternalTableImpl implements InternalTable {
             long scanId,
             int batchSize
     ) {
-        TablePartitionId partGroupId = new TablePartitionId(tableId, partId);
+        ReplicationGroupId partGroupId = new ReplicationGroupId(tableId, partId);
 
         IgniteBiTuple<ClusterNode, Long> primaryReplicaAndTerm = tx.enlistedNodeAndTerm(partGroupId);
 
@@ -352,7 +352,7 @@ public class InternalTableImpl implements InternalTable {
     private <R> CompletableFuture<R> enlistWithRetry(
             InternalTransaction tx,
             int partId,
-            BiFunction<TablePartitionId, Long, ReplicaRequest> requestFunction,
+            BiFunction<ReplicationGroupId, Long, ReplicaRequest> requestFunction,
             int attempts
     ) {
         CompletableFuture<R> result = new CompletableFuture();
@@ -867,7 +867,7 @@ public class InternalTableImpl implements InternalTable {
      */
     protected CompletableFuture<IgniteBiTuple<ClusterNode, Long>> enlist(int partId, InternalTransaction tx) {
         RaftGroupService svc = partitionMap.get(partId);
-        tx.assignCommitPartition(new TablePartitionId(tableId, partId));
+        tx.assignCommitPartition(new ReplicationGroupId(tableId, partId));
 
         // TODO: IGNITE-17256 Use a placement driver for getting a primary replica.
         CompletableFuture<IgniteBiTuple<Peer, Long>> fut0 = svc.refreshAndGetLeaderWithTerm();
@@ -879,7 +879,7 @@ public class InternalTableImpl implements InternalTable {
                 throw new TransactionException("Failed to get the primary replica.");
             }
 
-            TablePartitionId partGroupId = new TablePartitionId(tableId, partId);
+            ReplicationGroupId partGroupId = new ReplicationGroupId(tableId, partId);
 
             return tx.enlist(partGroupId,
                     new IgniteBiTuple<>(clusterNodeResolver.apply(primaryPeerAndTerm.get1().address()), primaryPeerAndTerm.get2()));

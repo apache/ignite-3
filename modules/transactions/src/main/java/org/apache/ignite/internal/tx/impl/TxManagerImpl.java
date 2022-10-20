@@ -27,7 +27,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.replicator.message.TablePartitionId;
+import org.apache.ignite.internal.replicator.message.ReplicationGroupId;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.Timestamp;
@@ -103,11 +103,11 @@ public class TxManagerImpl implements TxManager {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> finish(
-            TablePartitionId committedPartition,
+            ReplicationGroupId committedPartition,
             ClusterNode recipientNode,
             Long term,
             boolean commit,
-            Map<ClusterNode, List<IgniteBiTuple<TablePartitionId, Long>>> groups,
+            Map<ClusterNode, List<IgniteBiTuple<ReplicationGroupId, Long>>> groups,
             UUID txId
     ) {
         assert groups != null && !groups.isEmpty();
@@ -132,7 +132,7 @@ public class TxManagerImpl implements TxManager {
     @Override
     public CompletableFuture<Void> cleanup(
             ClusterNode recipientNode,
-            List<IgniteBiTuple<TablePartitionId, Long>> replicationGroupIds,
+            List<IgniteBiTuple<ReplicationGroupId, Long>> replicationGroupIds,
             UUID txId,
             boolean commit,
             HybridTimestamp commitTimestamp

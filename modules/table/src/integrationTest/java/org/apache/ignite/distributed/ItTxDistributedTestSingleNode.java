@@ -51,7 +51,7 @@ import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.replicator.message.TablePartitionId;
+import org.apache.ignite.internal.replicator.message.ReplicationGroupId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
@@ -374,7 +374,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 var placementDriver = new PlacementDriver(replicaServices.get(node));
 
                 for (int part = 0; part < assignment.size(); part++) {
-                    TablePartitionId replicaGrpId = new TablePartitionId(tblId, part);
+                    ReplicationGroupId replicaGrpId = new ReplicationGroupId(tblId, part);
 
                     placementDriver.updateAssignment(replicaGrpId, assignment.get(part));
                 }
@@ -399,7 +399,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                         raftSvc -> {
                             try {
                                 replicaManagers.get(node).startReplica(
-                                        new TablePartitionId(tblId, partId),
+                                        new ReplicationGroupId(tblId, partId),
                                         new PartitionReplicaListener(
                                                 testMpPartStorage,
                                                 raftSvc,
@@ -494,9 +494,9 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
             ReplicaManager replicaMgr = replicaManagers.get(entry.getKey());
 
-            Set<TablePartitionId> replicaGrps = replicaMgr.startedGroups();
+            Set<ReplicationGroupId> replicaGrps = replicaMgr.startedGroups();
 
-            for (TablePartitionId grp : replicaGrps) {
+            for (ReplicationGroupId grp : replicaGrps) {
                 replicaMgr.stopReplica(grp);
             }
 
