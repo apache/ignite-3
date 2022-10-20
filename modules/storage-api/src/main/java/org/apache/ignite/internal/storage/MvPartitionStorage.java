@@ -207,4 +207,9 @@ public interface MvPartitionStorage extends AutoCloseable {
      */
     @Deprecated
     void forEach(BiConsumer<RowId, BinaryRow> consumer);
+
+    /**
+     * Deletes partition data from the storage.
+     */
+    void destroy();
 }

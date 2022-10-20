@@ -848,9 +848,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         }
     }
 
-    /**
-     * Deletes partition data from the storage.
-     */
+    @Override
     public void destroy() {
         try (WriteBatch writeBatch = new WriteBatch()) {
             writeBatch.delete(meta, lastAppliedIndexKey);

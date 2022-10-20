@@ -116,6 +116,7 @@ import org.apache.ignite.internal.table.distributed.message.HasDataRequestBuilde
 import org.apache.ignite.internal.table.distributed.message.HasDataResponse;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.raft.RebalanceRaftGroupEventsListener;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.MvPartitionAccess;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionSnapshotStorageFactory;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
@@ -741,8 +742,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                         return CompletableFuture.completedFuture(null);
                                     }
 
-                                    RaftGroupOptions groupOptions = groupOptionsForPartition(internalTbl, tblCfg, partitionStorage,
-                                            newPartAssignment);
+                                    RaftGroupOptions groupOptions = groupOptionsForPartition(
+                                            internalTbl.storage(),
+                                            partId,
+                                            newPartAssignment
+                                    );
 
                                     try {
                                         raftMgr.startRaftGroupNode(
@@ -853,14 +857,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     private RaftGroupOptions groupOptionsForPartition(
-            InternalTable internalTbl,
-            ExtendedTableConfiguration tableConfig,
-            MvPartitionStorage partitionStorage,
+            MvTableStorage tableStorage,
+            int partId,
             Set<ClusterNode> peers
     ) {
         RaftGroupOptions raftGroupOptions;
 
-        if (internalTbl.storage().isVolatile()) {
+        if (tableStorage.isVolatile()) {
             raftGroupOptions = RaftGroupOptions.forVolatileStores()
                     .setLogStorageFactory(volatileLogStorageFactoryCreator.factory(raftMgr.volatileRaft().logStorage().value()))
                     .raftMetaStorageFactory((groupId, raftOptions) -> new VolatileRaftMetaStorage());
@@ -873,7 +876,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 raftMgr.topologyService(),
                 //TODO IGNITE-17302 Use miniumum from mv storage and tx state storage.
                 new OutgoingSnapshotsManager(raftMgr.messagingService()),
-                partitionStorage::persistedIndex,
+                new MvPartitionAccess(tableStorage, partId),
                 peers.stream().map(n -> new Peer(n.address())).map(PeerId::fromPeer).map(Object::toString).collect(Collectors.toList()),
                 List.of(),
                 incomingSnapshotsExecutor
@@ -1691,9 +1694,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             MvPartitionStorage partitionStorage = tbl.internalTable().storage().getOrCreateMvPartition(partId);
 
                             RaftGroupOptions groupOptions = groupOptionsForPartition(
-                                    tbl.internalTable(),
-                                    tblCfg,
-                                    partitionStorage,
+                                    tbl.internalTable().storage(),
+                                    partId,
                                     assignments
                             );
 

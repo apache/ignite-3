@@ -30,7 +30,7 @@ public class SnapshotUri {
      * Creates a string representation of the snapshot URI.
      *
      * @param snapshotId Snapshot id.
-     * @param nodeName Sender node name.
+     * @param nodeName Sender node (consistent id) name.
      */
     public static String toStringUri(UUID snapshotId, String nodeName) {
         return nodeName + "-" + snapshotId;
@@ -52,7 +52,7 @@ public class SnapshotUri {
     /** Snapshot id. */
     public final UUID snapshotId;
 
-    /** Sender node name. */
+    /** Sender node (consistent id) name. */
     public final String nodeName;
 
     /**

@@ -17,7 +17,10 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot.incoming;
 
+import static java.util.concurrent.CompletableFuture.runAsync;
+
 import java.io.IOException;
+import java.util.List;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -27,9 +30,12 @@ import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionSnapshotStorage;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.SnapshotUri;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMetaRequest;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMetaResponse;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMvDataResponse;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMvDataResponse.ResponseEntry;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotCopier;
@@ -39,54 +45,49 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Snapshot copier implementation for partitions. Used to stream partition data from the leader to the local node.
  */
-// TODO: IGNITE-17894 реализовать и добвить все что нужно можно смотреть на LocalSnapshotCopier
 public class IncomingSnapshotCopier extends SnapshotCopier {
     private static final IgniteLogger LOG = Loggers.forClass(IncomingSnapshotCopier.class);
 
     private static final TableMessagesFactory MSG_FACTORY = new TableMessagesFactory();
-    private final PartitionSnapshotStorage snapshotStorage;
 
-    /** Snapshot URI. */
+    private static final long NETWORK_TIMEOUT = 10_000;
+
+    private final PartitionSnapshotStorage partitionSnapshotStorage;
+
     private final SnapshotUri snapshotUri;
 
-    private final IgniteSpinBusyLock cancelLock = new IgniteSpinBusyLock();
+    private final IgniteSpinBusyLock cancelBusyLock = new IgniteSpinBusyLock();
 
-    @Nullable
-    private volatile CompletableFuture<?> future;
-
-    // TODO: IGNITE-17894 реализовать по нормальному и конкурентному
+    private final CompletableFuture<?> future = new CompletableFuture<>();
 
     /**
      * Snapshot meta read from the leader.
      *
      * @see SnapshotMetaRequest
      */
-    private SnapshotMeta snapshotMeta;
+    @Nullable
+    private volatile SnapshotMeta snapshotMeta;
 
     /**
      * Constructor.
      *
-     * @param snapshotStorage Snapshot storage.
+     * @param partitionSnapshotStorage Snapshot storage.
      * @param snapshotUri Snapshot URI.
      */
-    public IncomingSnapshotCopier(PartitionSnapshotStorage snapshotStorage, SnapshotUri snapshotUri) {
-        this.snapshotStorage = snapshotStorage;
+    public IncomingSnapshotCopier(PartitionSnapshotStorage partitionSnapshotStorage, SnapshotUri snapshotUri) {
+        this.partitionSnapshotStorage = partitionSnapshotStorage;
         this.snapshotUri = snapshotUri;
     }
 
     @Override
     public void start() {
-        future = CompletableFuture.runAsync(this::startCopy, snapshotStorage.getIncomingSnapshotsExecutor());
+        runAsync(this::start0, partitionSnapshotStorage.getIncomingSnapshotsExecutor());
     }
 
     @Override
     public void join() throws InterruptedException {
-        CompletableFuture<?> fut = future;
-
-        assert fut != null;
-
         try {
-            fut.get();
+            future.get();
         } catch (CancellationException e) {
             // Ignored.
         } catch (ExecutionException e) {
@@ -96,17 +97,13 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
 
     @Override
     public void cancel() {
-        cancelLock.block();
-
-        CompletableFuture<?> fut = future;
-
-        assert fut != null;
+        cancelBusyLock.block();
 
         if (!isOk()) {
             setError(RaftError.ECANCELED, "Copier has been cancelled");
         }
 
-        fut.cancel(true);
+        future.cancel(true);
     }
 
     @Override
@@ -126,38 +123,121 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
         return new IncomingSnapshotReader(snapshotMeta);
     }
 
-    private void startCopy() {
-        // TODO: 20.10.2022 реализовать
-        // TODO: 20.10.2022 шаги:
-        // TODO: 20.10.2022 1) пересоздать партицию : уничтожить её и создать заново
-        // TODO: 20.10.2022 2) что-то сделать с appliedIndex или вроде того
-        // TODO: 20.10.2022 3) начать скачивать записи наверное пачкой
-        // TODO: 20.10.2022 4) записывать записи в партицию наверное пачкой
-        // TODO: 20.10.2022 5) что-то сделать с appliedIndex или вроде того
-        // TODO: 20.10.2022 ****) на кажом шаге может что-то отъебывать надо как-то это хендлить
+    private void start0() {
+        if (!cancelBusyLock.enterBusy()) {
+            return;
+        }
 
-        //TODO https://issues.apache.org/jira/browse/IGNITE-17262
-        // What if node can't be resolved?
-        ClusterNode sourceNode = snapshotStorage.topologyService().getByConsistentId(snapshotUri.nodeName);
+        try {
+            partitionSnapshotStorage.partition().reCreatePartition()
+                    .whenComplete((unused, throwable) -> {
+                        if (throwable != null) {
+                            if (!isOk()) {
+                                setError(RaftError.EIO, "Error while recreating partition");
+                            }
 
-        MessagingService messagingService = snapshotStorage.outgoingSnapshotsManager().messagingService();
+                            future.completeExceptionally(throwable);
+                        } else {
+                            ClusterNode snapshotSenderNode = partitionSnapshotStorage.topologyService()
+                                    .getByConsistentId(snapshotUri.nodeName);
 
-        /*
-        threadPool.submit(() -> {
-            //TODO https://issues.apache.org/jira/browse/IGNITE-17262
-            // Following code is just an example of what I expect and shouldn't be considered a template.
-            CompletableFuture<NetworkMessage> metaRequestFuture = messagingService.invoke(
-                    sourceNode,
-                    MSG_FACTORY.snapshotMetaRequest().id(snapshotUri.snapshotId).build(),
-                    1000L
-            );
+                            if (snapshotSenderNode == null) {
+                                if (!isOk()) {
+                                    setError(RaftError.UNKNOWN, "Sender node was not found or it is offline");
 
-            metaRequestFuture.whenComplete((networkMessage, throwable) -> {
-                SnapshotMetaResponse metaResponse = (SnapshotMetaResponse) networkMessage;
+                                    future.completeExceptionally(
+                                            new IgniteException("Sender node was not found or it is offline: " + snapshotUri.nodeName)
+                                    );
+                                }
+                            }
 
-                snapshotMeta = metaResponse.meta();
-            });
+                            requestSnapshotMetaAsync(snapshotSenderNode);
+                        }
+                    });
+        } finally {
+            cancelBusyLock.leaveBusy();
+        }
+    }
+
+    private void requestSnapshotMetaAsync(ClusterNode snapshotSenderNode) {
+        partitionSnapshotStorage.outgoingSnapshotsManager().messagingService().invoke(
+                snapshotSenderNode,
+                MSG_FACTORY.snapshotMetaRequest().id(snapshotUri.snapshotId).build(),
+                NETWORK_TIMEOUT
+        ).whenComplete((networkMessage, throwable) -> {
+            if (throwable != null) {
+                if (!isOk()) {
+                    setError(RaftError.EIO, "Failed to request snapshot meta");
+                }
+
+                future.completeExceptionally(throwable);
+            } else {
+                snapshotMeta = ((SnapshotMetaResponse) networkMessage).meta();
+
+                if (!cancelBusyLock.enterBusy()) {
+                    return;
+                }
+
+                try {
+                    requestSnapshotMvDataAsync(snapshotSenderNode);
+                } finally {
+                    cancelBusyLock.leaveBusy();
+                }
+            }
         });
-         */
+    }
+
+    private void requestSnapshotMvDataAsync(ClusterNode snapshotSenderNode) {
+        partitionSnapshotStorage.outgoingSnapshotsManager().messagingService().invoke(
+                snapshotSenderNode,
+                MSG_FACTORY.snapshotMvDataRequest().id(snapshotUri.snapshotId).build(),
+                NETWORK_TIMEOUT
+        ).whenComplete((networkMessage, throwable) -> {
+            if (throwable != null) {
+                if (!isOk()) {
+                    setError(RaftError.EIO, "Failed to load mv partition data");
+                }
+
+                future.completeExceptionally(throwable);
+            } else {
+                SnapshotMvDataResponse snapshotMvDataResponse = ((SnapshotMvDataResponse) networkMessage);
+
+                handleVersionChains(snapshotMvDataResponse.rows());
+
+                if (!cancelBusyLock.enterBusy()) {
+                    return;
+                }
+
+                try {
+                    if (!snapshotMvDataResponse.finish()) {
+                        requestSnapshotMvDataAsync(snapshotSenderNode);
+                    } else {
+                        SnapshotMeta snapshotMeta0 = snapshotMeta;
+
+                        assert snapshotMeta0 != null;
+
+                        partitionSnapshotStorage.partition().lastAppliedIndex(snapshotMeta0.lastIncludedIndex());
+                    }
+                } finally {
+                    cancelBusyLock.leaveBusy();
+                }
+            }
+        });
+    }
+
+    private void handleVersionChains(List<ResponseEntry> responseEntries) {
+        for (ResponseEntry responseEntry : responseEntries) {
+            if (!cancelBusyLock.enterBusy()) {
+                return;
+            }
+
+            try {
+                // TODO: IGNITE-17894 реализовать
+
+                LOG.info(responseEntry.toString());
+            } finally {
+                cancelBusyLock.leaveBusy();
+            }
+        }
     }
 }

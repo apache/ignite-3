@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot;
 
+import java.util.concurrent.CompletableFuture;
+
 /**
  * Small abstractions for partition storages that includes only methods, mandatory for the snapshot storage.
  */
@@ -25,4 +27,14 @@ public interface PartitionAccess {
      * Returns persisted RAFT index for the partition.
      */
     long persistedIndex();
+
+    /**
+     * Destroys and recreates the partition.
+     */
+    CompletableFuture<Void> reCreatePartition();
+
+    /**
+     * Sets the last applied index value.
+     */
+    void lastAppliedIndex(long lastAppliedIndex);
 }
