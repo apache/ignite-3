@@ -38,8 +38,12 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.calcite.schema.SchemaPlus;
+import org.apache.calcite.sql.SqlDelete;
+import org.apache.calcite.sql.SqlInsert;
+import org.apache.calcite.sql.SqlMerge;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
+import org.apache.calcite.sql.SqlUpdate;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.index.IndexManager;
@@ -387,11 +391,13 @@ public class SqlQueryProcessor implements QueryProcessor {
                     return nodes.get(0);
                 })
                 .thenCompose(sqlNode -> {
+                    final boolean rwTx = dataModificationOp(sqlNode);
+
                     BaseQueryContext ctx = BaseQueryContext.builder()
                             .frameworkConfig(
                                     Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
                                             .defaultSchema(schema)
-                                            .traitDefs(Commons.LOCAL_TRAITS_SET)
+                                            .traitDefs(rwTx ? Commons.LOCAL_TRAITS_SET : Commons.DISTRIBUTED_TRAITS_SET)
                                             .build()
                             )
                             .logger(LOG)
@@ -409,7 +415,10 @@ public class SqlQueryProcessor implements QueryProcessor {
                                 // Transactional DDL is not supported as well as RO transactions, hence
                                 // only DML requiring RW transaction is covered
                                 boolean implicitTxRequired = (plan.type() == Type.DML || plan.type() == Type.QUERY) && outerTx == null;
-                                InternalTransaction implicitTx = implicitTxRequired ? txManager.begin() : null;
+
+                                // Take real clock for RO transaction after ignite-17260 will be merged.
+                                //Object implicitTx = implicitTxRequired ? (rwTx ? txManager.begin(!rwTx) : HybridTimestamp.now()) : null;
+                                Object implicitTx = implicitTxRequired ? txManager.begin() : null;
 
                                 BaseQueryContext enrichedContext =
                                         implicitTxRequired ? ctx.toBuilder().transaction(implicitTx).build() : ctx;
@@ -419,7 +428,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                                 return new AsyncSqlCursorImpl<>(
                                         SqlQueryType.mapPlanTypeToSqlType(plan.type()),
                                         plan.metadata(),
-                                        implicitTx,
+                                        rwTx ? (InternalTransaction) implicitTx : null,
                                         new AsyncCursor<List<Object>>() {
                                             @Override
                                             public CompletableFuture<BatchedResult<List<Object>>> requestNextAsync(int rows) {
@@ -619,5 +628,11 @@ public class SqlQueryProcessor implements QueryProcessor {
                     )
                     .thenApply(v -> false);
         }
+    }
+
+    /** Returns {@code true} if this is data modification operation. */
+    private static boolean dataModificationOp(SqlNode sqlNode) {
+        return sqlNode instanceof SqlInsert || sqlNode instanceof SqlMerge || sqlNode instanceof SqlDelete
+                || sqlNode instanceof SqlUpdate;
     }
 }

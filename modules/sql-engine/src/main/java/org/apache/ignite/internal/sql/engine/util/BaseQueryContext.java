@@ -57,7 +57,6 @@ import org.apache.ignite.internal.sql.engine.trait.CorrelationTraitDef;
 import org.apache.ignite.internal.sql.engine.trait.DistributionTraitDef;
 import org.apache.ignite.internal.sql.engine.trait.RewindabilityTraitDef;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ArrayUtils;
 
 /**
@@ -159,7 +158,8 @@ public final class BaseQueryContext extends AbstractQueryContext {
 
     private final Object[] parameters;
 
-    private final InternalTransaction tx;
+    /** Transaction representation: it can be implementation or clock representation for RO transactions. */
+    private final Object tx;
 
     private CalciteCatalogReader catalogReader;
 
@@ -174,7 +174,7 @@ public final class BaseQueryContext extends AbstractQueryContext {
             QueryCancel cancel,
             Object[] parameters,
             IgniteLogger log,
-            InternalTransaction tx,
+            Object tx,
             long plannerTimeout
     ) {
         super(Contexts.chain(cfg.getContext()));
@@ -236,7 +236,7 @@ public final class BaseQueryContext extends AbstractQueryContext {
         return rexBuilder;
     }
 
-    public InternalTransaction transaction() {
+    public Object transaction() {
         return tx;
     }
 
@@ -311,7 +311,7 @@ public final class BaseQueryContext extends AbstractQueryContext {
 
         private Object[] parameters = ArrayUtils.OBJECT_EMPTY_ARRAY;
 
-        private InternalTransaction tx;
+        private Object tx;
 
         private long plannerTimeout;
 
@@ -340,7 +340,7 @@ public final class BaseQueryContext extends AbstractQueryContext {
             return this;
         }
 
-        public Builder transaction(InternalTransaction tx) {
+        public Builder transaction(Object tx) {
             this.tx = tx;
             return this;
         }

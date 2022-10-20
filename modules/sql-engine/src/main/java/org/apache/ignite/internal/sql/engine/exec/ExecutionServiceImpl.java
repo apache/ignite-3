@@ -40,6 +40,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.configuration.ConfigurationChangeException;
+import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -190,7 +191,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     ) {
         DistributedQueryManager queryManager;
 
-        InternalTransaction tx = ctx.transaction();
+        Object tx = ctx.transaction();
 
         DistributedQueryManager old = queryManagerMap.put(ctx.queryId(), queryManager = new DistributedQueryManager(ctx, tx));
 
@@ -382,15 +383,15 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         private volatile Long rootFragmentId = null;
 
-        private @Nullable InternalTransaction transaction;
+        private @Nullable Object txRepresentation;
 
         private DistributedQueryManager(
                 BaseQueryContext ctx,
-                @Nullable InternalTransaction transaction
+                @Nullable Object txRepresentation
         ) {
             this(ctx);
 
-            this.transaction = transaction;
+            this.txRepresentation = txRepresentation;
         }
 
         private DistributedQueryManager(BaseQueryContext ctx) {
@@ -525,7 +526,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     desc,
                     handler,
                     Commons.parametersMap(ctx.parameters()),
-                    transaction
+                    // desc.txTimestamp() set clock after ignite-17260
+                    txRepresentation instanceof InternalTransaction ? (InternalTransaction) txRepresentation : null
             );
         }
 
@@ -579,7 +581,9 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                                 fragment.fragmentId(),
                                 plan.mapping(fragment),
                                 plan.target(fragment),
-                                plan.remotes(fragment)
+                                plan.remotes(fragment),
+                                // Required only for remote reqs and RO tx for now.
+                                txRepresentation instanceof InternalTransaction ? null : (HybridTimestamp) txRepresentation
                         );
 
                         for (String nodeId : fragmentDesc.nodeIds()) {

@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.metadata;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import java.io.Serializable;
 import java.util.List;
+import org.apache.ignite.hlc.HybridTimestamp;
 
 /**
  * FragmentDescription.
@@ -34,6 +35,8 @@ public class FragmentDescription implements Serializable {
 
     private Long2ObjectMap<List<String>> remoteSources;
 
+    private HybridTimestamp txTs;
+
     /**
      * Constructor.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
@@ -46,11 +49,12 @@ public class FragmentDescription implements Serializable {
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public FragmentDescription(long fragmentId, FragmentMapping mapping, ColocationGroup target,
-            Long2ObjectMap<List<String>> remoteSources) {
+            Long2ObjectMap<List<String>> remoteSources, HybridTimestamp txTs) {
         this.fragmentId = fragmentId;
         this.mapping = mapping;
         this.target = target;
         this.remoteSources = remoteSources;
+        this.txTs = txTs;
     }
 
     /**
@@ -82,9 +86,14 @@ public class FragmentDescription implements Serializable {
     }
 
     /**
-     * Get mappring.
+     * Get mapping.
      */
     public FragmentMapping mapping() {
         return mapping;
+    }
+
+    /** RO transaction timestamp. */
+    public HybridTimestamp txTimestamp() {
+        return txTs;
     }
 }
