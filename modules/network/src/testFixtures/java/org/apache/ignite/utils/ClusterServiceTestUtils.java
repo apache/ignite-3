@@ -30,6 +30,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.IntStream;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
+import org.apache.ignite.configuration.schemas.network.NodeFinderType;
+import org.apache.ignite.configuration.schemas.rest.RestConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.network.NetworkMessagesSerializationRegistryInitializer;
@@ -120,11 +123,12 @@ public class ClusterServiceTestUtils {
                 List.of()
         );
 
-        NetworkConfiguration configuration = nodeConfigurationMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY);
+        NetworkConfiguration networkConfiguration = nodeConfigurationMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY);
+        RestConfiguration restConfiguration = nodeConfigurationMgr.configurationRegistry().getConfiguration(RestConfiguration.KEY);
 
-        var bootstrapFactory = new NettyBootstrapFactory(configuration, ctx.getName());
+        var bootstrapFactory = new NettyBootstrapFactory(networkConfiguration, ctx.getName());
 
-        ClusterService clusterSvc = SERVICE_FACTORY.createClusterService(ctx, configuration, bootstrapFactory);
+        ClusterService clusterSvc = SERVICE_FACTORY.createClusterService(ctx, networkConfiguration, restConfiguration, bootstrapFactory);
 
         assert nodeFinder instanceof StaticNodeFinder : "Only StaticNodeFinder is supported at the moment";
 

@@ -27,11 +27,8 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.network.AbstractTopologyService;
-import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.network.TopologyEventHandler;
-import org.apache.ignite.network.TopologyService;
+import org.apache.ignite.network.*;
+import org.w3c.dom.Node;
 
 /**
  * Implementation of {@link TopologyService} based on ScaleCube.
@@ -66,7 +63,8 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
      * @param event Membership event.
      */
     void onMembershipEvent(MembershipEvent event) {
-        ClusterNode member = fromMember(event.member());
+        NodeMetadata nodeMetadata = NodeMetadata.fromByteBuffer(event.newMetadata());
+        ClusterNode member = fromMember(event.member(), nodeMetadata);
 
         if (event.isAdded()) {
             members.put(member.address(), member);
@@ -130,10 +128,11 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
     @Override
     public ClusterNode localMember() {
         Member localMember = cluster.member();
+        NodeMetadata nodeMetadata = cluster.<NodeMetadata>metadata().orElse(null);
 
         assert localMember != null : "Cluster has not been started";
 
-        return fromMember(localMember);
+        return fromMember(localMember, nodeMetadata);
     }
 
     /** {@inheritDoc} */
@@ -160,9 +159,9 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
      * @param member ScaleCube's cluster member.
      * @return Cluster node.
      */
-    private static ClusterNode fromMember(Member member) {
+    private static ClusterNode fromMember(Member member, NodeMetadata nodeMetadata) {
         var addr = new NetworkAddress(member.address().host(), member.address().port());
 
-        return new ClusterNode(member.id(), member.alias(), addr);
+        return new ClusterNode(member.id(), member.alias(), addr, nodeMetadata);
     }
 }

@@ -33,17 +33,21 @@ public class ClusterNode implements Serializable {
     /** Network address of this node. */
     private final NetworkAddress address;
 
+    private final NodeMetadata nodeMetadata;
+
     /**
      * Constructor.
      *
      * @param id      Local id that changes between restarts.
      * @param name    Unique name of a member in a cluster.
      * @param address Node address.
+     * @param nodeMetadata Node metadata.
      */
-    public ClusterNode(String id, String name, NetworkAddress address) {
+    public ClusterNode(String id, String name, NetworkAddress address, NodeMetadata nodeMetadata) {
         this.id = id;
         this.name = name;
         this.address = address;
+        this.nodeMetadata = nodeMetadata;
     }
 
     /**
@@ -71,6 +75,10 @@ public class ClusterNode implements Serializable {
      */
     public NetworkAddress address() {
         return address;
+    }
+
+    public NodeMetadata getNodeMetadata() {
+        return nodeMetadata;
     }
 
     /** {@inheritDoc} */
