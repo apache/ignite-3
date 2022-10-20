@@ -141,7 +141,7 @@ public class IndexManagerTest {
 
             chg.changePrimaryKey(pk -> pk.changeColumns("c1").changeColocationColumns("c1"));
 
-            ((ExtendedTableChange) chg).changeAssignments((byte) 1);
+            ((ExtendedTableChange) chg).changeAssignments((byte) 1).changeSchemaId(1);
         })).get();
     }
 

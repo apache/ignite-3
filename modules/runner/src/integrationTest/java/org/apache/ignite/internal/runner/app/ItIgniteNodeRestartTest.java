@@ -278,7 +278,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         TablesConfiguration tblCfg = clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY);
 
-        SchemaManager schemaManager = new SchemaManager(registry, tblCfg);
+        SchemaManager schemaManager = new SchemaManager(registry, tblCfg, metaStorageMgr);
 
         ReplicaService replicaSvc = new ReplicaService(
                 clusterSvc.messagingService(),

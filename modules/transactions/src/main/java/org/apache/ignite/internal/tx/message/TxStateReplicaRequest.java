@@ -15,17 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.configuration;
+package org.apache.ignite.internal.tx.message;
 
-import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.Value;
+import java.util.UUID;
+import org.apache.ignite.hlc.HybridTimestamp;
+import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.network.annotations.Marshallable;
+import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Configuration schema of a table schema. Part of an internal configuration.
+ * Transaction state request.
  */
-@Config
-public class SchemaConfigurationSchema {
-    /** Serialized table schema configuration. */
-    @Value
-    public byte[] schema;
+@Transferable(TxMessageGroup.TX_STATE_REQUEST)
+public interface TxStateReplicaRequest extends ReplicaRequest {
+    @Marshallable
+    UUID txId();
+
+    @Marshallable
+    HybridTimestamp commitTimestamp();
 }

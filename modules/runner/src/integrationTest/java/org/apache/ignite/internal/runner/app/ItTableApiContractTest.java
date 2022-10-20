@@ -122,21 +122,23 @@ public class ItTableApiContractTest extends AbstractBasicIntegrationTest {
                 .changeReplicas(2)
                 .changePartitions(10)));
 
-        await(tableManager().alterTableAsync(TABLE_NAME,
-                chng -> chng.changeColumns(cols -> {
+        await(tableManager().alterTableAsync(TABLE_NAME, chng -> {
+            chng.changeColumns(cols ->
                     cols.create("NAME", colChg -> convert(SchemaBuilders.column("name", ColumnType.string()).asNullable(true)
-                            .withDefaultValue("default").build(), colChg));
-                })));
+                            .withDefaultValue("default").build(), colChg)));
+            return true;
+        }));
 
         assertNotNull(ignite.tables().table(TABLE_NAME));
 
         assertNull(ignite.tables().table(TABLE_NAME + "_not_exist"));
 
-        assertThrows(TableNotFoundException.class, () -> await(tableManager().alterTableAsync(TABLE_NAME + "_not_exist",
-                chng -> chng.changeColumns(cols -> {
+        assertThrows(TableNotFoundException.class, () -> await(tableManager().alterTableAsync(TABLE_NAME + "_not_exist", chng -> {
+            chng.changeColumns(cols ->
                     cols.create("NAME", colChg -> convert(SchemaBuilders.column("name", ColumnType.string()).asNullable(true)
-                            .withDefaultValue("default").build(), colChg));
-                }))));
+                            .withDefaultValue("default").build(), colChg)));
+            return true;
+        })));
     }
 
     /**
@@ -156,16 +158,20 @@ public class ItTableApiContractTest extends AbstractBasicIntegrationTest {
                 .changePartitions(10)));
 
         CompletableFuture<Void> altTblFut1 = tableManager().alterTableAsync(TABLE_NAME,
-                chng -> chng.changeColumns(cols -> {
-                    cols.create("NAME", colChg -> convert(SchemaBuilders.column("NAME", ColumnType.string()).asNullable(true)
-                            .withDefaultValue("default").build(), colChg));
-                }));
+                chng -> {
+                    chng.changeColumns(cols ->
+                            cols.create("NAME", colChg -> convert(SchemaBuilders.column("NAME",
+                                            ColumnType.string()).asNullable(true).withDefaultValue("default").build(), colChg)));
+                return true;
+            });
 
         CompletableFuture<Void> altTblFut2 = tableManager().alterTableAsync(TABLE_NAME + "_not_exist",
-                chng -> chng.changeColumns(cols -> {
-                    cols.create("NAME", colChg -> convert(SchemaBuilders.column("NAME", ColumnType.string()).asNullable(true)
-                            .withDefaultValue("default").build(), colChg));
-                }));
+                chng -> {
+                    chng.changeColumns(cols ->
+                            cols.create("NAME", colChg -> convert(SchemaBuilders.column("NAME",
+                                            ColumnType.string()).asNullable(true).withDefaultValue("default").build(), colChg)));
+                    return true;
+            });
 
         assertNotNull(ignite.tables().table(TABLE_NAME));
 

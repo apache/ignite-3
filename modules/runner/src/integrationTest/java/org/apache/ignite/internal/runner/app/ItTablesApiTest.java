@@ -543,13 +543,16 @@ public class ItTablesApiTest extends IgniteAbstractTest {
     private void addColumnInternal(Ignite node, String tableName, ColumnDefinition colDefinition) {
         await(((TableManager) node.tables()).alterTableAsync(
                 tableName,
-                chng -> chng.changeColumns(cols -> {
-                    try {
-                        cols.create(colDefinition.name(), colChg -> convert(colDefinition, colChg));
-                    } catch (IllegalArgumentException e) {
-                        throw new ColumnAlreadyExistsException(colDefinition.name());
-                    }
-                })));
+                chng -> {
+                    chng.changeColumns(cols -> {
+                        try {
+                            cols.create(colDefinition.name(), colChg -> convert(colDefinition, colChg));
+                        } catch (IllegalArgumentException e) {
+                            throw new ColumnAlreadyExistsException(colDefinition.name());
+                        }
+                    });
+                    return true;
+                }));
     }
 
     /**
