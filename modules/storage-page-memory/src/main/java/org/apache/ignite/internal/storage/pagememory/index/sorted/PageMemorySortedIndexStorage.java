@@ -99,7 +99,7 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
         try {
             SortedIndexRow sortedIndexRow = toSortedIndexRow(row.indexColumns(), row.rowId());
 
-            var insert = new InsertSortedIndexRowInvokeClosure(sortedIndexRow, freeList);
+            var insert = new InsertSortedIndexRowInvokeClosure(sortedIndexRow, freeList, sortedIndexTree.inlineSize());
 
             sortedIndexTree.invoke(sortedIndexRow, null, insert);
         } catch (IgniteInternalCheckedException e) {

@@ -55,12 +55,10 @@ public class IndexPageIoModule implements PageIoModule {
         ioVersions.addAll(HashIndexTreeInnerIo.VERSIONS);
         ioVersions.addAll(HashIndexTreeLeafIo.VERSIONS);
 
-        // TODO: IGNITE-17671 Need to implement for sorted indexes
-
         // Sorted index IO.
         ioVersions.add(SortedIndexTreeMetaIo.VERSIONS);
-        ioVersions.add(SortedIndexTreeInnerIo.VERSIONS);
-        ioVersions.add(SortedIndexTreeLeafIo.VERSIONS);
+        ioVersions.addAll(SortedIndexTreeInnerIo.VERSIONS);
+        ioVersions.addAll(SortedIndexTreeLeafIo.VERSIONS);
 
         return ioVersions;
     }

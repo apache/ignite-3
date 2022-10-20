@@ -39,17 +39,15 @@ public interface IndexPageTypes {
     /** Starting hash index tree inner IO type. No more than the {@link InlineUtils#MAX_BINARY_TUPLE_INLINE_SIZE}. */
     short T_HASH_INDEX_INNER_IO_START = 10_000;
 
-    /** Starting hash index tree meta IO type. No more than the {@link InlineUtils#MAX_BINARY_TUPLE_INLINE_SIZE}. */
+    /** Starting hash index tree leaf IO type. No more than the {@link InlineUtils#MAX_BINARY_TUPLE_INLINE_SIZE}. */
     short T_HASH_INDEX_LEAF_IO_START = 15_000;
-
-    // TODO: IGNITE-17671 Need to implement for sorted indexes
 
     /** Sorted index tree meta IO type. */
     short T_SORTED_INDEX_META_IO = 105;
 
-    /** Sorted index tree inner IO type. */
-    short T_SORTED_INDEX_INNER_IO = 106;
+    /** Starting sorted index tree inner IO type. No more than the {@link InlineUtils#MAX_BINARY_TUPLE_INLINE_SIZE}. */
+    short T_SORTED_INDEX_INNER_IO_START = 20_000;
 
-    /** Sorted index tree meta IO type. */
-    short T_SORTED_INDEX_LEAF_IO = 107;
+    /** Starting sorted index tree leaf IO type. No more than the {@link InlineUtils#MAX_BINARY_TUPLE_INLINE_SIZE}. */
+    short T_SORTED_INDEX_LEAF_IO_START = 25_000;
 }
