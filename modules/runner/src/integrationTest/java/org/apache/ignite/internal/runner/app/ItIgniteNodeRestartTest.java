@@ -698,15 +698,6 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         twoNodesRestart(testInfo, false);
     }
 
-    @Test
-    public void test1(TestInfo testInfo) {
-        Ignite ignite = startNode(testInfo, 0);
-        startNode(testInfo, 1);
-        startNode(testInfo, 2);
-
-        createTableWithData(ignite, TABLE_NAME, 3, 1);
-    }
-
     /**
      * Starts two nodes and checks that the data are storing through restarts.
      *
@@ -1056,7 +1047,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
             session.execute(null, "CREATE TABLE " + name
                     + "(id INT PRIMARY KEY, name VARCHAR) WITH replicas=" + replicas + ", partitions=" + partitions);
 
-            for (int i = 0; i < 5; i++) {
+            for (int i = 0; i < 100; i++) {
                 session.execute(null, "INSERT INTO " + name + "(id, name) VALUES (?, ?)",
                         i, VALUE_PRODUCER.apply(i));
             }

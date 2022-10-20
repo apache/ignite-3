@@ -361,19 +361,18 @@ public class PartitionReplicaListener implements ReplicaListener {
             ReadResult readResult = rowId == null ? null : mvDataStorage.read(rowId, request.timestamp());
 
             BinaryRow result = readResult == null ? null : resolveReadResult(readResult, request.timestamp(), () -> {
-                    if (readResult.newestCommitTimestamp() == null) {
-                        return null;
-                    }
+                if (readResult.newestCommitTimestamp() == null) {
+                    return null;
+                }
 
-                    ReadResult committedReadResult = mvDataStorage.read(rowId, readResult.newestCommitTimestamp());
+                ReadResult committedReadResult = mvDataStorage.read(rowId, readResult.newestCommitTimestamp());
 
-                    assert !committedReadResult.isWriteIntent() :
+                assert !committedReadResult.isWriteIntent() :
                         "The result is not committed [rowId=" + rowId + ", timestamp="
                             + readResult.newestCommitTimestamp() + ']';
 
-                    return committedReadResult.binaryRow();
-                }
-            );
+                return committedReadResult.binaryRow();
+            });
 
             return result;
         });

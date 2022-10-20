@@ -340,6 +340,11 @@ public class PartitionListener implements RaftGroupListener {
         });
     }
 
+    /**
+     * Handler for the {@link SafeTimeSyncCommand}.
+     *
+     * @param cmd Command.
+     */
     private void handleSafeTimeSyncCommand(SafeTimeSyncCommand cmd) {
         // No-op.
     }

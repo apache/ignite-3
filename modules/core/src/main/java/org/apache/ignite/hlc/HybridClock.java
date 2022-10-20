@@ -33,6 +33,9 @@ public class HybridClock {
      */
     private static final VarHandle LATEST_TIME;
 
+    /**
+     * Physical time provider.
+     */
     private final Supplier<Long> currentTimeMillisProvider;
 
     static {
@@ -56,7 +59,7 @@ public class HybridClock {
     }
 
     /**
-     * The constructor which initializes the latest time to current time by system clock.
+     * The constructor which initializes the latest time to the given provider.
      */
     @TestOnly
     public HybridClock(Supplier<Long> currentTimeMillisProvider) {
@@ -101,7 +104,6 @@ public class HybridClock {
      */
     public HybridTimestamp sync(HybridTimestamp requestTime) {
         while (true) {
-            // Read the latest time after accessing UTC time to reduce contention.
             HybridTimestamp latestTime = this.latestTime;
 
             if (requestTime.compareTo(latestTime) > 0) {
