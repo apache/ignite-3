@@ -55,12 +55,12 @@ To run any other example, do the following:
 3. (optional) Setup ignite3-cli in your terminal:
 ```
    cd  ignite3-cli-3.0.0-beta1
-   alias ignite="$(pwd)/bin/ignite3-cli" >> ~/.bash_profile
+   alias ignite3="$(pwd)/bin/ignite3" >> ~/.bash_profile
    source bin/ignite_completion.sh 
 ```
 4. (optional) If the cluster is not initialized then initialize the cluster:
    ```
-   ignite cluster init --cluster-name=ignite-cluster --cluster-endpoint-url=http://localhost:10300 --meta-storage-node=defauldNode
+   ignite3 cluster init --cluster-name=ignite-cluster --cluster-endpoint-url=http://localhost:10300 --meta-storage-node=defauldNode
    ```
 5. Run the preferred example in the IDE.
 

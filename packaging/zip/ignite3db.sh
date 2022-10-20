@@ -22,7 +22,7 @@
   # LOAD VARIABLES
   if [ -z ${IGNITE_HOME+x} ]; then IGNITE_HOME=$(pwd); fi
 
-  . $IGNITE_HOME/etc/bootstrap-config
+  . $IGNITE_HOME/etc/bootstrap-config.env
 
   # Export these variables so that IgniteCliRunner can use them as default values
   export IGNITE_NODE_NAME=$NODE_NAME
