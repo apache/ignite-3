@@ -81,7 +81,7 @@ public class UpdateCommand extends PartitionCommand {
      *
      * @return Table partition id.
      */
-    public ReplicationGroupId getCommitTablePartitionId() {
+    public ReplicationGroupId getCommitReplicationGroupId() {
         return commitReplicationGroupId;
     }
 

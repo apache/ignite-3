@@ -54,7 +54,7 @@ public interface InternalTransaction extends Transaction {
     TxState state();
 
     /**
-     * Assign a replication group that will store the transaction state.
+     * Assigns a replication group id to store the transaction state.
      *
      * @param replicationGroupId Committed partition id.
      * @return True if the replication group was assigned as committed, false otherwise.

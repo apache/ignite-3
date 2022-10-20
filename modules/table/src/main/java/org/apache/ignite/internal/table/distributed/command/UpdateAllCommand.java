@@ -102,7 +102,7 @@ public class UpdateAllCommand extends PartitionCommand {
      *
      * @return Table partition id.
      */
-    public ReplicationGroupId getCommitTablePartitionId() {
+    public ReplicationGroupId getReplicationGroupId() {
         return commitReplicationGroupId;
     }
 
