@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.schema.configuration.schema;
 
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
-import org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema;
+import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfigurationSchema;
 
 /**
  * Test data storage configuration schema for tables.

@@ -81,7 +81,6 @@ dependencies {
     testImplementation libs.jsonpath.assert
 
     integrationTestAnnotationProcessor project(':ignite-configuration-annotation-processor')
-    integrationTestImplementation project(':ignite-extended-api')
     integrationTestImplementation project(':ignite-page-memory')
     integrationTestImplementation project(':ignite-raft-client')
     integrationTestImplementation project(':ignite-client')
