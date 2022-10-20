@@ -184,10 +184,10 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 tblId,
                 primaryIndex,
                 clock,
+                new TrackableHybridClock(),
                 txStateStorage,
                 topologySrv,
-                placementDriver,
-                new TrackableHybridClock()
+                placementDriver
         );
 
         marshallerFactory = new ReflectionMarshallerFactory();

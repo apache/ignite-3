@@ -211,10 +211,10 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 tableId(),
                 primaryIndex,
                 new HybridClock(),
+                new TrackableHybridClock(),
                 null,
                 null,
-                null,
-                new TrackableHybridClock()
+                null
         );
 
         partitionListener = new PartitionListener(

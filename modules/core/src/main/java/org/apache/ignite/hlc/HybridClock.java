@@ -50,7 +50,7 @@ public class HybridClock {
      * The constructor which initializes the latest time to current time by system clock.
      */
     public HybridClock() {
-        this.currentTimeMillisProvider = Clock.systemUTC().instant()::toEpochMilli;
+        this.currentTimeMillisProvider = () -> Clock.systemUTC().instant().toEpochMilli();
 
         this.latestTime = new HybridTimestamp(currentTimeMillisProvider.get(), 0);
     }

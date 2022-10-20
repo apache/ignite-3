@@ -415,10 +415,10 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                                                 tblId,
                                                 primaryIndex,
                                                 clocks.get(node),
+                                                safeTimeClock,
                                                 txSateStorage,
                                                 topologyServices.get(node),
-                                                placementDriver,
-                                                safeTimeClock
+                                                placementDriver
                                         ),
                                         raftSvc,
                                         addressToNodeMap::get,

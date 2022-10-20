@@ -795,10 +795,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                             tblId,
                                                             primaryIndex,
                                                             clock,
+                                                            safeTimeClock,
                                                             internalTbl.txStateStorage().getOrCreateTxStateStorage(partId),
                                                             topologyService,
-                                                            placementDriver,
-                                                            safeTimeClock
+                                                            placementDriver
                                                     ),
                                                     updatedRaftGroupService,
                                                     clusterNodeResolver,
@@ -1738,10 +1738,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                             tblId,
                                             primaryIndex,
                                             clock,
+                                            safeTimeClock,
                                             tbl.internalTable().txStateStorage().getOrCreateTxStateStorage(partId),
                                             raftMgr.topologyService(),
-                                            placementDriver,
-                                            safeTimeClock
+                                            placementDriver
                                     ),
                                     raftGroupService,
                                     clusterNodeResolver,

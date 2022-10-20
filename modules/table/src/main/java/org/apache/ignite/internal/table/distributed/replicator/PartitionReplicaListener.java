@@ -124,9 +124,6 @@ public class PartitionReplicaListener implements ReplicaListener {
     /** Dummy primary index. */
     private final ConcurrentHashMap<ByteBuffer, RowId> primaryIndex;
 
-    /** Safe time clock. */
-    private final TrackableHybridClock safeTimeClock;
-
     /**
      * Cursors map. The key of the map is internal Ignite uuid which consists of a transaction id ({@link UUID}) and a cursor id ({@link
      * Long}).
@@ -141,6 +138,9 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     /** Hybrid clock. */
     private final HybridClock hybridClock;
+
+    /** Safe time clock. */
+    private final TrackableHybridClock safeTimeClock;
 
     /** Placement Driver. */
     private final PlacementDriver placementDriver;
@@ -163,10 +163,10 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param tableId Table id.
      * @param primaryIndex Primary index.
      * @param hybridClock Hybrid clock.
+     * @param safeTimeClock Safe time clock.
      * @param txStateStorage Transaction state storage.
      * @param topologyService Topology services.
      * @param placementDriver Placement driver.
-     * @param safeTimeClock Safe time clock.
      */
     public PartitionReplicaListener(
             MvPartitionStorage mvDataStorage,
@@ -178,10 +178,10 @@ public class PartitionReplicaListener implements ReplicaListener {
             UUID tableId,
             ConcurrentHashMap<ByteBuffer, RowId> primaryIndex,
             HybridClock hybridClock,
+            TrackableHybridClock safeTimeClock,
             TxStateStorage txStateStorage,
             TopologyService topologyService,
-            PlacementDriver placementDriver,
-            TrackableHybridClock safeTimeClock
+            PlacementDriver placementDriver
     ) {
         this.mvDataStorage = mvDataStorage;
         this.raftClient = raftClient;
@@ -192,10 +192,10 @@ public class PartitionReplicaListener implements ReplicaListener {
         this.tableId = tableId;
         this.primaryIndex = primaryIndex;
         this.hybridClock = hybridClock;
+        this.safeTimeClock = safeTimeClock;
         this.txStateStorage = txStateStorage;
         this.topologyService = topologyService;
         this.placementDriver = placementDriver;
-        this.safeTimeClock = safeTimeClock;
 
         //TODO: IGNITE-17479 Integrate indexes into replicaListener command handlers
         this.indexScanId = new UUID(tableId.getMostSignificantBits(), tableId.getLeastSignificantBits() + 1);
