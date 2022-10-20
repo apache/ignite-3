@@ -127,7 +127,7 @@ Modifies the structure of an existing table.
 //image::images/svg/alter_table_no_logging_bnf.svg[Embedded,opts=inline]
 //
 
-==== *ALTER TABLE IF EXISTS table ADD COLUMN IF NOT EXISTS (column1 int, column2 int)*
+==== ALTER TABLE IF EXISTS table ADD COLUMN IF NOT EXISTS (column1 int, column2 int)
 
 [.diagram-container]
 Diagram(
@@ -158,7 +158,7 @@ Parameters:
 
 
 
-==== *ALTER TABLE IF EXISTS table DROP COLUMN IF EXISTS (column1, column2 int)*
+==== ALTER TABLE IF EXISTS table DROP COLUMN IF EXISTS (column1, column2 int)
 
 [.diagram-container]
 Diagram(
