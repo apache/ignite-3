@@ -325,7 +325,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         @SuppressWarnings("resource") PartitionTimestampCursor cursor = cursors.computeIfAbsent(cursorId,
                 id -> mvDataStorage.scan(HybridTimestamp.MAX_VALUE));
 
-        return safeTimeClock.waitFor(request.timestamp()).thenApply(v -> {
+        return safeTimeClock.waitFor(request.timestamp()).thenApplyAsync(v -> {
             while (batchRows.size() < batchCount && cursor.hasNext()) {
                 BinaryRow resolvedReadResult = resolveReadResult(cursor.next(), timestamp, () -> cursor.committed(timestamp));
 
@@ -357,7 +357,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         //TODO: IGNITE-17868 Integrate indexes into rowIds resolution along with proper lock management on search rows.
         RowId rowId = rowIdByKey(indexId, searchKey);
 
-        return safeTimeClock.waitFor(request.timestamp()).thenApply(v -> {
+        return safeTimeClock.waitFor(request.timestamp()).thenApplyAsync(v -> {
             ReadResult readResult = rowId == null ? null : mvDataStorage.read(rowId, request.timestamp());
 
             BinaryRow result = readResult == null ? null : resolveReadResult(readResult, request.timestamp(), () -> {
@@ -395,7 +395,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     IgniteStringFormatter.format("Unknown single request [actionType={}]", request.requestType()));
         }
 
-        return safeTimeClock.waitFor(request.timestamp()).thenApply(v -> {
+        return safeTimeClock.waitFor(request.timestamp()).thenApplyAsync(v -> {
             ArrayList<BinaryRow> result = new ArrayList<>(keyRows.size());
 
             for (ByteBuffer searchKey : keyRows) {

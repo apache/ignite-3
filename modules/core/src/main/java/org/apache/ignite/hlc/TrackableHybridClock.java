@@ -33,6 +33,7 @@ public class TrackableHybridClock extends HybridClock {
     /** Set of timestamp futures. */
     private final SortedSet<TimestampFuture> timestampFutures = new ConcurrentSkipListSet<>();
 
+    /** {@inheritDoc} */
     @Override
     protected void onUpdate(HybridTimestamp timestamp) {
         completeTimestampFutures(timestamp);

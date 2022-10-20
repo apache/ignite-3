@@ -143,6 +143,11 @@ public class HybridClock {
         }
     }
 
+    /**
+     * This method is called on every update of {@link HybridClock#latestTime}.
+     *
+     * @param timestamp New value of {@link HybridClock#latestTime}.
+     */
     protected void onUpdate(HybridTimestamp timestamp) {
         // No-op.
     }

@@ -25,7 +25,7 @@ import org.apache.ignite.hlc.HybridTimestamp;
 
 /**
  * This manager stores safe time candidates coming with appendEntries requests, and applies them after committing corresponding
- * indexes.
+ * indexes. Only candidates with correct term can be applied, other ones are discarded.
  */
 public class SafeTimeCandidateManager {
     /** Safe time clock. */
@@ -38,6 +38,13 @@ public class SafeTimeCandidateManager {
         this.safeTimeClock = safeTimeClock;
     }
 
+    /**
+     * Add safe time candidate.
+     *
+     * @param index Corresponding log index.
+     * @param term Corresponding term.
+     * @param safeTime Safe time candidate.
+     */
     public void addSafeTimeCandidate(long index, long term, HybridTimestamp safeTime) {
         safeTimeCandidates.compute(index, (i, candidates) -> {
             if (candidates == null) {
@@ -50,6 +57,13 @@ public class SafeTimeCandidateManager {
         });
     }
 
+    /**
+     * Called on index commit, applies safe time for corresponding index.
+     *
+     * @param prevIndex Previous applied index.
+     * @param index Index.
+     * @param term Term.
+     */
     public void commitIndex(long prevIndex, long index, long term) {
         long currentIndex = prevIndex + 1;
 

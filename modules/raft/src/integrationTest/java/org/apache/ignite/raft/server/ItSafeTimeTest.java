@@ -118,15 +118,17 @@ public class ItSafeTimeTest extends JraftAbstractTest {
 
         assertTrue(leaderIndex >= 0);
 
-        clocks.get(leaderIndex).sync(new HybridTimestamp(100, 50));
+        final long leaderPhysicalTime = 100;
+
+        clocks.get(leaderIndex).sync(new HybridTimestamp(leaderPhysicalTime, 0));
 
         client1.run(new IncrementAndGetCommand(1)).get();
 
         waitForCondition(() -> {
             for (int i = 0; i < NODES; i++) {
-                // As current time provider for safe time clocks always return 1,
-                // the only way for physical component to reach 100 is safe time propagation mechanism.
-                if (i != leaderIndex && safeTimeClocks.get(i).now().getPhysical() != 100) {
+                // As current time provider for safe time clocks always returns 1,
+                // the only way for physical component to reach leaderPhysicalTime is safe time propagation mechanism.
+                if (i != leaderIndex && safeTimeClocks.get(i).now().getPhysical() != leaderPhysicalTime) {
                     return false;
                 }
             }
