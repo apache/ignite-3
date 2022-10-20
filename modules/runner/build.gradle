@@ -33,7 +33,6 @@ dependencies {
     implementation project(':ignite-vault')
     implementation project(':ignite-network')
     implementation project(':ignite-raft')
-    implementation project(':ignite-raft-client')
     implementation project(':ignite-metastorage')
     implementation project(':ignite-baseline')
     implementation project(':ignite-affinity')
