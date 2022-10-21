@@ -122,18 +122,18 @@ namespace Apache.Ignite.Internal
         /// <param name="clientOp">Client op code.</param>
         /// <param name="tx">Transaction.</param>
         /// <param name="request">Request data.</param>
-        /// <param name="preferredNodeId">Preferred node id.</param>
+        /// <param name="preferredNode">Preferred node.</param>
         /// <returns>Response data.</returns>
         public async Task<PooledBuffer> DoOutInOpAsync(
             ClientOp clientOp,
             Transaction? tx,
             PooledArrayBufferWriter? request = null,
-            string? preferredNodeId = null)
+            PreferredNode preferredNode = default)
         {
             if (tx == null)
             {
                 // Use failover socket with reconnect and retry behavior.
-                return await DoOutInOpAsync(clientOp, request).ConfigureAwait(false);
+                return await DoOutInOpAsync(clientOp, request, preferredNode).ConfigureAwait(false);
             }
 
             if (tx.FailoverSocket != this)

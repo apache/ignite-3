@@ -37,12 +37,12 @@ internal record struct PreferredNode
     /// </summary>
     /// <param name="name">Name.</param>
     /// <returns>Preferred node.</returns>
-    public static PreferredNode FromName(string name) => new PreferredNode { Id = null, Name = name };
+    public static PreferredNode FromName(string name) => new() { Id = null, Name = name };
 
     /// <summary>
     /// Creates an instance from id.
     /// </summary>
     /// <param name="id">Id.</param>
     /// <returns>Preferred node.</returns>
-    public static PreferredNode FromId(string id) => new PreferredNode { Id = id, Name = null };
+    public static PreferredNode FromId(string id) => new() { Id = id, Name = null };
 }

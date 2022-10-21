@@ -362,8 +362,8 @@ namespace Apache.Ignite.Internal.Table
             ClientOp clientOp,
             Transaction? tx,
             PooledArrayBufferWriter? request = null,
-            string? preferredNodeId = null) =>
-            await _table.Socket.DoOutInOpAsync(clientOp, tx, request, preferredNodeId).ConfigureAwait(false);
+            PreferredNode preferredNode = default) =>
+            await _table.Socket.DoOutInOpAsync(clientOp, tx, request, preferredNode).ConfigureAwait(false);
 
         private async Task<PooledBuffer> DoRecordOutOpAsync(
             ClientOp op,
@@ -383,7 +383,7 @@ namespace Apache.Ignite.Internal.Table
             var partition = Math.Abs(hash % assignment.Length);
             var nodeId = assignment[partition];
 
-            return await DoOutInOpAsync(op, tx, writer, nodeId).ConfigureAwait(false);
+            return await DoOutInOpAsync(op, tx, writer, PreferredNode.FromId(nodeId)).ConfigureAwait(false);
         }
     }
 }
