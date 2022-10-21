@@ -536,7 +536,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 @SuppressWarnings("resource") Cursor<IndexRow> cursor = (Cursor<IndexRow>) cursors.computeIfAbsent(cursorId,
                         id -> {
                             return indexStorage.scan(
-                                    BinaryTuplePrefix.fromBinaryTuple(lowerBound),
+                                    lowerBound == null ? null : BinaryTuplePrefix.fromBinaryTuple(lowerBound),
                                     // We need upperBound next value for correct range lock.
                                     null, //BinaryTuplePrefix.fromBinaryTuple(upperBound),
                                     flags
