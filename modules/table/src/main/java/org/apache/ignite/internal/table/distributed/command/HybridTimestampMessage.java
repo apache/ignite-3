@@ -17,24 +17,29 @@
 
 package org.apache.ignite.internal.table.distributed.command;
 
-import java.util.UUID;
 import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
-import org.apache.ignite.network.annotations.Marshallable;
+import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * State machine command to cleanup on a transaction commit.
+ *
  */
-@Transferable(TableMessageGroup.Commands.TX_CLEANUP)
-public interface TxCleanupCommand extends PartitionCommand {
+@Transferable(value = TableMessageGroup.Commands.HYBRID_TIMESTAMP)
+public interface HybridTimestampMessage extends NetworkMessage {
     /**
-     * Returns a commit or a rollback state.
+     *
+     * @return
      */
-    boolean commit();
+    long physical();
 
     /**
-     * Returns a transaction commit timestamp.
+     *
+     * @return
      */
-    HybridTimestampMessage commitTimestamp();
+    int logical();
+
+    default HybridTimestamp asHybridTimestamp() {
+        return new HybridTimestamp(physical(), logical());
+    }
 }

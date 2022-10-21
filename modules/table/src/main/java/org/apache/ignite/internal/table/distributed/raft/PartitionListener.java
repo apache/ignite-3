@@ -39,8 +39,10 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.table.distributed.command.*;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
 import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
@@ -157,8 +159,8 @@ public class PartitionListener implements RaftGroupListener {
      */
     private void handleUpdateCommand(UpdateCommand cmd, long commandIndex) {
         storage.runConsistently(() -> {
-            BinaryRow row = cmd.getRow();
-            RowId rowId = cmd.getRowId();
+            BinaryRow row = new ByteBufferRow(cmd.rowBuffer());
+            RowId rowId = cmd.rowId().asRowId();
             UUID txId = cmd.txId();
 
             // TODO: IGNITE-17759 Need pass appropriate commitTableId and commitPartitionId.
@@ -203,12 +205,12 @@ public class PartitionListener implements RaftGroupListener {
     private void handleUpdateAllCommand(UpdateAllCommand cmd, long commandIndex) {
         storage.runConsistently(() -> {
             UUID txId = cmd.txId();
-            Map<RowId, BinaryRow> rowsToUpdate = cmd.getRowsToUpdate();
+            Map<RowIdMessage, ByteBuffer> rowsToUpdate = cmd.rowsToUpdate();
 
             if (!CollectionUtils.nullOrEmpty(rowsToUpdate)) {
-                for (Map.Entry<RowId, BinaryRow> entry : rowsToUpdate.entrySet()) {
-                    RowId rowId = entry.getKey();
-                    BinaryRow row = entry.getValue();
+                for (Map.Entry<RowIdMessage, ByteBuffer> entry : rowsToUpdate.entrySet()) {
+                    RowId rowId = entry.getKey().asRowId();
+                    BinaryRow row = new ByteBufferRow(entry.getValue());
                     // TODO: IGNITE-17759 Need pass appropriate commitTableId and commitPartitionId.
                     storage.addWrite(rowId, row, txId, UUID.randomUUID(), 0);
 
@@ -259,7 +261,7 @@ public class PartitionListener implements RaftGroupListener {
         TxMeta txMetaToSet = new TxMeta(
                 stateToSet,
                 cmd.replicationGroupIds(),
-                cmd.commitTimestamp()
+                cmd.commitTimestamp().asHybridTimestamp()
         );
 
         TxMeta txMetaBeforeCas = txStateStorage.get(txId);
@@ -309,7 +311,7 @@ public class PartitionListener implements RaftGroupListener {
             Set<RowId> pendingRowIds = txsPendingRowIds.getOrDefault(txId, Collections.emptySet());
 
             if (cmd.commit()) {
-                pendingRowIds.forEach(rowId -> storage.commitWrite(rowId, cmd.commitTimestamp()));
+                pendingRowIds.forEach(rowId -> storage.commitWrite(rowId, cmd.commitTimestamp().asHybridTimestamp()));
             } else {
                 pendingRowIds.forEach(rowId -> storage.abortWrite(rowId));
             }

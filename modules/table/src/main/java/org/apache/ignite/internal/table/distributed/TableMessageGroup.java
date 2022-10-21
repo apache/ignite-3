@@ -125,4 +125,23 @@ public interface TableMessageGroup {
      * Message type for {@link SnapshotTxDataResponse}.
      */
     short SNAPSHOT_TX_DATA_RESPONSE = 16;
+
+    /**
+     *
+     */
+    public interface Commands {
+        short PARTITION = 40;
+
+        short FINISH_TX = 41;
+
+        short TX_CLEANUP = 42;
+
+        short UPDATE_ALL = 43;
+
+        short UPDATE = 44;
+
+        short HYBRID_TIMESTAMP = 60;
+
+        short ROW_ID = 61;
+    }
 }

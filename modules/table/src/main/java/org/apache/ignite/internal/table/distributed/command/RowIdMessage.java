@@ -17,24 +17,31 @@
 
 package org.apache.ignite.internal.table.distributed.command;
 
-import java.util.UUID;
-import org.apache.ignite.hlc.HybridTimestamp;
+import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
-import org.apache.ignite.network.annotations.Marshallable;
+import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
+import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
 
-/**
- * State machine command to cleanup on a transaction commit.
- */
-@Transferable(TableMessageGroup.Commands.TX_CLEANUP)
-public interface TxCleanupCommand extends PartitionCommand {
-    /**
-     * Returns a commit or a rollback state.
-     */
-    boolean commit();
+import java.util.UUID;
 
-    /**
-     * Returns a transaction commit timestamp.
-     */
-    HybridTimestampMessage commitTimestamp();
+/**
+ *
+ */
+@Transferable(TableMessageGroup.Commands.ROW_ID)
+public interface RowIdMessage extends NetworkMessage {
+    short partitionId();
+
+    UUID uuid();
+
+    default RowId asRowId() {
+        return new RowId(partitionId(), uuid().getMostSignificantBits(), uuid().getLeastSignificantBits());
+    }
+
+    static RowIdMessage fromRowId(TableMessagesFactory msgFactory, RowId rowId) {
+        return (RowIdMessage) msgFactory.rowIdMessage()
+                .uuid(new UUID(rowId.mostSignificantBits(), rowId.leastSignificantBits()))
+                .partitionId((short) rowId.partitionId())
+                .build();
+    }
 }
