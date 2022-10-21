@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.internal.sql.engine.util.Commons.IN_BUFFER_SIZE;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.params.ParameterizedTest.ARGUMENTS_PLACEHOLDER;
@@ -57,7 +58,7 @@ public class ItIndexSpoolTest extends AbstractBasicIntegrationTest {
      * Test.
      */
     @ParameterizedTest(name = "tableSize=" + ARGUMENTS_PLACEHOLDER)
-    @ValueSource(ints = {1, 10, 512, 513, 2000})
+    @ValueSource(ints = {1, 10, IN_BUFFER_SIZE, IN_BUFFER_SIZE + 1, 2000})
     public void test(int rows) {
         prepareDataSet(rows);
 

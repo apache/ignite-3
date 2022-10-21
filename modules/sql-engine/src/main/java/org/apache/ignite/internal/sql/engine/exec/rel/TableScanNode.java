@@ -188,8 +188,10 @@ public class TableScanNode<RowT> extends AbstractNode<RowT> {
             }
         }
 
-        if ((waiting == 0 && inBuff.isEmpty()) || activeSubscription == null) {
-            requestNextBatch();
+        if (requested > 0) {
+            if (waiting == 0 || activeSubscription == null) {
+                requestNextBatch();
+            }
         }
 
         if (requested > 0 && waiting == NOT_WAITING) {

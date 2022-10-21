@@ -305,7 +305,7 @@ public class InternalTableImpl implements InternalTable {
      * @param batchSize Size of batch.
      * @return Batch of retrieved rows.
      */
-    private CompletableFuture<Collection<BinaryRow>> enlistCursorInTx(
+    protected CompletableFuture<Collection<BinaryRow>> enlistCursorInTx(
             @NotNull InternalTransaction tx,
             int partId,
             long scanId,
