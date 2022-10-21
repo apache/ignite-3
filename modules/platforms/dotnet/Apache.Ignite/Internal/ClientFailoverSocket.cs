@@ -150,14 +150,14 @@ namespace Apache.Ignite.Internal
         /// </summary>
         /// <param name="clientOp">Client op code.</param>
         /// <param name="request">Request data.</param>
-        /// <param name="preferredNodeId">Preferred node id.</param>
+        /// <param name="preferredNode">Preferred node.</param>
         /// <returns>Response data and socket.</returns>
         public async Task<PooledBuffer> DoOutInOpAsync(
             ClientOp clientOp,
             PooledArrayBufferWriter? request = null,
-            string? preferredNodeId = null)
+            PreferredNode preferredNode = default)
         {
-            var (buffer, _) = await DoOutInOpAndGetSocketAsync(clientOp, tx: null, request, preferredNodeId).ConfigureAwait(false);
+            var (buffer, _) = await DoOutInOpAndGetSocketAsync(clientOp, tx: null, request, preferredNode).ConfigureAwait(false);
 
             return buffer;
         }
@@ -168,13 +168,13 @@ namespace Apache.Ignite.Internal
         /// <param name="clientOp">Client op code.</param>
         /// <param name="tx">Transaction.</param>
         /// <param name="request">Request data.</param>
-        /// <param name="preferredNodeId">Preferred node id.</param>
+        /// <param name="preferredNode">Preferred node.</param>
         /// <returns>Response data and socket.</returns>
         public async Task<(PooledBuffer Buffer, ClientSocket Socket)> DoOutInOpAndGetSocketAsync(
             ClientOp clientOp,
             Transaction? tx = null,
             PooledArrayBufferWriter? request = null,
-            string? preferredNodeId = null)
+            PreferredNode preferredNode = default)
         {
             if (tx != null)
             {
@@ -188,17 +188,6 @@ namespace Apache.Ignite.Internal
                 return (buffer, tx.Socket);
             }
 
-            // TODO: This should participate in retry mechanism correctly.
-            if (preferredNodeId != null && _endpointsById.TryGetValue(preferredNodeId, out var endpoint))
-            {
-                var buffer = await TryDoOutInOpAsync(endpoint, clientOp, request);
-
-                if (buffer != null)
-                {
-                    return (buffer.Value, endpoint.Socket!);
-                }
-            }
-
             var attempt = 0;
             List<Exception>? errors = null;
 
@@ -206,7 +195,8 @@ namespace Apache.Ignite.Internal
             {
                 try
                 {
-                    var socket = await GetSocketAsync().ConfigureAwait(false);
+                    var socket = await GetSocketAsync(preferredNode).ConfigureAwait(false);
+
                     var buffer = await socket.DoOutInOpAsync(clientOp, request).ConfigureAwait(false);
 
                     return (buffer, socket);
@@ -218,57 +208,6 @@ namespace Apache.Ignite.Internal
                         throw;
                     }
                 }
-            }
-        }
-
-        /// <summary>
-        /// Gets the endpoint by unique cluster node name.
-        /// </summary>
-        /// <param name="clusterNodeName">Cluster node name.</param>
-        /// <returns>Endpoint or null.</returns>
-        public SocketEndpoint? GetEndpointByName(string clusterNodeName) =>
-            _endpointsByName.TryGetValue(clusterNodeName, out var e) ? e : null;
-
-        /// <summary>
-        /// Performs an in-out operation on the specified endpoint.
-        /// </summary>
-        /// <param name="endpoint">Endpoint.</param>
-        /// <param name="clientOp">Client op code.</param>
-        /// <param name="request">Request data.</param>
-        /// <returns>Response data.</returns>
-        public async Task<PooledBuffer?> TryDoOutInOpAsync(SocketEndpoint endpoint, ClientOp clientOp, PooledArrayBufferWriter? request)
-        {
-            try
-            {
-                var socket = endpoint.Socket;
-
-                if (socket == null || socket.IsDisposed)
-                {
-                    await _socketLock.WaitAsync().ConfigureAwait(false);
-
-                    try
-                    {
-                        socket = await ConnectAsync(endpoint).ConfigureAwait(false);
-                    }
-                    finally
-                    {
-                        _socketLock.Release();
-                    }
-                }
-
-                return await socket.DoOutInOpAsync(clientOp, request).ConfigureAwait(false);
-            }
-            catch (Exception e)
-            {
-                int attempt = 0;
-                List<Exception>? errors = null;
-
-                if (HandleOpError(e, clientOp, ref attempt, ref errors))
-                {
-                    return null;
-                }
-
-                throw;
             }
         }
 
@@ -300,8 +239,9 @@ namespace Apache.Ignite.Internal
         /// <summary>
         /// Gets the primary socket. Reconnects if necessary.
         /// </summary>
+        /// <param name="preferredNode">Preferred node.</param>
         /// <returns>Client socket.</returns>
-        public async ValueTask<ClientSocket> GetSocketAsync()
+        public async ValueTask<ClientSocket> GetSocketAsync(PreferredNode preferredNode = default)
         {
             await _socketLock.WaitAsync().ConfigureAwait(false);
 
