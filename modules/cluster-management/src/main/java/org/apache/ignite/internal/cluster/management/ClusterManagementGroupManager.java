@@ -474,6 +474,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                     .prepareRaftGroup(
                             CMG_RAFT_GROUP_NAME,
                             resolveNodes(clusterService, nodeNames),
+                            List.of(),
                             () -> {
                                 clusterStateStorage.start();
 
