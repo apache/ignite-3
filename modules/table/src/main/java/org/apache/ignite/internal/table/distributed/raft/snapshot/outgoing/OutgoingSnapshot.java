@@ -253,8 +253,8 @@ public class OutgoingSnapshot {
     }
 
     private SnapshotMvDataResponse.ResponseEntry rowEntry(RowId rowId, List<ReadResult> rowVersions) {
-        List<ByteBuffer> buffers = new ArrayList<>();
-        List<HybridTimestamp> commitTimestamps = new ArrayList<>();
+        List<ByteBuffer> buffers = new ArrayList<>(rowVersions.size());
+        List<HybridTimestamp> commitTimestamps = new ArrayList<>(rowVersions.size());
         UUID transactionId = null;
         UUID commitTableId = null;
         int commitPartitionId = ReadResult.UNDEFINED_COMMIT_PARTITION_ID;
