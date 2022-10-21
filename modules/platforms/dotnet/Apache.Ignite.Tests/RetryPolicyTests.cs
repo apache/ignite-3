@@ -88,7 +88,7 @@ namespace Apache.Ignite.Tests
             await client.Tables.GetTablesAsync();
 
             var ex = Assert.ThrowsAsync<IgniteClientConnectionException>(async () => await client.Tables.GetTablesAsync());
-            Assert.AreEqual("Operation failed after 5 retries, examine InnerException for details.", ex!.Message);
+            Assert.AreEqual("Operation TablesGet failed after 5 retries, examine InnerException for details.", ex!.Message);
         }
 
         [Test]
@@ -100,7 +100,7 @@ namespace Apache.Ignite.Tests
             await client.Tables.GetTablesAsync();
 
             var ex = Assert.ThrowsAsync<IgniteClientConnectionException>(async () => await client.Tables.GetTablesAsync());
-            Assert.AreEqual("Operation failed after 16 retries, examine InnerException for details.", ex!.Message);
+            Assert.AreEqual("Operation TablesGet failed after 16 retries, examine InnerException for details.", ex!.Message);
         }
 
         [Test]
