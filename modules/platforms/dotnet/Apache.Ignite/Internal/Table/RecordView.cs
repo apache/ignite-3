@@ -25,7 +25,6 @@ namespace Apache.Ignite.Internal.Table
     using Ignite.Table;
     using Ignite.Transactions;
     using Proto;
-    using Proto.BinaryTuple;
     using Serialization;
     using Transactions;
 

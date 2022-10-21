@@ -62,6 +62,10 @@ namespace Apache.Ignite.Internal
         /** Disposed flag. */
         private volatile bool _disposed;
 
+        /** Local topology assignment version. Instead of using event handlers to notify all tables about assignment change,
+         * the table will compare its version with channel version to detect an update. */
+        private long _assignmentVersion;
+
         /// <summary>
         /// Initializes a new instance of the <see cref="ClientFailoverSocket"/> class.
         /// </summary>
@@ -404,13 +408,29 @@ namespace Apache.Ignite.Internal
                 return endpoint.Socket;
             }
 
-            var socket = await ClientSocket.ConnectAsync(endpoint.EndPoint, Configuration, TODO).ConfigureAwait(false);
+            var socket = await ClientSocket.ConnectAsync(endpoint.EndPoint, Configuration, OnAssignmentChanged).ConfigureAwait(false);
 
             endpoint.Socket = socket;
 
             _endpointsMap[socket.ConnectionContext.ClusterNode.Name] = endpoint;
 
             return socket;
+        }
+
+        /// <summary>
+        /// Called when an assignment update is detected.
+        /// </summary>
+        /// <param name="clientSocket">Socket.</param>
+        private void OnAssignmentChanged(ClientSocket clientSocket)
+        {
+            // NOTE: Multiple channels will send the same update to us, resulting in multiple cache invalidations.
+            // This could be solved with a cluster-wide AssignmentVersion, but we don't have that.
+            // So we only react to updates from the default channel. When no user-initiated operations are performed on the default
+            // channel, heartbeat messages will trigger updates.
+            if (clientSocket == _socket)
+            {
+                Interlocked.Increment(ref _assignmentVersion);
+            }
         }
 
         /// <summary>
