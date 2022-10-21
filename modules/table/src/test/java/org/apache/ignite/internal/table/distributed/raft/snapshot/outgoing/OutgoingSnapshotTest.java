@@ -67,15 +67,7 @@ class OutgoingSnapshotTest {
     private final RowId rowId2 = Objects.requireNonNull(rowId1.increment());
     private final RowId rowId3 = Objects.requireNonNull(rowId2.increment());
 
-    private final RowId rowIdOutOfOrder;
-
-    {
-        RowId id = rowId3;
-        for (int i = 0; i < 100; i++) {
-            id = Objects.requireNonNull(id.increment());
-        }
-        rowIdOutOfOrder = id;
-    }
+    private RowId rowIdOutOfOrder;
 
     private final HybridClock clock = new HybridClock();
 
@@ -89,6 +81,17 @@ class OutgoingSnapshotTest {
         lenient().when(partitionAccess.key()).thenReturn(partitionKey);
 
         snapshot = new OutgoingSnapshot(UUID.randomUUID(), partitionAccess, snapshotRegistry);
+    }
+
+    @BeforeEach
+    void initRowIdOutOfOrder() {
+        RowId id = rowId3;
+
+        for (int i = 0; i < 100; i++) {
+            id = Objects.requireNonNull(id.increment());
+        }
+
+        rowIdOutOfOrder = id;
     }
 
     @Test
