@@ -100,7 +100,7 @@ public class MvPartitionAccess implements PartitionAccess {
             RowId rowId0 = new RowId(partId, rowId.getMostSignificantBits(), rowId.getLeastSignificantBits());
 
             for (int i = 0; i < rowVersions.size(); i++) {
-                HybridTimestamp timestamp = timestamps.size() <= i + i ? timestamps.get(i) : null;
+                HybridTimestamp timestamp = i + 1 <= timestamps.size() ? timestamps.get(i) : null;
 
                 BinaryRow binaryRow = new ByteBufferRow(rowVersions.get(i).rewind());
 
