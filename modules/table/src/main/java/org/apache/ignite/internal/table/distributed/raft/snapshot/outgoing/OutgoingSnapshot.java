@@ -208,7 +208,7 @@ public class OutgoingSnapshot {
 
         for (ByteBuffer buf : rowVersions) {
             if (buf != null) {
-                sum += buf.limit();
+                sum += buf.remaining();
             }
         }
 
