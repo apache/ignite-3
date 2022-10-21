@@ -36,9 +36,9 @@ public class TestPushMetricExporter extends PushMetricExporter<TestPushMetricsEx
 
     @Override
     public void start(MetricProvider metricsProvider, TestPushMetricsExporterView configuration) {
-        super.start(metricsProvider, configuration);
-
         period = configuration.period();
+
+        super.start(metricsProvider, configuration);
     }
 
     public static void setOutputStream(OutputStream outputStream) {
