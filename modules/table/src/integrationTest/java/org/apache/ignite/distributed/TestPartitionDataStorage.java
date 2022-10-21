@@ -49,7 +49,6 @@ public class TestPartitionDataStorage implements PartitionDataStorage {
         return partitionStorage.runConsistently(closure);
     }
 
-    @SuppressWarnings("Convert2Lambda")
     @Override
     public AutoLockup acquirePartitionSnapshotsReadLock() {
         partitionSnapshotsLock.lock();
