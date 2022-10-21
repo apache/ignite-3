@@ -178,6 +178,7 @@ public class OutgoingSnapshot {
                 .rows(batch)
                 .finish(finished)
                 .build();
+
         return CompletableFuture.completedFuture(response);
     }
 
