@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table.distributed.raft.snapshot;
 
 import java.util.Objects;
 import java.util.UUID;
+import org.apache.ignite.internal.tostring.S;
 
 /**
  * Uniquely identifies a partition. This is a pair of internal table ID and partition number (aka partition ID).
@@ -65,9 +66,6 @@ public class PartitionKey {
 
     @Override
     public String toString() {
-        return "PartitionKey{"
-                + "tableId=" + tableId
-                + ", partitionId=" + partitionId
-                + '}';
+        return S.toString(PartitionKey.class, this);
     }
 }
