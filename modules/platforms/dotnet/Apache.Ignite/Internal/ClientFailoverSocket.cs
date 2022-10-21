@@ -188,6 +188,7 @@ namespace Apache.Ignite.Internal
                 return (buffer, tx.Socket);
             }
 
+            // TODO: This should participate in retry mechanism correctly.
             if (preferredNodeId != null && _endpointsById.TryGetValue(preferredNodeId, out var endpoint))
             {
                 var buffer = await TryDoOutInOpAsync(endpoint, clientOp, request);
