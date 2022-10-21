@@ -17,9 +17,15 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot;
 
+import java.nio.ByteBuffer;
+import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * {@link MvPartitionStorage} based implementation.
@@ -50,7 +56,7 @@ public class MvPartitionAccess implements PartitionAccess {
     }
 
     @Override
-    public CompletableFuture<Void> reCreatePartition() {
+    public CompletableFuture<Void> reCreatePartition() throws StorageException {
         return tableStorage.destroyPartition(partId)
                 .thenAccept(unused -> {
                     MvPartitionStorage partition = tableStorage.getOrCreateMvPartition(partId);
@@ -61,13 +67,33 @@ public class MvPartitionAccess implements PartitionAccess {
     }
 
     @Override
-    public void lastAppliedIndex(long lastAppliedIndex) {
+    public void lastAppliedIndex(long lastAppliedIndex) throws StorageException {
         MvPartitionStorage mvPartition = tableStorage.getMvPartition(partId);
 
         assert mvPartition != null;
 
         mvPartition.runConsistently(() -> {
             mvPartition.lastAppliedIndex(lastAppliedIndex);
+
+            return null;
+        });
+    }
+
+    @Override
+    public void writeVersionChain(
+            UUID rowId,
+            List<ByteBuffer> rowVersions,
+            List<HybridTimestamp> timestamps,
+            @Nullable UUID txId,
+            @Nullable UUID commitTableId,
+            int commitPartitionId
+    ) throws StorageException {
+        MvPartitionStorage mvPartition = tableStorage.getMvPartition(partId);
+
+        assert mvPartition != null;
+
+        mvPartition.runConsistently(() -> {
+            // TODO: IGNITE-17894 реализовать
 
             return null;
         });

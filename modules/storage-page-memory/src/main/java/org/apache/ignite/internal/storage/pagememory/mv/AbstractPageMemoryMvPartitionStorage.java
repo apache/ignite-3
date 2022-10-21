@@ -703,7 +703,11 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         indexMetaTree.close();
     }
 
-    @Override
+    /**
+     * Removes all data from this storage and frees all associated resources.
+     *
+     * @throws StorageException If failed to destroy the data or storage is already stopped.
+     */
     public void destroy() {
         // TODO: IGNITE-17132 Implement it
     }
