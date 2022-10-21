@@ -64,14 +64,16 @@ public interface MetricExporter<CfgT extends ExporterView> {
     void reconfigure(CfgT newValue);
 
     /**
-     * It invokes by {@link org.apache.ignite.internal.metrics.MetricManager}, when new metric source was enabled.
+     * {@link org.apache.ignite.internal.metrics.MetricManager} invokes this method,
+     * when new metric source was enabled.
      *
      * @param metricSet Named metric set.
      */
     void addMetricSet(MetricSet metricSet);
 
     /**
-     * It invokes by {@link org.apache.ignite.internal.metrics.MetricManager}, when metric source was disabled.
+     * {@link org.apache.ignite.internal.metrics.MetricManager} invokes this method,
+     * when the metric source was disabled.
      *
      * @param metricSetName Name of metric set to remove.
      */

@@ -197,14 +197,14 @@ public class MetricManager implements IgniteComponent {
     }
 
     /**
-     * Disable metric source by name. See {@link MetricRegistry#disable(String)}.
+     * Disable metric set by name. See {@link MetricRegistry#disable(String)}.
      *
-     * @param srcName Source name.
+     * @param metricSetName Metric set name.
      */
-    public void disable(final String srcName) {
-        registry.disable(srcName);
+    public void disable(final String metricSetName) {
+        registry.disable(metricSetName);
 
-        enabledMetricExporters.values().forEach(e -> e.removeMetricSet(srcName));
+        enabledMetricExporters.values().forEach(e -> e.removeMetricSet(metricSetName));
     }
 
     /**

@@ -52,10 +52,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
-import javax.management.DynamicMBean;
-import javax.management.JMException;
-import javax.management.MBeanRegistrationException;
-import javax.management.MBeanServer;
 import javax.management.MalformedObjectNameException;
 import javax.management.ObjectName;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -872,21 +868,6 @@ public class IgniteUtils {
         }
 
         return result;
-    }
-
-    /**
-     * Registers MBean with the server.
-     *
-     * @param mbeanSrv MBean server.
-     * @param name MBean object name.
-     * @param impl MBean implementation.
-     * @return JMX object name.
-     * @throws MBeanRegistrationException if MBeans are disabled.
-     * @throws JMException If MBean creation failed.
-     */
-    public static ObjectName registerMbean(MBeanServer mbeanSrv, ObjectName name, DynamicMBean impl)
-            throws JMException {
-        return mbeanSrv.registerMBean(impl, name).getObjectName();
     }
 
     /**

@@ -31,12 +31,11 @@ import org.apache.ignite.internal.metrics.MetricProvider;
 import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.metrics.exporters.BasicMetricExporter;
 import org.apache.ignite.internal.metrics.exporters.configuration.JmxExporterView;
-import org.apache.ignite.internal.util.IgniteUtils;
 
 /**
  * Exporter for Ignite metrics to JMX API.
  * For each enabled {@link org.apache.ignite.internal.metrics.MetricSource} exporter provides
- * a separate MBean with attribute per source's metric.
+ * a separate MBean with corresponding attribute per source's metric.
  */
 public class JmxExporter extends BasicMetricExporter<JmxExporterView> {
     /**
@@ -116,12 +115,13 @@ public class JmxExporter extends BasicMetricExporter<JmxExporterView> {
      */
     private void register(MetricSet metricSet) {
         try {
-            MetricSetMbean mregBean = new MetricSetMbean(metricSet);
+            MetricSetMbean metricSetMbean = new MetricSetMbean(metricSet);
 
-            ObjectName mbean = IgniteUtils.registerMbean(
-                    ManagementFactory.getPlatformMBeanServer(),
-                    makeMbeanName(JMX_METRIC_GROUP, metricSet.name()),
-                    mregBean);
+            ObjectName mbean = ManagementFactory.getPlatformMBeanServer()
+                    .registerMBean(
+                            metricSetMbean,
+                            makeMbeanName(JMX_METRIC_GROUP, metricSet.name()))
+                    .getObjectName();
 
             mbeans.add(mbean);
         } catch (JMException e) {
