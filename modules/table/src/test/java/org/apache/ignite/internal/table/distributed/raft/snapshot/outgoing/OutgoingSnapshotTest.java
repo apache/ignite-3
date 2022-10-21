@@ -82,20 +82,18 @@ class OutgoingSnapshotTest {
     private final UUID transactionId = UUID.randomUUID();
     private final UUID commitTableId = UUID.randomUUID();
 
+    private final PartitionKey partitionKey = new PartitionKey(UUID.randomUUID(), 1);
+
     @BeforeEach
     void createTestInstance() {
-        when(partitionAccess.minRowId()).thenReturn(lowestRowId);
+        lenient().when(partitionAccess.key()).thenReturn(partitionKey);
 
         snapshot = new OutgoingSnapshot(UUID.randomUUID(), partitionAccess, snapshotRegistry);
     }
 
     @Test
     void returnsKeyFromStorage() {
-        PartitionKey key = new PartitionKey(UUID.randomUUID(), 1);
-
-        when(partitionAccess.key()).thenReturn(key);
-
-        assertThat(snapshot.partitionKey(), is(key));
+        assertThat(snapshot.partitionKey(), is(partitionKey));
     }
 
     @Test

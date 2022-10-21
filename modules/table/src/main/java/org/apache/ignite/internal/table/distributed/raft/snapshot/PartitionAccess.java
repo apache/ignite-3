@@ -40,13 +40,6 @@ public interface PartitionAccess {
     long persistedIndex();
 
     /**
-     * Returns minimal {@link RowId} possible in the corresponding partition.
-     *
-     * @return Minimal {@link RowId} of the partition.
-     */
-    RowId minRowId();
-
-    /**
      * Returns a row id, existing in the storage, that's greater or equal than the lower bound. {@code null} if not found.
      *
      * @param lowerBound Lower bound.

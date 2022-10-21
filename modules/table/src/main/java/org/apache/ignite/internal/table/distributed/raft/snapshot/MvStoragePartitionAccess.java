@@ -48,11 +48,6 @@ public class MvStoragePartitionAccess implements PartitionAccess {
     }
 
     @Override
-    public RowId minRowId() {
-        return RowId.lowestRowId(partitionKey.partitionId());
-    }
-
-    @Override
     public @Nullable RowId closestRowId(RowId lowerBound) {
         return partitionStorage.closestRowId(lowerBound);
     }
