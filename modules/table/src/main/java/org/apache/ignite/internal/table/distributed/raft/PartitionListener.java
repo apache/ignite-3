@@ -261,11 +261,7 @@ public class PartitionListener implements RaftGroupListener {
             if (cmd.commit()) {
                 pendingRowIds.forEach(rowId -> storage.commitWrite(rowId, cmd.commitTimestamp()));
             } else {
-                pendingRowIds.forEach(rowId -> {
-                    BinaryRow row = storage.abortWrite(rowId);
-
-                    removeFromIndexes(row, rowId);
-                });
+                pendingRowIds.forEach(storage::abortWrite);
             }
 
             txsPendingRowIds.remove(txId);
@@ -312,19 +308,6 @@ public class PartitionListener implements RaftGroupListener {
             index.put(tableRow, rowId);
         }
     }
-
-    private void removeFromIndexes(@Nullable BinaryRow tableRow, RowId rowId) {
-        if (tableRow == null || !tableRow.hasValue()) { // skip tombstones
-            return;
-        }
-
-        pkIndexStorage.remove(rowId, tableRow.keySlice());
-
-        for (TableSchemaAwareIndexStorage index : indexes.get()) {
-            index.remove(tableRow, rowId);
-        }
-    }
-
 
     /**
      * Returns underlying storage.

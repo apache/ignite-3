@@ -2033,7 +2033,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     private Supplier<List<TableSchemaAwareIndexStorage>> indexStorageAdapters(UUID tableId, int partId) {
         return () -> {
-            List<IndexStorageAdapterFactory> factories = new ArrayList<>(indexStorageAdapterFactories.getOrDefault(tableId, Map.of()).values());
+            List<IndexStorageAdapterFactory> factories = new ArrayList<>(indexStorageAdapterFactories
+                    .getOrDefault(tableId, Map.of()).values());
 
             List<TableSchemaAwareIndexStorage> adapters = new ArrayList<>(factories.size());
 
@@ -2057,31 +2058,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             return lockers;
         };
-    }
-
-    /**
-     * A decorator interface to hide all tx-protocol-related things.
-     *
-     * <p>Different indexes requires different approaches for locking. Thus every index type has its own implementation of this interface.
-     */
-    public interface IndexLocker {
-        /**
-         * Inserts the given row to the index.
-         *
-         * @param txId An identifier of the transaction in which the row is inserted.
-         * @param tableRow A table row to insert.
-         * @param rowId An identifier of the row in the main storage.
-         */
-        CompletableFuture<?> locksForInsert(UUID txId, BinaryRow tableRow, RowId rowId);
-
-        /**
-         * Inserts the given row to the index.
-         *
-         * @param txId An identifier of the transaction in which the row is removed.
-         * @param tableRow A table row to insert.
-         * @param rowId An identifier of the row to insert.
-         */
-        CompletableFuture<?> locksForRemove(UUID txId, BinaryRow tableRow, RowId rowId);
     }
 
     private static class HashIndexLocker implements IndexLocker {
