@@ -132,5 +132,5 @@ public interface PartitionDataStorage extends AutoCloseable {
      * @return Underlying {@link MvPartitionStorage}.
      */
     @TestOnly
-    MvPartitionStorage getStorage();
+    MvPartitionStorage getMvStorage();
 }

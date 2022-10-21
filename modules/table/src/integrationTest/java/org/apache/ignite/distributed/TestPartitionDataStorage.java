@@ -89,7 +89,7 @@ public class TestPartitionDataStorage implements PartitionDataStorage {
     }
 
     @Override
-    public MvPartitionStorage getStorage() {
+    public MvPartitionStorage getMvStorage() {
         return partitionStorage;
     }
 

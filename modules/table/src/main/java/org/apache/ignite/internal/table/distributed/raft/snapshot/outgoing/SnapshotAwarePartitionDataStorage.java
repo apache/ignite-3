@@ -160,7 +160,7 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
 
     @Override
     @TestOnly
-    public MvPartitionStorage getStorage() {
+    public MvPartitionStorage getMvStorage() {
         return partitionStorage;
     }
 }

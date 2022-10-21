@@ -364,8 +364,8 @@ public class PartitionListener implements RaftGroupListener {
      * Returns underlying storage.
      */
     @TestOnly
-    public MvPartitionStorage getStorage() {
-        return storage.getStorage();
+    public MvPartitionStorage getMvStorage() {
+        return storage.getMvStorage();
     }
 
     /**

@@ -569,7 +569,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
             JraftServerImpl.DelegatingStateMachine fsm = (JraftServerImpl.DelegatingStateMachine) grp
                     .getRaftNode().getOptions().getFsm();
             PartitionListener listener = (PartitionListener) fsm.getListener();
-            MvPartitionStorage storage = listener.getStorage();
+            MvPartitionStorage storage = listener.getMvStorage();
 
             if (hash == 0) {
                 hash = storage.hashCode();
