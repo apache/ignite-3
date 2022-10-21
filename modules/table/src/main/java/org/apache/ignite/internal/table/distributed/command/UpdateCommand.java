@@ -18,10 +18,10 @@
 package org.apache.ignite.internal.table.distributed.command;
 
 import java.util.UUID;
-import org.apache.ignite.internal.replicator.message.ReplicationGroupId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -30,7 +30,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class UpdateCommand extends PartitionCommand {
     /** Committed table partition id. */
-    private final ReplicationGroupId commitReplicationGroupId;
+    private final TablePartitionId commitReplicationGroupId;
 
     /** Id of a row that will be updated. */
     private final RowId rowId;
@@ -51,7 +51,7 @@ public class UpdateCommand extends PartitionCommand {
      * @see PartitionCommand
      */
     public UpdateCommand(
-            @NotNull ReplicationGroupId commitReplicationGroupId,
+            @NotNull TablePartitionId commitReplicationGroupId,
             @NotNull RowId rowId,
             @Nullable BinaryRow row,
             @NotNull UUID txId
@@ -72,7 +72,7 @@ public class UpdateCommand extends PartitionCommand {
      * @param rowId Row id.
      * @param txId Transaction id.
      */
-    public UpdateCommand(@NotNull ReplicationGroupId commitReplicationGroupId, @NotNull RowId rowId, @NotNull UUID txId) {
+    public UpdateCommand(@NotNull TablePartitionId commitReplicationGroupId, @NotNull RowId rowId, @NotNull UUID txId) {
         this(commitReplicationGroupId, rowId, null, txId);
     }
 
@@ -81,7 +81,7 @@ public class UpdateCommand extends PartitionCommand {
      *
      * @return Table partition id.
      */
-    public ReplicationGroupId getCommitReplicationGroupId() {
+    public TablePartitionId getCommitReplicationGroupId() {
         return commitReplicationGroupId;
     }
 

@@ -21,9 +21,9 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
-import org.apache.ignite.internal.replicator.message.ReplicationGroupId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.jetbrains.annotations.NotNull;
 
@@ -32,7 +32,7 @@ import org.jetbrains.annotations.NotNull;
  */
 public class UpdateAllCommand extends PartitionCommand {
     /** Committed table partition id. */
-    private final ReplicationGroupId commitReplicationGroupId;
+    private final TablePartitionId commitReplicationGroupId;
 
     /** Rows to update. */
     private transient HashMap<RowId, BinaryRow> rowsToUpdate;
@@ -47,7 +47,7 @@ public class UpdateAllCommand extends PartitionCommand {
      * @param removeRows Ids to remove.
      * @param txId Transaction id.
      */
-    public UpdateAllCommand(@NotNull ReplicationGroupId commitReplicationGroupId, Collection<RowId> removeRows, @NotNull UUID txId) {
+    public UpdateAllCommand(@NotNull TablePartitionId commitReplicationGroupId, Collection<RowId> removeRows, @NotNull UUID txId) {
         this(commitReplicationGroupId, removeRows, null, txId);
     }
 
@@ -58,7 +58,7 @@ public class UpdateAllCommand extends PartitionCommand {
      * @param rowsToUpdate Rows to update or insert.
      * @param txId Transaction id.
      */
-    public UpdateAllCommand(@NotNull ReplicationGroupId commitReplicationGroupId, Map<RowId, BinaryRow> rowsToUpdate, @NotNull UUID txId) {
+    public UpdateAllCommand(@NotNull TablePartitionId commitReplicationGroupId, Map<RowId, BinaryRow> rowsToUpdate, @NotNull UUID txId) {
         this(commitReplicationGroupId, null, rowsToUpdate, txId);
     }
 
@@ -71,7 +71,7 @@ public class UpdateAllCommand extends PartitionCommand {
      * @param txId Transaction id.
      */
     private UpdateAllCommand(
-            @NotNull ReplicationGroupId commitReplicationGroupId,
+            @NotNull TablePartitionId commitReplicationGroupId,
             Collection<RowId> removeRows,
             Map<RowId, BinaryRow> rowsToUpdate,
             @NotNull UUID txId
@@ -102,7 +102,7 @@ public class UpdateAllCommand extends PartitionCommand {
      *
      * @return Table partition id.
      */
-    public ReplicationGroupId getReplicationGroupId() {
+    public TablePartitionId getReplicationGroupId() {
         return commitReplicationGroupId;
     }
 

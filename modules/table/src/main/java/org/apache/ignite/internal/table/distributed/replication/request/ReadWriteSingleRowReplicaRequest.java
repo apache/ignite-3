@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.table.distributed.replication.request;
 
-import org.apache.ignite.internal.replicator.message.ReplicationGroupId;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
+import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
 
@@ -33,5 +33,5 @@ public interface ReadWriteSingleRowReplicaRequest extends SingleRowReplicaReques
      * @return Table partition id.
      */
     @Marshallable
-    ReplicationGroupId committedPartitionId();
+    TablePartitionId committedPartitionId();
 }

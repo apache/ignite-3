@@ -50,6 +50,7 @@ import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
+import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
@@ -88,7 +89,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     private static final UUID tblId = UUID.randomUUID();
 
     /** Replication group id. */
-    private static final ReplicationGroupId grpId = new ReplicationGroupId(tblId, partId);
+    private static final ReplicationGroupId grpId = new TablePartitionId(tblId, partId);
 
     /** Primary index map. */
     private static final ConcurrentHashMap<ByteBuffer, RowId> primaryIndex = new ConcurrentHashMap<>();

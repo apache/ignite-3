@@ -42,6 +42,7 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
+import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
@@ -69,7 +70,7 @@ import org.mockito.Mockito;
 public class DummyInternalTableImpl extends InternalTableImpl {
     public static final NetworkAddress ADDR = new NetworkAddress("127.0.0.1", 2004);
 
-    private static final ReplicationGroupId crossTableGroupId = new ReplicationGroupId(UUID.randomUUID(), 0);
+    private static final ReplicationGroupId crossTableGroupId = new TablePartitionId(UUID.randomUUID(), 0);
 
     private PartitionListener partitionListener;
 
@@ -138,7 +139,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         );
         RaftGroupService svc = partitionMap.get(0);
 
-        groupId = crossTableUsage ? new ReplicationGroupId(tableId(), 0) : crossTableGroupId;
+        groupId = crossTableUsage ? new TablePartitionId(tableId(), 0) : crossTableGroupId;
 
         lenient().doReturn(groupId.toString()).when(svc).groupId();
         Peer leaderPeer = new Peer(ADDR);

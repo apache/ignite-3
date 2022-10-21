@@ -18,83 +18,9 @@
 package org.apache.ignite.internal.replicator.message;
 
 import java.io.Serializable;
-import java.util.UUID;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 /**
- * The class stores a table id together with a partition id.
- * It is used as a replication group identifier.
+ * The interface represents a replication group identifier.
  */
-public class ReplicationGroupId implements Comparable<ReplicationGroupId>, Serializable {
-    /** Table id. */
-    private final UUID tableId;
-
-    /** Partition id. */
-    private final int partId;
-
-    /**
-     * The constructor.
-     *
-     * @param tableId Table id.
-     * @param partId Partition id.
-     */
-    public ReplicationGroupId(@Nullable UUID tableId, int partId) {
-        this.tableId = tableId;
-        this.partId = partId;
-    }
-
-    /**
-     * Gets a pration id.
-     *
-     * @return Partition id.
-     */
-    public int getPartId() {
-        return partId;
-    }
-
-    /**
-     * Gets a table id.
-     *
-     * @return Table id.
-     */
-    public UUID getTableId() {
-        return tableId;
-    }
-
-    @Override
-    public int compareTo(@NotNull ReplicationGroupId o) {
-        int tblCmp = tableId == o.tableId ? 0 : tableId.compareTo(o.tableId);
-
-        if (tblCmp != 0) {
-            return tblCmp;
-        }
-
-        return Integer.compare(partId, o.partId);
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-
-        ReplicationGroupId that = (ReplicationGroupId) o;
-
-        return partId == that.partId && (tableId == that.tableId || tableId.equals(that.tableId));
-    }
-
-    @Override
-    public int hashCode() {
-        return tableId != null ? tableId.hashCode() ^ partId : partId;
-    }
-
-    @Override
-    public String toString() {
-        return tableId + "_part_" + partId;
-    }
+public interface ReplicationGroupId extends Serializable {
 }

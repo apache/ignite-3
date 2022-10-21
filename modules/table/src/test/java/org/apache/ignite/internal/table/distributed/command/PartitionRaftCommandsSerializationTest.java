@@ -42,6 +42,7 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.KvMarshaller;
 import org.apache.ignite.internal.schema.marshaller.reflection.ReflectionMarshallerFactory;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
@@ -73,7 +74,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
     @Test
     public void testUpdateCommand() throws Exception {
         UpdateCommand cmd = new UpdateCommand(
-                new ReplicationGroupId(UUID.randomUUID(), 1),
+                new TablePartitionId(UUID.randomUUID(), 1),
                 new RowId(1),
                 binaryRow(1),
                 UUID.randomUUID()
@@ -88,7 +89,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
 
     @Test
     public void testRemoveCommand() throws Exception {
-        UpdateCommand cmd = new UpdateCommand(new ReplicationGroupId(UUID.randomUUID(), 1), new RowId(1), UUID.randomUUID());
+        UpdateCommand cmd = new UpdateCommand(new TablePartitionId(UUID.randomUUID(), 1), new RowId(1), UUID.randomUUID());
 
         UpdateCommand readCmd = copyCommand(cmd);
 
@@ -105,7 +106,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
             rowsToUpdate.put(new RowId(i), binaryRow(i));
         }
 
-        var cmd = new UpdateAllCommand(new ReplicationGroupId(UUID.randomUUID(), 1), rowsToUpdate, UUID.randomUUID());
+        var cmd = new UpdateAllCommand(new TablePartitionId(UUID.randomUUID(), 1), rowsToUpdate, UUID.randomUUID());
 
         UpdateAllCommand readCmd = copyCommand(cmd);
 
@@ -129,7 +130,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
             rowsToRemove.add(new RowId(i));
         }
 
-        var cmd = new UpdateAllCommand(new ReplicationGroupId(UUID.randomUUID(), 1), rowsToRemove, UUID.randomUUID());
+        var cmd = new UpdateAllCommand(new TablePartitionId(UUID.randomUUID(), 1), rowsToRemove, UUID.randomUUID());
 
         UpdateAllCommand readCmd = copyCommand(cmd);
 
@@ -160,7 +161,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
         ArrayList<ReplicationGroupId> grps = new ArrayList<>(10);
 
         for (int i = 0; i < 10; i++) {
-            grps.add(new ReplicationGroupId(UUID.randomUUID(), i));
+            grps.add(new TablePartitionId(UUID.randomUUID(), i));
         }
 
         FinishTxCommand cmd = new FinishTxCommand(UUID.randomUUID(), true, clock.now(), grps);

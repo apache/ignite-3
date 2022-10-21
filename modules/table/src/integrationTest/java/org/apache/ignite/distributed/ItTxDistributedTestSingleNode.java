@@ -62,6 +62,7 @@ import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
+import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -374,7 +375,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 var placementDriver = new PlacementDriver(replicaServices.get(node));
 
                 for (int part = 0; part < assignment.size(); part++) {
-                    ReplicationGroupId replicaGrpId = new ReplicationGroupId(tblId, part);
+                    ReplicationGroupId replicaGrpId = new TablePartitionId(tblId, part);
 
                     placementDriver.updateAssignment(replicaGrpId, assignment.get(part));
                 }
@@ -399,7 +400,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                         raftSvc -> {
                             try {
                                 replicaManagers.get(node).startReplica(
-                                        new ReplicationGroupId(tblId, partId),
+                                        new TablePartitionId(tblId, partId),
                                         new PartitionReplicaListener(
                                                 testMpPartStorage,
                                                 raftSvc,

@@ -73,6 +73,7 @@ import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
 import org.apache.ignite.internal.table.distributed.command.response.MultiRowsResponse;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteMultiRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest;
+import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
@@ -172,12 +173,12 @@ public class ItColocationTest {
             }).when(r).run(any());
 
             partRafts.put(i, r);
-            groupRafts.put(new ReplicationGroupId(tblId, i), r);
+            groupRafts.put(new TablePartitionId(tblId, i), r);
         }
 
         when(replicaService.invoke(any(), any())).thenAnswer(invocation -> {
             ReplicaRequest request = invocation.getArgument(1);
-            var commitPartId = new ReplicationGroupId(UUID.randomUUID(), 0);
+            var commitPartId = new TablePartitionId(UUID.randomUUID(), 0);
 
             RaftGroupService r = groupRafts.get(request.groupId());
 

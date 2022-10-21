@@ -93,7 +93,6 @@ import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.storage.impl.LogStorageFactoryCreator;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.replicator.message.ReplicationGroupId;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableChange;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableConfiguration;
@@ -121,6 +120,7 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionSnaps
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
+import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.table.event.TableEventParameters;
@@ -582,7 +582,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 CompletableFuture<?>[] futures = new CompletableFuture<?>[partCnt];
 
                 for (int i = 0; i < partCnt; i++) {
-                    String grpId = new ReplicationGroupId(((ExtendedTableConfiguration) tblCfg).id().value(), i).toString();
+                    String grpId = new TablePartitionId(((ExtendedTableConfiguration) tblCfg).id().value(), i).toString();
 
                     futures[i] = updatePendingAssignmentsKeys(tblCfg.name().value(), grpId, baselineMgr.nodes(), newReplicas,
                             replicasCtx.storageRevision(), metaStorageMgr, i);
@@ -680,7 +680,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 // other cases will be covered by rebalance logic
                 Set<ClusterNode> nodes = (oldPartAssignment.isEmpty()) ? newPartAssignment : Collections.emptySet();
 
-                ReplicationGroupId replicaGrpId = new ReplicationGroupId(tblId, partId);
+                TablePartitionId replicaGrpId = new TablePartitionId(tblId, partId);
 
                 String grpId = replicaGrpId.toString();
 
@@ -902,7 +902,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         for (TableImpl table : tables.values()) {
             try {
                 for (int p = 0; p < table.internalTable().partitions(); p++) {
-                    ReplicationGroupId replicationGroupId = new ReplicationGroupId(table.tableId(), p);
+                    TablePartitionId replicationGroupId = new TablePartitionId(table.tableId(), p);
                     String grpId = replicationGroupId.toString();
 
                     raftMgr.stopRaftGroup(grpId);
@@ -1057,7 +1057,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             int partitions = assignment.size();
 
             for (int p = 0; p < partitions; p++) {
-                ReplicationGroupId replicationGroupId = new ReplicationGroupId(tblId, p);
+                TablePartitionId replicationGroupId = new TablePartitionId(tblId, p);
                 String grpId = replicationGroupId.toString();
 
                 raftMgr.stopRaftGroup(grpId);
@@ -1625,7 +1625,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     int partId = extractPartitionNumber(pendingAssignmentsWatchEvent.key());
                     UUID tblId = extractTableId(pendingAssignmentsWatchEvent.key(), PENDING_ASSIGNMENTS_PREFIX);
 
-                    ReplicationGroupId replicaGrpId = new ReplicationGroupId(tblId, partId);
+                    TablePartitionId replicaGrpId = new TablePartitionId(tblId, partId);
 
                     String grpId = replicaGrpId.toString();
 
@@ -1782,7 +1782,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     int part = extractPartitionNumber(stableAssignmentsWatchEvent.key());
                     UUID tblId = extractTableId(stableAssignmentsWatchEvent.key(), STABLE_ASSIGNMENTS_PREFIX);
 
-                    String partId = new ReplicationGroupId(tblId, part).toString();
+                    String partId = new TablePartitionId(tblId, part).toString();
 
                     Set<ClusterNode> stableAssignments = ByteUtils.fromBytes(stableAssignmentsWatchEvent.value());
 
@@ -1799,7 +1799,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         if (!stableAssignments.contains(localMember) && !pendingAssignments.contains(localMember)) {
                             raftMgr.stopRaftGroup(partId);
 
-                            replicaMgr.stopReplica(new ReplicationGroupId(tblId, part));
+                            replicaMgr.stopReplica(new TablePartitionId(tblId, part));
                         }
                     } catch (NodeStoppingException e) {
                         // no-op
@@ -1825,7 +1825,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 int partitionNumber = extractPartitionNumber(key);
                 UUID tblId = extractTableId(key, ASSIGNMENTS_SWITCH_REDUCE_PREFIX);
 
-                String partitionId = new ReplicationGroupId(tblId, partitionNumber).toString();
+                String partitionId = new TablePartitionId(tblId, partitionNumber).toString();
 
                 TableImpl tbl = tablesByIdVv.latest().get(tblId);
 

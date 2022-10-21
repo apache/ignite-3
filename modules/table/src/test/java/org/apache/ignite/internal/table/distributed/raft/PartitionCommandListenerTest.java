@@ -42,7 +42,6 @@ import java.util.function.Function;
 import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.replicator.message.ReplicationGroupId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
@@ -55,6 +54,7 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
+import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
@@ -268,7 +268,7 @@ public class PartitionCommandListenerTest {
 
             HashMap<RowId, BinaryRow> rows = new HashMap<>(KEY_COUNT);
             UUID txId = Timestamp.nextVersion().toUuid();
-            var commitPartId = new ReplicationGroupId(txId, PARTITION_ID);
+            var commitPartId = new TablePartitionId(txId, PARTITION_ID);
 
             for (int i = 0; i < KEY_COUNT; i++) {
                 Row row = getTestRow(i, i);
@@ -304,7 +304,7 @@ public class PartitionCommandListenerTest {
             HashMap<RowId, BinaryRow> rows = new HashMap<>(KEY_COUNT);
 
             UUID txId = Timestamp.nextVersion().toUuid();
-            var commitPartId = new ReplicationGroupId(txId, PARTITION_ID);
+            var commitPartId = new TablePartitionId(txId, PARTITION_ID);
 
             for (int i = 0; i < KEY_COUNT; i++) {
                 Row row = getTestRow(i, keyValueMapper.apply(i));
@@ -338,7 +338,7 @@ public class PartitionCommandListenerTest {
             Set<RowId> keyRows = new HashSet<>(KEY_COUNT);
 
             UUID txId = Timestamp.nextVersion().toUuid();
-            var commitPartId = new ReplicationGroupId(txId, PARTITION_ID);
+            var commitPartId = new TablePartitionId(txId, PARTITION_ID);
 
             for (int i = 0; i < KEY_COUNT; i++) {
                 Row row = getTestRow(i, i);
@@ -367,7 +367,7 @@ public class PartitionCommandListenerTest {
             UUID txId = Timestamp.nextVersion().toUuid();
             Row row = getTestRow(i, keyValueMapper.apply(i));
             RowId rowId = primaryIndex.get(row.keySlice());
-            var commitPartId = new ReplicationGroupId(txId, PARTITION_ID);
+            var commitPartId = new TablePartitionId(txId, PARTITION_ID);
 
             assertNotNull(rowId);
 
@@ -397,7 +397,7 @@ public class PartitionCommandListenerTest {
             UUID txId = Timestamp.nextVersion().toUuid();
             Row row = getTestRow(i, i);
             RowId rowId = primaryIndex.get(row.keySlice());
-            var commitPartId = new ReplicationGroupId(txId, PARTITION_ID);
+            var commitPartId = new TablePartitionId(txId, PARTITION_ID);
 
             assertNotNull(rowId);
 
@@ -461,7 +461,7 @@ public class PartitionCommandListenerTest {
         commandListener.onWrite(iterator((i, clo) -> {
             UUID txId = Timestamp.nextVersion().toUuid();
             Row row = getTestRow(i, i);
-            var commitPartId = new ReplicationGroupId(txId, PARTITION_ID);
+            var commitPartId = new TablePartitionId(txId, PARTITION_ID);
             txs.add(new IgniteBiTuple<>(row, txId));
 
             when(clo.index()).thenReturn(raftIndex.incrementAndGet());
