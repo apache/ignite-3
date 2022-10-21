@@ -22,6 +22,7 @@ package org.apache.ignite.internal.lock;
  * that plays nicely with try-with-resources clause. The underlying lock will be acquired on creation (or obtaining)
  * a lockup, and the lock will be released when {@link AutoLockup#close()} method is called.
  */
+@FunctionalInterface
 public interface AutoLockup extends AutoCloseable {
     /**
      * Releases the underlying lock.

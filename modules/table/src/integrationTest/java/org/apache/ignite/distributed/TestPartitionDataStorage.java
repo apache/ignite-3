@@ -54,12 +54,7 @@ public class TestPartitionDataStorage implements PartitionDataStorage {
     public AutoLockup acquirePartitionSnapshotsReadLock() {
         partitionSnapshotsLock.lock();
 
-        return new AutoLockup() {
-            @Override
-            public void close() {
-                partitionSnapshotsLock.unlock();
-            }
-        };
+        return partitionSnapshotsLock::unlock;
     }
 
     @Override
