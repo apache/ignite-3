@@ -552,8 +552,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     /**
-     * Index scan loop.
-     * Retrives next row from index, takes locks and collect results.
+     * Index scan loop. Retrives next row from index, takes locks, fetches associated data row and collects to the result.
      *
      * @param txId Transaction id.
      * @param indexId Index id.
@@ -561,7 +560,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param upperBound Upper bound.
      * @param includeBound Include upper bound flag.
      * @param batchSize Batch size.
-     * @param result Resul collection.
+     * @param result Result collection.
      * @return Future.
      */
     CompletableFuture<Void> continueIndexScan(
@@ -583,8 +582,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         IndexRow indexRow = indexCursor.next();
 
-        return new CompletableFuture<>()
-                .thenCompose(ignore -> lockManager.acquire(txId, new LockKey(indexId, indexRow.indexColumns().byteBuffer()), LockMode.S))
+        return lockManager.acquire(txId, new LockKey(indexId, indexRow.indexColumns().byteBuffer()), LockMode.S)
                 .thenCompose(lock -> { // Index row S lock
                     if (upperBound != null) {
                         int cmp = upperBound.byteBuffer().compareTo(indexRow.indexColumns().byteBuffer());
@@ -598,11 +596,12 @@ public class PartitionReplicaListener implements ReplicaListener {
                             .thenCompose(rowLock -> { // Table row S lock
                                 ReadResult readResult = mvDataStorage.read(indexRow.rowId(), HybridTimestamp.MAX_VALUE);
                                 BinaryRow resolvedReadResult = resolveReadResult(readResult, txId);
+
                                 if (resolvedReadResult != null) {
                                     result.add(resolvedReadResult);
                                 }
 
-                                // Loop.
+                                // Proceed scan.
                                 return continueIndexScan(txId, indexId, indexCursor, upperBound, includeBound, batchSize, result);
                             });
                 });
