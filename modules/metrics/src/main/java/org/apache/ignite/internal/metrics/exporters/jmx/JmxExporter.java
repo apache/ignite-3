@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.ignite.internal.metrics.exporters.jmx;
 
 import static org.apache.ignite.internal.util.IgniteUtils.makeMBeanName;
@@ -16,16 +33,35 @@ import org.apache.ignite.internal.metrics.exporters.BasicMetricExporter;
 import org.apache.ignite.internal.metrics.exporters.configuration.JmxExporterView;
 import org.apache.ignite.internal.util.IgniteUtils;
 
+/**
+ * Exporter for Ignite metrics to JMX API.
+ * For each enabled {@link org.apache.ignite.internal.metrics.MetricSource} exporter provides
+ * a separate MBean with attribute per source's metric.
+ */
 public class JmxExporter extends BasicMetricExporter<JmxExporterView> {
-
+    /**
+     * Exporter name. Must be the same for configuration and exporter itself.
+     */
     public static final String JMX_EXPORTER_NAME = "jmx";
 
+    /**
+     * Group attribute of {@link ObjectName} shared for all metric MBeans.
+     */
     private static final String JMX_METRIC_GROUP = "metrics";
 
+    /**
+     * Logger
+     */
     private static IgniteLogger LOG = Loggers.forClass(JmxExporter.class);
 
+    /**
+     * Current registered MBeans.
+     */
     private final List<ObjectName> mBeans = new ArrayList<>();
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public synchronized void start(MetricProvider metricsProvider, JmxExporterView configuration) {
         super.start(metricsProvider, configuration);
@@ -35,6 +71,9 @@ public class JmxExporter extends BasicMetricExporter<JmxExporterView> {
         }
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public synchronized void stop() {
         mBeans.forEach(this::unregBean);
@@ -42,24 +81,42 @@ public class JmxExporter extends BasicMetricExporter<JmxExporterView> {
         mBeans.clear();
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public String name() {
         return JMX_EXPORTER_NAME;
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * Register new MBean for received metric set.
+     */
     @Override
     public synchronized void addMetricSet(MetricSet metricSet) {
         register(metricSet);
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * Unregister MBean for removed metric set.
+     */
     @Override
     public synchronized void removeMetricSet(String metricSet) {
         unregister(metricSet);
     }
 
+    /**
+     * Register new MBean per metric set.
+     *
+     * @param metricSet Metric set.
+     */
     private void register(MetricSet metricSet) {
         try {
-            MetricSourceMBean mregBean = new MetricSourceMBean(metricSet);
+            MetricSetMBean mregBean = new MetricSetMBean(metricSet);
 
             ObjectName mbean = IgniteUtils.registerMBean(
                     ManagementFactory.getPlatformMBeanServer(),
@@ -69,14 +126,14 @@ public class JmxExporter extends BasicMetricExporter<JmxExporterView> {
             mBeans.add(mbean);
         }
         catch (JMException e) {
-            LOG.error("MBean for metric registry '" + metricSet.name() + "' can't be created.", e);
+            LOG.error("MBean for metric set " + metricSet.name() + " can't be created.", e);
         }
     }
 
     /**
-     * Unregister JMX bean for specific metric registry.
+     * Unregister MBean for specific metric set.
      *
-     * @param metricSetName Metric registry.
+     * @param metricSetName Metric set name.
      */
     private void unregister(String metricSetName) {
         try {
@@ -91,12 +148,14 @@ public class JmxExporter extends BasicMetricExporter<JmxExporterView> {
             }
         }
         catch (MalformedObjectNameException e) {
-            LOG.error("MBean for metric source '" + metricSetName + "' can't be unregistered.", e);
+            LOG.error("MBean for metric set " + metricSetName + " can't be unregistered.", e);
         }
     }
 
     /**
-     * @param bean Bean name to unregister.
+     * Unregister MBean by its' name.
+     *
+     * @param bean MBean name to unregister.
      */
     private void unregBean(ObjectName bean) {
         try {

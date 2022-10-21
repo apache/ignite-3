@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.ignite.internal.metrics.exporters.jmx;
 
 import java.util.ArrayList;
@@ -19,13 +36,28 @@ import org.apache.ignite.internal.metrics.Metric;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.MetricSet;
 
-public class MetricSourceMBean implements DynamicMBean {
+/**
+ * MBean implementation, which produce JMX API representation for {@link MetricSet}.
+ * Every {@link Metric} of metric set will be represented by MBean's attribute with the same name.
+ */
+public class MetricSetMBean implements DynamicMBean {
+    /**
+     * Metric set.
+     */
     private MetricSet metricSet;
 
-    public MetricSourceMBean(MetricSet metricSet) {
+    /**
+     * Constructs new MBean.
+     *
+     * @param metricSet Metric set.
+     */
+    public MetricSetMBean(MetricSet metricSet) {
         this.metricSet = metricSet;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Object getAttribute(String attribute) throws AttributeNotFoundException {
         if (attribute.equals("MBeanInfo"))
@@ -45,6 +77,9 @@ public class MetricSourceMBean implements DynamicMBean {
         throw new AttributeNotFoundException("Unknown metric class " + metric.getClass());
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public AttributeList getAttributes(String[] attributes) {
         AttributeList list = new AttributeList();
@@ -62,6 +97,9 @@ public class MetricSourceMBean implements DynamicMBean {
         return list;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Object invoke(String actionName, Object[] params, String[] signature) throws MBeanException, ReflectionException {
         if ("getAttribute".equals(actionName)) {
@@ -77,6 +115,9 @@ public class MetricSourceMBean implements DynamicMBean {
         throw new UnsupportedOperationException("invoke is not supported.");
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public MBeanInfo getMBeanInfo() {
         Iterator<Metric> iter = metricSet.iterator();
@@ -102,6 +143,28 @@ public class MetricSourceMBean implements DynamicMBean {
                 null);
     }
 
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void setAttribute(Attribute attribute) {
+        throw new UnsupportedOperationException("setAttribute is not supported.");
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public AttributeList setAttributes(AttributeList attributes) {
+        throw new UnsupportedOperationException("setAttributes is not supported.");
+    }
+
+    /**
+     * Extract class of metric value.
+     *
+     * @param metric Metric.
+     * @return Class of metric value.
+     */
     private String metricClass(Metric metric) {
         if (metric instanceof DoubleMetric)
             return Double.class.getName();
@@ -113,15 +176,5 @@ public class MetricSourceMBean implements DynamicMBean {
             return long[].class.getName();
 
         throw new IllegalArgumentException("Unknown metric class. " + metric.getClass());
-    }
-
-    @Override
-    public void setAttribute(Attribute attribute) {
-        throw new UnsupportedOperationException("setAttribute is not supported.");
-    }
-
-    @Override
-    public AttributeList setAttributes(AttributeList attributes) {
-        throw new UnsupportedOperationException("setAttributes is not supported.");
     }
 }

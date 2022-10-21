@@ -98,12 +98,10 @@ public class TestPullMetricExporter extends BasicMetricExporter<TestPullMetricsE
 
     @Override
     public void addMetricSet(MetricSet metricSet) {
-
     }
 
     @Override
     public void removeMetricSet(String metricSetName) {
-
     }
 
     private void waitForRequest() {

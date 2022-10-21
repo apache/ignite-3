@@ -35,6 +35,9 @@ import org.apache.ignite.internal.metrics.exporters.configuration.ExporterView;
 public interface MetricExporter<CfgT extends ExporterView> {
     /**
      * Start metrics exporter. Here all needed listeners, schedulers etc. should be started.
+     *
+     * @param metricProvider Provider of metric sources.
+     * @param configuration Exporter configuration view.
      */
     void start(MetricProvider metricProvider, CfgT configuration);
 
@@ -53,16 +56,24 @@ public interface MetricExporter<CfgT extends ExporterView> {
     /**
      * Invokes, when exporter's configuration was updated.
      *
-     * TODO: KKK rewrite doc in human-readable manner.
-     * Be careful: this method will be invoked from the separate configuration events thread pool.
-     * Appropriate handling of async calls up to exporter implementation.
-     * And: don't call this method by hand - all configuration changes must be done through configuration framework.
+     * <p>Be careful: this method will be invoked from the separate configuration events' thread pool.
+     * Appropriate thread-safe logic falls on the shoulders of implementations.
      *
-     * @param newValue new configuration.
+     * @param newValue New configuration view.
      */
     void reconfigure(CfgT newValue);
 
+    /**
+     * It invokes by {@link org.apache.ignite.internal.metrics.MetricManager}, when new metric source was enabled.
+     *
+     * @param metricSet Named metric set.
+     */
     void addMetricSet(MetricSet metricSet);
 
+    /**
+     * It invokes by {@link org.apache.ignite.internal.metrics.MetricManager}, when metric source was disabled.
+     *
+     * @param metricSetName Name of metric set to remove.
+     */
     void removeMetricSet(String metricSetName);
 }

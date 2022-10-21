@@ -46,6 +46,11 @@ public abstract class BasicMetricExporter<CfgT extends ExporterView> implements 
         configuration = newValue;
     }
 
+    /**
+     * Returns current exporter configuration.
+     *
+     * @return Current exporter configuration
+     */
     protected synchronized CfgT configuration() {
         return configuration;
     }

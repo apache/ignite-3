@@ -109,7 +109,10 @@ public class IgniteUtils {
     /** Class cache. */
     private static final ConcurrentMap<ClassLoader, ConcurrentMap<String, Class<?>>> classCache = new ConcurrentHashMap<>();
 
-    private static final String JMX_BEAN_PACKAGE = "org.apache";
+    /**
+     * Root package for JMX MBeans.
+     */
+    private static final String JMX_MBEAN_PACKAGE = "org.apache";
 
     /**
      * Get JDK version.
@@ -883,13 +886,18 @@ public class IgniteUtils {
      */
     public static ObjectName registerMBean(MBeanServer mbeanSrv, ObjectName name, DynamicMBean impl)
             throws JMException {
-        assert mbeanSrv != null;
-        assert name != null;
-
         return mbeanSrv.registerMBean(impl, name).getObjectName();
     }
 
+    /**
+     * Produce new MBean name according to received group and name.
+     *
+     * @param group pkg:group=<value> part of MBean name.
+     * @param name pkg:name=<name> part of MBean name.
+     * @return new ObjectName.
+     * @throws MalformedObjectNameException if MBean name can't be formed from the received arguments.
+     */
     public static ObjectName makeMBeanName(String group, String name) throws MalformedObjectNameException {
-        return new ObjectName(String.format("%s:group=%s,name=%s", JMX_BEAN_PACKAGE, group, name));
+        return new ObjectName(String.format("%s:group=%s,name=%s", JMX_MBEAN_PACKAGE, group, name));
     }
 }
