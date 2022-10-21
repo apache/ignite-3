@@ -203,6 +203,9 @@ namespace Apache.Ignite.Internal
                 }
                 catch (Exception e)
                 {
+                    // Preferred node connection may not be available, do not use it after first failure.
+                    preferredNode = default;
+
                     if (!HandleOpError(e, clientOp, ref attempt, ref errors))
                     {
                         throw;
