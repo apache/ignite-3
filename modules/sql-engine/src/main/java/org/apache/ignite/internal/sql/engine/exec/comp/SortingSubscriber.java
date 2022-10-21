@@ -1,7 +1,6 @@
 package org.apache.ignite.internal.sql.engine.exec.comp;
 
 import java.util.Comparator;
-import java.util.Queue;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -11,25 +10,27 @@ import org.jetbrains.annotations.Nullable;
 class SortingSubscriber<T> implements Subscriber<T> {
     private final Subscriber<T> delegate;
 
-    private final CompositeSubscription<T> compSubscription;
+    private final SubscriptionManagementStrategy<T> subscriptionStrategy;
 
-    private final Queue<T> inBuf;
+//    private final Queue<T> inBuf;
 
     private volatile T lastItem;
 
-    private final int idx;
+    private final int id;
 
     private final AtomicLong remainingCnt = new AtomicLong();
 
     private final AtomicBoolean finished = new AtomicBoolean();
 
-    SortingSubscriber(Subscriber<T> delegate, int idx, CompositeSubscription<T> compSubscription, Queue<T> inBuf) {
+    private final int subscriptionsCnt;
+
+    SortingSubscriber(Subscriber<T> delegate, int id, SubscriptionManagementStrategy<T> subscriptionStrategy, int subscriptionsCnt) {
         assert delegate != null;
 
         this.delegate = delegate;
-        this.idx = idx;
-        this.compSubscription = compSubscription;
-        this.inBuf = inBuf;
+        this.id = id;
+        this.subscriptionStrategy = subscriptionStrategy;
+        this.subscriptionsCnt = subscriptionsCnt;
     }
 
     T lastItem() {
@@ -42,7 +43,7 @@ class SortingSubscriber<T> implements Subscriber<T> {
 
     @Override
     public void onSubscribe(Subscription subscription) {
-        compSubscription.add(subscription, this);
+        this.subscriptionStrategy.addSubscription(subscription);
     }
 
     @Override
@@ -50,12 +51,12 @@ class SortingSubscriber<T> implements Subscriber<T> {
         // todo optimize
         lastItem = item;
 
-        inBuf.add(item);
+        subscriptionStrategy.push(id, item);
 
         if (remainingCnt.decrementAndGet() <= 0) {
             assert remainingCnt.get() == 0 : "!!!!remaining failed " + remainingCnt.get();
 
-            compSubscription.onRequestCompleted(idx);
+            subscriptionStrategy.onRequestCompleted(id);
         }
     }
 
@@ -64,7 +65,7 @@ class SortingSubscriber<T> implements Subscriber<T> {
         // todo
         throwable.printStackTrace();
 
-        compSubscription.cancel();
+        subscriptionStrategy.cancel();
 
         delegate.onError(throwable);
     }
@@ -79,46 +80,12 @@ class SortingSubscriber<T> implements Subscriber<T> {
 
     @Override
     public void onComplete() {
+        // todo assertion?
         if (finished.compareAndSet(false, true)) {
             // todo think
 //            remainingCnt.set(0);
 
-            compSubscription.cancel(idx);
+            subscriptionStrategy.onSubscriptionComplete(id);
         }
-    }
-
-    public long pushQueue(long remain, @Nullable Comparator<T> comp) {
-        boolean done = false;
-        T r;
-
-        while (remain > 0 && (r = inBuf.peek()) != null) {
-            int cmpRes = comp == null ? 0 : comp.compare(lastItem, r);
-
-            if (cmpRes < 0) {
-                return remain;
-            }
-
-            boolean same = comp != null && cmpRes == 0;
-
-            if (!done && same) {
-                done = true;
-            }
-
-            if (!done || same) {
-                delegate.onNext(inBuf.poll());
-
-                --remain;
-            }
-
-            if (done && !same) {
-                break;
-            }
-        }
-
-        if (comp == null && inBuf.isEmpty()) {
-            delegate.onComplete();
-        }
-
-        return remain;
     }
 }
