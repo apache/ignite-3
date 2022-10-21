@@ -178,6 +178,8 @@ namespace Apache.Ignite.Internal.Table
                 return _partitionAssignment;
             }
 
+            // TODO: Update _partitionAssignmentVersion in a thread-safe way.
+            // TODO: Same problem in Java - we can miss updates or update too much.
             return await LoadPartitionAssignmentAsync().ConfigureAwait(false);
         }
 
