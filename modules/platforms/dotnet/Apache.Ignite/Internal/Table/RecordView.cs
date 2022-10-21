@@ -361,10 +361,9 @@ namespace Apache.Ignite.Internal.Table
         private async Task<PooledBuffer> DoOutInOpAsync(
             ClientOp clientOp,
             Transaction? tx,
-            PooledArrayBufferWriter? request = null)
-        {
-            return await _table.Socket.DoOutInOpAsync(clientOp, tx, request).ConfigureAwait(false);
-        }
+            PooledArrayBufferWriter? request = null,
+            string? preferredNodeId = null) =>
+            await _table.Socket.DoOutInOpAsync(clientOp, tx, request, preferredNodeId).ConfigureAwait(false);
 
         private async Task<PooledBuffer> DoRecordOutOpAsync(
             ClientOp op,
@@ -373,18 +372,18 @@ namespace Apache.Ignite.Internal.Table
             bool keyOnly = false)
         {
             var schema = await _table.GetLatestSchemaAsync().ConfigureAwait(false);
+            var assignment = await _table.GetPartitionAssignmentAsync().ConfigureAwait(false);
             var tx = transaction.ToInternal();
 
             using var writer = ProtoCommon.GetMessageWriter();
             _ser.Write(writer, tx, schema, record, keyOnly);
 
-            // TODO: Compute hash from resulting BinaryTuple
             var binaryTupleMem = writer.GetWrittenMemory();
             var hash = HashCalculator.CalculateBinaryTupleHash(binaryTupleMem, keyOnly, schema);
+            var partition = Math.Abs(hash % assignment.Length);
+            var nodeId = assignment[partition];
 
-            // TODO:
-            // partitions.get(Math.abs(hash % partitions.size()))
-            return await DoOutInOpAsync(op, tx, writer).ConfigureAwait(false);
+            return await DoOutInOpAsync(op, tx, writer, nodeId).ConfigureAwait(false);
         }
     }
 }

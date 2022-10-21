@@ -123,7 +123,7 @@ namespace Apache.Ignite.Internal.Compute
             IgniteArgumentCheck.NotNull(node, nameof(node));
 
             // Try direct connection to the specified node.
-            if (_socket.GetEndpoint(node.Name) is { } endpoint)
+            if (_socket.GetEndpointByName(node.Name) is { } endpoint)
             {
                 using var writerWithoutNode = ProtoCommon.GetMessageWriter();
                 Write(writerWithoutNode, writeNode: false);

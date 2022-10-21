@@ -47,7 +47,10 @@ namespace Apache.Ignite.Internal
         private readonly IReadOnlyList<SocketEndpoint> _endpoints;
 
         /** Cluster node unique name to endpoint map. */
-        private readonly ConcurrentDictionary<string, SocketEndpoint> _endpointsMap = new();
+        private readonly ConcurrentDictionary<string, SocketEndpoint> _endpointsByName = new();
+
+        /** Cluster node id to endpoint map. */
+        private readonly ConcurrentDictionary<string, SocketEndpoint> _endpointsById = new();
 
         /** <see cref="_socket"/> lock. */
         [SuppressMessage(
@@ -119,11 +122,13 @@ namespace Apache.Ignite.Internal
         /// <param name="clientOp">Client op code.</param>
         /// <param name="tx">Transaction.</param>
         /// <param name="request">Request data.</param>
+        /// <param name="preferredNodeId">Preferred node id.</param>
         /// <returns>Response data.</returns>
         public async Task<PooledBuffer> DoOutInOpAsync(
             ClientOp clientOp,
             Transaction? tx,
-            PooledArrayBufferWriter? request = null)
+            PooledArrayBufferWriter? request = null,
+            string? preferredNodeId = null)
         {
             if (tx == null)
             {
@@ -145,10 +150,14 @@ namespace Apache.Ignite.Internal
         /// </summary>
         /// <param name="clientOp">Client op code.</param>
         /// <param name="request">Request data.</param>
+        /// <param name="preferredNodeId">Preferred node id.</param>
         /// <returns>Response data and socket.</returns>
-        public async Task<PooledBuffer> DoOutInOpAsync(ClientOp clientOp, PooledArrayBufferWriter? request = null)
+        public async Task<PooledBuffer> DoOutInOpAsync(
+            ClientOp clientOp,
+            PooledArrayBufferWriter? request = null,
+            string? preferredNodeId = null)
         {
-            var (buffer, _) = await DoOutInOpAndGetSocketAsync(clientOp, null, request).ConfigureAwait(false);
+            var (buffer, _) = await DoOutInOpAndGetSocketAsync(clientOp, tx: null, request, preferredNodeId).ConfigureAwait(false);
 
             return buffer;
         }
@@ -159,11 +168,13 @@ namespace Apache.Ignite.Internal
         /// <param name="clientOp">Client op code.</param>
         /// <param name="tx">Transaction.</param>
         /// <param name="request">Request data.</param>
+        /// <param name="preferredNodeId">Preferred node id.</param>
         /// <returns>Response data and socket.</returns>
         public async Task<(PooledBuffer Buffer, ClientSocket Socket)> DoOutInOpAndGetSocketAsync(
             ClientOp clientOp,
             Transaction? tx = null,
-            PooledArrayBufferWriter? request = null)
+            PooledArrayBufferWriter? request = null,
+            string? preferredNodeId = null)
         {
             if (tx != null)
             {
@@ -175,6 +186,16 @@ namespace Apache.Ignite.Internal
                 // Use tx-specific socket without retry and failover.
                 var buffer = await tx.Socket.DoOutInOpAsync(clientOp, request).ConfigureAwait(false);
                 return (buffer, tx.Socket);
+            }
+
+            if (preferredNodeId != null && _endpointsById.TryGetValue(preferredNodeId, out var endpoint))
+            {
+                var buffer = await TryDoOutInOpAsync(endpoint, clientOp, request);
+
+                if (buffer != null)
+                {
+                    return (buffer.Value, endpoint.Socket!);
+                }
             }
 
             var attempt = 0;
@@ -204,10 +225,8 @@ namespace Apache.Ignite.Internal
         /// </summary>
         /// <param name="clusterNodeName">Cluster node name.</param>
         /// <returns>Endpoint or null.</returns>
-        public SocketEndpoint? GetEndpoint(string clusterNodeName)
-        {
-            return _endpointsMap.TryGetValue(clusterNodeName, out var e) ? e : null;
-        }
+        public SocketEndpoint? GetEndpointByName(string clusterNodeName) =>
+            _endpointsByName.TryGetValue(clusterNodeName, out var e) ? e : null;
 
         /// <summary>
         /// Performs an in-out operation on the specified endpoint.
@@ -417,7 +436,8 @@ namespace Apache.Ignite.Internal
 
             endpoint.Socket = socket;
 
-            _endpointsMap[socket.ConnectionContext.ClusterNode.Name] = endpoint;
+            _endpointsByName[socket.ConnectionContext.ClusterNode.Name] = endpoint;
+            _endpointsById[socket.ConnectionContext.ClusterNode.Id] = endpoint;
 
             return socket;
         }

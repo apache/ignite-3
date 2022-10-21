@@ -35,6 +35,7 @@ internal static class HashCalculator
     /// <returns>Binary tuple hash.</returns>
     public static int CalculateBinaryTupleHash(ReadOnlyMemory<byte> mem, bool keyOnly, Schema schema)
     {
+        // TODO: Compute hash from resulting BinaryTuple
         var reader = new BinaryTupleReader(mem, keyOnly ? schema.KeyColumnCount : schema.Columns.Count);
         var cols = schema.Columns;
         var hash = 0;
