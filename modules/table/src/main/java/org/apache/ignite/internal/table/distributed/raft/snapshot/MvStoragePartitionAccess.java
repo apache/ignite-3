@@ -61,7 +61,7 @@ public class MvStoragePartitionAccess implements PartitionAccess {
                 versions.add(version);
             }
 
-            return List.copyOf(versions);
+            return versions;
         } catch (Exception e) {
             // TODO: IGNITE-17935 - handle this?
 
