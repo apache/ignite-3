@@ -249,6 +249,24 @@ namespace Apache.Ignite.Internal
             {
                 ThrowIfDisposed();
 
+                if (preferredNode != default)
+                {
+                    var key = preferredNode.Id ?? preferredNode.Name;
+                    var map = preferredNode.Id != null ? _endpointsById : _endpointsByName;
+
+                    if (map.TryGetValue(key!, out var endpoint))
+                    {
+                        try
+                        {
+                            return await ConnectAsync(endpoint).ConfigureAwait(false);
+                        }
+                        catch (Exception e)
+                        {
+                            _logger?.Warn($"Failed to connect to preferred node {preferredNode}: {e.Message}", e);
+                        }
+                    }
+                }
+
                 if (_socket == null || _socket.IsDisposed)
                 {
                     if (_socket?.IsDisposed == true)
