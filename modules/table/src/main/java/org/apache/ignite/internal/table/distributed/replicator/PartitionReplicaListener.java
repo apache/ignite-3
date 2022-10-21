@@ -51,7 +51,7 @@ import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.PkStorage;
-import org.apache.ignite.internal.table.distributed.TableManager.TableIndex;
+import org.apache.ignite.internal.table.distributed.TableManager.IndexLocker;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
 import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
@@ -142,7 +142,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      */
     private final ConcurrentHashMap<UUID, CompletableFuture<TxMeta>> txTimestampUpdateMap = new ConcurrentHashMap<>();
 
-    private final Supplier<List<TableIndex>> activeIndexes;
+    private final Supplier<List<IndexLocker>> indexesLockers;
 
     /**
      * The constructor.
@@ -167,7 +167,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             int partId,
             String replicationGroupId,
             UUID tableId,
-            Supplier<List<TableIndex>> activeIndexes,
+            Supplier<List<IndexLocker>> indexesLockers,
             PkStorage pkConstraintStorage,
             HybridClock hybridClock,
             TxStateStorage txStateStorage,
@@ -181,7 +181,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         this.partId = partId;
         this.replicationGroupId = replicationGroupId;
         this.tableId = tableId;
-        this.activeIndexes = activeIndexes;
+        this.indexesLockers = indexesLockers;
         this.pkConstraintStorage = pkConstraintStorage;
         this.hybridClock = hybridClock;
         this.txStateStorage = txStateStorage;
@@ -804,7 +804,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     CompletableFuture<RowId>[] insertLockFuts = new CompletableFuture[rowsToInsert.size()];
 
                     int idx = 0;
-                    List<TableIndex> indexes = activeIndexes.get();
+                    List<IndexLocker> indexes = indexesLockers.get();
 
                     for (Map.Entry<RowId, BinaryRow> entry : rowsToInsert.entrySet()) {
                         insertLockFuts[idx++] = takeLocksForInsert(entry.getValue(), entry.getKey(), txId, indexes);
@@ -812,17 +812,6 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     return CompletableFuture.allOf(insertLockFuts)
                             .thenCompose(ignored -> applyCmdWithExceptionHandling(new UpdateAllCommand(rowsToInsert, txId)))
-                            .thenCompose(ignored -> {
-                                CompletableFuture<?>[] cleanupLockFuts = new CompletableFuture[rowsToInsert.size()];
-
-                                int idx0 = 0;
-
-                                for (Map.Entry<RowId, BinaryRow> entry : rowsToInsert.entrySet()) {
-                                    cleanupLockFuts[idx0++] = releaseAfterPutLockOnIndexes(indexes, entry.getValue(), entry.getKey(), txId);
-                                }
-
-                                return allOf(cleanupLockFuts);
-                            })
                             .thenApply(ignored -> result);
                 });
             }
@@ -831,7 +820,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                 int i = 0;
 
-                List<TableIndex> indexes = activeIndexes.get();
+                List<IndexLocker> indexes = indexesLockers.get();
 
                 for (BinaryRow row : request.binaryRows()) {
                     rowIdFuts[i++] = rowIdByKey(row.keySlice(), txId)
@@ -862,17 +851,6 @@ public class PartitionReplicaListener implements ReplicaListener {
                     }
 
                     return applyCmdWithExceptionHandling(new UpdateAllCommand(rowsToUpdate, txId))
-                            .thenCompose(ignored -> {
-                                CompletableFuture<?>[] cleanupLockFuts = new CompletableFuture[rowsToUpdate.size()];
-
-                                int idx0 = 0;
-
-                                for (Map.Entry<RowId, BinaryRow> entry : rowsToUpdate.entrySet()) {
-                                    cleanupLockFuts[idx0++] = releaseAfterPutLockOnIndexes(indexes, entry.getValue(), entry.getKey(), txId);
-                                }
-
-                                return allOf(cleanupLockFuts);
-                            })
                             .thenApply(ignored -> null);
                 });
             }
@@ -988,11 +966,10 @@ public class PartitionReplicaListener implements ReplicaListener {
                             }
 
                             RowId rowId0 = new RowId(partId);
-                            List<TableIndex> indexes = activeIndexes.get();
+                            List<IndexLocker> indexes = indexesLockers.get();
 
                             return takeLocksForInsert(searchRow, rowId0, txId, indexes)
                                     .thenCompose(ignored -> applyCmdWithExceptionHandling(new UpdateCommand(rowId0, searchRow, txId)))
-                                    .thenCompose(ignored -> releaseAfterPutLockOnIndexes(indexes, searchRow, rowId0, txId))
                                     .thenApply(ignored -> true);
                         });
             }
@@ -1002,7 +979,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                             boolean insert = rowId == null;
 
                             RowId rowId0 = insert ? new RowId(partId) : rowId;
-                            List<TableIndex> indexes = activeIndexes.get();
+                            List<IndexLocker> indexes = indexesLockers.get();
 
                             CompletableFuture<?> lockFut = insert
                                     ? takeLocksForInsert(searchRow, rowId0, txId, indexes)
@@ -1010,7 +987,6 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                             return lockFut
                                     .thenCompose(ignored -> applyCmdWithExceptionHandling(new UpdateCommand(rowId0, searchRow, txId)))
-                                    .thenCompose(ignored -> releaseAfterPutLockOnIndexes(indexes, searchRow, rowId0, txId))
                                     .thenApply(ignored -> null);
                         });
             }
@@ -1020,7 +996,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                             boolean insert = rowId == null;
 
                             RowId rowId0 = insert ? new RowId(partId) : rowId;
-                            List<TableIndex> indexes = activeIndexes.get();
+                            List<IndexLocker> indexes = indexesLockers.get();
 
                             CompletableFuture<?> lockFut = insert
                                     ? takeLocksForInsert(searchRow, rowId0, txId, indexes)
@@ -1032,7 +1008,6 @@ public class PartitionReplicaListener implements ReplicaListener {
                                                 : resolveReadResult(mvDataStorage.read(rowId, HybridTimestamp.MAX_VALUE), txId);
 
                                         return applyCmdWithExceptionHandling(new UpdateCommand(rowId0, searchRow, txId))
-                                                .thenCompose(ignored0 -> releaseAfterPutLockOnIndexes(indexes, searchRow, rowId0, txId))
                                                 .thenApply(ignored0 -> value);
                                     });
                         });
@@ -1044,14 +1019,13 @@ public class PartitionReplicaListener implements ReplicaListener {
                                 return CompletableFuture.completedFuture(null);
                             }
 
-                            List<TableIndex> indexes = activeIndexes.get();
+                            List<IndexLocker> indexes = indexesLockers.get();
 
                             return takeLocksForUpdate(searchRow, rowId, txId, indexes)
                                     .thenCompose(ignored -> {
                                         BinaryRow value = resolveReadResult(mvDataStorage.read(rowId, HybridTimestamp.MAX_VALUE), txId);
 
                                         return applyCmdWithExceptionHandling(new UpdateCommand(rowId, searchRow, txId))
-                                                .thenCompose(ignored0 -> releaseAfterPutLockOnIndexes(indexes, searchRow, rowId, txId))
                                                 .thenApply(ignored0 -> value);
                                     });
                         });
@@ -1063,11 +1037,10 @@ public class PartitionReplicaListener implements ReplicaListener {
                                 return CompletableFuture.completedFuture(false);
                             }
 
-                            List<TableIndex> indexes = activeIndexes.get();
+                            List<IndexLocker> indexes = indexesLockers.get();
 
                             return takeLocksForUpdate(searchRow, rowId, txId, indexes)
                                     .thenCompose(ignored -> applyCmdWithExceptionHandling(new UpdateCommand(rowId, searchRow, txId)))
-                                    .thenCompose(ignored -> releaseAfterPutLockOnIndexes(indexes, searchRow, rowId, txId))
                                     .thenApply(ignored -> true);
                         });
             }
@@ -1084,11 +1057,11 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param txId      Transaction id.
      * @return Future completes with {@link RowId} or {@code null} if there is no value.
      */
-    private CompletableFuture<RowId> takeLocksForUpdate(BinaryRow tableRow, RowId rowId, UUID txId, List<TableIndex> indexes) {
+    private CompletableFuture<RowId> takeLocksForUpdate(BinaryRow tableRow, RowId rowId, UUID txId, List<IndexLocker> indexes) {
         return lockManager.acquire(txId, new LockKey(tableId, tableRow.keySlice()), LockMode.X) // Index X lock
                 .thenCompose(ignored -> lockManager.acquire(txId, new LockKey(tableId), LockMode.IX))
                 .thenCompose(ignored -> lockManager.acquire(txId, new LockKey(tableId, rowId), LockMode.X))
-                .thenCompose(ignored -> takeBeforePutLockOnIndexes(indexes, tableRow, rowId, txId))
+                .thenCompose(ignored -> takePutLockOnIndexes(indexes, tableRow, rowId, txId))
                 .thenApply(ignored -> rowId);
     }
 
@@ -1099,14 +1072,14 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param txId Transaction id.
      * @return Future completes with {@link RowId} or {@code null} if there is no value.
      */
-    private CompletableFuture<RowId> takeLocksForInsert(BinaryRow tableRow, RowId rowId, UUID txId, List<TableIndex> indexes) {
+    private CompletableFuture<RowId> takeLocksForInsert(BinaryRow tableRow, RowId rowId, UUID txId, List<IndexLocker> indexes) {
         return lockManager.acquire(txId, new LockKey(tableId, tableRow.keySlice()), LockMode.X)
                 .thenCompose(exclusiveIdxLock -> lockManager.acquire(txId, new LockKey(tableId), LockMode.IX)) // IX lock on table
-                .thenCompose(ignored -> takeBeforePutLockOnIndexes(indexes, tableRow, rowId, txId))
+                .thenCompose(ignored -> takePutLockOnIndexes(indexes, tableRow, rowId, txId))
                 .thenApply(tblLock -> rowId);
     }
 
-    private CompletableFuture<?> takeBeforePutLockOnIndexes(List<TableIndex> indexes, BinaryRow tableRow, RowId rowId, UUID txId) {
+    private CompletableFuture<?> takePutLockOnIndexes(List<IndexLocker> indexes, BinaryRow tableRow, RowId rowId, UUID txId) {
         if (nullOrEmpty(indexes)) {
             return CompletableFuture.completedFuture(null);
         }
@@ -1114,23 +1087,8 @@ public class PartitionReplicaListener implements ReplicaListener {
         CompletableFuture<?>[] locks = new CompletableFuture[indexes.size()];
         int idx = 0;
 
-        for (TableIndex locker : indexes) {
-            locks[idx++] = locker.beforePut(txId, rowId, tableRow);
-        }
-
-        return CompletableFuture.allOf(locks);
-    }
-
-    private CompletableFuture<?> releaseAfterPutLockOnIndexes(List<TableIndex> indexes, BinaryRow tableRow, RowId rowId, UUID txId) {
-        if (nullOrEmpty(indexes)) {
-            return CompletableFuture.completedFuture(null);
-        }
-
-        CompletableFuture<?>[] locks = new CompletableFuture[indexes.size()];
-        int idx = 0;
-
-        for (TableIndex locker : indexes) {
-            locks[idx++] = locker.afterPut(txId, rowId, tableRow);
+        for (IndexLocker locker : indexes) {
+            locks[idx++] = locker.locksForInsert(txId, tableRow, rowId);
         }
 
         return CompletableFuture.allOf(locks);
@@ -1204,7 +1162,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                             return CompletableFuture.completedFuture(false);
                         }
 
-                        List<TableIndex> indexes = activeIndexes.get();
+                        List<IndexLocker> indexes = indexesLockers.get();
 
                         return takeLocksForReplace(expectedRow, newRow, rowId, txId, indexes)
                                 .thenCompose(validatedRowId -> {
@@ -1213,7 +1171,6 @@ public class PartitionReplicaListener implements ReplicaListener {
                                     }
 
                                     return applyCmdWithExceptionHandling(new UpdateCommand(validatedRowId, newRow, txId))
-                                            .thenCompose(ignored -> releaseAfterPutLockOnIndexes(indexes, newRow, rowId, txId))
                                             .thenApply(ignored -> true);
                                 });
                     });
@@ -1230,7 +1187,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Future completes with {@link RowId} or {@code null} if there is no suitable row.
      */
     private CompletableFuture<RowId> takeLocksForReplace(BinaryRow expectedRow, BinaryRow newRow,
-            RowId rowId, UUID txId, List<TableIndex> indexes) {
+            RowId rowId, UUID txId, List<IndexLocker> indexes) {
         return lockManager.acquire(txId, new LockKey(tableId, expectedRow.keySlice()), LockMode.X) // Index X lock
                 .thenCompose(ignored -> lockManager.acquire(txId, new LockKey(tableId), LockMode.IX))
                 .thenCompose(ignored -> lockManager.acquire(txId, new LockKey(tableId, rowId), LockMode.S))
@@ -1239,7 +1196,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     if (curVal != null && equalValues(curVal, expectedRow)) {
                         return lockManager.acquire(txId, new LockKey(tableId, rowId), LockMode.X) // X lock on RowId
-                                .thenCompose(ignored1 -> takeBeforePutLockOnIndexes(indexes, newRow, rowId, txId))
+                                .thenCompose(ignored1 -> takePutLockOnIndexes(indexes, newRow, rowId, txId))
                                 .thenApply(rowLock -> rowId);
                     }
 

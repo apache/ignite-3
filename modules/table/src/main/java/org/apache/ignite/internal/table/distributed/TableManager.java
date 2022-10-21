@@ -113,7 +113,6 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
-import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
@@ -133,8 +132,6 @@ import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.table.event.TableEventParameters;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.internal.tx.Lock;
-import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.LockMode;
@@ -256,7 +253,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** Resolver that resolves a network address to cluster node. */
     private final Function<NetworkAddress, ClusterNode> clusterNodeResolver;
 
-    private final Map<UUID, Map<UUID, TableIndexFactory>> tableIndexFactories = new ConcurrentHashMap<>();
+    private final Map<UUID, Map<UUID, IndexStorageAdapterFactory>> indexStorageAdapterFactories = new ConcurrentHashMap<>();
+    private final Map<UUID, Map<UUID, IndexLockerFactory>> indexLockerFactories = new ConcurrentHashMap<>();
 
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -758,7 +756,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                         partitionStorage,
                                                         internalTbl.txStateStorage().getOrCreateTxStateStorage(partId),
                                                         txManager,
-                                                        activeIndexes(tblId, partId),
+                                                        indexStorageAdapters(tblId, partId),
                                                         pkStorage
                                                 ),
                                                 new RebalanceRaftGroupEventsListener(
@@ -810,7 +808,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                             partId,
                                                             grpId,
                                                             tblId,
-                                                            activeIndexes(tblId, partId),
+                                                            indexesLockers(tblId, partId),
                                                             pkStorage,
                                                             clock,
                                                             internalTbl.txStateStorage().getOrCreateTxStateStorage(partId),
@@ -1593,14 +1591,24 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             throw new IgniteInternalException(Common.UNEXPECTED_ERR, "Table was concurrently deleted [tableId=" + tableId + "]");
         }
 
-        tableIndexFactories.computeIfAbsent(
+        indexLockerFactories.computeIfAbsent(
                 tableId,
                 key -> new ConcurrentHashMap<>()
         ).put(
                 indexId,
-                partitionId -> new HashTableIndex(
+                partitionId -> new HashIndexLocker(
                         indexId,
                         lockMgr,
+                        searchRowResolver
+                )
+        );
+        indexStorageAdapterFactories.computeIfAbsent(
+                tableId,
+                key -> new ConcurrentHashMap<>()
+        ).put(
+                indexId,
+                partitionId -> new TableSchemaAwareIndexStorage(
+                        indexId,
                         table.internalTable().storage().getOrCreateHashIndex(partitionId, indexId),
                         searchRowResolver
                 )
@@ -1621,14 +1629,25 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             throw new IgniteInternalException(Common.UNEXPECTED_ERR, "Table was concurrently deleted [tableId=" + tableId + "]");
         }
 
-        tableIndexFactories.computeIfAbsent(
+        indexLockerFactories.computeIfAbsent(
                 tableId,
                 key -> new ConcurrentHashMap<>()
         ).put(
                 indexId,
-                partitionId -> new SortedTableIndex(
+                partitionId -> new SortedIndexLocker(
                         indexId,
                         lockMgr,
+                        table.internalTable().storage().getOrCreateSortedIndex(partitionId, indexId),
+                        searchRowResolver
+                )
+        );
+        indexStorageAdapterFactories.computeIfAbsent(
+                tableId,
+                key -> new ConcurrentHashMap<>()
+        ).put(
+                indexId,
+                partitionId -> new TableSchemaAwareIndexStorage(
+                        indexId,
                         table.internalTable().storage().getOrCreateSortedIndex(partitionId, indexId),
                         searchRowResolver
                 )
@@ -1642,10 +1661,16 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param indexId An index id to unregister.
      */
     public void unregisterIndex(UUID tableId, UUID indexId) {
-        Map<UUID, TableIndexFactory> factories = tableIndexFactories.get(tableId);
+        Map<UUID, ?> lockerFactories = indexLockerFactories.get(tableId);
 
-        if (factories != null) {
-            factories.remove(indexId);
+        if (lockerFactories != null) {
+            lockerFactories.remove(indexId);
+        }
+
+        Map<UUID, ?> adapterFactories = indexStorageAdapterFactories.get(tableId);
+
+        if (adapterFactories != null) {
+            adapterFactories.remove(indexId);
         }
     }
 
@@ -1778,7 +1803,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                     partitionStorage,
                                     tbl.internalTable().txStateStorage().getOrCreateTxStateStorage(partId),
                                     txManager,
-                                    activeIndexes(tblId, partId),
+                                    indexStorageAdapters(tblId, partId),
                                     pkStorage
                             );
 
@@ -1816,7 +1841,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                             partId,
                                             grpId,
                                             tblId,
-                                            activeIndexes(tblId, partId),
+                                            indexesLockers(tblId, partId),
                                             pkStorage,
                                             clock,
                                             tbl.internalTable().txStateStorage().getOrCreateTxStateStorage(partId),
@@ -2006,13 +2031,27 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         return getMetadataLocallyOnly ? property : ConfigurationUtil.directProxy(property);
     }
 
-    private Supplier<List<TableIndex>> activeIndexes(UUID tableId, int partId) {
+    private Supplier<List<TableSchemaAwareIndexStorage>> indexStorageAdapters(UUID tableId, int partId) {
         return () -> {
-            List<TableIndexFactory> factories = new ArrayList<>(tableIndexFactories.getOrDefault(tableId, Map.of()).values());
+            List<IndexStorageAdapterFactory> factories = new ArrayList<>(indexStorageAdapterFactories.getOrDefault(tableId, Map.of()).values());
 
-            List<TableIndex> lockers = new ArrayList<>(factories.size());
+            List<TableSchemaAwareIndexStorage> adapters = new ArrayList<>(factories.size());
 
-            for (TableIndexFactory factory : factories) {
+            for (IndexStorageAdapterFactory factory : factories) {
+                adapters.add(factory.create(partId));
+            }
+
+            return adapters;
+        };
+    }
+
+    private Supplier<List<IndexLocker>> indexesLockers(UUID tableId, int partId) {
+        return () -> {
+            List<IndexLockerFactory> factories = new ArrayList<>(indexLockerFactories.getOrDefault(tableId, Map.of()).values());
+
+            List<IndexLocker> lockers = new ArrayList<>(factories.size());
+
+            for (IndexLockerFactory factory : factories) {
                 lockers.add(factory.create(partId));
             }
 
@@ -2025,91 +2064,56 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      *
      * <p>Different indexes requires different approaches for locking. Thus every index type has its own implementation of this interface.
      */
-    public interface TableIndex {
+    public interface IndexLocker {
         /**
-         * Notifies the index that specified row is going to be inserted.
+         * Inserts the given row to the index.
          *
-         * <p>Primarily used to take all necessary locks.
-         *
-         * @param txId An id of the transaction.
-         * @param rowId An id of the row which being inserted.
-         * @param tableRow A row which is being inserted.
-         * @return A future representing the result.
+         * @param txId An identifier of the transaction in which the row is inserted.
+         * @param tableRow A table row to insert.
+         * @param rowId An identifier of the row in the main storage.
          */
-        CompletableFuture<?> beforePut(UUID txId, RowId rowId, BinaryRow tableRow);
+        CompletableFuture<?> locksForInsert(UUID txId, BinaryRow tableRow, RowId rowId);
 
         /**
          * Inserts the given row to the index.
          *
+         * @param txId An identifier of the transaction in which the row is removed.
          * @param tableRow A table row to insert.
          * @param rowId An identifier of the row to insert.
          */
-        void doPut(BinaryRow tableRow, RowId rowId);
-
-        /**
-         * Notifies the index that specified row was inserted.
-         *
-         * <p>Primarily used to release all short-living locks.
-         *
-         * @param txId An id of the transaction.
-         * @param rowId An id of the row which was inserted.
-         * @param tableRow A row which was inserted.
-         * @return A future representing the result.
-         */
-        CompletableFuture<?> afterPut(UUID txId, RowId rowId, BinaryRow tableRow);
-
-        /**
-         * Notifies the index that specified row is going to be removed.
-         *
-         * <p>Primarily used to take all necessary locks.
-         *
-         * @param txId An id of the transaction.
-         * @param tableRow A row which is being inserted.
-         * @return A future representing the result.
-         */
-        CompletableFuture<?> beforeRemove(UUID txId, BinaryRow tableRow);
+        CompletableFuture<?> locksForRemove(UUID txId, BinaryRow tableRow, RowId rowId);
     }
 
-    private static class HashTableIndex implements TableIndex {
+    private static class HashIndexLocker implements IndexLocker {
         private final UUID indexId;
         private final LockManager lockManager;
-        private final HashIndexStorage storage;
         private final Function<BinaryRow, CompletableFuture<BinaryTuple>> indexRowResolver;
 
-        private HashTableIndex(UUID indexId, LockManager lockManager, HashIndexStorage storage,
+        private HashIndexLocker(UUID indexId, LockManager lockManager,
                 Function<BinaryRow, CompletableFuture<BinaryTuple>> indexRowResolver) {
             this.indexId = indexId;
             this.lockManager = lockManager;
-            this.storage = storage;
             this.indexRowResolver = indexRowResolver;
         }
 
         @Override
-        public CompletableFuture<?> beforePut(UUID txId, RowId rowId, BinaryRow tableRow) {
+        public CompletableFuture<?> locksForInsert(UUID txId, BinaryRow tableRow, RowId rowId) {
             return indexRowResolver.apply(tableRow)
-                    .thenCompose(tuple -> lockManager.acquire(txId, new LockKey(indexId, tuple.byteBuffer()), LockMode.IX));
+                    .thenCompose(tuple ->
+                            lockManager.acquire(txId, new LockKey(indexId, tuple.byteBuffer()), LockMode.IX)
+                    );
         }
 
         @Override
-        public CompletableFuture<?> afterPut(UUID txId, RowId rowId, BinaryRow tableRow) {
-            return CompletableFuture.completedFuture(null);
-        }
-
-        @Override
-        public CompletableFuture<?> beforeRemove(UUID txId, BinaryRow tableRow) {
+        public CompletableFuture<?> locksForRemove(UUID txId, BinaryRow tableRow, RowId rowId) {
             return indexRowResolver.apply(tableRow)
-                    .thenCompose(tuple -> lockManager.acquire(txId, new LockKey(indexId, tuple.byteBuffer()), LockMode.IX));
-        }
-
-        @Override
-        public void doPut(BinaryRow tableRow, RowId rowId) {
-            BinaryTuple searchRow = indexRowResolver.apply(tableRow).join();
-
-            storage.put(new IndexRowImpl(searchRow, rowId));
+                    .thenCompose(tuple ->
+                            lockManager.acquire(txId, new LockKey(indexId, tuple.byteBuffer()), LockMode.IX)
+                    );
         }
     }
 
-    private static class SortedTableIndex implements TableIndex {
+    private static class SortedIndexLocker implements IndexLocker {
         private static final BinaryTuple POSITIVE_INF = new BinaryTuple(
                 BinaryTupleSchema.create(new Element[0]),
                 new BinaryTupleBuilder(0, false).build()
@@ -2119,9 +2123,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         private final LockManager lockManager;
         private final SortedIndexStorage storage;
         private final Function<BinaryRow, CompletableFuture<BinaryTuple>> indexRowResolver;
-        private final Map<Key, Runnable> afterPutClosures = new ConcurrentHashMap<>();
 
-        private SortedTableIndex(UUID indexId, LockManager lockManager, SortedIndexStorage storage,
+        private SortedIndexLocker(UUID indexId, LockManager lockManager, SortedIndexStorage storage,
                 Function<BinaryRow, CompletableFuture<BinaryTuple>> indexRowResolver) {
             this.indexId = indexId;
             this.lockManager = lockManager;
@@ -2130,8 +2133,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
 
         @Override
-        public CompletableFuture<?> beforePut(UUID txId, RowId rowId, BinaryRow tableRow) {
-            return indexRowResolver.apply(tableRow) // derive index key
+        public CompletableFuture<?> locksForInsert(UUID txId, BinaryRow tableRow, RowId rowId) {
+            return indexRowResolver.apply(tableRow)
                     .thenCompose(key -> {
                         BinaryTuplePrefix prefix = BinaryTuplePrefix.fromBinaryTuple(key);
 
@@ -2147,89 +2150,36 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                         var nextLockKey = new LockKey(indexId, nexKey.byteBuffer());
 
-                        Lock prevLock = lockManager.lock(txId, nextLockKey);
-
-                        LockMode lockedInMode = prevLock != null ? prevLock.lockMode() : null;
-
-                        LockMode mode = lockedInMode == LockMode.S || lockedInMode == LockMode.X || lockedInMode == LockMode.SIX
-                                ? LockMode.X : LockMode.IX;
-
                         return lockManager.acquire(txId, nextLockKey, LockMode.IX)
-                                .thenCompose(shortLock -> {
-                                    afterPutClosures.put(new Key(txId, rowId), () -> {
-                                        if (lockedInMode == null) {
-                                            lockManager.release(shortLock);
-                                        } else if (lockedInMode != LockMode.IX) {
-                                            try {
-                                                lockManager.downgrade(shortLock, lockedInMode);
-                                            } catch (LockException ex) {
-                                                throw new RuntimeException(ex);
-                                            }
-                                        }
-                                    });
+                                .thenCompose(shortLock ->
+                                        lockManager.acquire(txId, new LockKey(indexId, key.byteBuffer()), LockMode.X)
+                                                .thenRun(() -> {
+                                                    storage.put(new IndexRowImpl(key, rowId));
 
-                                    return lockManager.acquire(txId, new LockKey(indexId, key.byteBuffer()), mode);
-                                });
+                                                    lockManager.release(shortLock);
+                                                })
+                                );
                     });
         }
 
         @Override
-        public CompletableFuture<?> afterPut(UUID txId, RowId rowId, BinaryRow tableRow) {
-            Runnable closure = afterPutClosures.get(new Key(txId, rowId));
-
-            if (closure != null) {
-                closure.run();
-            }
-
-            return CompletableFuture.completedFuture(null);
-        }
-
-        @Override
-        public CompletableFuture<?> beforeRemove(UUID txId, BinaryRow tableRow) {
+        public CompletableFuture<?> locksForRemove(UUID txId, BinaryRow tableRow, RowId rowId) {
             return indexRowResolver.apply(tableRow)
-                    .thenCompose(tuple -> lockManager.acquire(txId, new LockKey(indexId, tuple.byteBuffer()), LockMode.IX));
-        }
-
-        @Override
-        public void doPut(BinaryRow tableRow, RowId rowId) {
-            BinaryTuple searchRow = indexRowResolver.apply(tableRow).join();
-
-            storage.put(new IndexRowImpl(searchRow, rowId));
-        }
-
-        static class Key {
-            private final UUID txId;
-            private final RowId rowId;
-
-            public Key(UUID txId, RowId rowId) {
-                this.txId = txId;
-                this.rowId = rowId;
-            }
-
-            @Override
-            public boolean equals(Object o) {
-                if (this == o) {
-                    return true;
-                }
-                if (o == null || getClass() != o.getClass()) {
-                    return false;
-                }
-
-                Key key = (Key) o;
-
-                return txId.equals(key.txId) && rowId.equals(key.rowId);
-            }
-
-            @Override
-            public int hashCode() {
-                return Objects.hash(txId, rowId);
-            }
+                    .thenCompose(tuple ->
+                            lockManager.acquire(txId, new LockKey(indexId, tuple.byteBuffer()), LockMode.IX)
+                    );
         }
     }
 
     @FunctionalInterface
-    private interface TableIndexFactory {
+    private interface IndexLockerFactory {
         /** Creates the index decorator for given partition. */
-        TableIndex create(int partitionId);
+        IndexLocker create(int partitionId);
+    }
+
+    @FunctionalInterface
+    private interface IndexStorageAdapterFactory {
+        /** Creates the index decorator for given partition. */
+        TableSchemaAwareIndexStorage create(int partitionId);
     }
 }

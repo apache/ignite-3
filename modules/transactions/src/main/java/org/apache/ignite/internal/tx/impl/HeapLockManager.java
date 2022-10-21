@@ -137,27 +137,6 @@ public class HeapLockManager implements LockManager {
         return result.iterator();
     }
 
-    @Override
-    public @Nullable Lock lock(UUID txId, LockKey key) {
-        LockState state = locks.get(key);
-
-        if (state == null) {
-            return null;
-        }
-
-        Waiter waiter = state.waiter(txId);
-
-        if (waiter == null) {
-            return null;
-        }
-
-        return new Lock(
-                key,
-                waiter.lockMode(),
-                txId
-        );
-    }
-
     /**
      * Returns the lock state for the key.
      *

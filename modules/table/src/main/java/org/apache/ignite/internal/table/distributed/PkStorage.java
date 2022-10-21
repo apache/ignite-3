@@ -74,12 +74,25 @@ public class PkStorage {
     }
 
     /**
-     * Adds the given row to the constraint's storage.
+     * Inserts the given row to the constraint's storage.
      *
+     * @param rowId An identifier of a row in main storage.
+     * @param key A buffer representing a primary key in a raw form.
      * @throws StorageException If failed to put data.
      */
     public void put(RowId rowId, ByteBuffer key) throws StorageException {
         storage.put(new IndexRowImpl(toPkKeyTuple(key), rowId));
+    }
+
+    /**
+     * Removes the given row from the constraint's storage.
+     *
+     * @param rowId An identifier of a row in main storage.
+     * @param key A buffer representing a primary key in a raw form.
+     * @throws StorageException If failed to put data.
+     */
+    public void remove(RowId rowId, ByteBuffer key) throws StorageException {
+        storage.remove(new IndexRowImpl(toPkKeyTuple(key), rowId));
     }
 
     /** Returns underlying storage. */

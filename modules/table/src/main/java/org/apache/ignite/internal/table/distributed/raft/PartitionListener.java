@@ -40,7 +40,7 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.PkStorage;
-import org.apache.ignite.internal.table.distributed.TableManager.TableIndex;
+import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
 import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
@@ -76,7 +76,7 @@ public class PartitionListener implements RaftGroupListener {
 
     private final PkStorage pkIndexStorage;
 
-    private final Supplier<List<TableIndex>> activeIndexes;
+    private final Supplier<List<TableSchemaAwareIndexStorage>> indexes;
 
     /** Rows that were inserted, updated or removed. */
     private final HashMap<UUID, Set<RowId>> txsPendingRowIds = new HashMap<>();
@@ -87,21 +87,20 @@ public class PartitionListener implements RaftGroupListener {
      * @param store  The storage.
      * @param txStateStorage Transaction state storage.
      * @param txManager Transaction manager.
-     * @param activeIndexes Supplier of indexes which considered to be active on the moment of issuing.
      * @param pkIndexStorage Storage for a primary key constraint.
      */
     public PartitionListener(
             MvPartitionStorage store,
             TxStateStorage txStateStorage,
             TxManager txManager,
-            Supplier<List<TableIndex>> activeIndexes,
+            Supplier<List<TableSchemaAwareIndexStorage>> indexes,
             PkStorage pkIndexStorage
     ) {
         this.storage = store;
         this.txStateStorage = txStateStorage;
         this.txManager = txManager;
         this.pkIndexStorage = pkIndexStorage;
-        this.activeIndexes = activeIndexes;
+        this.indexes = indexes;
     }
 
     /** {@inheritDoc} */
@@ -262,7 +261,11 @@ public class PartitionListener implements RaftGroupListener {
             if (cmd.commit()) {
                 pendingRowIds.forEach(rowId -> storage.commitWrite(rowId, cmd.commitTimestamp()));
             } else {
-                pendingRowIds.forEach(rowId -> storage.abortWrite(rowId));
+                pendingRowIds.forEach(rowId -> {
+                    BinaryRow row = storage.abortWrite(rowId);
+
+                    removeFromIndexes(row, rowId);
+                });
             }
 
             txsPendingRowIds.remove(txId);
@@ -305,16 +308,23 @@ public class PartitionListener implements RaftGroupListener {
 
         pkIndexStorage.put(rowId, tableRow.keySlice());
 
-        List<TableIndex> indexes = activeIndexes.get();
+        for (TableSchemaAwareIndexStorage index : indexes.get()) {
+            index.put(tableRow, rowId);
+        }
+    }
 
-        if (nullOrEmpty(indexes)) {
+    private void removeFromIndexes(@Nullable BinaryRow tableRow, RowId rowId) {
+        if (tableRow == null || !tableRow.hasValue()) { // skip tombstones
             return;
         }
 
-        for (TableIndex index : indexes) {
-            index.doPut(tableRow, rowId);
+        pkIndexStorage.remove(rowId, tableRow.keySlice());
+
+        for (TableSchemaAwareIndexStorage index : indexes.get()) {
+            index.remove(tableRow, rowId);
         }
     }
+
 
     /**
      * Returns underlying storage.
