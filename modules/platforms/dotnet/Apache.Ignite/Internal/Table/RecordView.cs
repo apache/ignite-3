@@ -383,6 +383,8 @@ namespace Apache.Ignite.Internal.Table
             var binaryTupleMem = writer.GetWrittenMemory();
             var hash = HashCalculator.CalculateBinaryTupleHash(binaryTupleMem, keyOnly, schema);
 
+            // TODO:
+            // partitions.get(Math.abs(hash % partitions.size()))
             return await DoOutInOpAsync(op, tx, writer).ConfigureAwait(false);
         }
     }

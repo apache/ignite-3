@@ -404,7 +404,7 @@ namespace Apache.Ignite.Internal
                 return endpoint.Socket;
             }
 
-            var socket = await ClientSocket.ConnectAsync(endpoint.EndPoint, Configuration).ConfigureAwait(false);
+            var socket = await ClientSocket.ConnectAsync(endpoint.EndPoint, Configuration, TODO).ConfigureAwait(false);
 
             endpoint.Socket = socket;
 
