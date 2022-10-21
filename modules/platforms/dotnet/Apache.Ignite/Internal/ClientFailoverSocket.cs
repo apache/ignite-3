@@ -64,7 +64,7 @@ namespace Apache.Ignite.Internal
 
         /** Local topology assignment version. Instead of using event handlers to notify all tables about assignment change,
          * the table will compare its version with channel version to detect an update. */
-        private long _assignmentVersion;
+        private int _assignmentVersion;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ClientFailoverSocket"/> class.
@@ -89,6 +89,11 @@ namespace Apache.Ignite.Internal
         /// Gets the configuration.
         /// </summary>
         public IgniteClientConfiguration Configuration { get; }
+
+        /// <summary>
+        /// Gets the partition assignment version.
+        /// </summary>
+        public int PartitionAssignmentVersion => Interlocked.CompareExchange(ref _assignmentVersion, -1, -1);
 
         /// <summary>
         /// Connects the socket.

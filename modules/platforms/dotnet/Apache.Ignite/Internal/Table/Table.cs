@@ -47,6 +47,12 @@ namespace Apache.Ignite.Internal.Table
         /** */
         private volatile int _latestSchemaVersion = -1;
 
+        /** */
+        private volatile int _partitionAssignmentVersion = -1;
+
+        /** */
+        private volatile Guid[]? _partitionAssignment = null;
+
         /// <summary>
         /// Initializes a new instance of the <see cref="Table"/> class.
         /// </summary>
@@ -152,6 +158,25 @@ namespace Apache.Ignite.Internal.Table
         internal async ValueTask<Schema> GetLatestSchemaAsync()
         {
             var latestSchemaVersion = _latestSchemaVersion;
+
+            if (latestSchemaVersion >= 0)
+            {
+                return _schemas[latestSchemaVersion];
+            }
+
+            return await LoadSchemaAsync(null).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Gets the latest schema.
+        /// </summary>
+        /// <returns>Schema.</returns>
+        internal async ValueTask<Guid[]> GetPartitionAssignmentAsync()
+        {
+            if (_partitionAssignmentVersion == _socket.PartitionAssignmentVersion && _partitionAssignment != null)
+            {
+                return _partitionAssignment;
+            }
 
             if (latestSchemaVersion >= 0)
             {
