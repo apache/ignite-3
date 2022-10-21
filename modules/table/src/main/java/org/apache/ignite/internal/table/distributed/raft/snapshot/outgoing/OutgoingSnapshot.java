@@ -19,7 +19,6 @@ package org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
@@ -231,9 +230,7 @@ public class OutgoingSnapshot {
 
         if (!exhaustedPartition()) {
             if (!overwrittenRowIds.remove(lastRowId)) {
-                List<ReadResult> rowVersions = new ArrayList<>(partition.rowVersions(lastRowId));
-                Collections.reverse(rowVersions);
-                SnapshotMvDataResponse.ResponseEntry rowEntry = rowEntry(lastRowId, rowVersions);
+                SnapshotMvDataResponse.ResponseEntry rowEntry = rowEntry(lastRowId, partition.rowVersions(lastRowId));
 
                 batch.add(rowEntry);
 
@@ -252,14 +249,15 @@ public class OutgoingSnapshot {
         return lastRowId == null;
     }
 
-    private SnapshotMvDataResponse.ResponseEntry rowEntry(RowId rowId, List<ReadResult> rowVersions) {
-        List<ByteBuffer> buffers = new ArrayList<>(rowVersions.size());
-        List<HybridTimestamp> commitTimestamps = new ArrayList<>(rowVersions.size());
+    private SnapshotMvDataResponse.ResponseEntry rowEntry(RowId rowId, List<ReadResult> rowVersionsN2O) {
+        List<ByteBuffer> buffers = new ArrayList<>(rowVersionsN2O.size());
+        List<HybridTimestamp> commitTimestamps = new ArrayList<>(rowVersionsN2O.size());
         UUID transactionId = null;
         UUID commitTableId = null;
         int commitPartitionId = ReadResult.UNDEFINED_COMMIT_PARTITION_ID;
 
-        for (ReadResult version : rowVersions) {
+        for (int i = rowVersionsN2O.size() - 1; i >= 0; i--) {
+            ReadResult version = rowVersionsN2O.get(i);
             BinaryRow row = version.binaryRow();
 
             buffers.add(row == null ? null : row.byteBuffer());
@@ -356,9 +354,9 @@ public class OutgoingSnapshot {
      * <p>Must be called under snapshot lock.
      *
      * @param rowId {@link RowId} of the row.
-     * @param rowVersions Versions of the row (oldest to newest).
+     * @param rowVersionsN2O Versions of the row (newest to oldest).
      */
-    public void enqueueForSending(RowId rowId, List<ReadResult> rowVersions) {
-        outOfOrderMvData.add(rowEntry(rowId, rowVersions));
+    public void enqueueForSending(RowId rowId, List<ReadResult> rowVersionsN2O) {
+        outOfOrderMvData.add(rowEntry(rowId, rowVersionsN2O));
     }
 }

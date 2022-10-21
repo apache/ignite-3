@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -127,14 +126,14 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
                     continue;
                 }
 
-                snapshot.enqueueForSending(rowId, rowVersions(rowId));
+                snapshot.enqueueForSending(rowId, rowVersionsN2O(rowId));
             } finally {
                 snapshot.releaseLock();
             }
         }
     }
 
-    private List<ReadResult> rowVersions(RowId rowId) {
+    private List<ReadResult> rowVersionsN2O(RowId rowId) {
         List<ReadResult> versions = new ArrayList<>();
 
         try (Cursor<ReadResult> cursor = partitionStorage.scanVersions(rowId)) {
@@ -146,9 +145,7 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
             throw new RuntimeException(e);
         }
 
-        Collections.reverse(versions);
-
-        return List.copyOf(versions);
+        return versions;
     }
 
     @Override

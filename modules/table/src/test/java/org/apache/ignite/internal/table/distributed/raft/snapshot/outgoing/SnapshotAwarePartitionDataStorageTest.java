@@ -157,7 +157,7 @@ class SnapshotAwarePartitionDataStorageTest {
     }
 
     @Test
-    void delgatesAcquirePartitionSnapshotsReadLock() {
+    void delegatesAcquirePartitionSnapshotsReadLock() {
         AutoLockup lockup = mock(AutoLockup.class);
 
         when(partitionSnapshots.acquireReadLock()).thenReturn(lockup);
@@ -228,7 +228,7 @@ class SnapshotAwarePartitionDataStorageTest {
         ReadResult result2 = mock(ReadResult.class);
 
         when(partitionSnapshots.ongoingSnapshots()).thenReturn(List.of(snapshot));
-        when(partitionStorage.scanVersions(any())).then(invocation -> Cursor.fromIterator(List.of(result1, result2).iterator()));
+        when(partitionStorage.scanVersions(any())).then(invocation -> Cursor.fromIterator(List.of(result2, result1).iterator()));
 
         configureSnapshotToLetSendOutOfOrderRow(snapshot);
 
@@ -252,7 +252,7 @@ class SnapshotAwarePartitionDataStorageTest {
         ReadResult result2 = mock(ReadResult.class);
 
         when(partitionSnapshots.ongoingSnapshots()).thenReturn(List.of(snapshot, snapshot2));
-        when(partitionStorage.scanVersions(any())).then(invocation -> Cursor.fromIterator(List.of(result1, result2).iterator()));
+        when(partitionStorage.scanVersions(any())).then(invocation -> Cursor.fromIterator(List.of(result2, result1).iterator()));
 
         configureSnapshotToLetSendOutOfOrderRow(snapshot);
         configureSnapshotToLetSendOutOfOrderRow(snapshot2);

@@ -203,7 +203,7 @@ class OutgoingSnapshotTest {
                 clock.now()
         );
 
-        snapshot.enqueueForSending(rowId1, List.of(version1, version2));
+        snapshot.enqueueForSending(rowId1, List.of(version2, version1));
 
         configureStorageToBeEmpty();
 
