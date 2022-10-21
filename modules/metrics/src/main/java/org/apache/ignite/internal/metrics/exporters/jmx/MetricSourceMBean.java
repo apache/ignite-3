@@ -7,12 +7,10 @@ import javax.management.Attribute;
 import javax.management.AttributeList;
 import javax.management.AttributeNotFoundException;
 import javax.management.DynamicMBean;
-import javax.management.InvalidAttributeValueException;
 import javax.management.MBeanAttributeInfo;
 import javax.management.MBeanException;
 import javax.management.MBeanInfo;
 import javax.management.ReflectionException;
-import org.apache.ignite.internal.metrics.CompositeMetric;
 import org.apache.ignite.internal.metrics.DistributionMetric;
 import org.apache.ignite.internal.metrics.DoubleMetric;
 import org.apache.ignite.internal.metrics.IntMetric;
@@ -22,7 +20,6 @@ import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.MetricSet;
 
 public class MetricSourceMBean implements DynamicMBean {
-
     private MetricSet metricSet;
 
     public MetricSourceMBean(MetricSet metricSet) {
@@ -30,7 +27,7 @@ public class MetricSourceMBean implements DynamicMBean {
     }
 
     @Override
-    public Object getAttribute(String attribute) throws AttributeNotFoundException, MBeanException, ReflectionException {
+    public Object getAttribute(String attribute) throws AttributeNotFoundException {
         if (attribute.equals("MBeanInfo"))
             return getMBeanInfo();
 
@@ -45,9 +42,8 @@ public class MetricSourceMBean implements DynamicMBean {
         else if (metric instanceof DistributionMetric)
             return ((DistributionMetric) metric).value();
 
-        throw new IllegalArgumentException("Unknown metric class. " + metric.getClass());
+        throw new AttributeNotFoundException("Unknown metric class " + metric.getClass());
     }
-
 
     @Override
     public AttributeList getAttributes(String[] attributes) {
@@ -59,26 +55,24 @@ public class MetricSourceMBean implements DynamicMBean {
 
                 list.add(val);
             }
+        } catch (AttributeNotFoundException e) {
+            throw new IllegalArgumentException(e);
+        }
 
-            return list;
-        }
-        catch (MBeanException | ReflectionException | AttributeNotFoundException e) {
-            // TODO: KKK choose right exception
-            throw new RuntimeException(e);
-        }
+        return list;
     }
 
     @Override
     public Object invoke(String actionName, Object[] params, String[] signature) throws MBeanException, ReflectionException {
-        try {
-            if ("getAttribute".equals(actionName))
+        if ("getAttribute".equals(actionName)) {
+            try {
                 return getAttribute((String)params[0]);
-            else if ("invoke".equals(actionName))
-                return invoke((String)params[0], (Object[])params[1], (String[])params[2]);
+            } catch (AttributeNotFoundException e) {
+                throw new MBeanException(e);
+            }
         }
-        catch (AttributeNotFoundException e) {
-            throw new MBeanException(e);
-        }
+        else if ("invoke".equals(actionName))
+            return invoke((String)params[0], (Object[])params[1], (String[])params[2]);
 
         throw new UnsupportedOperationException("invoke is not supported.");
     }
@@ -87,10 +81,10 @@ public class MetricSourceMBean implements DynamicMBean {
     public MBeanInfo getMBeanInfo() {
         Iterator<Metric> iter = metricSet.iterator();
 
-        List<MBeanAttributeInfo> attributes = new ArrayList<>();
+        List<MBeanAttributeInfo> attrs = new ArrayList<>();
 
         iter.forEachRemaining(metric -> {
-                attributes.add(new MBeanAttributeInfo(
+                attrs.add(new MBeanAttributeInfo(
                         metric.name(),
                         metricClass(metric),
                         metric.description() != null ? metric.description() : metric.name(),
@@ -100,10 +94,9 @@ public class MetricSourceMBean implements DynamicMBean {
         });
 
         return new MBeanInfo(
-                // TODO: KKK not sure, that it is correct. ignite2 use ReadOnlyMetricManager here
                 MetricManager.class.getName(),
                 metricSet.name(),
-                attributes.toArray(new MBeanAttributeInfo[attributes.size()]),
+                attrs.toArray(new MBeanAttributeInfo[attrs.size()]),
                 null,
                 null,
                 null);
@@ -111,21 +104,19 @@ public class MetricSourceMBean implements DynamicMBean {
 
     private String metricClass(Metric metric) {
         if (metric instanceof DoubleMetric)
-            return DoubleMetric.class.getName();
+            return Double.class.getName();
         else if (metric instanceof IntMetric)
-            return IntMetric.class.getName();
+            return Integer.class.getName();
         else if (metric instanceof LongMetric)
-            return LongMetric.class.getName();
+            return Long.class.getName();
         else if (metric instanceof DistributionMetric)
-            // TODO: KKK suport composite metrics
-            return DistributionMetric.class.getName();
+            return long[].class.getName();
 
         throw new IllegalArgumentException("Unknown metric class. " + metric.getClass());
     }
 
     @Override
-    public void setAttribute(Attribute attribute)
-            throws AttributeNotFoundException, InvalidAttributeValueException, MBeanException, ReflectionException {
+    public void setAttribute(Attribute attribute) {
         throw new UnsupportedOperationException("setAttribute is not supported.");
     }
 
