@@ -1,4 +1,4 @@
-package org.apache.ignite.internal.sql.engine.exec.comp;
+package org.apache.ignite.internal.sql.engine.util;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -9,13 +9,16 @@ import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.calcite.util.Pair;
 import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentHashSet;
 import org.jetbrains.annotations.Nullable;
 
-public class OrderedSubscriptionManagementStrategy<T> implements SubscriptionManagementStrategy<T>, Subscription {
+public class OrderedSubscriptionStrategy<T> implements SubscriptionManagementStrategy<T>, Subscription {
+    /** Items comparator. */
     private final Comparator<T> comp;
 
-    private final PriorityBlockingQueue<T> queue;
+    /** Internal ordered buffer. */
+    private final PriorityBlockingQueue<T> inBuf;
 
     private final List<Subscription> subscriptions = new ArrayList<>();
 
@@ -37,9 +40,9 @@ public class OrderedSubscriptionManagementStrategy<T> implements SubscriptionMan
 
     private final Set<Integer> waitResponse = new ConcurrentHashSet<>();
 
-    public OrderedSubscriptionManagementStrategy(Comparator<T> comp) {
+    public OrderedSubscriptionStrategy(Comparator<T> comp) {
         this.comp = comp;
-        this.queue = new PriorityBlockingQueue<>(1, comp);
+        this.inBuf = new PriorityBlockingQueue<>(1, comp);
     }
 
     @Override
@@ -62,26 +65,16 @@ public class OrderedSubscriptionManagementStrategy<T> implements SubscriptionMan
     }
 
     @Override
-    public void push(int subscriberId, T item) {
-        queue.offer(item);
+    public void onReceive(int subscriberId, T item) {
+        inBuf.offer(item);
         // todo calc estmations
     }
 
-//    @Override
-//    public void addSubscriber(Flow.Subscriber<T> subscriber) {
-//
-//        subscribers.add(subscriber);
-//    }
-
-    // todo sync
-    public boolean remove(Subscription subscription) {
-        return subscriptions.remove(subscription);
-    }
-
+    /** {@inheritDoc} */
     @Override
     public void request(long n) {
         // todo we may return result before all publishers has finished publishing
-        assert waitResponse.isEmpty();
+        assert waitResponse.isEmpty() : waitResponse;
 
         synchronized (this) {
             remain = n;
@@ -89,38 +82,42 @@ public class OrderedSubscriptionManagementStrategy<T> implements SubscriptionMan
         }
 
         // Perhaps we can return something from internal buffer?
-        if (queue.size() > 0) {
-            if (finished.size() == subscriptions.size()) { // all data has been received
+        if (inBuf.size() > 0) {
+            if (finished.size() == subscriptions.size()) { // all data has been received?
                 if (pushQueue(n, null, null) == 0)
                     return;
             }
-            else { // we have someone alive
+            else { // Someone still alive.
                 onRequestCompleted0();
 
                 return;
             }
         }
 
-        long requestCnt = Math.max(1, n / subscriptions.size());
+        long requestCnt = estimateSubscriptionRequestAmount(n);
 
-        for (int i = 0; i < subscriptions.size(); i++) {
+        for (int i = 0; i < subscribers.size(); i++) {
             SortingSubscriber<T> subscriber = subscribers.get(i);
 
-            if (subscriber.finished())
+            if (finished.contains(i))
                 continue;
 
             waitResponse.add(i);
             subscriber.onDataRequested(requestCnt);
         }
 
-        for (int i = 0; i< subscriptions.size(); i++) {
-            if (subscribers.get(i).finished())
+        for (int i = 0; i < subscriptions.size(); i++) {
+            if (finished.contains(i)) {
+                waitResponse.remove(i);
+
                 continue;
+            }
 
             subscriptions.get(i).request(requestCnt);
         }
     }
 
+    /** {@inheritDoc} */
     @Override
     public void cancel() {
         for (Subscription subscription : subscriptions) {
@@ -136,11 +133,11 @@ public class OrderedSubscriptionManagementStrategy<T> implements SubscriptionMan
 
         finished.add(subscriberId);
 
-        if (finishedCnt.incrementAndGet() == subscriptions.size() && (remain > 0 || queue.size() == 0)) {
+        if (finishedCnt.incrementAndGet() == subscriptions.size() && (remain > 0 || inBuf.size() == 0)) {
             waitResponse.remove(subscriberId);
 
             if (completed.compareAndSet(false, true)) {
-                debug(">xxx> push queue, remain=" + remain + " queue=" + queue.size());
+                debug(">xxx> push queue, remain=" + remain + " queue=" + inBuf.size());
 
                 pushQueue(remain, null, null);
             }
@@ -154,12 +151,16 @@ public class OrderedSubscriptionManagementStrategy<T> implements SubscriptionMan
         debug(">xxx> finished " + subscriberId + " t=" + Thread.currentThread().getId());
     }
 
-    public long pushQueue(long remain, @Nullable Comparator<T> comp, T minItem) {
+    private long estimateSubscriptionRequestAmount(long total) {
+        return Math.max(1, total / (subscriptions.size() - finished.size()));
+    }
+
+    private long pushQueue(long remain, @Nullable Comparator<T> comp, @Nullable T minBound) {
         boolean done = false;
         T r;
 
-        while (remain > 0 && (r = queue.peek()) != null) {
-            int cmpRes = comp == null ? 0 : comp.compare(minItem, r);
+        while (remain > 0 && (r = inBuf.peek()) != null) {
+            int cmpRes = comp == null ? 0 : comp.compare(minBound, r);
 
             if (cmpRes < 0) {
                 return remain;
@@ -172,7 +173,11 @@ public class OrderedSubscriptionManagementStrategy<T> implements SubscriptionMan
             }
 
             if (!done || same) {
-                delegate.onNext(queue.poll());
+                T r0 = inBuf.poll();
+
+                assert r == r0;
+
+                delegate.onNext(r);
 
                 --remain;
             }
@@ -182,7 +187,7 @@ public class OrderedSubscriptionManagementStrategy<T> implements SubscriptionMan
             }
         }
 
-        if (comp == null && queue.isEmpty()) {
+        if (comp == null && inBuf.isEmpty()) {
             delegate.onComplete();
         }
 
@@ -190,7 +195,6 @@ public class OrderedSubscriptionManagementStrategy<T> implements SubscriptionMan
     }
 
     public boolean onRequestCompleted(int subscriberId) {
-        // Internal buffers has been filled.
         if (waitResponse.remove(subscriberId) && waitResponse.isEmpty()) {
             onRequestCompleted0();
 
@@ -202,30 +206,28 @@ public class OrderedSubscriptionManagementStrategy<T> implements SubscriptionMan
 
     // can be called from different threads
     public synchronized boolean onRequestCompleted0() {
-        List<Integer> minIdxs = selectMinIdx();
+        Pair<T, List<Integer>> minItemAndIds = chooseRequestedSubscriptionsIds();
+        T minItem = minItemAndIds.left;
+        List<Integer> subsIds = minItemAndIds.right;
 
-        if (minIdxs.isEmpty())
+        if (minItem == null)
             return false;
 
-        SortingSubscriber<T> subscr = subscribers.get(minIdxs.get(0));
-
-        debug(">xxx> pushQueue :: start, t=" + Thread.currentThread().getId());
-
-        remain = pushQueue(remain, comp, subscr.lastItem());
+        remain = pushQueue(remain, comp, minItem);
 
         debug(">xxx> pushQueue :: end");
 
         if (remain > 0) {
-            long dataAmount = Math.max(1, requested / (subscriptions.size() - finished.size()));
+            long dataAmount = estimateSubscriptionRequestAmount(requested);
 
-            for (Integer idx : minIdxs) {
+            for (Integer idx : subsIds) {
                 waitResponse.add(idx);
 
                 // todo remove this usage
                 subscribers.get(idx).onDataRequested(dataAmount);
             }
 
-            for (Integer idx : minIdxs) {
+            for (Integer idx : subsIds) {
                 debug(">xxx> idx=" + idx + " requested=" + dataAmount);
 
                 subscriptions.get(idx).request(dataAmount);
@@ -235,14 +237,19 @@ public class OrderedSubscriptionManagementStrategy<T> implements SubscriptionMan
         return true;
     }
 
-    private synchronized List<Integer> selectMinIdx() {
+    /**
+     * Choose which subscription to request.
+     *
+     * @return Identifiers of subscriptions to be requested.
+     */
+    private Pair<T, List<Integer>> chooseRequestedSubscriptionsIds() {
         T minItem = null;
         List<Integer> minIdxs = new ArrayList<>();
 
         for (int i = 0; i < subscribers.size(); i++) {
             SortingSubscriber<T> subscriber = subscribers.get(i);
 
-            if (subscriber == null || subscriber.finished()) {
+            if (finished.contains(i)) {
                 continue;
             }
 
@@ -261,7 +268,7 @@ public class OrderedSubscriptionManagementStrategy<T> implements SubscriptionMan
             }
         }
 
-        return minIdxs;
+        return Pair.of(minItem, minIdxs);
     }
 
     private static boolean debug = false;

@@ -1,18 +1,14 @@
-package org.apache.ignite.internal.sql.engine.exec.comp;
+package org.apache.ignite.internal.sql.engine.util;
 
-import java.util.Comparator;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
-import org.jetbrains.annotations.Nullable;
 
 class SortingSubscriber<T> implements Subscriber<T> {
     private final Subscriber<T> delegate;
 
     private final SubscriptionManagementStrategy<T> subscriptionStrategy;
-
-//    private final Queue<T> inBuf;
 
     private volatile T lastItem;
 
@@ -22,23 +18,12 @@ class SortingSubscriber<T> implements Subscriber<T> {
 
     private final AtomicBoolean finished = new AtomicBoolean();
 
-    private final int subscriptionsCnt;
-
-    SortingSubscriber(Subscriber<T> delegate, int id, SubscriptionManagementStrategy<T> subscriptionStrategy, int subscriptionsCnt) {
+    SortingSubscriber(Subscriber<T> delegate, int id, SubscriptionManagementStrategy<T> subscriptionStrategy) {
         assert delegate != null;
 
         this.delegate = delegate;
         this.id = id;
         this.subscriptionStrategy = subscriptionStrategy;
-        this.subscriptionsCnt = subscriptionsCnt;
-    }
-
-    T lastItem() {
-        return lastItem;
-    }
-
-    boolean finished() {
-        return finished.get();
     }
 
     @Override
@@ -51,10 +36,15 @@ class SortingSubscriber<T> implements Subscriber<T> {
         // todo optimize
         lastItem = item;
 
-        subscriptionStrategy.push(id, item);
+        subscriptionStrategy.onReceive(id, item);
 
-        if (remainingCnt.decrementAndGet() <= 0) {
-            assert remainingCnt.get() == 0 : "!!!!remaining failed " + remainingCnt.get();
+        long val = remainingCnt.decrementAndGet();
+
+        if (val <= 0) {
+            assert val == 0 : "remain=" + val
+                    + ", id=" + id
+                    + ", item=" + item
+                    + ", threadId=" + Thread.currentThread().getName();
 
             subscriptionStrategy.onRequestCompleted(id);
         }
@@ -70,14 +60,6 @@ class SortingSubscriber<T> implements Subscriber<T> {
         delegate.onError(throwable);
     }
 
-    public void onDataRequested(long n) {
-        // todo add assertion?
-        if (finished.get())
-            return;
-
-        remainingCnt.set(n);
-    }
-
     @Override
     public void onComplete() {
         // todo assertion?
@@ -87,5 +69,21 @@ class SortingSubscriber<T> implements Subscriber<T> {
 
             subscriptionStrategy.onSubscriptionComplete(id);
         }
+    }
+
+    // todo move related code to subscription strategy
+    @Deprecated
+    T lastItem() {
+        return lastItem;
+    }
+
+    // todo move related code to subscription strategy
+    @Deprecated
+    public void onDataRequested(long n) {
+        // todo add assertion?
+        if (finished.get())
+            return;
+
+        remainingCnt.set(n);
     }
 }

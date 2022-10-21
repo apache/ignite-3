@@ -1,20 +1,20 @@
-package org.apache.ignite.internal.sql.engine.exec.comp;
+package org.apache.ignite.internal.sql.engine.util;
 
 import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Subscriber;
 
 public interface SubscriptionManagementStrategy<T> extends Flow.Subscription {
+    // todo combine in composite publisher constructor?
     void addSubscription(Flow.Subscription subscription);
-
     void addSubscriber(Flow.Subscriber<T> subscriber);
 
-    void push(int subscriberId, T item);
+    void onReceive(int subscriberId, T item);
 
     void onSubscriptionComplete(int subscriberId);
 
-    // should be reworked and removed
+    // todo should be reworked and removed
     boolean onRequestCompleted(int subscriberId);
 
-    // should be removed
+    // todo should be removed
     void subscribe(Subscriber<? super T> delegate);
 }
