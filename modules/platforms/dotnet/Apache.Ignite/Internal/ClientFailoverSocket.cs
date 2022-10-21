@@ -534,7 +534,7 @@ namespace Apache.Ignite.Internal
 
                 throw new IgniteClientConnectionException(
                     ErrorGroups.Client.Connection,
-                    $"Operation failed after {attempt} retries, examine InnerException for details.",
+                    $"Operation {op} failed after {attempt} retries, examine InnerException for details.",
                     inner);
             }
 

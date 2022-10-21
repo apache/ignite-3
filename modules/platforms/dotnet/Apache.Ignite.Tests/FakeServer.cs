@@ -360,6 +360,19 @@ namespace Apache.Ignite.Tests
                         continue;
                     }
 
+                    if (opCode == ClientOp.PartitionAssignmentGet)
+                    {
+                        using var arrayBufferWriter = new PooledArrayBufferWriter();
+                        var writer = new MessagePackWriter(arrayBufferWriter);
+                        writer.WriteArrayHeader(1);
+                        writer.Write(Node.Id);
+                        writer.Flush();
+
+                        Send(handler, requestId, arrayBufferWriter);
+
+                        continue;
+                    }
+
                     if (opCode == ClientOp.TupleUpsert)
                     {
                         Send(handler, requestId, ReadOnlyMemory<byte>.Empty);
