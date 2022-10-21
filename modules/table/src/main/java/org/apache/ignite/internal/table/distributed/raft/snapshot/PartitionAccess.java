@@ -59,7 +59,7 @@ public interface PartitionAccess {
      *      write-intent in the chain.
      * @param txId Transaction id for write-intent if it's present.
      * @param commitTableId Commit table id for write-intent if it's present.
-     * @param commitPartitionId Commit partition id for write-intent if it's present. {@link  ReadResult#UNDEFINED_COMMIT_PARTITION_ID}
+     * @param commitPartitionId Commit partition id for write-intent if it's present. {@link ReadResult#UNDEFINED_COMMIT_PARTITION_ID}
      *      otherwise.
      * @throws StorageException If an error occurs while writing the version chain.
      */

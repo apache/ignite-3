@@ -22,7 +22,11 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.hlc.HybridTimestamp;
+import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.ReadResult;
+import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.jetbrains.annotations.Nullable;
@@ -93,7 +97,25 @@ public class MvPartitionAccess implements PartitionAccess {
         assert mvPartition != null;
 
         mvPartition.runConsistently(() -> {
-            // TODO: IGNITE-17894 реализовать
+            RowId rowId0 = new RowId(partId, rowId.getMostSignificantBits(), rowId.getLeastSignificantBits());
+
+            for (int i = 0; i < rowVersions.size(); i++) {
+                HybridTimestamp timestamp = timestamps.size() <= i + i ? timestamps.get(i) : null;
+
+                BinaryRow binaryRow = new ByteBufferRow(rowVersions.get(i).rewind());
+
+                if (timestamp == null) {
+                    // Writes an intent to write (uncommitted version).
+                    assert txId != null;
+                    assert commitTableId != null;
+                    assert commitPartitionId != ReadResult.UNDEFINED_COMMIT_PARTITION_ID;
+
+                    mvPartition.addWrite(rowId0, binaryRow, txId, commitTableId, commitPartitionId);
+                } else {
+                    // Writes committed version.
+                    mvPartition.addWriteCommitted(rowId0, binaryRow, timestamp);
+                }
+            }
 
             return null;
         });
