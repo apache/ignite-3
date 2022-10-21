@@ -51,6 +51,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class SnapshotAwarePartitionDataStorageTest {
+    private static final int PARTITION_ID = 1;
+
     @Mock
     private MvPartitionStorage partitionStorage;
 
@@ -58,7 +60,7 @@ class SnapshotAwarePartitionDataStorageTest {
     private PartitionsSnapshots partitionsSnapshots;
 
     @Spy
-    private final PartitionKey partitionKey = new PartitionKey(UUID.randomUUID(), 1);
+    private final PartitionKey partitionKey = new PartitionKey(UUID.randomUUID(), PARTITION_ID);
 
     @InjectMocks
     private SnapshotAwarePartitionDataStorage testedStorage;
@@ -66,7 +68,7 @@ class SnapshotAwarePartitionDataStorageTest {
     @Mock
     private PartitionSnapshots partitionSnapshots;
 
-    private final RowId rowId = new RowId(1);
+    private final RowId rowId = new RowId(PARTITION_ID);
 
     @Mock
     private OutgoingSnapshot snapshot;
