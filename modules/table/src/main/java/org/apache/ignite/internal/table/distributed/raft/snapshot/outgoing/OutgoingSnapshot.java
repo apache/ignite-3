@@ -230,7 +230,7 @@ public class OutgoingSnapshot {
 
         if (!exhaustedPartition()) {
             if (!overwrittenRowIds.remove(lastRowId)) {
-                SnapshotMvDataResponse.ResponseEntry rowEntry = rowEntry(lastRowId, partition.rowVersions(lastRowId));
+                SnapshotMvDataResponse.ResponseEntry rowEntry = rowEntry(lastRowId);
 
                 batch.add(rowEntry);
 
@@ -241,15 +241,17 @@ public class OutgoingSnapshot {
         return totalBatchSize;
     }
 
-    private boolean batchIsFull(SnapshotMvDataRequest request, long totalBatchSize) {
-        return totalBatchSize >= request.batchSizeHint();
-    }
-
     private boolean exhaustedPartition() {
         return lastRowId == null;
     }
 
-    private SnapshotMvDataResponse.ResponseEntry rowEntry(RowId rowId, List<ReadResult> rowVersionsN2O) {
+    private boolean batchIsFull(SnapshotMvDataRequest request, long totalBatchSize) {
+        return totalBatchSize >= request.batchSizeHint();
+    }
+
+    private SnapshotMvDataResponse.ResponseEntry rowEntry(RowId rowId) {
+        List<ReadResult> rowVersionsN2O = partition.rowVersions(rowId);
+
         List<ByteBuffer> buffers = new ArrayList<>(rowVersionsN2O.size());
         List<HybridTimestamp> commitTimestamps = new ArrayList<>(rowVersionsN2O.size());
         UUID transactionId = null;
@@ -354,9 +356,8 @@ public class OutgoingSnapshot {
      * <p>Must be called under snapshot lock.
      *
      * @param rowId {@link RowId} of the row.
-     * @param rowVersionsN2O Versions of the row (newest to oldest).
      */
-    public void enqueueForSending(RowId rowId, List<ReadResult> rowVersionsN2O) {
-        outOfOrderMvData.add(rowEntry(rowId, rowVersionsN2O));
+    public void enqueueForSending(RowId rowId) {
+        outOfOrderMvData.add(rowEntry(rowId));
     }
 }

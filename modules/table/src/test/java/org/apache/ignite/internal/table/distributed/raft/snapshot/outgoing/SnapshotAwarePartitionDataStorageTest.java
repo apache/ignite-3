@@ -37,10 +37,8 @@ import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lock.AutoLockup;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
-import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionKey;
-import org.apache.ignite.internal.util.Cursor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -168,10 +166,7 @@ class SnapshotAwarePartitionDataStorageTest {
     @ParameterizedTest
     @EnumSource(WriteAction.class)
     void writingNotYetPassedRowIdForFirstTimeSendsEnqueuesItOnSnapshotOutOfOrder(WriteAction writeAction) {
-        ReadResult result1 = mock(ReadResult.class);
-
         when(partitionSnapshots.ongoingSnapshots()).thenReturn(List.of(snapshot));
-        when(partitionStorage.scanVersions(any())).then(invocation -> Cursor.fromIterator(List.of(result1).iterator()));
 
         doReturn(false).when(snapshot).isFinished();
         doReturn(false).when(snapshot).alreadyPassed(any());
@@ -179,7 +174,7 @@ class SnapshotAwarePartitionDataStorageTest {
 
         writeAction.executeOn(testedStorage, rowId);
 
-        verify(snapshot).enqueueForSending(rowId, List.of(result1));
+        verify(snapshot).enqueueForSending(rowId);
     }
 
     @ParameterizedTest
@@ -193,7 +188,7 @@ class SnapshotAwarePartitionDataStorageTest {
 
         writeAction.executeOn(testedStorage, rowId);
 
-        verify(snapshot, never()).enqueueForSending(any(), any());
+        verify(snapshot, never()).enqueueForSending(any());
     }
 
     @ParameterizedTest
@@ -206,7 +201,7 @@ class SnapshotAwarePartitionDataStorageTest {
 
         writeAction.executeOn(testedStorage, rowId);
 
-        verify(snapshot, never()).enqueueForSending(any(), any());
+        verify(snapshot, never()).enqueueForSending(any());
     }
 
     @ParameterizedTest
@@ -218,23 +213,19 @@ class SnapshotAwarePartitionDataStorageTest {
 
         writeAction.executeOn(testedStorage, rowId);
 
-        verify(snapshot, never()).enqueueForSending(any(), any());
+        verify(snapshot, never()).enqueueForSending(any());
     }
 
     @ParameterizedTest
     @EnumSource(WriteAction.class)
     void sendsVersionsInOldestToNewestOrder(WriteAction writeAction) {
-        ReadResult result1 = mock(ReadResult.class);
-        ReadResult result2 = mock(ReadResult.class);
-
         when(partitionSnapshots.ongoingSnapshots()).thenReturn(List.of(snapshot));
-        when(partitionStorage.scanVersions(any())).then(invocation -> Cursor.fromIterator(List.of(result2, result1).iterator()));
 
         configureSnapshotToLetSendOutOfOrderRow(snapshot);
 
         writeAction.executeOn(testedStorage, rowId);
 
-        verify(snapshot).enqueueForSending(rowId, List.of(result2, result1));
+        verify(snapshot).enqueueForSending(rowId);
     }
 
     private void configureSnapshotToLetSendOutOfOrderRow(OutgoingSnapshot snapshotToConfigure) {
@@ -248,19 +239,15 @@ class SnapshotAwarePartitionDataStorageTest {
     void interceptsWritesOnMultipleSnapshots(WriteAction writeAction) {
         OutgoingSnapshot snapshot2 = mock(OutgoingSnapshot.class);
 
-        ReadResult result1 = mock(ReadResult.class);
-        ReadResult result2 = mock(ReadResult.class);
-
         when(partitionSnapshots.ongoingSnapshots()).thenReturn(List.of(snapshot, snapshot2));
-        when(partitionStorage.scanVersions(any())).then(invocation -> Cursor.fromIterator(List.of(result2, result1).iterator()));
 
         configureSnapshotToLetSendOutOfOrderRow(snapshot);
         configureSnapshotToLetSendOutOfOrderRow(snapshot2);
 
         writeAction.executeOn(testedStorage, rowId);
 
-        verify(snapshot).enqueueForSending(rowId, List.of(result2, result1));
-        verify(snapshot2).enqueueForSending(rowId, List.of(result2, result1));
+        verify(snapshot).enqueueForSending(rowId);
+        verify(snapshot2).enqueueForSending(rowId);
     }
 
     private enum WriteAction {

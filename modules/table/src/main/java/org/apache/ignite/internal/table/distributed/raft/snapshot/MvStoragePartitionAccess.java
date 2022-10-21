@@ -63,7 +63,7 @@ public class MvStoragePartitionAccess implements PartitionAccess {
 
             return versions;
         } catch (Exception e) {
-            // TODO: IGNITE-17935 - handle this?
+            // TODO: IGNITE-17935 - handle this
 
             throw new RuntimeException(e);
         }

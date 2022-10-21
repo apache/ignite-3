@@ -203,7 +203,9 @@ class OutgoingSnapshotTest {
                 clock.now()
         );
 
-        snapshot.enqueueForSending(rowId1, List.of(version2, version1));
+        when(partitionAccess.rowVersions(rowIdOutOfOrder)).thenReturn(List.of(version2, version1));
+
+        snapshot.enqueueForSending(rowIdOutOfOrder);
 
         configureStorageToBeEmpty();
 
@@ -212,7 +214,7 @@ class OutgoingSnapshotTest {
         assertThat(response.rows(), hasSize(1));
         SnapshotMvDataResponse.ResponseEntry responseRow = response.rows().get(0);
 
-        assertThat(responseRow.rowId(), is(rowId1.uuid()));
+        assertThat(responseRow.rowId(), is(rowIdOutOfOrder.uuid()));
         assertThat(responseRow.txId(), is(transactionId));
         assertThat(responseRow.commitTableId(), is(commitTableId));
         assertThat(responseRow.commitPartitionId(), is(42));
@@ -233,7 +235,9 @@ class OutgoingSnapshotTest {
         ReadResult version1 = ReadResult.createFromCommitted(new ByteBufferRow(new byte[]{1}), clock.now());
         ReadResult version2 = ReadResult.createFromCommitted(new ByteBufferRow(new byte[]{2}), clock.now());
 
-        snapshot.enqueueForSending(rowIdOutOfOrder, List.of(version1));
+        when(partitionAccess.rowVersions(rowIdOutOfOrder)).thenReturn(List.of(version1));
+
+        snapshot.enqueueForSending(rowIdOutOfOrder);
 
         configureStorageToHaveExactlyOneRowWith(List.of(version2));
 
@@ -250,10 +254,12 @@ class OutgoingSnapshotTest {
         ReadResult version1 = ReadResult.createFromCommitted(new ByteBufferRow(new byte[]{1}), clock.now());
         ReadResult version2 = ReadResult.createFromCommitted(new ByteBufferRow(new byte[]{2}), clock.now());
 
+        when(partitionAccess.rowVersions(rowIdOutOfOrder)).thenReturn(List.of(version2));
+
         when(partitionAccess.closestRowId(lowestRowId)).thenReturn(rowId1);
         when(partitionAccess.rowVersions(rowId1)).thenReturn(List.of(version1));
         when(partitionAccess.closestRowId(rowId2)).then(invocation -> {
-            snapshot.enqueueForSending(rowIdOutOfOrder, List.of(version2));
+            snapshot.enqueueForSending(rowIdOutOfOrder);
             return null;
         });
 
@@ -336,7 +342,9 @@ class OutgoingSnapshotTest {
     void mvDataHandlingRespectsBatchSizeHintForOutOfOrderMessages() throws Exception {
         ReadResult version = ReadResult.createFromCommitted(new ByteBufferRow(new byte[]{1}), clock.now());
 
-        snapshot.enqueueForSending(rowIdOutOfOrder, List.of(version));
+        when(partitionAccess.rowVersions(rowIdOutOfOrder)).thenReturn(List.of(version));
+
+        snapshot.enqueueForSending(rowIdOutOfOrder);
 
         configureStorageToBeEmpty();
 
@@ -376,7 +384,9 @@ class OutgoingSnapshotTest {
     void sendsRowsFromOutOfOrderQueueBiggerThanHint() throws Exception {
         ReadResult version = ReadResult.createFromCommitted(new ByteBufferRow(new byte[1000]), clock.now());
 
-        snapshot.enqueueForSending(rowIdOutOfOrder, List.of(version));
+        when(partitionAccess.rowVersions(rowIdOutOfOrder)).thenReturn(List.of(version));
+
+        snapshot.enqueueForSending(rowIdOutOfOrder);
 
         configureStorageToBeEmpty();
 

@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.hlc.HybridTimestamp;
@@ -26,13 +24,11 @@ import org.apache.ignite.internal.lock.AutoLockup;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
-import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionKey;
-import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -126,26 +122,11 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
                     continue;
                 }
 
-                snapshot.enqueueForSending(rowId, rowVersionsN2O(rowId));
+                snapshot.enqueueForSending(rowId);
             } finally {
                 snapshot.releaseLock();
             }
         }
-    }
-
-    private List<ReadResult> rowVersionsN2O(RowId rowId) {
-        List<ReadResult> versions = new ArrayList<>();
-
-        try (Cursor<ReadResult> cursor = partitionStorage.scanVersions(rowId)) {
-            for (ReadResult version : cursor) {
-                versions.add(version);
-            }
-        } catch (Exception e) {
-            // TODO: IGNITE-17935 - handle the exception
-            throw new RuntimeException(e);
-        }
-
-        return versions;
     }
 
     @Override
