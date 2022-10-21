@@ -272,7 +272,7 @@ public class OutgoingSnapshot {
         }
 
         return MESSAGES_FACTORY.responseEntry()
-                .rowId(new UUID(rowId.mostSignificantBits(), rowId.leastSignificantBits()))
+                .rowId(rowId.uuid())
                 .rowVersions(buffers)
                 .timestamps(commitTimestamps)
                 .txId(transactionId)
