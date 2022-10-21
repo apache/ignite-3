@@ -98,6 +98,9 @@ public class PartitionReplicaListener implements ReplicaListener {
     /** Tx messages factory. */
     private static final TxMessagesFactory FACTORY = new TxMessagesFactory();
 
+    /** Index INF+ value object. */
+    private static final Object POSITIVE_INFINITY = new Object();
+
     /** Replication group id. */
     private final String replicationGroupId;
 
@@ -128,6 +131,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     //TODO: https://issues.apache.org/jira/browse/IGNITE-17205 Temporary solution until the implementation of the primary index is done.
     /** Dummy primary index. */
     private final ConcurrentHashMap<ByteBuffer, RowId> primaryIndex;
+    private final Function<UUID, ? extends IndexStorage> secondaryIndexSupplier;
 
     /**
      * Cursors map. The key of the map is internal Ignite uuid which consists of a transaction id ({@link UUID}) and a cursor id ({@link
@@ -135,7 +139,6 @@ public class PartitionReplicaListener implements ReplicaListener {
      */
     private final ConcurrentNavigableMap<IgniteUuid, Cursor<?>> cursors;
 
-    private final Function<UUID, ? extends IndexStorage> secondaryIndexSupplier;
 
     /** Tx state storage. */
     private final TxStateStorage txStateStorage;
@@ -506,6 +509,13 @@ public class PartitionReplicaListener implements ReplicaListener {
         });
     }
 
+    /**
+     * Scans non-uniq sorted index.
+     *
+     * @param request Index scan request.
+     * @param indexStorage Index storage.
+     * @return Opreation future.
+     */
     private CompletableFuture<Object> scanSortedIndex(ReadWriteScanRetrieveBatchReplicaRequest request, SortedIndexStorage indexStorage) {
         UUID txId = request.transactionId();
         int batchCount = request.batchSize();
@@ -519,44 +529,83 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         int flags = request.flags();
 
-        // TODO: Take IS lock on index, then S lock on range? How to acquire range lock for index?
-        // TODO: What is correct lock order IS_index -> IS_table or vice versa?
-        return lockManager.acquire(txId, new LockKey(indexId), LockMode.S).thenCompose(idxLock -> { // Index S lock
-            @SuppressWarnings("resource") Cursor<IndexRow> cursor = (Cursor<IndexRow>) cursors.computeIfAbsent(cursorId,
-                    id -> {
-                        return indexStorage.scan(
-                                BinaryTuplePrefix.fromBinaryTuple(lowerBound),
-                                BinaryTuplePrefix.fromBinaryTuple(upperBound),
-                                flags
-                        );
-                    });
+        boolean includeBound = (flags & SortedIndexStorage.LESS_OR_EQUAL) != 0;
 
+        return lockManager.acquire(txId, new LockKey(indexId), LockMode.IS).thenCompose(idxLock -> { // Index IS lock
             return lockManager.acquire(txId, new LockKey(tableId), LockMode.IS).thenCompose(tblLock -> { // Table IS lock
-                CompletableFuture<Void> chainFuture = CompletableFuture.completedFuture(null);
+                @SuppressWarnings("resource") Cursor<IndexRow> cursor = (Cursor<IndexRow>) cursors.computeIfAbsent(cursorId,
+                        id -> {
+                            return indexStorage.scan(
+                                    BinaryTuplePrefix.fromBinaryTuple(lowerBound),
+                                    // We need upperBound next value for correct range lock.
+                                    null, //BinaryTuplePrefix.fromBinaryTuple(upperBound),
+                                    flags
+                            );
+                        });
 
-                ArrayList<BinaryRow> batchRows = new ArrayList<>(batchCount);
+                final ArrayList<BinaryRow> result = new ArrayList<>(batchCount);
 
-                while (batchRows.size() < batchCount && cursor.hasNext()) {
-                    IndexRow indexRow = cursor.next();
-
-                    assert indexRow.rowId() != null;
-
-                    // Take lock in index order.
-                    chainFuture = chainFuture.thenCompose(ignore ->
-                            lockManager.acquire(txId, new LockKey(tableId, indexRow.rowId()), LockMode.S)
-                                    .thenAccept(rowLock -> {
-                                        ReadResult readResult = mvDataStorage.read(indexRow.rowId(), HybridTimestamp.MAX_VALUE);
-                                        BinaryRow resolvedReadResult = resolveReadResult(readResult, txId);
-                                        if (resolvedReadResult != null) {
-                                            batchRows.add(resolvedReadResult);
-                                        }
-                                    })
-                    );
-                }
-
-                return chainFuture.thenApply(ignore -> batchRows);
+                return continueIndexScan(txId, indexId, cursor, upperBound, includeBound, batchCount, result)
+                        .thenApply(ignore -> result);
             });
         });
+    }
+
+    /**
+     * Index scan loop.
+     * Retrives next row from index, takes locks and collect results.
+     *
+     * @param txId Transaction id.
+     * @param indexId Index id.
+     * @param indexCursor Index cursor.
+     * @param upperBound Upper bound.
+     * @param includeBound Include upper bound flag.
+     * @param batchSize Batch size.
+     * @param result Resul collection.
+     * @return Future.
+     */
+    CompletableFuture<Void> continueIndexScan(
+            UUID txId,
+            UUID indexId,
+            Cursor<IndexRow> indexCursor,
+            BinaryTuple upperBound,
+            boolean includeBound,
+            int batchSize,
+            List<BinaryRow> result
+    ) {
+        if (result.size() == batchSize) { // Batch is full, exit loop.
+            return CompletableFuture.completedFuture(null);
+        }
+
+        if (!indexCursor.hasNext()) { // No upper bound or not found. Lock INF+ and exit loop.
+            return lockManager.acquire(txId, new LockKey(indexId, POSITIVE_INFINITY), LockMode.S).thenApply(ignore -> null);
+        }
+
+        IndexRow indexRow = indexCursor.next();
+
+        return new CompletableFuture<>()
+                .thenCompose(ignore -> lockManager.acquire(txId, new LockKey(indexId, indexRow.indexColumns().byteBuffer()), LockMode.S))
+                .thenCompose(lock -> { // Index row S lock
+                    if (upperBound != null) {
+                        int cmp = upperBound.byteBuffer().compareTo(indexRow.indexColumns().byteBuffer());
+
+                        if ((includeBound && cmp < 0) || (!includeBound && cmp == 0)) {
+                            return CompletableFuture.completedFuture(null); // Locked. Skip adding to result and exit loop.
+                        }
+                    }
+
+                    return lockManager.acquire(txId, new LockKey(tableId, indexRow.rowId()), LockMode.S)
+                            .thenCompose(rowLock -> { // Table row S lock
+                                ReadResult readResult = mvDataStorage.read(indexRow.rowId(), HybridTimestamp.MAX_VALUE);
+                                BinaryRow resolvedReadResult = resolveReadResult(readResult, txId);
+                                if (resolvedReadResult != null) {
+                                    result.add(resolvedReadResult);
+                                }
+
+                                // Loop.
+                                return continueIndexScan(txId, indexId, indexCursor, upperBound, includeBound, batchSize, result);
+                            });
+                });
     }
 
     /**

@@ -163,6 +163,8 @@ public interface MvTableStorage {
      */
     void destroy() throws StorageException;
 
-
-    IndexStorage getIndexStorage(int partId, Object uuid);
+    //TODO: implement
+    default IndexStorage getIndexStorage(int partId, UUID uuid) {
+        return null;
+    }
 }
