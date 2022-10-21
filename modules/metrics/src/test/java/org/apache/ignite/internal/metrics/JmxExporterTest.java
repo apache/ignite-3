@@ -42,8 +42,6 @@ import javax.management.ReflectionException;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
-import org.apache.ignite.internal.metrics.exporters.TestPullMetricsExporterConfigurationSchema;
-import org.apache.ignite.internal.metrics.exporters.TestPushMetricsExporterConfigurationSchema;
 import org.apache.ignite.internal.metrics.exporters.configuration.JmxExporterView;
 import org.apache.ignite.internal.metrics.exporters.jmx.JmxExporter;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -53,13 +51,12 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
+/**
+ * Tests for {@link JmxExporter}.
+ */
 @ExtendWith({ConfigurationExtension.class})
 public class JmxExporterTest {
-    @InjectConfiguration(
-            value = "mock.exporters = {"
-                    + "jmx = {exporterName = jmx}"
-                    + "}"
-    )
+    @InjectConfiguration(value = "mock.exporters = {jmx = {exporterName = jmx}}")
     private MetricConfiguration metricConfiguration;
 
     private JmxExporterView jmxExporterConf;
@@ -70,12 +67,15 @@ public class JmxExporterTest {
 
     private static final String MTRC_NAME = "testMetric";
 
+    /**
+     * Metric set with all available metric types.
+     */
     private static final MetricSet metricSet =
             new MetricSet(
                     SRC_NAME,
                     Map.of(
                             "intGauge", new IntGauge("intGauge", "", () -> 1),
-                            "longGauge", new LongGauge("longGauge", "", () -> 1l),
+                            "longGauge", new LongGauge("longGauge", "", () -> 1L),
                             "doubleGauge", new DoubleGauge("doubleGauge", "", () -> 1d),
                             "atomicInt", new AtomicIntMetric("atomicInt", ""),
                             "atomicLong", new AtomicLongMetric("atomicLong", ""),
@@ -97,7 +97,7 @@ public class JmxExporterTest {
     void setUp() throws MalformedObjectNameException {
         jmxExporterConf = (JmxExporterView) metricConfiguration.exporters().get("jmx").value();
 
-        mbeanName = IgniteUtils.makeMBeanName("metrics", SRC_NAME);
+        mbeanName = IgniteUtils.makeMbeanName("metrics", SRC_NAME);
 
         jmxExporter = new JmxExporter();
 
@@ -122,7 +122,7 @@ public class JmxExporterTest {
 
         jmxExporter.start(metricsProvider, jmxExporterConf);
 
-        assertThatMBeanAttributeAndMetricValuesAreTheSame();
+        assertThatMbeanAttributeAndMetricValuesAreTheSame();
     }
 
     @Test
@@ -132,16 +132,18 @@ public class JmxExporterTest {
 
         jmxExporter.start(metricsProvider, jmxExporterConf);
 
-        assertThrows(InstanceNotFoundException.class, this::getMBeanInfo,
-            "Expected that mbean won't find, but it was");
+        assertThrows(
+                InstanceNotFoundException.class,
+                this::getMbeanInfo,
+                "Expected that mbean won't find, but it was");
 
         jmxExporter.addMetricSet(metricSet);
 
-        assertThatMBeanAttributeAndMetricValuesAreTheSame();
+        assertThatMbeanAttributeAndMetricValuesAreTheSame();
     }
 
     @Test
-    public void testRemoveMetrics()
+    public void testRemoveMetric()
             throws ReflectionException, AttributeNotFoundException, MBeanException {
         Map<String, MetricSet> metrics = Map.of(metricSet.name(), metricSet);
 
@@ -149,11 +151,11 @@ public class JmxExporterTest {
 
         jmxExporter.start(metricsProvider, jmxExporterConf);
 
-        assertThatMBeanAttributeAndMetricValuesAreTheSame();
+        assertThatMbeanAttributeAndMetricValuesAreTheSame();
 
         jmxExporter.removeMetricSet("testSource");
 
-        assertThrows(InstanceNotFoundException.class, this::getMBeanInfo,
+        assertThrows(InstanceNotFoundException.class, this::getMbeanInfo,
                 "Expected that mbean won't find, but it was");
     }
 
@@ -167,18 +169,23 @@ public class JmxExporterTest {
 
         jmxExporter.start(metricsProvider, jmxExporterConf);
 
-        assertEquals(0, mBean().getAttribute(MTRC_NAME));
+        assertEquals(0, mbean().getAttribute(MTRC_NAME));
 
         intMetric.add(1);
 
-        assertEquals(1, mBean().getAttribute(MTRC_NAME));
+        // test, that MBean has no stale metric value.
+        assertEquals(1, mbean().getAttribute(MTRC_NAME));
     }
 
-    private void assertThatMBeanAttributeAndMetricValuesAreTheSame() throws ReflectionException, AttributeNotFoundException, MBeanException {
+    /**
+     * Check, that all MBean attributes has the same values as original metric values.
+     */
+    private void assertThatMbeanAttributeAndMetricValuesAreTheSame()
+            throws ReflectionException, AttributeNotFoundException, MBeanException {
         for (Iterator<Metric> it = metricSet.iterator(); it.hasNext(); ) {
             Metric metric = it.next();
 
-            Object beanAttribute = mBean().getAttribute(metric.name());
+            Object beanAttribute = mbean().getAttribute(metric.name());
 
             String errorMsg = "Wrong MBean attribute value for the metric with name " + metric.name();
 
@@ -194,11 +201,11 @@ public class JmxExporterTest {
         }
     }
 
-    private DynamicMBean mBean() {
+    private DynamicMBean mbean() {
         return MBeanServerInvocationHandler.newProxyInstance(mbeanSrv, mbeanName, DynamicMBean.class, false);
     }
 
-    private MBeanInfo getMBeanInfo() throws ReflectionException, InstanceNotFoundException, IntrospectionException {
+    private MBeanInfo getMbeanInfo() throws ReflectionException, InstanceNotFoundException, IntrospectionException {
         return ManagementFactory.getPlatformMBeanServer().getMBeanInfo(mbeanName);
     }
 }

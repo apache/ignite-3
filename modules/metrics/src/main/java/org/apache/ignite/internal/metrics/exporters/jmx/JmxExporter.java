@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.metrics.exporters.jmx;
 
-import static org.apache.ignite.internal.util.IgniteUtils.makeMBeanName;
+import static org.apache.ignite.internal.util.IgniteUtils.makeMbeanName;
 
 import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
@@ -50,14 +50,14 @@ public class JmxExporter extends BasicMetricExporter<JmxExporterView> {
     private static final String JMX_METRIC_GROUP = "metrics";
 
     /**
-     * Logger
+     * Logger.
      */
     private static IgniteLogger LOG = Loggers.forClass(JmxExporter.class);
 
     /**
      * Current registered MBeans.
      */
-    private final List<ObjectName> mBeans = new ArrayList<>();
+    private final List<ObjectName> mbeans = new ArrayList<>();
 
     /**
      * {@inheritDoc}
@@ -66,7 +66,7 @@ public class JmxExporter extends BasicMetricExporter<JmxExporterView> {
     public synchronized void start(MetricProvider metricsProvider, JmxExporterView configuration) {
         super.start(metricsProvider, configuration);
 
-        for(MetricSet metricSet: metricsProvider.metrics().get1().values()) {
+        for (MetricSet metricSet : metricsProvider.metrics().get1().values()) {
             register(metricSet);
         }
     }
@@ -76,9 +76,9 @@ public class JmxExporter extends BasicMetricExporter<JmxExporterView> {
      */
     @Override
     public synchronized void stop() {
-        mBeans.forEach(this::unregBean);
+        mbeans.forEach(this::unregBean);
 
-        mBeans.clear();
+        mbeans.clear();
     }
 
     /**
@@ -92,7 +92,7 @@ public class JmxExporter extends BasicMetricExporter<JmxExporterView> {
     /**
      * {@inheritDoc}
      *
-     * Register new MBean for received metric set.
+     * <p>Register new MBean for received metric set.
      */
     @Override
     public synchronized void addMetricSet(MetricSet metricSet) {
@@ -102,7 +102,7 @@ public class JmxExporter extends BasicMetricExporter<JmxExporterView> {
     /**
      * {@inheritDoc}
      *
-     * Unregister MBean for removed metric set.
+     * <p>Unregister MBean for removed metric set.
      */
     @Override
     public synchronized void removeMetricSet(String metricSet) {
@@ -116,16 +116,15 @@ public class JmxExporter extends BasicMetricExporter<JmxExporterView> {
      */
     private void register(MetricSet metricSet) {
         try {
-            MetricSetMBean mregBean = new MetricSetMBean(metricSet);
+            MetricSetMbean mregBean = new MetricSetMbean(metricSet);
 
-            ObjectName mbean = IgniteUtils.registerMBean(
+            ObjectName mbean = IgniteUtils.registerMbean(
                     ManagementFactory.getPlatformMBeanServer(),
-                    makeMBeanName(JMX_METRIC_GROUP, metricSet.name()),
+                    makeMbeanName(JMX_METRIC_GROUP, metricSet.name()),
                     mregBean);
 
-            mBeans.add(mbean);
-        }
-        catch (JMException e) {
+            mbeans.add(mbean);
+        } catch (JMException e) {
             LOG.error("MBean for metric set " + metricSet.name() + " can't be created.", e);
         }
     }
@@ -137,17 +136,16 @@ public class JmxExporter extends BasicMetricExporter<JmxExporterView> {
      */
     private void unregister(String metricSetName) {
         try {
-            ObjectName mbeanName = makeMBeanName(JMX_METRIC_GROUP, metricSetName);
+            ObjectName mbeanName = makeMbeanName(JMX_METRIC_GROUP, metricSetName);
 
-            boolean rmv = mBeans.remove(mbeanName);
+            boolean rmv = mbeans.remove(mbeanName);
 
             if (rmv) {
                 unregBean(mbeanName);
             } else {
                 LOG.warn("Tried to unregister the MBean for non-registered metric set " + metricSetName);
             }
-        }
-        catch (MalformedObjectNameException e) {
+        } catch (MalformedObjectNameException e) {
             LOG.error("MBean for metric set " + metricSetName + " can't be unregistered.", e);
         }
     }

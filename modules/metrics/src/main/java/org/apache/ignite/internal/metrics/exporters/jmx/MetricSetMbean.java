@@ -40,7 +40,7 @@ import org.apache.ignite.internal.metrics.MetricSet;
  * MBean implementation, which produce JMX API representation for {@link MetricSet}.
  * Every {@link Metric} of metric set will be represented by MBean's attribute with the same name.
  */
-public class MetricSetMBean implements DynamicMBean {
+public class MetricSetMbean implements DynamicMBean {
     /**
      * Metric set.
      */
@@ -51,7 +51,7 @@ public class MetricSetMBean implements DynamicMBean {
      *
      * @param metricSet Metric set.
      */
-    public MetricSetMBean(MetricSet metricSet) {
+    public MetricSetMbean(MetricSet metricSet) {
         this.metricSet = metricSet;
     }
 
@@ -60,19 +60,21 @@ public class MetricSetMBean implements DynamicMBean {
      */
     @Override
     public Object getAttribute(String attribute) throws AttributeNotFoundException {
-        if (attribute.equals("MBeanInfo"))
+        if (attribute.equals("MBeanInfo")) {
             return getMBeanInfo();
+        }
 
         Metric metric = metricSet.get(attribute);
 
-        if (metric instanceof DoubleMetric)
+        if (metric instanceof DoubleMetric) {
             return ((DoubleMetric) metric).value();
-        else if (metric instanceof IntMetric)
+        } else if (metric instanceof IntMetric) {
             return ((IntMetric) metric).value();
-        else if (metric instanceof LongMetric)
+        } else if (metric instanceof LongMetric) {
             return ((LongMetric) metric).value();
-        else if (metric instanceof DistributionMetric)
+        } else if (metric instanceof DistributionMetric) {
             return ((DistributionMetric) metric).value();
+        }
 
         throw new AttributeNotFoundException("Unknown metric class " + metric.getClass());
     }
@@ -104,13 +106,13 @@ public class MetricSetMBean implements DynamicMBean {
     public Object invoke(String actionName, Object[] params, String[] signature) throws MBeanException, ReflectionException {
         if ("getAttribute".equals(actionName)) {
             try {
-                return getAttribute((String)params[0]);
+                return getAttribute((String) params[0]);
             } catch (AttributeNotFoundException e) {
                 throw new MBeanException(e);
             }
+        } else if ("invoke".equals(actionName)) {
+            return invoke((String) params[0], (Object[]) params[1], (String[]) params[2]);
         }
-        else if ("invoke".equals(actionName))
-            return invoke((String)params[0], (Object[])params[1], (String[])params[2]);
 
         throw new UnsupportedOperationException("invoke is not supported.");
     }
@@ -125,13 +127,13 @@ public class MetricSetMBean implements DynamicMBean {
         List<MBeanAttributeInfo> attrs = new ArrayList<>();
 
         iter.forEachRemaining(metric -> {
-                attrs.add(new MBeanAttributeInfo(
-                        metric.name(),
-                        metricClass(metric),
-                        metric.description() != null ? metric.description() : metric.name(),
-                        true,
-                        false,
-                        false));
+            attrs.add(new MBeanAttributeInfo(
+                    metric.name(),
+                    metricClass(metric),
+                    metric.description() != null ? metric.description() : metric.name(),
+                    true,
+                    false,
+                    false));
         });
 
         return new MBeanInfo(
@@ -166,15 +168,16 @@ public class MetricSetMBean implements DynamicMBean {
      * @return Class of metric value.
      */
     private String metricClass(Metric metric) {
-        if (metric instanceof DoubleMetric)
+        if (metric instanceof DoubleMetric) {
             return Double.class.getName();
-        else if (metric instanceof IntMetric)
+        } else if (metric instanceof IntMetric) {
             return Integer.class.getName();
-        else if (metric instanceof LongMetric)
+        } else if (metric instanceof LongMetric) {
             return Long.class.getName();
-        else if (metric instanceof DistributionMetric)
+        } else if (metric instanceof DistributionMetric) {
             return long[].class.getName();
+        }
 
-        throw new IllegalArgumentException("Unknown metric class. " + metric.getClass());
+        throw new IllegalArgumentException("Unknown metric class " + metric.getClass());
     }
 }

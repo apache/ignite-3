@@ -884,7 +884,7 @@ public class IgniteUtils {
      * @throws MBeanRegistrationException if MBeans are disabled.
      * @throws JMException If MBean creation failed.
      */
-    public static ObjectName registerMBean(MBeanServer mbeanSrv, ObjectName name, DynamicMBean impl)
+    public static ObjectName registerMbean(MBeanServer mbeanSrv, ObjectName name, DynamicMBean impl)
             throws JMException {
         return mbeanSrv.registerMBean(impl, name).getObjectName();
     }
@@ -892,12 +892,12 @@ public class IgniteUtils {
     /**
      * Produce new MBean name according to received group and name.
      *
-     * @param group pkg:group=<value> part of MBean name.
-     * @param name pkg:name=<name> part of MBean name.
+     * @param group pkg:group=value part of MBean name.
+     * @param name pkg:name=value part of MBean name.
      * @return new ObjectName.
      * @throws MalformedObjectNameException if MBean name can't be formed from the received arguments.
      */
-    public static ObjectName makeMBeanName(String group, String name) throws MalformedObjectNameException {
+    public static ObjectName makeMbeanName(String group, String name) throws MalformedObjectNameException {
         return new ObjectName(String.format("%s:group=%s,name=%s", JMX_MBEAN_PACKAGE, group, name));
     }
 }
