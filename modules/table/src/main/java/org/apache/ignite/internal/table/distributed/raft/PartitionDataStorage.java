@@ -52,6 +52,7 @@ public interface PartitionDataStorage extends AutoCloseable {
      * @param <V> Type of the result returned from the closure.
      * @return Closure result.
      * @throws StorageException If failed to write data to the storage.
+     * @see MvPartitionStorage#runConsistently(WriteClosure)
      */
     <V> V runConsistently(WriteClosure<V> closure) throws StorageException;
 
@@ -69,16 +70,21 @@ public interface PartitionDataStorage extends AutoCloseable {
      * allows implementing a batch flush for several partitions at once.
      *
      * @return Future that's completed when flushing of the data is completed.
+     * @see MvPartitionStorage#flush()
      */
     CompletableFuture<Void> flush();
 
     /**
      * Index of the highest write command applied to the storage. {@code 0} if index is unknown.
+     *
+     * @see MvPartitionStorage#lastAppliedIndex()
      */
     long lastAppliedIndex();
 
     /**
      * Sets the last applied index value.
+     *
+     * @see MvPartitionStorage#lastAppliedIndex(long)
      */
     void lastAppliedIndex(long lastAppliedIndex) throws StorageException;
 
@@ -100,6 +106,7 @@ public interface PartitionDataStorage extends AutoCloseable {
      *     exists before this call
      * @throws TxIdMismatchException If there's another pending update associated with different transaction id.
      * @throws StorageException If failed to write data to the storage.
+     * @see MvPartitionStorage#addWrite(RowId, BinaryRow, UUID, UUID, int)
      */
     @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, UUID commitTableId, int commitPartitionId)
             throws TxIdMismatchException, StorageException;
@@ -112,6 +119,7 @@ public interface PartitionDataStorage extends AutoCloseable {
      * @param rowId Row id.
      * @return Previous uncommitted row version associated with the row id.
      * @throws StorageException If failed to write data to the storage.
+     * @see MvPartitionStorage#abortWrite(RowId)
      */
     @Nullable BinaryRow abortWrite(RowId rowId) throws StorageException;
 
@@ -123,6 +131,7 @@ public interface PartitionDataStorage extends AutoCloseable {
      * @param rowId Row id.
      * @param timestamp Timestamp to associate with committed value.
      * @throws StorageException If failed to write data to the storage.
+     * @see MvPartitionStorage#commitWrite(RowId, HybridTimestamp)
      */
     void commitWrite(RowId rowId, HybridTimestamp timestamp) throws StorageException;
 
