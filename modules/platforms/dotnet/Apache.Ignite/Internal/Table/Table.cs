@@ -51,7 +51,7 @@ namespace Apache.Ignite.Internal.Table
         private volatile int _partitionAssignmentVersion = -1;
 
         /** */
-        private volatile Guid[]? _partitionAssignment = null;
+        private volatile string[]? _partitionAssignment = null;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Table"/> class.
@@ -171,19 +171,14 @@ namespace Apache.Ignite.Internal.Table
         /// Gets the latest schema.
         /// </summary>
         /// <returns>Schema.</returns>
-        internal async ValueTask<Guid[]> GetPartitionAssignmentAsync()
+        internal async ValueTask<string[]> GetPartitionAssignmentAsync()
         {
             if (_partitionAssignmentVersion == _socket.PartitionAssignmentVersion && _partitionAssignment != null)
             {
                 return _partitionAssignment;
             }
 
-            if (latestSchemaVersion >= 0)
-            {
-                return _schemas[latestSchemaVersion];
-            }
-
-            return await LoadSchemaAsync(null).ConfigureAwait(false);
+            return await LoadPartitionAssignmentAsync().ConfigureAwait(false);
         }
 
         /// <summary>
@@ -291,6 +286,40 @@ namespace Apache.Ignite.Internal.Table
             }
 
             return schema;
+        }
+
+        /// <summary>
+        /// Loads the partition assignment.
+        /// </summary>
+        /// <returns>Partition assignment.</returns>
+        private async Task<string[]> LoadPartitionAssignmentAsync()
+        {
+            using var writer = ProtoCommon.GetMessageWriter();
+            Write();
+
+            using var resBuf = await _socket.DoOutInOpAsync(ClientOp.PartitionAssignmentGet, writer).ConfigureAwait(false);
+            return Read();
+
+            void Write()
+            {
+                var w = writer.GetMessageWriter();
+                w.Write(Id);
+                w.Flush();
+            }
+
+            string[] Read()
+            {
+                var r = resBuf.GetReader();
+                var count = r.ReadArrayHeader();
+                var res = new string[count];
+
+                for (int i = 0; i < count; i++)
+                {
+                    res[i] = r.ReadString();
+                }
+
+                return res;
+            }
         }
     }
 }
