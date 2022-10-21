@@ -49,7 +49,7 @@ import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentHashSet;
  * <p>The snapshot has a lock needed for interaction with {@link SnapshotAwarePartitionDataStorage}.
  */
 public class OutgoingSnapshot {
-    private static final TableMessagesFactory messagesFactory = new TableMessagesFactory();
+    private static final TableMessagesFactory MESSAGES_FACTORY = new TableMessagesFactory();
 
     private final UUID id;
 
@@ -174,7 +174,7 @@ public class OutgoingSnapshot {
             outgoingSnapshotRegistry.unregisterOutgoingSnapshot(id);
         }
 
-        SnapshotMvDataResponse response = messagesFactory.snapshotMvDataResponse()
+        SnapshotMvDataResponse response = MESSAGES_FACTORY.snapshotMvDataResponse()
                 .rows(batch)
                 .finish(finished)
                 .build();
@@ -272,7 +272,7 @@ public class OutgoingSnapshot {
             }
         }
 
-        return messagesFactory.responseEntry()
+        return MESSAGES_FACTORY.responseEntry()
                 .rowId(new UUID(rowId.mostSignificantBits(), rowId.leastSignificantBits()))
                 .rowVersions(buffers)
                 .timestamps(commitTimestamps)
