@@ -16,7 +16,7 @@ public class NodeMetadataDto {
     }
 
     @JsonGetter("restPort")
-    public int getRestPort() {
+    public int restPort() {
         return restPort;
     }
 }

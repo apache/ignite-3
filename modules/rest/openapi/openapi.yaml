@@ -425,6 +425,7 @@ components:
       - address
       - id
       - name
+      - metadata
       type: object
       properties:
         id:
@@ -433,6 +434,8 @@ components:
           type: string
         address:
           $ref: '#/components/schemas/NetworkAddress'
+        metadata:
+          $ref: '#/components/schemas/NodeMetadata'
     ClusterState:
       required:
       - clusterTag
@@ -509,6 +512,14 @@ components:
         host:
           type: string
         port:
+          type: integer
+          format: int32
+    NodeMetadata:
+      required:
+      - restPort
+      type: object
+      properties:
+        restPort:
           type: integer
           format: int32
     NodeState:

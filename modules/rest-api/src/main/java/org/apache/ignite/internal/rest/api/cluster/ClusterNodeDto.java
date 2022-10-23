@@ -37,7 +37,7 @@ public class ClusterNodeDto {
     /** Network address of this node. */
     private final NetworkAddressDto address;
 
-    private final NodeMetadataDto nodeMetadataDto;
+    private final NodeMetadataDto metadata;
 
     /**
      * Constructor.
@@ -55,7 +55,7 @@ public class ClusterNodeDto {
         this.id = id;
         this.name = name;
         this.address = address;
-        this.nodeMetadataDto = metadata;
+        this.metadata = metadata;
     }
 
     /**
@@ -88,7 +88,8 @@ public class ClusterNodeDto {
         return address;
     }
 
-    public NodeMetadataDto getNodeMetadataDto() {
-        return nodeMetadataDto;
+    @JsonGetter("metadata")
+    public NodeMetadataDto metadata() {
+        return metadata;
     }
 }

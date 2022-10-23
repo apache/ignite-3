@@ -50,6 +50,13 @@ public class ClusterNode implements Serializable {
         this.nodeMetadata = nodeMetadata;
     }
 
+    public ClusterNode(String id, String name, NetworkAddress address) {
+        this.id = id;
+        this.name = name;
+        this.address = address;
+        this.nodeMetadata = null;
+    }
+
     /**
      * Returns this node's local ID.
      *
