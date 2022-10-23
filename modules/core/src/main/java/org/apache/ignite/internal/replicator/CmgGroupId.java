@@ -15,12 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.replicator.message;
-
-import java.io.Serializable;
+package org.apache.ignite.internal.replicator;
 
 /**
- * The interface represents a replication group identifier.
+ * CMG replication group id.
  */
-public interface ReplicationGroupId extends Serializable {
+public class CmgGroupId implements ReplicationGroupId {
+    /** CMG Raft group name. */
+    public static final CmgGroupId CMG_RAFT_GROUP_NAME = new CmgGroupId();
+
+    /**
+     * The constructor.
+     */
+    private CmgGroupId() {
+    }
+
+    @Override
+    public String toString() {
+        return "cmg_raft_group";
+    }
 }

@@ -20,7 +20,7 @@ package org.apache.ignite.internal.table.distributed.command;
 import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.hlc.HybridTimestamp;
-import org.apache.ignite.internal.replicator.message.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 
 /**
  * State machine command to finish a transaction on a commit or a rollback.

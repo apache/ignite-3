@@ -22,6 +22,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toSet;
 import static java.util.stream.Collectors.toUnmodifiableSet;
 import static org.apache.ignite.internal.cluster.management.ClusterTag.clusterTag;
+import static org.apache.ignite.internal.replicator.CmgGroupId.CMG_RAFT_GROUP_NAME;
 import static org.apache.ignite.network.util.ClusterServiceUtils.resolveNodes;
 
 import java.util.Collection;
@@ -84,9 +85,6 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     private static final int NETWORK_INVOKE_TIMEOUT = 500;
 
     private static final IgniteLogger LOG = Loggers.forClass(ClusterManagementGroupManager.class);
-
-    /** CMG Raft group name. */
-    private static final String CMG_RAFT_GROUP_NAME = "cmg_raft_group";
 
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();

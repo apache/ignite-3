@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metastorage;
 
+import static org.apache.ignite.internal.replicator.MetastorageGroupId.METASTORAGE_RAFT_GROUP_NAME;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.CURSOR_CLOSING_ERR;
@@ -79,9 +80,6 @@ import org.jetbrains.annotations.Nullable;
  * </ul>
  */
 public class MetaStorageManager implements IgniteComponent {
-    /** Meta storage raft group name. */
-    private static final String METASTORAGE_RAFT_GROUP_NAME = "metastorage_raft_group";
-
     /**
      * Special key for the vault where the applied revision for {@link MetaStorageManager#storeEntries} operation is stored. This mechanism
      * is needed for committing processed watches to {@link VaultManager}.

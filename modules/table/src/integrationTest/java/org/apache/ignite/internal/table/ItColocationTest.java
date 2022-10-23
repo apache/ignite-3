@@ -53,8 +53,8 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
-import org.apache.ignite.internal.replicator.message.ReplicationGroupId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.Column;
@@ -148,7 +148,7 @@ public class ItColocationTest {
         UUID tblId = UUID.randomUUID();
 
         for (int i = 0; i < PARTS; ++i) {
-            String groupId = "PUBLIC.TEST_part_" + i;
+            TablePartitionId groupId = new TablePartitionId(tblId, i);
 
             RaftGroupService r = Mockito.mock(RaftGroupService.class);
             when(r.leader()).thenReturn(Mockito.mock(Peer.class));

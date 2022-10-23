@@ -20,6 +20,7 @@ package org.apache.ignite.internal.cluster.management.raft;
 import static org.apache.ignite.internal.cluster.management.ClusterState.clusterState;
 import static org.apache.ignite.internal.cluster.management.ClusterTag.clusterTag;
 import static org.apache.ignite.internal.raft.server.RaftGroupOptions.defaults;
+import static org.apache.ignite.internal.replicator.CmgGroupId.CMG_RAFT_GROUP_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
@@ -72,8 +73,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(WorkDirectoryExtension.class)
 @ExtendWith(ConfigurationExtension.class)
 public class ItCmgRaftServiceTest {
-    private static final String TEST_GROUP = "test_group";
-
     @InjectConfiguration
     private static RaftConfiguration raftConfiguration;
 
@@ -105,7 +104,7 @@ public class ItCmgRaftServiceTest {
                 raftStorage.start();
 
                 CompletableFuture<RaftGroupService> raftService = raftManager.prepareRaftGroup(
-                        TEST_GROUP,
+                        CMG_RAFT_GROUP_NAME,
                         List.copyOf(clusterService.topologyService().allMembers()),
                         () -> new CmgRaftGroupListener(raftStorage),
                         defaults()
@@ -121,7 +120,7 @@ public class ItCmgRaftServiceTest {
 
         void beforeNodeStop() {
             try {
-                raftManager.stopRaftGroup(TEST_GROUP);
+                raftManager.stopRaftGroup(CMG_RAFT_GROUP_NAME);
             } catch (NodeStoppingException e) {
                 throw new RuntimeException(e);
             }

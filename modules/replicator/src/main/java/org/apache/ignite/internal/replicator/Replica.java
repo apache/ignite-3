@@ -20,7 +20,6 @@ package org.apache.ignite.internal.replicator;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
-import org.apache.ignite.internal.replicator.message.ReplicationGroupId;
 import org.apache.ignite.lang.IgniteStringFormatter;
 
 /**

@@ -33,6 +33,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.server.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.RaftServer;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterService;
@@ -67,7 +68,9 @@ public class RaftServerImpl implements RaftServer {
 
     private final ClusterService service;
 
-    private final ConcurrentMap<String, RaftGroupListener> listeners = new ConcurrentHashMap<>();
+    private final ConcurrentMap<ReplicationGroupId, RaftGroupListener> listeners = new ConcurrentHashMap<>();
+
+    private final ConcurrentMap<String, RaftGroupListener> strListeners = new ConcurrentHashMap<>();
 
     private final BlockingQueue<CommandClosureEx<ReadCommand>> readQueue;
 
@@ -112,7 +115,7 @@ public class RaftServerImpl implements RaftServer {
                     } else if (message instanceof ActionRequest) {
                         ActionRequest req0 = (ActionRequest) message;
 
-                        RaftGroupListener lsnr = listeners.get(req0.groupId());
+                        RaftGroupListener lsnr = strListeners.get(req0.groupId());
 
                         if (lsnr == null) {
                             sendError(senderAddr, correlationId, RaftError.UNKNOWN);
@@ -177,13 +180,14 @@ public class RaftServerImpl implements RaftServer {
 
     /** {@inheritDoc} */
     @Override
-    public synchronized boolean startRaftGroup(String groupId, RaftGroupListener lsnr,
+    public synchronized boolean startRaftGroup(ReplicationGroupId groupId, RaftGroupListener lsnr,
             List<Peer> initialConf, RaftGroupOptions groupOptions) {
         if (listeners.containsKey(groupId)) {
             return false;
         }
 
         listeners.put(groupId, lsnr);
+        strListeners.put(groupId.toString(), lsnr);
 
         return true;
     }
@@ -191,7 +195,7 @@ public class RaftServerImpl implements RaftServer {
     /** {@inheritDoc} */
     @Override
     public boolean startRaftGroup(
-            String groupId,
+            ReplicationGroupId groupId,
             RaftGroupEventsListener evLsnr,
             RaftGroupListener lsnr,
             List<Peer> initialConf,
@@ -202,19 +206,21 @@ public class RaftServerImpl implements RaftServer {
 
     /** {@inheritDoc} */
     @Override
-    public synchronized boolean stopRaftGroup(String groupId) {
+    public synchronized boolean stopRaftGroup(ReplicationGroupId groupId) {
+        strListeners.remove(groupId.toString());
+
         return listeners.remove(groupId) != null;
     }
 
     /** {@inheritDoc} */
     @Override
-    public @Nullable Peer localPeer(String groupId) {
+    public @Nullable Peer localPeer(ReplicationGroupId groupId) {
         return new Peer(service.topologyService().localMember().address());
     }
 
     /** {@inheritDoc} */
     @Override
-    public Set<String> startedGroups() {
+    public Set<ReplicationGroupId> startedGroups() {
         return listeners.keySet();
     }
 

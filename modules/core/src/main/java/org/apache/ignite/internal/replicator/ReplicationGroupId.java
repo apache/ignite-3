@@ -15,21 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.replicator.message;
+package org.apache.ignite.internal.replicator;
 
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Marshallable;
+import java.io.Serializable;
 
 /**
- * Replica request.
+ * The interface represents a replication group identifier.
  */
-public interface ReplicaRequest extends NetworkMessage {
-    /**
-     * Gets a replication group id.
-     *
-     * @return Replication group id.
-     */
-    @Marshallable
-    ReplicationGroupId groupId();
+public interface ReplicationGroupId extends Serializable {
 }

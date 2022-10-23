@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.metastorage.client;
 
 import static org.apache.ignite.internal.raft.server.RaftGroupOptions.defaults;
+import static org.apache.ignite.internal.replicator.MetastorageGroupId.METASTORAGE_RAFT_GROUP_NAME;
 import static org.apache.ignite.raft.jraft.test.TestUtils.waitForTopology;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -85,9 +86,6 @@ public class ItMetaStorageRaftGroupTest {
 
     /** Nodes. */
     private static final int NODES = 3;
-
-    /** Meta Storage raft group name. */
-    private static final String METASTORAGE_RAFT_GROUP_NAME = "METASTORAGE_RAFT_GROUP";
 
     /** Factory. */
     private static final RaftMessagesFactory FACTORY = new RaftMessagesFactory();

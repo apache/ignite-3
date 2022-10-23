@@ -15,21 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.replicator.message;
-
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Marshallable;
+package org.apache.ignite.internal.replicator;
 
 /**
- * Replica request.
+ * Matastorage replication group id.
  */
-public interface ReplicaRequest extends NetworkMessage {
+public class MetastorageGroupId implements ReplicationGroupId {
+    /** Meta storage raft group name. */
+    public static final MetastorageGroupId METASTORAGE_RAFT_GROUP_NAME = new MetastorageGroupId();
+
     /**
-     * Gets a replication group id.
-     *
-     * @return Replication group id.
+     * The constructor.
      */
-    @Marshallable
-    ReplicationGroupId groupId();
+    private MetastorageGroupId() {
+    }
+
+    @Override
+    public String toString() {
+        return "metastorage_raft_group";
+    }
 }

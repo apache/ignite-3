@@ -33,7 +33,7 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.IntStream;
 import org.apache.ignite.hlc.HybridTimestamp;
-import org.apache.ignite.internal.replicator.message.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.tx.TxMeta;
@@ -250,6 +250,11 @@ public abstract class TxStateStorageAbstractTest {
         @Override
         public int hashCode() {
             return Objects.hash(prtId);
+        }
+
+        @Override
+        public String toString() {
+            return "part_" + prtId;
         }
     }
 }

@@ -27,7 +27,7 @@ import java.util.Objects;
 import java.util.UUID;
 import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.replicator.message.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
@@ -140,6 +140,11 @@ public class TxManagerTest extends IgniteAbstractTest {
         @Override
         public int hashCode() {
             return Objects.hash(prtId);
+        }
+
+        @Override
+        public String toString() {
+            return "part_" + prtId;
         }
     }
 }
