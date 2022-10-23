@@ -110,8 +110,6 @@ public class MetricSetMbean implements DynamicMBean {
             } catch (AttributeNotFoundException e) {
                 throw new MBeanException(e);
             }
-        } else if ("invoke".equals(actionName)) {
-            return invoke((String) params[0], (Object[]) params[1], (String[]) params[2]);
         }
 
         throw new UnsupportedOperationException("invoke is not supported.");
