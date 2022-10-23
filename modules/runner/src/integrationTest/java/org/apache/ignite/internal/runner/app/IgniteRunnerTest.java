@@ -25,7 +25,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
-import org.apache.ignite.app.IgniteCliRunner;
+import org.apache.ignite.app.IgniteRunner;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.AfterEach;
@@ -36,7 +36,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Tests the start ignite nodes.
  */
 @ExtendWith(WorkDirectoryExtension.class)
-public class IgniteCliRunnerTest {
+public class IgniteRunnerTest {
     private static final String NODE_NAME = "node";
 
     @WorkDirectory
@@ -50,9 +50,9 @@ public class IgniteCliRunnerTest {
     /** TODO: Replace this test by full integration test on the cli side IGNITE-15097. */
     @Test
     public void smokeTestArgs() throws Exception {
-        Path configPath = Path.of(IgniteCliRunnerTest.class.getResource("/ignite-config.json").toURI());
+        Path configPath = Path.of(IgniteRunnerTest.class.getResource("/ignite-config.json").toURI());
 
-        CompletableFuture<Ignite> ign = IgniteCliRunner.start(
+        CompletableFuture<Ignite> ign = IgniteRunner.start(
                 "--config-path", configPath.toAbsolutePath().toString(),
                 "--work-dir", workDir.resolve("node").toAbsolutePath().toString(),
                 "--node-name", NODE_NAME
@@ -65,7 +65,7 @@ public class IgniteCliRunnerTest {
 
     @Test
     public void smokeTestArgsNullConfig() {
-        CompletableFuture<Ignite> ign = IgniteCliRunner.start(
+        CompletableFuture<Ignite> ign = IgniteRunner.start(
                 "--work-dir", workDir.resolve("node").toAbsolutePath().toString(),
                 "--node-name", NODE_NAME
         );
