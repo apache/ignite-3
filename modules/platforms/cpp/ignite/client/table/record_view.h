@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include "ignite/client/table/ignite_tuple.h"
 #include "ignite/client/transaction/transaction.h"
 
 #include "ignite/common/config.h"
@@ -24,8 +25,15 @@
 
 #include <memory>
 #include <utility>
+#include <type_traits>
 
 namespace ignite {
+
+class table;
+
+namespace detail {
+class record_binary_view_impl;
+}
 
 /**
  * Record view interface provides methods to access table records.
@@ -33,6 +41,28 @@ namespace ignite {
 template<typename T>
 class record_view {
 public:
+    typedef typename std::decay<T>::type value_type;
+
+    // Deleted
+    record_view(const record_view &) = delete;
+    record_view &operator=(const record_view &) = delete;
+
+    // Default
+    record_view() = default;
+    ~record_view() = default;
+    record_view(record_view &&) noexcept = default;
+    record_view &operator=(record_view &&) noexcept = default;
+};
+
+/**
+ * Record view interface provides methods to access table records.
+ */
+template<>
+class record_view<ignite_tuple> {
+    friend class table;
+public:
+    typedef ignite_tuple value_type;
+
     // Deleted
     record_view(const record_view &) = delete;
     record_view &operator=(const record_view &) = delete;
@@ -51,9 +81,8 @@ public:
      * @param key Key.
      * @param callback Callback.
      */
-    IGNITE_API void get_async(transaction* tx, const T& key, ignite_callback<std::optional<T>> callback) {
-        // TODO: Implement me
-    }
+    IGNITE_API void get_async(transaction* tx, const value_type& key,
+            const ignite_callback<std::optional<value_type>>& callback);
 
     /**
      * Gets a record by key.
@@ -63,8 +92,8 @@ public:
      * @param key Key.
      * @param callback Callback.
      */
-    IGNITE_API std::optional<T> get(transaction* tx, const T& key) {
-        return sync<std::optional<T>>([this, &tx, &key] (auto callback) {
+    IGNITE_API std::optional<value_type> get(transaction* tx, const value_type& key) {
+        return sync<std::optional<value_type>>([this, &tx, &key] (auto callback) {
             get_async(tx, key, std::move(callback));
         });
     }
@@ -75,11 +104,11 @@ private:
      *
      * @param impl Implementation
      */
-    explicit record_view(std::shared_ptr<void> impl)
+    explicit record_view(std::shared_ptr<detail::record_binary_view_impl> impl)
         : m_impl(std::move(impl)) { }
 
     /** Implementation. */
-    std::shared_ptr<void> m_impl;
+    std::shared_ptr<detail::record_binary_view_impl> m_impl;
 };
 
 } // namespace ignite

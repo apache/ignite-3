@@ -15,18 +15,42 @@
  * limitations under the License.
  */
 
-#include "ignite/client/table/table.h"
-#include "ignite/client/detail/table/table_impl.h"
-#include "ignite/client/detail/table/record_binary_view_impl.h"
+#pragma once
 
-namespace ignite {
+namespace ignite::detail {
 
-const std::string &table::name() const noexcept {
-    return m_impl->name();
-}
+/**
+ * Boxed basic Ignite type.
+ */
+class basic_type {
+public:
+    // Deleted
+    basic_type(basic_type &&) = delete;
+    basic_type(const basic_type &) = delete;
+    basic_type &operator=(basic_type &&) = delete;
+    basic_type &operator=(const basic_type &) = delete;
 
-record_view<ignite_tuple> table::record_binary_view() const noexcept {
-    return record_view<ignite_tuple>{std::make_shared<detail::record_binary_view_impl>(m_impl)};
-}
+    // Default
+    virtual ~basic_type() = default;
 
-} // namespace ignite
+    virtual void write() const = 0;
+
+    virtual void read() const = 0;
+
+protected:
+    // Default
+    basic_type() = default;
+};
+
+/**
+ * Basic Ignite type implementation.
+ *
+ * @tparam T Concrete type.
+ */
+template<typename T>
+class basic_type_impl {
+public:
+private:
+};
+
+} // namespace ignite::detail

@@ -15,8 +15,14 @@
  * limitations under the License.
  */
 
-#include "ignite/client/table/ignite_tuple.h"
+#include "ignite/client/table/record_view.h"
+#include "ignite/client/detail/table/record_binary_view_impl.h"
 
 namespace ignite {
+
+void record_view<ignite_tuple>::get_async(transaction *tx, const ignite_tuple &key,
+    const ignite_callback<std::optional<value_type>>& callback) {
+    m_impl->get_async(tx, key, callback);
+}
 
 } // namespace ignite
