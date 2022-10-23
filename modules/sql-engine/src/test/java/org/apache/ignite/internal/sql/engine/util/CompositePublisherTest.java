@@ -296,6 +296,6 @@ public class CompositePublisherTest {
 
     private static void debug(String msg) {
         if (debug)
-            System.out.println(msg);
+            System.out.println(Thread.currentThread().getId() + " " + msg);
     }
 }

@@ -12,7 +12,7 @@ public interface SubscriptionManagementStrategy<T> extends Flow.Subscription {
 
     void onSubscriptionComplete(int subscriberId);
 
-    // todo should be reworked and removed
+    // todo implementation can be reworked and this method should be removed
     void onRequestCompleted(int subscriberId);
 
     // todo should be removed

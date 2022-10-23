@@ -15,7 +15,7 @@ import org.apache.calcite.util.Pair;
 import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentHashSet;
 import org.jetbrains.annotations.Nullable;
 
-public class OrderedSubscriptionStrategy<T> implements SubscriptionManagementStrategy<T>, Subscription {
+public class OrderedInputSubscriptionStrategy<T> implements SubscriptionManagementStrategy<T>, Subscription {
     /** Items comparator. */
     private final Comparator<T> comp;
 
@@ -40,10 +40,13 @@ public class OrderedSubscriptionStrategy<T> implements SubscriptionManagementStr
 
     private Subscriber<? super T> delegate;
 
+    /** The IDs of the subscribers we are waiting for. */
     private final Set<Integer> waitResponse = new ConcurrentHashSet<>();
+
+    /** Count of subscribers we are waiting for. */
     private final AtomicInteger waitResponseCnt = new AtomicInteger();
 
-    public OrderedSubscriptionStrategy(Comparator<T> comp) {
+    public OrderedInputSubscriptionStrategy(Comparator<T> comp) {
         this.comp = comp;
         this.inBuf = new PriorityBlockingQueue<>(1, comp);
     }
@@ -75,7 +78,6 @@ public class OrderedSubscriptionStrategy<T> implements SubscriptionManagementStr
     /** {@inheritDoc} */
     @Override
     public void request(long n) {
-        // todo we may return result before all publishers has finished publishing
         assert waitResponse.isEmpty() : waitResponse;
 
         synchronized (this) {
@@ -109,7 +111,15 @@ public class OrderedSubscriptionStrategy<T> implements SubscriptionManagementStr
         }
     }
 
-    // synchronized is needed because "request" can be executed in parallel with "onComplete"
+    // Synchronized is needed because "request" can be executed in parallel with "onComplete".
+    // For example (supplier has only one item left):
+    //      user-thread: request(1)
+    //  supplier-thread: subscriber -> onNext() -> return result to user
+    //
+    //  supplier-thread: onComplete -\
+    //                                |-------> can be executed in parallel
+    //      user-thread: request(1) -/
+    //
     @Override
     public synchronized void onSubscriptionComplete(int subscriberId) {
         debug(">xxx> onComplete " + subscriberId);
@@ -263,6 +273,6 @@ public class OrderedSubscriptionStrategy<T> implements SubscriptionManagementStr
 
     private static void debug(String msg) {
         if (debug)
-            System.out.println(msg);
+            System.out.println(Thread.currentThread().getId() + " " + msg);
     }
 }

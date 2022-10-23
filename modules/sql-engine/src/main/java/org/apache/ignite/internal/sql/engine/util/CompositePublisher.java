@@ -20,11 +20,13 @@ package org.apache.ignite.internal.sql.engine.util;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.List;
 import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.jetbrains.annotations.Nullable;
 
 public class CompositePublisher<T> implements Flow.Publisher<T> {
@@ -39,8 +41,10 @@ public class CompositePublisher<T> implements Flow.Publisher<T> {
     public CompositePublisher(@Nullable Comparator<T> comp) {
         ordered = comp != null;
 
-        // todo unordered
-        subscriptionStrategy = new OrderedSubscriptionStrategy<>(comp);
+        if (ordered)
+            subscriptionStrategy = new OrderedInputSubscriptionStrategy<>(comp);
+        else
+            subscriptionStrategy = new PlainSubscriptionManagementStrategy<>();
     }
 
     public void add(Publisher<T> publisher) {
@@ -113,6 +117,61 @@ public class CompositePublisher<T> implements Flow.Publisher<T> {
             subscriptionStrategy.onSubscriptionComplete(id);
 //            if (completed.incrementAndGet() == compSubscription.subscriptions().size())
 //                delegate.onComplete();
+        }
+    }
+
+    private static class PlainSubscriptionManagementStrategy<T> implements SubscriptionManagementStrategy<T> {
+        List<Subscription> subscriptions = new ArrayList<>();
+        List<Subscriber<T>> subscribers = new ArrayList<>();
+        AtomicInteger completed = new AtomicInteger();
+
+        Subscriber<? super T> delegate;
+
+        @Override
+        public void addSubscription(Subscription subscription) {
+            subscriptions.add(subscription);
+        }
+
+        @Override
+        public void addSubscriber(Subscriber<T> subscriber) {
+            subscribers.add(subscriber);
+        }
+
+        @Override
+        public void onReceive(int subscriberId, T item) {
+            delegate.onNext(item);
+        }
+
+        @Override
+        public void onSubscriptionComplete(int subscriberId) {
+            if (completed.incrementAndGet() == subscriptions.size())
+                delegate.onComplete();
+        }
+
+        @Override
+        public void onRequestCompleted(int subscriberId) {
+            // No-op.
+        }
+
+        @Override
+        public void subscribe(Subscriber<? super T> delegate) {
+            this.delegate = delegate;
+
+            delegate.onSubscribe(this);
+        }
+
+        @Override
+        public void request(long n) {
+            for (Subscription sub : subscriptions) {
+                sub.request(n/subscriptions.size());
+            }
+        }
+
+        @Override
+        public void cancel() {
+            for (Subscription sub : subscriptions) {
+                sub.cancel();
+            }
         }
     }
 }
