@@ -9,6 +9,8 @@ import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentHashSet;
 import org.jetbrains.annotations.Nullable;
@@ -31,14 +33,15 @@ public class OrderedSubscriptionStrategy<T> implements SubscriptionManagementStr
     private final AtomicBoolean completed = new AtomicBoolean();
 
     /** Count of remaining items. */
-    private volatile long remain = 0;
+    private long remain = 0;
 
     /** Count of requested items. */
-    private volatile long requested = 0;
+    private long requested = 0;
 
     private Subscriber<? super T> delegate;
 
     private final Set<Integer> waitResponse = new ConcurrentHashSet<>();
+    private final AtomicInteger waitResponseCnt = new AtomicInteger();
 
     public OrderedSubscriptionStrategy(Comparator<T> comp) {
         this.comp = comp;
@@ -67,7 +70,6 @@ public class OrderedSubscriptionStrategy<T> implements SubscriptionManagementStr
     @Override
     public void onReceive(int subscriberId, T item) {
         inBuf.offer(item);
-        // todo calc estmations
     }
 
     /** {@inheritDoc} */
@@ -88,33 +90,15 @@ public class OrderedSubscriptionStrategy<T> implements SubscriptionManagementStr
                     return;
             }
             else { // Someone still alive.
-                onRequestCompleted0();
+                requestNext();
 
                 return;
             }
         }
 
-        long requestCnt = estimateSubscriptionRequestAmount(n);
+        List<Integer> subsIds = IntStream.rangeClosed(0, subscriptions.size() - 1).boxed().collect(Collectors.toList());
 
-        for (int i = 0; i < subscribers.size(); i++) {
-            SortingSubscriber<T> subscriber = subscribers.get(i);
-
-            if (finished.contains(i))
-                continue;
-
-            waitResponse.add(i);
-            subscriber.onDataRequested(requestCnt);
-        }
-
-        for (int i = 0; i < subscriptions.size(); i++) {
-            if (finished.contains(i)) {
-                waitResponse.remove(i);
-
-                continue;
-            }
-
-            subscriptions.get(i).request(requestCnt);
-        }
+        requestInternal(subsIds, n);
     }
 
     /** {@inheritDoc} */
@@ -125,15 +109,12 @@ public class OrderedSubscriptionStrategy<T> implements SubscriptionManagementStr
         }
     }
 
-    // synchronized is needed because "request" can be executed in parallel
-    // can be replaced with retry
+    // synchronized is needed because "request" can be executed in parallel with "onComplete"
     @Override
     public synchronized void onSubscriptionComplete(int subscriberId) {
         debug(">xxx> onComplete " + subscriberId);
 
-        finished.add(subscriberId);
-
-        if (finishedCnt.incrementAndGet() == subscriptions.size() && (remain > 0 || inBuf.size() == 0)) {
+        if (finished.add(subscriberId) && finishedCnt.incrementAndGet() == subscriptions.size() && (remain > 0 || inBuf.size() == 0)) {
             waitResponse.remove(subscriberId);
 
             if (completed.compareAndSet(false, true)) {
@@ -194,47 +175,54 @@ public class OrderedSubscriptionStrategy<T> implements SubscriptionManagementStr
         return remain;
     }
 
-    public boolean onRequestCompleted(int subscriberId) {
-        if (waitResponse.remove(subscriberId) && waitResponse.isEmpty()) {
-            onRequestCompleted0();
-
-            return true;
+    @Override
+    public void onRequestCompleted(int subscriberId) {
+        if (waitResponse.remove(subscriberId) && waitResponseCnt.decrementAndGet() == 0) {
+            requestNext();
         }
-
-        return false;
+        else
+            debug(">Xxx> onRequestCompleted " + waitResponse + ", cntr=" + waitResponseCnt.get() + ", id=" + subscriberId);
     }
 
     // can be called from different threads
-    public synchronized boolean onRequestCompleted0() {
+    public synchronized void requestNext() {
         Pair<T, List<Integer>> minItemAndIds = chooseRequestedSubscriptionsIds();
         T minItem = minItemAndIds.left;
         List<Integer> subsIds = minItemAndIds.right;
 
         if (minItem == null)
-            return false;
+            return;
 
         remain = pushQueue(remain, comp, minItem);
 
         debug(">xxx> pushQueue :: end");
 
         if (remain > 0) {
-            long dataAmount = estimateSubscriptionRequestAmount(requested);
+            requestInternal(subsIds, requested);
+        }
+    }
 
-            for (Integer idx : subsIds) {
-                waitResponse.add(idx);
+    private void requestInternal(List<Integer> subsIds, long cnt) {
+        long dataAmount = estimateSubscriptionRequestAmount(cnt);
 
-                // todo remove this usage
-                subscribers.get(idx).onDataRequested(dataAmount);
-            }
+        for (Integer id : subsIds) {
+            if (finished.contains(id))
+                continue;
 
-            for (Integer idx : subsIds) {
-                debug(">xxx> idx=" + idx + " requested=" + dataAmount);
+            boolean added = waitResponse.add(id);
 
-                subscriptions.get(idx).request(dataAmount);
-            }
+            assert added : "concurrent request call [id=" + id + ']';
+
+            waitResponseCnt.incrementAndGet();
         }
 
-        return true;
+        for (Integer id : waitResponse) {
+            debug(">xxx> idx=" + id + " requested=" + dataAmount);
+
+            // todo remove this usage
+            subscribers.get(id).onDataRequested(dataAmount);
+            subscriptions.get(id).request(dataAmount);
+        }
     }
 
     /**

@@ -191,8 +191,6 @@ public class CompositePublisherTest {
             CompletableFuture<?> fut;
 
             while ((fut = futs.poll()) != null) {
-//            todo
-//                assert fut.isDone();
                 try {
                     fut.get();
                 } catch (InterruptedException | ExecutionException e) {
