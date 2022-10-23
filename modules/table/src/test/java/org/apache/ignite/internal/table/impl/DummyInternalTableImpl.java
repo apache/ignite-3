@@ -141,7 +141,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
         groupId = crossTableUsage ? new TablePartitionId(tableId(), 0) : crossTableGroupId;
 
-        lenient().doReturn(groupId.toString()).when(svc).groupId();
+        lenient().doReturn(groupId).when(svc).groupId();
         Peer leaderPeer = new Peer(ADDR);
         lenient().doReturn(leaderPeer).when(svc).leader();
         lenient().doReturn(CompletableFuture.completedFuture(new IgniteBiTuple<>(leaderPeer, 1L))).when(svc).refreshAndGetLeaderWithTerm();
