@@ -23,12 +23,12 @@
 namespace ignite::detail {
 
 void tables_impl::get_table_async(std::string_view name, ignite_callback<std::optional<table>> callback) {
-    auto reader_func = [name](protocol::reader &reader) -> std::optional<table> {
+    auto reader_func = [name, conn = m_connection](protocol::reader &reader) mutable -> std::optional<table> {
         if (reader.try_read_nil())
             return std::nullopt;
 
         auto id = reader.read_uuid();
-        auto tableImpl = std::make_shared<table_impl>(std::string(name), id);
+        auto tableImpl = std::make_shared<table_impl>(std::string(name), id, std::move(conn));
 
         return std::make_optional(table(tableImpl));
     };
@@ -41,15 +41,15 @@ void tables_impl::get_table_async(std::string_view name, ignite_callback<std::op
 }
 
 void tables_impl::get_tables_async(ignite_callback<std::vector<table>> callback) {
-    auto reader_func = [](protocol::reader &reader) -> std::vector<table> {
+    auto reader_func = [conn = m_connection](protocol::reader &reader) -> std::vector<table> {
         if (reader.try_read_nil())
             return {};
 
         std::vector<table> tables;
         tables.reserve(reader.read_map_size());
 
-        reader.read_map<uuid, std::string>([&tables](auto &&id, auto &&name) {
-            auto tableImpl = std::make_shared<table_impl>(std::forward<std::string>(name), std::forward<uuid>(id));
+        reader.read_map<uuid, std::string>([conn, &tables](auto &&id, auto &&name) {
+            auto tableImpl = std::make_shared<table_impl>(std::forward<std::string>(name), std::forward<uuid>(id), conn);
             tables.push_back(table{tableImpl});
         });
 
