@@ -20,6 +20,7 @@ namespace Apache.Ignite.Internal.Table
     using System;
     using System.Collections.Concurrent;
     using System.Diagnostics;
+    using System.Threading;
     using System.Threading.Tasks;
     using Buffers;
     using Ignite.Table;
@@ -45,13 +46,16 @@ namespace Apache.Ignite.Internal.Table
         private readonly object _latestSchemaLock = new();
 
         /** */
+        private readonly SemaphoreSlim _partitionAssignmentSemaphore = new(1);
+
+        /** */
         private volatile int _latestSchemaVersion = -1;
 
         /** */
         private volatile int _partitionAssignmentVersion = -1;
 
         /** */
-        private volatile string[]? _partitionAssignment = null;
+        private volatile string[]? _partitionAssignment;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Table"/> class.
@@ -173,14 +177,38 @@ namespace Apache.Ignite.Internal.Table
         /// <returns>Schema.</returns>
         internal async ValueTask<string[]> GetPartitionAssignmentAsync()
         {
-            if (_partitionAssignmentVersion == _socket.PartitionAssignmentVersion && _partitionAssignment != null)
+            var socketVer = _socket.PartitionAssignmentVersion;
+            var assignment = _partitionAssignment;
+
+            // Async double-checked locking. Assignment changes rarely, so we avoid the lock if possible.
+            if (_partitionAssignmentVersion == socketVer && assignment != null)
             {
-                return _partitionAssignment;
+                return assignment;
             }
 
-            // TODO: Update _partitionAssignmentVersion in a thread-safe way.
-            // TODO: Same problem in Java - we can miss updates or update too much.
-            return await LoadPartitionAssignmentAsync().ConfigureAwait(false);
+            await _partitionAssignmentSemaphore.WaitAsync();
+
+            try
+            {
+                socketVer = _socket.PartitionAssignmentVersion;
+                assignment = _partitionAssignment;
+
+                if (_partitionAssignmentVersion == socketVer && assignment != null)
+                {
+                    return assignment;
+                }
+
+                assignment = await LoadPartitionAssignmentAsync().ConfigureAwait(false);
+
+                _partitionAssignment = assignment;
+                _partitionAssignmentVersion = socketVer;
+
+                return assignment;
+            }
+            finally
+            {
+                _partitionAssignmentSemaphore.Release();
+            }
         }
 
         /// <summary>
