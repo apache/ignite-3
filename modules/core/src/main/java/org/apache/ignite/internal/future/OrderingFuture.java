@@ -429,8 +429,9 @@ public class OrderingFuture<T> {
          *
          * @param result Normal completion result ({@code null} if completed exceptionally, but might be {@code null} for normal completion.
          * @param ex     Exceptional completion cause ({@code null} if completed normally).
+         * @param context Notification context used to cache CompletionException, if needed.
          */
-        void onCompletion(T result, Throwable ex);
+        void onCompletion(T result, Throwable ex, NotificationContext context);
     }
 
     private static class WhenComplete<T> implements DependentAction<T> {
@@ -441,12 +442,12 @@ public class OrderingFuture<T> {
         }
 
         @Override
-        public void onCompletion(T result, Throwable ex) {
+        public void onCompletion(T result, Throwable ex, NotificationContext context) {
             acceptQuietly(action, result, ex);
         }
     }
 
-    private static class ThenComposeToCompletable<T, U> implements DependentAction<T> {
+    private static class ThenComposeToCompletable<T, U> implements DependentAction<T>, BiConsumer<U, Throwable> {
         private final CompletableFuture<U> resultFuture;
         private final Function<? super T, ? extends CompletableFuture<U>> mapper;
 
@@ -456,19 +457,26 @@ public class OrderingFuture<T> {
         }
 
         @Override
-        public void onCompletion(T result, Throwable ex) {
+        public void onCompletion(T result, Throwable ex, NotificationContext context) {
             if (ex != null) {
-                resultFuture.completeExceptionally(wrapWithCompletionException(ex));
+                resultFuture.completeExceptionally(context.completionExceptionCaching(ex));
                 return;
             }
 
             try {
                 CompletableFuture<U> mapResult = mapper.apply(result);
 
-                mapResult.whenComplete((mapRes, mapEx) -> completeCompletableFuture(resultFuture, mapRes, mapEx));
+                // Reusing this object as a BiConsumer instead of writing lambda to spare one allocation (might be
+                // important if there is a huge amount of dependents).
+                mapResult.whenComplete(this);
             } catch (Throwable e) {
                 resultFuture.completeExceptionally(e);
             }
+        }
+
+        @Override
+        public void accept(U mapRes, Throwable mapEx) {
+            completeCompletableFuture(resultFuture, mapRes, mapEx);
         }
     }
 
@@ -529,12 +537,14 @@ public class OrderingFuture<T> {
                 stack.addFirst(node);
             }
 
+            NotificationContext context = new NotificationContext();
+
             // Notify those dependents that are not notified yet.
             while (!stack.isEmpty()) {
                 ListNode<T> node = stack.removeFirst();
 
                 try {
-                    node.dependent.onCompletion(result, exception);
+                    node.dependent.onCompletion(result, exception, context);
                 } catch (Exception e) {
                     // ignore
                 }
@@ -558,5 +568,17 @@ public class OrderingFuture<T> {
          * are invoked immediately instead of being enqueued.
          */
         COMPLETED
+    }
+
+    private static class NotificationContext {
+        private CompletionException completionException;
+
+        CompletionException completionExceptionCaching(Throwable cause) {
+            if (completionException == null) {
+                completionException = wrapWithCompletionException(cause);
+            }
+
+            return completionException;
+        }
     }
 }
