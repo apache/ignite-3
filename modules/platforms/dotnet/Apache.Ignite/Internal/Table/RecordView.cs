@@ -76,7 +76,8 @@ namespace Apache.Ignite.Internal.Table
                 resultFactory: static count => count == 0
                     ? (IList<Option<T>>)Array.Empty<Option<T>>()
                     : new List<Option<T>>(count),
-                addAction: static (res, item) => res.Add(item));
+                addAction: static (res, item) => res.Add(item))
+                .ConfigureAwait(false);
 
         /// <summary>
         /// Gets multiple records by keys.
@@ -267,11 +268,11 @@ namespace Apache.Ignite.Internal.Table
 
         /// <inheritdoc/>
         public async Task<IList<T>> DeleteAllAsync(ITransaction? transaction, IEnumerable<T> keys) =>
-            await DeleteAllAsync(transaction, keys, exact: false);
+            await DeleteAllAsync(transaction, keys, exact: false).ConfigureAwait(false);
 
         /// <inheritdoc/>
         public async Task<IList<T>> DeleteAllExactAsync(ITransaction? transaction, IEnumerable<T> records) =>
-            await DeleteAllAsync(transaction, records, exact: true);
+            await DeleteAllAsync(transaction, records, exact: true).ConfigureAwait(false);
 
         /// <summary>
         /// Deletes multiple records. If one or more keys do not exist, other records are still deleted.
@@ -291,7 +292,7 @@ namespace Apache.Ignite.Internal.Table
                     ? (IList<T>)Array.Empty<T>()
                     : new List<T>(count),
                 addAction: static (res, item) => res.Add(item),
-                exact: exact);
+                exact: exact).ConfigureAwait(false);
 
         /// <summary>
         /// Deletes multiple records. If one or more keys do not exist, other records are still deleted.

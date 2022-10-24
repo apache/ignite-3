@@ -198,10 +198,11 @@ public class RaftServerImpl implements RaftServer {
             ReplicationGroupId groupId,
             RaftGroupEventsListener evLsnr,
             RaftGroupListener lsnr,
-            List<Peer> initialConf,
+            List<Peer> peers,
+            List<Peer> learners,
             RaftGroupOptions groupOptions
     ) {
-        return startRaftGroup(groupId, lsnr, initialConf, groupOptions);
+        return startRaftGroup(groupId, lsnr, peers, groupOptions);
     }
 
     /** {@inheritDoc} */

@@ -353,6 +353,7 @@ namespace Apache.Ignite.Internal
         /// <summary>
         /// Gets next connected socket, or connects a new one.
         /// </summary>
+        [SuppressMessage("Maintainability", "CA1508:Avoid dead conditional code", Justification = "False positive")]
         private async ValueTask<ClientSocket> GetNextSocketAsync()
         {
             List<Exception>? errors = null;
@@ -516,6 +517,7 @@ namespace Apache.Ignite.Internal
         /// <param name="attempt">Current attempt.</param>
         /// <param name="errors">Previous errors.</param>
         /// <returns>True if the error was handled, false otherwise.</returns>
+        [SuppressMessage("Microsoft.Design", "CA1002:DoNotExposeGenericLists", Justification = "Private.")]
         private bool HandleOpError(
             Exception exception,
             ClientOp op,
