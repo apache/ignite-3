@@ -50,6 +50,7 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
@@ -76,7 +77,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(ConfigurationExtension.class)
 public class ItLearnersTest extends IgniteAbstractTest {
-    private static final String RAFT_GROUP_NAME = "test";
+    private static final ReplicationGroupId RAFT_GROUP_ID = new ReplicationGroupId() {};
 
     private static final List<NetworkAddress> ADDRS = List.of(
             new NetworkAddress("localhost", 5000),
@@ -133,7 +134,7 @@ public class ItLearnersTest extends IgniteAbstractTest {
         @Override
         public void close() throws Exception {
             closeAll(
-                    loza == null ? null : () -> loza.stopRaftGroup(RAFT_GROUP_NAME),
+                    loza == null ? null : () -> loza.stopRaftGroup(RAFT_GROUP_ID),
                     loza == null ? null : loza::beforeNodeStop,
                     clusterService == null ? null : clusterService::beforeNodeStop,
                     loza == null ? null : loza::stop,
@@ -288,7 +289,7 @@ public class ItLearnersTest extends IgniteAbstractTest {
     ) {
         try {
             CompletableFuture<RaftGroupService> future = raftNode.loza.prepareRaftGroup(
-                    RAFT_GROUP_NAME,
+                    RAFT_GROUP_ID,
                     peers.stream().map(RaftNode::localMember).collect(toList()),
                     learners.stream().map(RaftNode::localMember).collect(toList()),
                     () -> listener,

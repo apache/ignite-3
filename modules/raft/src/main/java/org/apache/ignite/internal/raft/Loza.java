@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.raft;
 
-import static org.apache.ignite.internal.raft.server.RaftGroupEventsListener.noopLsnr;
-
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
@@ -59,6 +57,8 @@ import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupServiceImpl;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.jetbrains.annotations.TestOnly;
+
+import static org.apache.ignite.internal.raft.server.RaftGroupEventsListener.noopLsnr;
 
 /**
  * Best raft manager ever since 1982.
@@ -177,8 +177,8 @@ public class Loza implements IgniteComponent {
     }
 
     /**
-     * Creates a raft group service providing operations on a raft group. If {@code nodes} contains the current node, then raft group starts
-     * on the current node.
+     * Creates a raft group service providing operations on a raft group. If {@code nodes} or {@code learnerNodes} contains the current node,
+     * then raft group starts on the current node.
      *
      * @param groupId Raft group id.
      * @param nodes Raft group nodes.
@@ -289,7 +289,7 @@ public class Loza implements IgniteComponent {
     }
 
     private void startRaftGroupNodeInternal(
-            String grpId,
+            ReplicationGroupId grpId,
             List<Peer> peers,
             List<Peer> learners,
             RaftGroupListener lsnr,
@@ -312,7 +312,11 @@ public class Loza implements IgniteComponent {
         }
     }
 
-    private CompletableFuture<RaftGroupService> startRaftGroupServiceInternal(String grpId, List<Peer> peers, List<Peer> learners) {
+    private CompletableFuture<RaftGroupService> startRaftGroupServiceInternal(
+            ReplicationGroupId grpId,
+            List<Peer> peers,
+            List<Peer> learners
+    ) {
         assert !peers.isEmpty();
 
         return RaftGroupServiceImpl.start(
