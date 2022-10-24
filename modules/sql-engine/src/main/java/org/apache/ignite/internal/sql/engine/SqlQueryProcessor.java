@@ -402,7 +402,8 @@ public class SqlQueryProcessor implements QueryProcessor {
                             .cancel(queryCancel)
                             .parameters(params)
                             .transaction(outerTx)
-                            .transactionTime(rwTx ? null : new HybridClock().now())
+                            // use new implementation after ignite-17260
+                            .transactionTime(/*outerTx != null ? outerTx.timeStamp() : */new HybridClock().now())
                             .plannerTimeout(PLANNER_TIMEOUT)
                             .build();
 
