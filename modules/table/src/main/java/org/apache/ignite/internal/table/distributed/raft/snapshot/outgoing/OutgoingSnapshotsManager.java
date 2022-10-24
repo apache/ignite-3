@@ -70,8 +70,6 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, OutgoingSn
     // TODO: IGNITE-17935 - remove partition from this map when partition is closed/destroyed
     private final Map<PartitionKey, PartitionSnapshotsImpl> snapshotsByPartition = new ConcurrentHashMap<>();
 
-    private final Object snapshotsLock = new Object();
-
     private volatile ExecutorService executor;
 
     /**
@@ -112,12 +110,10 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, OutgoingSn
      */
     @Override
     public void registerOutgoingSnapshot(UUID snapshotId, OutgoingSnapshot outgoingSnapshot) {
-        synchronized (snapshotsLock) {
-            snapshots.put(snapshotId, outgoingSnapshot);
+        snapshots.put(snapshotId, outgoingSnapshot);
 
-            PartitionSnapshotsImpl partitionSnapshots = getPartitionSnapshots(outgoingSnapshot.partitionKey());
-            partitionSnapshots.addUnderLock(outgoingSnapshot);
-        }
+        PartitionSnapshotsImpl partitionSnapshots = getPartitionSnapshots(outgoingSnapshot.partitionKey());
+        partitionSnapshots.addUnderLock(outgoingSnapshot);
     }
 
     private PartitionSnapshotsImpl getPartitionSnapshots(PartitionKey partitionKey) {
@@ -134,17 +130,15 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, OutgoingSn
      */
     @Override
     public void unregisterOutgoingSnapshot(UUID snapshotId) {
-        synchronized (snapshotsLock) {
-            OutgoingSnapshot removedSnapshot = snapshots.remove(snapshotId);
+        OutgoingSnapshot removedSnapshot = snapshots.remove(snapshotId);
 
-            if (removedSnapshot != null) {
-                PartitionSnapshotsImpl partitionSnapshots = snapshotsByPartition.get(removedSnapshot.partitionKey());
+        if (removedSnapshot != null) {
+            PartitionSnapshotsImpl partitionSnapshots = snapshotsByPartition.get(removedSnapshot.partitionKey());
 
-                assert partitionSnapshots != null : "Snapshot existed with ID=" + snapshotId
-                        + ", but nothing was found for its partition " + removedSnapshot.partitionKey();
+            assert partitionSnapshots != null : "Snapshot existed with ID=" + snapshotId
+                    + ", but nothing was found for its partition " + removedSnapshot.partitionKey();
 
-                partitionSnapshots.removeUnderLock(removedSnapshot);
-            }
+            partitionSnapshots.removeUnderLock(removedSnapshot);
         }
     }
 
