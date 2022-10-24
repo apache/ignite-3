@@ -49,7 +49,8 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
 
     /// <inheritdoc/>
     public async Task<Option<TV>> GetAsync(ITransaction? transaction, TK key) =>
-        (await _recordView.GetAsync(transaction, ToKv(key))).Select(static x => x.Val);
+        (await _recordView.GetAsync(transaction, ToKv(key)).ConfigureAwait(false))
+        .Select(static x => x.Val);
 
     /// <inheritdoc/>
     public async Task<IDictionary<TK, TV>> GetAllAsync(ITransaction? transaction, IEnumerable<TK> keys) =>
@@ -65,35 +66,36 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
                 {
                     dict[key] = val;
                 }
-            });
+            }).ConfigureAwait(false);
 
     /// <inheritdoc/>
     public async Task<bool> ContainsAsync(ITransaction? transaction, TK key) =>
-        await _recordView.ContainsKey(transaction, ToKv(key));
+        await _recordView.ContainsKey(transaction, ToKv(key)).ConfigureAwait(false);
 
     /// <inheritdoc/>
     public async Task PutAsync(ITransaction? transaction, TK key, TV val) =>
-        await _recordView.UpsertAsync(transaction, ToKv(key, val));
+        await _recordView.UpsertAsync(transaction, ToKv(key, val)).ConfigureAwait(false);
 
     /// <inheritdoc/>
     public async Task PutAllAsync(ITransaction? transaction, IEnumerable<KeyValuePair<TK, TV>> pairs) =>
-        await _recordView.UpsertAllAsync(transaction, pairs.Select(static x => ToKv(x)));
+        await _recordView.UpsertAllAsync(transaction, pairs.Select(static x => ToKv(x))).ConfigureAwait(false);
 
     /// <inheritdoc/>
     public async Task<Option<TV>> GetAndPutAsync(ITransaction? transaction, TK key, TV val) =>
-        (await _recordView.GetAndUpsertAsync(transaction, new KvPair<TK, TV>(key, val))).Select(static x => x.Val);
+        (await _recordView.GetAndUpsertAsync(transaction, new KvPair<TK, TV>(key, val)).ConfigureAwait(false))
+        .Select(static x => x.Val);
 
     /// <inheritdoc/>
     public async Task<bool> PutIfAbsentAsync(ITransaction? transaction, TK key, TV val) =>
-        await _recordView.InsertAsync(transaction, ToKv(key, val));
+        await _recordView.InsertAsync(transaction, ToKv(key, val)).ConfigureAwait(false);
 
     /// <inheritdoc/>
     public async Task<bool> RemoveAsync(ITransaction? transaction, TK key) =>
-        await _recordView.DeleteAsync(transaction, ToKv(key));
+        await _recordView.DeleteAsync(transaction, ToKv(key)).ConfigureAwait(false);
 
     /// <inheritdoc/>
     public async Task<bool> RemoveAsync(ITransaction? transaction, TK key, TV val) =>
-        await _recordView.DeleteExactAsync(transaction, ToKv(key, val));
+        await _recordView.DeleteExactAsync(transaction, ToKv(key, val)).ConfigureAwait(false);
 
     /// <inheritdoc/>
     public async Task<IList<TK>> RemoveAllAsync(ITransaction? transaction, IEnumerable<TK> keys)
@@ -107,7 +109,7 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
                 ? (IList<TK>)Array.Empty<TK>()
                 : new List<TK>(count),
             addAction: static (res, item) => res.Add(item.Key),
-            exact: false);
+            exact: false).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
@@ -122,24 +124,26 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
                 ? (IList<TK>)Array.Empty<TK>()
                 : new List<TK>(count),
             addAction: static (res, item) => res.Add(item.Key),
-            exact: true);
+            exact: true).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
     public async Task<Option<TV>> GetAndRemoveAsync(ITransaction? transaction, TK key) =>
-        (await _recordView.GetAndDeleteAsync(transaction, ToKv(key))).Select(static x => x.Val);
+        (await _recordView.GetAndDeleteAsync(transaction, ToKv(key)).ConfigureAwait(false))
+        .Select(static x => x.Val);
 
     /// <inheritdoc/>
     public async Task<bool> ReplaceAsync(ITransaction? transaction, TK key, TV val) =>
-        await _recordView.ReplaceAsync(transaction, ToKv(key, val));
+        await _recordView.ReplaceAsync(transaction, ToKv(key, val)).ConfigureAwait(false);
 
     /// <inheritdoc/>
     public async Task<bool> ReplaceAsync(ITransaction? transaction, TK key, TV oldVal, TV newVal) =>
-        await _recordView.ReplaceAsync(transaction, ToKv(key, oldVal), ToKv(key, newVal));
+        await _recordView.ReplaceAsync(transaction, ToKv(key, oldVal), ToKv(key, newVal)).ConfigureAwait(false);
 
     /// <inheritdoc/>
     public async Task<Option<TV>> GetAndReplaceAsync(ITransaction? transaction, TK key, TV val) =>
-        (await _recordView.GetAndReplaceAsync(transaction, ToKv(key, val))).Select(static x => x.Val);
+        (await _recordView.GetAndReplaceAsync(transaction, ToKv(key, val)).ConfigureAwait(false))
+        .Select(static x => x.Val);
 
     private static KvPair<TK, TV> ToKv(KeyValuePair<TK, TV> x)
     {
