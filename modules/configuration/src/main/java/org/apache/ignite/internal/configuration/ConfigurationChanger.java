@@ -327,13 +327,13 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
             // Data from the storage.
             CompletableFuture<Serializable> asyncFut = new CompletableFuture<>();
 
-            storage.readLatest(unresolvedNameKey).whenCompleteAsync((serializable, throwable) -> {
+            new Thread(() -> storage.readLatest(unresolvedNameKey).whenComplete((serializable, throwable) -> {
                 if (throwable != null) {
                     asyncFut.completeExceptionally(throwable);
                 } else {
                     asyncFut.complete(serializable);
                 }
-            });
+            })).start();
 
             Serializable resolvedName = get(asyncFut);
 
