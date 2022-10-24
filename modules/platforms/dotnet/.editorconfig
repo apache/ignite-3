@@ -15,7 +15,15 @@ insert_final_newline = true
 # Code analysis
 dotnet_code_quality.api_surface = all
 
+dotnet_diagnostic.CA2000.severity = error # Dispose objects before losing scope
+dotnet_diagnostic.CA2002.severity = error # Do not lock on objects with weak identity
 dotnet_diagnostic.CA2007.severity = error # Require ConfigureAwait
+dotnet_diagnostic.CA2008.severity = error # Require TaskScheduler
+dotnet_diagnostic.CA2012.severity = error # Use ValueTasks correctly
+dotnet_diagnostic.CA2013.severity = error # Do not use ReferenceEquals with value types
+dotnet_diagnostic.CA2014.severity = error # Do not use stackalloc in loops
+dotnet_diagnostic.CA2016.severity = error # Forward the CancellationToken parameter to methods that take one
+dotnet_diagnostic.CA2017.severity = error # Parameter count mismatch in logging template
 
 dotnet_diagnostic.CA1024.severity = none # Use properties where appropriate
 dotnet_diagnostic.CA1303.severity = none # Use resource tables

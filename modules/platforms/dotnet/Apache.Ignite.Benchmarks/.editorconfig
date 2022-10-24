@@ -1,0 +1,5 @@
+# All files
+[*]
+
+# Code analysis
+dotnet_diagnostic.CA2007.severity = none # Require ConfigureAwait
