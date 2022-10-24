@@ -542,6 +542,8 @@ public class PartitionReplicaListener implements ReplicaListener {
             return lockManager.acquire(txId, new LockKey(tableId), LockMode.IS).thenCompose(tblLock -> { // Table IS lock
                 @SuppressWarnings("resource") Cursor<IndexRow> cursor = (Cursor<IndexRow>) cursors.computeIfAbsent(cursorId,
                         id -> {
+                            //TODO: Fix scan cursor return item closet to lowerbound and <= lowerbound
+                            // to correctly lock range between lowerbound value and the item next to lowerbound.
                             return indexStorage.scan(
                                     lowerBound == null ? null : BinaryTuplePrefix.fromBinaryTuple(lowerBound),
                                     // We need upperBound next value for correct range lock.
