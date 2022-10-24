@@ -63,12 +63,12 @@ class ItSimpleCounterServerTest extends RaftServerAbstractTest {
     /**
      * Counter raft group 0.
      */
-    private static final String COUNTER_GROUP_ID_0 = "counter0";
+    private static final TestReplicationGroupId COUNTER_GROUP_ID_0 = new TestReplicationGroupId("counter0");
 
     /**
      * Counter raft group 1.
      */
-    private static final String COUNTER_GROUP_ID_1 = "counter1";
+    private static final TestReplicationGroupId COUNTER_GROUP_ID_1 = new TestReplicationGroupId("counter1");
 
     /**
      * The client 1.

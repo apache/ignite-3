@@ -15,23 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.replication.request;
+package org.apache.ignite.internal.replicator;
 
-import org.apache.ignite.internal.table.distributed.TableMessageGroup;
-import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
-import org.apache.ignite.network.annotations.Marshallable;
-import org.apache.ignite.network.annotations.Transferable;
+import java.io.Serializable;
 
 /**
- * Read-write dual row replica request.
+ * The interface represents a replication group identifier.
  */
-@Transferable(TableMessageGroup.RW_DUAL_ROW_REPLICA_REQUEST)
-public interface ReadWriteSwapRowReplicaRequest extends SwapRowReplicaRequest, ReadWriteReplicaRequest {
-    /**
-     * Gets a commit partition id.
-     *
-     * @return Table partition id.
-     */
-    @Marshallable
-    TablePartitionId commitPartitionId();
+public interface ReplicationGroupId extends Serializable {
 }
