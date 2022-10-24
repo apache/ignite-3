@@ -74,16 +74,16 @@ namespace Apache.Ignite.Tests
 
         public IClusterNode Node { get; }
 
+        public int Port => ((IPEndPoint)_listener.LocalEndPoint!).Port;
+
         internal IList<ClientOp> ClientOps => _ops?.ToList() ?? throw new Exception("Ops tracking is disabled");
 
         public async Task<IIgniteClient> ConnectClientAsync(IgniteClientConfiguration? cfg = null)
         {
-            var port = ((IPEndPoint)_listener.LocalEndPoint!).Port;
-
             cfg ??= new IgniteClientConfiguration();
 
             cfg.Endpoints.Clear();
-            cfg.Endpoints.Add("127.0.0.1:" + port);
+            cfg.Endpoints.Add("127.0.0.1:" + Port);
 
             return await IgniteClient.StartAsync(cfg);
         }
