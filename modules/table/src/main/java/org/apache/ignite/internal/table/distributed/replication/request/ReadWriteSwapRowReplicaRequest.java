@@ -28,10 +28,10 @@ import org.apache.ignite.network.annotations.Transferable;
 @Transferable(TableMessageGroup.RW_DUAL_ROW_REPLICA_REQUEST)
 public interface ReadWriteSwapRowReplicaRequest extends SwapRowReplicaRequest, ReadWriteReplicaRequest {
     /**
-     * Gets a committed partition id.
+     * Gets a commit partition id.
      *
      * @return Table partition id.
      */
     @Marshallable
-    TablePartitionId committedPartitionId();
+    TablePartitionId commitPartitionId();
 }

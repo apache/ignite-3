@@ -15,23 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.replicator;
+package org.apache.ignite.internal.metastorage.common;
+
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 
 /**
- * Matastorage replication group id.
+ * Meta storage replication group id.
  */
-public class MetastorageGroupId implements ReplicationGroupId {
-    /** Meta storage raft group name. */
-    public static final MetastorageGroupId METASTORAGE_RAFT_GROUP_NAME = new MetastorageGroupId();
+public enum MetastorageGroupId implements ReplicationGroupId {
+    /** Meta storage group id. */
+    INSTANCE("metastorage_group");
+
+    /** Group id string representation. */
+    private String name;
 
     /**
      * The constructor.
+     *
+     * @param name The string representation of the enum.
      */
-    private MetastorageGroupId() {
+    MetastorageGroupId(String name) {
+        this.name = name;
     }
 
+    /** {@inheritDoc} */
     @Override
     public String toString() {
-        return "metastorage_raft_group";
+        return name;
     }
 }

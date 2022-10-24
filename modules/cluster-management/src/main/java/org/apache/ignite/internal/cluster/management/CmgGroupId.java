@@ -15,23 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.replicator;
+package org.apache.ignite.internal.cluster.management;
+
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 
 /**
  * CMG replication group id.
  */
-public class CmgGroupId implements ReplicationGroupId {
-    /** CMG Raft group name. */
-    public static final CmgGroupId CMG_RAFT_GROUP_NAME = new CmgGroupId();
+public enum CmgGroupId implements ReplicationGroupId {
+    /** CMG group id. */
+    INSTANCE("cmg_group");
+
+    /** Group id string representation. */
+    private String name;
 
     /**
      * The constructor.
+     *
+     * @param name The string representation of the enum.
      */
-    private CmgGroupId() {
+    CmgGroupId(String name) {
+        this.name = name;
     }
 
+    /** {@inheritDoc} */
     @Override
     public String toString() {
-        return "cmg_raft_group";
+        return name;
     }
 }

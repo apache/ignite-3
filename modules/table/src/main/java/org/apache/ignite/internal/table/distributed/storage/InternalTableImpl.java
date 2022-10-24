@@ -207,7 +207,7 @@ public class InternalTableImpl implements InternalTable {
         CompletableFuture<R> fut;
 
         if (primaryReplicaAndTerm != null) {
-            TablePartitionId commitPart = (TablePartitionId) tx.committedPartition();
+            TablePartitionId commitPart = (TablePartitionId) tx.commitPartition();
 
             ReplicaRequest request = op.apply(commitPart, tx0, partGroupId, primaryReplicaAndTerm.get2());
 
@@ -268,7 +268,7 @@ public class InternalTableImpl implements InternalTable {
             CompletableFuture<Object> fut;
 
             if (primaryReplicaAndTerm != null) {
-                TablePartitionId commitPart = (TablePartitionId) tx.committedPartition();
+                TablePartitionId commitPart = (TablePartitionId) tx.commitPartition();
 
                 ReplicaRequest request = op.apply(commitPart, partToRows.getValue(), tx0, partGroupId, primaryReplicaAndTerm.get2());
 
@@ -363,7 +363,7 @@ public class InternalTableImpl implements InternalTable {
                             try {
                                 return replicaSvc.invoke(
                                         primaryReplicaAndTerm.get1(),
-                                        requestFunction.apply((TablePartitionId) tx.committedPartition(), primaryReplicaAndTerm.get2())
+                                        requestFunction.apply((TablePartitionId) tx.commitPartition(), primaryReplicaAndTerm.get2())
                                 );
                             } catch (PrimaryReplicaMissException e) {
                                 throw new TransactionException(e);
@@ -470,7 +470,7 @@ public class InternalTableImpl implements InternalTable {
                 tx,
                 (commitPart, txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
                         .groupId(groupId)
-                        .committedPartitionId(commitPart)
+                        .commitPartitionId(commitPart)
                         .binaryRow(row)
                         .transactionId(txo.id())
                         .term(term)
@@ -487,7 +487,7 @@ public class InternalTableImpl implements InternalTable {
                 tx,
                 (commitPart, keyRows0, txo, groupId, term) -> tableMessagesFactory.readWriteMultiRowReplicaRequest()
                         .groupId(groupId)
-                        .committedPartitionId(commitPart)
+                        .commitPartitionId(commitPart)
                         .binaryRows(keyRows0)
                         .transactionId(txo.id())
                         .term(term)
@@ -505,7 +505,7 @@ public class InternalTableImpl implements InternalTable {
                 tx,
                 (commitPart, txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
                         .groupId(groupId)
-                        .committedPartitionId(commitPart)
+                        .commitPartitionId(commitPart)
                         .binaryRow(row)
                         .transactionId(txo.id())
                         .term(term)
@@ -523,7 +523,7 @@ public class InternalTableImpl implements InternalTable {
                 tx,
                 (commitPart, txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
                         .groupId(groupId)
-                        .committedPartitionId(commitPart)
+                        .commitPartitionId(commitPart)
                         .binaryRow(row)
                         .transactionId(txo.id())
                         .term(term)
@@ -541,7 +541,7 @@ public class InternalTableImpl implements InternalTable {
                 tx,
                 (commitPart, keyRows0, txo, groupId, term) -> tableMessagesFactory.readWriteMultiRowReplicaRequest()
                         .groupId(groupId)
-                        .committedPartitionId(commitPart)
+                        .commitPartitionId(commitPart)
                         .binaryRows(keyRows0)
                         .transactionId(txo.id())
                         .term(term)
@@ -559,7 +559,7 @@ public class InternalTableImpl implements InternalTable {
                 tx,
                 (commitPart, txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
                         .groupId(groupId)
-                        .committedPartitionId(commitPart)
+                        .commitPartitionId(commitPart)
                         .binaryRow(row)
                         .transactionId(txo.id())
                         .term(term)
@@ -577,7 +577,7 @@ public class InternalTableImpl implements InternalTable {
                 tx,
                 (commitPart, txo, groupId, term) -> tableMessagesFactory.readWriteSwapRowReplicaRequest()
                         .groupId(groupId)
-                        .committedPartitionId(commitPart)
+                        .commitPartitionId(commitPart)
                         .oldBinaryRow(oldRow)
                         .binaryRow(newRow)
                         .transactionId(txo.id())
@@ -596,7 +596,7 @@ public class InternalTableImpl implements InternalTable {
                 tx,
                 (commitPart, txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
                         .groupId(groupId)
-                        .committedPartitionId(commitPart)
+                        .commitPartitionId(commitPart)
                         .binaryRow(row)
                         .transactionId(txo.id())
                         .term(term)
@@ -614,7 +614,7 @@ public class InternalTableImpl implements InternalTable {
                 tx,
                 (commitPart, txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
                         .groupId(groupId)
-                        .committedPartitionId(commitPart)
+                        .commitPartitionId(commitPart)
                         .binaryRow(keyRow)
                         .transactionId(txo.id())
                         .term(term)
@@ -632,7 +632,7 @@ public class InternalTableImpl implements InternalTable {
                 tx,
                 (commitPart, txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
                         .groupId(groupId)
-                        .committedPartitionId(commitPart)
+                        .commitPartitionId(commitPart)
                         .binaryRow(oldRow)
                         .transactionId(txo.id())
                         .term(term)
@@ -650,7 +650,7 @@ public class InternalTableImpl implements InternalTable {
                 tx,
                 (commitPart, txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
                         .groupId(groupId)
-                        .committedPartitionId(commitPart)
+                        .commitPartitionId(commitPart)
                         .binaryRow(row)
                         .transactionId(txo.id())
                         .term(term)
@@ -668,7 +668,7 @@ public class InternalTableImpl implements InternalTable {
                 tx,
                 (commitPart, keyRows0, txo, groupId, term) -> tableMessagesFactory.readWriteMultiRowReplicaRequest()
                         .groupId(groupId)
-                        .committedPartitionId(commitPart)
+                        .commitPartitionId(commitPart)
                         .binaryRows(keyRows0)
                         .transactionId(txo.id())
                         .term(term)
@@ -689,7 +689,7 @@ public class InternalTableImpl implements InternalTable {
                 tx,
                 (commitPart, keyRows0, txo, groupId, term) -> tableMessagesFactory.readWriteMultiRowReplicaRequest()
                         .groupId(groupId)
-                        .committedPartitionId(commitPart)
+                        .commitPartitionId(commitPart)
                         .binaryRows(keyRows0)
                         .transactionId(txo.id())
                         .term(term)

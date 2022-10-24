@@ -661,10 +661,10 @@ public class PartitionReplicaListener implements ReplicaListener {
         UUID indexId = indexIdOrDefault(indexPkId/*request.indexToUse()*/);
 
         UUID txId = request.transactionId();
-        TablePartitionId committedPartitionId = request.committedPartitionId();
+        TablePartitionId committedPartitionId = request.commitPartitionId();
 
         assert committedPartitionId != null || request.requestType() == RequestType.RW_GET_ALL
-                : "Committed partition partition is null [type=" + request.requestType() + ']';
+                : "Commit partition partition is null [type=" + request.requestType() + ']';
 
         switch (request.requestType()) {
             case RW_GET_ALL: {
@@ -857,10 +857,10 @@ public class PartitionReplicaListener implements ReplicaListener {
     private CompletableFuture<Object> processSingleEntryAction(ReadWriteSingleRowReplicaRequest request) {
         UUID txId = request.transactionId();
         BinaryRow searchRow = request.binaryRow();
-        TablePartitionId committedPartitionId = request.committedPartitionId();
+        TablePartitionId commitPartitionId = request.commitPartitionId();
 
-        assert committedPartitionId != null || request.requestType() == RequestType.RW_GET :
-                "Committed partition partition is null [type=" + request.requestType() + ']';
+        assert commitPartitionId != null || request.requestType() == RequestType.RW_GET :
+                "Commit partition partition is null [type=" + request.requestType() + ']';
 
         ByteBuffer searchKey = searchRow.keySlice();
 
@@ -884,7 +884,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     boolean removed = lockedRowId != null;
 
                     CompletableFuture raftFut =
-                            removed ? applyCmdWithExceptionHandling(new UpdateCommand(committedPartitionId, lockedRowId, txId)) :
+                            removed ? applyCmdWithExceptionHandling(new UpdateCommand(commitPartitionId, lockedRowId, txId)) :
                                     CompletableFuture.completedFuture(null);
 
                     return raftFut.thenApply(ignored -> removed);
@@ -898,7 +898,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                             ? resolveReadResult(mvDataStorage.read(lockedRowId, HybridTimestamp.MAX_VALUE), txId) : null;
 
                     CompletableFuture raftFut =
-                            lockedRowId != null ? applyCmdWithExceptionHandling(new UpdateCommand(committedPartitionId, lockedRowId, txId))
+                            lockedRowId != null ? applyCmdWithExceptionHandling(new UpdateCommand(commitPartitionId, lockedRowId, txId))
                                     : CompletableFuture.completedFuture(null);
 
                     return raftFut.thenApply(ignored -> lockedRow);
@@ -911,7 +911,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     boolean removed = lockedRow != null;
 
                     CompletableFuture raftFut =
-                            removed ? applyCmdWithExceptionHandling(new UpdateCommand(committedPartitionId, lockedRow, txId)) :
+                            removed ? applyCmdWithExceptionHandling(new UpdateCommand(commitPartitionId, lockedRow, txId)) :
                                     CompletableFuture.completedFuture(null);
 
                     return raftFut.thenApply(ignored -> removed);
@@ -925,7 +925,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     CompletableFuture raftFut =
                             lockedRowId == null ? applyCmdWithExceptionHandling(
-                                    new UpdateCommand(committedPartitionId, new RowId(partId), searchRow, txId)) :
+                                    new UpdateCommand(commitPartitionId, new RowId(partId), searchRow, txId)) :
                                     CompletableFuture.completedFuture(null);
 
                     return raftFut.thenApply(ignored -> inserted);
@@ -936,8 +936,8 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                 return lockFut.thenCompose(lockedRowId -> {
                     CompletableFuture raftFut = lockedRowId != null ? applyCmdWithExceptionHandling(
-                            new UpdateCommand(committedPartitionId, lockedRowId, searchRow, txId)) :
-                            applyCmdWithExceptionHandling(new UpdateCommand(committedPartitionId, new RowId(partId), searchRow, txId));
+                            new UpdateCommand(commitPartitionId, lockedRowId, searchRow, txId)) :
+                            applyCmdWithExceptionHandling(new UpdateCommand(commitPartitionId, new RowId(partId), searchRow, txId));
 
                     return raftFut.thenApply(ignored -> null);
                 });
@@ -959,9 +959,9 @@ public class PartitionReplicaListener implements ReplicaListener {
                                                     ? resolveReadResult(mvDataStorage.read(rowId, HybridTimestamp.MAX_VALUE), txId) : null;
 
                                             CompletableFuture raftFut = rowId != null ? applyCmdWithExceptionHandling(
-                                                    new UpdateCommand(committedPartitionId, rowId, searchRow, txId))
+                                                    new UpdateCommand(commitPartitionId, rowId, searchRow, txId))
                                                     : applyCmdWithExceptionHandling(
-                                                            new UpdateCommand(committedPartitionId, new RowId(partId), searchRow, txId));
+                                                            new UpdateCommand(commitPartitionId, new RowId(partId), searchRow, txId));
 
                                             return raftFut.thenApply(ignored -> result);
                                         });
@@ -998,7 +998,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                 return rowLockFut.thenCompose(lockedRow -> {
                                     CompletableFuture raftFut = lockedRow == null ? CompletableFuture.completedFuture(null) :
                                             applyCmdWithExceptionHandling(
-                                                    new UpdateCommand(committedPartitionId, lockedRowId, searchRow, txId));
+                                                    new UpdateCommand(commitPartitionId, lockedRowId, searchRow, txId));
 
                                     return raftFut.thenApply(ignored -> lockedRow);
                                 });
@@ -1012,7 +1012,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     boolean replaced = lockedRowId != null;
 
                     CompletableFuture raftFut =
-                            replaced ? applyCmdWithExceptionHandling(new UpdateCommand(committedPartitionId, lockedRowId, searchRow, txId))
+                            replaced ? applyCmdWithExceptionHandling(new UpdateCommand(commitPartitionId, lockedRowId, searchRow, txId))
                                     : CompletableFuture.completedFuture(null);
 
                     return raftFut.thenApply(ignored -> replaced);
@@ -1208,9 +1208,9 @@ public class PartitionReplicaListener implements ReplicaListener {
     private CompletableFuture<Object> processTwoEntriesAction(ReadWriteSwapRowReplicaRequest request) {
         BinaryRow searchRow = request.binaryRow();
         BinaryRow oldRow = request.oldBinaryRow();
-        TablePartitionId committedPartitionId = request.committedPartitionId();
+        TablePartitionId commitPartitionId = request.commitPartitionId();
 
-        assert committedPartitionId != null : "Committed partition partition is null [type=" + request.requestType() + ']';
+        assert commitPartitionId != null : "Commit partition partition is null [type=" + request.requestType() + ']';
 
         ByteBuffer searchKey = searchRow.keySlice();
 
@@ -1226,7 +1226,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     boolean replaced = lockedRowId != null;
 
                     CompletableFuture raftFut =
-                            replaced ? applyCmdWithExceptionHandling(new UpdateCommand(committedPartitionId, lockedRowId, searchRow, txId))
+                            replaced ? applyCmdWithExceptionHandling(new UpdateCommand(commitPartitionId, lockedRowId, searchRow, txId))
                                     : CompletableFuture.completedFuture(null);
 
                     return raftFut.thenApply(ignored -> replaced);

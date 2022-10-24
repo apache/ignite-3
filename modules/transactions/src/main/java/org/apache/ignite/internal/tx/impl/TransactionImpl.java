@@ -84,7 +84,7 @@ public class TransactionImpl implements InternalTransaction {
 
     /** {@inheritDoc} */
     @Override
-    public ReplicationGroupId committedPartition() {
+    public ReplicationGroupId commitPartition() {
         return commitPartitionRef.get();
     }
 

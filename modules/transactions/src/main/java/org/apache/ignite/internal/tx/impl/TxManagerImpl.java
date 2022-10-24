@@ -103,7 +103,7 @@ public class TxManagerImpl implements TxManager {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> finish(
-            ReplicationGroupId committedPartition,
+            ReplicationGroupId commitPartition,
             ClusterNode recipientNode,
             Long term,
             boolean commit,
@@ -116,7 +116,7 @@ public class TxManagerImpl implements TxManager {
 
         TxFinishReplicaRequest req = FACTORY.txFinishReplicaRequest()
                 .txId(txId)
-                .groupId(committedPartition)
+                .groupId(commitPartition)
                 .groups(groups)
                 .commit(commit)
                 .commitTimestamp(commitTimestamp)

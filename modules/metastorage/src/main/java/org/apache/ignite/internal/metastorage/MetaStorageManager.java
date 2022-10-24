@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.metastorage;
 
-import static org.apache.ignite.internal.replicator.MetastorageGroupId.METASTORAGE_RAFT_GROUP_NAME;
+import static org.apache.ignite.internal.metastorage.common.MetastorageGroupId.INSTANCE;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.CURSOR_CLOSING_ERR;
@@ -177,7 +177,7 @@ public class MetaStorageManager implements IgniteComponent {
 
         try {
             CompletableFuture<RaftGroupService> raftServiceFuture = raftMgr.prepareRaftGroup(
-                    METASTORAGE_RAFT_GROUP_NAME,
+                    INSTANCE,
                     metastorageNodes,
                     () -> new MetaStorageListener(storage),
                     RaftGroupOptions.defaults()
@@ -226,7 +226,7 @@ public class MetaStorageManager implements IgniteComponent {
         synchronized (this) {
             IgniteUtils.closeAll(
                     this::stopDeployedWatches,
-                    () -> raftMgr.stopRaftGroup(METASTORAGE_RAFT_GROUP_NAME),
+                    () -> raftMgr.stopRaftGroup(INSTANCE),
                     storage
             );
         }

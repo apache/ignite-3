@@ -74,7 +74,7 @@ public interface TxManager extends IgniteComponent {
     /**
      * Finishes a dependant transactions.
      *
-     * @param committedPartition Partition to store a transaction state.
+     * @param commitPartition Partition to store a transaction state.
      * @param recipientNode Recipient node.
      * @param term Raft term.
      * @param commit {@code True} if a commit requested.
@@ -82,7 +82,7 @@ public interface TxManager extends IgniteComponent {
      * @param txId Transaction id.
      */
     CompletableFuture<Void> finish(
-            ReplicationGroupId committedPartition,
+            ReplicationGroupId commitPartition,
             ClusterNode recipientNode,
             Long term,
             boolean commit,

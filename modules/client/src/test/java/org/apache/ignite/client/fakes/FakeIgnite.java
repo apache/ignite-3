@@ -110,7 +110,7 @@ public class FakeIgnite implements Ignite {
                     }
 
                     @Override
-                    public ReplicationGroupId committedPartition() {
+                    public ReplicationGroupId commitPartition() {
                         return null;
                     }
 

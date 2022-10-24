@@ -56,7 +56,7 @@ public interface InternalTransaction extends Transaction {
     /**
      * Assigns a replication group id to store the transaction state.
      *
-     * @param replicationGroupId Committed partition id.
+     * @param replicationGroupId Commit partition group id.
      * @return True if the replication group was assigned as committed, false otherwise.
      */
     boolean assignCommitPartition(ReplicationGroupId replicationGroupId);
@@ -66,7 +66,7 @@ public interface InternalTransaction extends Transaction {
      *
      * @return Replication group id.
      */
-    ReplicationGroupId committedPartition();
+    ReplicationGroupId commitPartition();
 
     /**
      * Enlists a partition group into a transaction.

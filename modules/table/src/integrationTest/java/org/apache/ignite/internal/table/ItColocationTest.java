@@ -131,7 +131,7 @@ public class ItColocationTest {
         TxManager txManager = new TxManagerImpl(replicaService,  new HeapLockManager(), new HybridClock()) {
             @Override
             public CompletableFuture<Void> finish(
-                    ReplicationGroupId committedPartition,
+                    ReplicationGroupId commitPartition,
                     ClusterNode recipientNode,
                     Long term,
                     boolean commit,
