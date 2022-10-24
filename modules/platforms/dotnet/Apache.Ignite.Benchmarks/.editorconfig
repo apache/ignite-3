@@ -4,4 +4,8 @@
 # Code analysis
 dotnet_diagnostic.CA2007.severity = none # Require ConfigureAwait
 dotnet_diagnostic.SA1600.severity = none # Elements should be documented
+dotnet_diagnostic.CA1014.severity = none # Mark assemblies with CLSCompliant
+dotnet_diagnostic.CA1720.severity = none # Identifier contains type name
+dotnet_diagnostic.CA2201.severity = none # Do not raise reserved exception types
+dotnet_diagnostic.CA1001.severity = none # Types that own disposable fields should be disposable
 
