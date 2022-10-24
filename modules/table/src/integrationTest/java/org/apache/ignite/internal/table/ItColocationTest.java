@@ -35,6 +35,7 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.nio.ByteBuffer;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -54,19 +55,14 @@ import java.util.stream.Stream;
 import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
-import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.BinaryRowEx;
-import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.NativeType;
-import org.apache.ignite.internal.schema.NativeTypeSpec;
-import org.apache.ignite.internal.schema.NativeTypes;
-import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.schema.*;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
+import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
+import org.apache.ignite.internal.table.distributed.command.RowIdMessage;
 import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
 import org.apache.ignite.internal.table.distributed.command.response.MultiRowsResponse;
@@ -109,6 +105,9 @@ public class ItColocationTest {
 
     /** Map of the Raft commands are set by table operation. */
     private static final Int2ObjectMap<Set<Command>> CMDS_MAP = new Int2ObjectOpenHashMap<>();
+
+    /**  */
+    private static final TableMessagesFactory MSG_FACTORY = new TableMessagesFactory();
 
     private SchemaDescriptor schema;
 
@@ -177,15 +176,24 @@ public class ItColocationTest {
             RaftGroupService r = groupRafts.get(request.groupId());
 
             if (request instanceof ReadWriteMultiRowReplicaRequest) {
-                Map<RowId, BinaryRow> rows = ((ReadWriteMultiRowReplicaRequest) request).binaryRows()
+                Map<RowIdMessage, ByteBuffer> rows = ((ReadWriteMultiRowReplicaRequest) request).binaryRows()
                         .stream()
-                        .collect(toMap(row -> new RowId(0), row -> row));
+                        .collect(toMap(
+                                row -> RowIdMessage.fromRowId(MSG_FACTORY,
+                                        new RowId(0)), row -> row.byteBuffer()));
 
-                return r.run(new UpdateAllCommand(rows, UUID.randomUUID()));
+                return r.run(MSG_FACTORY.updateAllCommand()
+                        .rowsToUpdate(rows)
+                        .txId(UUID.randomUUID())
+                        .build());
             } else {
                 assertThat(request, is(instanceOf(ReadWriteSingleRowReplicaRequest.class)));
 
-                return r.run(new UpdateCommand(new RowId(0), ((ReadWriteSingleRowReplicaRequest) request).binaryRow(), UUID.randomUUID()));
+                return r.run(MSG_FACTORY.updateCommand()
+                        .rowId(RowIdMessage.fromRowId(MSG_FACTORY, new RowId(0)))
+                        .rowBuffer(((ReadWriteSingleRowReplicaRequest) request).binaryRow().byteBuffer())
+                        .txId(UUID.randomUUID())
+                        .build());
             }
         });
 
@@ -355,10 +363,10 @@ public class ItColocationTest {
 
         CMDS_MAP.forEach((p, set) -> {
             UpdateAllCommand cmd = (UpdateAllCommand) CollectionUtils.first(set);
-            assertEquals(partsMap.get(p), cmd.getRowsToUpdate().size(), () -> "part=" + p + ", set=" + set);
+            assertEquals(partsMap.get(p), cmd.rowsToUpdate().size(), () -> "part=" + p + ", set=" + set);
 
-            cmd.getRowsToUpdate().values().forEach(binRow -> {
-                Row r = new Row(schema, binRow);
+            cmd.rowsToUpdate().values().forEach(byteBUf -> {
+                Row r = new Row(schema, new ByteBufferRow(byteBUf));
 
                 assertEquals(INT_TABLE.partition(r), p);
             });

@@ -19,15 +19,12 @@ package org.apache.ignite.internal.table.distributed.command;
 
 import java.util.UUID;
 
-import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
 import org.apache.ignite.raft.client.WriteCommand;
 
 /**
  * Partition transactional command.
  */
-@Transferable(TableMessageGroup.Commands.PARTITION)
 public interface PartitionCommand extends WriteCommand, NetworkMessage {
     /**
      * Returns a transaction id.

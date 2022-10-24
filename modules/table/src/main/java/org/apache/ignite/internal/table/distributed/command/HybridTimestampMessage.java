@@ -22,11 +22,13 @@ import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
 
+import java.io.Serializable;
+
 /**
- *
+ * Interface to represent {@link HybridTimestamp} as a {@link NetworkMessage}.
  */
 @Transferable(value = TableMessageGroup.Commands.HYBRID_TIMESTAMP)
-public interface HybridTimestampMessage extends NetworkMessage {
+public interface HybridTimestampMessage extends NetworkMessage, Serializable {
     /**
      *
      * @return

@@ -159,7 +159,8 @@ public class PartitionListener implements RaftGroupListener {
      */
     private void handleUpdateCommand(UpdateCommand cmd, long commandIndex) {
         storage.runConsistently(() -> {
-            BinaryRow row = new ByteBufferRow(cmd.rowBuffer());
+            ByteBuffer rowBuf = cmd.rowBuffer();
+            BinaryRow row = rowBuf != null ? new ByteBufferRow(rowBuf) : null;
             RowId rowId = cmd.rowId().asRowId();
             UUID txId = cmd.txId();
 
@@ -210,7 +211,8 @@ public class PartitionListener implements RaftGroupListener {
             if (!CollectionUtils.nullOrEmpty(rowsToUpdate)) {
                 for (Map.Entry<RowIdMessage, ByteBuffer> entry : rowsToUpdate.entrySet()) {
                     RowId rowId = entry.getKey().asRowId();
-                    BinaryRow row = new ByteBufferRow(entry.getValue());
+                    ByteBuffer rowBuf = entry.getValue();
+                    BinaryRow row = rowBuf != null ? new ByteBufferRow(rowBuf) : null;
                     // TODO: IGNITE-17759 Need pass appropriate commitTableId and commitPartitionId.
                     storage.addWrite(rowId, row, txId, UUID.randomUUID(), 0);
 

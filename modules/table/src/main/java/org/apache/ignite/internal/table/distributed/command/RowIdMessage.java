@@ -23,13 +23,14 @@ import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
 
+import java.io.Serializable;
 import java.util.UUID;
 
 /**
  *
  */
 @Transferable(TableMessageGroup.Commands.ROW_ID)
-public interface RowIdMessage extends NetworkMessage {
+public interface RowIdMessage extends NetworkMessage, Serializable {
     short partitionId();
 
     UUID uuid();
