@@ -51,8 +51,8 @@ public class PartitionAwarenessTests
 
         using var client = await IgniteClient.StartAsync(cfg);
         var table = await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
-        var recordView = table!.GetRecordView<long>();
+        var recordView = table!.GetRecordView<int>();
 
-        await recordView.UpsertAsync(null, 1L);
+        await recordView.UpsertAsync(null, 1);
     }
 }
