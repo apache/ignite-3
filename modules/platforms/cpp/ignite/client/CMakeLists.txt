@@ -26,6 +26,7 @@ set(SOURCES
     table/tables.cpp
     detail/cluster_connection.cpp
     detail/node_connection.cpp
+    detail/table/table_impl.cpp
     detail/table/tables_impl.cpp
 )
 
