@@ -1,0 +1,160 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+plugins {
+    id 'java'
+    id 'distribution'
+    alias(libs.plugins.nebula)
+}
+
+import org.apache.tools.ant.filters.ReplaceTokens
+
+configurations {
+    cliArtifacts
+    cliScripts
+}
+
+dependencies {
+    cliArtifacts(project(':ignite-cli'))
+    cliScripts(project(path: ':ignite-cli', configuration: 'cliScripts'))
+}
+
+// Common for ZIP and RPM/DEB
+
+def tokens = [
+        PRODUCT_NAME        : 'ignite3cli',
+        PRODUCT_DISPLAY_NAME: 'Apache Ignite CLI',
+        INSTALL_DIR         : '/usr/bin',
+        LIB_DIR             : '/usr/lib/ignite3',
+        LOG_DIR             : '${HOME}/.ignite3',
+        APP_JAR             : "${project(':ignite-cli').name}-${project(':ignite-cli').version}.jar".toString(),
+        MAIN_CLASS          : 'org.apache.ignite.internal.cli.Main',
+        JAVA_OPTS           : '',
+        ADDITIONAL_OPTS     : '',
+        ARGS                : '$@'
+
+]
+
+task replaceScriptVars(type: Copy) {
+    from("start.sh")
+    filter(ReplaceTokens, tokens: tokens)
+    fileMode 0755
+    into("${buildDir}")
+    rename {
+        "ignite3"
+    }
+}
+
+task replacePostInstallScriptVars(type: Copy) {
+    from("postInstall.sh")
+    filter(ReplaceTokens, tokens: tokens)
+    into("${buildDir}")
+}
+
+distTar.dependsOn replaceScriptVars
+distZip.dependsOn replaceScriptVars
+
+// task that generates start script for cli
+task cliStartScript(type: CreateStartScripts) {
+    // will be passed to exec "java ... <mainClassName>"
+    mainClass = "org.apache.ignite.internal.cli.Main"
+    // forms a classpath string that will be passed to exec "java -cp <classpath> .."
+    // it is expected to locate the "lib" dir together with "bin"
+    classpath = files(new File("../lib/${project(':ignite-cli').name}-${project(':ignite-cli').version}.jar"), new File("../lib/*"))
+    outputDir = file "$buildDir/scripts"
+    applicationName = 'ignite3'
+}
+
+
+// ZIP packaging
+
+distributions {
+    main {
+        distributionBaseName = 'ignite3cli'
+        contents {
+            into('') {
+                from("$rootDir/LICENSE")
+                from("$rootDir/NOTICE")
+                from("$rootDir/assembly/README.md")
+            }
+            into('bin') {
+                duplicatesStrategy= DuplicatesStrategy.EXCLUDE
+                from(configurations.cliScripts)
+                from(cliStartScript)
+                fileMode = 0755
+            }
+            into('lib') {
+                from(configurations.cliArtifacts)
+            }
+        }
+    }
+}
+
+buildRpm.dependsOn replaceScriptVars, replacePostInstallScriptVars
+buildDeb.dependsOn replaceScriptVars, replacePostInstallScriptVars
+
+// Expose zip artifacts to be consumed by others
+configurations {
+    cliZip {
+        canBeConsumed = true
+        canBeResolved = false
+    }
+}
+
+artifacts {
+    cliZip(distZip) {
+        builtBy(distZip)
+    }
+}
+
+
+// DEB/RPM packaging
+
+buildDeb {
+    into("/usr/share/bash-completion/completions/") {
+        from configurations.cliScripts
+        fileMode 0755
+    }
+}
+
+buildRpm {
+    into("/etc/bash_completion.d/") {
+        from configurations.cliScripts
+        fileMode 0755
+    }
+}
+
+ospackage {
+    license "ASL 2.0"
+    packageName tokens.PRODUCT_NAME
+    packageGroup "CLI"
+    url "https://ignite.apache.org"
+    packageDescription "This package will install Apache Ignite CLI"
+    os LINUX
+    user 'root'
+
+    into(tokens.INSTALL_DIR) {
+        from("$buildDir/ignite3")
+        fileMode = 0755
+    }
+
+    into(tokens.LIB_DIR) {
+        from configurations.cliArtifacts
+    }
+
+    postInstall file("${buildDir}/postInstall.sh")
+}

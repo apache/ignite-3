@@ -248,8 +248,8 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
     /** {@inheritDoc} */
     @Override
-    public String raftGroupId() {
-        return "partitions";
+    public TestReplicationGroupId raftGroupId() {
+        return new TestReplicationGroupId("partitions");
     }
 
     /**

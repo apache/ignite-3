@@ -114,7 +114,7 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
             }
 
             this.serializer = serializationService.createMessageSerializer(msg.groupType(), msg.messageType());
-            this.writer = new DirectMessageWriter(serializationService, ConnectionManager.DIRECT_PROTOCOL_VERSION);
+            this.writer = new DirectMessageWriter(serializationService.serializationRegistry(), ConnectionManager.DIRECT_PROTOCOL_VERSION);
         }
 
         /** {@inheritDoc} */

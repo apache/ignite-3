@@ -100,7 +100,7 @@ public class InboundDecoderTest {
         var perSessionSerializationService = new PerSessionSerializationService(serializationService);
         var channel = new EmbeddedChannel(new InboundDecoder(perSessionSerializationService));
 
-        var writer = new DirectMessageWriter(perSessionSerializationService, ConnectionManager.DIRECT_PROTOCOL_VERSION);
+        var writer = new DirectMessageWriter(registry, ConnectionManager.DIRECT_PROTOCOL_VERSION);
 
         MessageSerializer<NetworkMessage> serializer = registry.createSerializer(msg.groupType(), msg.messageType());
 
@@ -177,7 +177,7 @@ public class InboundDecoderTest {
 
         final var list = new ArrayList<>();
 
-        var writer = new DirectMessageWriter(perSessionSerializationService, ConnectionManager.DIRECT_PROTOCOL_VERSION);
+        var writer = new DirectMessageWriter(registry, ConnectionManager.DIRECT_PROTOCOL_VERSION);
 
         var msg = new TestMessagesFactory().testMessage().msg("abcdefghijklmn").build();
 
