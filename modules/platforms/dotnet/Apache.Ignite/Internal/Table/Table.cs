@@ -186,7 +186,7 @@ namespace Apache.Ignite.Internal.Table
                 return assignment;
             }
 
-            await _partitionAssignmentSemaphore.WaitAsync();
+            await _partitionAssignmentSemaphore.WaitAsync().ConfigureAwait(false);
 
             try
             {

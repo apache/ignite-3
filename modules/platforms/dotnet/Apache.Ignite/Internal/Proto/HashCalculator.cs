@@ -44,47 +44,53 @@ internal static class HashCalculator
         {
             var col = cols[i];
 
-            switch (col.Type)
-            {
-                case ClientDataType.Int8:
-                    break;
-                case ClientDataType.Int16:
-                    break;
-                case ClientDataType.Int32:
-                    // TODO: port HashCalculator and HashUtils from Java.
-                    hash |= reader.GetInt(i);
-                    break;
-                case ClientDataType.Int64:
-                    break;
-                case ClientDataType.Float:
-                    break;
-                case ClientDataType.Double:
-                    break;
-                case ClientDataType.Decimal:
-                    break;
-                case ClientDataType.Uuid:
-                    break;
-                case ClientDataType.String:
-                    break;
-                case ClientDataType.Bytes:
-                    break;
-                case ClientDataType.BitMask:
-                    break;
-                case ClientDataType.Date:
-                    break;
-                case ClientDataType.Time:
-                    break;
-                case ClientDataType.DateTime:
-                    break;
-                case ClientDataType.Timestamp:
-                    break;
-                case ClientDataType.Number:
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException();
-            }
+            hash |= Hash(col, reader);
         }
 
         return hash;
+    }
+
+    private static int Hash(Column col, BinaryTupleReader reader)
+    {
+        switch (col.Type)
+        {
+            case ClientDataType.Int8:
+                break;
+            case ClientDataType.Int16:
+                break;
+            case ClientDataType.Int32:
+                // TODO: port HashCalculator and HashUtils from Java.
+                return reader.GetInt(col.SchemaIndex);
+            case ClientDataType.Int64:
+                break;
+            case ClientDataType.Float:
+                break;
+            case ClientDataType.Double:
+                break;
+            case ClientDataType.Decimal:
+                break;
+            case ClientDataType.Uuid:
+                break;
+            case ClientDataType.String:
+                break;
+            case ClientDataType.Bytes:
+                break;
+            case ClientDataType.BitMask:
+                break;
+            case ClientDataType.Date:
+                break;
+            case ClientDataType.Time:
+                break;
+            case ClientDataType.DateTime:
+                break;
+            case ClientDataType.Timestamp:
+                break;
+            case ClientDataType.Number:
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(col));
+        }
+
+        return 0;
     }
 }

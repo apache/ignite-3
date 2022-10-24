@@ -18,11 +18,13 @@
 namespace Apache.Ignite.Internal.Proto;
 
 using System;
+using System.Diagnostics.CodeAnalysis;
 
 /// <summary>
 /// Response flags.
 /// </summary>
 [Flags]
+[SuppressMessage("Naming", "CA1711:Identifiers should not have incorrect suffix", Justification = "Reviewed.")]
 internal enum ResponseFlags
 {
     /// <summary>

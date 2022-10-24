@@ -244,6 +244,10 @@ namespace Apache.Ignite.Internal
         /// </summary>
         /// <param name="preferredNode">Preferred node.</param>
         /// <returns>Client socket.</returns>
+        [SuppressMessage(
+            "Microsoft.Design",
+            "CA1031:DoNotCatchGeneralExceptionTypes",
+            Justification = "Any connection exception should be handled.")]
         public async ValueTask<ClientSocket> GetSocketAsync(PreferredNode preferredNode = default)
         {
             await _socketLock.WaitAsync().ConfigureAwait(false);
