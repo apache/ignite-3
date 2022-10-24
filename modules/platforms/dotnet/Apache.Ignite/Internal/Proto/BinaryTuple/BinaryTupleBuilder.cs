@@ -174,9 +174,9 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="value">Value.</param>
         public void AppendInt(int value)
         {
-            if (_colocationHashPredicate?.IsColocationColumnIndex(value) == true)
+            if (_colocationHashPredicate?.IsColocationColumnIndex(_elementIndex) == true)
             {
-                _colocationHash |= value;
+                _colocationHash = HashUtils.Hash32(value, _colocationHash);
             }
 
             if (value >= sbyte.MinValue && value <= sbyte.MaxValue)

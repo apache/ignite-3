@@ -61,5 +61,15 @@ public class PartitionAwarenessTests
 
         Assert.AreEqual(new[] { ClientOp.TupleUpsert }, server1.ClientOps);
         Assert.AreEqual(new[] { ClientOp.TableGet, ClientOp.SchemasGet, ClientOp.PartitionAssignmentGet }, server2.ClientOps);
+
+        for (int i = 0; i < 100; i++)
+        {
+            await recordView.UpsertAsync(null, i);
+
+            if (server2.ClientOps.Count > 3)
+            {
+                Assert.Fail(i.ToString());
+            }
+        }
     }
 }

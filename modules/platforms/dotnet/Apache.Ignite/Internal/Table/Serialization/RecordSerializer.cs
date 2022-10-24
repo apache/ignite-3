@@ -267,7 +267,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             WriteIdAndTx(ref w, tx);
             w.Write(schema.Version);
 
-            return _handler.Write(ref w, schema, rec, keyOnly);
+            return _handler.Write(ref w, schema, rec, keyOnly, computeHash: true);
         }
 
         /// <summary>
