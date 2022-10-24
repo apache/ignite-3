@@ -63,6 +63,7 @@ namespace Apache.Ignite.Tests
             _listener.Listen(backlog: 1);
 
             Node = new ClusterNode("id-" + nodeName, nodeName, (IPEndPoint)_listener.LocalEndPoint!);
+            PartitionAssignment = new[] { Node.Id };
 
             if (!disableOpsTracking)
             {
@@ -73,6 +74,8 @@ namespace Apache.Ignite.Tests
         }
 
         public IClusterNode Node { get; }
+
+        public string[] PartitionAssignment { get; set; }
 
         public int Port => ((IPEndPoint)_listener.LocalEndPoint!).Port;
 
@@ -372,8 +375,13 @@ namespace Apache.Ignite.Tests
                     {
                         using var arrayBufferWriter = new PooledArrayBufferWriter();
                         var writer = new MessagePackWriter(arrayBufferWriter);
-                        writer.WriteArrayHeader(1);
-                        writer.Write(Node.Id);
+                        writer.WriteArrayHeader(PartitionAssignment.Length);
+
+                        foreach (var nodeId in PartitionAssignment)
+                        {
+                            writer.Write(nodeId);
+                        }
+
                         writer.Flush();
 
                         Send(handler, requestId, arrayBufferWriter);

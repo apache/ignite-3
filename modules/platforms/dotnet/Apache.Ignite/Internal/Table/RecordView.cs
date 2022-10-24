@@ -379,7 +379,7 @@ namespace Apache.Ignite.Internal.Table
             using var writer = ProtoCommon.GetMessageWriter();
             _ser.Write(writer, tx, schema, record, keyOnly);
 
-            var binaryTupleMem = writer.GetWrittenMemory();
+            var binaryTupleMem = writer.GetWrittenMemory()[ProtoCommon.MessagePrefixSize..];
             var hash = HashCalculator.CalculateBinaryTupleHash(binaryTupleMem, keyOnly, schema);
             var partition = Math.Abs(hash % assignment.Length);
             var nodeId = assignment[partition];

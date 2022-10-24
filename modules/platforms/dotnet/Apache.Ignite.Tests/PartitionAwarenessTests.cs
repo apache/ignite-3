@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Tests;
 
 using System.Threading.Tasks;
+using Internal.Proto;
 using NUnit.Framework;
 
 /// <summary>
@@ -36,9 +37,12 @@ public class PartitionAwarenessTests
     [Test]
     public async Task TestPutRoutesRequestToPrimaryNode()
     {
-        // TODO: Servers should return correct distribution somehow.
         using var server1 = new FakeServer();
         using var server2 = new FakeServer();
+
+        var assignment = new[] { server1.Node.Id, server2.Node.Id };
+        server1.PartitionAssignment = assignment;
+        server2.PartitionAssignment = assignment;
 
         var cfg = new IgniteClientConfiguration
         {
@@ -54,5 +58,8 @@ public class PartitionAwarenessTests
         var recordView = table!.GetRecordView<int>();
 
         await recordView.UpsertAsync(null, 1);
+
+        Assert.AreEqual(new[] { ClientOp.TupleUpsert }, server1.ClientOps);
+        Assert.AreEqual(new[] { ClientOp.TableGet, ClientOp.SchemasGet, ClientOp.TupleUpsert }, server2.ClientOps);
     }
 }
