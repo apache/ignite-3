@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing;
 
-import static java.util.Collections.unmodifiableList;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -196,8 +194,6 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, OutgoingSn
     private static class PartitionSnapshotsImpl implements PartitionSnapshots {
         private final List<OutgoingSnapshot> snapshots = new ArrayList<>();
 
-        private final List<OutgoingSnapshot> unmodifiableSnapshotsView = unmodifiableList(snapshots);
-
         private final ReadWriteLock lock = new ReentrantReadWriteLock();
         private final ReusableLockLockup readLockLockup = new ReusableLockLockup(lock.readLock());
 
@@ -226,7 +222,7 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, OutgoingSn
 
         @Override
         public List<OutgoingSnapshot> ongoingSnapshots() {
-            return unmodifiableSnapshotsView;
+            return snapshots;
         }
     }
 }
