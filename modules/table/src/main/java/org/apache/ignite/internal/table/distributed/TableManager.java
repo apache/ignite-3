@@ -811,7 +811,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                                         txManager,
                                                                         lockMgr,
                                                                         partId,
-
                                                                         tblId,
                                                                         primaryIndex,
                                                                         clock,
@@ -1686,14 +1685,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                     ConcurrentHashMap<ByteBuffer, RowId> primaryIndex = new ConcurrentHashMap<>();
 
+                    InternalTable internalTable = tbl.internalTable();
+
                     try {
                         LOG.info("Received update on pending assignments. Check if new raft group should be started"
                                         + " [key={}, partition={}, table={}, localMemberAddress={}]",
                                 pendingAssignmentsWatchEvent.key(), partId, tbl.name(), localMember.address());
 
                         if (raftMgr.shouldHaveRaftGroupLocally(deltaPeers)) {
-                            InternalTable internalTable = tbl.internalTable();
-
                             MvPartitionStorage mvPartitionStorage = getOrCreateMvPartition(
                                     internalTable.storage(),
                                     partId,
@@ -1741,8 +1740,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         }
 
                         if (replicaMgr.shouldHaveReplicationGroupLocally(deltaPeers)) {
-                            InternalTable internalTable = tbl.internalTable();
-
                             MvPartitionStorage mvPartitionStorage = getOrCreateMvPartition(
                                     internalTable.storage(),
                                     partId,
@@ -1783,7 +1780,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                     var newNodes = newPeers.stream().map(n -> new Peer(n.address())).collect(Collectors.toList());
 
-                    RaftGroupService partGrpSvc = tbl.internalTable().partitionRaftGroupService(partId);
+                    RaftGroupService partGrpSvc = internalTable.partitionRaftGroupService(partId);
 
                     IgniteBiTuple<Peer, Long> leaderWithTerm = partGrpSvc.refreshAndGetLeaderWithTerm().join();
 
