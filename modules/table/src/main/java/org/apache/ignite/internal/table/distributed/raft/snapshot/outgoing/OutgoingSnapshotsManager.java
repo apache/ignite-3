@@ -26,7 +26,8 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -91,7 +92,9 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, OutgoingSn
 
     @Override
     public void start() {
-        executor = Executors.newFixedThreadPool(4, new NamedThreadFactory("outgoing-snapshots", LOG));
+        executor = new ThreadPoolExecutor(0, 4, 0L, TimeUnit.MILLISECONDS,
+                new LinkedBlockingQueue<>(), new NamedThreadFactory("outgoing-snapshots", LOG)
+        );
 
         messagingService.addMessageHandler(TableMessageGroup.class, this::handleMessage);
     }
