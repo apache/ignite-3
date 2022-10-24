@@ -15,6 +15,8 @@ insert_final_newline = true
 # Code analysis
 dotnet_code_quality.api_surface = all
 
+dotnet_diagnostic.CA2007.severity = error # Require ConfigureAwait
+
 dotnet_diagnostic.CA1024.severity = none # Use properties where appropriate
 dotnet_diagnostic.CA1303.severity = none # Use resource tables
 dotnet_diagnostic.SA1101.severity = none # Prefix local calls with this
