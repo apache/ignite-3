@@ -29,12 +29,14 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.network.ClusterNode;
@@ -70,7 +72,7 @@ public class ItRaftGroupServiceTest {
 
     private static final int NODE_PORT_BASE = 20_000;
 
-    private static final String RAFT_GROUP_NAME = "part1";
+    private static final TestReplicationGroupId RAFT_GROUP_NAME = new TestReplicationGroupId("part1");
 
     private static List<ClusterService> clusterServices = new ArrayList<>();
 
@@ -160,5 +162,38 @@ public class ItRaftGroupServiceTest {
             raftGroups.get(newLeaderNode).refreshLeader().join();
             return expectedNewLeaderPeer.equals(raftGroups.get(newLeaderNode).leader());
         }, 10_000));
+    }
+
+    /**
+     * Test replication group id.
+     */
+    private static class TestReplicationGroupId implements ReplicationGroupId {
+        private final String name;
+
+        public TestReplicationGroupId(String name) {
+            this.name = name;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            TestReplicationGroupId that = (TestReplicationGroupId) o;
+            return Objects.equals(name, that.name);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(name);
+        }
+
+        @Override
+        public String toString() {
+            return name;
+        }
     }
 }

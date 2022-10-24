@@ -20,6 +20,7 @@ package org.apache.ignite.internal.raft.server;
 import java.util.List;
 import java.util.Set;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
@@ -46,7 +47,7 @@ public interface RaftServer extends IgniteComponent {
      * @param groupOptions Options to apply to the group.
      * @return {@code True} if a group was successfully started, {@code False} when the group with given name is already exists.
      */
-    boolean startRaftGroup(String groupId, RaftGroupListener lsnr, List<Peer> initialConf, RaftGroupOptions groupOptions);
+    boolean startRaftGroup(ReplicationGroupId groupId, RaftGroupListener lsnr, List<Peer> initialConf, RaftGroupOptions groupOptions);
 
     /**
      * Starts a raft group bound to this cluster node.
@@ -59,7 +60,7 @@ public interface RaftServer extends IgniteComponent {
      * @return {@code True} if a group was successfully started, {@code False} when the group with given name is already exists.
      */
     boolean startRaftGroup(
-            String groupId,
+            ReplicationGroupId groupId,
             RaftGroupEventsListener evLsnr,
             RaftGroupListener lsnr,
             List<Peer> initialConf,
@@ -72,7 +73,7 @@ public interface RaftServer extends IgniteComponent {
      * @param groupId Group id.
      * @return {@code True} if a group was successfully stopped.
      */
-    boolean stopRaftGroup(String groupId);
+    boolean stopRaftGroup(ReplicationGroupId groupId);
 
     /**
      * Returns a local peer.
@@ -80,7 +81,7 @@ public interface RaftServer extends IgniteComponent {
      * @param groupId Group id.
      * @return Local peer or null if the group is not started.
      */
-    @Nullable Peer localPeer(String groupId);
+    @Nullable Peer localPeer(ReplicationGroupId groupId);
 
     /**
      * Returns a set of started partition groups.
@@ -88,5 +89,5 @@ public interface RaftServer extends IgniteComponent {
      * @return Started groups.
      */
     @TestOnly
-    Set<String> startedGroups();
+    Set<ReplicationGroupId> startedGroups();
 }

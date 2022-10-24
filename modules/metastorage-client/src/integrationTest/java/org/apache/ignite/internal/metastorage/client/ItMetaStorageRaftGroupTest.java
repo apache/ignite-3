@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metastorage.client;
 
+import static org.apache.ignite.internal.metastorage.common.MetastorageGroupId.INSTANCE;
 import static org.apache.ignite.internal.raft.server.RaftGroupOptions.defaults;
 import static org.apache.ignite.raft.jraft.test.TestUtils.waitForTopology;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
@@ -85,9 +86,6 @@ public class ItMetaStorageRaftGroupTest {
 
     /** Nodes. */
     private static final int NODES = 3;
-
-    /** Meta Storage raft group name. */
-    private static final String METASTORAGE_RAFT_GROUP_NAME = "METASTORAGE_RAFT_GROUP";
 
     /** Factory. */
     private static final RaftMessagesFactory FACTORY = new RaftMessagesFactory();
@@ -192,19 +190,19 @@ public class ItMetaStorageRaftGroupTest {
     @AfterEach
     public void afterTest() throws Exception {
         if (metaStorageRaftSrv3 != null) {
-            metaStorageRaftSrv3.stopRaftGroup(METASTORAGE_RAFT_GROUP_NAME);
+            metaStorageRaftSrv3.stopRaftGroup(INSTANCE);
             metaStorageRaftSrv3.stop();
             metaStorageRaftGrpSvc3.shutdown();
         }
 
         if (metaStorageRaftSrv2 != null) {
-            metaStorageRaftSrv2.stopRaftGroup(METASTORAGE_RAFT_GROUP_NAME);
+            metaStorageRaftSrv2.stopRaftGroup(INSTANCE);
             metaStorageRaftSrv2.stop();
             metaStorageRaftGrpSvc2.shutdown();
         }
 
         if (metaStorageRaftSrv1 != null) {
-            metaStorageRaftSrv1.stopRaftGroup(METASTORAGE_RAFT_GROUP_NAME);
+            metaStorageRaftSrv1.stopRaftGroup(INSTANCE);
             metaStorageRaftSrv1.stop();
             metaStorageRaftGrpSvc1.shutdown();
         }
@@ -276,7 +274,7 @@ public class ItMetaStorageRaftGroupTest {
                 () -> replicatorStartedCounter.get() == 2, 5_000), replicatorStartedCounter.get() + "");
 
         //stop leader
-        oldLeaderServer.get().stopRaftGroup(METASTORAGE_RAFT_GROUP_NAME);
+        oldLeaderServer.get().stopRaftGroup(INSTANCE);
         oldLeaderServer.get().stop();
         cluster.stream().filter(c -> c.topologyService().localMember().address().equals(oldLeader)).findFirst().get().stop();
 
@@ -326,14 +324,14 @@ public class ItMetaStorageRaftGroupTest {
 
         metaStorageRaftSrv3.start();
 
-        metaStorageRaftSrv1.startRaftGroup(METASTORAGE_RAFT_GROUP_NAME, new MetaStorageListener(mockStorage), peers, defaults());
+        metaStorageRaftSrv1.startRaftGroup(INSTANCE, new MetaStorageListener(mockStorage), peers, defaults());
 
-        metaStorageRaftSrv2.startRaftGroup(METASTORAGE_RAFT_GROUP_NAME, new MetaStorageListener(mockStorage), peers, defaults());
+        metaStorageRaftSrv2.startRaftGroup(INSTANCE, new MetaStorageListener(mockStorage), peers, defaults());
 
-        metaStorageRaftSrv3.startRaftGroup(METASTORAGE_RAFT_GROUP_NAME, new MetaStorageListener(mockStorage), peers, defaults());
+        metaStorageRaftSrv3.startRaftGroup(INSTANCE, new MetaStorageListener(mockStorage), peers, defaults());
 
         metaStorageRaftGrpSvc1 = RaftGroupServiceImpl.start(
-                METASTORAGE_RAFT_GROUP_NAME,
+                INSTANCE,
                 cluster.get(0),
                 FACTORY,
                 10_000,
@@ -344,7 +342,7 @@ public class ItMetaStorageRaftGroupTest {
         ).get();
 
         metaStorageRaftGrpSvc2 = RaftGroupServiceImpl.start(
-                METASTORAGE_RAFT_GROUP_NAME,
+                INSTANCE,
                 cluster.get(1),
                 FACTORY,
                 10_000,
@@ -355,7 +353,7 @@ public class ItMetaStorageRaftGroupTest {
         ).get();
 
         metaStorageRaftGrpSvc3 = RaftGroupServiceImpl.start(
-                METASTORAGE_RAFT_GROUP_NAME,
+                INSTANCE,
                 cluster.get(2),
                 FACTORY,
                 10_000,

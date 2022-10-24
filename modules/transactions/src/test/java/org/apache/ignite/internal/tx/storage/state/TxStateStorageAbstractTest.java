@@ -29,9 +29,12 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.hlc.HybridTimestamp;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.tx.TxMeta;
@@ -89,8 +92,8 @@ public abstract class TxStateStorageAbstractTest {
         }
     }
 
-    private List<String> generateEnlistedPartitions(int c) {
-        return IntStream.range(0, c).mapToObj(String::valueOf).collect(toList());
+    private List<ReplicationGroupId> generateEnlistedPartitions(int c) {
+        return IntStream.range(0, c).mapToObj(i -> new TestReplicationGroupId(i)).collect(toList());
     }
 
     private HybridTimestamp generateTimestamp(UUID uuid) {
@@ -216,4 +219,43 @@ public abstract class TxStateStorageAbstractTest {
      * @return Tx state storage.
      */
     protected abstract TxStateTableStorage createStorage();
+
+    /**
+     * Test implementation of replication group id.
+     */
+    private static class TestReplicationGroupId implements ReplicationGroupId {
+        /** Partition id. */
+        private final int prtId;
+
+        /**
+         * The constructor.
+         *
+         * @param prtId Partition id.
+         */
+        public TestReplicationGroupId(int prtId) {
+            this.prtId = prtId;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            TestReplicationGroupId that = (TestReplicationGroupId) o;
+            return prtId == that.prtId;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(prtId);
+        }
+
+        @Override
+        public String toString() {
+            return "part_" + prtId;
+        }
+    }
 }

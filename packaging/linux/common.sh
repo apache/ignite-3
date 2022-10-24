@@ -29,7 +29,7 @@ source_user_group() {
     sudo usermod -a -G "${GROUPNAME}" "${USERNAME}"
   fi
 
-  if [ -f "@CONF_DIR@/@VARS_FILE_NAME@" ]; then . "@CONF_DIR@/@VARS_FILE_NAME@"; fi
+  if [ -f "@CONF_DIR@/@VARS_FILE@" ]; then . "@CONF_DIR@/@VARS_FILE@"; fi
 }
 
 pre_uninstall() {

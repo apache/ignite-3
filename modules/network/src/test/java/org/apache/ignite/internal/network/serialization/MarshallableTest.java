@@ -42,20 +42,16 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import org.apache.ignite.internal.network.direct.DirectMessageWriter;
 import org.apache.ignite.internal.network.message.ClassDescriptorMessage;
 import org.apache.ignite.internal.network.messages.MessageWithMarshallable;
 import org.apache.ignite.internal.network.messages.TestMessagesFactory;
-import org.apache.ignite.internal.network.netty.ConnectionManager;
 import org.apache.ignite.internal.network.netty.InboundDecoder;
 import org.apache.ignite.internal.network.netty.OutboundEncoder;
 import org.apache.ignite.internal.network.serialization.marshal.MarshalException;
 import org.apache.ignite.internal.network.serialization.marshal.MarshalledObject;
 import org.apache.ignite.internal.network.serialization.marshal.UserObjectMarshaller;
-import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.OutNetworkObject;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
-import org.apache.ignite.network.serialization.MessageSerializer;
 import org.apache.ignite.network.serialization.TestMessageSerializationRegistryImpl;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
@@ -91,15 +87,11 @@ public class MarshallableTest {
     private ByteBuffer write(Map<String, SimpleSerializableObject> testMap) throws Exception {
         var serializers = new Serialization();
 
-        var writer = new DirectMessageWriter(serializers.perSessionSerializationService, ConnectionManager.DIRECT_PROTOCOL_VERSION);
-
         MessageWithMarshallable msg = msgFactory.messageWithMarshallable().marshallableMap(testMap).build();
 
         IntSet ids = new IntOpenHashSet();
 
         msg.prepareMarshal(ids, serializers.userObjectSerializer);
-
-        MessageSerializer<NetworkMessage> serializer = registry.createSerializer(msg.groupType(), msg.messageType());
 
         var channel = new EmbeddedChannel(
                 new ChunkedWriteHandler(),

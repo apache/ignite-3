@@ -32,6 +32,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import javax.naming.OperationNotSupportedException;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
@@ -41,6 +42,7 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
+import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
@@ -68,11 +70,13 @@ import org.mockito.Mockito;
 public class DummyInternalTableImpl extends InternalTableImpl {
     public static final NetworkAddress ADDR = new NetworkAddress("127.0.0.1", 2004);
 
+    private static final ReplicationGroupId crossTableGroupId = new TablePartitionId(UUID.randomUUID(), 0);
+
     private PartitionListener partitionListener;
 
     private ReplicaListener replicaListener;
 
-    private String groupId;
+    private ReplicationGroupId groupId;
 
     /**
      * Creates a new local table.
@@ -135,7 +139,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         );
         RaftGroupService svc = partitionMap.get(0);
 
-        groupId = crossTableUsage ? "testGrp-" + UUID.randomUUID() : "testGrp";
+        groupId = crossTableUsage ? new TablePartitionId(tableId(), 0) : crossTableGroupId;
 
         lenient().doReturn(groupId).when(svc).groupId();
         Peer leaderPeer = new Peer(ADDR);
@@ -206,7 +210,6 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 this.txManager,
                 this.txManager.lockManager(),
                 0,
-                groupId,
                 tableId(),
                 primaryIndex,
                 new HybridClock(),
@@ -233,18 +236,12 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         return replicaListener;
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public @NotNull UUID tableId() {
-        return UUID.randomUUID();
-    }
-
     /**
      * Group id of single partition of this table.
      *
      * @return Group id.
      */
-    public String groupId() {
+    public ReplicationGroupId groupId() {
         return groupId;
     }
 

@@ -23,11 +23,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.lang.IgniteBiTuple;
@@ -41,10 +43,13 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     private static final IgniteLogger LOG = Loggers.forClass(InternalTransaction.class);
 
     /** Enlisted replication groups: replication group id -> (primary replica node, raft term). */
-    private final Map<String, IgniteBiTuple<ClusterNode, Long>> enlisted = new ConcurrentSkipListMap<>();
+    private final Map<ReplicationGroupId, IgniteBiTuple<ClusterNode, Long>> enlisted = new ConcurrentHashMap<>();
 
     /** Enlisted operation futures in this transaction. */
     private final List<CompletableFuture<?>> enlistedResults = new CopyOnWriteArrayList<>();
+
+    /** Reference to the partition that stores the transaction state. */
+    private final AtomicReference<ReplicationGroupId> commitPartitionRef = new AtomicReference<>();
 
     /**
      * The constructor.
@@ -58,13 +63,32 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
 
     /** {@inheritDoc} */
     @Override
-    public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndTerm(String partGroupId) {
+    public boolean assignCommitPartition(ReplicationGroupId replicationGroupId) {
+        return commitPartitionRef.compareAndSet(null, replicationGroupId);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public ReplicationGroupId commitPartition() {
+        return commitPartitionRef.get();
+    }
+
+    /** {@inheritDoc} */
+    @NotNull
+    @Override
+    public UUID id() {
+        return id;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndTerm(ReplicationGroupId partGroupId) {
         return enlisted.get(partGroupId);
     }
 
     /** {@inheritDoc} */
     @Override
-    public IgniteBiTuple<ClusterNode, Long> enlist(String replicationGroupId, IgniteBiTuple<ClusterNode, Long> nodeAndTerm) {
+    public IgniteBiTuple<ClusterNode, Long> enlist(ReplicationGroupId replicationGroupId, IgniteBiTuple<ClusterNode, Long> nodeAndTerm) {
         enlisted.put(replicationGroupId, nodeAndTerm);
 
         return nodeAndTerm;
@@ -79,7 +103,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
                 .thenCompose(
                         ignored -> {
                             if (!enlisted.isEmpty()) {
-                                Map<ClusterNode, List<IgniteBiTuple<String, Long>>> groups = new LinkedHashMap<>();
+                                Map<ClusterNode, List<IgniteBiTuple<ReplicationGroupId, Long>>> groups = new LinkedHashMap<>();
 
                                 enlisted.forEach((groupId, groupMeta) -> {
                                     ClusterNode recipientNode = groupMeta.get1();
@@ -87,7 +111,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
                                     if (groups.containsKey(recipientNode)) {
                                         groups.get(recipientNode).add(new IgniteBiTuple<>(groupId, groupMeta.get2()));
                                     } else {
-                                        List<IgniteBiTuple<String, Long>> items = new ArrayList<>();
+                                        List<IgniteBiTuple<ReplicationGroupId, Long>> items = new ArrayList<>();
 
                                         items.add(new IgniteBiTuple<>(groupId, groupMeta.get2()));
 
@@ -95,13 +119,17 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
                                     }
                                 });
 
-                                ClusterNode recipientNode = enlisted.entrySet().iterator().next().getValue().get1();
-                                Long term = enlisted.entrySet().iterator().next().getValue().get2();
+                                ReplicationGroupId commitPart = commitPartitionRef.get();
+                                ClusterNode recipientNode = enlisted.get(commitPart).get1();
+                                Long term = enlisted.get(commitPart).get2();
 
+                                LOG.debug("Finish [recipientNode={}, term={} commit={}, txId={}, groups={} commitPart={}",
+                                        recipientNode, term, commit, id, groups, commitPart);
                                 LOG.debug("Finish [recipientNode={}, term={} commit={}, txId={}, groups={}",
                                         recipientNode, term, commit, id(), groups);
 
                                 return txManager.finish(
+                                        commitPart,
                                         recipientNode,
                                         term,
                                         commit,

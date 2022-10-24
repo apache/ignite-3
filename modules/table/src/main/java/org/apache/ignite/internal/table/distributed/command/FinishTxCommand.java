@@ -20,6 +20,8 @@ package org.apache.ignite.internal.table.distributed.command;
 import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.hlc.HybridTimestamp;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 
 /**
  * State machine command to finish a transaction on a commit or a rollback.
@@ -38,7 +40,7 @@ public class FinishTxCommand extends PartitionCommand {
     /**
      * Replication groups ids.
      */
-    private final List<String> replicationGroupIds;
+    private final List<ReplicationGroupId> replicationGroupIds;
 
     /**
      * The constructor.
@@ -48,7 +50,7 @@ public class FinishTxCommand extends PartitionCommand {
      * @param commitTimestamp Transaction commit timestamp.
      * @param replicationGroupIds Set of replication groups ids.
      */
-    public FinishTxCommand(UUID txId, boolean commit, HybridTimestamp commitTimestamp, List<String> replicationGroupIds) {
+    public FinishTxCommand(UUID txId, boolean commit, HybridTimestamp commitTimestamp, List<ReplicationGroupId> replicationGroupIds) {
         super(txId);
         this.commit = commit;
         this.commitTimestamp = commitTimestamp;
@@ -78,7 +80,7 @@ public class FinishTxCommand extends PartitionCommand {
      *
      * @return An ordered replication groups ids.
      */
-    public List<String> replicationGroupIds() {
+    public List<ReplicationGroupId> replicationGroupIds() {
         return replicationGroupIds;
     }
 }
