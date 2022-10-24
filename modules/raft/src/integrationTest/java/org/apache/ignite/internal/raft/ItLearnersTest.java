@@ -90,7 +90,7 @@ public class ItLearnersTest extends IgniteAbstractTest {
             new NetworkAddress("localhost", 5002)
     );
 
-    private static final TestRaftMessagesFactory msgFactory = new TestRaftMessagesFactory();
+    private static final TestRaftMessagesFactory MESSAGES_FACTORY = new TestRaftMessagesFactory();
 
     @InjectConfiguration
     private static RaftConfiguration raftConfiguration;
@@ -105,7 +105,7 @@ public class ItLearnersTest extends IgniteAbstractTest {
         String value();
 
         static TestWriteCommand create(String value) {
-            return msgFactory.testWriteCommand().value(value).build();
+            return MESSAGES_FACTORY.testWriteCommand().value(value).build();
         }
     }
 
