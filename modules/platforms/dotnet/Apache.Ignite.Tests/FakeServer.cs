@@ -352,7 +352,15 @@ namespace Apache.Ignite.Tests
                         var writer = new MessagePackWriter(arrayBufferWriter);
                         writer.WriteMapHeader(1);
                         writer.Write(1); // Version.
-                        writer.WriteArrayHeader(0); // Columns.
+                        writer.WriteArrayHeader(1); // Columns.
+                        writer.WriteArrayHeader(6); // Column props.
+                        writer.Write("ID");
+                        writer.Write((int)ClientDataType.Int32);
+                        writer.Write(true); // Key.
+                        writer.Write(false); // Nullable.
+                        writer.Write(true); // Colocation.
+                        writer.Write(0); // Scale.
+
                         writer.Flush();
 
                         Send(handler, requestId, arrayBufferWriter);

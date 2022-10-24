@@ -288,12 +288,12 @@ namespace Apache.Ignite.Internal.Table
                 var type = r.ReadInt32();
                 var isKey = r.ReadBoolean();
                 var isNullable = r.ReadBoolean();
-                r.ReadBoolean(); // IsColocation.
+                var isColocation = r.ReadBoolean(); // IsColocation.
                 var scale = r.ReadInt32();
 
                 r.Skip(propertyCount - expectedCount);
 
-                var column = new Column(name, (ClientDataType)type, isNullable, isKey, i, scale);
+                var column = new Column(name, (ClientDataType)type, isNullable, isColocation, isKey, i, scale);
 
                 columns[i] = column;
 
