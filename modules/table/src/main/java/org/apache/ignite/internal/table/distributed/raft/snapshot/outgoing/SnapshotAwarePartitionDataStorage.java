@@ -118,7 +118,7 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
                     continue;
                 }
 
-                if (!snapshot.addOverwrittenRowId(rowId)) {
+                if (!snapshot.addRowIdToSkip(rowId)) {
                     continue;
                 }
 

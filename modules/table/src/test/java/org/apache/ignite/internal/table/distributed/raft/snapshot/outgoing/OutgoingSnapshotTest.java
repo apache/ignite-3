@@ -184,8 +184,8 @@ class OutgoingSnapshotTest {
     }
 
     @Test
-    void rowsWithOverwrittenIdsAreIgnored() throws Exception {
-        snapshot.addOverwrittenRowId(rowId1);
+    void rowsWithIdsToSkipAreIgnored() throws Exception {
+        snapshot.addRowIdToSkip(rowId1);
 
         when(partitionAccess.closestRowId(lowestRowId)).thenReturn(rowId1);
         when(partitionAccess.closestRowId(rowId2)).thenReturn(null);

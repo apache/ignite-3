@@ -172,7 +172,7 @@ class SnapshotAwarePartitionDataStorageTest {
 
         doReturn(false).when(snapshot).isFinished();
         doReturn(false).when(snapshot).alreadyPassed(any());
-        doReturn(true).when(snapshot).addOverwrittenRowId(any());
+        doReturn(true).when(snapshot).addRowIdToSkip(any());
 
         writeAction.executeOn(testedStorage, rowId);
 
@@ -186,7 +186,7 @@ class SnapshotAwarePartitionDataStorageTest {
 
         doReturn(false).when(snapshot).isFinished();
         doReturn(false).when(snapshot).alreadyPassed(any());
-        doReturn(false).when(snapshot).addOverwrittenRowId(any());
+        doReturn(false).when(snapshot).addRowIdToSkip(any());
 
         writeAction.executeOn(testedStorage, rowId);
 
@@ -233,7 +233,7 @@ class SnapshotAwarePartitionDataStorageTest {
     private void configureSnapshotToLetSendOutOfOrderRow(OutgoingSnapshot snapshotToConfigure) {
         doReturn(false).when(snapshotToConfigure).isFinished();
         doReturn(false).when(snapshotToConfigure).alreadyPassed(any());
-        doReturn(true).when(snapshotToConfigure).addOverwrittenRowId(any());
+        doReturn(true).when(snapshotToConfigure).addRowIdToSkip(any());
     }
 
     @ParameterizedTest

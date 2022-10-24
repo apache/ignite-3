@@ -66,7 +66,7 @@ public class OutgoingSnapshot {
      * {@link RowId}s for which the corresponding rows were sent out of order (relative to the order in which this
      * snapshot sends rows), hence they must be skipped when sending rows normally.
      */
-    private final Set<RowId> overwrittenRowIds = new ConcurrentHashSet<>();
+    private final Set<RowId> rowIdsToSkip = new ConcurrentHashSet<>();
 
     // TODO: IGNITE-17935 - manage queue size
     /**
@@ -229,7 +229,7 @@ public class OutgoingSnapshot {
         }
 
         if (!exhaustedPartition()) {
-            if (!overwrittenRowIds.remove(lastRowId)) {
+            if (!rowIdsToSkip.remove(lastRowId)) {
                 SnapshotMvDataResponse.ResponseEntry rowEntry = rowEntry(lastRowId);
 
                 batch.add(rowEntry);
@@ -326,8 +326,8 @@ public class OutgoingSnapshot {
      * @param rowId RowId to add.
      * @return {@code true} if the given RowId was added as it was not yet in the collection of IDs to skip.
      */
-    public boolean addOverwrittenRowId(RowId rowId) {
-        return overwrittenRowIds.add(rowId);
+    public boolean addRowIdToSkip(RowId rowId) {
+        return rowIdsToSkip.add(rowId);
     }
 
     /**
