@@ -100,6 +100,7 @@ public interface InternalTable extends AutoCloseable {
      *
      * @param keyRows       Rows with key columns set.
      * @param readTimestamp Read timestamp.
+     * @param recipientNode Cluster node that will handle given get request.
      * @return Future representing pending completion of the operation.
      */
     CompletableFuture<Collection<BinaryRow>> getAll(
@@ -251,6 +252,7 @@ public interface InternalTable extends AutoCloseable {
      *
      * @param p             The partition.
      * @param readTimestamp Read timestamp.
+     * @param recipientNode Cluster node that will handle given get request.
      * @return {@link Publisher} that reactively notifies about partition rows.
      * @throws IllegalArgumentException If proposed partition index {@code p} is out of bounds.
      * @throws TransactionException If proposed {@code tx} is read-write. Transaction itself won't be automatically rolled back.
