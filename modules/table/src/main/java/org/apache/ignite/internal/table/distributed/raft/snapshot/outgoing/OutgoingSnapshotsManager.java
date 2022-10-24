@@ -231,6 +231,8 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, OutgoingSn
         }
 
         private void removeUnderLock(OutgoingSnapshot snapshot) {
+            lock.writeLock().lock();
+
             try {
                 snapshots.remove(snapshot);
             } finally {

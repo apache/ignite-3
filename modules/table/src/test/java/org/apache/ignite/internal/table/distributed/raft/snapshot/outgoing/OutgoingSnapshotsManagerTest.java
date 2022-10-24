@@ -20,6 +20,9 @@ package org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.is;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.util.UUID;
 import org.apache.ignite.internal.lock.AutoLockup;
@@ -56,5 +59,24 @@ class OutgoingSnapshotsManagerTest {
         PartitionSnapshots snapshots = manager.partitionSnapshots(partitionKey);
 
         assertThat(snapshots.ongoingSnapshots(), is(empty()));
+    }
+
+    @Test
+    void registersSnapshot() {
+        OutgoingSnapshot snapshot = mock(OutgoingSnapshot.class);
+        doReturn(partitionKey).when(snapshot).partitionKey();
+
+        manager.registerOutgoingSnapshot(UUID.randomUUID(), snapshot);
+    }
+
+    @Test
+    void unregistersSnapshot() {
+        UUID snapshotId = UUID.randomUUID();
+        OutgoingSnapshot snapshot = mock(OutgoingSnapshot.class);
+        doReturn(partitionKey).when(snapshot).partitionKey();
+
+        manager.registerOutgoingSnapshot(snapshotId, snapshot);
+
+        manager.unregisterOutgoingSnapshot(snapshotId);
     }
 }
