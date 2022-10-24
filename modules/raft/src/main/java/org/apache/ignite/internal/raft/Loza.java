@@ -177,8 +177,8 @@ public class Loza implements IgniteComponent {
     }
 
     /**
-     * Creates a raft group service providing operations on a raft group. If {@code nodes} or {@code learnerNodes} contains the current node,
-     * then raft group starts on the current node.
+     * Creates a raft group service providing operations on a raft group. If {@code nodes} or {@code learnerNodes}
+     * contains the current node, then raft group starts on the current node.
      *
      * @param groupId Raft group id.
      * @param nodes Raft group nodes.

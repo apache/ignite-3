@@ -77,7 +77,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(ConfigurationExtension.class)
 public class ItLearnersTest extends IgniteAbstractTest {
-    private static final ReplicationGroupId RAFT_GROUP_ID = new ReplicationGroupId() {};
+    private static final ReplicationGroupId RAFT_GROUP_ID = new ReplicationGroupId() {
+        @Override
+        public String toString() {
+            return "test";
+        }
+    };
 
     private static final List<NetworkAddress> ADDRS = List.of(
             new NetworkAddress("localhost", 5000),
