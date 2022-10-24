@@ -116,7 +116,11 @@ project(":packaging").projectDir = file('packaging')
 
 
 buildCache {
+    local {
+        enabled = false
+    }
     remote(HttpBuildCache) {
+        push = true
         url = System.getenv()["GRADLE_BUILD_CACHE_URI"] + "/cache/"
         allowInsecureProtocol = true
         credentials {
