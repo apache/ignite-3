@@ -16,7 +16,6 @@ build/
 !.idea/codeStyles/codeStyleConfig.xml
 !.idea/codeStyles/Project.xml
 !.idea/checkstyle-idea.xml
-!.idea/inspectionProfiles/profiles_settings.xml
 !.idea/inspectionProfiles/Project_Default.xml
 *.iws
 *.iml
