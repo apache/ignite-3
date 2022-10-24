@@ -420,10 +420,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                                                 txSateStorage,
                                                 topologyServices.get(node),
                                                 placementDriver
-                                        ),
-                                        raftSvc,
-                                        addressToNodeMap::get,
-                                        raftServers.get(node).topologyService()::localMember
+                                        )
                                 );
                             } catch (NodeStoppingException e) {
                                 fail("Unexpected node stopping", e);

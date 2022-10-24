@@ -27,8 +27,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Function;
-import java.util.function.Supplier;
 import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -40,6 +38,7 @@ import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaMessageGroup;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.replicator.message.ReplicaSafeTimeSyncRequest;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -50,7 +49,6 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.NetworkMessageHandler;
-import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -178,26 +176,20 @@ public class ReplicaManager implements IgniteComponent {
      *
      * @param replicaGrpId Replication group id.
      * @param listener Replica listener.
-     * @param raftClient Raft client.
-     * @param clusterNodeResolver Resolver that resolves a network address to cluster node.
-     * @param localNodeSupplier Supplier of instance of {@link ClusterNode} which represents the local node.
      * @return New replica.
      * @throws NodeStoppingException If node is stopping.
      * @throws ReplicaIsAlreadyStartedException Is thrown when a replica with the same replication group id has already been started.
      */
     public Replica startReplica(
             ReplicationGroupId replicaGrpId,
-            ReplicaListener listener,
-            RaftGroupService raftClient,
-            Function<NetworkAddress, ClusterNode> clusterNodeResolver,
-            Supplier<ClusterNode> localNodeSupplier
+            ReplicaListener listener
     ) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
         }
 
         try {
-            return startReplicaInternal(replicaGrpId, listener, raftClient, clusterNodeResolver, localNodeSupplier);
+            return startReplicaInternal(replicaGrpId, listener);
         } finally {
             busyLock.leaveBusy();
         }
@@ -208,19 +200,13 @@ public class ReplicaManager implements IgniteComponent {
      *
      * @param replicaGrpId   Replication group id.
      * @param listener Replica listener.
-     * @param raftClient Raft client.
-     * @param clusterNodeResolver Resolver that resolves a network address to cluster node.
-     * @param localNodeSupplier Supplier of instance of {@link ClusterNode} which represents the local node.
      * @return New replica.
      */
     private Replica startReplicaInternal(
             ReplicationGroupId replicaGrpId,
-            ReplicaListener listener,
-            RaftGroupService raftClient,
-            Function<NetworkAddress, ClusterNode> clusterNodeResolver,
-            Supplier<ClusterNode> localNodeSupplier
+            ReplicaListener listener
     ) {
-        var replica = new Replica(replicaGrpId, listener, raftClient, clusterNodeResolver, localNodeSupplier);
+        var replica = new Replica(replicaGrpId, listener);
 
         Replica previous = replicas.putIfAbsent(replicaGrpId, replica);
 
@@ -380,7 +366,9 @@ public class ReplicaManager implements IgniteComponent {
      * Idle safe time sync for replicas.
      */
     private void idleSafeTimeSync() {
-        replicas.values().forEach(Replica::propagateSafeTime);
+        ReplicaSafeTimeSyncRequest req = REPLICA_MESSAGES_FACTORY.replicaSafeTimeSyncRequest().build();
+
+        replicas.values().forEach(r -> r.processRequest(req));
     }
 
     /**

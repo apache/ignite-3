@@ -15,22 +15,13 @@
  * limitations under the License.
  */
 
-apply from: "$rootDir/buildscripts/java-core.gradle"
-apply from: "$rootDir/buildscripts/publishing.gradle"
-apply from: "$rootDir/buildscripts/java-junit5.gradle"
+package org.apache.ignite.internal.replicator.message;
 
+import org.apache.ignite.network.annotations.Transferable;
 
-dependencies {
-    annotationProcessor project(":ignite-network-annotation-processor")
-    implementation project(':ignite-core')
-    implementation project(':ignite-raft')
-    implementation project(':ignite-configuration')
-    implementation project(':ignite-network-api')
-    implementation libs.jetbrains.annotations
-    implementation libs.fastutil.core
-
-    testImplementation libs.mockito.core
-    testImplementation libs.mockito.junit
+/**
+ * Request that initiates safe time synchronization.
+ */
+@Transferable(ReplicaMessageGroup.SAFE_TIME_SYNC_REQUEST)
+public interface ReplicaSafeTimeSyncRequest extends ReplicaRequest {
 }
-
-description = 'ignite-replicator'

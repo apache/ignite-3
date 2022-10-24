@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
@@ -40,12 +41,14 @@ import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.hlc.TrackableHybridClock;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
 import org.apache.ignite.internal.replicator.exception.UnsupportedReplicaRequestException;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.replicator.message.ReplicaSafeTimeSyncRequest;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
@@ -246,6 +249,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                         return processReadOnlyMultiEntryAction((ReadOnlyMultiRowReplicaRequest) request);
                     } else if (request instanceof ReadOnlyScanRetrieveBatchReplicaRequest) {
                         return processReadOnlyScanRetrieveBatchAction((ReadOnlyScanRetrieveBatchReplicaRequest) request);
+                    } else if (request instanceof ReplicaSafeTimeSyncRequest) {
+                        return processReplicaSafeTimeSyncRequest((ReplicaSafeTimeSyncRequest) request);
                     } else {
                         throw new UnsupportedReplicaRequestException(request.getClass());
                     }
@@ -420,6 +425,16 @@ public class PartitionReplicaListener implements ReplicaListener {
 
             return result;
         });
+    }
+
+    /**
+     * Handler to process {@link ReplicaSafeTimeSyncRequest}.
+     *
+     * @param request Request.
+     * @return Future.
+     */
+    private CompletionStage<Object> processReplicaSafeTimeSyncRequest(ReplicaSafeTimeSyncRequest request) {
+        return raftClient.run(new SafeTimeSyncCommand());
     }
 
     /**

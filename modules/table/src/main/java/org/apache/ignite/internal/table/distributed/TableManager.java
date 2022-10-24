@@ -798,10 +798,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                             internalTbl.txStateStorage().getOrCreateTxStateStorage(partId),
                                                             topologyService,
                                                             placementDriver
-                                                    ),
-                                                    updatedRaftGroupService,
-                                                    clusterNodeResolver,
-                                                    topologyService::localMember
+                                                    )
                                             );
                                         } catch (NodeStoppingException ex) {
                                             throw new AssertionError("Loza was stopped before Table manager", ex);
@@ -1732,10 +1729,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                             tbl.internalTable().txStateStorage().getOrCreateTxStateStorage(partId),
                                             raftMgr.topologyService(),
                                             placementDriver
-                                    ),
-                                    raftGroupService,
-                                    clusterNodeResolver,
-                                    raftMgr.topologyService()::localMember
+                                    )
                             );
                         }
                     } catch (NodeStoppingException e) {
