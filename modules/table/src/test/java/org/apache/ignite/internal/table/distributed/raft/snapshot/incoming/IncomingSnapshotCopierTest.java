@@ -62,13 +62,14 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
-import org.apache.ignite.internal.table.distributed.raft.snapshot.MvPartitionAccess;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionAccessImpl;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionSnapshotStorage;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.SnapshotUri;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMetaRequest;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMvDataRequest;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMvDataResponse.ResponseEntry;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
+import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.TopologyService;
@@ -201,7 +202,8 @@ public class IncomingSnapshotCopierTest {
                 outgoingSnapshotsManager,
                 SnapshotUri.toStringUri(snapshotId, NODE_NAME),
                 mock(RaftOptions.class),
-                new MvPartitionAccess(incomingTableStorage, TEST_PARTITION),
+                // TODO: IGNITE-17894 не забудь протестировать все это добро!
+                new PartitionAccessImpl(incomingTableStorage, mock(TxStateTableStorage.class), TEST_PARTITION),
                 mock(SnapshotMeta.class),
                 executorService
         );

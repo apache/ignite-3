@@ -29,30 +29,39 @@ import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * {@link MvPartitionStorage} based implementation.
+ * {@link PartitionAccess} implementation.
  */
-public class MvPartitionAccess implements PartitionAccess {
-    private final MvTableStorage tableStorage;
+public class PartitionAccessImpl implements PartitionAccess {
+    private final MvTableStorage mvTableStorage;
+
+    private final TxStateTableStorage txStateTableStorage;
 
     private final int partId;
 
     /**
      * Constructor.
      *
-     * @param tableStorage Table storage.
+     * @param mvTableStorage Multi version table storage.
+     * @param txStateTableStorage Table transaction state storage.
      * @param partId Partition ID.
      */
-    public MvPartitionAccess(MvTableStorage tableStorage, int partId) {
-        this.tableStorage = tableStorage;
+    public PartitionAccessImpl(
+            MvTableStorage mvTableStorage,
+            TxStateTableStorage txStateTableStorage,
+            int partId
+    ) {
+        this.mvTableStorage = mvTableStorage;
+        this.txStateTableStorage = txStateTableStorage;
         this.partId = partId;
     }
 
     @Override
     public long persistedIndex() {
-        MvPartitionStorage mvPartition = tableStorage.getMvPartition(partId);
+        MvPartitionStorage mvPartition = mvTableStorage.getMvPartition(partId);
 
         assert mvPartition != null;
 
@@ -61,18 +70,18 @@ public class MvPartitionAccess implements PartitionAccess {
 
     @Override
     public CompletableFuture<Void> reCreatePartition() throws StorageException {
-        return tableStorage.destroyPartition(partId)
+        return mvTableStorage.destroyPartition(partId)
                 .thenAccept(unused -> {
-                    MvPartitionStorage partition = tableStorage.getOrCreateMvPartition(partId);
+                    MvPartitionStorage partition = mvTableStorage.getOrCreateMvPartition(partId);
 
-                    assert partition.persistedIndex() == 0 : "table=" + tableStorage.configuration().name().key() + ", part=" + partId;
-                    assert partition.lastAppliedIndex() == 0 : "table=" + tableStorage.configuration().name().key() + ", part=" + partId;
+                    assert partition.persistedIndex() == 0 : "table=" + mvTableStorage.configuration().name().key() + ", part=" + partId;
+                    assert partition.lastAppliedIndex() == 0 : "table=" + mvTableStorage.configuration().name().key() + ", part=" + partId;
                 });
     }
 
     @Override
     public void lastAppliedIndex(long lastAppliedIndex) throws StorageException {
-        MvPartitionStorage mvPartition = tableStorage.getMvPartition(partId);
+        MvPartitionStorage mvPartition = mvTableStorage.getMvPartition(partId);
 
         assert mvPartition != null;
 
@@ -92,7 +101,7 @@ public class MvPartitionAccess implements PartitionAccess {
             @Nullable UUID commitTableId,
             int commitPartitionId
     ) throws StorageException {
-        MvPartitionStorage mvPartition = tableStorage.getMvPartition(partId);
+        MvPartitionStorage mvPartition = mvTableStorage.getMvPartition(partId);
 
         assert mvPartition != null;
 
