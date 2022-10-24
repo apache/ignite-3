@@ -1584,7 +1584,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param indexId An index id os the index to register.
      * @param searchRowResolver Function which converts given table row to an index key.
      */
-    public void registerHashIndex(UUID tableId, UUID indexId, Function<BinaryRow, CompletableFuture<BinaryTuple>> searchRowResolver) {
+    public void registerHashIndex(UUID tableId, UUID indexId, Function<BinaryRow, BinaryTuple> searchRowResolver) {
         TableImpl table = tablesByIdVv.latest().get(tableId);
 
         if (table == null) {
@@ -1622,7 +1622,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param indexId An index id os the index to register.
      * @param searchRowResolver Function which converts given table row to an index key.
      */
-    public void registerSortedIndex(UUID tableId, UUID indexId, Function<BinaryRow, CompletableFuture<BinaryTuple>> searchRowResolver) {
+    public void registerSortedIndex(UUID tableId, UUID indexId, Function<BinaryRow, BinaryTuple> searchRowResolver) {
         TableImpl table = tablesByIdVv.latest().get(tableId);
 
         if (table == null) {
@@ -2063,10 +2063,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private static class HashIndexLocker implements IndexLocker {
         private final UUID indexId;
         private final LockManager lockManager;
-        private final Function<BinaryRow, CompletableFuture<BinaryTuple>> indexRowResolver;
+        private final Function<BinaryRow, BinaryTuple> indexRowResolver;
 
         private HashIndexLocker(UUID indexId, LockManager lockManager,
-                Function<BinaryRow, CompletableFuture<BinaryTuple>> indexRowResolver) {
+                Function<BinaryRow, BinaryTuple> indexRowResolver) {
             this.indexId = indexId;
             this.lockManager = lockManager;
             this.indexRowResolver = indexRowResolver;
@@ -2074,18 +2074,16 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         @Override
         public CompletableFuture<?> locksForInsert(UUID txId, BinaryRow tableRow, RowId rowId) {
-            return indexRowResolver.apply(tableRow)
-                    .thenCompose(tuple ->
-                            lockManager.acquire(txId, new LockKey(indexId, tuple.byteBuffer()), LockMode.IX)
-                    );
+            BinaryTuple key = indexRowResolver.apply(tableRow);
+
+            return lockManager.acquire(txId, new LockKey(indexId, key.byteBuffer()), LockMode.IX);
         }
 
         @Override
         public CompletableFuture<?> locksForRemove(UUID txId, BinaryRow tableRow, RowId rowId) {
-            return indexRowResolver.apply(tableRow)
-                    .thenCompose(tuple ->
-                            lockManager.acquire(txId, new LockKey(indexId, tuple.byteBuffer()), LockMode.IX)
-                    );
+            BinaryTuple key = indexRowResolver.apply(tableRow);
+
+            return lockManager.acquire(txId, new LockKey(indexId, key.byteBuffer()), LockMode.IX);
         }
     }
 
@@ -2098,10 +2096,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         private final UUID indexId;
         private final LockManager lockManager;
         private final SortedIndexStorage storage;
-        private final Function<BinaryRow, CompletableFuture<BinaryTuple>> indexRowResolver;
+        private final Function<BinaryRow, BinaryTuple> indexRowResolver;
 
         private SortedIndexLocker(UUID indexId, LockManager lockManager, SortedIndexStorage storage,
-                Function<BinaryRow, CompletableFuture<BinaryTuple>> indexRowResolver) {
+                Function<BinaryRow, BinaryTuple> indexRowResolver) {
             this.indexId = indexId;
             this.lockManager = lockManager;
             this.storage = storage;
@@ -2110,40 +2108,37 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         @Override
         public CompletableFuture<?> locksForInsert(UUID txId, BinaryRow tableRow, RowId rowId) {
-            return indexRowResolver.apply(tableRow)
-                    .thenCompose(key -> {
-                        BinaryTuplePrefix prefix = BinaryTuplePrefix.fromBinaryTuple(key);
+            BinaryTuple key = indexRowResolver.apply(tableRow);
+            BinaryTuplePrefix prefix = BinaryTuplePrefix.fromBinaryTuple(key);
 
-                        // find next key
-                        Cursor<IndexRow> cursor = storage.scan(prefix, null, SortedIndexStorage.GREATER);
+            // find next key
+            Cursor<IndexRow> cursor = storage.scan(prefix, null, SortedIndexStorage.GREATER);
 
-                        BinaryTuple nexKey;
-                        if (cursor.hasNext()) {
-                            nexKey = cursor.next().indexColumns();
-                        } else { // otherwise INF
-                            nexKey = POSITIVE_INF;
-                        }
+            BinaryTuple nexKey;
+            if (cursor.hasNext()) {
+                nexKey = cursor.next().indexColumns();
+            } else { // otherwise INF
+                nexKey = POSITIVE_INF;
+            }
 
-                        var nextLockKey = new LockKey(indexId, nexKey.byteBuffer());
+            var nextLockKey = new LockKey(indexId, nexKey.byteBuffer());
 
-                        return lockManager.acquire(txId, nextLockKey, LockMode.IX)
-                                .thenCompose(shortLock ->
-                                        lockManager.acquire(txId, new LockKey(indexId, key.byteBuffer()), LockMode.X)
-                                                .thenRun(() -> {
-                                                    storage.put(new IndexRowImpl(key, rowId));
+            return lockManager.acquire(txId, nextLockKey, LockMode.IX)
+                    .thenCompose(shortLock ->
+                            lockManager.acquire(txId, new LockKey(indexId, key.byteBuffer()), LockMode.X)
+                                    .thenRun(() -> {
+                                        storage.put(new IndexRowImpl(key, rowId));
 
-                                                    lockManager.release(shortLock);
-                                                })
-                                );
-                    });
+                                        lockManager.release(shortLock);
+                                    })
+                    );
         }
 
         @Override
         public CompletableFuture<?> locksForRemove(UUID txId, BinaryRow tableRow, RowId rowId) {
-            return indexRowResolver.apply(tableRow)
-                    .thenCompose(tuple ->
-                            lockManager.acquire(txId, new LockKey(indexId, tuple.byteBuffer()), LockMode.IX)
-                    );
+            BinaryTuple key = indexRowResolver.apply(tableRow);
+
+            return lockManager.acquire(txId, new LockKey(indexId, key.byteBuffer()), LockMode.IX);
         }
     }
 

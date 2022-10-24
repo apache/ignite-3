@@ -21,12 +21,12 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.index.event.IndexEvent;
@@ -41,6 +41,8 @@ import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.SchemaManager;
+import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
@@ -51,6 +53,7 @@ import org.apache.ignite.internal.schema.configuration.index.TableIndexChange;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexConfiguration;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
 import org.apache.ignite.internal.table.distributed.TableManager;
+import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.lang.ErrorGroups;
@@ -61,7 +64,6 @@ import org.apache.ignite.lang.IndexNotFoundException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * An Ignite component that is responsible for handling index-related commands like CREATE or DROP
@@ -72,6 +74,8 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
 
     /** Common tables and indexes configuration. */
     private final TablesConfiguration tablesCfg;
+
+    private final SchemaManager schemaManager;
 
     private final TableManager tableManager;
 
@@ -85,10 +89,12 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
      * Constructor.
      *
      * @param tablesCfg Tables and indexes configuration.
+     * @param schemaManager Schema manager.
      * @param tableManager Table manager.
      */
-    public IndexManager(TablesConfiguration tablesCfg, TableManager tableManager) {
+    public IndexManager(TablesConfiguration tablesCfg, SchemaManager schemaManager, TableManager tableManager) {
         this.tablesCfg = Objects.requireNonNull(tablesCfg, "tablesCfg");
+        this.schemaManager = Objects.requireNonNull(schemaManager, "schemaManager");
         this.tableManager = tableManager;
     }
 
@@ -346,10 +352,15 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
 
         Index<?> index = newIndex(tableId, tableIndexView);
 
+        TableRowToIndexKeyConverter tableRowConverter = new TableRowToIndexKeyConverter(
+                schemaManager.schemaRegistry(tableId),
+                index.descriptor().columns().toArray(ArrayUtils.STRING_EMPTY_ARRAY)
+        );
+
         if (index instanceof HashIndex) {
-            tableManager.registerHashIndex(tableId, tableIndexView.id(), binRow -> toIndexKey(tableIndexView, binRow));
+            tableManager.registerHashIndex(tableId, tableIndexView.id(), tableRowConverter::convert);
         } else if (index instanceof SortedIndex) {
-            tableManager.registerSortedIndex(tableId, tableIndexView.id(), binRow -> toIndexKey(tableIndexView, binRow));
+            tableManager.registerSortedIndex(tableId, tableIndexView.id(), tableRowConverter::convert);
         } else {
             throw new AssertionError("Unknown index type [type=" + index.getClass() + ']');
         }
@@ -403,48 +414,93 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         );
     }
 
-    private CompletableFuture<BinaryTuple> toIndexKey(TableIndexView indexView, BinaryRow tableRow) {
-        return tableManager.tableAsyncInternal(indexView.tableId(), false).thenApply(table -> {
-            SchemaDescriptor descriptor = table.schemaView().schema(tableRow.schemaVersion());
+    /**
+     * This class encapsulates the logic of conversion from table row to a particular index key.
+     */
+    private static class TableRowToIndexKeyConverter {
+        private final SchemaRegistry registry;
+        private final String[] indexedColumns;
+        private final Object mutex = new Object();
 
-            int[] indexedColumns = resolveIndexColumns(descriptor, indexView);
+        private volatile VersionedConverter converter = new VersionedConverter(-1,
+                t -> null);
 
-            if (indexedColumns == null) {
-                return null;
+        TableRowToIndexKeyConverter(SchemaRegistry registry, String[] indexedColumns) {
+            this.registry = registry;
+            this.indexedColumns = indexedColumns;
+        }
+
+        public BinaryTuple convert(BinaryRow tableRow) {
+            VersionedConverter converter = this.converter;
+
+            if (converter.version != tableRow.schemaVersion()) {
+                synchronized (mutex) {
+                    if (converter.version != tableRow.schemaVersion()) {
+                        converter = createConverter(tableRow.schemaVersion());
+
+                        this.converter = converter;
+                    }
+                }
             }
+
+            return converter.convert(tableRow);
+        }
+
+        /** Creates converter for given version of the schema. */
+        private VersionedConverter createConverter(int schemaVersion) {
+            SchemaDescriptor descriptor = registry.schema();
+
+            if (descriptor.version() < schemaVersion) {
+                registry.waitLatestSchema();
+            }
+
+            if (descriptor.version() != schemaVersion) {
+                descriptor = registry.schema(schemaVersion);
+            }
+
+            int[] indexedColumns = resolveColumnIndexes(descriptor);
 
             BinaryTupleSchema tupleSchema = BinaryTupleSchema.createSchema(descriptor, indexedColumns);
 
-            var converter = new BinaryConverter(descriptor, tupleSchema);
+            var rowConverter = new BinaryConverter(descriptor, tupleSchema);
 
-            return new BinaryTuple(tupleSchema, converter.toTuple(tableRow));
-        });
-    }
-
-    private int @Nullable [] resolveIndexColumns(SchemaDescriptor descriptor, TableIndexView indexView) {
-        List<String> names;
-        if (indexView instanceof HashIndexView) {
-            names = List.of(((HashIndexView) indexView).columnNames());
-        } else if (indexView instanceof SortedIndexView) {
-            names = ((SortedIndexView) indexView).columns().namedListKeys();
-        } else {
-            throw new AssertionError("Unknown index type [type=" + indexView.getClass() + ']');
+            return new VersionedConverter(descriptor.version(),
+                    row -> new BinaryTuple(tupleSchema, rowConverter.toTuple(row)));
         }
 
-        int[] result = new int[names.size()];
-        int idx = 0;
+        private int[] resolveColumnIndexes(SchemaDescriptor descriptor) {
+            int[] result = new int[indexedColumns.length];
 
-        for (String name : names) {
-            Column column = descriptor.column(name);
+            for (int i = 0; i < indexedColumns.length; i++) {
+                Column column = descriptor.column(indexedColumns[i]);
 
-            if (column == null) {
-                return null;
+                assert column != null : indexedColumns[i];
+
+                result[i] = column.schemaIndex();
             }
 
-            result[idx++] = column.schemaIndex();
+            return result;
         }
 
-        return result;
+        /**
+         * Convenient wrapper which glues together a function which actually converts one row to another,
+         * and a version of the schema the function was build upon.
+         */
+        private static class VersionedConverter {
+            private final int version;
+            private final Function<BinaryRow, BinaryTuple> delegate;
+
+            private VersionedConverter(int version,
+                    Function<BinaryRow, BinaryTuple> delegate) {
+                this.version = version;
+                this.delegate = delegate;
+            }
+
+            /** Converts the given row to tuple. */
+            public BinaryTuple convert(BinaryRow binaryRow) {
+                return delegate.apply(binaryRow);
+            }
+        }
     }
 
     private class ConfigurationListener implements ConfigurationNamedListListener<TableIndexView> {

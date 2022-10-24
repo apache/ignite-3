@@ -382,7 +382,7 @@ public class IgniteImpl implements Ignite {
                 clock
         );
 
-        indexManager = new IndexManager(tablesConfiguration, distributedTblMgr);
+        indexManager = new IndexManager(tablesConfiguration, schemaManager, distributedTblMgr);
 
         qryEngine = new SqlQueryProcessor(
                 registry,

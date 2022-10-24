@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.table.distributed;
 
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -33,13 +32,13 @@ import org.apache.ignite.internal.storage.index.IndexStorage;
 public class TableSchemaAwareIndexStorage {
     private final UUID indexId;
     private final IndexStorage storage;
-    private final Function<BinaryRow, CompletableFuture<BinaryTuple>> indexRowResolver;
+    private final Function<BinaryRow, BinaryTuple> indexRowResolver;
 
     /** Constructs the object. */
     public TableSchemaAwareIndexStorage(
             UUID indexId,
             IndexStorage storage,
-            Function<BinaryRow, CompletableFuture<BinaryTuple>> indexRowResolver
+            Function<BinaryRow, BinaryTuple> indexRowResolver
     ) {
         this.indexId = indexId;
         this.storage = storage;
@@ -58,7 +57,7 @@ public class TableSchemaAwareIndexStorage {
      * @param rowId An identifier of a row in a main storage.
      */
     public void put(BinaryRow tableRow, RowId rowId) {
-        BinaryTuple tuple = indexRowResolver.apply(tableRow).join();
+        BinaryTuple tuple = indexRowResolver.apply(tableRow);
 
         storage.put(new IndexRowImpl(tuple, rowId));
     }
@@ -70,7 +69,7 @@ public class TableSchemaAwareIndexStorage {
      * @param rowId An identifier of a row in a main storage.
      */
     public void remove(BinaryRow tableRow, RowId rowId) {
-        BinaryTuple tuple = indexRowResolver.apply(tableRow).join();
+        BinaryTuple tuple = indexRowResolver.apply(tableRow);
 
         storage.remove(new IndexRowImpl(tuple, rowId));
     }
