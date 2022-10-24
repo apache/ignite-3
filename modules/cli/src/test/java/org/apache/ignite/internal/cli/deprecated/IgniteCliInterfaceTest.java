@@ -23,10 +23,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 import static org.mockserver.matchers.MatchType.ONLY_MATCHING_FIELDS;
 import static org.mockserver.model.HttpRequest.request;
 import static org.mockserver.model.HttpResponse.response;
@@ -37,23 +33,14 @@ import static org.mockserver.model.JsonBody.json;
 import io.micronaut.context.ApplicationContext;
 import io.micronaut.context.env.Environment;
 import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.io.PrintWriter;
-import java.net.URISyntaxException;
-import java.nio.file.Path;
-import java.util.Arrays;
-import java.util.Collections;
 import org.apache.ignite.internal.cli.commands.TopLevelCliCommand;
-import org.apache.ignite.internal.cli.deprecated.builtins.init.InitIgniteCommand;
-import org.apache.ignite.internal.cli.deprecated.builtins.node.NodeManager;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
-import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockserver.integration.ClientAndServer;
 import org.mockserver.junit.jupiter.MockServerExtension;
@@ -77,18 +64,6 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
     /** stdout. */
     ByteArrayOutputStream out;
 
-    /** Configuration loader. */
-    @Mock
-    CliPathsConfigLoader cliPathsCfgLdr;
-
-    /** Paths to cli working directories. */
-    IgnitePaths ignitePaths = new IgnitePaths(
-            Path.of("bin"),
-            Path.of("work"),
-            Path.of("config"),
-            Path.of("log"),
-            "version");
-
     private final ClientAndServer clientAndServer;
 
     private final String mockUrl;
@@ -104,8 +79,6 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
     @BeforeEach
     void setup() {
         ctx = ApplicationContext.run(Environment.TEST);
-
-        ctx.registerSingleton(cliPathsCfgLdr);
 
         err = new ByteArrayOutputStream();
         out = new ByteArrayOutputStream();
@@ -139,303 +112,11 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
     }
 
     /**
-     * Tests "bootstrap" command.
-     */
-    @DisplayName("bootstrap")
-    @Nested
-    class Bootstrap {
-        @Test
-        @DisplayName("bootstrap")
-        void bootstrap() {
-            var initIgniteCmd = mock(InitIgniteCommand.class);
-
-            ctx.registerSingleton(InitIgniteCommand.class, initIgniteCmd);
-
-            CommandLine cli = cmd(ctx);
-
-            assertEquals(0, cli.execute("bootstrap"));
-            verify(initIgniteCmd).init(any(), any(), any());
-        }
-    }
-
-    /**
      * Tests "node" command.
      */
     @Nested
     @DisplayName("node")
     class Node {
-        /** Manager of local Ignite nodes. */
-        @Mock
-        NodeManager nodeMgr;
-
-        @BeforeEach
-        void setUp() {
-            ctx.registerSingleton(nodeMgr);
-        }
-
-        @Test
-        @DisplayName("start node1 --config conf.json")
-        void start() {
-            var nodeName = "node1";
-
-            var node =
-                    new NodeManager.RunningNode(1, nodeName, Path.of("logfile"));
-
-            when(nodeMgr.start(any(), any(), any(), any(), any(), any(), any(), any()))
-                    .thenReturn(node);
-
-            when(cliPathsCfgLdr.loadIgnitePathsOrThrowError())
-                    .thenReturn(ignitePaths);
-
-            CommandLine cli = cmd(ctx);
-
-            int exitCode = cli.execute(("node start " + nodeName + " --config conf.json").split(" "));
-
-            assertThatExitCodeMeansSuccess(exitCode);
-
-            verify(nodeMgr).start(
-                    nodeName,
-                    ignitePaths.nodesBaseWorkDir(),
-                    ignitePaths.logDir,
-                    ignitePaths.cliPidsDir(),
-                    Path.of("conf.json"),
-                    null,
-                    ignitePaths.serverJavaUtilLoggingPros(),
-                    cli.getOut());
-
-            assertOutputEqual("Done\n"
-                    + "[name: " + nodeName + ", pid: 1]\n\n"
-                            + "Node is successfully started. To stop, type ignite node stop node1"
-            );
-            assertThatStderrIsEmpty();
-        }
-
-        @Test
-        @DisplayName("start node1 --port 12345")
-        void startCustomPort() {
-            var nodeName = "node1";
-
-            var node = new NodeManager.RunningNode(1, nodeName, Path.of("logfile"));
-
-            when(nodeMgr.start(any(), any(), any(), any(), any(), any(), any(), any()))
-                    .thenReturn(node);
-
-            when(cliPathsCfgLdr.loadIgnitePathsOrThrowError())
-                    .thenReturn(ignitePaths);
-
-            int exitCode = execute("node start " + nodeName + " --port 12345");
-
-            assertThatExitCodeMeansSuccess(exitCode);
-
-            ArgumentCaptor<String> configStrCaptor = ArgumentCaptor.forClass(String.class);
-            verify(nodeMgr).start(any(), any(), any(), any(), any(), configStrCaptor.capture(), any(), any());
-
-            assertEqualsIgnoreLineSeparators(
-                    "network{port=12345}",
-                    configStrCaptor.getValue()
-            );
-        }
-
-        @Test
-        @DisplayName("start node1 --config ignite-config.json --port 12345")
-        void startCustomPortOverrideConfigFile() throws URISyntaxException {
-            var nodeName = "node1";
-
-            var node = new NodeManager.RunningNode(1, nodeName, Path.of("logfile"));
-
-            when(nodeMgr.start(any(), any(), any(), any(), any(), any(), any(), any()))
-                    .thenReturn(node);
-
-            when(cliPathsCfgLdr.loadIgnitePathsOrThrowError())
-                    .thenReturn(ignitePaths);
-
-            Path configPath = Path.of(IgniteCliInterfaceTest.class.getResource("/ignite-config.json").toURI());
-
-            int exitCode = execute("node start " + nodeName + " --config "
-                    + configPath.toAbsolutePath()
-                    + " --port 12345");
-
-            assertThatExitCodeMeansSuccess(exitCode);
-
-            ArgumentCaptor<String> configStrCaptor = ArgumentCaptor.forClass(String.class);
-            verify(nodeMgr).start(any(), any(), any(), any(), any(), configStrCaptor.capture(), any(), any());
-
-            assertEqualsIgnoreLineSeparators(
-                    "network{port=12345},rest{port=10300}",
-                    configStrCaptor.getValue()
-            );
-        }
-
-        @Test
-        @DisplayName("start node1 --port 12345 --rest-port 12346")
-        void startCustomPortAndRestPort() {
-            var nodeName = "node1";
-
-            var node = new NodeManager.RunningNode(1, nodeName, Path.of("logfile"));
-
-            when(nodeMgr.start(any(), any(), any(), any(), any(), any(), any(), any()))
-                    .thenReturn(node);
-
-            when(cliPathsCfgLdr.loadIgnitePathsOrThrowError())
-                    .thenReturn(ignitePaths);
-
-            int exitCode = execute("node start " + nodeName + " --port 12345 --rest-port 12346");
-
-            assertThatExitCodeMeansSuccess(exitCode);
-
-            ArgumentCaptor<String> configStrCaptor = ArgumentCaptor.forClass(String.class);
-            verify(nodeMgr).start(any(), any(), any(), any(), any(), configStrCaptor.capture(), any(), any());
-
-            assertEqualsIgnoreLineSeparators(
-                    "network{port=12345},rest{port=12346}",
-                    configStrCaptor.getValue()
-            );
-        }
-
-        @Test
-        @DisplayName("start node1 --port 12345 --rest-port 12346 --join localhost:12345")
-        void startCustomPortRestPortAndSeedNodes() {
-            var nodeName = "node1";
-
-            var node = new NodeManager.RunningNode(1, nodeName, Path.of("logfile"));
-
-            when(nodeMgr.start(any(), any(), any(), any(), any(), any(), any(), any()))
-                    .thenReturn(node);
-
-            when(cliPathsCfgLdr.loadIgnitePathsOrThrowError())
-                    .thenReturn(ignitePaths);
-
-            int exitCode = execute("node start " + nodeName + " --port 12345 --rest-port 12346 --join localhost:12345");
-
-            assertThatExitCodeMeansSuccess(exitCode);
-
-            ArgumentCaptor<String> configStrCaptor = ArgumentCaptor.forClass(String.class);
-            verify(nodeMgr).start(any(), any(), any(), any(), any(), configStrCaptor.capture(), any(), any());
-
-            assertEqualsIgnoreLineSeparators(
-                    "network{nodeFinder{netClusterNodes=[\"localhost:12345\"]},port=12345},rest{port=12346}",
-                    configStrCaptor.getValue()
-            );
-        }
-
-        @Test
-        @DisplayName("stop node1")
-        void stopRunning() {
-            var nodeName = "node1";
-
-            when(nodeMgr.stopWait(any(), any()))
-                    .thenReturn(true);
-
-            when(cliPathsCfgLdr.loadIgnitePathsOrThrowError())
-                    .thenReturn(ignitePaths);
-
-            CommandLine cmd = cmd(ctx);
-            int exitCode =
-                    cmd.execute(("node stop " + nodeName).split(" "));
-
-            assertThatExitCodeMeansSuccess(exitCode);
-            verify(nodeMgr).stopWait(nodeName, ignitePaths.cliPidsDir());
-            assertOutputEqual(
-                    "Stopping locally running node with consistent ID "
-                            + cmd.getColorScheme().parameterText(nodeName)
-                            + cmd.getColorScheme().text("...\n@|bold,green Done|@\n")
-            );
-            assertThatStderrIsEmpty();
-        }
-
-        @Test
-        @DisplayName("stop unknown-node")
-        void stopUnknown() {
-            var nodeName = "unknown-node";
-
-            when(nodeMgr.stopWait(any(), any()))
-                    .thenReturn(false);
-
-            when(cliPathsCfgLdr.loadIgnitePathsOrThrowError())
-                    .thenReturn(ignitePaths);
-
-            CommandLine cmd = cmd(ctx);
-            int exitCode =
-                    cmd.execute(("node stop " + nodeName).split(" "));
-
-            assertThatExitCodeMeansSuccess(exitCode);
-            verify(nodeMgr).stopWait(nodeName, ignitePaths.cliPidsDir());
-            assertOutputEqual(
-                    "Stopping locally running node with consistent ID "
-                            + cmd.getColorScheme().parameterText(nodeName)
-                            + cmd.getColorScheme().text("...\n@|bold,red Failed|@\n")
-            );
-            assertThatStderrIsEmpty();
-        }
-
-        @Test
-        @DisplayName("list")
-        void list() {
-            when(nodeMgr.getRunningNodes(any(), any()))
-                    .thenReturn(Arrays.asList(
-                            new NodeManager.RunningNode(1, "new1", Path.of("logFile1")),
-                            new NodeManager.RunningNode(2, "new2", Path.of("logFile2"))
-                    ));
-
-            when(cliPathsCfgLdr.loadIgnitePathsOrThrowError())
-                    .thenReturn(ignitePaths);
-
-            CommandLine cmd = cmd(ctx);
-            int exitCode =
-                    cmd.execute("node list".split(" "));
-
-            assertThatExitCodeMeansSuccess(exitCode);
-            verify(nodeMgr).getRunningNodes(ignitePaths.logDir, ignitePaths.cliPidsDir());
-            assertOutputEqual(
-                    "╔═══════════════╤═════╤══════════╗\n"
-                    + "║ consistent id │ pid │ log file ║\n"
-                    + "╠═══════════════╪═════╪══════════╣\n"
-                    + "║ new1          │ 1   │ logFile1 ║\n"
-                    + "╟───────────────┼─────┼──────────╢\n"
-                    + "║ new2          │ 2   │ logFile2 ║\n"
-                    + "╚═══════════════╧═════╧══════════╝\n\n"
-                    + cmd.getColorScheme().text("Number of running nodes: @|bold 2|@\n")
-            );
-            assertThatStderrIsEmpty();
-        }
-
-        @Test
-        @DisplayName("list")
-        void listEmpty() {
-            when(nodeMgr.getRunningNodes(any(), any()))
-                    .thenReturn(Collections.emptyList());
-
-            when(cliPathsCfgLdr.loadIgnitePathsOrThrowError())
-                    .thenReturn(ignitePaths);
-
-            CommandLine cmd = cmd(ctx);
-            int exitCode =
-                    cmd.execute("node list".split(" "));
-
-            assertThatExitCodeMeansSuccess(exitCode);
-            verify(nodeMgr).getRunningNodes(ignitePaths.logDir, ignitePaths.cliPidsDir());
-            assertOutputEqual("There are no locally running nodes\n"
-                            + "use the " + cmd.getColorScheme().commandText("ignite node start") + " command to start a new node"
-            );
-            assertThatStderrIsEmpty();
-        }
-
-        @Test
-        @DisplayName("classpath")
-        void classpath() throws IOException {
-            when(nodeMgr.classpathItems()).thenReturn(Arrays.asList("item1", "item2"));
-
-            CommandLine cmd = cmd(ctx);
-            int exitCode = cmd.execute("node classpath".split(" "));
-
-            assertThatExitCodeMeansSuccess(exitCode);
-            verify(nodeMgr).classpathItems();
-            assertOutputEqual(
-                    cmd.getColorScheme().text(
-                            "@|bold Current Ignite node classpath:|@\n    item1\n    item2\n").toString()
-            );
-            assertThatStderrIsEmpty();
-        }
 
         /**
          * Tests "config" command.

@@ -39,6 +39,7 @@ import java.util.stream.IntStream;
 import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
@@ -61,6 +62,7 @@ import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
+import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
@@ -100,7 +102,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     private static final UUID tblId = UUID.randomUUID();
 
     /** Replication group id. */
-    private static final String grpId = tblId + "_part_" + partId;
+    private static final ReplicationGroupId grpId = new TablePartitionId(tblId, partId);
 
     /** Primary index map. */
     private static final ConcurrentHashMap<ByteBuffer, RowId> primaryIndex = new ConcurrentHashMap<>();
@@ -195,7 +197,6 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 mock(TxManager.class),
                 new HeapLockManager(),
                 partId,
-                grpId,
                 tblId,
                 primaryIndex,
                 clock,

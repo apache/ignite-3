@@ -26,6 +26,7 @@ import java.net.UnknownHostException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -36,6 +37,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -301,7 +303,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
     /**
      * Returns raft group id for tests.
      */
-    public abstract String raftGroupId();
+    public abstract TestReplicationGroupId raftGroupId();
 
     /**
      * Get the raft group listener from the jraft server.
@@ -310,7 +312,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
      * @param grpId  Raft group id.
      * @return Raft group listener.
      */
-    protected T getListener(JraftServerImpl server, String grpId) {
+    protected T getListener(JraftServerImpl server, TestReplicationGroupId grpId) {
         org.apache.ignite.raft.jraft.RaftGroupService svc = server.raftGroupService(grpId);
 
         JraftServerImpl.DelegatingStateMachine fsm =
@@ -427,7 +429,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
      *
      * @return The service.
      */
-    private RaftGroupService startClient(TestInfo testInfo, String groupId, NetworkAddress addr) throws Exception {
+    private RaftGroupService startClient(TestInfo testInfo, TestReplicationGroupId groupId, NetworkAddress addr) throws Exception {
         ClusterService clientNode = clusterService(testInfo, CLIENT_PORT + clients.size(), addr);
 
         RaftGroupService client = RaftGroupServiceImpl.start(groupId, clientNode, FACTORY, 10_000,
@@ -439,5 +441,38 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
         clients.add(client);
 
         return client;
+    }
+
+    /**
+     * Test replication group id.
+     */
+    protected static class TestReplicationGroupId implements ReplicationGroupId {
+        private final String name;
+
+        public TestReplicationGroupId(String name) {
+            this.name = name;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            TestReplicationGroupId that = (TestReplicationGroupId) o;
+            return Objects.equals(name, that.name);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(name);
+        }
+
+        @Override
+        public String toString() {
+            return name;
+        }
     }
 }
