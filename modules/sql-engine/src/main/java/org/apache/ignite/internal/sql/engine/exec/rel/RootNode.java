@@ -231,7 +231,7 @@ public class RootNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
         throw new UnsupportedOperationException();
     }
 
-    protected void exchangeBuffers() {
+    private void exchangeBuffers() {
         assert !nullOrEmpty(sources()) && sources().size() == 1;
 
         lock.lock();
