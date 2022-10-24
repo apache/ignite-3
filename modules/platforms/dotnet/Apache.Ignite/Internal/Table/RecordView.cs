@@ -379,6 +379,8 @@ namespace Apache.Ignite.Internal.Table
             using var writer = ProtoCommon.GetMessageWriter();
             _ser.Write(writer, tx, schema, record, keyOnly);
 
+            // TODO: We need to skip the header (tx, table id, ...)
+            // Pass "computeHash" to serializer handler?
             var binaryTupleMem = writer.GetWrittenMemory()[ProtoCommon.MessagePrefixSize..];
             var hash = HashCalculator.CalculateBinaryTupleHash(binaryTupleMem, keyOnly, schema);
             var partition = Math.Abs(hash % assignment.Length);
