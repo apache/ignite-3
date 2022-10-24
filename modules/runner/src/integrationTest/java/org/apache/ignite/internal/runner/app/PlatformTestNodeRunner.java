@@ -137,7 +137,7 @@ public class PlatformTestNodeRunner {
 
         System.out.println("Exiting after " + RUN_TIME_MINUTES + " minutes.");
 
-        for (Ignite node: startedNodes) {
+        for (Ignite node : startedNodes) {
             IgnitionManager.stop(node.name());
         }
     }
