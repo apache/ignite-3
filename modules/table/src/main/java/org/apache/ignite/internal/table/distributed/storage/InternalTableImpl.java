@@ -27,6 +27,7 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -461,19 +462,22 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<BinaryRow> get(BinaryRowEx keyRow, InternalTransaction tx) {
-        // TODO: IGNITE-17963 Add ability to run RO get, getAll and scan through tx-based InternalTable operations
-        return enlistInTx(
-                keyRow,
-                tx,
-                (commitPart, txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
-                        .groupId(groupId)
-                        .binaryRow(keyRow)
-                        .transactionId(txo.id())
-                        .term(term)
-                        .requestType(RequestType.RW_GET)
-                        .timestamp(clock.now())
-                        .build()
-        );
+        if (tx.isReadOnly()) {
+            return evaluateReadOnlyRecipientNode(partId(keyRow)).thenCompose(recipientNode -> get(keyRow, tx.readTimestamp(), recipientNode));
+        } else {
+            return enlistInTx(
+                    keyRow,
+                    tx,
+                    (commitPart, txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
+                            .groupId(groupId)
+                            .binaryRow(keyRow)
+                            .transactionId(txo.id())
+                            .term(term)
+                            .requestType(RequestType.RW_GET)
+                            .timestamp(clock.now())
+                            .build()
+            );
+        }
     }
 
     /** {@inheritDoc} */
@@ -498,19 +502,29 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Collection<BinaryRow>> getAll(Collection<BinaryRowEx> keyRows, InternalTransaction tx) {
-        // TODO: IGNITE-17963 Add ability to run RO get, getAll and scan through tx-based InternalTable operations
-        return enlistInTx(
-                keyRows,
-                tx,
-                (commitPart, keyRows0, txo, groupId, term) -> tableMessagesFactory.readWriteMultiRowReplicaRequest()
-                        .groupId(groupId)
-                        .binaryRows(keyRows0)
-                        .transactionId(txo.id())
-                        .term(term)
-                        .requestType(RequestType.RW_GET_ALL)
-                        .timestamp(clock.now())
-                        .build(),
-                this::collectMultiRowsResponses);
+        if (tx.isReadOnly()) {
+            BinaryRowEx firstRow = keyRows.iterator().next();
+
+            if (firstRow == null) {
+                return CompletableFuture.completedFuture(Collections.emptyList());
+            } else {
+                return evaluateReadOnlyRecipientNode(partId(firstRow)).
+                        thenCompose(recipientNode -> getAll(keyRows, tx.readTimestamp(), recipientNode));
+            }
+        } else {
+            return enlistInTx(
+                    keyRows,
+                    tx,
+                    (commitPart, keyRows0, txo, groupId, term) -> tableMessagesFactory.readWriteMultiRowReplicaRequest()
+                            .groupId(groupId)
+                            .binaryRows(keyRows0)
+                            .transactionId(txo.id())
+                            .term(term)
+                            .requestType(RequestType.RW_GET_ALL)
+                            .timestamp(clock.now())
+                            .build(),
+                    this::collectMultiRowsResponses);
+        }
     }
 
     /** {@inheritDoc} */
@@ -783,7 +797,6 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public Publisher<BinaryRow> scan(int p, @Nullable InternalTransaction tx) {
-        // TODO: IGNITE-17963 Add ability to run RO get, getAll and scan through tx-based InternalTable operations
         // Check whether proposed tx is read-only. Complete future exceptionally if true.
         // Attempting to enlist a read-only in a read-write transaction does not corrupt the transaction itself, thus read-write transaction
         // won't be rolled back automatically - it's up to the user or outer engine.
@@ -1190,8 +1203,14 @@ public class InternalTableImpl implements InternalTable {
         }
     }
 
-    // TODO: javadoc
-    private CompletableFuture<ClusterNode> evaluateRecipientNode(int partId) {
+    // TODO: IGNITE-17963 Use smarter logic for recipient node evaluation.
+    /**
+     * Evaluated cluster node for read-only request processing.
+     *
+     * @param partId Partition id.
+     * @return Cluster node to evalute read-only request.
+     */
+    protected CompletableFuture<ClusterNode> evaluateReadOnlyRecipientNode(int partId) {
         RaftGroupService svc = partitionMap.get(partId);
 
         return svc.refreshAndGetLeaderWithTerm().handle((res, e) -> {

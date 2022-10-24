@@ -83,6 +83,10 @@ public class ItInternalTableReadOnlyOperationsTest extends IgniteAbstractTest {
     @Mock
     private MvPartitionStorage mockStorage;
 
+    /** Transaction mock. */
+    @Mock
+    private InternalTransaction readOnlyTx;
+
     /** Internal table to test. */
     private InternalTable internalTbl;
 
@@ -95,29 +99,47 @@ public class ItInternalTableReadOnlyOperationsTest extends IgniteAbstractTest {
 
         mockStorage(List.of(ROW_1, ROW_2));
 
+        lenient().when(readOnlyTx.isReadOnly()).thenReturn(true);
+        lenient().when(readOnlyTx.readTimestamp()).thenReturn(CLOCK.now());
     }
 
     @Test
-    public void testReadOnlyGetNonExistingKey() {
-
+    public void testReadOnlyGetNonExistingKeyWithReadTimestamp() {
         assertNull(internalTbl.get(createKeyRow(0), CLOCK.now(), mock(ClusterNode.class)).join());
     }
 
     @Test
-    public void testReadOnlyGetExistingKey() {
+    public void testReadOnlyGetNonExistingKeyWithTx() {
+        assertNull(internalTbl.get(createKeyRow(0), readOnlyTx).join());
+    }
+
+    @Test
+    public void testReadOnlyGetExistingKeyWithReadTimestamp() {
         assertEquals(ROW_2, internalTbl.get(createKeyRow(2), CLOCK.now(), mock(ClusterNode.class)).join());
+    }
+
+    @Test
+    public void testReadOnlyGetExistingKeyWithTx() {
+        assertEquals(ROW_2, internalTbl.get(createKeyRow(2), readOnlyTx).join());
     }
 
 
     @Test
-    public void testReadOnlyGetAllNonExistingKeys() {
+    public void testReadOnlyGetAllNonExistingKeysWithReadTimestamp() {
         assertEquals(0,
                 internalTbl.getAll(Collections.singleton(createKeyRow(0)), CLOCK.now(), mock(ClusterNode.class)).join().size()
         );
     }
 
     @Test
-    public void testReadOnlyGetAllPartiallyExistingKeys() {
+    public void testReadOnlyGetAllNonExistingKeysWithTx() {
+        assertEquals(0,
+                internalTbl.getAll(Collections.singleton(createKeyRow(0)), readOnlyTx).join().size()
+        );
+    }
+
+    @Test
+    public void testReadOnlyGetAllPartiallyExistingKeysWithReadTimestamp() {
         assertEquals(
                 Collections.singletonList(ROW_2),
                 internalTbl.getAll(Collections.singleton(createKeyRow(2)), CLOCK.now(), mock(ClusterNode.class)).join()
@@ -125,10 +147,26 @@ public class ItInternalTableReadOnlyOperationsTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testReadOnlyGetAllExistingKeys() {
+    public void testReadOnlyGetAllPartiallyExistingKeysWithTx() {
+        assertEquals(
+                Collections.singletonList(ROW_2),
+                internalTbl.getAll(Collections.singleton(createKeyRow(2)), readOnlyTx).join()
+        );
+    }
+
+    @Test
+    public void testReadOnlyGetAllExistingKeysWithReadTimestamp() {
         assertEquals(
                 List.of(ROW_1, ROW_2),
                 internalTbl.getAll(List.of(createKeyRow(1), createKeyRow(2)), CLOCK.now(), mock(ClusterNode.class)).join()
+        );
+    }
+
+    @Test
+    public void testReadOnlyGetAllExistingKeysWithTx() {
+        assertEquals(
+                List.of(ROW_1, ROW_2),
+                internalTbl.getAll(List.of(createKeyRow(1), createKeyRow(2)), readOnlyTx).join()
         );
     }
 
@@ -138,8 +176,6 @@ public class ItInternalTableReadOnlyOperationsTest extends IgniteAbstractTest {
         when(tx.isReadOnly()).thenReturn(true);
 
         List<Executable> executables = List.of(
-                () -> internalTbl.get(null, tx).get(),
-                () -> internalTbl.getAll(null, tx).get(),
                 () -> internalTbl.delete(null, tx).get(),
                 () -> internalTbl.deleteAll(null, tx).get(),
                 () -> internalTbl.deleteExact(null, tx).get(),
@@ -177,10 +213,15 @@ public class ItInternalTableReadOnlyOperationsTest extends IgniteAbstractTest {
         lenient().when(mockStorage.scan(any(HybridTimestamp.class))).thenAnswer(invocation -> {
             var cursor = mock(PartitionTimestampCursor.class);
 
-            when(cursor.hasNext()).thenAnswer(hnInvocation -> cursorTouchCnt.get() < submittedItems.size());
+            lenient().when(cursor.hasNext()).thenAnswer(hnInvocation -> cursorTouchCnt.get() < submittedItems.size());
 
-            when(cursor.next()).thenAnswer(ninvocation ->
-                    ReadResult.createFromCommitted(submittedItems.get(cursorTouchCnt.getAndIncrement()), new HybridTimestamp(1, 0)));
+            lenient().when(cursor.next()).thenAnswer(
+                    ninvocation ->
+                            ReadResult.createFromCommitted(submittedItems.get(
+                                    cursorTouchCnt.getAndIncrement()),
+                                    new HybridTimestamp(1, 0)
+                            )
+            );
 
             return cursor;
         });
