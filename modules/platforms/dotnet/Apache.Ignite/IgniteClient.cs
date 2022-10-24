@@ -35,7 +35,7 @@ namespace Apache.Ignite
         {
             IgniteArgumentCheck.NotNull(configuration, nameof(configuration));
 
-            var socket = await ClientFailoverSocket.ConnectAsync(configuration).ConfigureAwait(false);
+            var socket = await ClientFailoverSocket.ConnectAsync(configuration);
 
             return new IgniteClientInternal(socket);
         }
