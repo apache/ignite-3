@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.raft;
 
+import static org.apache.ignite.internal.raft.server.RaftGroupEventsListener.noopLsnr;
+
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
@@ -57,8 +59,6 @@ import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupServiceImpl;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.jetbrains.annotations.TestOnly;
-
-import static org.apache.ignite.internal.raft.server.RaftGroupEventsListener.noopLsnr;
 
 /**
  * Best raft manager ever since 1982.
