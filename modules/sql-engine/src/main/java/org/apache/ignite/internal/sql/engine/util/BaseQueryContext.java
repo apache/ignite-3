@@ -49,6 +49,7 @@ import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.FrameworkConfig;
 import org.apache.calcite.tools.Frameworks;
+import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
@@ -57,6 +58,7 @@ import org.apache.ignite.internal.sql.engine.trait.CorrelationTraitDef;
 import org.apache.ignite.internal.sql.engine.trait.DistributionTraitDef;
 import org.apache.ignite.internal.sql.engine.trait.RewindabilityTraitDef;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ArrayUtils;
 
 /**
@@ -158,8 +160,9 @@ public final class BaseQueryContext extends AbstractQueryContext {
 
     private final Object[] parameters;
 
-    /** Transaction representation: it can be implementation or clock representation for RO transactions. */
-    private final Object tx;
+    private final InternalTransaction tx;
+
+    private final HybridTimestamp txTs;
 
     private CalciteCatalogReader catalogReader;
 
@@ -174,7 +177,8 @@ public final class BaseQueryContext extends AbstractQueryContext {
             QueryCancel cancel,
             Object[] parameters,
             IgniteLogger log,
-            Object tx,
+            InternalTransaction tx,
+            HybridTimestamp txTs,
             long plannerTimeout
     ) {
         super(Contexts.chain(cfg.getContext()));
@@ -187,6 +191,7 @@ public final class BaseQueryContext extends AbstractQueryContext {
         this.cancel = cancel;
         this.parameters = parameters;
         this.tx = tx;
+        this.txTs = txTs;
         this.plannerTimeout = plannerTimeout;
 
         RelDataTypeSystem typeSys = CALCITE_CONNECTION_CONFIG.typeSystem(RelDataTypeSystem.class, cfg.getTypeSystem());
@@ -236,8 +241,12 @@ public final class BaseQueryContext extends AbstractQueryContext {
         return rexBuilder;
     }
 
-    public Object transaction() {
+    public InternalTransaction transaction() {
         return tx;
+    }
+
+    public HybridTimestamp transactionTime() {
+        return txTs;
     }
 
     public long plannerTimeout() {
@@ -281,7 +290,8 @@ public final class BaseQueryContext extends AbstractQueryContext {
                 .logger(log)
                 .cancel(cancel)
                 .parameters(parameters)
-                .transaction(tx);
+                .transaction(tx)
+                .transactionTime(txTs);
     }
 
     /**
@@ -311,7 +321,9 @@ public final class BaseQueryContext extends AbstractQueryContext {
 
         private Object[] parameters = ArrayUtils.OBJECT_EMPTY_ARRAY;
 
-        private Object tx;
+        private InternalTransaction tx;
+
+        private HybridTimestamp txTs;
 
         private long plannerTimeout;
 
@@ -340,8 +352,13 @@ public final class BaseQueryContext extends AbstractQueryContext {
             return this;
         }
 
-        public Builder transaction(Object tx) {
+        public Builder transaction(InternalTransaction tx) {
             this.tx = tx;
+            return this;
+        }
+
+        public Builder transactionTime(HybridTimestamp txTs) {
+            this.txTs = txTs;
             return this;
         }
 
@@ -351,7 +368,7 @@ public final class BaseQueryContext extends AbstractQueryContext {
         }
 
         public BaseQueryContext build() {
-            return new BaseQueryContext(queryId, frameworkCfg, cancel, parameters, log, tx, plannerTimeout);
+            return new BaseQueryContext(queryId, frameworkCfg, cancel, parameters, log, tx, txTs, plannerTimeout);
         }
     }
 }

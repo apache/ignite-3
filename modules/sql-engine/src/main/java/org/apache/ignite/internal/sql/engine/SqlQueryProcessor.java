@@ -38,14 +38,12 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.calcite.schema.SchemaPlus;
-import org.apache.calcite.sql.SqlDelete;
-import org.apache.calcite.sql.SqlInsert;
-import org.apache.calcite.sql.SqlMerge;
+import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
-import org.apache.calcite.sql.SqlUpdate;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.util.Pair;
+import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.index.event.IndexEvent;
 import org.apache.ignite.internal.index.event.IndexEventParameters;
@@ -404,6 +402,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                             .cancel(queryCancel)
                             .parameters(params)
                             .transaction(outerTx)
+                            .transactionTime(rwTx ? null : new HybridClock().now())
                             .plannerTimeout(PLANNER_TIMEOUT)
                             .build();
 
@@ -416,9 +415,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                                 // only DML requiring RW transaction is covered
                                 boolean implicitTxRequired = (plan.type() == Type.DML || plan.type() == Type.QUERY) && outerTx == null;
 
-                                // Take real clock for RO transaction after ignite-17260 will be merged.
-                                //Object implicitTx = implicitTxRequired ? (rwTx ? txManager.begin(!rwTx) : HybridTimestamp.now()) : null;
-                                Object implicitTx = implicitTxRequired ? txManager.begin() : null;
+                                InternalTransaction implicitTx = implicitTxRequired ? txManager.begin() : null;
 
                                 BaseQueryContext enrichedContext =
                                         implicitTxRequired ? ctx.toBuilder().transaction(implicitTx).build() : ctx;
@@ -428,7 +425,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                                 return new AsyncSqlCursorImpl<>(
                                         SqlQueryType.mapPlanTypeToSqlType(plan.type()),
                                         plan.metadata(),
-                                        rwTx ? (InternalTransaction) implicitTx : null,
+                                        rwTx ? implicitTx : null,
                                         new AsyncCursor<List<Object>>() {
                                             @Override
                                             public CompletableFuture<BatchedResult<List<Object>>> requestNextAsync(int rows) {
@@ -632,7 +629,6 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     /** Returns {@code true} if this is data modification operation. */
     private static boolean dataModificationOp(SqlNode sqlNode) {
-        return sqlNode instanceof SqlInsert || sqlNode instanceof SqlMerge || sqlNode instanceof SqlDelete
-                || sqlNode instanceof SqlUpdate;
+        return SqlKind.DML.contains(sqlNode.getKind());
     }
 }

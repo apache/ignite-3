@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.message;
 
+import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.sql.engine.metadata.FragmentDescription;
 import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
@@ -47,4 +48,7 @@ public interface QueryStartRequest extends ExecutionContextAwareMessage {
      */
     @Marshallable
     Object[] parameters();
+
+    @Marshallable
+    HybridTimestamp txTime();
 }

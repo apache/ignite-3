@@ -227,11 +227,10 @@ public class ExchangeServiceImpl implements ExchangeService {
                         fragmentId,
                         null,
                         null,
-                        Long2ObjectMaps.emptyMap(),
-                        null),
+                        Long2ObjectMaps.emptyMap()),
                 null,
                 Map.of(),
-                null);
+                null, null);
     }
 
     /** {@inheritDoc} */

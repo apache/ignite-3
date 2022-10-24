@@ -96,7 +96,7 @@ public class AbstractExecutionTest extends IgniteAbstractTest {
             IgniteTestUtils.setFieldValue(taskExecutor, "stripedThreadPoolExecutor", testExecutor);
         }
 
-        FragmentDescription fragmentDesc = new FragmentDescription(0, null, null, Long2ObjectMaps.emptyMap(), null);
+        FragmentDescription fragmentDesc = new FragmentDescription(0, null, null, Long2ObjectMaps.emptyMap());
         return new ExecutionContext<>(
                 BaseQueryContext.builder()
                         .logger(log)
@@ -108,7 +108,7 @@ public class AbstractExecutionTest extends IgniteAbstractTest {
                 fragmentDesc,
                 ArrayRowHandler.INSTANCE,
                 Map.of(),
-                null
+                null, null
         );
     }
 

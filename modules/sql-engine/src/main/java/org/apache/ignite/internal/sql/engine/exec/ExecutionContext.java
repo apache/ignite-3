@@ -32,6 +32,7 @@ import java.util.function.Consumer;
 import org.apache.calcite.DataContext;
 import org.apache.calcite.linq4j.QueryProvider;
 import org.apache.calcite.schema.SchemaPlus;
+import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactory;
@@ -87,6 +88,9 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
     /** Transaction. */
     private InternalTransaction tx;
 
+    /** Transaction time. */
+    private HybridTimestamp txTime;
+
     /**
      * Need to store timestamp, since SQL standard says that functions such as CURRENT_TIMESTAMP return the same value throughout the
      * query.
@@ -116,7 +120,8 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
             FragmentDescription fragmentDesc,
             RowHandler<RowT> handler,
             Map<String, Object> params,
-            InternalTransaction tx
+            InternalTransaction tx,
+            HybridTimestamp txTime
     ) {
         super(qctx);
 
@@ -129,6 +134,7 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
         this.locNodeId = locNodeId;
         this.originatingNodeId = originatingNodeId;
         this.tx = tx;
+        this.txTime = txTime;
 
         expressionFactory = new ExpressionFactoryImpl<>(
                 this,
@@ -346,6 +352,11 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
     /** Transaction for current context. */
     public InternalTransaction transaction() {
         return tx;
+    }
+
+    /** Transaction for current context. */
+    public HybridTimestamp transactionTime() {
+        return txTime;
     }
 
     /**

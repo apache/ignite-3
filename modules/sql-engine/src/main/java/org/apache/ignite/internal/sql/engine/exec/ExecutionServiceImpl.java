@@ -191,7 +191,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     ) {
         DistributedQueryManager queryManager;
 
-        Object tx = ctx.transaction();
+        InternalTransaction tx = ctx.transaction();
 
         DistributedQueryManager old = queryManagerMap.put(ctx.queryId(), queryManager = new DistributedQueryManager(ctx, tx));
 
@@ -202,7 +202,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         return queryManager.execute(plan);
     }
 
-    private BaseQueryContext createQueryContext(UUID queryId, @Nullable String schema, Object[] params) {
+    private BaseQueryContext createQueryContext(UUID queryId, @Nullable String schema, Object[] params, HybridTimestamp txTime) {
         return BaseQueryContext.builder()
                 .queryId(queryId)
                 .parameters(params)
@@ -212,6 +212,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                                 .build()
                 )
                 .logger(LOG)
+                .transactionTime(txTime)
                 .build();
     }
 
@@ -292,12 +293,12 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         assert nodeId != null && msg != null;
 
         DistributedQueryManager queryManager = queryManagerMap.computeIfAbsent(msg.queryId(), key -> {
-            BaseQueryContext ctx = createQueryContext(key, msg.schema(), msg.parameters());
+            BaseQueryContext ctx = createQueryContext(key, msg.schema(), msg.parameters(), msg.txTime());
 
             return new DistributedQueryManager(ctx);
         });
 
-        queryManager.submitFragment(nodeId, msg.root(), msg.fragmentDescription());
+        queryManager.submitFragment(nodeId, msg.root(), msg.fragmentDescription(), msg.txTime());
     }
 
     private void onMessage(String nodeId, QueryStartResponse msg) {
@@ -383,15 +384,15 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         private volatile Long rootFragmentId = null;
 
-        private @Nullable Object txRepresentation;
+        private @Nullable InternalTransaction tx;
 
         private DistributedQueryManager(
                 BaseQueryContext ctx,
-                @Nullable Object txRepresentation
+                @Nullable InternalTransaction tx
         ) {
             this(ctx);
 
-            this.txRepresentation = txRepresentation;
+            this.tx = tx;
         }
 
         private DistributedQueryManager(BaseQueryContext ctx) {
@@ -420,6 +421,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     .root(fragment.serialized())
                     .fragmentDescription(desc)
                     .parameters(ctx.parameters())
+                    .txTime(ctx.transactionTime())
                     .build();
 
             var fut = new CompletableFuture<Void>();
@@ -516,7 +518,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             }
         }
 
-        private ExecutionContext<RowT> createContext(String initiatorNodeId, FragmentDescription desc) {
+        private ExecutionContext<RowT> createContext(String initiatorNodeId, FragmentDescription desc, HybridTimestamp txTime) {
             return new ExecutionContext<>(
                     ctx,
                     taskExecutor,
@@ -526,18 +528,18 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     desc,
                     handler,
                     Commons.parametersMap(ctx.parameters()),
-                    // desc.txTimestamp() set clock after ignite-17260
-                    txRepresentation instanceof InternalTransaction ? (InternalTransaction) txRepresentation : null
+                    tx,
+                    txTime
             );
         }
 
-        private void submitFragment(String initiatorNode, String fragmentString, FragmentDescription desc) {
+        private void submitFragment(String initiatorNode, String fragmentString, FragmentDescription desc, HybridTimestamp txTime) {
             try {
                 QueryPlan qryPlan = prepareFragment(fragmentString);
 
                 FragmentPlan plan = (FragmentPlan) qryPlan;
 
-                executeFragment(plan, createContext(initiatorNode, desc));
+                executeFragment(plan, createContext(initiatorNode, desc, txTime));
             } catch (Throwable ex) {
                 LOG.debug("Unable to start query fragment", ex);
 
@@ -581,9 +583,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                                 fragment.fragmentId(),
                                 plan.mapping(fragment),
                                 plan.target(fragment),
-                                plan.remotes(fragment),
-                                // Required only for remote reqs and RO tx for now.
-                                txRepresentation instanceof InternalTransaction ? null : (HybridTimestamp) txRepresentation
+                                plan.remotes(fragment)
                         );
 
                         for (String nodeId : fragmentDesc.nodeIds()) {
