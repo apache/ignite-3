@@ -17,11 +17,17 @@
 
 namespace Apache.Ignite.Internal.Proto
 {
+    using System.Diagnostics.CodeAnalysis;
+
     /// <summary>
     /// Client data types.
     /// </summary>
+    [SuppressMessage("Microsoft.Naming", "CA1720:IdentifiersShouldNotContainTypeNames", Justification = "Internal types.")]
     internal enum ClientDataType
     {
+        /// <summary> None. </summary>
+        None = 0,
+
         /// <summary> Byte. </summary>
         Int8 = 1,
 

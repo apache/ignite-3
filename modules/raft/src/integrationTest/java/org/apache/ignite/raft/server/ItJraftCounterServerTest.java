@@ -85,12 +85,12 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
     /**
      * Counter group name 0.
      */
-    private static final String COUNTER_GROUP_0 = "counter0";
+    private static final TestReplicationGroupId COUNTER_GROUP_0 = new TestReplicationGroupId("counter0");
 
     /**
      * Counter group name 1.
      */
-    private static final String COUNTER_GROUP_1 = "counter1";
+    private static final TestReplicationGroupId COUNTER_GROUP_1 = new TestReplicationGroupId("counter1");
 
     /**
      * Listener factory.
@@ -142,7 +142,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
     @Test
     public void testDisruptorThreadsCount() {
         startServer(0, raftServer -> {
-            raftServer.startRaftGroup("test_raft_group", listenerFactory.get(), INITIAL_CONF, defaults());
+            raftServer.startRaftGroup(new TestReplicationGroupId("test_raft_group"), listenerFactory.get(), INITIAL_CONF, defaults());
         }, opts -> {});
 
         Set<Thread> threads = getAllDisruptorCurrentThreads();
@@ -155,7 +155,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
 
         servers.forEach(srv -> {
             for (int i = 0; i < 10; i++) {
-                srv.startRaftGroup("test_raft_group_" + i, listenerFactory.get(), INITIAL_CONF, defaults());
+                srv.startRaftGroup(new TestReplicationGroupId("test_raft_group_" + i), listenerFactory.get(), INITIAL_CONF, defaults());
             }
         });
 
@@ -170,10 +170,10 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
         assertEquals(threadsBefore, threadsAfter, "Difference: " + threadNamesAfter);
 
         servers.forEach(srv -> {
-            srv.stopRaftGroup("test_raft_group");
+            srv.stopRaftGroup(new TestReplicationGroupId("test_raft_group"));
 
             for (int i = 0; i < 10; i++) {
-                srv.stopRaftGroup("test_raft_group_" + i);
+                srv.stopRaftGroup(new TestReplicationGroupId("test_raft_group_" + i));
             }
         });
     }
@@ -536,7 +536,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
                 futs.add(svc.submit(new Runnable() {
                     @Override
                     public void run() {
-                        String grp = "counter" + finalI;
+                        TestReplicationGroupId grp = new TestReplicationGroupId("counter" + finalI);
 
                         srv0.startRaftGroup(grp, listenerFactory.get(), INITIAL_CONF, defaults());
                         srv1.startRaftGroup(grp, listenerFactory.get(), INITIAL_CONF, defaults());
@@ -557,7 +557,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
         }
 
         for (int i = 0; i < groupsCnt; i++) {
-            String grp = "counter" + i;
+            TestReplicationGroupId grp = new TestReplicationGroupId("counter" + i);
 
             assertTrue(waitForCondition(() -> hasLeader(grp), 30_000));
         }
@@ -583,6 +583,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
         HashMap<Integer, AtomicInteger> counters = new HashMap<>(3);
         HashMap<Path, Integer> snapshotDataStorage = new HashMap<>(3);
         HashMap<String, SnapshotMeta> snapshotMetaStorage = new HashMap<>(3);
+        TestReplicationGroupId grpId = new TestReplicationGroupId("test_raft_group");
 
         for (int i = 0; i < 3; i++) {
             AtomicInteger counter;
@@ -590,12 +591,12 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
             counters.put(i, counter = new AtomicInteger());
 
             startServer(i, raftServer -> {
-                raftServer.startRaftGroup("test_raft_group", new UpdateCountRaftListener(counter, snapshotDataStorage), INITIAL_CONF,
+                raftServer.startRaftGroup(grpId, new UpdateCountRaftListener(counter, snapshotDataStorage), INITIAL_CONF,
                         defaults().snapshotStorageFactory(new SnapshotInMemoryStorageFactory(snapshotMetaStorage)));
             }, opts -> {});
         }
 
-        var raftClient = startClient("test_raft_group");
+        var raftClient = startClient(grpId);
 
         raftClient.refreshMembers(true).get();
         var peers = raftClient.peers();
@@ -638,7 +639,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
             startServer(i, raftServer -> {
                 counter.set(0);
 
-                raftServer.startRaftGroup("test_raft_group", new UpdateCountRaftListener(counter, snapshotDataStorage), INITIAL_CONF,
+                raftServer.startRaftGroup(grpId, new UpdateCountRaftListener(counter, snapshotDataStorage), INITIAL_CONF,
                         defaults().snapshotStorageFactory(new SnapshotInMemoryStorageFactory(snapshotMetaStorage)));
             }, opts -> {});
         }
@@ -680,7 +681,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
      * @param grpId Group id.
      * @return {@code True} if a leader is elected.
      */
-    private boolean hasLeader(String grpId) {
+    private boolean hasLeader(TestReplicationGroupId grpId) {
         return servers.stream().anyMatch(s -> {
             NodeImpl node = (NodeImpl) s.raftGroupService(grpId).getRaftNode();
 
@@ -819,7 +820,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
      * @param groupId  Group id.
      * @return Validation result.
      */
-    private static boolean validateStateMachine(long expected, JraftServerImpl server, String groupId) {
+    private static boolean validateStateMachine(long expected, JraftServerImpl server, TestReplicationGroupId groupId) {
         org.apache.ignite.raft.jraft.RaftGroupService svc = server.raftGroupService(groupId);
 
         JraftServerImpl.DelegatingStateMachine fsm0 =

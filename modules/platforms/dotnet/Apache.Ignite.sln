@@ -12,10 +12,9 @@ ProjectSection(SolutionItems) = preProject
 	README.md = README.md
 	stylecop.json = stylecop.json
 	Directory.Build.props = Directory.Build.props
-	Apache.Ignite.Tests.ruleset = Apache.Ignite.Tests.ruleset
-	Apache.Ignite.ruleset = Apache.Ignite.ruleset
 	DEVNOTES.md = DEVNOTES.md
 	Apache_Ignite_logo_128x128.png = Apache_Ignite_logo_128x128.png
+	.editorconfig = .editorconfig
 EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Apache.Ignite.Benchmarks", "Apache.Ignite.Benchmarks\Apache.Ignite.Benchmarks.csproj", "{9E63F965-535F-4AF2-A380-0780EAC6390E}"

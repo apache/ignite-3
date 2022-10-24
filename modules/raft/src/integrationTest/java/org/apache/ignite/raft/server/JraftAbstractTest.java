@@ -37,7 +37,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
-import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterService;
@@ -143,9 +143,9 @@ public abstract class JraftAbstractTest extends RaftServerAbstractTest {
 
             iterSrv.remove();
 
-            Set<String> grps = server.startedGroups();
+            Set<ReplicationGroupId> grps = server.startedGroups();
 
-            for (String grp : grps) {
+            for (ReplicationGroupId grp : grps) {
                 server.stopRaftGroup(grp);
             }
 
@@ -203,7 +203,7 @@ public abstract class JraftAbstractTest extends RaftServerAbstractTest {
      * @return The client.
      * @throws Exception If failed.
      */
-    protected RaftGroupService startClient(String groupId) throws Exception {
+    protected RaftGroupService startClient(ReplicationGroupId groupId) throws Exception {
         var addr = new NetworkAddress(getLocalAddress(), PORT);
 
         ClusterService clientNode = clusterService(CLIENT_PORT + clients.size(), List.of(addr), true);

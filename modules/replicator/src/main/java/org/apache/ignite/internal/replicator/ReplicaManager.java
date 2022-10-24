@@ -52,6 +52,7 @@ import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.NetworkMessageHandler;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Replica manager maintains {@link Replica} instances on an Ignite node.
@@ -82,7 +83,7 @@ public class ReplicaManager implements IgniteComponent {
     private final NetworkMessageHandler handler;
 
     /** Replicas. */
-    private final ConcurrentHashMap<String, Replica> replicas = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<ReplicationGroupId, Replica> replicas = new ConcurrentHashMap<>();
 
     /** A hybrid logical clock. */
     private final HybridClock clock;
@@ -160,7 +161,7 @@ public class ReplicaManager implements IgniteComponent {
      * @return Instance of the replica or {@code null} if the replica is not started.
      * @throws NodeStoppingException If the node is stopping.
      */
-    public Replica replica(String replicaGrpId) throws NodeStoppingException {
+    public Replica replica(ReplicationGroupId replicaGrpId) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
         }
@@ -185,7 +186,7 @@ public class ReplicaManager implements IgniteComponent {
      * @throws ReplicaIsAlreadyStartedException Is thrown when a replica with the same replication group id has already been started.
      */
     public Replica startReplica(
-            String replicaGrpId,
+            ReplicationGroupId replicaGrpId,
             ReplicaListener listener,
             RaftGroupService raftClient,
             Function<NetworkAddress, ClusterNode> clusterNodeResolver,
@@ -213,7 +214,7 @@ public class ReplicaManager implements IgniteComponent {
      * @return New replica.
      */
     private Replica startReplicaInternal(
-            String replicaGrpId,
+            ReplicationGroupId replicaGrpId,
             ReplicaListener listener,
             RaftGroupService raftClient,
             Function<NetworkAddress, ClusterNode> clusterNodeResolver,
@@ -237,7 +238,7 @@ public class ReplicaManager implements IgniteComponent {
      * @return True if the replica is found and closed, false otherwise.
      * @throws NodeStoppingException If the node is stopping.
      */
-    public boolean stopReplica(String replicaGrpId) throws NodeStoppingException {
+    public boolean stopReplica(ReplicationGroupId replicaGrpId) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
         }
@@ -255,7 +256,7 @@ public class ReplicaManager implements IgniteComponent {
      * @param replicaGrpId Replication group id.
      * @return True if the replica is found and closed, false otherwise.
      */
-    private boolean stopReplicaInternal(String replicaGrpId) {
+    private boolean stopReplicaInternal(ReplicationGroupId replicaGrpId) {
         return replicas.remove(replicaGrpId) != null;
     }
 
@@ -380,5 +381,15 @@ public class ReplicaManager implements IgniteComponent {
      */
     private void idleSafeTimeSync() {
         replicas.values().forEach(Replica::propagateSafeTime);
+    }
+
+    /**
+     * Returns started replication groups.
+     *
+     * @return Set of started replication groups.
+     */
+    @TestOnly
+    public Set<ReplicationGroupId> startedGroups() {
+        return replicas.keySet();
     }
 }

@@ -33,7 +33,7 @@ import org.apache.ignite.raft.client.service.RaftGroupService;
  */
 public class Replica {
     /** Replica group identity, this id is the same as the considered partition's id. */
-    private final String replicaGrpId;
+    private final ReplicationGroupId replicaGrpId;
 
     /** Replica listener. */
     private final ReplicaListener listener;
@@ -56,7 +56,7 @@ public class Replica {
      * @param localNodeSupplier Supplier of instance of {@link ClusterNode} which represents the local node.
      */
     public Replica(
-            String replicaGrpId,
+            ReplicationGroupId replicaGrpId,
             ReplicaListener listener,
             // TODO https://issues.apache.org/jira/browse/IGNITE-17256 remove raftClient, clusterNodeResolver, localNodeSupplier
             RaftGroupService raftClient,

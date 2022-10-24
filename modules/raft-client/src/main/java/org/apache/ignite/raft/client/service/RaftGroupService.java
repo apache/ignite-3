@@ -20,12 +20,11 @@ package org.apache.ignite.raft.client.service;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.Peer;
-import org.apache.ignite.raft.client.ReadCommand;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -50,7 +49,7 @@ public interface RaftGroupService {
     /**
      * Returns group id.
      */
-    @NotNull String groupId();
+    ReplicationGroupId groupId();
 
     /**
      * Returns default timeout for the operations in milliseconds.
@@ -238,18 +237,6 @@ public interface RaftGroupService {
      * @return A future with the execution result.
      */
     <R> CompletableFuture<R> run(Command cmd);
-
-    /**
-     * Runs a read command on a given peer.
-     *
-     * <p>Read commands can see stale data (in the past).
-     *
-     * @param peer Peer id.
-     * @param cmd  The command.
-     * @param <R>  Execution result type.
-     * @return A future with the execution result.
-     */
-    <R> CompletableFuture<R> run(Peer peer, ReadCommand cmd);
 
     /**
      * Shutdown and cleanup resources for this instance.

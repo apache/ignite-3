@@ -81,7 +81,7 @@ public class CompletableFutureMatcher<T> extends TypeSafeMatcher<CompletableFutu
     }
 
     /**
-     * A shorter version of {@link #willBe} to be used with some matchers for aesthetical reasons.
+     * A shorter version of {@link #willBe} to be used with some matchers for aesthetic reasons.
      */
     public static <T> CompletableFutureMatcher<T> will(Matcher<T> matcher) {
         return willBe(matcher);

@@ -20,6 +20,7 @@ namespace Apache.Ignite.Internal.Compute
     using System;
     using System.Collections.Concurrent;
     using System.Collections.Generic;
+    using System.Diagnostics.CodeAnalysis;
     using System.Linq;
     using System.Threading.Tasks;
     using Buffers;
@@ -104,6 +105,7 @@ namespace Apache.Ignite.Internal.Compute
             return res;
         }
 
+        [SuppressMessage("Security", "CA5394:Do not use insecure randomness", Justification = "Secure random is not required here.")]
         private static IClusterNode GetRandomNode(IEnumerable<IClusterNode> nodes)
         {
             var nodesCol = GetNodesCollection(nodes);

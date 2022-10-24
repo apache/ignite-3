@@ -27,7 +27,7 @@ import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.ReplicationGroupOptions;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.server.counter.CounterListener;
@@ -42,8 +42,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(WorkDirectoryExtension.class)
 public class ItSafeTimeTest extends JraftAbstractTest {
-    /** Raft group name. */
-    private static final String RAFT_GROUP_NAME = "testGroup";
+    /** Raft group id. */
+    private static final ReplicationGroupId RAFT_GROUP_ID = new TestReplicationGroupId("testGroup");
 
     /** Nodes count. */
     private static final int NODES = 3;
@@ -90,7 +90,7 @@ public class ItSafeTimeTest extends JraftAbstractTest {
                         RaftGroupOptions groupOptions = defaults()
                                 .replicationGroupOptions(new ReplicationGroupOptions().safeTimeClock(safeTimeClock));
 
-                        raftServer.startRaftGroup(RAFT_GROUP_NAME, new CounterListener(), INITIAL_CONF, groupOptions);
+                        raftServer.startRaftGroup(RAFT_GROUP_ID, new CounterListener(), INITIAL_CONF, groupOptions);
                     },
                     opts -> {
                         opts.setClock(clock);
@@ -99,7 +99,7 @@ public class ItSafeTimeTest extends JraftAbstractTest {
             );
         }
 
-        startClient(RAFT_GROUP_NAME);
+        startClient(RAFT_GROUP_ID);
     }
 
     /**
