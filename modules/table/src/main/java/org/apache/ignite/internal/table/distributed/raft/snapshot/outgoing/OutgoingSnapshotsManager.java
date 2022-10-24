@@ -23,6 +23,9 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.lock.AutoLockup;
@@ -36,28 +39,37 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.message.Snapsh
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMvDataRequest;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotRequestMessage;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotTxDataRequest;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Outgoing snapshots manager. Manages a collection of all ougoing snapshots, currently present on the Ignite node.
  */
 public class OutgoingSnapshotsManager implements PartitionsSnapshots, OutgoingSnapshotRegistry, IgniteComponent {
-    /** Logger. */
+    /**
+     * Logger.
+     */
     private static final IgniteLogger LOG = Loggers.forClass(OutgoingSnapshotsManager.class);
 
-    /** Messaging service. */
+    /**
+     * Messaging service.
+     */
     private final MessagingService messagingService;
 
-    /** Map with outgoing snapshots. */
+    /**
+     * Map with outgoing snapshots.
+     */
     private final Map<UUID, OutgoingSnapshot> snapshots = new ConcurrentHashMap<>();
     // TODO: IGNITE-17935 - remove partition from this map when partition is closed/destroyed
     private final Map<PartitionKey, PartitionSnapshotsImpl> snapshotsByPartition = new ConcurrentHashMap<>();
 
     private final Object snapshotsLock = new Object();
+
+    private volatile ExecutorService executor;
 
     /**
      * Constructor.
@@ -77,18 +89,20 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, OutgoingSn
 
     @Override
     public void start() {
+        executor = Executors.newFixedThreadPool(4, new NamedThreadFactory("outgoing-snapshots", LOG));
+
         messagingService.addMessageHandler(TableMessageGroup.class, this::handleMessage);
     }
 
     @Override
     public void stop() throws Exception {
-        // No-op.
+        IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
     }
 
     /**
      * Registers an outgoing snapshot in the manager.
      *
-     * @param snapshotId Snapshot id.
+     * @param snapshotId       Snapshot id.
      * @param outgoingSnapshot Outgoing snapshot.
      */
     @Override
@@ -101,7 +115,6 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, OutgoingSn
         }
     }
 
-    @NotNull
     private PartitionSnapshotsImpl getPartitionSnapshots(PartitionKey partitionKey) {
         return snapshotsByPartition.computeIfAbsent(
                 partitionKey,
@@ -148,12 +161,17 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, OutgoingSn
             return;
         }
 
-        CompletableFuture<? extends NetworkMessage> responseFuture = handleSnapshotRequestMessage(networkMessage, outgoingSnapshot);
-
-        if (responseFuture != null) {
-            //TODO: IGNITE-17935 - whenComplete()? handle()? Should we analyze the first exception at all?
-            responseFuture.whenComplete((response, throwable) -> respond(response, throwable, sender, correlationId));
-        }
+        CompletableFuture
+                .supplyAsync(() -> handleSnapshotRequestMessage(networkMessage, outgoingSnapshot), executor)
+                .thenAcceptAsync(responseFuture -> {
+                    if (responseFuture != null) {
+                        //TODO: IGNITE-17935 - whenComplete()? handle()? Should we analyze the first exception at all?
+                        responseFuture.whenCompleteAsync(
+                                (response, throwable) -> respond(response, throwable, sender, correlationId),
+                                executor
+                        );
+                    }
+                }, executor);
     }
 
     private static @Nullable CompletableFuture<? extends NetworkMessage> handleSnapshotRequestMessage(
