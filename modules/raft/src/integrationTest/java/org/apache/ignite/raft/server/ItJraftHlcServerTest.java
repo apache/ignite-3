@@ -37,6 +37,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.network.ClusterService;
@@ -108,9 +109,9 @@ class ItJraftHlcServerTest extends RaftServerAbstractTest {
 
             iterSrv.remove();
 
-            Set<String> grps = server.startedGroups();
+            Set<ReplicationGroupId> grps = server.startedGroups();
 
-            for (String grp : grps) {
+            for (ReplicationGroupId grp : grps) {
                 server.stopRaftGroup(grp);
             }
 
@@ -170,12 +171,12 @@ class ItJraftHlcServerTest extends RaftServerAbstractTest {
     @Test
     public void testHlcOneInstancePerIgniteNode() {
         startServer(0, raftServer -> {
-            raftServer.startRaftGroup("test_raft_group", listenerFactory.get(), INITIAL_CONF, defaults());
+            raftServer.startRaftGroup(new TestReplicationGroupId("test_raft_group"), listenerFactory.get(), INITIAL_CONF, defaults());
         }, opts -> {});
 
         servers.forEach(srv -> {
             for (int i = 0; i < 5; i++) {
-                srv.startRaftGroup("test_raft_group_" + i, listenerFactory.get(), INITIAL_CONF, defaults());
+                srv.startRaftGroup(new TestReplicationGroupId("test_raft_group_" + i), listenerFactory.get(), INITIAL_CONF, defaults());
             }
         });
 
@@ -199,10 +200,10 @@ class ItJraftHlcServerTest extends RaftServerAbstractTest {
         });
 
         servers.forEach(srv -> {
-            srv.stopRaftGroup("test_raft_group");
+            srv.stopRaftGroup(new TestReplicationGroupId("test_raft_group"));
 
             for (int i = 0; i < 10; i++) {
-                srv.stopRaftGroup("test_raft_group_" + i);
+                srv.stopRaftGroup(new TestReplicationGroupId("test_raft_group_" + i));
             }
         });
     }

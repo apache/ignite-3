@@ -58,6 +58,7 @@ import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.rest.configuration.RestConfiguration;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableConfiguration;
@@ -264,8 +265,8 @@ public class ItRebalanceDistributedTest {
 
         var countDownLatch = new CountDownLatch(1);
 
-        String raftGroupNodeName = leaderNode.raftManager.server().startedGroups()
-                .stream().filter(grp -> grp.contains("part")).findFirst().get();
+        ReplicationGroupId raftGroupNodeName = leaderNode.raftManager.server().startedGroups()
+                .stream().filter(grp -> grp.toString().contains("part")).findFirst().get();
 
         ((JraftServerImpl) leaderNode.raftManager.server()).blockMessages(
                 raftGroupNodeName, (msg, node) -> {
@@ -313,12 +314,13 @@ public class ItRebalanceDistributedTest {
         waitPartitionAssignmentsSyncedToExpected(0, 1);
 
         JraftServerImpl raftServer = (JraftServerImpl) nodes.stream()
-                .filter(n -> n.raftManager.startedGroups().stream().anyMatch(grp -> grp.contains("_part_"))).findFirst()
+                .filter(n -> n.raftManager.startedGroups().stream().anyMatch(grp -> grp.toString().contains("_part_"))).findFirst()
                 .get().raftManager.server();
 
         AtomicInteger counter = new AtomicInteger(0);
 
-        String partGrpId = raftServer.startedGroups().stream().filter(grp -> grp.contains("_part_")).findFirst().get();
+        ReplicationGroupId partGrpId = raftServer.startedGroups().stream().filter(grp -> grp.toString().contains("_part_")).findFirst()
+                .get();
 
         raftServer.blockMessages(partGrpId, (msg, node) -> {
             if (msg instanceof RpcRequests.PingRequest) {

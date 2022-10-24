@@ -46,6 +46,7 @@ import org.apache.ignite.internal.metastorage.client.Entry;
 import org.apache.ignite.internal.metastorage.client.If;
 import org.apache.ignite.internal.metastorage.client.Operations;
 import org.apache.ignite.internal.metastorage.client.WatchEvent;
+import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -94,7 +95,7 @@ public class RebalanceUtil {
      * @return Future representing result of updating keys in {@code metaStorageMgr}
      */
     public static @NotNull CompletableFuture<Void> updatePendingAssignmentsKeys(
-            String tableName, String partId, Collection<ClusterNode> baselineNodes,
+            String tableName, TablePartitionId partId, Collection<ClusterNode> baselineNodes,
             int replicas, long revision, MetaStorageManager metaStorageMgr, int partNum) {
         ByteArray partChangeTriggerKey = partChangeTriggerKey(partId);
 
@@ -186,7 +187,7 @@ public class RebalanceUtil {
      * @return Key for a partition.
      * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalnce documentation</a>
      */
-    public static ByteArray partChangeTriggerKey(String partId) {
+    public static ByteArray partChangeTriggerKey(TablePartitionId partId) {
         return new ByteArray(partId + ".change.trigger");
     }
 
@@ -197,7 +198,7 @@ public class RebalanceUtil {
      * @return Key for a partition.
      * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalnce documentation</a>
      */
-    public static ByteArray pendingPartAssignmentsKey(String partId) {
+    public static ByteArray pendingPartAssignmentsKey(TablePartitionId partId) {
         return new ByteArray(PENDING_ASSIGNMENTS_PREFIX + partId);
     }
 
@@ -208,7 +209,7 @@ public class RebalanceUtil {
      * @return Key for a partition.
      * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalnce documentation</a>
      */
-    public static ByteArray plannedPartAssignmentsKey(String partId) {
+    public static ByteArray plannedPartAssignmentsKey(TablePartitionId partId) {
         return new ByteArray("assignments.planned." + partId);
     }
 
@@ -219,7 +220,7 @@ public class RebalanceUtil {
      * @return Key for a partition.
      * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalnce documentation</a>
      */
-    public static ByteArray stablePartAssignmentsKey(String partId) {
+    public static ByteArray stablePartAssignmentsKey(TablePartitionId partId) {
         return new ByteArray(STABLE_ASSIGNMENTS_PREFIX + partId);
     }
 
@@ -230,7 +231,7 @@ public class RebalanceUtil {
      * @return Key for a partition.
      * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalnce documentation</a>
      */
-    public static ByteArray switchReduceKey(String partId) {
+    public static ByteArray switchReduceKey(TablePartitionId partId) {
         return new ByteArray(ASSIGNMENTS_SWITCH_REDUCE_PREFIX + partId);
     }
 
@@ -241,7 +242,7 @@ public class RebalanceUtil {
      * @return Key for a partition.
      * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalnce documentation</a>
      */
-    public static ByteArray switchAppendKey(String partId) {
+    public static ByteArray switchAppendKey(TablePartitionId partId) {
         return new ByteArray(ASSIGNMENTS_SWITCH_APPEND_PREFIX + partId);
     }
 
@@ -300,7 +301,11 @@ public class RebalanceUtil {
      * @param metaStorageMgr MetaStorage manager.
      * @return Completable future that signifies the completion of this operation.
      */
-    public static CompletableFuture<Void> startPeerRemoval(String partId, ClusterNode clusterNode, MetaStorageManager metaStorageMgr) {
+    public static CompletableFuture<Void> startPeerRemoval(
+            TablePartitionId partId,
+            ClusterNode clusterNode,
+            MetaStorageManager metaStorageMgr
+    ) {
         ByteArray key = switchReduceKey(partId);
 
         return metaStorageMgr.get(key)
@@ -339,7 +344,7 @@ public class RebalanceUtil {
 
     /**
      * Handles assignments switch reduce changed updating pending assignments if there is no rebalancing in progress.
-     * If there is rebalancing in progress, then new assignments will be applied when rebalance finishes. 
+     * If there is rebalancing in progress, then new assignments will be applied when rebalance finishes.
      *
      * @param metaStorageMgr MetaStorage manager.
      * @param baselineNodes Baseline nodes.
@@ -350,7 +355,7 @@ public class RebalanceUtil {
      * @return Completable future that signifies the completion of this operation.
      */
     public static CompletableFuture<Void> handleReduceChanged(MetaStorageManager metaStorageMgr, Collection<ClusterNode> baselineNodes,
-            int replicas, int partNum, String partId, WatchEvent event) {
+            int replicas, int partNum, TablePartitionId partId, WatchEvent event) {
         Entry entry = event.entryEvent().newEntry();
         byte[] eventData = entry.value();
 
