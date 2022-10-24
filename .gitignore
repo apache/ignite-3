@@ -13,6 +13,9 @@ build/
 
 ### IntelliJ IDEA ###
 .idea
+!.idea/codeStyles/codeStyleConfig.xml
+!.idea/checkstyle-idea.xml
+!.idea/inspectionProfiles/Project_Default.xml
 *.iws
 *.iml
 *.ipr
