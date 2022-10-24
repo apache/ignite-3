@@ -23,6 +23,10 @@
 namespace ignite::detail {
 
 void tables_impl::get_table_async(std::string_view name, ignite_callback<std::optional<table>> callback) {
+    auto writer_func = [&name](protocol::writer &writer) {
+        writer.write(name);
+    };
+
     auto reader_func = [name, conn = m_connection](protocol::reader &reader) mutable -> std::optional<table> {
         if (reader.try_read_nil())
             return std::nullopt;
@@ -33,11 +37,8 @@ void tables_impl::get_table_async(std::string_view name, ignite_callback<std::op
         return std::make_optional(table(tableImpl));
     };
 
-    auto handler =
-        std::make_shared<response_handler_impl<std::optional<table>>>(std::move(reader_func), std::move(callback));
-
-    m_connection->perform_request(
-        client_operation::TABLE_GET, [&name](protocol::writer &writer) { writer.write(name); }, std::move(handler));
+    m_connection->perform_request<std::optional<table>>(
+        client_operation::TABLE_GET, writer_func, std::move(reader_func), std::move(callback));
 }
 
 void tables_impl::get_tables_async(ignite_callback<std::vector<table>> callback) {
@@ -56,10 +57,8 @@ void tables_impl::get_tables_async(ignite_callback<std::vector<table>> callback)
         return tables;
     };
 
-    auto handler =
-        std::make_shared<response_handler_impl<std::vector<table>>>(std::move(reader_func), std::move(callback));
-
-    m_connection->perform_request(client_operation::TABLES_GET, std::move(handler));
+    m_connection->perform_request<std::vector<table>>(
+        client_operation::TABLES_GET, std::move(reader_func), std::move(callback));
 }
 
 } // namespace ignite::detail

@@ -17,11 +17,12 @@
 
 #pragma once
 
-#include <ignite/common/bytes_view.h>
-#include <ignite/protocol/buffer_adapter.h>
+#include "ignite/common/bytes_view.h"
+#include "ignite/common/uuid.h"
+#include "ignite/protocol/extension_types.h"
+#include "ignite/protocol/buffer_adapter.h"
 
 #include <msgpack.h>
-
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -89,6 +90,22 @@ public:
      * @param value Value to write.
      */
     void write(std::string_view value) { msgpack_pack_str_with_body(m_packer.get(), value.data(), value.size()); }
+
+    /**
+     * Write UUID value.
+     *
+     * @param value Value to write.
+     */
+    void write(uuid value) {
+        std::byte data[16];
+        // TODO: pack value to data
+        msgpack_pack_ext_with_body(m_packer.get(), &data, 16, std::int8_t(extension_type::UUID));
+    }
+
+    /**
+     * Write nil value.
+     */
+    void write_nil() { msgpack_pack_nil(m_packer.get()); }
 
     /**
      * Write empty binary data.

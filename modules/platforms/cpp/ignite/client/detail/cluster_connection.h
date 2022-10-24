@@ -93,18 +93,21 @@ public:
      *
      * @tparam T Result type.
      * @param op Operation code.
-     * @param wr Writer function.
-     * @param handler Response handler.
+     * @param wr Request writer function.
+     * @param rd Response reader function.
+     * @param callback Callback to call on result.
      */
     template <typename T>
     void perform_request(client_operation op, const std::function<void(protocol::writer &)> &wr,
-        std::shared_ptr<response_handler_impl<T>> handler) {
+        std::function<T(protocol::reader&)> rd, ignite_callback<T> callback) {
+        auto handler = std::make_shared<response_handler_impl<T>>(std::move(rd), std::move(callback));
+
         while (true) {
             auto channel = get_random_channel();
             if (!channel)
                 throw ignite_error("No nodes connected");
 
-            auto res = channel->perform_request(op, wr, std::move(handler));
+            auto res = channel->perform_request(op, wr, handler);
             if (res)
                 return;
         }
@@ -118,9 +121,8 @@ public:
      * @param handler Response handler.
      */
     template <typename T>
-    void perform_request(client_operation op, std::shared_ptr<response_handler_impl<T>> handler) {
-        perform_request(
-            op, [](protocol::writer &) {}, std::move(handler));
+    void perform_request(client_operation op, std::function<T(protocol::reader&)> rd, ignite_callback<T> callback) {
+        perform_request(op, [](protocol::writer &) {}, std::move(rd), std::move(callback));
     }
 
 private:

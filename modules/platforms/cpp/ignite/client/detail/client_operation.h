@@ -29,6 +29,9 @@ enum class client_operation {
     /** Get table. */
     TABLE_GET = 4,
 
+    /** Get schemas. */
+    SCHEMAS_GET = 5,
+
     /** Upsert tuple. */
     TUPLE_UPSERT = 10,
 

@@ -64,6 +64,14 @@ std::int16_t unpack_object(const msgpack_object &object) {
 }
 
 template <>
+std::string unpack_object(const msgpack_object &object) {
+    if (object.type != MSGPACK_OBJECT_STR)
+        throw ignite_error("The value in stream is not a string");
+
+    return {object.via.str.ptr, object.via.str.size};
+}
+
+template <>
 uuid unpack_object(const msgpack_object &object) {
     if (object.type != MSGPACK_OBJECT_EXT && object.via.ext.type != std::int8_t(extension_type::UUID))
         throw ignite_error("The value in stream is not a UUID");
@@ -80,11 +88,23 @@ uuid unpack_object(const msgpack_object &object) {
 }
 
 template <>
-std::string unpack_object(const msgpack_object &object) {
-    if (object.type != MSGPACK_OBJECT_STR)
-        throw ignite_error("The value in stream is not a string");
+bool unpack_object(const msgpack_object &object) {
+    if (object.type != MSGPACK_OBJECT_BOOLEAN)
+        throw ignite_error("The value in stream is not a bool");
 
-    return {object.via.str.ptr, object.via.str.size};
+    return object.via.boolean;
+}
+
+std::uint32_t unpack_array_size(const msgpack_object &object) {
+    if (object.type != MSGPACK_OBJECT_ARRAY)
+        throw ignite_error("The value in stream is not an Array");
+    return object.via.array.size;
+}
+
+void unpack_array_raw(const msgpack_object &object, const std::function<void(const msgpack_object &)> &read_func) {
+    auto size = unpack_array_size(object);
+    for (std::uint32_t i = 0; i < size; ++i)
+        read_func(object.via.array.ptr[i]);
 }
 
 uuid make_random_uuid() {

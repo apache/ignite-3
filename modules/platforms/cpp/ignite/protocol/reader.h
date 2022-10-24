@@ -158,6 +158,19 @@ public:
     }
 
     /**
+     * Read Map raw.
+     *
+     * @param handler Pair handler.
+     */
+    void read_map_raw(const std::function<void(const msgpack_object_kv&)> &handler) {
+        auto size = read_map_size();
+        for (std::uint32_t i = 0; i < size; ++i) {
+            handler(m_current_val.data.via.map.ptr[i]);
+        }
+        next();
+    }
+
+    /**
      * Read Map.
      *
      * @tparam K Key type.
@@ -172,6 +185,64 @@ public:
             auto val = unpack_object<V>(m_current_val.data.via.map.ptr[i].val);
             handler(std::move(key), std::move(val));
         }
+        next();
+    }
+
+    /**
+     * Read array size.
+     *
+     * @return Array size.
+     */
+    [[nodiscard]] uint32_t read_array_size() const {
+        check_data_in_stream();
+
+        if (m_current_val.data.type != MSGPACK_OBJECT_ARRAY)
+            throw ignite_error("The value in stream is not an Array");
+
+        return m_current_val.data.via.array.size;
+    }
+
+    /**
+     * Read array.
+     *
+     * @param read_func Object read function.
+     */
+    void read_array_raw(const std::function<void(const msgpack_object&)>& read_func) {
+        auto size = read_array_size();
+        for (std::uint32_t i = 0; i < size; ++i) {
+            read_func(m_current_val.data.via.array.ptr[i]);
+        }
+        next();
+    }
+
+    /**
+     * Read array.
+     *
+     * @tparam T Value type.
+     * @param unpack_func Object unpack function.
+     */
+    template <typename T>
+    std::vector<T> read_array(const std::function<T(const msgpack_object&)>& unpack_func) {
+        auto size = read_array_size();
+        std::vector<T> res;
+        res.reserve(size);
+        for (std::uint32_t i = 0; i < size; ++i) {
+            auto val = unpack_func(m_current_val.data.via.array.ptr[i]);
+            res.emplace_back(std::move(val));
+        }
+        next();
+        return std::move(res);
+    }
+
+    /**
+     * Read array.
+     *
+     * @tparam T Value type.
+     * @param handler Value handler.
+     */
+    template <typename T>
+    std::vector<T> read_array() {
+        return read_array<T>(unpack_object<T>);
     }
 
     /**
