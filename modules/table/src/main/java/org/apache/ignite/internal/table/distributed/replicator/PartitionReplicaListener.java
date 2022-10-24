@@ -309,6 +309,14 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Result future.
      */
     private CompletableFuture<Object> processReadOnlyScanRetrieveBatchAction(ReadOnlyScanRetrieveBatchReplicaRequest request) {
+        if (request.indexToUse() != null) {
+            IndexStorage indexStorage = getIndexStorage(request.indexToUse());
+
+            if (indexStorage instanceof SortedIndexStorage) {
+                return scanSortedIndex(request, (SortedIndexStorage) indexStorage);
+            }
+        }
+
         UUID txId = request.transactionId();
         int batchCount = request.batchSize();
         HybridTimestamp timestamp = request.timestamp();
@@ -510,7 +518,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     /**
-     * Scans non-uniq sorted index.
+     * Scans sorted index in RW tx.
      *
      * @param request Index scan request.
      * @param indexStorage Index storage.
@@ -529,7 +537,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         int flags = request.flags();
 
-        boolean includeBound = (flags & SortedIndexStorage.LESS_OR_EQUAL) != 0;
+        boolean includeUpperBound = (flags & SortedIndexStorage.LESS_OR_EQUAL) != 0;
 
         return lockManager.acquire(txId, new LockKey(indexId), LockMode.IS).thenCompose(idxLock -> { // Index IS lock
             return lockManager.acquire(txId, new LockKey(tableId), LockMode.IS).thenCompose(tblLock -> { // Table IS lock
@@ -545,10 +553,68 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                 final ArrayList<BinaryRow> result = new ArrayList<>(batchCount);
 
-                return continueIndexScan(txId, indexId, cursor, upperBound, includeBound, batchCount, result)
+                return continueIndexScan(txId, indexId, cursor, upperBound, includeUpperBound, batchCount, result)
                         .thenApply(ignore -> result);
             });
         });
+    }
+
+    /**
+     * Scans sorted index in RO tx.
+     *
+     * @param request Index scan request.
+     * @param indexStorage Index storage.
+     * @return Opreation future.
+     */
+    private CompletableFuture<Object> scanSortedIndex(ReadOnlyScanRetrieveBatchReplicaRequest request, SortedIndexStorage indexStorage) {
+        UUID txId = request.transactionId();
+        int batchCount = request.batchSize();
+        HybridTimestamp timestamp = request.timestamp();
+
+        IgniteUuid cursorId = new IgniteUuid(txId, request.scanId());
+
+        BinaryTuple lowerBound = request.lowerBound();
+        BinaryTuple upperBound = request.upperBound();
+
+        int flags = request.flags();
+
+        @SuppressWarnings("resource") Cursor<IndexRow> cursor = (Cursor<IndexRow>) cursors.computeIfAbsent(cursorId,
+                id -> {
+                    return indexStorage.scan(
+                            lowerBound == null ? null : BinaryTuplePrefix.fromBinaryTuple(lowerBound),
+                            upperBound == null ? null : BinaryTuplePrefix.fromBinaryTuple(upperBound),
+                            flags
+                    );
+                });
+
+        final ArrayList<BinaryRow> result = new ArrayList<>(batchCount);
+
+        while (result.size() < batchCount && cursor.hasNext()) {
+            IndexRow indexRow = cursor.next();
+
+            RowId rowId = indexRow.rowId();
+
+            ReadResult readResult = mvDataStorage.read(rowId, HybridTimestamp.MAX_VALUE);
+            BinaryRow resolvedReadResult = resolveReadResult(readResult, timestamp, () -> {
+                if (readResult.newestCommitTimestamp() == null) {
+                    return null;
+                }
+
+                ReadResult committedReadResult = mvDataStorage.read(rowId, readResult.newestCommitTimestamp());
+
+                assert !committedReadResult.isWriteIntent() :
+                        "The result is not committed [rowId=" + rowId + ", timestamp="
+                                + readResult.newestCommitTimestamp() + ']';
+
+                return committedReadResult.binaryRow();
+            });
+
+            if (resolvedReadResult != null) {
+                result.add(resolvedReadResult);
+            }
+        }
+
+        return CompletableFuture.completedFuture(result);
     }
 
     /**
@@ -582,6 +648,10 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         IndexRow indexRow = indexCursor.next();
 
+        //TODO: Fix scan consistency
+        // 1. Do index.peekNext() item and lock it. (Lock INF+ if not found)
+        // 2. Do index.peekNext() again and ensure it wasn't changed.
+        // 3. If matches then do cursor.next() and proceed scan, otherwise release lock on peeked one and repeat from step 1.
         return lockManager.acquire(txId, new LockKey(indexId, indexRow.indexColumns().byteBuffer()), LockMode.S)
                 .thenCompose(lock -> { // Index row S lock
                     if (upperBound != null) {
