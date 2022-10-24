@@ -15,3 +15,13 @@ dotnet_diagnostic.CA1031.severity = none # DoNotCatchGeneralExceptionTypes
 dotnet_diagnostic.CA1801.severity = none # UnusedParameters
 dotnet_diagnostic.CA1062.severity = none # Validate parameters.
 dotnet_diagnostic.CA1308.severity = none # Normalize to upper case
+dotnet_diagnostic.CA1014.severity = none # Mark assemblies with CLSCompliant
+dotnet_diagnostic.CA1002.severity = none # Do not expose generic lists
+dotnet_diagnostic.CA1051.severity = none # Do not declare visible instance fields
+dotnet_diagnostic.CA1720.severity = none # Identifier contains type name
+dotnet_diagnostic.CA1307.severity = none # Specify StringComparison for clarity
+dotnet_diagnostic.CA2201.severity = none # Do not raise reserved exception types
+dotnet_diagnostic.CA1508.severity = none # Avoid dead conditional code
+dotnet_diagnostic.CA1305.severity = none # Specify IFormatProvider
+
+
