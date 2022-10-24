@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing;
 
+import static java.util.Collections.unmodifiableList;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -240,7 +242,7 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, OutgoingSn
 
         @Override
         public List<OutgoingSnapshot> ongoingSnapshots() {
-            return snapshots;
+            return unmodifiableList(snapshots);
         }
     }
 }
