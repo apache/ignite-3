@@ -118,6 +118,7 @@ project(":packaging").projectDir = file('packaging')
 buildCache {
     local {
         enabled = false
+        push = false
     }
     remote(HttpBuildCache) {
         push = true
