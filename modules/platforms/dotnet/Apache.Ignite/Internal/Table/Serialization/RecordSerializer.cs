@@ -161,7 +161,8 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// <param name="schema">Schema.</param>
         /// <param name="rec">Record.</param>
         /// <param name="keyOnly">Key only columns.</param>
-        public void Write(
+        /// <returns>Colocation hash.</returns>
+        public int Write(
             PooledArrayBufferWriter buf,
             Transactions.Transaction? tx,
             Schema schema,
@@ -170,9 +171,11 @@ namespace Apache.Ignite.Internal.Table.Serialization
         {
             var w = buf.GetMessageWriter();
 
-            WriteWithHeader(ref w, tx, schema, rec, keyOnly);
+            var colocationHash = WriteWithHeader(ref w, tx, schema, rec, keyOnly);
 
             w.Flush();
+
+            return colocationHash;
         }
 
         /// <summary>
@@ -253,7 +256,8 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// <param name="schema">Schema.</param>
         /// <param name="rec">Record.</param>
         /// <param name="keyOnly">Key only columns.</param>
-        private void WriteWithHeader(
+        /// <returns>Colocation hash.</returns>
+        private int WriteWithHeader(
             ref MessagePackWriter w,
             Transactions.Transaction? tx,
             Schema schema,
@@ -263,7 +267,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             WriteIdAndTx(ref w, tx);
             w.Write(schema.Version);
 
-            _handler.Write(ref w, schema, rec, keyOnly);
+            return _handler.Write(ref w, schema, rec, keyOnly);
         }
 
         /// <summary>

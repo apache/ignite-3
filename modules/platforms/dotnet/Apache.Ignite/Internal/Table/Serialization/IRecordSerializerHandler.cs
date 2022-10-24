@@ -50,6 +50,8 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// <param name="schema">Schema.</param>
         /// <param name="record">Record.</param>
         /// <param name="keyOnly">Key only mode.</param>
-        void Write(ref MessagePackWriter writer, Schema schema, T record, bool keyOnly = false);
+        /// <param name="computeHash">Whether to compute the colocation hash while writing the tuple.</param>
+        /// <returns>Colocation hash when <paramref name="computeHash"/> is <c>true</c>; 0 otherwise.</returns>
+        int Write(ref MessagePackWriter writer, Schema schema, T record, bool keyOnly = false, bool computeHash = false);
     }
 }

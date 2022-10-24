@@ -377,14 +377,9 @@ namespace Apache.Ignite.Internal.Table
             var tx = transaction.ToInternal();
 
             using var writer = ProtoCommon.GetMessageWriter();
-            _ser.Write(writer, tx, schema, record, keyOnly);
+            var colocationHash = _ser.Write(writer, tx, schema, record, keyOnly);
 
-            // TODO: We need to skip the header (tx, table id, ...)
-            // Pass "computeHash" to serializer handler?
-            // It can be in BinaryTupleBuilder, but we don't know which columns are colocation within the builder. - pass the schema there?
-            var binaryTupleMem = writer.GetWrittenMemory()[ProtoCommon.MessagePrefixSize..];
-            var hash = HashCalculator.CalculateBinaryTupleHash(binaryTupleMem, keyOnly, schema);
-            var partition = Math.Abs(hash % assignment.Length);
+            var partition = Math.Abs(colocationHash % assignment.Length);
             var nodeId = assignment[partition];
 
             return await DoOutInOpAsync(op, tx, writer, PreferredNode.FromId(nodeId)).ConfigureAwait(false);

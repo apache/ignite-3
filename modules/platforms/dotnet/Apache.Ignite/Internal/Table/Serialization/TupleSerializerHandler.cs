@@ -82,13 +82,13 @@ namespace Apache.Ignite.Internal.Table.Serialization
         }
 
         /// <inheritdoc/>
-        public void Write(ref MessagePackWriter writer, Schema schema, IIgniteTuple record, bool keyOnly = false)
+        public int Write(ref MessagePackWriter writer, Schema schema, IIgniteTuple record, bool keyOnly = false, bool computeHash = false)
         {
             var columns = schema.Columns;
             var count = keyOnly ? schema.KeyColumnCount : columns.Count;
             var noValueSet = writer.WriteBitSet(count);
 
-            var tupleBuilder = new BinaryTupleBuilder(count);
+            var tupleBuilder = new BinaryTupleBuilder(count, colocationHashPredicate: computeHash ? schema : null);
 
             try
             {
@@ -109,6 +109,8 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
                 var binaryTupleMemory = tupleBuilder.Build();
                 writer.Write(binaryTupleMemory.Span);
+
+                return tupleBuilder.ColocationHash;
             }
             finally
             {

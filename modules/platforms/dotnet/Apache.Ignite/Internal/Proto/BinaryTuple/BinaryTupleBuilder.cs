@@ -107,9 +107,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <summary>
         /// Gets the colocation hash.
         /// </summary>
-        public int ColocationHash => _colocationHashPredicate != null
-            ? _colocationHash
-            : throw new InvalidOperationException(nameof(_colocationHashPredicate) + " was not set - colocation hash is not available");
+        public int ColocationHash => _colocationHash;
 
         /// <summary>
         /// Appends a null value.

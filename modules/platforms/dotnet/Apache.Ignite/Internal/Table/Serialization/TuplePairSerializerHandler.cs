@@ -77,13 +77,19 @@ internal class TuplePairSerializerHandler : IRecordSerializerHandler<KvPair<IIgn
     }
 
     /// <inheritdoc/>
-    public void Write(ref MessagePackWriter writer, Schema schema, KvPair<IIgniteTuple, IIgniteTuple> record, bool keyOnly = false)
+    public int Write(
+        ref MessagePackWriter writer,
+        Schema schema,
+        KvPair<IIgniteTuple, IIgniteTuple> record,
+        bool keyOnly = false,
+        bool computeHash = false)
     {
+        // TODO: Move this code outside of this interface?
         var columns = schema.Columns;
         var count = keyOnly ? schema.KeyColumnCount : columns.Count;
         var noValueSet = writer.WriteBitSet(count);
 
-        var tupleBuilder = new BinaryTupleBuilder(count);
+        var tupleBuilder = new BinaryTupleBuilder(count, colocationHashPredicate: computeHash ? schema : null);
 
         try
         {
@@ -105,6 +111,8 @@ internal class TuplePairSerializerHandler : IRecordSerializerHandler<KvPair<IIgn
 
             var binaryTupleMemory = tupleBuilder.Build();
             writer.Write(binaryTupleMemory.Span);
+
+            return tupleBuilder.ColocationHash;
         }
         finally
         {
