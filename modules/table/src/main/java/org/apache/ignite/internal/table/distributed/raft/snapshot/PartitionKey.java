@@ -29,6 +29,15 @@ public class PartitionKey {
     private final int partitionId;
 
     /**
+     * Returns ID of the table.
+     *
+     * @return ID of the table.
+     */
+    public UUID tableId() {
+        return tableId;
+    }
+
+    /**
      * Returns partition ID.
      *
      * @return Partition ID.
