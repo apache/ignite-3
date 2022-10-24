@@ -297,7 +297,9 @@ public class Loza implements IgniteComponent {
     ) {
         assert !peers.isEmpty();
 
-        LOG.info("Start new raft node for group={} with initial peers={}", grpId, peers);
+        if (LOG.isInfoEnabled()) {
+            LOG.info("Start new raft node for group={} with initial peers={}", grpId, peers);
+        }
 
         boolean started = raftServer.startRaftGroup(grpId, raftGrpEvtsLsnr, lsnr, peers, learners, groupOptions);
 
@@ -344,7 +346,9 @@ public class Loza implements IgniteComponent {
         }
 
         try {
-            LOG.info("Stop raft group={}", groupId);
+            if (LOG.isInfoEnabled()) {
+                LOG.info("Stop raft group={}", groupId);
+            }
 
             raftServer.stopRaftGroup(groupId);
         } finally {

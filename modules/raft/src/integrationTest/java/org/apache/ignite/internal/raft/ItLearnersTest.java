@@ -55,13 +55,16 @@ import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.StaticNodeFinder;
+import org.apache.ignite.network.annotations.Transferable;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.ReadCommand;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.apache.ignite.raft.client.service.CommandClosure;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
 import org.apache.ignite.raft.client.service.RaftGroupService;
+import org.apache.ignite.raft.messages.TestRaftMessagesFactory;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -81,10 +84,24 @@ public class ItLearnersTest extends IgniteAbstractTest {
             new NetworkAddress("localhost", 5002)
     );
 
+    private static final TestRaftMessagesFactory msgFactory = new TestRaftMessagesFactory();
+
     @InjectConfiguration
     private static RaftConfiguration raftConfiguration;
 
     private final List<RaftNode> nodes = new ArrayList<>(ADDRS.size());
+
+    /**
+     * Test WriteCommand.
+     */
+    @Transferable(10)
+    public interface TestWriteCommand extends NetworkMessage, WriteCommand {
+        String value();
+
+        static TestWriteCommand create(String value) {
+            return msgFactory.testWriteCommand().value(value).build();
+        }
+    }
 
     /** Mock Raft node. */
     private class RaftNode implements AutoCloseable {
@@ -126,7 +143,7 @@ public class ItLearnersTest extends IgniteAbstractTest {
     }
 
     @BeforeEach
-    void setUp(TestInfo testInfo, @InjectConfiguration RaftConfiguration raftConfiguration) {
+    void setUp(TestInfo testInfo) {
         var nodeFinder = new StaticNodeFinder(ADDRS);
 
         ADDRS.stream()
@@ -172,8 +189,8 @@ public class ItLearnersTest extends IgniteAbstractTest {
 
         // Test writing data.
         CompletableFuture<?> writeFuture = services.get(0)
-                .thenCompose(s -> s.run(new TestWriteCommand("foo")).thenApply(v -> s))
-                .thenCompose(s -> s.run(new TestWriteCommand("bar")));
+                .thenCompose(s -> s.run(TestWriteCommand.create("foo")).thenApply(v -> s))
+                .thenCompose(s -> s.run(TestWriteCommand.create("bar")));
 
         assertThat(writeFuture, willCompleteSuccessfully());
 
@@ -229,13 +246,14 @@ public class ItLearnersTest extends IgniteAbstractTest {
                 .collect(toList());
 
         // Wait for the leader to be elected.
-        services.forEach(service -> {
-            assertThat(service.thenCompose(s -> s.refreshLeader().thenApply(v -> s.leader())), willBe(follower.asPeer()));
-        });
+        services.forEach(service -> assertThat(
+                service.thenCompose(s -> s.refreshLeader().thenApply(v -> s.leader())),
+                willBe(follower.asPeer()))
+        );
 
         nodes.set(0, null).close();
 
-        assertThat(services.get(1).thenCompose(s -> s.run(new TestWriteCommand("foo"))), willThrow(TimeoutException.class));
+        assertThat(services.get(1).thenCompose(s -> s.run(TestWriteCommand.create("foo"))), willThrow(TimeoutException.class));
     }
 
     /**
@@ -251,10 +269,10 @@ public class ItLearnersTest extends IgniteAbstractTest {
                 .collect(toList());
 
         // Wait for the leader to be elected.
-        // Wait for the leader to be elected.
-        services.forEach(service -> {
-            assertThat(service.thenCompose(s -> s.refreshLeader().thenApply(v -> s.leader())), willBe(follower.asPeer()));
-        });
+        services.forEach(service -> assertThat(
+                service.thenCompose(s -> s.refreshLeader().thenApply(v -> s.leader())),
+                willBe(follower.asPeer()))
+        );
 
         nodes.set(1, null).close();
         nodes.set(2, null).close();
@@ -279,6 +297,7 @@ public class ItLearnersTest extends IgniteAbstractTest {
             );
 
             return future.thenApply(s -> {
+                // Decrease the default timeout to make tests faster.
                 s.timeout(100);
 
                 return s;
@@ -298,8 +317,8 @@ public class ItLearnersTest extends IgniteAbstractTest {
 
                 TestWriteCommand writeCommand = (TestWriteCommand) closure.command();
 
-                if (!storage.contains(writeCommand.value)) {
-                    storage.add(writeCommand.value);
+                if (!storage.contains(writeCommand.value())) {
+                    storage.add(writeCommand.value());
                 }
 
                 closure.result(null);
@@ -321,14 +340,6 @@ public class ItLearnersTest extends IgniteAbstractTest {
 
         @Override
         public void onShutdown() {
-        }
-    }
-
-    private static class TestWriteCommand implements WriteCommand {
-        final String value;
-
-        TestWriteCommand(String value) {
-            this.value = value;
         }
     }
 
