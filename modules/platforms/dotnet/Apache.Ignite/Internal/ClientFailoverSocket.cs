@@ -363,6 +363,7 @@ namespace Apache.Ignite.Internal
         /// <summary>
         /// Gets next connected socket, or connects a new one.
         /// </summary>
+        [SuppressMessage("Maintainability", "CA1508:Avoid dead conditional code", Justification = "False positive")]
         private async ValueTask<ClientSocket> GetNextSocketAsync()
         {
             List<Exception>? errors = null;
