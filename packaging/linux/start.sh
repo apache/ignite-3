@@ -35,7 +35,7 @@ CMD="java \
 -Dio.netty.tryReflectionSetAccessible=true \
 -Djava.util.logging.config.file=@CONF_DIR@/ignite.java.util.logging.properties \
 ${IGNITE3_EXTRA_JVM_ARGS} \
--classpath @INSTALL_DIR@/lib:@INSTALL_DIR@/lib/* org.apache.ignite.app.IgniteCliRunner \
+-classpath @INSTALL_DIR@/lib:@INSTALL_DIR@/lib/* org.apache.ignite.app.IgniteRunner \
 --config-path ${CONFIG_FILE} \
 --work-dir ${WORK_DIR} \
 --node-name ${NODE_NAME}"

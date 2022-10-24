@@ -99,10 +99,10 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     );
 
     /** Accounts table id -> balance. */
-    protected Table accounts;
+    protected TableImpl accounts;
 
     /** Customers table id -> name. */
-    protected Table customers;
+    protected TableImpl customers;
 
     protected static final double BALANCE_1 = 500;
 
@@ -1730,7 +1730,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
      * @param partId Partition id.
      * @return {@code True} if a replicas are the same.
      */
-    protected abstract boolean assertPartitionsSame(Table table, int partId);
+    protected abstract boolean assertPartitionsSame(TableImpl table, int partId);
 
     /**
      * Validates balances.

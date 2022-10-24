@@ -27,6 +27,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.Timestamp;
@@ -102,10 +103,11 @@ public class TxManagerImpl implements TxManager {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> finish(
+            ReplicationGroupId commitPartition,
             ClusterNode recipientNode,
             Long term,
             boolean commit,
-            Map<ClusterNode, List<IgniteBiTuple<String, Long>>> groups,
+            Map<ClusterNode, List<IgniteBiTuple<ReplicationGroupId, Long>>> groups,
             UUID txId
     ) {
         assert groups != null && !groups.isEmpty();
@@ -114,7 +116,7 @@ public class TxManagerImpl implements TxManager {
 
         TxFinishReplicaRequest req = FACTORY.txFinishReplicaRequest()
                 .txId(txId)
-                .groupId(groups.values().iterator().next().get(0).get1())
+                .groupId(commitPartition)
                 .groups(groups)
                 .commit(commit)
                 .commitTimestamp(commitTimestamp)
@@ -130,7 +132,7 @@ public class TxManagerImpl implements TxManager {
     @Override
     public CompletableFuture<Void> cleanup(
             ClusterNode recipientNode,
-            List<IgniteBiTuple<String, Long>> replicationGroupIds,
+            List<IgniteBiTuple<ReplicationGroupId, Long>> replicationGroupIds,
             UUID txId,
             boolean commit,
             HybridTimestamp commitTimestamp

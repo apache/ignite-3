@@ -15,34 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.deprecated.builtins.module;
+package org.apache.ignite.internal.replicator;
 
-import java.nio.file.Path;
-import java.util.Collections;
-import java.util.List;
+import java.io.Serializable;
 
 /**
- * Result of resolving maven artifact dependencies.
+ * The interface represents a replication group identifier.
  */
-public class ResolveResult {
-    /** List of resolver artifacts' paths. */
-    private final List<Path> artifacts;
-
-    /**
-     * Creates result of artifacts resolving.
-     *
-     * @param artifacts List of artifacts paths.
-     */
-    public ResolveResult(List<Path> artifacts) {
-        this.artifacts = artifacts;
-    }
-
-    /**
-     * Returns list of artifacts' paths.
-     *
-     * @return List of artifacts' paths.
-     */
-    public List<Path> artifacts() {
-        return Collections.unmodifiableList(artifacts);
-    }
+public interface ReplicationGroupId extends Serializable {
 }

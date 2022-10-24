@@ -15,8 +15,32 @@
  * limitations under the License.
  */
 
-/**
- * Contains classes for Ignite init process.
- */
+package org.apache.ignite.internal.cluster.management;
 
-package org.apache.ignite.internal.cli.deprecated.builtins.init;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
+
+/**
+ * CMG replication group id.
+ */
+public enum CmgGroupId implements ReplicationGroupId {
+    /** CMG group id. */
+    INSTANCE("cmg_group");
+
+    /** Group id string representation. */
+    private String name;
+
+    /**
+     * The constructor.
+     *
+     * @param name The string representation of the enum.
+     */
+    CmgGroupId(String name) {
+        this.name = name;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String toString() {
+        return name;
+    }
+}

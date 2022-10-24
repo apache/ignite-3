@@ -15,8 +15,32 @@
  * limitations under the License.
  */
 
-/**
- * Contains classes for Ignite module management.
- */
+package org.apache.ignite.internal.metastorage.common;
 
-package org.apache.ignite.internal.cli.deprecated.builtins.module;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
+
+/**
+ * Meta storage replication group id.
+ */
+public enum MetastorageGroupId implements ReplicationGroupId {
+    /** Meta storage group id. */
+    INSTANCE("metastorage_group");
+
+    /** Group id string representation. */
+    private String name;
+
+    /**
+     * The constructor.
+     *
+     * @param name The string representation of the enum.
+     */
+    MetastorageGroupId(String name) {
+        this.name = name;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String toString() {
+        return name;
+    }
+}

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.commands.node;
+package org.apache.ignite.internal.cli.commands.node;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 

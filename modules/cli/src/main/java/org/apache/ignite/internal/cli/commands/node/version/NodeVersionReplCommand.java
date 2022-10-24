@@ -15,10 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.commands.node.version;
+package org.apache.ignite.internal.cli.commands.node.version;
 
 import jakarta.inject.Inject;
-import org.apache.ignite.cli.call.node.version.NodeVersionCall;
+import org.apache.ignite.internal.cli.call.node.version.NodeVersionCall;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.node.NodeUrlMixin;
 import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;

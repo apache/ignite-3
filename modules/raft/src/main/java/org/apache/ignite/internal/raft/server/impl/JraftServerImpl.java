@@ -40,6 +40,7 @@ import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.DefaultLogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.IgniteJraftServiceFactory;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
@@ -95,7 +96,7 @@ public class JraftServerImpl implements RaftServer {
     private IgniteRpcServer rpcServer;
 
     /** Started groups. */
-    private final ConcurrentMap<String, RaftGroupService> groups = new ConcurrentHashMap<>();
+    private final ConcurrentMap<ReplicationGroupId, RaftGroupService> groups = new ConcurrentHashMap<>();
 
     /** Lock storage with predefined monitor objects,
      * needed to prevent concurrent start of the same raft group. */
@@ -324,7 +325,7 @@ public class JraftServerImpl implements RaftServer {
      * @param groupId Group id.
      * @return The path to persistence folder.
      */
-    public Path getServerDataPath(String groupId) {
+    public Path getServerDataPath(ReplicationGroupId groupId) {
         ClusterNode clusterNode = service.topologyService().localMember();
 
         String dirName = groupId + "_" + clusterNode.address().toString().replace(':', '_');
@@ -335,7 +336,7 @@ public class JraftServerImpl implements RaftServer {
     /** {@inheritDoc} */
     @Override
     public boolean startRaftGroup(
-            String groupId,
+            ReplicationGroupId groupId,
             RaftGroupListener lsnr,
             @Nullable List<Peer> initialConf,
             RaftGroupOptions groupOptions
@@ -346,20 +347,22 @@ public class JraftServerImpl implements RaftServer {
     /** {@inheritDoc} */
     @Override
     public boolean startRaftGroup(
-            String grpId,
+            ReplicationGroupId replicaGrpId,
             RaftGroupEventsListener evLsnr,
             RaftGroupListener lsnr,
             @Nullable List<Peer> initialConf,
             RaftGroupOptions groupOptions
     ) {
+        String grpId = replicaGrpId.toString();
+
         // fast track to check if group with the same name is already created.
-        if (groups.containsKey(grpId)) {
+        if (groups.containsKey(replicaGrpId)) {
             return false;
         }
 
         synchronized (groupMonitor(grpId)) {
             // double check if group wasn't created before receiving the lock.
-            if (groups.containsKey(grpId)) {
+            if (groups.containsKey(replicaGrpId)) {
                 return false;
             }
 
@@ -367,7 +370,7 @@ public class JraftServerImpl implements RaftServer {
             NodeOptions nodeOptions = opts.copy();
 
             // TODO: IGNITE-17083 - Do not create paths for volatile stores at all when we get rid of snapshot storage on FS.
-            Path serverDataPath = getServerDataPath(grpId);
+            Path serverDataPath = getServerDataPath(replicaGrpId);
 
             try {
                 Files.createDirectories(serverDataPath);
@@ -418,7 +421,7 @@ public class JraftServerImpl implements RaftServer {
 
             server.start();
 
-            groups.put(grpId, server);
+            groups.put(replicaGrpId, server);
 
             return true;
         }
@@ -426,7 +429,7 @@ public class JraftServerImpl implements RaftServer {
 
     /** {@inheritDoc} */
     @Override
-    public boolean stopRaftGroup(String grpId) {
+    public boolean stopRaftGroup(ReplicationGroupId grpId) {
         RaftGroupService svc = groups.remove(grpId);
 
         boolean stopped = svc != null;
@@ -440,7 +443,7 @@ public class JraftServerImpl implements RaftServer {
 
     /** {@inheritDoc} */
     @Override
-    public Peer localPeer(String groupId) {
+    public Peer localPeer(ReplicationGroupId groupId) {
         RaftGroupService service = groups.get(groupId);
 
         if (service == null) {
@@ -458,13 +461,13 @@ public class JraftServerImpl implements RaftServer {
      * @param groupId Group id.
      * @return Service group.
      */
-    public RaftGroupService raftGroupService(String groupId) {
+    public RaftGroupService raftGroupService(ReplicationGroupId groupId) {
         return groups.get(groupId);
     }
 
     /** {@inheritDoc} */
     @Override
-    public Set<String> startedGroups() {
+    public Set<ReplicationGroupId> startedGroups() {
         return groups.keySet();
     }
 
@@ -475,7 +478,7 @@ public class JraftServerImpl implements RaftServer {
      * @param predicate Predicate to block messages.
      */
     @TestOnly
-    public void blockMessages(String groupId, BiPredicate<Object, String> predicate) {
+    public void blockMessages(ReplicationGroupId groupId, BiPredicate<Object, String> predicate) {
         IgniteRpcClient client = (IgniteRpcClient) groups.get(groupId).getNodeOptions().getRpcClient();
 
         client.blockMessages(predicate);
@@ -487,7 +490,7 @@ public class JraftServerImpl implements RaftServer {
      * @param groupId Raft group id.
      */
     @TestOnly
-    public void stopBlockMessages(String groupId) {
+    public void stopBlockMessages(ReplicationGroupId groupId) {
         IgniteRpcClient client = (IgniteRpcClient) groups.get(groupId).getNodeOptions().getRpcClient();
 
         client.stopBlock();
