@@ -37,8 +37,8 @@ public class PartitionAwarenessTests
     [Test]
     public async Task TestPutRoutesRequestToPrimaryNode()
     {
-        using var server1 = new FakeServer();
-        using var server2 = new FakeServer();
+        using var server1 = new FakeServer(nodeName: "srv1");
+        using var server2 = new FakeServer(nodeName: "srv2");
 
         var assignment = new[] { server1.Node.Id, server2.Node.Id };
         server1.PartitionAssignment = assignment;
@@ -59,17 +59,16 @@ public class PartitionAwarenessTests
 
         await recordView.UpsertAsync(null, 1);
 
+        Assert.AreEqual(0, server1.ClientOps.Count);
+        Assert.AreEqual(
+            new[] { ClientOp.TableGet, ClientOp.SchemasGet, ClientOp.PartitionAssignmentGet, ClientOp.TupleUpsert },
+            server2.ClientOps);
+
+        await recordView.UpsertAsync(null, 3);
+
         Assert.AreEqual(new[] { ClientOp.TupleUpsert }, server1.ClientOps);
-        Assert.AreEqual(new[] { ClientOp.TableGet, ClientOp.SchemasGet, ClientOp.PartitionAssignmentGet }, server2.ClientOps);
-
-        for (int i = 0; i < 100; i++)
-        {
-            await recordView.UpsertAsync(null, i);
-
-            if (server2.ClientOps.Count > 3)
-            {
-                Assert.Fail(i.ToString());
-            }
-        }
+        Assert.AreEqual(
+            new[] { ClientOp.TableGet, ClientOp.SchemasGet, ClientOp.PartitionAssignmentGet, ClientOp.TupleUpsert },
+            server2.ClientOps);
     }
 }
