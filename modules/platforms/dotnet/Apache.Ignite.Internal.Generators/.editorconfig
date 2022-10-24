@@ -1,0 +1,10 @@
+# All files
+[*]
+
+# Code analysis
+dotnet_diagnostic.CA1002.severity = none # Do not expose generic lists
+dotnet_diagnostic.CA1014.severity = none # Mark assemblies with CLSCompliant
+dotnet_diagnostic.CA2201.severity = none # Do not raise reserved exception types
+dotnet_diagnostic.CA1308.severity = none # Normalize strings to uppercase
+
+
