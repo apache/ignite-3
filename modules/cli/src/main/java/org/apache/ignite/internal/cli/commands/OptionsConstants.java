@@ -47,4 +47,13 @@ public class OptionsConstants {
 
     /** URL option short name. */
     public static final String URL_OPTION_SHORT = "-u";
+
+    /** Node name option long name. */
+    public static final String NODE_NAME_OPTION = "--node-name";
+
+    /** Node name option short name. */
+    public static final String NODE_NAME_OPTION_SHORT = "-n";
+
+    /** Node name option description. */
+    public static final String NODE_NAME_DESC = "Name of ignite node";
 }

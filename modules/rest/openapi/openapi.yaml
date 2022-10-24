@@ -424,8 +424,8 @@ components:
       required:
       - address
       - id
-      - name
       - metadata
+      - name
       type: object
       properties:
         id:
