@@ -22,7 +22,6 @@ import org.apache.ignite.internal.cli.commands.cliconfig.CliCommand;
 import org.apache.ignite.internal.cli.commands.cluster.ClusterCommand;
 import org.apache.ignite.internal.cli.commands.node.NodeCommand;
 import org.apache.ignite.internal.cli.commands.sql.SqlCommand;
-import org.apache.ignite.internal.cli.deprecated.spec.BootstrapIgniteCommandSpec;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
@@ -40,7 +39,6 @@ import picocli.CommandLine.Option;
                 SqlCommand.class,
                 CommandLine.HelpCommand.class,
                 CliCommand.class,
-                BootstrapIgniteCommandSpec.class,
                 NodeCommand.class,
                 ClusterCommand.class
         })

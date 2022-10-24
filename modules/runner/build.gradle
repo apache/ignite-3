@@ -128,7 +128,7 @@ checkstyleMain {
 jar {
     manifest {
         attributes(
-            'Main-Class': 'org.apache.ignite.app.IgniteCliRunner'
+            'Main-Class': 'org.apache.ignite.app.IgniteRunner'
         )
     }
 }
