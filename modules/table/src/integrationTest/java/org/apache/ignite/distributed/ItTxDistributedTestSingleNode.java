@@ -19,6 +19,7 @@ package org.apache.ignite.distributed;
 
 import static org.apache.ignite.raft.jraft.test.TestUtils.waitForTopology;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -28,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -88,10 +90,12 @@ import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupServiceImpl;
 import org.apache.ignite.table.Table;
+import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -604,5 +608,106 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
         Transaction readOnlyTx2 = igniteTransactions.readOnly().begin();
         readOnlyTx2.rollback();
+    }
+
+    // TODO: IGNITE-17967 Remove, use one from TxAbstractTest.
+    @Test
+    public void testReadOnlyGetWriteIntentResolutionUpdate() {
+        accounts.recordView().upsert(null, makeValue(1, 100.));
+
+        // Pending tx
+        Transaction tx = igniteTransactions.begin();
+        accounts.recordView().upsert(tx, makeValue(1, 300.));
+
+        // Update
+        Transaction readOnlyTx = igniteTransactions.readOnly().begin();
+        assertEquals(100., accounts.recordView().get(readOnlyTx, makeKey(1)).doubleValue("balance"));
+
+        // Commit pending tx.
+        tx.commit();
+
+        // Same read-only transaction.
+        assertEquals(100., accounts.recordView().get(readOnlyTx, makeKey(1)).doubleValue("balance"));
+
+        // New read-only transaction.
+        Transaction readOnlyTx2 = igniteTransactions.readOnly().begin();
+        assertEquals(300., accounts.recordView().get(readOnlyTx2, makeKey(1)).doubleValue("balance"));
+    }
+
+    // TODO: IGNITE-17967 Remove, use one from TxAbstractTest.
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17968")
+    @Test
+    public void testReadOnlyGetWriteIntentResolutionRemoveTmp() {
+        accounts.recordView().upsert(null, makeValue(1, 100.));
+
+        // Pending tx
+        Transaction tx = igniteTransactions.begin();
+        accounts.recordView().delete(tx, makeKey(1));
+
+        // Remove.
+        Transaction readOnlyTx = igniteTransactions.readOnly().begin();
+        assertEquals(100., accounts.recordView().get(readOnlyTx, makeKey(1)).doubleValue("balance"));
+
+        // Commit pending tx.
+        tx.commit();
+
+        // Same read-only transaction.
+        assertEquals(100., accounts.recordView().get(readOnlyTx, makeKey(1)).doubleValue("balance"));
+
+        // New read-only transaction.
+        Transaction readOnlyTx2 = igniteTransactions.readOnly().begin();
+        assertNull(accounts.recordView().get(readOnlyTx2, makeKey(1)).doubleValue("balance"));
+    }
+
+    // TODO: IGNITE-17967 Remove, use one from TxAbstractTest.
+    @Test
+    public void testReadOnlyPendingWriteIntentSkippedTmp() {
+        accounts.recordView().upsert(null, makeValue(1, 100.));
+        accounts.recordView().upsert(null, makeValue(2, 200.));
+
+        // Pending tx
+        Transaction tx = igniteTransactions.begin();
+        accounts.recordView().upsert(tx, makeValue(2, 300.));
+
+        Transaction readOnlyTx = igniteTransactions.readOnly().begin();
+        Collection<Tuple> retrievedKeys = accounts.recordView().getAll(readOnlyTx, List.of(makeKey(1), makeKey(2)));
+        validateBalance(retrievedKeys, 100., 200.);
+
+        // Commit pending tx.
+        tx.commit();
+
+        Collection<Tuple> retrievedKeys2 = accounts.recordView().getAll(readOnlyTx, List.of(makeKey(1), makeKey(2)));
+        validateBalance(retrievedKeys2, 100., 300.);
+
+        Transaction readOnlyTx2 = igniteTransactions.readOnly().begin();
+        Collection<Tuple> retrievedKeys3 = accounts.recordView().getAll(readOnlyTx2, List.of(makeKey(1), makeKey(2)));
+        validateBalance(retrievedKeys3, 100., 300.);
+    }
+
+    // TODO: IGNITE-17967 Remove, use one from TxAbstractTest.
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17968")
+    @Test
+    public void testReadOnlyPendingWriteIntentSkippedCombinedTmp() {
+        accounts.recordView().upsert(null, makeValue(1, 100.));
+        accounts.recordView().upsert(null, makeValue(2, 200.));
+
+        // Pending tx
+        Transaction tx = igniteTransactions.begin();
+        accounts.recordView().delete(tx, makeKey(1));
+        accounts.recordView().upsert(tx, makeValue(2, 300.));
+
+        Transaction readOnlyTx = igniteTransactions.readOnly().begin();
+        Collection<Tuple> retrievedKeys = accounts.recordView().getAll(readOnlyTx, List.of(makeKey(1), makeKey(2)));
+        validateBalance(retrievedKeys, 100., 200.);
+
+        // Commit pending tx.
+        tx.commit();
+
+        Collection<Tuple> retrievedKeys2 = accounts.recordView().getAll(readOnlyTx, List.of(makeKey(1), makeKey(2)));
+        validateBalance(retrievedKeys2,100., 300.);
+
+        Transaction readOnlyTx2 = igniteTransactions.readOnly().begin();
+        Collection<Tuple> retrievedKeys3 = accounts.recordView().getAll(readOnlyTx2, List.of(makeKey(1), makeKey(2)));
+        validateBalance(retrievedKeys3, 300.);
     }
 }

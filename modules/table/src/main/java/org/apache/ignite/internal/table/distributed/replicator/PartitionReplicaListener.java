@@ -365,7 +365,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                 resolveReadResult(
                                         readResult,
                                         readTimestamp,
-                                        () -> scan.committed(readTimestamp)
+                                        () -> scan.committed(readResult.newestCommitTimestamp())
                                 )
                         );
                     }
@@ -374,7 +374,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                             resolveReadResult(
                                     readResult,
                                     readTimestamp,
-                                    () -> scan.committed(readTimestamp)
+                                    () -> scan.committed(readResult.newestCommitTimestamp())
                             )
                     );
                 }
@@ -434,7 +434,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                     resolveReadResult(
                                             readResult,
                                             readTimestamp,
-                                            () -> scan.committed(readTimestamp)
+                                            () -> scan.committed(readResult.newestCommitTimestamp())
                                     )
                             );
                         }
@@ -443,7 +443,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                 resolveReadResult(
                                         readResult,
                                         readTimestamp,
-                                        () -> scan.committed(readTimestamp)
+                                        () -> scan.committed(readResult.newestCommitTimestamp())
                                 )
                         );
                     }
