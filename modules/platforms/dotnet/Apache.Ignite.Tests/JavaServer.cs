@@ -35,11 +35,16 @@ namespace Apache.Ignite.Tests
 
         private const int ConnectTimeoutSeconds = 120;
 
-        private const string GradleCommandExec = ":ignite-runner:runnerPlatformTest --no-daemon"
-          + " -x compileJava -x compileTestFixturesJava -x compileIntegrationTestJava -x compileTestJava";
+        /** Maven command to execute the main class. */
+        private const string MavenCommandExec = "exec:java@platform-test-node-runner";
 
-         /** Full path to Gradle binary. */
-        private static readonly string GradlePath = GetGradle();
+        /** Maven arg to perform a dry run to ensure that code is compiled and all artifacts are downloaded. */
+        private const string MavenCommandDryRunArg = " -Dexec.args=dry-run";
+
+        /** Full path to Maven binary. */
+        private static readonly string MavenPath = GetMaven();
+
+        private static volatile bool _dryRunComplete;
 
         private readonly Process? _process;
 
@@ -67,6 +72,7 @@ namespace Apache.Ignite.Tests
 
             Log(">>> Java server is not detected, starting...");
 
+            EnsureBuild();
             var process = CreateProcess();
 
             var evt = new ManualResetEventSlim(false);
@@ -118,7 +124,54 @@ namespace Apache.Ignite.Tests
             Log(">>> Java server stopped.");
         }
 
-        private static Process CreateProcess()
+        /// <summary>
+        /// Performs a dry run of the Maven executable to ensure that code is compiled and all artifacts are downloaded.
+        /// Does not start the actual node.
+        /// </summary>
+        private static void EnsureBuild()
+        {
+            if (_dryRunComplete)
+            {
+                return;
+            }
+
+            using var process = CreateProcess(dryRun: true);
+
+            DataReceivedEventHandler handler = (_, eventArgs) =>
+            {
+                var line = eventArgs.Data;
+                if (line == null)
+                {
+                    return;
+                }
+
+                Log(line);
+            };
+
+            process.OutputDataReceived += handler;
+            process.ErrorDataReceived += handler;
+
+            process.Start();
+
+            process.BeginErrorReadLine();
+            process.BeginOutputReadLine();
+
+            // 5 min timeout for the build process (may take time to download artifacts on slow networks).
+            if (!process.WaitForExit(5 * 60_000))
+            {
+                process.Kill();
+                throw new Exception("Failed to wait for Maven exec dry run.");
+            }
+
+            if (process.ExitCode != 0)
+            {
+                throw new Exception($"Maven exec failed with code {process.ExitCode}, check log for details.");
+            }
+
+            _dryRunComplete = true;
+        }
+
+        private static Process CreateProcess(bool dryRun = false)
         {
             var file = TestUtils.IsWindows ? "cmd.exe" : "/bin/bash";
 
@@ -130,11 +183,11 @@ namespace Apache.Ignite.Tests
                     ArgumentList =
                     {
                         TestUtils.IsWindows ? "/c" : "-c",
-                        $"{GradlePath} {GradleCommandExec}"
+                        $"{MavenPath} {MavenCommandExec}" + (dryRun ? MavenCommandDryRunArg : string.Empty)
                     },
                     CreateNoWindow = true,
                     UseShellExecute = false,
-                    WorkingDirectory = TestUtils.RepoRootDir,
+                    WorkingDirectory = Path.Combine(TestUtils.RepoRootDir, "modules", "runner"),
                     RedirectStandardOutput = true,
                     RedirectStandardError = true
                 }
@@ -191,13 +244,22 @@ namespace Apache.Ignite.Tests
             }
         }
 
-        private static string GetGradle()
+        /// <summary>
+        /// Gets maven path.
+        /// </summary>
+        private static string GetMaven()
         {
-            var gradleWrapper = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
-                ? "gradlew.bat"
-                : "gradlew";
+            var extensions = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+                ? new[] {".cmd", ".bat"}
+                : new[] {string.Empty};
 
-            return Path.Combine(TestUtils.RepoRootDir, gradleWrapper);
+            return new[] {"MAVEN_HOME", "M2_HOME", "M3_HOME", "MVN_HOME"}
+                .Select(Environment.GetEnvironmentVariable)
+                .Where(x => !string.IsNullOrEmpty(x))
+                .Select(x => Path.Combine(x!, "bin", "mvn"))
+                .SelectMany(x => extensions.Select(ext => x + ext))
+                .Where(File.Exists)
+                .FirstOrDefault() ?? "mvn";
         }
     }
 }
