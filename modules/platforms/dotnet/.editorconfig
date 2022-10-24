@@ -19,6 +19,7 @@ dotnet_diagnostic.CA1024.severity = none # Use properties where appropriate
 dotnet_diagnostic.CA1303.severity = none # Use resource tables
 dotnet_diagnostic.SA1101.severity = none # Prefix local calls with this
 dotnet_diagnostic.SA1652.severity = none # Enable XML documentation output
+dotnet_diagnostic.SA0001.severity = none # Enable XML documentation output
 dotnet_diagnostic.SA1009.severity = none # Closing parenthesis must not be preceded by a space
 dotnet_diagnostic.SA1309.severity = none # Field must not begin with an underscore
 dotnet_diagnostic.SA1407.severity = none # Arithmetic expressions must declare precedence
