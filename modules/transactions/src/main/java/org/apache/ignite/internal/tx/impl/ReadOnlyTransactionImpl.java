@@ -20,6 +20,7 @@ package org.apache.ignite.internal.tx.impl;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterNode;
@@ -62,15 +63,26 @@ public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
 
     /** {@inheritDoc} */
     @Override
-    public IgniteBiTuple<ClusterNode, Long> enlist(String replicationGroupId, IgniteBiTuple<ClusterNode, Long> nodeAndTerm) {
+    public IgniteBiTuple<ClusterNode, Long> enlist(ReplicationGroupId replicationGroupId, IgniteBiTuple<ClusterNode, Long> nodeAndTerm) {
         // TODO: IGNITE-17666 Close cursor tx finish.
         return null;
     }
 
     /** {@inheritDoc} */
     @Override
-    public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndTerm(String partGroupId) {
-        // No-op.
+    public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndTerm(ReplicationGroupId replicationGroupId) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean assignCommitPartition(ReplicationGroupId replicationGroupId) {
+        return true;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public ReplicationGroupId commitPartition() {
         return null;
     }
 

@@ -53,6 +53,7 @@ import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
+import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.jetbrains.annotations.NotNull;
@@ -68,7 +69,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
  * Tests for {@link InternalTable#scan(int, org.apache.ignite.internal.tx.InternalTransaction)}.
  */
 @ExtendWith(MockitoExtension.class)
-public abstract class ItAbstractInternalTableScanTest {
+public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest {
     /** Mock partition storage. */
     @Mock
     private MvPartitionStorage mockStorage;

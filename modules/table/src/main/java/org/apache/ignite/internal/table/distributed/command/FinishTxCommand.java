@@ -20,7 +20,6 @@ package org.apache.ignite.internal.table.distributed.command;
 import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 
 /**

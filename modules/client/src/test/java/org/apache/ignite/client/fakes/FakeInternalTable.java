@@ -27,6 +27,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.BiConsumer;
 import javax.naming.OperationNotSupportedException;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
@@ -100,7 +101,10 @@ public class FakeInternalTable implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<BinaryRow> get(BinaryRowEx keyRow, @Nullable InternalTransaction tx, @NotNull ClusterNode recipientNode) {
+    public CompletableFuture<BinaryRow> get(
+            BinaryRowEx keyRow,
+            @NotNull HybridTimestamp readTimestamp,
+            @NotNull ClusterNode recipientNode) {
         return null;
     }
 
@@ -122,11 +126,13 @@ public class FakeInternalTable implements InternalTable {
         return CompletableFuture.completedFuture(res);
     }
 
-
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Collection<BinaryRow>> getAll(Collection<BinaryRowEx> keyRows, @Nullable InternalTransaction tx,
-            @NotNull ClusterNode recipientNode) {
+    public CompletableFuture<Collection<BinaryRow>> getAll(
+            Collection<BinaryRowEx> keyRows,
+            @NotNull HybridTimestamp readTimestamp,
+            @NotNull ClusterNode recipientNode
+    ) {
         return null;
     }
 
@@ -319,7 +325,11 @@ public class FakeInternalTable implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public Publisher<BinaryRow> scan(int p, @Nullable InternalTransaction tx, @NotNull ClusterNode recipientNode) {
+    public Publisher<BinaryRow> scan(
+            int p,
+            @NotNull HybridTimestamp readTimestamp,
+            @NotNull ClusterNode recipientNode
+    ) {
         return null;
     }
 

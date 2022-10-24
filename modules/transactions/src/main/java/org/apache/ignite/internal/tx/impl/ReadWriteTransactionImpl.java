@@ -25,8 +25,8 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import java.util.concurrent.atomic.AtomicReference;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
@@ -74,13 +74,6 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     }
 
     /** {@inheritDoc} */
-    @NotNull
-    @Override
-    public UUID id() {
-        return id;
-    }
-
-    /** {@inheritDoc} */
     @Override
     public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndTerm(ReplicationGroupId partGroupId) {
         return enlisted.get(partGroupId);
@@ -123,8 +116,6 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
                                 ClusterNode recipientNode = enlisted.get(commitPart).get1();
                                 Long term = enlisted.get(commitPart).get2();
 
-                                LOG.debug("Finish [recipientNode={}, term={} commit={}, txId={}, groups={} commitPart={}",
-                                        recipientNode, term, commit, id, groups, commitPart);
                                 LOG.debug("Finish [recipientNode={}, term={} commit={}, txId={}, groups={}",
                                         recipientNode, term, commit, id(), groups);
 

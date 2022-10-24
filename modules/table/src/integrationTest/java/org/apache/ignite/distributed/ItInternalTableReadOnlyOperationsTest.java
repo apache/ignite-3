@@ -33,6 +33,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -47,6 +48,7 @@ import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
+import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.TransactionException;
@@ -63,12 +65,14 @@ import org.mockito.junit.jupiter.MockitoExtension;
  * Tests for {@link InternalTable} read-only operations.
  */
 @ExtendWith(MockitoExtension.class)
-public class ItInternalTableReadOnlyOperationsTest {
+public class ItInternalTableReadOnlyOperationsTest extends IgniteAbstractTest {
     private static final SchemaDescriptor SCHEMA = new SchemaDescriptor(
             1,
             new Column[]{new Column("key", NativeTypes.INT64, false)},
             new Column[]{new Column("value", NativeTypes.INT64, false)}
     );
+
+    private static final HybridClock CLOCK = new HybridClock();
 
     private static final Row ROW_1 = createKeyValueRow(1, 1001);
 
@@ -95,19 +99,20 @@ public class ItInternalTableReadOnlyOperationsTest {
 
     @Test
     public void testReadOnlyGetNonExistingKey() {
-        assertNull(internalTbl.get(createKeyRow(0), null, mock(ClusterNode.class)).join());
+
+        assertNull(internalTbl.get(createKeyRow(0), CLOCK.now(), mock(ClusterNode.class)).join());
     }
 
     @Test
     public void testReadOnlyGetExistingKey() {
-        assertEquals(ROW_2, internalTbl.get(createKeyRow(2), null, mock(ClusterNode.class)).join());
+        assertEquals(ROW_2, internalTbl.get(createKeyRow(2), CLOCK.now(), mock(ClusterNode.class)).join());
     }
 
 
     @Test
     public void testReadOnlyGetAllNonExistingKeys() {
         assertEquals(0,
-                internalTbl.getAll(Collections.singleton(createKeyRow(0)), null, mock(ClusterNode.class)).join().size()
+                internalTbl.getAll(Collections.singleton(createKeyRow(0)), CLOCK.now(), mock(ClusterNode.class)).join().size()
         );
     }
 
@@ -115,7 +120,7 @@ public class ItInternalTableReadOnlyOperationsTest {
     public void testReadOnlyGetAllPartiallyExistingKeys() {
         assertEquals(
                 Collections.singletonList(ROW_2),
-                internalTbl.getAll(Collections.singleton(createKeyRow(2)), null, mock(ClusterNode.class)).join()
+                internalTbl.getAll(Collections.singleton(createKeyRow(2)), CLOCK.now(), mock(ClusterNode.class)).join()
         );
     }
 
@@ -123,35 +128,8 @@ public class ItInternalTableReadOnlyOperationsTest {
     public void testReadOnlyGetAllExistingKeys() {
         assertEquals(
                 List.of(ROW_1, ROW_2),
-                internalTbl.getAll(List.of(createKeyRow(1), createKeyRow(2)), null, mock(ClusterNode.class)).join()
+                internalTbl.getAll(List.of(createKeyRow(1), createKeyRow(2)), CLOCK.now(), mock(ClusterNode.class)).join()
         );
-    }
-
-    @Test()
-    public void testEnlistingReadOnlyOperationIntoReadWriteTransactionThrowsAnException() {
-        InternalTransaction tx = mock(InternalTransaction.class);
-        when(tx.isReadOnly()).thenReturn(false);
-
-        List<Executable> executables = List.of(
-                () -> internalTbl.get(null, tx, mock(ClusterNode.class)).get(),
-                () -> internalTbl.getAll(null, tx, mock(ClusterNode.class)).get()
-        );
-
-        executables.forEach(executable -> {
-            ExecutionException ex = assertThrows(ExecutionException.class, executable);
-
-            assertThat(ex.getCause(), is(instanceOf(TransactionException.class)));
-            assertThat(
-                    ex.getCause().getMessage(),
-                    containsString("Failed to enlist read-only operation into read-write transaction."
-                            + " Read-write transaction is up and running and thus won't be aborted automatically"));
-        });
-
-        TransactionException ex = assertThrows(TransactionException.class, () -> internalTbl.scan(0, tx, mock(ClusterNode.class)));
-        assertThat(
-                ex.getMessage(),
-                containsString("Failed to enlist read-only operation into read-write transaction."
-                        + " Read-write transaction is up and running and thus won't be aborted automatically"));
     }
 
     @Test()

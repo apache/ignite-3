@@ -277,11 +277,8 @@ public class ErrorGroups {
         /** Failed to rollback a transaction. */
         public static final int TX_ROLLBACK_ERR = TX_ERR_GROUP.registerErrorCode(8);
 
-        /** Failed to enlist read-only operation into read-write transaction. */
-        public static final int TX_INSUFFICIENT_READ_ONLY_OPERATION = TX_ERR_GROUP.registerErrorCode(9);
-
         /** Failed to enlist read-write operation into read-only transaction. */
-        public static final int TX_INSUFFICIENT_READ_WRITE_OPERATION = TX_ERR_GROUP.registerErrorCode(10);
+        public static final int TX_INSUFFICIENT_READ_WRITE_OPERATION = TX_ERR_GROUP.registerErrorCode(9);
     }
 
     /** Replicator error group. */

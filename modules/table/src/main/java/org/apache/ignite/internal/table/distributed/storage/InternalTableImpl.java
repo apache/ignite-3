@@ -19,7 +19,8 @@ package org.apache.ignite.internal.table.distributed.storage;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_INSUFFICIENT_READ_ONLY_OPERATION;
+import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
+import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_INSUFFICIENT_READ_WRITE_OPERATION;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
@@ -40,6 +41,7 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
@@ -459,6 +461,7 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<BinaryRow> get(BinaryRowEx keyRow, InternalTransaction tx) {
+        // TODO: IGNITE-17963 Add ability to run RO get, getAll and scan through tx-based InternalTable operations
         return enlistInTx(
                 keyRow,
                 tx,
@@ -477,30 +480,17 @@ public class InternalTableImpl implements InternalTable {
     @Override
     public CompletableFuture<BinaryRow> get(
             BinaryRowEx keyRow,
-            @Nullable InternalTransaction tx,
+            @NotNull HybridTimestamp readTimestamp,
             @NotNull ClusterNode recipientNode
     ) {
-        // Check whether proposed tx is read-only. Complete future exceptionally if true.
-        // Attempting to enlist a read-only in a read-write transaction does not corrupt the transaction itself, thus read-write transaction
-        // won't be rolled back automatically - it's up to the user or outer engine.
-        if (tx != null && !tx.isReadOnly()) {
-            return failedFuture(
-                    new TransactionException(
-                            TX_INSUFFICIENT_READ_ONLY_OPERATION,
-                            "Failed to enlist read-only operation into read-write transaction. Read-write transaction is up and running"
-                                    + " and thus won't be aborted automatically, txId={" + tx.id() + '}'
-                    )
-            );
-        }
-
         int partId = partId(keyRow);
-        String partGroupId = partitionMap.get(partId).groupId();
+        ReplicationGroupId partGroupId = partitionMap.get(partId).groupId();
 
         return replicaSvc.invoke(recipientNode, tableMessagesFactory.readOnlySingleRowReplicaRequest()
                 .groupId(partGroupId)
                 .binaryRow(keyRow)
                 .requestType(RequestType.RO_GET)
-                .readTimestamp(clock.now())
+                .readTimestamp(readTimestamp)
                 .build()
         );
     }
@@ -508,6 +498,7 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Collection<BinaryRow>> getAll(Collection<BinaryRowEx> keyRows, InternalTransaction tx) {
+        // TODO: IGNITE-17963 Add ability to run RO get, getAll and scan through tx-based InternalTable operations
         return enlistInTx(
                 keyRows,
                 tx,
@@ -526,22 +517,9 @@ public class InternalTableImpl implements InternalTable {
     @Override
     public CompletableFuture<Collection<BinaryRow>> getAll(
             Collection<BinaryRowEx> keyRows,
-            @Nullable InternalTransaction tx,
+            @NotNull HybridTimestamp readTimestamp,
             @NotNull ClusterNode recipientNode
     ) {
-        // Check whether proposed tx is read-only. Complete future exceptionally if true.
-        // Attempting to enlist a read-only in a read-write transaction does not corrupt the transaction itself, thus read-write transaction
-        // won't be rolled back automatically - it's up to the user or outer engine.
-        if (tx != null && !tx.isReadOnly()) {
-            return failedFuture(
-                    new TransactionException(
-                            TX_INSUFFICIENT_READ_ONLY_OPERATION,
-                            "Failed to enlist read-only operation into read-write transaction. Read-write transaction is up and running"
-                                    + " and thus won't be aborted automatically, txId={" + tx.id() + '}'
-                    )
-            );
-        }
-
         Int2ObjectOpenHashMap<List<BinaryRow>> keyRowsByPartition = mapRowsToPartitions(keyRows);
 
         CompletableFuture<Object>[] futures = new CompletableFuture[keyRowsByPartition.size()];
@@ -549,7 +527,7 @@ public class InternalTableImpl implements InternalTable {
         int batchNum = 0;
 
         for (Int2ObjectOpenHashMap.Entry<List<BinaryRow>> partToRows : keyRowsByPartition.int2ObjectEntrySet()) {
-            String partGroupId = partitionMap.get(partToRows.getIntKey()).groupId();
+            ReplicationGroupId partGroupId = partitionMap.get(partToRows.getIntKey()).groupId();
 
             CompletableFuture<Object> fut = replicaSvc.invoke(recipientNode, tableMessagesFactory.readOnlyMultiRowReplicaRequest()
                     .groupId(partGroupId)
@@ -805,6 +783,7 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public Publisher<BinaryRow> scan(int p, @Nullable InternalTransaction tx) {
+        // TODO: IGNITE-17963 Add ability to run RO get, getAll and scan through tx-based InternalTable operations
         // Check whether proposed tx is read-only. Complete future exceptionally if true.
         // Attempting to enlist a read-only in a read-write transaction does not corrupt the transaction itself, thus read-write transaction
         // won't be rolled back automatically - it's up to the user or outer engine.
@@ -833,34 +812,19 @@ public class InternalTableImpl implements InternalTable {
     @Override
     public Publisher<BinaryRow> scan(
             int p,
-            @Nullable InternalTransaction tx,
+            @NotNull HybridTimestamp readTimestamp,
             @NotNull ClusterNode recipientNode
     ) {
-        // Check whether proposed tx is read-only. Throw corresponding exception if true.
-        // Attempting to enlist a read-only in a read-write transaction does not corrupt the transaction itself, thus read-write transaction
-        // won't be rolled back automatically - it's up to the user or outer engine.
-        if (tx != null && !tx.isReadOnly()) {
-            throw new TransactionException(
-                    TX_INSUFFICIENT_READ_ONLY_OPERATION,
-                    "Failed to enlist read-only operation into read-write transaction. Read-write transaction is up and running "
-                            + "and thus won't be aborted automatically, txId={" + tx.id() + '}'
-            );
-
-        }
-
         validatePartitionIndex(p);
-
-        final boolean implicit = tx == null;
-
-        final InternalTransaction tx0 = implicit ? txManager.begin() : tx;
 
         return new PartitionScanPublisher(
                 (scanId, batchSize) -> {
-                    String partGroupId = partitionMap.get(p).groupId();
+                    ReplicationGroupId partGroupId = partitionMap.get(p).groupId();
 
                     ReadOnlyScanRetrieveBatchReplicaRequest request = tableMessagesFactory.readOnlyScanRetrieveBatchReplicaRequest()
                             .groupId(partGroupId)
-                            .transactionId(tx0.id())
+                            // TODO: IGNITE-17666 Close cursor tx finish.
+                            .transactionId(UUID.randomUUID())
                             .scanId(scanId)
                             .batchSize(batchSize)
                             .readTimestamp(clock.now())
@@ -1224,5 +1188,22 @@ public class InternalTableImpl implements InternalTable {
         for (RaftGroupService srv : partitionMap.values()) {
             srv.shutdown();
         }
+    }
+
+    // TODO: javadoc
+    private CompletableFuture<ClusterNode> evaluateRecipientNode(int partId) {
+        RaftGroupService svc = partitionMap.get(partId);
+
+        return svc.refreshAndGetLeaderWithTerm().handle((res, e) -> {
+            if (e != null) {
+                throw withCause(TransactionException::new, REPLICA_UNAVAILABLE_ERR, e);
+            } else {
+                if (res == null || res.getKey() == null) {
+                    throw withCause(TransactionException::new, REPLICA_UNAVAILABLE_ERR, e);
+                } else {
+                    return clusterNodeResolver.apply(res.get1().address());
+                }
+            }
+        });
     }
 }

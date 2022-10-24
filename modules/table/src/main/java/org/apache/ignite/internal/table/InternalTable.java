@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
@@ -71,18 +72,17 @@ public interface InternalTable extends AutoCloseable {
     CompletableFuture<BinaryRow> get(BinaryRowEx keyRow, @Nullable InternalTransaction tx);
 
     /**
-     * Asynchronously gets a row with same key columns values as given one from the table on a specific node
-     * within the context of a read-only transaction.
+     * Asynchronously gets a row with same key columns values as given one from the table on a specific node for the proposed readTimestamp.
      *
-     * @param keyRow Row with key columns set.
-     * @param tx     The transaction.
+     * @param keyRow        Row with key columns set.
+     * @param readTimestamp Read timestamp.
      * @param recipientNode Cluster node that will handle given get request.
      * @return Future representing pending completion of the operation.
      * @throws LockException If a lock can't be acquired by some reason.
      */
     CompletableFuture<BinaryRow> get(
             BinaryRowEx keyRow,
-            @Nullable InternalTransaction tx,
+            @NotNull HybridTimestamp readTimestamp,
             @NotNull ClusterNode recipientNode
     );
 
@@ -96,15 +96,15 @@ public interface InternalTable extends AutoCloseable {
     CompletableFuture<Collection<BinaryRow>> getAll(Collection<BinaryRowEx> keyRows, @Nullable InternalTransaction tx);
 
     /**
-     * Asynchronously get rows from the table within the context of read-only transaction.
+     * Asynchronously get rows from the table for the proposed read timestamp.
      *
-     * @param keyRows Rows with key columns set.
-     * @param tx      The transaction.
+     * @param keyRows       Rows with key columns set.
+     * @param readTimestamp Read timestamp.
      * @return Future representing pending completion of the operation.
      */
     CompletableFuture<Collection<BinaryRow>> getAll(
             Collection<BinaryRowEx> keyRows,
-            @Nullable InternalTransaction tx,
+            @NotNull HybridTimestamp readTimestamp,
             @NotNull ClusterNode recipientNode
     );
 
@@ -247,18 +247,17 @@ public interface InternalTable extends AutoCloseable {
     Publisher<BinaryRow> scan(int p, @Nullable InternalTransaction tx);
 
     /**
-     * Scans given partition within the context of a read-only transaction, providing {@link Publisher} that reactively notifies about
-     * partition rows.
+     * Scans given partition with the proposed read timestamp, providing {@link Publisher} that reactively notifies about partition rows.
      *
-     * @param p  The partition.
-     * @param tx The transaction.
+     * @param p             The partition.
+     * @param readTimestamp Read timestamp.
      * @return {@link Publisher} that reactively notifies about partition rows.
      * @throws IllegalArgumentException If proposed partition index {@code p} is out of bounds.
      * @throws TransactionException If proposed {@code tx} is read-write. Transaction itself won't be automatically rolled back.
      */
     Publisher<BinaryRow> scan(
             int p,
-            @Nullable InternalTransaction tx,
+            @NotNull HybridTimestamp readTimestamp,
             @NotNull ClusterNode recipientNode
     );
 
