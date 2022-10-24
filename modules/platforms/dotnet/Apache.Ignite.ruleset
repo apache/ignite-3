@@ -19,48 +19,20 @@
 
 <RuleSet Name="Apache.Ignite Rules" ToolsVersion="10.0">
   <Rules AnalyzerId="Microsoft.Analyzers.ManagedCodeAnalysis" RuleNamespace="Microsoft.Rules.Managed">
-    <!-- Use properties where appropriate -->
-    <Rule Id="CA1024" Action="None" />
-
-    <!-- Use resource tables -->
-    <Rule Id="CA1303" Action="None" />
-
-    <!-- Prefix local calls with this -->
-    <Rule Id="SA1101" Action="None" />
-
-    <!-- Enable XML documentation output -->
-    <Rule Id="SA1652" Action="None" />
-
-    <!-- Closing parenthesis must not be preceded by a space -->
-    <Rule Id="SA1009" Action="None" />
-
-    <!-- Field must not begin with an underscore -->
-    <Rule Id="SA1309" Action="None" />
-
-    <!-- Arithmetic expressions must declare precedence -->
-    <Rule Id="SA1407" Action="None" />
-
-    <!-- Operator must not be followed by whitespace -->
-    <Rule Id="SA1003" Action="None" />
-
-    <!-- Opening parenthesis must not be preceded by a space -->
-    <Rule Id="SA1008" Action="None" />
-
-    <!-- Statement must not contain unnecessary parenthesis -->
-    <Rule Id="SA1119" Action="None" />
-
-    <!-- Do not use Hungarian notation (many false positives) -->
-    <Rule Id="SA1305" Action="None" />
-
-    <!-- Braces spacing -->
-    <Rule Id="SA1012" Action="None" />
-    <Rule Id="SA1013" Action="None" />
-
-    <!-- Trailing commas -->
-    <Rule Id="SA1413" Action="None" />
-
-    <!-- Qualified references -->
-    <Rule Id="SA1135" Action="None" />
-
+    dotnet_diagnostic.CA1024.severity = none # Use properties where appropriate
+    dotnet_diagnostic.CA1303.severity = none # Use resource tables
+    dotnet_diagnostic.SA1101.severity = none # Prefix local calls with this
+    dotnet_diagnostic.SA1652.severity = none # Enable XML documentation output
+    dotnet_diagnostic.SA1009.severity = none # Closing parenthesis must not be preceded by a space
+    dotnet_diagnostic.SA1309.severity = none # Field must not begin with an underscore
+    dotnet_diagnostic.SA1407.severity = none # Arithmetic expressions must declare precedence
+    dotnet_diagnostic.SA1003.severity = none # Operator must not be followed by whitespace
+    dotnet_diagnostic.SA1008.severity = none # Opening parenthesis must not be preceded by a space
+    dotnet_diagnostic.SA1119.severity = none # Statement must not contain unnecessary parenthesis
+    dotnet_diagnostic.SA1305.severity = none # Do not use Hungarian notation (many false positives)
+    dotnet_diagnostic.SA1012.severity = none # Braces spacing
+    dotnet_diagnostic.SA1013.severity = none # A closing brace within a C# element is not spaced correctly
+    dotnet_diagnostic.SA1413.severity = none # Trailing commas
+    dotnet_diagnostic.SA1135.severity = none # Qualified references
   </Rules>
 </RuleSet>

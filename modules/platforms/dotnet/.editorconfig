@@ -15,11 +15,18 @@ insert_final_newline = true
 # Code analysis
 dotnet_code_quality.api_surface = all
 
-dotnet_diagnostic.SA1135.severity = none # Qualified references
 dotnet_diagnostic.CA1024.severity = none # Use properties where appropriate
 dotnet_diagnostic.CA1303.severity = none # Use resource tables
 dotnet_diagnostic.SA1101.severity = none # Prefix local calls with this
 dotnet_diagnostic.SA1652.severity = none # Enable XML documentation output
 dotnet_diagnostic.SA1009.severity = none # Closing parenthesis must not be preceded by a space
 dotnet_diagnostic.SA1309.severity = none # Field must not begin with an underscore
-
+dotnet_diagnostic.SA1407.severity = none # Arithmetic expressions must declare precedence
+dotnet_diagnostic.SA1003.severity = none # Operator must not be followed by whitespace
+dotnet_diagnostic.SA1008.severity = none # Opening parenthesis must not be preceded by a space
+dotnet_diagnostic.SA1119.severity = none # Statement must not contain unnecessary parenthesis
+dotnet_diagnostic.SA1305.severity = none # Do not use Hungarian notation (many false positives)
+dotnet_diagnostic.SA1012.severity = none # Braces spacing
+dotnet_diagnostic.SA1013.severity = none # A closing brace within a C# element is not spaced correctly
+dotnet_diagnostic.SA1413.severity = none # Trailing commas
+dotnet_diagnostic.SA1135.severity = none # Qualified references
