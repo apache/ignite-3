@@ -160,9 +160,10 @@ public class PartitionListener implements RaftGroupListener {
             BinaryRow row = cmd.getRow();
             RowId rowId = cmd.getRowId();
             UUID txId = cmd.txId();
+            UUID commitTblId = cmd.getCommitReplicationGroupId().getTableId();
+            int commitPartId = cmd.getCommitReplicationGroupId().getPartId();
 
-            // TODO: IGNITE-17759 Need pass appropriate commitTableId and commitPartitionId.
-            storage.addWrite(rowId, row, txId, UUID.randomUUID(), 0);
+            storage.addWrite(rowId, row, txId, commitTblId, commitPartId);
 
             txsPendingRowIds.computeIfAbsent(txId, entry -> new HashSet<>()).add(rowId);
 
@@ -204,13 +205,15 @@ public class PartitionListener implements RaftGroupListener {
         storage.runConsistently(() -> {
             UUID txId = cmd.txId();
             Map<RowId, BinaryRow> rowsToUpdate = cmd.getRowsToUpdate();
+            UUID commitTblId = cmd.getReplicationGroupId().getTableId();
+            int commitPartId = cmd.getReplicationGroupId().getPartId();
 
             if (!CollectionUtils.nullOrEmpty(rowsToUpdate)) {
                 for (Map.Entry<RowId, BinaryRow> entry : rowsToUpdate.entrySet()) {
                     RowId rowId = entry.getKey();
                     BinaryRow row = entry.getValue();
-                    // TODO: IGNITE-17759 Need pass appropriate commitTableId and commitPartitionId.
-                    storage.addWrite(rowId, row, txId, UUID.randomUUID(), 0);
+
+                    storage.addWrite(rowId, row, txId, commitTblId, commitPartId);
 
                     txsPendingRowIds.computeIfAbsent(txId, entry0 -> new HashSet<>()).add(rowId);
 

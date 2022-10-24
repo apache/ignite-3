@@ -21,6 +21,8 @@
         <WarningsAsErrors>CS8785</WarningsAsErrors>
         <LangVersion>10</LangVersion>
         <Nullable>enable</Nullable>
+        <AnalysisMode>All</AnalysisMode>
+
         <Version>3.0.0-alpha3</Version>
 
         <Company>Apache Software Foundation</Company>

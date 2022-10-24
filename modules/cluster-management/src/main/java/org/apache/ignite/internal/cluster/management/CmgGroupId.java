@@ -15,13 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.raft.jraft.rpc;
+package org.apache.ignite.internal.cluster.management;
 
-import org.apache.ignite.network.annotations.MessageGroup;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 
 /**
- * Message group for tests.
+ * CMG replication group id.
  */
-@MessageGroup(groupType = 4, groupName = "TestRaftMessages")
-public class TestMessageGroup {
+public enum CmgGroupId implements ReplicationGroupId {
+    /** CMG group id. */
+    INSTANCE("cmg_group");
+
+    /** Group id string representation. */
+    private String name;
+
+    /**
+     * The constructor.
+     *
+     * @param name The string representation of the enum.
+     */
+    CmgGroupId(String name) {
+        this.name = name;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String toString() {
+        return name;
+    }
 }

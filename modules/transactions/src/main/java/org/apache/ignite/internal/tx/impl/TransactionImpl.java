@@ -27,10 +27,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
@@ -55,10 +57,13 @@ public class TransactionImpl implements InternalTransaction {
     private final TxManager txManager;
 
     /** Enlisted replication groups: replication group id -> (primary replica node, raft term). */
-    private final Map<String, IgniteBiTuple<ClusterNode, Long>> enlisted = new ConcurrentSkipListMap<>();
+    private final Map<ReplicationGroupId, IgniteBiTuple<ClusterNode, Long>> enlisted = new ConcurrentHashMap<>();
 
     /** Enlisted operation futures in this transaction. */
     private final List<CompletableFuture<?>> enlistedResults = new CopyOnWriteArrayList<>();
+
+    /** Reference to the partition that stores the transaction state. */
+    private final AtomicReference<ReplicationGroupId> commitPartitionRef = new AtomicReference<>();
 
     /**
      * The constructor.
@@ -72,6 +77,18 @@ public class TransactionImpl implements InternalTransaction {
     }
 
     /** {@inheritDoc} */
+    @Override
+    public boolean assignCommitPartition(ReplicationGroupId replicationGroupId) {
+        return commitPartitionRef.compareAndSet(null, replicationGroupId);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public ReplicationGroupId commitPartition() {
+        return commitPartitionRef.get();
+    }
+
+    /** {@inheritDoc} */
     @NotNull
     @Override
     public UUID id() {
@@ -80,7 +97,7 @@ public class TransactionImpl implements InternalTransaction {
 
     /** {@inheritDoc} */
     @Override
-    public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndTerm(String partGroupId) {
+    public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndTerm(ReplicationGroupId partGroupId) {
         return enlisted.get(partGroupId);
     }
 
@@ -93,7 +110,7 @@ public class TransactionImpl implements InternalTransaction {
 
     /** {@inheritDoc} */
     @Override
-    public IgniteBiTuple<ClusterNode, Long> enlist(String replicationGroupId, IgniteBiTuple<ClusterNode, Long> nodeAndTerm) {
+    public IgniteBiTuple<ClusterNode, Long> enlist(ReplicationGroupId replicationGroupId, IgniteBiTuple<ClusterNode, Long> nodeAndTerm) {
         enlisted.put(replicationGroupId, nodeAndTerm);
 
         return nodeAndTerm;
@@ -144,7 +161,7 @@ public class TransactionImpl implements InternalTransaction {
                 .thenCompose(
                         ignored -> {
                             if (!enlisted.isEmpty()) {
-                                Map<ClusterNode, List<IgniteBiTuple<String, Long>>> groups = new LinkedHashMap<>();
+                                Map<ClusterNode, List<IgniteBiTuple<ReplicationGroupId, Long>>> groups = new LinkedHashMap<>();
 
                                 enlisted.forEach((groupId, groupMeta) -> {
                                     ClusterNode recipientNode = groupMeta.get1();
@@ -152,7 +169,7 @@ public class TransactionImpl implements InternalTransaction {
                                     if (groups.containsKey(recipientNode)) {
                                         groups.get(recipientNode).add(new IgniteBiTuple<>(groupId, groupMeta.get2()));
                                     } else {
-                                        List<IgniteBiTuple<String, Long>> items = new ArrayList<>();
+                                        List<IgniteBiTuple<ReplicationGroupId, Long>> items = new ArrayList<>();
 
                                         items.add(new IgniteBiTuple<>(groupId, groupMeta.get2()));
 
@@ -160,13 +177,15 @@ public class TransactionImpl implements InternalTransaction {
                                     }
                                 });
 
-                                ClusterNode recipientNode = enlisted.entrySet().iterator().next().getValue().get1();
-                                Long term = enlisted.entrySet().iterator().next().getValue().get2();
+                                ReplicationGroupId commitPart = commitPartitionRef.get();
+                                ClusterNode recipientNode = enlisted.get(commitPart).get1();
+                                Long term = enlisted.get(commitPart).get2();
 
-                                LOG.debug("Finish [recipientNode={}, term={} commit={}, txId={}, groups={}",
-                                        recipientNode, term, commit, id, groups);
+                                LOG.debug("Finish [recipientNode={}, term={} commit={}, txId={}, groups={} commitPart={}",
+                                        recipientNode, term, commit, id, groups, commitPart);
 
                                 return txManager.finish(
+                                        commitPart,
                                         recipientNode,
                                         term,
                                         commit,

@@ -1,0 +1,60 @@
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+root = true
+
+# All files
+[*]
+
+# Indentation and spacing
+indent_style = space
+indent_size = 4
+tab_width = 4
+
+# New line preferences
+insert_final_newline = true
+
+# Code analysis
+dotnet_code_quality.api_surface = all
+
+dotnet_diagnostic.CA2000.severity = error # Dispose objects before losing scope
+dotnet_diagnostic.CA2002.severity = error # Do not lock on objects with weak identity
+dotnet_diagnostic.CA2007.severity = error # Require ConfigureAwait
+dotnet_diagnostic.CA2008.severity = error # Require TaskScheduler
+dotnet_diagnostic.CA2012.severity = error # Use ValueTasks correctly
+dotnet_diagnostic.CA2013.severity = error # Do not use ReferenceEquals with value types
+dotnet_diagnostic.CA2014.severity = error # Do not use stackalloc in loops
+dotnet_diagnostic.CA2016.severity = error # Forward the CancellationToken parameter to methods that take one
+dotnet_diagnostic.CA2017.severity = error # Parameter count mismatch in logging template
+dotnet_diagnostic.CA1806.severity = error # Do not ignore method results
+dotnet_diagnostic.CA1813.severity = error # Avoid unsealed attributes
+dotnet_diagnostic.SA1600.severity = error # Elements should be documented
+
+dotnet_diagnostic.CA1024.severity = none # Use properties where appropriate
+dotnet_diagnostic.CA1303.severity = none # Use resource tables
+dotnet_diagnostic.SA1101.severity = none # Prefix local calls with this
+dotnet_diagnostic.SA1652.severity = none # Enable XML documentation output
+dotnet_diagnostic.SA0001.severity = none # Enable XML documentation output
+dotnet_diagnostic.SA1009.severity = none # Closing parenthesis must not be preceded by a space
+dotnet_diagnostic.SA1309.severity = none # Field must not begin with an underscore
+dotnet_diagnostic.SA1407.severity = none # Arithmetic expressions must declare precedence
+dotnet_diagnostic.SA1003.severity = none # Operator must not be followed by whitespace
+dotnet_diagnostic.SA1008.severity = none # Opening parenthesis must not be preceded by a space
+dotnet_diagnostic.SA1119.severity = none # Statement must not contain unnecessary parenthesis
+dotnet_diagnostic.SA1305.severity = none # Do not use Hungarian notation (many false positives)
+dotnet_diagnostic.SA1012.severity = none # Braces spacing
+dotnet_diagnostic.SA1013.severity = none # A closing brace within a C# element is not spaced correctly
+dotnet_diagnostic.SA1413.severity = none # Trailing commas
+dotnet_diagnostic.SA1135.severity = none # Qualified references
