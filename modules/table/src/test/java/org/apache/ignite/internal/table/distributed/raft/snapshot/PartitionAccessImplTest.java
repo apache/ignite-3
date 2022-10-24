@@ -37,17 +37,17 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-class MvStoragePartitionAccessTest {
+class PartitionAccessImplTest {
     @Mock
     private MvPartitionStorage partitionStorage;
 
-    private MvStoragePartitionAccess access;
+    private PartitionAccessImpl access;
 
     private final PartitionKey key = new PartitionKey(UUID.randomUUID(), 1);
 
     @BeforeEach
     void createTestInstance() {
-        access = new MvStoragePartitionAccess(key, partitionStorage);
+        access = new PartitionAccessImpl(key, partitionStorage);
     }
 
     @Test

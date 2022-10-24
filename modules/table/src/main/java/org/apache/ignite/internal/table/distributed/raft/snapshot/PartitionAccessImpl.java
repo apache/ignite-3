@@ -28,11 +28,11 @@ import org.jetbrains.annotations.Nullable;
 /**
  * {@link PartitionAccess} that adapts an {@link MvPartitionStorage}.
  */
-public class MvStoragePartitionAccess implements PartitionAccess {
+public class PartitionAccessImpl implements PartitionAccess {
     private final PartitionKey partitionKey;
     private final MvPartitionStorage partitionStorage;
 
-    public MvStoragePartitionAccess(PartitionKey partitionKey, MvPartitionStorage partitionStorage) {
+    public PartitionAccessImpl(PartitionKey partitionKey, MvPartitionStorage partitionStorage) {
         this.partitionKey = partitionKey;
         this.partitionStorage = partitionStorage;
     }

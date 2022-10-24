@@ -117,7 +117,7 @@ import org.apache.ignite.internal.table.distributed.message.HasDataResponse;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.raft.RebalanceRaftGroupEventsListener;
-import org.apache.ignite.internal.table.distributed.raft.snapshot.MvStoragePartitionAccess;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionAccessImpl;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionKey;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionSnapshotStorageFactory;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
@@ -882,7 +882,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 raftMgr.topologyService(),
                 //TODO IGNITE-17302 Use miniumum from mv storage and tx state storage.
                 outgoingSnapshotsManager,
-                new MvStoragePartitionAccess(partitionKey(internalTbl, partId), partitionStorage),
+                new PartitionAccessImpl(partitionKey(internalTbl, partId), partitionStorage),
                 peers.stream().map(n -> new Peer(n.address())).map(PeerId::fromPeer).map(Object::toString).collect(Collectors.toList()),
                 List.of()
         ));
