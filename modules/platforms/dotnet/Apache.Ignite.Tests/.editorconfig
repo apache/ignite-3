@@ -1,0 +1,17 @@
+# All files
+[*]
+
+# Code analysis
+dotnet_diagnostic.SA0001.severity = none # Enable xmldoc file generation
+dotnet_diagnostic.SA1600.severity = none # Elements should be documented
+dotnet_diagnostic.SA1601.severity = none # Partial classes should be documented
+dotnet_diagnostic.SA1602.severity = none # Enums should be documented
+dotnet_diagnostic.CA1001.severity = none # Types that own disposable fields should be disposable
+dotnet_diagnostic.CA1063.severity = none # Implement IDisposable correctly
+dotnet_diagnostic.CA1816.severity = none # Dispose must call SuppressFinalize
+dotnet_diagnostic.CA2000.severity = none # Call Dispose
+dotnet_diagnostic.CA2007.severity = none # Call ConfigureAwait (not needed in tests)
+dotnet_diagnostic.CA1031.severity = none # DoNotCatchGeneralExceptionTypes
+dotnet_diagnostic.CA1801.severity = none # UnusedParameters
+dotnet_diagnostic.CA1062.severity = none # Validate parameters.
+dotnet_diagnostic.CA1308.severity = none # Normalize to upper case
