@@ -381,6 +381,7 @@ namespace Apache.Ignite.Internal.Table
 
             // TODO: We need to skip the header (tx, table id, ...)
             // Pass "computeHash" to serializer handler?
+            // It can be in BinaryTupleBuilder, but we don't know which columns are colocation within the builder. - pass the schema there?
             var binaryTupleMem = writer.GetWrittenMemory()[ProtoCommon.MessagePrefixSize..];
             var hash = HashCalculator.CalculateBinaryTupleHash(binaryTupleMem, keyOnly, schema);
             var partition = Math.Abs(hash % assignment.Length);

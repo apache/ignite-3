@@ -15,28 +15,17 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Internal.Table
+namespace Apache.Ignite.Internal.Proto.BinaryTuple;
+
+/// <summary>
+/// Provides a value indicating whether the column at specified index is a colocation column.
+/// </summary>
+internal interface IColocationColumnIndexProvider
 {
-    using System.Collections.Generic;
-    using Proto.BinaryTuple;
-
     /// <summary>
-    /// Schema.
+    /// Gets a value indicating whether the column at specified index is a colocation column.
     /// </summary>
-    /// <param name="Version">Version.</param>
-    /// <param name="KeyColumnCount">Key column count.</param>
-    /// <param name="Columns">Columns in schema order.</param>
-    internal sealed record Schema(
-        int Version,
-        int KeyColumnCount,
-        IReadOnlyList<Column> Columns) : IColocationColumnIndexProvider
-    {
-        /// <summary>
-        /// Gets the value column count.
-        /// </summary>
-        public int ValueColumnCount => Columns.Count - KeyColumnCount;
-
-        /// <inheritdoc/>
-        public bool IsColocationColumnIndex(int index) => index < KeyColumnCount && Columns[index].IsColocation;
-    }
+    /// <param name="index">Column index.</param>
+    /// <returns>True when colocation column; false otherwise.</returns>
+    bool IsColocationColumnIndex(int index);
 }
