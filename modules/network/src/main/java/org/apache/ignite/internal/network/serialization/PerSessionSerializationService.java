@@ -36,6 +36,7 @@ import org.apache.ignite.internal.network.message.ClassDescriptorMessage;
 import org.apache.ignite.internal.network.message.FieldDescriptorMessage;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.serialization.MessageDeserializer;
+import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.network.serialization.MessageSerializer;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -89,6 +90,13 @@ public class PerSessionSerializationService {
                 new ClassNameMapBackedClassIndexedDescriptors(mergedClassToDescriptorMap),
                 serializationService.getLocalDescriptorRegistry()
         );
+    }
+
+    /**
+     * Returns underlying serialization registry.
+     */
+    public MessageSerializationRegistry serializationRegistry() {
+        return serializationService.serializationRegistry();
     }
 
     /**

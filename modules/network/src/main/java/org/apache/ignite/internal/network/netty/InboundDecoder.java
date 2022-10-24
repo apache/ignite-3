@@ -71,7 +71,7 @@ public class InboundDecoder extends ByteToMessageDecoder {
         MessageReader reader = readerAttr.get();
 
         if (reader == null) {
-            reader = new DirectMessageReader(serializationService, ConnectionManager.DIRECT_PROTOCOL_VERSION);
+            reader = new DirectMessageReader(serializationService.serializationRegistry(), ConnectionManager.DIRECT_PROTOCOL_VERSION);
             readerAttr.set(reader);
         }
 

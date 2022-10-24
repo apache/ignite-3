@@ -49,7 +49,6 @@ import java.util.RandomAccess;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.IntFunction;
-import org.apache.ignite.internal.network.serialization.PerSessionSerializationService;
 import org.apache.ignite.internal.util.ArrayFactory;
 import org.apache.ignite.internal.util.GridUnsafe;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -57,6 +56,7 @@ import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.serialization.MessageDeserializer;
 import org.apache.ignite.network.serialization.MessageReader;
+import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.network.serialization.MessageSerializer;
 import org.apache.ignite.network.serialization.MessageWriter;
 import org.apache.ignite.plugin.extensions.communication.MessageCollectionItemType;
@@ -70,19 +70,19 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     private static final Object NULL = new Object();
 
     /** Flag that indicates that byte buffer is not null. */
-    private static final byte BYTE_BUFFER_NOT_NULL_FLAG = 1;
+    protected static final byte BYTE_BUFFER_NOT_NULL_FLAG = 1;
 
     /** Flag that indicates that byte buffer has Big Endinan order. */
-    private static final byte BYTE_BUFFER_BIG_ENDIAN_FLAG = 2;
+    protected static final byte BYTE_BUFFER_BIG_ENDIAN_FLAG = 2;
 
     /** Message serialization registry. */
-    private final PerSessionSerializationService serializationService;
+    private final MessageSerializationRegistry serializationRegistry;
 
-    private ByteBuffer buf;
+    protected ByteBuffer buf;
 
-    private byte[] heapArr;
+    protected byte[] heapArr;
 
-    private long baseOff;
+    protected long baseOff;
 
     private int arrOff = -1;
 
@@ -163,10 +163,10 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     /**
      * Constructor.
      *
-     * @param serializationService Serialization service.       .
+     * @param serializationRegistry Serialization service.       .
      */
-    public DirectByteBufferStreamImplV1(PerSessionSerializationService serializationService) {
-        this.serializationService = serializationService;
+    public DirectByteBufferStreamImplV1(MessageSerializationRegistry serializationRegistry) {
+        this.serializationRegistry = serializationRegistry;
     }
 
     /** {@inheritDoc} */
@@ -234,11 +234,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         lastFinished = buf.remaining() >= 5;
 
         if (lastFinished) {
-            if (val == Integer.MAX_VALUE) {
-                val = Integer.MIN_VALUE;
-            } else {
-                val++;
-            }
+            val++;
 
             int pos = buf.position();
 
@@ -262,11 +258,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         lastFinished = buf.remaining() >= 10;
 
         if (lastFinished) {
-            if (val == Long.MAX_VALUE) {
-                val = Long.MIN_VALUE;
-            } else {
-                val++;
-            }
+            val++;
 
             int pos = buf.position();
 
@@ -657,7 +649,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
                     writer.setCurrentWriteClass(msg.getClass());
 
                     if (msgSerializer == null) {
-                        msgSerializer = serializationService.createMessageSerializer(msg.groupType(), msg.messageType());
+                        msgSerializer = serializationRegistry.createSerializer(msg.groupType(), msg.messageType());
                     }
 
                     writer.setBuffer(buf);
@@ -887,25 +879,21 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
         int val = 0;
 
-        while (buf.hasRemaining()) {
-            int pos = buf.position();
+        int pos = buf.position();
 
+        int limit = buf.limit();
+
+        while (pos < limit) {
             byte b = GridUnsafe.getByte(heapArr, baseOff + pos);
 
-            buf.position(pos + 1);
+            pos++;
 
             prim |= ((long) b & 0x7F) << (7 * primShift);
 
             if ((b & 0x80) == 0) {
                 lastFinished = true;
 
-                val = (int) prim;
-
-                if (val == Integer.MIN_VALUE) {
-                    val = Integer.MAX_VALUE;
-                } else {
-                    val--;
-                }
+                val = (int) prim - 1;
 
                 prim = 0;
                 primShift = 0;
@@ -915,6 +903,8 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
                 primShift++;
             }
         }
+
+        buf.position(pos);
 
         return val;
     }
@@ -926,25 +916,21 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
         long val = 0;
 
-        while (buf.hasRemaining()) {
-            int pos = buf.position();
+        int pos = buf.position();
 
+        int limit = buf.limit();
+
+        while (pos < limit) {
             byte b = GridUnsafe.getByte(heapArr, baseOff + pos);
 
-            buf.position(pos + 1);
+            pos++;
 
             prim |= ((long) b & 0x7F) << (7 * primShift);
 
             if ((b & 0x80) == 0) {
                 lastFinished = true;
 
-                val = prim;
-
-                if (val == Long.MIN_VALUE) {
-                    val = Long.MAX_VALUE;
-                } else {
-                    val--;
-                }
+                val = prim - 1;
 
                 prim = 0;
                 primShift = 0;
@@ -954,6 +940,8 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
                 primShift++;
             }
         }
+
+        buf.position(pos);
 
         return val;
     }
@@ -1291,7 +1279,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
                 return null;
             }
 
-            msgDeserializer = serializationService.createMessageDeserializer(msgGroupType, msgType);
+            msgDeserializer = serializationRegistry.createDeserializer(msgGroupType, msgType);
         }
 
         // if the deserializer is not null then we have definitely finished parsing the header and can read the message
