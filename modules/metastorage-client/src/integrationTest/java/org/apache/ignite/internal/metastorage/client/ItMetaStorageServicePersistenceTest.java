@@ -138,8 +138,8 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
 
     /** {@inheritDoc} */
     @Override
-    public String raftGroupId() {
-        return "metastorage";
+    public TestReplicationGroupId raftGroupId() {
+        return new TestReplicationGroupId("metastorage");
     }
 
     /**

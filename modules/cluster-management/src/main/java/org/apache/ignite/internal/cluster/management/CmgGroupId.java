@@ -15,23 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.replication.request;
+package org.apache.ignite.internal.cluster.management;
 
-import org.apache.ignite.internal.table.distributed.TableMessageGroup;
-import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
-import org.apache.ignite.network.annotations.Marshallable;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 
 /**
- * Read-write dual row replica request.
+ * CMG replication group id.
  */
-@Transferable(TableMessageGroup.RW_DUAL_ROW_REPLICA_REQUEST)
-public interface ReadWriteSwapRowReplicaRequest extends SwapRowReplicaRequest, ReadWriteReplicaRequest {
+public enum CmgGroupId implements ReplicationGroupId {
+    /** CMG group id. */
+    INSTANCE("cmg_group");
+
+    /** Group id string representation. */
+    private String name;
+
     /**
-     * Gets a commit partition id.
+     * The constructor.
      *
-     * @return Table partition id.
+     * @param name The string representation of the enum.
      */
-    @Marshallable
-    TablePartitionId commitPartitionId();
+    CmgGroupId(String name) {
+        this.name = name;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String toString() {
+        return name;
+    }
 }

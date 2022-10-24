@@ -53,6 +53,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteException;
@@ -88,6 +89,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     /** */
     private final String groupId;
 
+    private final ReplicationGroupId realGroupId;
+
     /** */
     private final RaftMessagesFactory factory;
 
@@ -122,7 +125,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
      * @param executor Executor for retrying requests.
      */
     private RaftGroupServiceImpl(
-        String groupId,
+        ReplicationGroupId groupId,
         ClusterService cluster,
         RaftMessagesFactory factory,
         int timeout,
@@ -139,7 +142,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         this.factory = factory;
         this.timeout = timeout;
         this.rpcTimeout = rpcTimeout;
-        this.groupId = groupId;
+        this.groupId = groupId.toString();
+        this.realGroupId = groupId;
         this.retryDelay = retryDelay;
         this.leader = leader;
         this.executor = executor;
@@ -160,7 +164,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
      * @return Future representing pending completion of the operation.
      */
     public static CompletableFuture<RaftGroupService> start(
-        String groupId,
+        ReplicationGroupId groupId,
         ClusterService cluster,
         RaftMessagesFactory factory,
         int timeout,
@@ -206,7 +210,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
      * @return Future representing pending completion of the operation.
      */
     public static CompletableFuture<RaftGroupService> start(
-        String groupId,
+        ReplicationGroupId groupId,
         ClusterService cluster,
         RaftMessagesFactory factory,
         int timeout,
@@ -219,8 +223,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull String groupId() {
-        return groupId;
+    @Override public @NotNull ReplicationGroupId groupId() {
+        return realGroupId;
     }
 
     /** {@inheritDoc} */

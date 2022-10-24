@@ -20,6 +20,7 @@ package org.apache.ignite.raft.client.service;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.raft.client.Command;
@@ -48,7 +49,7 @@ public interface RaftGroupService {
     /**
      * Returns group id.
      */
-    String groupId();
+    ReplicationGroupId groupId();
 
     /**
      * Returns default timeout for the operations in milliseconds.
