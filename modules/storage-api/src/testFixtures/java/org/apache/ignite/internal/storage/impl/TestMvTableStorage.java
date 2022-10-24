@@ -131,12 +131,12 @@ public class TestMvTableStorage implements MvTableStorage {
             throw new StorageException("Partition ID " + partitionId + " does not exist");
         }
 
-        HashIndices sortedIndices = hashIndicesById.computeIfAbsent(
+        HashIndices hashIndices = hashIndicesById.computeIfAbsent(
                 indexId,
                 id -> new HashIndices(new HashIndexDescriptor(id, tablesCfg.value()))
         );
 
-        return sortedIndices.getOrCreateStorage(partitionId);
+        return hashIndices.getOrCreateStorage(partitionId);
     }
 
     @Override
@@ -145,12 +145,12 @@ public class TestMvTableStorage implements MvTableStorage {
             throw new StorageException("Partition ID " + partitionId + " does not exist");
         }
 
-        HashIndices sortedIndices = hashIndicesById.computeIfAbsent(
+        HashIndices hashIndices = hashIndicesById.computeIfAbsent(
                 descriptor.id(),
                 id -> new HashIndices(descriptor)
         );
 
-        return sortedIndices.getOrCreateStorage(partitionId);
+        return hashIndices.getOrCreateStorage(partitionId);
     }
 
     @Override

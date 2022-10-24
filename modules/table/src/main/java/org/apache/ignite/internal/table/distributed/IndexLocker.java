@@ -38,11 +38,11 @@ public interface IndexLocker {
     CompletableFuture<?> locksForInsert(UUID txId, BinaryRow tableRow, RowId rowId);
 
     /**
-     * Inserts the given row to the index.
+     * Removes the given row from the index.
      *
      * @param txId An identifier of the transaction in which the row is removed.
-     * @param tableRow A table row to insert.
-     * @param rowId An identifier of the row to insert.
+     * @param tableRow A table row to remove.
+     * @param rowId An identifier of the row to remove.
      */
     CompletableFuture<?> locksForRemove(UUID txId, BinaryRow tableRow, RowId rowId);
 }
