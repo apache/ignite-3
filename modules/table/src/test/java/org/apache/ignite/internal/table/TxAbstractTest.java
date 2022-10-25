@@ -1659,8 +1659,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
      * @param id The id.
      * @return The key tuple.
      */
-    // TODO: IGNITE-17967 make private after fix.
-    protected Tuple makeKey(long id) {
+    private Tuple makeKey(long id) {
         return Tuple.create().set("accountNumber", id);
     }
 
@@ -1739,8 +1738,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
      * @param rows Rows.
      * @param expected Expected values.
      */
-    // TODO: IGNITE-17967 make private after fix.
-    protected void validateBalance(Collection<Tuple> rows, double... expected) {
+    private void validateBalance(Collection<Tuple> rows, double... expected) {
         List<Tuple> rows0 = new ArrayList<>(rows);
 
         assertEquals(expected.length, rows.size());
@@ -1824,7 +1822,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         assertEquals(300., accounts.recordView().get(readOnlyTx2, makeKey(1)).doubleValue("balance"));
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17967")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17967, https://issues.apache.org/jira/browse/IGNITE-17968")
     @Test
     public void testReadOnlyGetWriteIntentResolutionRemove() {
         accounts.recordView().upsert(null, makeValue(1, 100.));
@@ -1885,7 +1883,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         validateBalance(retrievedKeys3, 100., 300.);
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17967")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17967, https://issues.apache.org/jira/browse/IGNITE-17968")
     @Test
     public void testReadOnlyPendingWriteIntentSkippedCombined() {
         accounts.recordView().upsert(null, makeValue(1, 100.));
