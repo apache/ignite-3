@@ -22,8 +22,10 @@ import java.util.function.Function;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
 import org.apache.ignite.internal.storage.index.IndexStorage;
+import org.apache.ignite.internal.util.Cursor;
 
 /**
  * An adapter that provides an index storage with a notion of the structure of a table row,
@@ -50,6 +52,13 @@ public class TableSchemaAwareIndexStorage {
         return indexId;
     }
 
+    /** Returns a cursor over {@code RowId}s associated with the given key. */
+    public Cursor<RowId> get(BinaryRow tableRow) throws StorageException {
+        BinaryTuple tuple = indexRowResolver.apply(tableRow);
+
+        return storage.get(tuple);
+    }
+
     /**
      * Inserts the given table row to an index storage.
      *
@@ -72,5 +81,10 @@ public class TableSchemaAwareIndexStorage {
         BinaryTuple tuple = indexRowResolver.apply(tableRow);
 
         storage.remove(new IndexRowImpl(tuple, rowId));
+    }
+
+    /** Returns underlying index storage. */
+    public IndexStorage storage() {
+        return storage;
     }
 }

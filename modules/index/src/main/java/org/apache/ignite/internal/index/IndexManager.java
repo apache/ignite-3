@@ -18,15 +18,18 @@
 package org.apache.ignite.internal.index;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.util.ArrayUtils.STRING_EMPTY_ARRAY;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.index.event.IndexEvent;
@@ -46,6 +49,7 @@ import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
+import org.apache.ignite.internal.schema.configuration.index.HashIndexChange;
 import org.apache.ignite.internal.schema.configuration.index.HashIndexView;
 import org.apache.ignite.internal.schema.configuration.index.IndexColumnView;
 import org.apache.ignite.internal.schema.configuration.index.SortedIndexView;
@@ -53,7 +57,7 @@ import org.apache.ignite.internal.schema.configuration.index.TableIndexChange;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexConfiguration;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
 import org.apache.ignite.internal.table.distributed.TableManager;
-import org.apache.ignite.internal.util.ArrayUtils;
+import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.lang.ErrorGroups;
@@ -104,6 +108,31 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         LOG.debug("Index manager is about to start");
 
         tablesCfg.indexes().listenElements(new ConfigurationListener());
+        tableManager.listen(TableEvent.CREATE, (param, ex) -> {
+            if (ex != null) {
+                return CompletableFuture.completedFuture(false);
+            }
+
+            List<String> pkColumns = Arrays.stream(param.table().schemaView().schema().keyColumns().columns())
+                    .map(Column::name)
+                    .collect(Collectors.toList());
+
+            String pkName = param.tableName() + "_PK";
+
+            createIndexAsync("PUBLIC", pkName, param.tableName(), false,
+                    change -> change.changeUniq(true).convert(HashIndexChange.class)
+                            .changeColumnNames(pkColumns.toArray(STRING_EMPTY_ARRAY))
+            ).thenRun(() -> {
+                TableIndexView indexView = tablesCfg.indexes().get(pkName).value();
+
+                UUID pkId = indexView.id();
+                UUID tableId = indexView.tableId();
+
+                tableManager.registerPk(tableId, pkId);
+            });
+
+            return CompletableFuture.completedFuture(false);
+        });
 
         LOG.info("Index manager started");
     }
@@ -354,7 +383,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
 
         TableRowToIndexKeyConverter tableRowConverter = new TableRowToIndexKeyConverter(
                 schemaManager.schemaRegistry(tableId),
-                index.descriptor().columns().toArray(ArrayUtils.STRING_EMPTY_ARRAY)
+                index.descriptor().columns().toArray(STRING_EMPTY_ARRAY)
         );
 
         if (index instanceof HashIndex) {

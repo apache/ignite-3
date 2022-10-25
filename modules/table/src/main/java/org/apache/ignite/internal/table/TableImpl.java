@@ -45,6 +45,8 @@ public class TableImpl implements Table {
     /** Schema registry. Should be set either in constructor or via {@link #schemaView(SchemaRegistry)} before start of using the table. */
     private volatile SchemaRegistry schemaReg;
 
+    private volatile UUID pkId;
+
     /**
      * Constructor.
      *
@@ -72,6 +74,14 @@ public class TableImpl implements Table {
      */
     public @NotNull UUID tableId() {
         return tbl.tableId();
+    }
+
+    public void pkId(UUID pkId) {
+        this.pkId = Objects.requireNonNull(pkId, "pkId");
+    }
+
+    public UUID pkId() {
+        return pkId;
     }
 
     /** Returns an internal table instance this view represents. */

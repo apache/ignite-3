@@ -28,7 +28,6 @@ import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
@@ -118,17 +117,6 @@ public interface MvTableStorage {
      *         hash index.
      */
     HashIndexStorage getOrCreateHashIndex(int partitionId, UUID indexId);
-
-    /**
-     * Returns an already created Hash Index with the given descriptor or creates a new one if it does not exist.
-     *
-     * @param partitionId Partition ID for which this index has been configured.
-     * @param descriptor A description of the index to be created.
-     * @return Hash Index storage.
-     * @throws StorageException If the given partition does not exist, or the given index does not exist or is not configured as a
-     *         hash index.
-     */
-    HashIndexStorage getOrCreateHashIndex(int partitionId, HashIndexDescriptor descriptor);
 
     /**
      * Destroys the index under the given name and all data in it.

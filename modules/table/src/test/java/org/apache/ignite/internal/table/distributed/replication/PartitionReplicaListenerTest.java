@@ -36,6 +36,9 @@ import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.BinaryTupleSchema;
+import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -47,8 +50,8 @@ import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
-import org.apache.ignite.internal.table.distributed.PkStorage;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
+import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
@@ -63,6 +66,7 @@ import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.storage.state.test.TestConcurrentHashMapTxStateStorage;
+import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
@@ -101,8 +105,18 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     /** The storage stores partition data. */
     private static final TestMvPartitionStorage testMvPartitionStorage = new TestMvPartitionStorage(partId);
 
-    /** Primary index map. */
-    private static PkStorage primaryIndex = PkStorage.createPkStorage(UUID.randomUUID(), TestHashIndexStorage::new);
+    /** Primary index. */
+    private static Lazy<TableSchemaAwareIndexStorage> pkStorage = new Lazy<>(() -> {
+        BinaryTupleSchema pkSchema = BinaryTupleSchema.create(new Element[]{
+                new Element(NativeTypes.BYTES, false)
+        });
+
+        return new TableSchemaAwareIndexStorage(
+                UUID.randomUUID(),
+                new TestHashIndexStorage(null),
+                tableRow -> new BinaryTuple(pkSchema, tableRow.keySlice())
+        );
+    });
 
     /** Local cluster node. */
     private static final ClusterNode localNode = new ClusterNode("node1", "node1", NetworkAddress.from("127.0.0.1:127"));
@@ -184,7 +198,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 partId,
                 tblId,
                 List::of,
-                primaryIndex,
+                pkStorage,
                 clock,
                 txStateStorage,
                 topologySrv,
@@ -208,7 +222,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     private void beforeTest() {
         localLeader = true;
         txState = null;
-        ((TestHashIndexStorage) primaryIndex.storage()).destroy();
+        ((TestHashIndexStorage) pkStorage.get().storage()).destroy();
     }
 
     @Test
@@ -286,7 +300,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         BinaryRow testBinaryRow = binaryRow(key(testBinaryKey), new TestValue(1, "v1"));
         var rowId = new RowId(partId);
 
-        primaryIndex.put(rowId, testBinaryKey.keySlice());
+        pkStorage.get().put(testBinaryKey, rowId);
         testMvPartitionStorage.addWrite(rowId, testBinaryRow, txId, tblId, partId);
         testMvPartitionStorage.commitWrite(rowId, clock.now());
 
@@ -311,7 +325,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         var rowId = new RowId(partId);
         txState = TxState.COMMITED;
 
-        primaryIndex.put(rowId, testBinaryKey.keySlice());
+        pkStorage.get().put(testBinaryKey, rowId);
         testMvPartitionStorage.addWrite(rowId, testBinaryRow, txId, tblId, partId);
 
         CompletableFuture fut = partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readOnlySingleRowReplicaRequest()
@@ -334,7 +348,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         BinaryRow testBinaryRow = binaryRow(key(testBinaryKey), new TestValue(1, "v1"));
         var rowId = new RowId(partId);
 
-        primaryIndex.put(rowId, testBinaryKey.keySlice());
+        pkStorage.get().put(testBinaryKey, rowId);
         testMvPartitionStorage.addWrite(rowId, testBinaryRow, txId, tblId, partId);
 
         CompletableFuture fut = partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readOnlySingleRowReplicaRequest()
@@ -358,7 +372,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         var rowId = new RowId(partId);
         txState = TxState.ABORTED;
 
-        primaryIndex.put(rowId, testBinaryKey.keySlice());
+        pkStorage.get().put(testBinaryKey, rowId);
         testMvPartitionStorage.addWrite(rowId, testBinaryRow, txId, tblId, partId);
 
         CompletableFuture fut = partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readOnlySingleRowReplicaRequest()

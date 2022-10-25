@@ -49,17 +49,10 @@ public class HashIndexDescriptor implements IndexDescriptor {
 
         private final boolean nullable;
 
-        /**
-         * Constructs the object.
-         *
-         * @param name The name of the indexed column.
-         * @param type The type of the indexed column.
-         * @param nullable A flag indicating whether the column may accept null value or not.
-         */
-        public HashIndexColumnDescriptor(String name, NativeType type, boolean nullable) {
-            this.name = name;
-            this.type = type;
-            this.nullable = nullable;
+        HashIndexColumnDescriptor(ColumnView tableColumnView) {
+            this.name = tableColumnView.name();
+            this.type = ConfigurationToSchemaDescriptorConverter.convert(tableColumnView.type());
+            this.nullable = tableColumnView.nullable();
         }
 
         @Override
@@ -123,29 +116,11 @@ public class HashIndexDescriptor implements IndexDescriptor {
 
                     assert columnView != null : "Incorrect index column configuration. " + columnName + " column does not exist";
 
-                    return new HashIndexColumnDescriptor(
-                            columnView.name(),
-                            ConfigurationToSchemaDescriptorConverter.convert(columnView.type()),
-                            columnView.nullable()
-                    );
+                    return new HashIndexColumnDescriptor(columnView);
                 })
                 .collect(toUnmodifiableList());
     }
 
-    /**
-     * Creates an Index Descriptor from a given Table Configuration.
-     *
-     * @param indexId Index id.
-     * @param columns Tables and indexes configuration.
-     */
-    public HashIndexDescriptor(UUID indexId, List<HashIndexColumnDescriptor> columns) {
-        this.id = indexId;
-        this.columns = List.copyOf(columns);
-    }
-
-    /**
-     * Returns the ID of this Index.
-     */
     @Override
     public UUID id() {
         return id;

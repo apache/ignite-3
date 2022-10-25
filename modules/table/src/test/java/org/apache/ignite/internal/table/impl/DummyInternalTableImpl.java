@@ -24,6 +24,7 @@ import static org.mockito.Mockito.mock;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import java.io.Serializable;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
@@ -34,11 +35,15 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
+import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.BinaryTupleSchema;
+import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
+import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
-import org.apache.ignite.internal.table.distributed.PkStorage;
+import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
@@ -49,6 +54,7 @@ import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestConcurrentHashMapTxStateStorage;
+import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
@@ -203,7 +209,17 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
         UUID tableId = tableId();
 
-        PkStorage pkStorage = PkStorage.createPkStorage(UUID.randomUUID(), TestHashIndexStorage::new);
+        Lazy<TableSchemaAwareIndexStorage> pkStorage = new Lazy<>(() -> {
+            BinaryTupleSchema pkSchema = BinaryTupleSchema.create(new Element[]{
+                    new Element(NativeTypes.BYTES, false)
+            });
+
+            return new TableSchemaAwareIndexStorage(
+                    UUID.randomUUID(),
+                    new TestHashIndexStorage(null),
+                    tableRow -> new BinaryTuple(pkSchema, tableRow.keySlice())
+            );
+        });
 
         replicaListener = new PartitionReplicaListener(
                 mvPartStorage,
@@ -224,8 +240,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 mvPartStorage,
                 new TestConcurrentHashMapTxStateStorage(),
                 this.txManager,
-                List::of,
-                pkStorage
+                () -> Map.of(pkStorage.get().id(), pkStorage.get())
         );
     }
 
