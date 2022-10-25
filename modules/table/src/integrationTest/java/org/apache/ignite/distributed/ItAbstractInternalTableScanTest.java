@@ -382,7 +382,7 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
 
             when(cursor.hasNext()).thenAnswer(hnInvocation -> cursorTouchCnt.get() < submittedItems.size());
 
-            when(cursor.next()).thenAnswer(ninvocation ->
+            lenient().when(cursor.next()).thenAnswer(ninvocation ->
                     ReadResult.createFromCommitted(submittedItems.get(cursorTouchCnt.getAndIncrement()), clock.now()));
 
             return cursor;
