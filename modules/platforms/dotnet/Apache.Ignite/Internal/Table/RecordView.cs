@@ -146,9 +146,10 @@ namespace Apache.Ignite.Internal.Table
             var tx = transaction.ToInternal();
 
             using var writer = ProtoCommon.GetMessageWriter();
-            _ser.WriteMultiple(writer, tx, schema, iterator);
+            var colocationHash = _ser.WriteMultiple(writer, tx, schema, iterator);
+            var preferredNode = await GetPreferredNode(colocationHash, transaction).ConfigureAwait(false);
 
-            using var resBuf = await DoOutInOpAsync(ClientOp.TupleUpsertAll, tx, writer).ConfigureAwait(false);
+            using var resBuf = await DoOutInOpAsync(ClientOp.TupleUpsertAll, tx, writer, preferredNode).ConfigureAwait(false);
         }
 
         /// <inheritdoc/>
@@ -187,9 +188,10 @@ namespace Apache.Ignite.Internal.Table
             var tx = transaction.ToInternal();
 
             using var writer = ProtoCommon.GetMessageWriter();
-            _ser.WriteMultiple(writer, tx, schema, iterator);
+            var colocationHash = _ser.WriteMultiple(writer, tx, schema, iterator);
+            var preferredNode = await GetPreferredNode(colocationHash, transaction).ConfigureAwait(false);
 
-            using var resBuf = await DoOutInOpAsync(ClientOp.TupleInsertAll, tx, writer).ConfigureAwait(false);
+            using var resBuf = await DoOutInOpAsync(ClientOp.TupleInsertAll, tx, writer, preferredNode).ConfigureAwait(false);
             var resSchema = await _table.ReadSchemaAsync(resBuf).ConfigureAwait(false);
 
             // TODO: Read value parts only (IGNITE-16022).
@@ -329,10 +331,11 @@ namespace Apache.Ignite.Internal.Table
             var tx = transaction.ToInternal();
 
             using var writer = ProtoCommon.GetMessageWriter();
-            _ser.WriteMultiple(writer, tx, schema, iterator, keyOnly: !exact);
+            var colocationHash = _ser.WriteMultiple(writer, tx, schema, iterator, keyOnly: !exact);
+            var preferredNode = await GetPreferredNode(colocationHash, transaction).ConfigureAwait(false);
 
             var clientOp = exact ? ClientOp.TupleDeleteAllExact : ClientOp.TupleDeleteAll;
-            using var resBuf = await DoOutInOpAsync(clientOp, tx, writer).ConfigureAwait(false);
+            using var resBuf = await DoOutInOpAsync(clientOp, tx, writer, preferredNode).ConfigureAwait(false);
             var resSchema = await _table.ReadSchemaAsync(resBuf).ConfigureAwait(false);
 
             // TODO: Read value parts only (IGNITE-16022).
