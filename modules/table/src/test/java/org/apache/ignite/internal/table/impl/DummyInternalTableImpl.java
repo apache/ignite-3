@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Function;
 import javax.naming.OperationNotSupportedException;
 import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.internal.replicator.ReplicaService;
@@ -43,6 +44,8 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
+import org.apache.ignite.internal.table.distributed.HashIndexLocker;
+import org.apache.ignite.internal.table.distributed.IndexLocker;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
@@ -208,18 +211,21 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         ).when(svc).run(any());
 
         UUID tableId = tableId();
+        UUID indexId = UUID.randomUUID();
 
-        Lazy<TableSchemaAwareIndexStorage> pkStorage = new Lazy<>(() -> {
-            BinaryTupleSchema pkSchema = BinaryTupleSchema.create(new Element[]{
-                    new Element(NativeTypes.BYTES, false)
-            });
-
-            return new TableSchemaAwareIndexStorage(
-                    UUID.randomUUID(),
-                    new TestHashIndexStorage(null),
-                    tableRow -> new BinaryTuple(pkSchema, tableRow.keySlice())
-            );
+        BinaryTupleSchema pkSchema = BinaryTupleSchema.create(new Element[]{
+                new Element(NativeTypes.BYTES, false)
         });
+
+        Function<BinaryRow, BinaryTuple> row2tuple = tableRow -> new BinaryTuple(pkSchema, ((BinaryRow) tableRow).keySlice());
+
+        Lazy<TableSchemaAwareIndexStorage> pkStorage = new Lazy<>(() -> new TableSchemaAwareIndexStorage(
+                indexId,
+                new TestHashIndexStorage(null),
+                row2tuple
+        ));
+
+        IndexLocker pkLocker = new HashIndexLocker(indexId, this.txManager.lockManager(), row2tuple);
 
         replicaListener = new PartitionReplicaListener(
                 mvPartStorage,
@@ -228,7 +234,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 this.txManager.lockManager(),
                 0,
                 tableId,
-                List::of,
+                () -> Map.of(pkLocker.id(), pkLocker),
                 pkStorage,
                 new HybridClock(),
                 null,

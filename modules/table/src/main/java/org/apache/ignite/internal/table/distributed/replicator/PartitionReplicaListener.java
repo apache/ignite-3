@@ -144,7 +144,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      */
     private final ConcurrentHashMap<UUID, CompletableFuture<TxMeta>> txTimestampUpdateMap = new ConcurrentHashMap<>();
 
-    private final Supplier<List<IndexLocker>> indexesLockers;
+    private final Supplier<Map<UUID, IndexLocker>> indexesLockers;
 
     /**
      * The constructor.
@@ -167,7 +167,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             LockManager lockManager,
             int partId,
             UUID tableId,
-            Supplier<List<IndexLocker>> indexesLockers,
+            Supplier<Map<UUID, IndexLocker>> indexesLockers,
             Lazy<TableSchemaAwareIndexStorage> pkIndexStorage,
             HybridClock hybridClock,
             TxStateStorage txStateStorage,
@@ -609,7 +609,11 @@ public class PartitionReplicaListener implements ReplicaListener {
             UUID txId,
             BiFunction<@Nullable RowId, @Nullable BinaryRow, CompletableFuture<T>> action
     ) {
-        return lockManager.acquire(txId, new LockKey(tableId, tableRow.keySlice()), LockMode.S)
+        IndexLocker pkLocker = indexesLockers.get().get(pkIndexStorage.get().id());
+
+        assert pkLocker != null;
+
+        return pkLocker.locksForLookup(txId, tableRow)
                 .thenCompose(ignored -> {
                     try (Cursor<RowId> cursor = pkIndexStorage.get().get(tableRow)) {
                         for (RowId rowId : cursor) {
@@ -1023,8 +1027,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Future completes with {@link RowId} or {@code null} if there is no value.
      */
     private CompletableFuture<RowId> takeLocksForUpdate(BinaryRow tableRow, RowId rowId, UUID txId) {
-        return lockManager.acquire(txId, new LockKey(tableId, tableRow.keySlice()), LockMode.X) // Index X lock
-                .thenCompose(ignored -> lockManager.acquire(txId, new LockKey(tableId), LockMode.IX))
+        return lockManager.acquire(txId, new LockKey(tableId), LockMode.IX)
                 .thenCompose(ignored -> lockManager.acquire(txId, new LockKey(tableId, rowId), LockMode.X))
                 .thenCompose(ignored -> takePutLockOnIndexes(tableRow, rowId, txId))
                 .thenApply(ignored -> rowId);
@@ -1038,14 +1041,13 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Future completes with {@link RowId} or {@code null} if there is no value.
      */
     private CompletableFuture<RowId> takeLocksForInsert(BinaryRow tableRow, RowId rowId, UUID txId) {
-        return lockManager.acquire(txId, new LockKey(tableId, tableRow.keySlice()), LockMode.X)
-                .thenCompose(exclusiveIdxLock -> lockManager.acquire(txId, new LockKey(tableId), LockMode.IX)) // IX lock on table
+        return lockManager.acquire(txId, new LockKey(tableId), LockMode.IX) // IX lock on table
                 .thenCompose(ignored -> takePutLockOnIndexes(tableRow, rowId, txId))
                 .thenApply(tblLock -> rowId);
     }
 
     private CompletableFuture<?> takePutLockOnIndexes(BinaryRow tableRow, RowId rowId, UUID txId) {
-        List<IndexLocker> indexes = indexesLockers.get();
+        Collection<IndexLocker> indexes = indexesLockers.get().values();
 
         if (nullOrEmpty(indexes)) {
             return CompletableFuture.completedFuture(null);
@@ -1061,6 +1063,23 @@ public class PartitionReplicaListener implements ReplicaListener {
         return CompletableFuture.allOf(locks);
     }
 
+    private CompletableFuture<?> takeRemoveLockOnIndexes(BinaryRow tableRow, RowId rowId, UUID txId) {
+        Collection<IndexLocker> indexes = indexesLockers.get().values();
+
+        if (nullOrEmpty(indexes)) {
+            return CompletableFuture.completedFuture(null);
+        }
+
+        CompletableFuture<?>[] locks = new CompletableFuture[indexes.size()];
+        int idx = 0;
+
+        for (IndexLocker locker : indexes) {
+            locks[idx++] = locker.locksForRemove(txId, tableRow, rowId);
+        }
+
+        return CompletableFuture.allOf(locks);
+    }
+
     /**
      * Takes all required locks on a key, before deleting the value.
      *
@@ -1068,12 +1087,12 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Future completes with {@link RowId} or {@code null} if there is no value for remove.
      */
     private CompletableFuture<RowId> takeLocksForDeleteExact(BinaryRow expectedRow, RowId rowId, BinaryRow actualRow, UUID txId) {
-        return lockManager.acquire(txId, new LockKey(tableId, expectedRow.keySlice()), LockMode.X)  // Index X lock
-                .thenCompose(ignored -> lockManager.acquire(txId, new LockKey(tableId), LockMode.IX)) // IX lock on table
+        return lockManager.acquire(txId, new LockKey(tableId), LockMode.IX) // IX lock on table
                 .thenCompose(ignored -> lockManager.acquire(txId, new LockKey(tableId, rowId), LockMode.S)) // S lock on RowId
                 .thenCompose(ignored -> {
                     if (equalValues(actualRow, expectedRow)) {
                         return lockManager.acquire(txId, new LockKey(tableId, rowId), LockMode.X) // X lock on RowId
+                                .thenCompose(ignored0 -> takeRemoveLockOnIndexes(actualRow, rowId, txId))
                                 .thenApply(exclusiveRowLock -> rowId);
                     }
 
@@ -1088,9 +1107,9 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Future completes with {@link RowId} or {@code null} if there is no value for the key.
      */
     private CompletableFuture<RowId> takeLocksForDelete(BinaryRow tableRow, RowId rowId, UUID txId) {
-        return lockManager.acquire(txId, new LockKey(tableId, tableRow.keySlice()), LockMode.X)
-                .thenCompose(ignored -> lockManager.acquire(txId, new LockKey(tableId), LockMode.IX)) // IX lock on table
+        return lockManager.acquire(txId, new LockKey(tableId), LockMode.IX) // IX lock on table
                 .thenCompose(ignored -> lockManager.acquire(txId, new LockKey(tableId, rowId), LockMode.X)) // X lock on RowId
+                .thenCompose(ignored -> takeRemoveLockOnIndexes(tableRow, rowId, txId))
                 .thenApply(ignored -> rowId);
     }
 
@@ -1151,8 +1170,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      */
     private CompletableFuture<RowId> takeLocksForReplace(BinaryRow expectedRow, BinaryRow oldRow,
             BinaryRow newRow, RowId rowId, UUID txId) {
-        return lockManager.acquire(txId, new LockKey(tableId, expectedRow.keySlice()), LockMode.X) // Index X lock
-                .thenCompose(ignored -> lockManager.acquire(txId, new LockKey(tableId), LockMode.IX))
+        return lockManager.acquire(txId, new LockKey(tableId), LockMode.IX)
                 .thenCompose(ignored -> lockManager.acquire(txId, new LockKey(tableId, rowId), LockMode.S))
                 .thenCompose(ignored -> {
                     if (oldRow != null && equalValues(oldRow, expectedRow)) {

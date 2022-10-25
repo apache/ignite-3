@@ -28,21 +28,35 @@ import org.apache.ignite.internal.storage.RowId;
  * <p>Different indexes requires different approaches for locking. Thus every index type has its own implementation of this interface.
  */
 public interface IndexLocker {
+    /** Returns an identifier of the index this locker created for. */
+    UUID id();
+
     /**
-     * Inserts the given row to the index.
+     * Acquires the lock for lookup operation.
+     *
+     * @param txId An identifier of the transaction in which the row is read.
+     * @param tableRow A table row to lookup.
+     * @return A future representing a result.
+     */
+    CompletableFuture<?> locksForLookup(UUID txId, BinaryRow tableRow);
+
+    /**
+     * Acquires the lock for insert operation.
      *
      * @param txId An identifier of the transaction in which the row is inserted.
      * @param tableRow A table row to insert.
      * @param rowId An identifier of the row in the main storage.
+     * @return A future representing a result.
      */
     CompletableFuture<?> locksForInsert(UUID txId, BinaryRow tableRow, RowId rowId);
 
     /**
-     * Removes the given row from the index.
+     * Acquires the lock for remove operation.
      *
      * @param txId An identifier of the transaction in which the row is removed.
      * @param tableRow A table row to remove.
      * @param rowId An identifier of the row to remove.
+     * @return A future representing a result.
      */
     CompletableFuture<?> locksForRemove(UUID txId, BinaryRow tableRow, RowId rowId);
 }

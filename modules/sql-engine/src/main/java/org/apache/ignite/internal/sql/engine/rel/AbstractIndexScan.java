@@ -135,7 +135,7 @@ public abstract class AbstractIndexScan extends ProjectableFilterableTableScan {
         }
 
         // additional tiny cost for preventing equality with table scan.
-        return planner.getCostFactory().makeCost(rows, cost, 0).multiplyBy(10);
+        return planner.getCostFactory().makeCost(rows, cost, 0).plus(planner.getCostFactory().makeTinyCost());
     }
 
     /**

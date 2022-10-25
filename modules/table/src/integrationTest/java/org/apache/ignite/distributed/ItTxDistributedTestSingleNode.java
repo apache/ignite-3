@@ -50,6 +50,7 @@ import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
@@ -60,6 +61,8 @@ import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TxAbstractTest;
+import org.apache.ignite.internal.table.distributed.HashIndexLocker;
+import org.apache.ignite.internal.table.distributed.IndexLocker;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
@@ -386,17 +389,22 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
                 int partId = p;
 
-                Lazy<TableSchemaAwareIndexStorage> pkStorage = new Lazy<>(() -> {
-                    BinaryTupleSchema pkSchema = BinaryTupleSchema.create(new Element[]{
-                            new Element(NativeTypes.BYTES, false)
-                    });
+                UUID indexId = UUID.randomUUID();
 
-                    return new TableSchemaAwareIndexStorage(
-                            UUID.randomUUID(),
-                            new TestHashIndexStorage(null),
-                            tableRow -> new BinaryTuple(pkSchema, tableRow.keySlice())
-                    );
+                BinaryTupleSchema pkSchema = BinaryTupleSchema.create(new Element[]{
+                        new Element(NativeTypes.BYTES, false)
                 });
+
+                Function<BinaryRow, BinaryTuple> row2tuple =
+                        tableRow -> new BinaryTuple(pkSchema, tableRow.keySlice());
+
+                Lazy<TableSchemaAwareIndexStorage> pkStorage = new Lazy<>(() -> new TableSchemaAwareIndexStorage(
+                        indexId,
+                        new TestHashIndexStorage(null),
+                        row2tuple
+                ));
+
+                IndexLocker pkLocker = new HashIndexLocker(indexId, txManagers.get(node).lockManager(), row2tuple);
 
                 CompletableFuture<Void> partitionReadyFuture = raftServers.get(node).prepareRaftGroup(
                         grpId,
@@ -422,7 +430,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                                                 txManagers.get(node).lockManager(),
                                                 partId,
                                                 tblId,
-                                                List::of,
+                                                () -> Map.of(pkLocker.id(), pkLocker),
                                                 pkStorage,
                                                 clocks.get(node),
                                                 txSateStorage,

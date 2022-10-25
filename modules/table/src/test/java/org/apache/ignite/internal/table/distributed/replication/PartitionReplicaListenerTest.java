@@ -27,11 +27,12 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.Collections;
-import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
@@ -50,6 +51,8 @@ import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
+import org.apache.ignite.internal.table.distributed.HashIndexLocker;
+import org.apache.ignite.internal.table.distributed.IndexLocker;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
@@ -59,6 +62,7 @@ import org.apache.ignite.internal.table.distributed.replicator.action.RequestTyp
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
@@ -105,19 +109,6 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     /** The storage stores partition data. */
     private static final TestMvPartitionStorage testMvPartitionStorage = new TestMvPartitionStorage(partId);
 
-    /** Primary index. */
-    private static Lazy<TableSchemaAwareIndexStorage> pkStorage = new Lazy<>(() -> {
-        BinaryTupleSchema pkSchema = BinaryTupleSchema.create(new Element[]{
-                new Element(NativeTypes.BYTES, false)
-        });
-
-        return new TableSchemaAwareIndexStorage(
-                UUID.randomUUID(),
-                new TestHashIndexStorage(null),
-                tableRow -> new BinaryTuple(pkSchema, tableRow.keySlice())
-        );
-    });
-
     /** Local cluster node. */
     private static final ClusterNode localNode = new ClusterNode("node1", "node1", NetworkAddress.from("127.0.0.1:127"));
 
@@ -143,6 +134,11 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     /** Partition replication listener to test. */
     private static PartitionReplicaListener partitionReplicaListener;
+
+    /** Primary index. */
+    private static Lazy<TableSchemaAwareIndexStorage> pkStorage;
+
+    private static IndexLocker pkLocker;
 
     /** If true the local replica is considered leader, false otherwise. */
     private static boolean localLeader;
@@ -190,14 +186,32 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             return CompletableFuture.completedFuture(txMeta);
         });
 
+        UUID indexId = UUID.randomUUID();
+
+        BinaryTupleSchema pkSchema = BinaryTupleSchema.create(new Element[]{
+                new Element(NativeTypes.BYTES, false)
+        });
+
+        Function<BinaryRow, BinaryTuple> row2tuple = tableRow -> new BinaryTuple(pkSchema, ((BinaryRow) tableRow).keySlice());
+
+        pkStorage = new Lazy<>(() -> new TableSchemaAwareIndexStorage(
+                indexId,
+                new TestHashIndexStorage(null),
+                row2tuple
+        ));
+
+        LockManager lockManager = new HeapLockManager();
+
+        pkLocker = new HashIndexLocker(indexId, lockManager, row2tuple);
+
         partitionReplicaListener = new PartitionReplicaListener(
                 testMvPartitionStorage,
                 mockRaftClient,
                 mock(TxManager.class),
-                new HeapLockManager(),
+                lockManager,
                 partId,
                 tblId,
-                List::of,
+                () -> Map.of(pkLocker.id(), pkLocker),
                 pkStorage,
                 clock,
                 txStateStorage,

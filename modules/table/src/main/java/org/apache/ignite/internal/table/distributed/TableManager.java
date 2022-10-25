@@ -75,7 +75,6 @@ import org.apache.ignite.configuration.notifications.ConfigurationNotificationEv
 import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.baseline.BaselineManager;
-import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.causality.VersionedValue;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -95,9 +94,6 @@ import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
-import org.apache.ignite.internal.schema.BinaryTuplePrefix;
-import org.apache.ignite.internal.schema.BinaryTupleSchema;
-import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableChange;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableConfiguration;
@@ -110,12 +106,8 @@ import org.apache.ignite.internal.schema.event.SchemaEvent;
 import org.apache.ignite.internal.schema.event.SchemaEventParameters;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
-import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
-import org.apache.ignite.internal.storage.index.IndexRow;
-import org.apache.ignite.internal.storage.index.IndexRowImpl;
-import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
@@ -133,14 +125,11 @@ import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.table.event.TableEventParameters;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
-import org.apache.ignite.internal.tx.LockMode;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbTableStorage;
 import org.apache.ignite.internal.util.ByteUtils;
-import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteNameUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.Lazy;
@@ -2042,104 +2031,23 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 adapters.put(storage.id(), storage);
             }
 
-            return Map.copyOf(adapters);
+            return adapters;
         };
     }
 
-    private Supplier<List<IndexLocker>> indexesLockers(UUID tableId, int partId) {
+    private Supplier<Map<UUID, IndexLocker>> indexesLockers(UUID tableId, int partId) {
         return () -> {
             List<IndexLockerFactory> factories = new ArrayList<>(indexLockerFactories.getOrDefault(tableId, Map.of()).values());
 
-            List<IndexLocker> lockers = new ArrayList<>(factories.size());
+            Map<UUID, IndexLocker> lockers = new HashMap<>(factories.size());
 
             for (IndexLockerFactory factory : factories) {
-                lockers.add(factory.create(partId));
+                IndexLocker locker = factory.create(partId);
+                lockers.put(locker.id(), locker);
             }
 
             return lockers;
         };
-    }
-
-    private static class HashIndexLocker implements IndexLocker {
-        private final UUID indexId;
-        private final LockManager lockManager;
-        private final Function<BinaryRow, BinaryTuple> indexRowResolver;
-
-        private HashIndexLocker(UUID indexId, LockManager lockManager,
-                Function<BinaryRow, BinaryTuple> indexRowResolver) {
-            this.indexId = indexId;
-            this.lockManager = lockManager;
-            this.indexRowResolver = indexRowResolver;
-        }
-
-        @Override
-        public CompletableFuture<?> locksForInsert(UUID txId, BinaryRow tableRow, RowId rowId) {
-            BinaryTuple key = indexRowResolver.apply(tableRow);
-
-            return lockManager.acquire(txId, new LockKey(indexId, key.byteBuffer()), LockMode.IX);
-        }
-
-        @Override
-        public CompletableFuture<?> locksForRemove(UUID txId, BinaryRow tableRow, RowId rowId) {
-            BinaryTuple key = indexRowResolver.apply(tableRow);
-
-            return lockManager.acquire(txId, new LockKey(indexId, key.byteBuffer()), LockMode.IX);
-        }
-    }
-
-    private static class SortedIndexLocker implements IndexLocker {
-        private static final BinaryTuple POSITIVE_INF = new BinaryTuple(
-                BinaryTupleSchema.create(new Element[0]),
-                new BinaryTupleBuilder(0, false).build()
-        );
-
-        private final UUID indexId;
-        private final LockManager lockManager;
-        private final SortedIndexStorage storage;
-        private final Function<BinaryRow, BinaryTuple> indexRowResolver;
-
-        private SortedIndexLocker(UUID indexId, LockManager lockManager, SortedIndexStorage storage,
-                Function<BinaryRow, BinaryTuple> indexRowResolver) {
-            this.indexId = indexId;
-            this.lockManager = lockManager;
-            this.storage = storage;
-            this.indexRowResolver = indexRowResolver;
-        }
-
-        @Override
-        public CompletableFuture<?> locksForInsert(UUID txId, BinaryRow tableRow, RowId rowId) {
-            BinaryTuple key = indexRowResolver.apply(tableRow);
-            BinaryTuplePrefix prefix = BinaryTuplePrefix.fromBinaryTuple(key);
-
-            // find next key
-            Cursor<IndexRow> cursor = storage.scan(prefix, null, SortedIndexStorage.GREATER);
-
-            BinaryTuple nexKey;
-            if (cursor.hasNext()) {
-                nexKey = cursor.next().indexColumns();
-            } else { // otherwise INF
-                nexKey = POSITIVE_INF;
-            }
-
-            var nextLockKey = new LockKey(indexId, nexKey.byteBuffer());
-
-            return lockManager.acquire(txId, nextLockKey, LockMode.IX)
-                    .thenCompose(shortLock ->
-                            lockManager.acquire(txId, new LockKey(indexId, key.byteBuffer()), LockMode.X)
-                                    .thenRun(() -> {
-                                        storage.put(new IndexRowImpl(key, rowId));
-
-                                        lockManager.release(shortLock);
-                                    })
-                    );
-        }
-
-        @Override
-        public CompletableFuture<?> locksForRemove(UUID txId, BinaryRow tableRow, RowId rowId) {
-            BinaryTuple key = indexRowResolver.apply(tableRow);
-
-            return lockManager.acquire(txId, new LockKey(indexId, key.byteBuffer()), LockMode.IX);
-        }
     }
 
     @FunctionalInterface
