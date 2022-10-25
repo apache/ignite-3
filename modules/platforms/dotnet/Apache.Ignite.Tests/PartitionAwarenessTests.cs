@@ -135,10 +135,23 @@ public class PartitionAwarenessTests
     }
 
     [Test]
-    public async Task TestAllRecordViewOperations()
+    [TestCase(1, 2)]
+    [TestCase(3, 1)]
+    [TestCase(4, 2)]
+    [TestCase(5, 1)]
+    public async Task TestAllRecordViewOperations(int key, int node)
     {
-        // TODO
-        await Task.Delay(1);
+        using var client = await GetClient();
+        var recordView = (await client.Tables.GetTableAsync(FakeServer.ExistingTableName))!.GetRecordView<int>();
+
+        // Warm up.
+        await recordView.UpsertAsync(null, 1);
+
+        // Check.
+        var expectedNode = node == 1 ? _server1 : _server2;
+
+        await AssertOpOnNode(async () => await recordView.GetAsync(null, key), ClientOp.TupleGet, expectedNode);
+        await AssertOpOnNode(async () => await recordView.GetAndDeleteAsync(null, key), ClientOp.TupleGetAndDelete, expectedNode);
     }
 
     [Test]
