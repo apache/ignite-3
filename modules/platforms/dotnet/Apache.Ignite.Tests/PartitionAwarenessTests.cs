@@ -216,10 +216,36 @@ public class PartitionAwarenessTests
     }
 
     [Test]
-    public async Task TestAllKeyValueViewOperations()
+    [TestCaseSource(nameof(KeyNodeCases))]
+    public async Task TestAllKeyValueViewOperations(int key, int node)
     {
-        // TODO
-        await Task.Delay(1);
+        using var client = await GetClient();
+        var kvView = (await client.Tables.GetTableAsync(FakeServer.ExistingTableName))!.GetKeyValueView<int, object?>();
+
+        // Warm up (retrieve assignment).
+        await kvView.PutAsync(null, 1, null);
+
+        // Single-key operations.
+        var expectedNode = node == 1 ? _server1 : _server2;
+
+        await AssertOpOnNode(() => kvView.GetAsync(null, key), ClientOp.TupleGet, expectedNode);
+        await AssertOpOnNode(() => kvView.GetAndRemoveAsync(null, key), ClientOp.TupleGetAndDelete, expectedNode);
+        await AssertOpOnNode(() => kvView.GetAndReplaceAsync(null, key), ClientOp.TupleGetAndReplace, expectedNode);
+        await AssertOpOnNode(() => kvView.GetAndPutAsync(null, key), ClientOp.TupleGetAndUpsert, expectedNode);
+        await AssertOpOnNode(() => kvView.PutAsync(null, key), ClientOp.TupleUpsert, expectedNode);
+        await AssertOpOnNode(() => kvView.PutIfAbsentAsync(null, key), ClientOp.TupleInsert, expectedNode);
+        await AssertOpOnNode(() => kvView.ReplaceAsync(null, key), ClientOp.TupleReplace, expectedNode);
+        await AssertOpOnNode(() => kvView.ReplaceAsync(null, key, key), ClientOp.TupleReplaceExact, expectedNode);
+        await AssertOpOnNode(() => kvView.RemoveAsync(null, key), ClientOp.TupleDelete, expectedNode);
+        await AssertOpOnNode(() => kvView.RemoveAsync(null, key, null), ClientOp.TupleDeleteExact, expectedNode);
+
+        // Multi-key operations use the first key for colocation.
+        var keys = new[] { key, key - 1, key + 1 };
+        var pairs = keys.ToDictionary(x => x, _ => (object?)null);
+        await AssertOpOnNode(() => kvView.GetAllAsync(null, keys), ClientOp.TupleGetAll, expectedNode);
+        await AssertOpOnNode(() => kvView.PutAllAsync(null, pairs), ClientOp.TupleInsertAll, expectedNode);
+        await AssertOpOnNode(() => kvView.RemoveAllAsync(null, keys), ClientOp.TupleDeleteAll, expectedNode);
+        await AssertOpOnNode(() => kvView.RemoveAllAsync(null, pairs), ClientOp.TupleDeleteAllExact, expectedNode);
     }
 
     private static async Task AssertOpOnNode(Func<Task> action, ClientOp op, FakeServer node, FakeServer? node2 = null)
