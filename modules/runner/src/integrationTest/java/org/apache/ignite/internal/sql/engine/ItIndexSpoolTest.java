@@ -65,7 +65,7 @@ public class ItIndexSpoolTest extends AbstractBasicIntegrationTest {
                 Arguments.of(2000, 1),
                 Arguments.of(IN_BUFFER_SIZE, 2),
                 Arguments.of(IN_BUFFER_SIZE + 1, 2));
-    };
+    }
 
     /**
      * Test.
