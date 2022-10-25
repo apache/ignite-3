@@ -58,7 +58,7 @@ public class PartitionAwarenessTests
     {
         using var client = await GetClient();
         var recordView = (await client.Tables.GetTableAsync(FakeServer.ExistingTableName))!.GetRecordView<int>();
-        var (defaultServer, secondaryServer) = GetServerPair();
+        var (defaultServer, _) = GetServerPair();
 
         // Warm up.
         await recordView.UpsertAsync(null, 1);
