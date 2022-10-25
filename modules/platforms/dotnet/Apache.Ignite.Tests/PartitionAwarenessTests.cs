@@ -60,21 +60,26 @@ public class PartitionAwarenessTests
         var recordView = (await client.Tables.GetTableAsync(FakeServer.ExistingTableName))!.GetRecordView<int>();
         var (defaultServer, secondaryServer) = GetServerPair();
 
-        // Default server.
+        // Warm up.
         await recordView.UpsertAsync(null, 1);
 
         Assert.AreEqual(
-            new[] { ClientOp.TableGet, ClientOp.SchemasGet, ClientOp.PartitionAssignmentGet, ClientOp.TupleUpsert },
-            defaultServer.ClientOps);
+            new[] { ClientOp.TableGet, ClientOp.SchemasGet, ClientOp.PartitionAssignmentGet },
+            defaultServer.ClientOps.Take(3));
 
-        CollectionAssert.IsEmpty(secondaryServer.ClientOps);
-
-        // Second server.
+        // First server.
         ClearOps();
         await recordView.UpsertAsync(null, 3);
 
-        CollectionAssert.IsEmpty(defaultServer.ClientOps);
-        Assert.AreEqual(new[] { ClientOp.TupleUpsert }, secondaryServer.ClientOps);
+        Assert.AreEqual(new[] { ClientOp.TupleUpsert }, _server1.ClientOps);
+        CollectionAssert.IsEmpty(_server2.ClientOps);
+
+        // Second server.
+        ClearOps();
+        await recordView.UpsertAsync(null, 1);
+
+        Assert.AreEqual(new[] { ClientOp.TupleUpsert }, _server2.ClientOps);
+        CollectionAssert.IsEmpty(_server1.ClientOps);
     }
 
     [Test]
