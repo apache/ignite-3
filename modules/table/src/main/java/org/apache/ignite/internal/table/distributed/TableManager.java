@@ -1961,10 +1961,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         return new SnapshotAwarePartitionDataStorage(partitionStorage, outgoingSnapshotsManager, partitionKey(internalTbl, partId));
     }
 
-    private static MvPartitionStorage getOrCreateMvPartition(InternalTable internalTbl, int partId) {
-        return internalTbl.storage().getOrCreateMvPartition(partId);
-    }
-
     private PartitionKey partitionKey(InternalTable internalTbl, int partId) {
         return new PartitionKey(internalTbl.tableId(), partId);
     }
