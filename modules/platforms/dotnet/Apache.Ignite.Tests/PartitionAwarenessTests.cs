@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Tests;
 
 using System.Threading.Tasks;
+using Ignite.Table;
 using Internal.Proto;
 using NUnit.Framework;
 
@@ -66,9 +67,9 @@ public class PartitionAwarenessTests
     public async Task TestPutRoutesRequestToPrimaryNode()
     {
         using var client = await GetClient();
-        var table = await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
-        var recordView = table!.GetRecordView<int>();
+        var recordView = (await client.Tables.GetTableAsync(FakeServer.ExistingTableName))!.GetRecordView<int>();
 
+        // Second server.
         await recordView.UpsertAsync(null, 1);
 
         CollectionAssert.IsEmpty(_server1.ClientOps);
@@ -76,11 +77,29 @@ public class PartitionAwarenessTests
             new[] { ClientOp.TableGet, ClientOp.SchemasGet, ClientOp.PartitionAssignmentGet, ClientOp.TupleUpsert },
             _server2.ClientOps);
 
+        // First server.
         ClearOps();
         await recordView.UpsertAsync(null, 3);
 
         Assert.AreEqual(new[] { ClientOp.TupleUpsert }, _server1.ClientOps);
         CollectionAssert.IsEmpty(_server2.ClientOps);
+    }
+
+    [Test]
+    public async Task TestPutWithTxUsesDefaultNode()
+    {
+        using var client = await GetClient();
+        var recordView = (await client.Tables.GetTableAsync(FakeServer.ExistingTableName))!.GetRecordView<int>();
+        await using var tx = await client.Transactions.BeginAsync();
+
+        // Second server.
+        await recordView.UpsertAsync(tx, 1);
+        await recordView.UpsertAsync(tx, 3);
+
+        CollectionAssert.IsEmpty(_server1.ClientOps);
+        Assert.AreEqual(
+            new[] { ClientOp.TableGet, ClientOp.SchemasGet, ClientOp.PartitionAssignmentGet, ClientOp.TupleUpsert, ClientOp.TupleUpsert },
+            _server2.ClientOps);
     }
 
     private async Task<IIgniteClient> GetClient()
