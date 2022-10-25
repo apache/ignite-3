@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.raft.jraft.rpc;
+package org.apache.ignite.raft.messages;
 
 import org.apache.ignite.network.annotations.MessageGroup;
 
@@ -23,5 +23,5 @@ import org.apache.ignite.network.annotations.MessageGroup;
  * Message group for tests.
  */
 @MessageGroup(groupType = 4, groupName = "TestRaftMessages")
-public class TestMessageGroup {
+public interface TestMessageGroup {
 }

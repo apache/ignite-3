@@ -30,11 +30,11 @@ namespace Apache.Ignite.Internal.Proto
         /// <summary>
         /// Writes Guid as Java UUID.
         /// </summary>
-        /// <param name="guid">Guid.</param>
+        /// <param name="val">Guid.</param>
         /// <param name="span">Target span.</param>
-        public static void Write(Guid guid, Span<byte> span)
+        public static void Write(Guid val, Span<byte> span)
         {
-            var written = guid.TryWriteBytes(span);
+            var written = val.TryWriteBytes(span);
             Debug.Assert(written, "written");
 
             // Reverse first part order: abc -> cba. Parts are little-endian on any system.

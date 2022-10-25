@@ -23,7 +23,7 @@ then run .NET tests with `dotnet test` or `dotnet test --filter TEST_NAME`. When
 ## Static Code Analysis
 
 Static code analysis (Roslyn-based) runs as part of the build and includes code style check. Build fails on any warning.
-* Analysis rules are defined in `Apache.Ignite.ruleset` and `Apache.Ignite.Tests.ruleset` (relaxed rule set for test projects).
+* Analysis rules are defined in `.editorconfig` files (test projects have relaxed rule set).
 * License header is defined in `stylecop.json`
 * Warnings As Errors behavior is enabled in `Directory.Build.props` (can be disabled locally for rapid prototyping so that builds are faster and warnings don't distract)
 

@@ -21,6 +21,7 @@ namespace Apache.Ignite.Internal.Buffers
     using System.Buffers;
     using System.Buffers.Binary;
     using System.Diagnostics;
+    using System.IO;
     using MessagePack;
 
     /// <summary>
@@ -270,7 +271,7 @@ namespace Apache.Ignite.Internal.Buffers
                 newSize = length + sizeHint;
                 if ((uint)newSize > int.MaxValue)
                 {
-                    throw new OutOfMemoryException($"Buffer can't be larger than {int.MaxValue} (int.MaxValue) bytes.");
+                    throw new InternalBufferOverflowException($"Buffer can't be larger than {int.MaxValue} (int.MaxValue) bytes.");
                 }
             }
 
