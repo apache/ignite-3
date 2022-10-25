@@ -19,7 +19,7 @@ package org.apache.ignite.internal.table.distributed.raft;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lock.AutoLockup;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;

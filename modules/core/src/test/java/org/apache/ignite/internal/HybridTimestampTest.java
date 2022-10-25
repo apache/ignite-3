@@ -15,16 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.replication.request;
+package org.apache.ignite.internal.hlc;
 
-import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.replicator.message.ReplicaRequest;
-import org.apache.ignite.network.annotations.Marshallable;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.max;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import org.junit.jupiter.api.Test;
 
 /**
- * Read only replica request.
+ * Tests of a hybrid timestamp implementation.
+ * {@link HybridTimestamp}
  */
-public interface ReadOnlyReplicaRequest extends ReplicaRequest {
-    @Marshallable
-    HybridTimestamp readTimestamp();
+class HybridTimestampTest {
+    @Test
+    public void testComparison() {
+        assertEquals(new HybridTimestamp(10, 5),
+                max(new HybridTimestamp(10, 5), new HybridTimestamp(5, 7))
+        );
+
+        assertEquals(new HybridTimestamp(20, 10),
+                max(new HybridTimestamp(10, 100), new HybridTimestamp(20, 10))
+        );
+
+        assertEquals(new HybridTimestamp(20, 10),
+                max(new HybridTimestamp(20, 10))
+        );
+
+        assertEquals(null, max());
+    }
 }

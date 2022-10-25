@@ -68,7 +68,7 @@ import java.util.function.BiPredicate;
 import java.util.function.BooleanSupplier;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-import org.apache.ignite.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.server.RaftGroupEventsListener;

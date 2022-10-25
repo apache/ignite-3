@@ -59,4 +59,10 @@ public class ClientTransactions implements IgniteTransactions {
     public CompletableFuture<Transaction> beginAsync() {
         return ch.serviceAsync(ClientOp.TX_BEGIN, w -> {},  r -> new ClientTransaction(r.clientChannel(), r.in().unpackLong()));
     }
+
+    @Override
+    public IgniteTransactions readOnly() {
+        // TODO: IGNITE-17929 Add read-only support to ClientTransactions
+        return null;
+    }
 }

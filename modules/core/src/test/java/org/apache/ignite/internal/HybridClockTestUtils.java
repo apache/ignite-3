@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.hlc;
+package org.apache.ignite.internal.hlc;
 
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.spy;
