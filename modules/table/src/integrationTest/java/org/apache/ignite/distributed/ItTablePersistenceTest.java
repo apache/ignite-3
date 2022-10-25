@@ -31,8 +31,8 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BooleanSupplier;
 import java.util.function.Function;
-import org.apache.ignite.hlc.HybridClock;
-import org.apache.ignite.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.ByteBufferRow;
@@ -196,7 +196,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
     /** {@inheritDoc} */
     @Override
     public BooleanSupplier snapshotCheckClosure(JraftServerImpl restarted, boolean interactedAfterSnapshot) {
-        MvPartitionStorage storage = getListener(restarted, raftGroupId()).getStorage();
+        MvPartitionStorage storage = getListener(restarted, raftGroupId()).getMvStorage();
         Map<ByteBuffer, RowId> primaryIndex = null; // getListener(restarted, raftGroupId()).getPk();
 
         Row key = interactedAfterSnapshot ? SECOND_KEY : FIRST_KEY;
@@ -235,7 +235,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                     var testMpPartStorage = new TestMvPartitionStorage(0);
 
                     PartitionListener listener = new PartitionListener(
-                            testMpPartStorage,
+                            new TestPartitionDataStorage(testMpPartStorage),
                             new TestConcurrentHashMapTxStateStorage(),
                             txManager,
                             Map::of

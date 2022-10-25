@@ -69,6 +69,7 @@ import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDa
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageView;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.table.distributed.TableManager;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.Cursor;
@@ -484,9 +485,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         when(msm.registerWatch(any(ByteArray.class), any())).thenReturn(CompletableFuture.completedFuture(1L));
 
-        TableManager tableManager = createTableManager();
-
-        return tableManager;
+        return createTableManager();
     }
 
     private TableManager createTableManager() {
@@ -506,7 +505,8 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 msm,
                 schemaManager,
                 view -> new LocalLogStorageFactory(),
-                null
+                null,
+                mock(OutgoingSnapshotsManager.class)
         );
 
         tableManager.start();

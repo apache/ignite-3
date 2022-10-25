@@ -114,7 +114,7 @@ public class UpdateAllCommand extends PartitionCommand {
      */
     public HashMap<RowId, BinaryRow> getRowsToUpdate() {
         if (rowsToUpdate == null) {
-            rowsToUpdate = new HashMap();
+            rowsToUpdate = new HashMap<>();
 
             CommandUtils.readRowMap(rowsToUpdateBytes, rowsToUpdate::put);
         }

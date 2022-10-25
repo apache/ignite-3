@@ -37,8 +37,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import org.apache.ignite.hlc.HybridClock;
-import org.apache.ignite.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
@@ -304,7 +304,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     private CompletableFuture<Object> processReadOnlyScanRetrieveBatchAction(ReadOnlyScanRetrieveBatchReplicaRequest request) {
         UUID txId = request.transactionId();
         int batchCount = request.batchSize();
-        HybridTimestamp timestamp = request.timestamp();
+        HybridTimestamp readTimestamp = request.readTimestamp();
 
         IgniteUuid cursorId = new IgniteUuid(txId, request.scanId());
 
@@ -314,7 +314,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 id -> mvDataStorage.scan(HybridTimestamp.MAX_VALUE));
 
         while (batchRows.size() < batchCount && cursor.hasNext()) {
-            BinaryRow resolvedReadResult = resolveReadResult(cursor.next(), timestamp, () -> cursor.committed(timestamp));
+            BinaryRow resolvedReadResult = resolveReadResult(cursor.next(), readTimestamp, () -> cursor.committed(readTimestamp));
 
             if (resolvedReadResult != null) {
                 batchRows.add(resolvedReadResult);
@@ -331,12 +331,17 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Result future.
      */
     private CompletableFuture<Object> processReadOnlySingleEntryAction(ReadOnlySingleRowReplicaRequest request) {
+        BinaryRow tableRow = request.binaryRow();
+        HybridTimestamp readTimestamp = request.readTimestamp();
+
         if (request.requestType() != RequestType.RO_GET) {
             throw new IgniteInternalException(Replicator.REPLICA_COMMON_ERR,
                     format("Unknown single request [actionType={}]", request.requestType()));
         }
 
-        return resolveRowByPk(request.binaryRow(), request.timestamp(), (rowId, binaryRow) -> CompletableFuture.completedFuture(binaryRow));
+        //TODO: IGNITE-17868 Integrate indexes into rowIds resolution along with proper lock management on search rows.
+
+        return resolveRowByPk(tableRow, readTimestamp, (rowId, binaryRow) -> CompletableFuture.completedFuture(binaryRow));
     }
 
     /**
@@ -354,7 +359,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         ArrayList<BinaryRow> result = new ArrayList<>(request.binaryRows().size());
 
         for (BinaryRow searchRow : request.binaryRows()) {
-            BinaryRow row = resolveRowByPk(searchRow, request.timestamp(), (rowId, binaryRow) -> binaryRow);
+            BinaryRow row = resolveRowByPk(searchRow, request.readTimestamp(), (rowId, binaryRow) -> binaryRow);
 
             result.add(row);
         }
@@ -1245,6 +1250,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Resolved binary row.
      */
     private BinaryRow resolveReadResult(ReadResult readResult, HybridTimestamp timestamp, Supplier<BinaryRow> lastCommitted) {
+
         return resolveReadResult(readResult, null, timestamp, lastCommitted);
     }
 

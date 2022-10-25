@@ -21,7 +21,7 @@ import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.read
 
 import java.nio.ByteBuffer;
 import java.util.function.Predicate;
-import org.apache.ignite.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.pagememory.datapage.PageMemoryTraversal;
 import org.apache.ignite.internal.pagememory.io.DataPagePayload;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
