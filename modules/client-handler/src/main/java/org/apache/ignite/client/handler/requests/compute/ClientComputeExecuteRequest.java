@@ -24,7 +24,6 @@ import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterService;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Compute execute request.
