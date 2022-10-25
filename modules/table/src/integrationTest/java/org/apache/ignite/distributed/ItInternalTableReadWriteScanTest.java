@@ -15,32 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.hlc;
+package org.apache.ignite.distributed;
 
-import static org.apache.ignite.hlc.HybridTimestamp.max;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-
-import org.junit.jupiter.api.Test;
+import java.util.concurrent.Flow.Publisher;
+import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.tx.InternalTransaction;
 
 /**
- * Tests of a hybrid timestamp implementation.
- * {@link HybridTimestamp}
+ * Tests for {@link InternalTable#scan(int, org.apache.ignite.internal.tx.InternalTransaction)}.
  */
-class HybridTimestampTest {
-    @Test
-    public void testComparison() {
-        assertEquals(new HybridTimestamp(10, 5),
-                max(new HybridTimestamp(10, 5), new HybridTimestamp(5, 7))
-        );
-
-        assertEquals(new HybridTimestamp(20, 10),
-                max(new HybridTimestamp(10, 100), new HybridTimestamp(20, 10))
-        );
-
-        assertEquals(new HybridTimestamp(20, 10),
-                max(new HybridTimestamp(20, 10))
-        );
-
-        assertEquals(null, max());
+public class ItInternalTableReadWriteScanTest extends ItAbstractInternalTableScanTest {
+    /** {@inheritDoc} */
+    @Override
+    protected Publisher<BinaryRow> scan(int part, InternalTransaction tx) {
+        return internalTbl.scan(part, tx);
     }
 }

@@ -24,8 +24,8 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import org.apache.ignite.hlc.HybridClock;
-import org.apache.ignite.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -77,9 +77,15 @@ public class TxManagerImpl implements TxManager {
     /** {@inheritDoc} */
     @Override
     public InternalTransaction begin() {
+        return begin(false);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public InternalTransaction begin(boolean readOnly) {
         UUID txId = Timestamp.nextVersion().toUuid();
 
-        return new TransactionImpl(this, txId);
+        return readOnly ? new ReadOnlyTransactionImpl(this, txId, clock.now()) : new ReadWriteTransactionImpl(this, txId);
     }
 
     /** {@inheritDoc} */

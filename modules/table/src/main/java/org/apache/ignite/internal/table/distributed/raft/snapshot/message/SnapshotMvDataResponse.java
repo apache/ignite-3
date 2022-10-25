@@ -20,7 +20,7 @@ package org.apache.ignite.internal.table.distributed.raft.snapshot.message;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.UUID;
-import org.apache.ignite.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.network.NetworkMessage;

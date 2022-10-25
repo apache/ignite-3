@@ -36,13 +36,14 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Flow;
+import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
-import org.apache.ignite.hlc.HybridClock;
-import org.apache.ignite.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
@@ -53,6 +54,8 @@ import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
+import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeEach;
@@ -67,13 +70,13 @@ import org.mockito.junit.jupiter.MockitoExtension;
  * Tests for {@link InternalTable#scan(int, org.apache.ignite.internal.tx.InternalTransaction)}.
  */
 @ExtendWith(MockitoExtension.class)
-public class ItInternalTableScanTest {
+public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest {
     /** Mock partition storage. */
     @Mock
     private MvPartitionStorage mockStorage;
 
     /** Internal table to test. */
-    private InternalTable internalTbl;
+    protected InternalTable internalTbl;
 
     private final HybridClock clock = new HybridClock();
 
@@ -182,7 +185,7 @@ public class ItInternalTableScanTest {
             return cursor;
         });
 
-        internalTbl.scan(0, null).subscribe(new Subscriber<>() {
+        scan(0, null).subscribe(new Subscriber<>() {
 
             @Override
             public void onSubscribe(Subscription subscription) {
@@ -223,7 +226,7 @@ public class ItInternalTableScanTest {
 
         when(mockStorage.scan(any(HybridTimestamp.class))).thenThrow(new StorageException("Some storage exception"));
 
-        internalTbl.scan(0, null).subscribe(new Subscriber<>() {
+        scan(0, null).subscribe(new Subscriber<>() {
 
             @Override
             public void onSubscribe(Subscription subscription) {
@@ -260,12 +263,12 @@ public class ItInternalTableScanTest {
     public void testInvalidPartitionParameterScan() {
         assertThrows(
                 IllegalArgumentException.class,
-                () -> internalTbl.scan(-1, null)
+                () -> scan(-1, null)
         );
 
         assertThrows(
                 IllegalArgumentException.class,
-                () -> internalTbl.scan(1, null)
+                () -> scan(1, null)
         );
     }
 
@@ -276,7 +279,7 @@ public class ItInternalTableScanTest {
      */
     @Test
     public void testSecondSubscriptionFiresIllegalStateException() throws Exception {
-        Flow.Publisher<BinaryRow> scan = internalTbl.scan(0, null);
+        Flow.Publisher<BinaryRow> scan = scan(0, null);
 
         scan.subscribe(new Subscriber<>() {
             @Override
@@ -340,7 +343,7 @@ public class ItInternalTableScanTest {
     public void testNullPointerExceptionIsThrownInCaseOfNullSubscription() {
         assertThrows(
                 NullPointerException.class,
-                () -> internalTbl.scan(0, null).subscribe(null)
+                () -> scan(0, null).subscribe(null)
         );
     }
 
@@ -352,8 +355,7 @@ public class ItInternalTableScanTest {
      * @return {@link DataRow} based on given key and value.
      * @throws java.io.IOException If failed to close output stream that was used to convertation.
      */
-    private static @NotNull BinaryRow prepareRow(@NotNull String entryKey,
-            @NotNull String entryVal) throws IOException {
+    private static @NotNull BinaryRow prepareRow(@NotNull String entryKey, @NotNull String entryVal) throws IOException {
         byte[] keyBytes = ByteUtils.toBytes(entryKey);
 
         try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
@@ -381,7 +383,7 @@ public class ItInternalTableScanTest {
 
             when(cursor.hasNext()).thenAnswer(hnInvocation -> cursorTouchCnt.get() < submittedItems.size());
 
-            when(cursor.next()).thenAnswer(ninvocation ->
+            lenient().when(cursor.next()).thenAnswer(ninvocation ->
                     ReadResult.createFromCommitted(submittedItems.get(cursorTouchCnt.getAndIncrement()), clock.now()));
 
             return cursor;
@@ -390,7 +392,7 @@ public class ItInternalTableScanTest {
         // The latch that allows to await Subscriber.onError() before asserting test invariants.
         CountDownLatch subscriberAllDataAwaitLatch = new CountDownLatch(1);
 
-        internalTbl.scan(0, null).subscribe(new Subscriber<>() {
+        scan(0, null).subscribe(new Subscriber<>() {
             private Subscription subscription;
 
             @Override
@@ -463,7 +465,7 @@ public class ItInternalTableScanTest {
 
         AtomicReference<Throwable> gotException = new AtomicReference<>();
 
-        internalTbl.scan(0, null).subscribe(new Subscriber<>() {
+        scan(0, null).subscribe(new Subscriber<>() {
             @Override
             public void onSubscribe(Subscription subscription) {
                 subscription.request(reqAmount);
@@ -495,4 +497,13 @@ public class ItInternalTableScanTest {
                 }
         );
     }
+
+    /**
+     * Either read-write or read-only publisher producer.
+     *
+     * @param part  The partition.
+     * @param tx The transaction.
+     * @return {@link Publisher} that reactively notifies about partition rows.
+     */
+    protected abstract Publisher<BinaryRow> scan(int part, InternalTransaction tx);
 }
