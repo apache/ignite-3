@@ -60,9 +60,9 @@ public class ItIndexSpoolTest extends AbstractBasicIntegrationTest {
      */
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-17959")
     @ParameterizedTest(name = "tableSize=" + ARGUMENTS_PLACEHOLDER)
-    @ValueSource(ints = {1, 10, IN_BUFFER_SIZE * 2, IN_BUFFER_SIZE * 2 + 1, 2000})
+    @ValueSource(ints = {1, 10, IN_BUFFER_SIZE * 1/**partitions count*/, IN_BUFFER_SIZE * 1 + 1, 2000})
     public void test(int rows) {
-        prepareDataSet(rows, 2);
+        prepareDataSet(rows, 1);
 
         var res = sql("SELECT /*+ DISABLE_RULE('NestedLoopJoinConverter', 'MergeJoinConverter') */"
                         + "T0.val, T1.val FROM TEST0 as T0 "
