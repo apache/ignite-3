@@ -26,11 +26,10 @@ using NUnit.Framework;
 
 /// <summary>
 /// Tests partition awareness.
-/// TODO:
+/// <para />
+/// TODO IGNITE-17969:
 /// * testCustomColocationKey
-/// * testCompositeKey
-/// * testAllOperations (KV, Record)
-/// * HashCalculatorTests - check consistency with Java via Compute.
+/// * testCompositeKey.
 /// </summary>
 public class PartitionAwarenessTests
 {
