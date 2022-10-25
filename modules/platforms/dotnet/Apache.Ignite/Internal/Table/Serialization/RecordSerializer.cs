@@ -187,7 +187,8 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// <param name="t">Record 1.</param>
         /// <param name="t2">Record 2.</param>
         /// <param name="keyOnly">Key only columns.</param>
-        public void WriteTwo(
+        /// <returns>First record hash.</returns>
+        public int WriteTwo(
             PooledArrayBufferWriter buf,
             Transactions.Transaction? tx,
             Schema schema,
@@ -197,10 +198,12 @@ namespace Apache.Ignite.Internal.Table.Serialization
         {
             var w = buf.GetMessageWriter();
 
-            WriteWithHeader(ref w, tx, schema, t, keyOnly);
+            var firstHash = WriteWithHeader(ref w, tx, schema, t, keyOnly);
             _handler.Write(ref w, schema, t2, keyOnly);
 
             w.Flush();
+
+            return firstHash;
         }
 
         /// <summary>
@@ -211,7 +214,8 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// <param name="schema">Schema.</param>
         /// <param name="recs">Records.</param>
         /// <param name="keyOnly">Key only columns.</param>
-        public void WriteMultiple(
+        /// <returns>First record hash.</returns>
+        public int WriteMultiple(
             PooledArrayBufferWriter buf,
             Transactions.Transaction? tx,
             Schema schema,
@@ -225,6 +229,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             w.Flush();
 
             var count = 0;
+            var firstHash = 0;
             var countSpan = buf.GetSpan(5);
             buf.Advance(5);
 
@@ -237,7 +242,13 @@ namespace Apache.Ignite.Internal.Table.Serialization
                     throw new ArgumentException("Record collection can't contain null elements.");
                 }
 
-                _handler.Write(ref w, schema, rec, keyOnly);
+                var hash = _handler.Write(ref w, schema, rec, keyOnly, computeHash: count == 0);
+
+                if (count == 0)
+                {
+                    firstHash = hash;
+                }
+
                 count++;
             }
             while (recs.MoveNext()); // First MoveNext is called outside to check for empty IEnumerable.
@@ -246,6 +257,8 @@ namespace Apache.Ignite.Internal.Table.Serialization
             BinaryPrimitives.WriteInt32BigEndian(countSpan[1..], count);
 
             w.Flush();
+
+            return firstHash;
         }
 
         /// <summary>
