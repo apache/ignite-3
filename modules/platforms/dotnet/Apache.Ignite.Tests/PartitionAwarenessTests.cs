@@ -113,32 +113,25 @@ public class PartitionAwarenessTests
     {
         using var client = await GetClient();
         var recordView = (await client.Tables.GetTableAsync(FakeServer.ExistingTableName))!.GetRecordView<int>();
-        var (defaultServer, secondaryServer) = GetServerPair();
+        var (defaultServer, _) = GetServerPair();
 
         // Check default assignment.
         await recordView.UpsertAsync(null, 1);
-        CollectionAssert.IsEmpty(secondaryServer.ClientOps);
+        await AssertOpOnNode(() => recordView.UpsertAsync(null, 1), ClientOp.TupleUpsert, _server2);
 
         // Update assignment.
-        foreach (var server in new[] { defaultServer, secondaryServer })
+        foreach (var server in new[] { _server1, _server2 })
         {
             server.ClearOps();
             server.PartitionAssignment = server.PartitionAssignment.Reverse().ToArray();
             server.PartitionAssignmentChanged = true;
         }
 
-        await recordView.UpsertAsync(null, 1);
-        await recordView.UpsertAsync(null, 1);
+        // First request on default node receives update flag.
+        await AssertOpOnNode(() => client.Tables.GetTablesAsync(), ClientOp.TablesGet, defaultServer);
 
-        Assert.AreEqual(
-            new[] { ClientOp.TupleUpsert, ClientOp.PartitionAssignmentGet },
-            defaultServer.ClientOps,
-            "First request uses old assignment and receives update flag.");
-
-        Assert.AreEqual(
-            new[] { ClientOp.TupleUpsert },
-            secondaryServer.ClientOps,
-            "Second request uses new assignment.");
+        // Second request loads and uses new assignment.
+        await AssertOpOnNode(() => recordView.UpsertAsync(null, 1), ClientOp.TupleUpsert, _server1, allowExtraOps: true);
     }
 
     [Test]
@@ -250,14 +243,26 @@ public class PartitionAwarenessTests
         await AssertOpOnNode(() => kvView.RemoveAllAsync(null, pairs), ClientOp.TupleDeleteAllExact, expectedNode);
     }
 
-    private static async Task AssertOpOnNode(Func<Task> action, ClientOp op, FakeServer node, FakeServer? node2 = null)
+    private static async Task AssertOpOnNode(
+        Func<Task> action,
+        ClientOp op,
+        FakeServer node,
+        FakeServer? node2 = null,
+        bool allowExtraOps = false)
     {
         node.ClearOps();
         node2?.ClearOps();
 
         await action();
 
-        Assert.AreEqual(new[] { op }, node.ClientOps);
+        if (allowExtraOps)
+        {
+            CollectionAssert.Contains(node.ClientOps, op);
+        }
+        else
+        {
+            Assert.AreEqual(new[] { op }, node.ClientOps);
+        }
 
         if (node2 != null)
         {
