@@ -46,6 +46,7 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -75,7 +76,7 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
 
     private final Map<String, Object> params;
 
-    private final String locNodeId;
+    private final ClusterNode localNode;
 
     private final String originatingNodeId;
 
@@ -87,9 +88,6 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
 
     /** Transaction. */
     private InternalTransaction tx;
-
-    /** Transaction time. */
-    private HybridTimestamp txTime;
 
     /**
      * Need to store timestamp, since SQL standard says that functions such as CURRENT_TIMESTAMP return the same value throughout the
@@ -115,13 +113,12 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
             BaseQueryContext qctx,
             QueryTaskExecutor executor,
             UUID qryId,
-            String locNodeId,
+            ClusterNode localNode,
             String originatingNodeId,
             FragmentDescription fragmentDesc,
             RowHandler<RowT> handler,
             Map<String, Object> params,
-            InternalTransaction tx,
-            HybridTimestamp txTime
+            InternalTransaction tx
     ) {
         super(qctx);
 
@@ -131,10 +128,9 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
         this.fragmentDesc = fragmentDesc;
         this.handler = handler;
         this.params = params;
-        this.locNodeId = locNodeId;
+        this.localNode = localNode;
         this.originatingNodeId = originatingNodeId;
         this.tx = tx;
-        this.txTime = txTime;
 
         expressionFactory = new ExpressionFactoryImpl<>(
                 this,
@@ -227,8 +223,8 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
     /**
      * Get local node ID.
      */
-    public String localNodeId() {
-        return locNodeId;
+    public ClusterNode localNode() {
+        return localNode;
     }
 
     /** {@inheritDoc} */
@@ -356,7 +352,7 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
 
     /** Transaction for current context. */
     public HybridTimestamp transactionTime() {
-        return txTime;
+        return qctx.transactionTime();
     }
 
     /**

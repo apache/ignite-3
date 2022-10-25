@@ -218,7 +218,8 @@ public class TableScanNode<RowT> extends AbstractNode<RowT> {
         if (subscription != null) {
             subscription.request(waiting);
         } else if (curPartIdx < parts.length) {
-            // use new implementation after ignite-17260, use context().transactionTime()
+            // use new implementation after ignite-17260, use physTable.scan(parts[curPartIdx++],
+            // context().transactionTime(), context().localNode());
             physTable.scan(parts[curPartIdx++], context().transaction()).subscribe(new SubscriberImpl());
         } else {
             waiting = NOT_WAITING;

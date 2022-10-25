@@ -40,6 +40,7 @@ import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.network.ClusterNode;
 
 /**
  * ExchangeServiceImpl. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
@@ -49,7 +50,7 @@ public class ExchangeServiceImpl implements ExchangeService {
 
     private static final SqlQueryMessagesFactory FACTORY = new SqlQueryMessagesFactory();
 
-    private final String localNodeId;
+    private final ClusterNode localNode;
 
     private final QueryTaskExecutor taskExecutor;
 
@@ -61,12 +62,12 @@ public class ExchangeServiceImpl implements ExchangeService {
      * Constructor. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public ExchangeServiceImpl(
-            String localNodeId,
+            ClusterNode localNode,
             QueryTaskExecutor taskExecutor,
             MailboxRegistry mailboxRegistry,
             MessageService msgSrvc
     ) {
-        this.localNodeId = localNodeId;
+        this.localNode = localNode;
         this.taskExecutor = taskExecutor;
         this.mailboxRegistry = mailboxRegistry;
         this.msgSrvc = msgSrvc;
@@ -221,7 +222,7 @@ public class ExchangeServiceImpl implements ExchangeService {
                         .build(),
                 taskExecutor,
                 qryId,
-                localNodeId,
+                localNode,
                 nodeId,
                 new FragmentDescription(
                         fragmentId,
@@ -230,7 +231,7 @@ public class ExchangeServiceImpl implements ExchangeService {
                         Long2ObjectMaps.emptyMap()),
                 null,
                 Map.of(),
-                null, null);
+                null);
     }
 
     /** {@inheritDoc} */

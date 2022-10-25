@@ -92,7 +92,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
     private final MessageService msgSrvc;
 
-    private final String locNodeId;
+    private final ClusterNode localNode;
 
     private final SqlSchemaManager sqlSchemaManager;
 
@@ -139,7 +139,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             DataStorageManager dataStorageManager
     ) {
         return new ExecutionServiceImpl<>(
-                topSrvc.localMember().id(),
+                topSrvc.localMember(),
                 msgSrvc,
                 new MappingServiceImpl(topSrvc),
                 sqlSchemaManager,
@@ -155,7 +155,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
      * Constructor. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     ExecutionServiceImpl(
-            String localNodeId,
+            ClusterNode localNode,
             MessageService msgSrvc,
             MappingService mappingSrvc,
             SqlSchemaManager sqlSchemaManager,
@@ -165,7 +165,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             ExchangeService exchangeSrvc,
             ImplementorFactory<RowT> implementorFactory
     ) {
-        this.locNodeId = localNodeId;
+        this.localNode = localNode;
         this.handler = handler;
         this.msgSrvc = msgSrvc;
         this.mappingSrvc = mappingSrvc;
@@ -298,7 +298,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             return new DistributedQueryManager(ctx);
         });
 
-        queryManager.submitFragment(nodeId, msg.root(), msg.fragmentDescription(), msg.txTime());
+        queryManager.submitFragment(nodeId, msg.root(), msg.fragmentDescription());
     }
 
     private void onMessage(String nodeId, QueryStartResponse msg) {
@@ -518,28 +518,27 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             }
         }
 
-        private ExecutionContext<RowT> createContext(String initiatorNodeId, FragmentDescription desc, HybridTimestamp txTime) {
+        private ExecutionContext<RowT> createContext(String initiatorNodeId, FragmentDescription desc) {
             return new ExecutionContext<>(
                     ctx,
                     taskExecutor,
                     ctx.queryId(),
-                    locNodeId,
+                    localNode,
                     initiatorNodeId,
                     desc,
                     handler,
                     Commons.parametersMap(ctx.parameters()),
-                    tx,
-                    txTime
+                    tx
             );
         }
 
-        private void submitFragment(String initiatorNode, String fragmentString, FragmentDescription desc, HybridTimestamp txTime) {
+        private void submitFragment(String initiatorNode, String fragmentString, FragmentDescription desc) {
             try {
                 QueryPlan qryPlan = prepareFragment(fragmentString);
 
                 FragmentPlan plan = (FragmentPlan) qryPlan;
 
-                executeFragment(plan, createContext(initiatorNode, desc, txTime));
+                executeFragment(plan, createContext(initiatorNode, desc));
             } catch (Throwable ex) {
                 LOG.debug("Unable to start query fragment", ex);
 
@@ -562,7 +561,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         private AsyncCursor<List<Object>> execute(MultiStepPlan plan) {
             taskExecutor.execute(() -> {
-                plan.init(mappingSrvc, new MappingQueryContext(locNodeId));
+                plan.init(mappingSrvc, new MappingQueryContext(localNode.id()));
 
                 List<Fragment> fragments = plan.fragments();
 

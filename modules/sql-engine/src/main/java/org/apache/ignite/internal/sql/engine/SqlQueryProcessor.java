@@ -187,7 +187,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         ));
 
         var exchangeService = registerService(new ExchangeServiceImpl(
-                nodeName,
+                clusterSrvc.topologyService().localMember(),
                 taskExecutor,
                 mailboxRegistry,
                 msgSrvc
@@ -403,7 +403,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                             .parameters(params)
                             .transaction(outerTx)
                             // use new implementation after ignite-17260
-                            .transactionTime(/*outerTx != null ? outerTx.timeStamp() : */new HybridClock().now())
+                            .transactionTime(/*outerTx != null ? outerTx.readTimestamp() : */new HybridClock().now())
                             .plannerTimeout(PLANNER_TIMEOUT)
                             .build();
 

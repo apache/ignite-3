@@ -46,6 +46,8 @@ import org.apache.ignite.internal.thread.LogUncaughtExceptionHandler;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.util.Pair;
+import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -103,12 +105,12 @@ public class AbstractExecutionTest extends IgniteAbstractTest {
                         .build(),
                 taskExecutor,
                 UUID.randomUUID(),
-                "fake-test-node",
+                new ClusterNode("1", "fake-test-node", NetworkAddress.from("127.0.0.1:1111")),
                 "fake-test-node",
                 fragmentDesc,
                 ArrayRowHandler.INSTANCE,
                 Map.of(),
-                null, null
+                null
         );
     }
 

@@ -39,6 +39,8 @@ import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -111,12 +113,11 @@ public class RuntimeSortedIndexTest extends IgniteAbstractTest {
                                 .build(),
                         null,
                         UUID.randomUUID(),
-                        "fake-test-node",
+                        new ClusterNode("1", "fake-test-node", NetworkAddress.from("127.0.0.1:1111")),
                         "fake-test-node",
                         null,
                         ArrayRowHandler.INSTANCE,
                         Map.of(),
-                        null,
                         null
                 ),
                 RelCollations.of(ImmutableIntList.copyOf(idxCols)),
