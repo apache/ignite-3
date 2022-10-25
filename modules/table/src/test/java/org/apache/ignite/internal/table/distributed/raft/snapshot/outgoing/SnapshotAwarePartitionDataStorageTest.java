@@ -20,6 +20,8 @@ package org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.sameInstance;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyInt;
 import static org.mockito.Mockito.doReturn;
@@ -39,6 +41,9 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionKey;
+import org.apache.ignite.internal.tx.TxMeta;
+import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -55,6 +60,9 @@ class SnapshotAwarePartitionDataStorageTest {
 
     @Mock
     private MvPartitionStorage partitionStorage;
+
+    @Mock
+    private TxStateStorage txStateStorage;
 
     @Mock
     private PartitionsSnapshots partitionsSnapshots;
@@ -166,11 +174,11 @@ class SnapshotAwarePartitionDataStorageTest {
     }
 
     @ParameterizedTest
-    @EnumSource(WriteAction.class)
-    void writingNotYetPassedRowIdForFirstTimeSendsEnqueuesItOnSnapshotOutOfOrder(WriteAction writeAction) {
+    @EnumSource(MvWriteAction.class)
+    void writingNotYetPassedRowIdForFirstTimeEnqueuesItOnSnapshotOutOfOrder(MvWriteAction writeAction) {
         when(partitionSnapshots.ongoingSnapshots()).thenReturn(List.of(snapshot));
 
-        doReturn(false).when(snapshot).isFinished();
+        doReturn(false).when(snapshot).isFinishedMvData();
         doReturn(false).when(snapshot).alreadyPassed(any());
         doReturn(true).when(snapshot).addRowIdToSkip(any());
 
@@ -180,11 +188,11 @@ class SnapshotAwarePartitionDataStorageTest {
     }
 
     @ParameterizedTest
-    @EnumSource(WriteAction.class)
-    void writingNotYetPassedRowIdForNotFirstTimeTimeSkipsOutOfOrderSending(WriteAction writeAction) {
+    @EnumSource(MvWriteAction.class)
+    void writingNotYetPassedRowIdForNotFirstTimeSkipsOutOfOrderSending(MvWriteAction writeAction) {
         when(partitionSnapshots.ongoingSnapshots()).thenReturn(List.of(snapshot));
 
-        doReturn(false).when(snapshot).isFinished();
+        doReturn(false).when(snapshot).isFinishedMvData();
         doReturn(false).when(snapshot).alreadyPassed(any());
         doReturn(false).when(snapshot).addRowIdToSkip(any());
 
@@ -194,11 +202,11 @@ class SnapshotAwarePartitionDataStorageTest {
     }
 
     @ParameterizedTest
-    @EnumSource(WriteAction.class)
-    void writingAlreadyPassedRowIdSkipsOutOfOrderSending(WriteAction writeAction) {
+    @EnumSource(MvWriteAction.class)
+    void writingAlreadyPassedRowIdSkipsOutOfOrderSending(MvWriteAction writeAction) {
         when(partitionSnapshots.ongoingSnapshots()).thenReturn(List.of(snapshot));
 
-        doReturn(false).when(snapshot).isFinished();
+        doReturn(false).when(snapshot).isFinishedMvData();
         doReturn(true).when(snapshot).alreadyPassed(any());
 
         writeAction.executeOn(testedStorage, rowId);
@@ -207,11 +215,11 @@ class SnapshotAwarePartitionDataStorageTest {
     }
 
     @ParameterizedTest
-    @EnumSource(WriteAction.class)
-    void writingOverFinishedSnapshotSkipsSendingOutOfOrder(WriteAction writeAction) {
+    @EnumSource(MvWriteAction.class)
+    void writingOverFinishedSnapshotSkipsSendingOutOfOrder(MvWriteAction writeAction) {
         when(partitionSnapshots.ongoingSnapshots()).thenReturn(List.of(snapshot));
 
-        doReturn(true).when(snapshot).isFinished();
+        doReturn(true).when(snapshot).isFinishedMvData();
 
         writeAction.executeOn(testedStorage, rowId);
 
@@ -219,32 +227,32 @@ class SnapshotAwarePartitionDataStorageTest {
     }
 
     @ParameterizedTest
-    @EnumSource(WriteAction.class)
-    void sendsVersionsInOldestToNewestOrder(WriteAction writeAction) {
+    @EnumSource(MvWriteAction.class)
+    void sendsVersionsInOldestToNewestOrder(MvWriteAction writeAction) {
         when(partitionSnapshots.ongoingSnapshots()).thenReturn(List.of(snapshot));
 
-        configureSnapshotToLetSendOutOfOrderRow(snapshot);
+        configureSnapshotToLetEnqueueOutOfOrderMvRow(snapshot);
 
         writeAction.executeOn(testedStorage, rowId);
 
         verify(snapshot).enqueueForSending(rowId);
     }
 
-    private void configureSnapshotToLetSendOutOfOrderRow(OutgoingSnapshot snapshotToConfigure) {
-        doReturn(false).when(snapshotToConfigure).isFinished();
+    private void configureSnapshotToLetEnqueueOutOfOrderMvRow(OutgoingSnapshot snapshotToConfigure) {
+        doReturn(false).when(snapshotToConfigure).isFinishedMvData();
         doReturn(false).when(snapshotToConfigure).alreadyPassed(any());
         doReturn(true).when(snapshotToConfigure).addRowIdToSkip(any());
     }
 
     @ParameterizedTest
-    @EnumSource(WriteAction.class)
-    void interceptsWritesOnMultipleSnapshots(WriteAction writeAction) {
+    @EnumSource(MvWriteAction.class)
+    void interceptsWritesToMvStorageOnMultipleSnapshots(MvWriteAction writeAction) {
         OutgoingSnapshot snapshot2 = mock(OutgoingSnapshot.class);
 
         when(partitionSnapshots.ongoingSnapshots()).thenReturn(List.of(snapshot, snapshot2));
 
-        configureSnapshotToLetSendOutOfOrderRow(snapshot);
-        configureSnapshotToLetSendOutOfOrderRow(snapshot2);
+        configureSnapshotToLetEnqueueOutOfOrderMvRow(snapshot);
+        configureSnapshotToLetEnqueueOutOfOrderMvRow(snapshot2);
 
         writeAction.executeOn(testedStorage, rowId);
 
@@ -252,7 +260,30 @@ class SnapshotAwarePartitionDataStorageTest {
         verify(snapshot2).enqueueForSending(rowId);
     }
 
-    private enum WriteAction {
+    @Test
+    void delegatesGetTxMeta() {
+        TxMeta txMeta = mock(TxMeta.class);
+
+        when(txStateStorage.get(any())).thenReturn(txMeta);
+
+        UUID txId = UUID.randomUUID();
+
+        assertThat(testedStorage.getTxMeta(txId), is(txMeta));
+        verify(txStateStorage).get(txId);
+    }
+
+    @Test
+    void delegatesCompareAndSetTxMeta() {
+        when(txStateStorage.compareAndSet(any(), any(), any(), anyLong())).thenReturn(true);
+
+        UUID txId = UUID.randomUUID();
+        TxMeta txMeta = mock(TxMeta.class);
+
+        assertTrue(testedStorage.compareAndSetTxMeta(txId, TxState.COMMITED, txMeta, 42));
+        verify(txStateStorage).compareAndSet(txId, TxState.COMMITED, txMeta, 42);
+    }
+
+    private enum MvWriteAction {
         ADD_WRITE {
             @Override
             void executeOn(SnapshotAwarePartitionDataStorage storage, RowId rowId) {

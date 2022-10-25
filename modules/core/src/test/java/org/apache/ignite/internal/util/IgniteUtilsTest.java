@@ -209,4 +209,22 @@ class IgniteUtilsTest {
         verify(worker0, times(2)).join();
         verify(worker1, times(2)).join();
     }
+
+    @Test
+    void closeQuietlyClosesAutoCloseable() throws Exception {
+        AutoCloseable closeable = mock(AutoCloseable.class);
+
+        IgniteUtils.closeQuietly(closeable);
+
+        verify(closeable).close();
+    }
+
+    @Test
+    void closeQuietlySwallowsClosureException() throws Exception {
+        AutoCloseable closeable = mock(AutoCloseable.class);
+
+        doThrow(new RuntimeException("Oops!")).when(closeable).close();
+
+        assertDoesNotThrow(() -> IgniteUtils.closeQuietly(closeable));
+    }
 }

@@ -24,6 +24,7 @@ import java.util.List;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.tostring.S;
+import org.jetbrains.annotations.Nullable;
 
 /** Transaction meta. */
 public class TxMeta implements Serializable {
@@ -31,6 +32,7 @@ public class TxMeta implements Serializable {
     private static final long serialVersionUID = -172513482743911860L;
 
     /** Tx state. */
+    @Nullable
     private final TxState txState;
 
     /** The list of enlisted partitions. */
@@ -46,12 +48,13 @@ public class TxMeta implements Serializable {
      * @param enlistedPartitions The list of enlisted partitions.
      * @param commitTimestamp Commit timestamp.
      */
-    public TxMeta(TxState txState, List<ReplicationGroupId> enlistedPartitions, HybridTimestamp commitTimestamp) {
+    public TxMeta(@Nullable TxState txState, List<ReplicationGroupId> enlistedPartitions, HybridTimestamp commitTimestamp) {
         this.txState = txState;
         this.enlistedPartitions = enlistedPartitions;
         this.commitTimestamp = commitTimestamp;
     }
 
+    @Nullable
     public TxState txState() {
         return txState;
     }

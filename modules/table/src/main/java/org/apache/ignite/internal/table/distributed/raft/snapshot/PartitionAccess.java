@@ -18,9 +18,13 @@
 package org.apache.ignite.internal.table.distributed.raft.snapshot;
 
 import java.util.List;
+import java.util.UUID;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.tx.TxMeta;
+import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -56,4 +60,15 @@ public interface PartitionAccess {
      * @return All versions of the row.
      */
     List<ReadResult> rowVersions(RowId rowId);
+
+    /**
+     * Create a cursor to scan all TX data in the storage.
+     *
+     * <p>The cursor yields exactly TX data that was existing in the storage at the moment when the method was called.
+     *
+     * <p>The cursor yields data ordered by transaction ID interpreted as an unsigned 128 bit integer.
+     *
+     * @return Cursor.
+     */
+    Cursor<IgniteBiTuple<UUID, TxMeta>> scanTxData();
 }

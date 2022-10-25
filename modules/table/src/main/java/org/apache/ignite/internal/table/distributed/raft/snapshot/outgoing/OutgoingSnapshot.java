@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing;
 
+import static org.apache.ignite.internal.util.IgniteUtils.closeQuietly;
+
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.LinkedList;
@@ -28,6 +30,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lock.AutoLockup;
+import org.apache.ignite.internal.lock.ReusableLockLockup;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
@@ -40,12 +44,15 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.message.Snapsh
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMvDataResponse;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotTxDataRequest;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotTxDataResponse;
+import org.apache.ignite.internal.tx.TxMeta;
+import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentHashSet;
 
 /**
  * Outgoing snapshot. It corresponds to exactly one partition.
  *
- * <p>The snapshot has a lock needed for interaction with {@link SnapshotAwarePartitionDataStorage}.
+ * <p>The snapshot has a lock over MV data needed for interaction with {@link SnapshotAwarePartitionDataStorage}.
  */
 public class OutgoingSnapshot {
     private static final TableMessagesFactory MESSAGES_FACTORY = new TableMessagesFactory();
@@ -54,13 +61,13 @@ public class OutgoingSnapshot {
 
     private final PartitionAccess partition;
 
-    private final OutgoingSnapshotRegistry outgoingSnapshotRegistry;
-
     /**
-     * Lock that is used for mutual exclusion of snapshot reading (by this class) and threads that write to the same
+     * Lock that is used for mutual exclusion of MV snapshot reading (by this class) and threads that write MV data to the same
      * partition (currently, via {@link SnapshotAwarePartitionDataStorage}).
      */
-    private final Lock rowOperationsLock = new ReentrantLock();
+    private final Lock mvOperationsLock = new ReentrantLock();
+
+    private final ReusableLockLockup mvOperationsLockup = ReusableLockLockup.forLock(mvOperationsLock);
 
     /**
      * {@link RowId}s for which the corresponding rows were sent out of order (relative to the order in which this
@@ -88,20 +95,26 @@ public class OutgoingSnapshot {
      */
     private RowId lastRowId;
 
-    private boolean startedToReadPartition = false;
+    private boolean startedToReadMvPartition = false;
 
     /**
-     * This becomes {@code true} as soon as we exhaust both the partition and out-of-order queue.
+     * This becomes {@code true} as soon as we exhaust both the MV partition and out-of-order MV queue.
      */
-    private boolean finished = false;
+    private boolean finishedMvData = false;
+
+    private Cursor<IgniteBiTuple<UUID, TxMeta>> txDataCursor;
+
+    /**
+     * This becomes {@code true} as soon as we exhaust TX data in the partition.
+     */
+    private boolean finishedTxData = false;
 
     /**
      * Creates a new instance.
      */
-    public OutgoingSnapshot(UUID id, PartitionAccess partition, OutgoingSnapshotRegistry outgoingSnapshotRegistry) {
+    public OutgoingSnapshot(UUID id, PartitionAccess partition) {
         this.id = id;
         this.partition = partition;
-        this.outgoingSnapshotRegistry = outgoingSnapshotRegistry;
 
         lastRowId = RowId.lowestRowId(partition.key().partitionId());
     }
@@ -123,6 +136,15 @@ public class OutgoingSnapshot {
     }
 
     /**
+     * Freezes the scope of this snapshot.
+     *
+     * <p>Must be called under snapshot lock.
+     */
+    void freezeScope() {
+        txDataCursor = partition.scanTxData();
+    }
+
+    /**
      * Reads a snapshot meta and returns a future with the response.
      *
      * @param metaRequest Meta request.
@@ -133,49 +155,35 @@ public class OutgoingSnapshot {
     }
 
     /**
-     * Reads chunk of partition data and returns a future with the response.
+     * Reads a chunk of partition data and returns a future with the response.
      *
      * @param request Data request.
      */
     CompletableFuture<SnapshotMvDataResponse> handleSnapshotMvDataRequest(SnapshotMvDataRequest request) {
-        // TODO: IGNITE-17935 - executor?
-
-        assert !finished;
+        assert !finishedMvData : "MV data sending has already been finished";
 
         long totalBatchSize = 0;
         List<SnapshotMvDataResponse.ResponseEntry> batch = new ArrayList<>();
 
         while (true) {
-            acquireLock();
-
-            try {
+            try (AutoLockup ignored = acquireMvLock()) {
                 totalBatchSize = fillWithOutOfOrderRows(batch, totalBatchSize, request);
 
                 totalBatchSize = tryProcessRowFromPartition(batch, totalBatchSize, request);
 
                 if (exhaustedPartition() && outOfOrderMvData.isEmpty()) {
-                    finished = true;
+                    finishedMvData = true;
                 }
 
-                if (finished || batchIsFull(request, totalBatchSize)) {
+                if (finishedMvData || batchIsFull(request, totalBatchSize)) {
                     break;
                 }
-            } finally {
-                releaseLock();
             }
-        }
-
-        // We unregister itself outside the lock to avoid a deadlock, because SnapshotAwareMvPartitionStorage takes
-        // locks in partitionSnapshots.lock -> snapshot.lock; if we did it under lock, we would take locks in the
-        // opposite order. That's why we need finished flag and cooperation with SnapshotAwareMvPartitionStorage
-        // (calling our isFinished()).
-        if (finished) {
-            outgoingSnapshotRegistry.unregisterOutgoingSnapshot(id);
         }
 
         SnapshotMvDataResponse response = MESSAGES_FACTORY.snapshotMvDataResponse()
                 .rows(batch)
-                .finish(finished)
+                .finish(finishedMvData)
                 .build();
 
         return CompletableFuture.completedFuture(response);
@@ -220,10 +228,10 @@ public class OutgoingSnapshot {
             return totalBatchSize;
         }
 
-        if (!startedToReadPartition) {
+        if (!startedToReadMvPartition) {
             lastRowId = partition.closestRowId(lastRowId);
 
-            startedToReadPartition = true;
+            startedToReadMvPartition = true;
         } else {
             lastRowId = partition.closestRowId(lastRowId.increment());
         }
@@ -284,44 +292,65 @@ public class OutgoingSnapshot {
     }
 
     /**
-     * Reads chunk of TX states from partition and returns a future with the response.
+     * Reads a chunk of TX states from partition and returns a future with the response.
      *
-     * @param txDataRequest Data request.
+     * @param request Data request.
      */
-    CompletableFuture<SnapshotTxDataResponse> handleSnapshotTxDataRequest(SnapshotTxDataRequest txDataRequest) {
-        //TODO https://issues.apache.org/jira/browse/IGNITE-17935
-        return null;
+    CompletableFuture<SnapshotTxDataResponse> handleSnapshotTxDataRequest(SnapshotTxDataRequest request) {
+        List<IgniteBiTuple<UUID, TxMeta>> rows = new ArrayList<>();
+
+        while (!finishedTxData && rows.size() < request.maxTransactionsInBatch()) {
+            if (txDataCursor.hasNext()) {
+                rows.add(txDataCursor.next());
+            } else {
+                finishedTxData = true;
+                closeQuietly(txDataCursor);
+            }
+        }
+
+        SnapshotTxDataResponse response = buildTxDataResponse(rows, finishedTxData);
+
+        return CompletableFuture.completedFuture(response);
+    }
+
+    private static SnapshotTxDataResponse buildTxDataResponse(List<IgniteBiTuple<UUID, TxMeta>> rows, boolean finished) {
+        List<UUID> txIds = new ArrayList<>();
+        List<TxMeta> txMetas = new ArrayList<>();
+
+        for (IgniteBiTuple<UUID, TxMeta> row : rows) {
+            txIds.add(row.getKey());
+            txMetas.add(row.getValue());
+        }
+
+        return MESSAGES_FACTORY.snapshotTxDataResponse()
+                .txIds(txIds)
+                .txMeta(txMetas)
+                .finish(finished)
+                .build();
     }
 
     /**
-     * Acquires this snapshot lock.
+     * Acquires lock over this snapshot MV data.
      */
-    public void acquireLock() {
-        rowOperationsLock.lock();
+    public AutoLockup acquireMvLock() {
+        return mvOperationsLockup.acquireLock();
     }
 
     /**
-     * Releases this snapshot lock.
-     */
-    public void releaseLock() {
-        rowOperationsLock.unlock();
-    }
-
-    /**
-     * Whether this snapshot is finished (i.e. it already sent all the MV data and is not going to send anything else).
+     * Whether this snapshot is finished with sending MV data (i.e. it already sent all the MV data and is not going to send anything else).
      *
      * <p>Must be called under snapshot lock.
      *
      * @return {@code true} if finished.
      */
-    public boolean isFinished() {
-        return finished;
+    public boolean isFinishedMvData() {
+        return finishedMvData;
     }
 
     /**
-     * Adds a {@link RowId} to the collection of IDs that need to be skipped during normal snapshot row sending.
+     * Adds a {@link RowId} to the collection of IDs that need to be skipped during normal snapshot MV row sending.
      *
-     * <p>Must be called under snapshot lock.
+     * <p>Must be called under MV data snapshot lock.
      *
      * @param rowId RowId to add.
      * @return {@code true} if the given RowId was added as it was not yet in the collection of IDs to skip.
@@ -332,15 +361,15 @@ public class OutgoingSnapshot {
 
     /**
      * Returns {@code true} if the given {@link RowId} does not interfere with the rows that this snapshot is going
-     * to be sent in the normal snapshot rows sending order.
+     * to send in the normal snapshot rows sending order.
      *
-     * <p>Must be called under snapshot lock.
+     * <p>Must be called under MV data snapshot lock.
      *
      * @param rowId RowId.
      * @return {@code true} if the given RowId is already passed by the snapshot in normal rows sending order.
      */
     public boolean alreadyPassed(RowId rowId) {
-        if (!startedToReadPartition) {
+        if (!startedToReadMvPartition) {
             return false;
         }
         if (exhaustedPartition()) {
@@ -359,5 +388,16 @@ public class OutgoingSnapshot {
      */
     public void enqueueForSending(RowId rowId) {
         outOfOrderMvData.add(rowEntry(rowId));
+    }
+
+    /**
+     * Closes the snapshot releasing the underlying resources.
+     */
+    public void close() {
+        Cursor<IgniteBiTuple<UUID, TxMeta>> txCursor = txDataCursor;
+
+        if (txCursor != null) {
+            closeQuietly(txCursor);
+        }
     }
 }

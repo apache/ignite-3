@@ -18,24 +18,27 @@
 package org.apache.ignite.internal.tx.storage.state.test;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.stream.Collectors.toList;
 
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentSkipListMap;
 import org.apache.ignite.internal.configuration.storage.StorageException;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
+import org.apache.ignite.internal.tx.storage.state.UnsignedUuidComparator;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * Test implementation of {@link TxStateStorage} based on {@link ConcurrentHashMap}.
+ * Test implementation of {@link TxStateStorage} based on {@link ConcurrentSkipListMap}.
  */
-public class TestConcurrentHashMapTxStateStorage implements TxStateStorage {
+public class TestTxStateStorage implements TxStateStorage {
     /** Storage. */
-    private final ConcurrentHashMap<UUID, TxMeta> storage = new ConcurrentHashMap<>();
+    private final ConcurrentSkipListMap<UUID, TxMeta> storage = new ConcurrentSkipListMap<>(new UnsignedUuidComparator());
 
     /** {@inheritDoc} */
     @Override
@@ -85,7 +88,10 @@ public class TestConcurrentHashMapTxStateStorage implements TxStateStorage {
     /** {@inheritDoc} */
     @Override
     public Cursor<IgniteBiTuple<UUID, TxMeta>> scan() {
-        return Cursor.fromIterator(storage.entrySet().stream().map(e -> new IgniteBiTuple<>(e.getKey(), e.getValue())).iterator());
+        List<IgniteBiTuple<UUID, TxMeta>> copy = storage.entrySet().stream()
+                .map(e -> new IgniteBiTuple<>(e.getKey(), e.getValue()))
+                .collect(toList());
+        return Cursor.fromIterator(copy.iterator());
     }
 
     /** {@inheritDoc} */

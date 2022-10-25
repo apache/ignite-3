@@ -29,8 +29,12 @@ import java.util.concurrent.locks.Lock;
 public class ReusableLockLockup implements AutoLockup {
     private final Lock lock;
 
-    public ReusableLockLockup(Lock lock) {
+    private ReusableLockLockup(Lock lock) {
         this.lock = lock;
+    }
+
+    public static ReusableLockLockup forLock(Lock lock) {
+        return new ReusableLockLockup(lock);
     }
 
     /**
@@ -38,6 +42,7 @@ public class ReusableLockLockup implements AutoLockup {
      *
      * @return The lockup for the locked underlying lock.
      */
+    @SuppressWarnings("LockAcquiredButNotSafelyReleased")
     public AutoLockup acquireLock() {
         lock.lock();
 

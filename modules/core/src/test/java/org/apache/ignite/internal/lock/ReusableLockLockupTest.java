@@ -29,7 +29,7 @@ class ReusableLockLockupTest {
     @SuppressWarnings("resource")
     @Test
     void doesNotLockTheLockOnCreation() {
-        ReusableLockLockup ignored = new ReusableLockLockup(lock);
+        ReusableLockLockup ignored = ReusableLockLockup.forLock(lock);
 
         assertFalse(lock.isLocked());
     }
@@ -37,7 +37,7 @@ class ReusableLockLockupTest {
     @SuppressWarnings("resource")
     @Test
     void locksTheLockOnAcquire() {
-        try (AutoLockup ignored = new ReusableLockLockup(lock).acquireLock()) {
+        try (AutoLockup ignored = ReusableLockLockup.forLock(lock).acquireLock()) {
             assertTrue(lock.isLocked());
         }
     }
@@ -45,7 +45,7 @@ class ReusableLockLockupTest {
     @SuppressWarnings({"resource", "EmptyTryBlock"})
     @Test
     void unlocksTheLockOnClose() {
-        try (AutoLockup ignored = new ReusableLockLockup(lock).acquireLock()) {
+        try (AutoLockup ignored = ReusableLockLockup.forLock(lock).acquireLock()) {
             // No-op.
         }
 

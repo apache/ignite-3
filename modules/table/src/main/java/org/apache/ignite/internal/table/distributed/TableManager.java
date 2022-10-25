@@ -131,6 +131,7 @@ import org.apache.ignite.internal.table.event.TableEventParameters;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbTableStorage;
 import org.apache.ignite.internal.util.ByteUtils;
@@ -737,8 +738,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                         return CompletableFuture.completedFuture(null);
                                     }
 
-                                    RaftGroupOptions groupOptions = groupOptionsForPartition(internalTbl, partId, tblCfg, partitionStorage,
-                                            newPartAssignment);
+                                    RaftGroupOptions groupOptions = groupOptionsForPartition(internalTbl, partId, tblCfg,
+                                            partitionStorage, getOrCreateTxStateStorage(internalTbl, partId), newPartAssignment);
 
                                     try {
                                         raftMgr.startRaftGroupNode(
@@ -746,7 +747,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                 newPartAssignment,
                                                 new PartitionListener(
                                                         partitionDataStorage(partitionStorage, internalTbl, partId),
-                                                        internalTbl.txStateStorage().getOrCreateTxStateStorage(partId),
                                                         txManager,
                                                         primaryIndex
                                                 ),
@@ -798,7 +798,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                             tblId,
                                                             primaryIndex,
                                                             clock,
-                                                            internalTbl.txStateStorage().getOrCreateTxStateStorage(partId),
+                                                            getOrCreateTxStateStorage(internalTbl, partId),
                                                             topologyService,
                                                             placementDriver
                                                     )
@@ -822,15 +822,24 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     private PartitionDataStorage partitionDataStorage(MvPartitionStorage partitionStorage, InternalTable internalTbl, int partId) {
-        return new SnapshotAwarePartitionDataStorage(partitionStorage, outgoingSnapshotsManager, partitionKey(internalTbl, partId));
+        return new SnapshotAwarePartitionDataStorage(
+                partitionStorage,
+                getOrCreateTxStateStorage(internalTbl, partId),
+                outgoingSnapshotsManager,
+                partitionKey(internalTbl, partId)
+        );
     }
 
     private PartitionKey partitionKey(InternalTable internalTbl, int partId) {
         return new PartitionKey(internalTbl.tableId(), partId);
     }
 
-    private static MvPartitionStorage getOrCreateMvPartition(InternalTable internalTbl, int partId) {
+    private MvPartitionStorage getOrCreateMvPartition(InternalTable internalTbl, int partId) {
         return internalTbl.storage().getOrCreateMvPartition(partId);
+    }
+
+    private TxStateStorage getOrCreateTxStateStorage(InternalTable internalTbl, int partId) {
+        return internalTbl.txStateStorage().getOrCreateTxStateStorage(partId);
     }
 
     /**
@@ -864,6 +873,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             int partId,
             ExtendedTableConfiguration tableConfig,
             MvPartitionStorage partitionStorage,
+            TxStateStorage txStateStorage,
             Set<ClusterNode> peers
     ) {
         RaftGroupOptions raftGroupOptions;
@@ -881,7 +891,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 raftMgr.topologyService(),
                 //TODO IGNITE-17302 Use miniumum from mv storage and tx state storage.
                 outgoingSnapshotsManager,
-                new PartitionAccessImpl(partitionKey(internalTbl, partId), partitionStorage),
+                new PartitionAccessImpl(partitionKey(internalTbl, partId), partitionStorage, txStateStorage),
                 peers.stream().map(n -> new Peer(n.address())).map(PeerId::fromPeer).map(Object::toString).collect(Collectors.toList()),
                 List.of()
         ));
@@ -1693,12 +1703,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                     partId,
                                     tblCfg,
                                     partitionStorage,
+                                    getOrCreateTxStateStorage(tbl.internalTable(), partId),
                                     assignments
                             );
 
                             RaftGroupListener raftGrpLsnr = new PartitionListener(
                                     partitionDataStorage(partitionStorage, tbl.internalTable(), partId),
-                                    tbl.internalTable().txStateStorage().getOrCreateTxStateStorage(partId),
                                     txManager,
                                     primaryIndex
                             );
@@ -1736,7 +1746,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                             tblId,
                                             primaryIndex,
                                             clock,
-                                            tbl.internalTable().txStateStorage().getOrCreateTxStateStorage(partId),
+                                            getOrCreateTxStateStorage(tbl.internalTable(), partId),
                                             raftMgr.topologyService(),
                                             placementDriver
                                     )

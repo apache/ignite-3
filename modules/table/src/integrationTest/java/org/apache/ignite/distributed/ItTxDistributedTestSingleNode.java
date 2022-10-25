@@ -74,7 +74,7 @@ import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
-import org.apache.ignite.internal.tx.storage.state.test.TestConcurrentHashMapTxStateStorage;
+import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
@@ -375,7 +375,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
             for (ClusterNode node : partNodes) {
                 var testMpPartStorage = new TestMvPartitionStorage(0);
-                var txSateStorage = new TestConcurrentHashMapTxStateStorage();
+                var txStateStorage = new TestTxStateStorage();
                 var placementDriver = new PlacementDriver(replicaServices.get(node));
 
                 for (int part = 0; part < assignment.size(); part++) {
@@ -393,8 +393,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                         partNodes,
                         () -> {
                             return new PartitionListener(
-                                    new TestPartitionDataStorage(testMpPartStorage),
-                                    txSateStorage,
+                                    new TestPartitionDataStorage(testMpPartStorage, txStateStorage),
                                     txManagers.get(node),
                                     primaryIndex
                             );
@@ -414,7 +413,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                                                 tblId,
                                                 primaryIndex,
                                                 clocks.get(node),
-                                                txSateStorage,
+                                                txStateStorage,
                                                 topologyServices.get(node),
                                                 placementDriver
                                         ));

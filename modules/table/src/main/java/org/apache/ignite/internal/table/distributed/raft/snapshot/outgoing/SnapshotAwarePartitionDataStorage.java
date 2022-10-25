@@ -29,15 +29,21 @@ import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionKey;
+import org.apache.ignite.internal.tx.TxMeta;
+import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
- * {@link MvPartitionStorage} decorator that adds snapshot awareness. This means that writes coordinate with ongoing
+ * {@link PartitionDataStorage} that adds snapshot awareness. This means that MV writes coordinate with ongoing
  * snapshots to make sure that the writes do not interfere with the snapshots.
+ *
+ * <p>We don't do similar coordination for TX data because there we just take
  */
 public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
     private final MvPartitionStorage partitionStorage;
+    private final TxStateStorage txStateStorage;
     private final PartitionsSnapshots partitionsSnapshots;
     private final PartitionKey partitionKey;
 
@@ -46,10 +52,12 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
      */
     public SnapshotAwarePartitionDataStorage(
             MvPartitionStorage partitionStorage,
+            TxStateStorage txStateStorage,
             PartitionsSnapshots partitionsSnapshots,
             PartitionKey partitionKey
     ) {
         this.partitionStorage = partitionStorage;
+        this.txStateStorage = txStateStorage;
         this.partitionsSnapshots = partitionsSnapshots;
         this.partitionKey = partitionKey;
     }
@@ -84,33 +92,31 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
     @Override
     public @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, UUID commitTableId,
             int commitPartitionId) throws TxIdMismatchException, StorageException {
-        sendRowOutOfOrderToInterferingSnapshots(rowId);
+        sendMvRowOutOfOrderToInterferingSnapshots(rowId);
 
         return partitionStorage.addWrite(rowId, row, txId, commitTableId, commitPartitionId);
     }
 
     @Override
     public @Nullable BinaryRow abortWrite(RowId rowId) throws StorageException {
-        sendRowOutOfOrderToInterferingSnapshots(rowId);
+        sendMvRowOutOfOrderToInterferingSnapshots(rowId);
 
         return partitionStorage.abortWrite(rowId);
     }
 
     @Override
     public void commitWrite(RowId rowId, HybridTimestamp timestamp) throws StorageException {
-        sendRowOutOfOrderToInterferingSnapshots(rowId);
+        sendMvRowOutOfOrderToInterferingSnapshots(rowId);
 
         partitionStorage.commitWrite(rowId, timestamp);
     }
 
-    private void sendRowOutOfOrderToInterferingSnapshots(RowId rowId) {
+    private void sendMvRowOutOfOrderToInterferingSnapshots(RowId rowId) {
         PartitionSnapshots partitionSnapshots = partitionsSnapshots.partitionSnapshots(partitionKey);
 
         for (OutgoingSnapshot snapshot : partitionSnapshots.ongoingSnapshots()) {
-            snapshot.acquireLock();
-
-            try {
-                if (snapshot.isFinished()) {
+            try (AutoLockup ignored = snapshot.acquireMvLock()) {
+                if (snapshot.isFinishedMvData()) {
                     continue;
                 }
 
@@ -123,10 +129,18 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
                 }
 
                 snapshot.enqueueForSending(rowId);
-            } finally {
-                snapshot.releaseLock();
             }
         }
+    }
+
+    @Override
+    public TxMeta getTxMeta(UUID txId) {
+        return txStateStorage.get(txId);
+    }
+
+    @Override
+    public boolean compareAndSetTxMeta(UUID txId, @Nullable TxState txStateExpected, TxMeta txMeta, long commandIndex) {
+        return txStateStorage.compareAndSet(txId, txStateExpected, txMeta, commandIndex);
     }
 
     @Override

@@ -19,10 +19,14 @@ package org.apache.ignite.internal.table.distributed.raft.snapshot;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.tx.TxMeta;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -30,11 +34,18 @@ import org.jetbrains.annotations.Nullable;
  */
 public class PartitionAccessImpl implements PartitionAccess {
     private final PartitionKey partitionKey;
+
     private final MvPartitionStorage partitionStorage;
 
-    public PartitionAccessImpl(PartitionKey partitionKey, MvPartitionStorage partitionStorage) {
+    private final TxStateStorage txStateStorage;
+
+    /**
+     * Creates a new instance.
+     */
+    public PartitionAccessImpl(PartitionKey partitionKey, MvPartitionStorage partitionStorage, TxStateStorage txStateStorage) {
         this.partitionKey = partitionKey;
         this.partitionStorage = partitionStorage;
+        this.txStateStorage = txStateStorage;
     }
 
     @Override
@@ -67,5 +78,10 @@ public class PartitionAccessImpl implements PartitionAccess {
 
             throw new RuntimeException(e);
         }
+    }
+
+    @Override
+    public Cursor<IgniteBiTuple<UUID, TxMeta>> scanTxData() {
+        return txStateStorage.scan();
     }
 }

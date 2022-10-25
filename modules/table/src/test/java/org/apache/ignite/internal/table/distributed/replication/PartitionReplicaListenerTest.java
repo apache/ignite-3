@@ -61,7 +61,7 @@ import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
-import org.apache.ignite.internal.tx.storage.state.test.TestConcurrentHashMapTxStateStorage;
+import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
@@ -98,7 +98,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     private static final HybridClock clock = new HybridClock();
 
     /** The storage stores transaction states. */
-    private static final TestConcurrentHashMapTxStateStorage txStateStorage = new TestConcurrentHashMapTxStateStorage();
+    private static final TestTxStateStorage txStateStorage = new TestTxStateStorage();
 
     /** The storage stores partition data. */
     private static final TestMvPartitionStorage testMvPartitionStorage = new TestMvPartitionStorage(partId);

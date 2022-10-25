@@ -26,7 +26,6 @@ import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.lenient;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
@@ -51,12 +50,9 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-class OutgoingSnapshotTest {
+class OutgoingSnapshotMvDataStreamingTest {
     @Mock
     private PartitionAccess partitionAccess;
-
-    @Mock
-    private OutgoingSnapshotRegistry snapshotRegistry;
 
     private OutgoingSnapshot snapshot;
 
@@ -80,7 +76,7 @@ class OutgoingSnapshotTest {
     void createTestInstance() {
         lenient().when(partitionAccess.key()).thenReturn(partitionKey);
 
-        snapshot = new OutgoingSnapshot(UUID.randomUUID(), partitionAccess, snapshotRegistry);
+        snapshot = new OutgoingSnapshot(UUID.randomUUID(), partitionAccess);
     }
 
     @BeforeEach
@@ -317,24 +313,18 @@ class OutgoingSnapshotTest {
 
         getMvDataResponse(Long.MAX_VALUE);
 
-        assertTrue(snapshot.isFinished());
-    }
-
-    @Test
-    void snapshotThatSentAllDataUnregistersItself() throws Exception {
-        configureStorageToBeEmpty();
-
-        getMvDataResponse(Long.MAX_VALUE);
-
-        verify(snapshotRegistry).unregisterOutgoingSnapshot(snapshot.id());
+        assertTrue(snapshot.isFinishedMvData());
     }
 
     @Test
     void mvDataHandlingRespectsBatchSizeHintForMessagesFromPartition() throws Exception {
-        ReadResult version = ReadResult.createFromCommitted(new ByteBufferRow(new byte[]{1}), clock.now());
+        ReadResult version1 = ReadResult.createFromCommitted(new ByteBufferRow(new byte[]{1}), clock.now());
+        ReadResult version2 = ReadResult.createFromCommitted(new ByteBufferRow(new byte[]{2}), clock.now());
 
         when(partitionAccess.closestRowId(lowestRowId)).thenReturn(rowId1);
-        when(partitionAccess.rowVersions(rowId1)).thenReturn(List.of(version));
+        when(partitionAccess.rowVersions(rowId1)).thenReturn(List.of(version1));
+        lenient().when(partitionAccess.closestRowId(rowId1)).thenReturn(rowId1);
+        lenient().when(partitionAccess.rowVersions(rowId2)).thenReturn(List.of(version2));
 
         SnapshotMvDataResponse response = getMvDataResponse(1);
 
@@ -343,13 +333,16 @@ class OutgoingSnapshotTest {
 
     @Test
     void mvDataHandlingRespectsBatchSizeHintForOutOfOrderMessages() throws Exception {
-        ReadResult version = ReadResult.createFromCommitted(new ByteBufferRow(new byte[]{1}), clock.now());
+        ReadResult version1 = ReadResult.createFromCommitted(new ByteBufferRow(new byte[]{1}), clock.now());
+        ReadResult version2 = ReadResult.createFromCommitted(new ByteBufferRow(new byte[]{2}), clock.now());
 
-        when(partitionAccess.rowVersions(rowIdOutOfOrder)).thenReturn(List.of(version));
+        when(partitionAccess.rowVersions(rowIdOutOfOrder)).thenReturn(List.of(version1));
 
         snapshot.enqueueForSending(rowIdOutOfOrder);
 
-        configureStorageToBeEmpty();
+        lenient().when(partitionAccess.closestRowId(lowestRowId)).thenReturn(rowId1);
+        lenient().when(partitionAccess.rowVersions(rowId1)).thenReturn(List.of(version2));
+        lenient().when(partitionAccess.closestRowId(rowId2)).thenReturn(null);
 
         SnapshotMvDataResponse response = getMvDataResponse(1);
 

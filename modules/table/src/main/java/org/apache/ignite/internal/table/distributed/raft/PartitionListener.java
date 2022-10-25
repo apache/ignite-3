@@ -49,7 +49,6 @@ import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
-import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.raft.client.Command;
@@ -66,11 +65,8 @@ public class PartitionListener implements RaftGroupListener {
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(PartitionListener.class);
 
-    /** Versioned partition storage. */
+    /** Partition storage with access to both MV and TX data of a partition. */
     private final PartitionDataStorage storage;
-
-    /** Transaction state storage. */
-    private final TxStateStorage txStateStorage;
 
     /** Transaction manager. */
     private final TxManager txManager;
@@ -92,18 +88,15 @@ public class PartitionListener implements RaftGroupListener {
      * The constructor.
      *
      * @param store  The storage.
-     * @param txStateStorage Transaction state storage.
      * @param txManager Transaction manager.
      * @param primaryIndex Primary index map.
      */
     public PartitionListener(
             PartitionDataStorage store,
-            TxStateStorage txStateStorage,
             TxManager txManager,
             ConcurrentHashMap<ByteBuffer, RowId> primaryIndex
     ) {
         this.storage = store;
-        this.txStateStorage = txStateStorage;
         this.txManager = txManager;
         this.primaryIndex = primaryIndex;
     }
@@ -266,9 +259,9 @@ public class PartitionListener implements RaftGroupListener {
                 cmd.commitTimestamp()
         );
 
-        TxMeta txMetaBeforeCas = txStateStorage.get(txId);
+        TxMeta txMetaBeforeCas = storage.getTxMeta(txId);
 
-        boolean txStateChangeRes = txStateStorage.compareAndSet(
+        boolean txStateChangeRes = storage.compareAndSetTxMeta(
                 txId,
                 null,
                 txMetaToSet,

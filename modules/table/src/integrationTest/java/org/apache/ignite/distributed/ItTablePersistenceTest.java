@@ -52,7 +52,7 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
-import org.apache.ignite.internal.tx.storage.state.test.TestConcurrentHashMapTxStateStorage;
+import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
@@ -235,8 +235,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                     var testMpPartStorage = new TestMvPartitionStorage(0);
 
                     PartitionListener listener = new PartitionListener(
-                            new TestPartitionDataStorage(testMpPartStorage),
-                            new TestConcurrentHashMapTxStateStorage(),
+                            new TestPartitionDataStorage(testMpPartStorage, new TestTxStateStorage()),
                             txManager,
                             new ConcurrentHashMap<>());
 

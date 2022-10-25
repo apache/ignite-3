@@ -27,6 +27,11 @@ import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
+import org.apache.ignite.internal.tx.TxMeta;
+import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
+import org.apache.ignite.lang.ErrorGroups;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -41,7 +46,7 @@ import org.jetbrains.annotations.TestOnly;
  * {@link RowId#compareTo} comparison order.
  *
  * @see org.apache.ignite.internal.storage.MvPartitionStorage
- * @see org.apache.ignite.internal.tx.storage.state.TxStateStorage
+ * @see TxStateStorage
  */
 public interface PartitionDataStorage extends AutoCloseable {
     /**
@@ -134,6 +139,32 @@ public interface PartitionDataStorage extends AutoCloseable {
      * @see MvPartitionStorage#commitWrite(RowId, HybridTimestamp)
      */
     void commitWrite(RowId rowId, HybridTimestamp timestamp) throws StorageException;
+
+    /**
+     * Get tx meta by tx id.
+     *
+     * @param txId Tx id.
+     * @return Tx meta.
+     * @throws IgniteInternalException with {@link ErrorGroups.Transactions#TX_STATE_STORAGE_ERR} error code in case when
+     *                                 the operation has failed.
+     * @see TxStateStorage#get(UUID)
+     */
+    TxMeta getTxMeta(UUID txId);
+
+    /**
+     * Atomically change the tx meta in the storage. If transaction meta that is already in the storage, is equal to {@code txMeta},
+     * the operation also succeeds.
+     *
+     * @param txId Tx id.
+     * @param txStateExpected Tx state that is expected to be in the storage.
+     * @param txMeta Tx meta.
+     * @param commandIndex New value for {@link #lastAppliedIndex()}.
+     * @return Whether the CAS operation is successful.
+     * @throws IgniteInternalException with {@link ErrorGroups.Transactions#TX_STATE_STORAGE_ERR} error code in case when
+     *                                 the operation has failed.
+     * @see TxStateStorage#compareAndSet(UUID, TxState, TxMeta, long)
+     */
+    boolean compareAndSetTxMeta(UUID txId, @Nullable TxState txStateExpected, TxMeta txMeta, long commandIndex);
 
     /**
      * Returns the underlying {@link MvPartitionStorage}. Only for tests!

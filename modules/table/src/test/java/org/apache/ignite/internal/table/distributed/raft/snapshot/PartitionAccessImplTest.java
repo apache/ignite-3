@@ -29,7 +29,10 @@ import java.util.UUID;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.tx.TxMeta;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -41,13 +44,16 @@ class PartitionAccessImplTest {
     @Mock
     private MvPartitionStorage partitionStorage;
 
+    @Mock
+    private TxStateStorage txStateStorage;
+
     private PartitionAccessImpl access;
 
     private final PartitionKey key = new PartitionKey(UUID.randomUUID(), 1);
 
     @BeforeEach
     void createTestInstance() {
-        access = new PartitionAccessImpl(key, partitionStorage);
+        access = new PartitionAccessImpl(key, partitionStorage, txStateStorage);
     }
 
     @Test
@@ -82,5 +88,14 @@ class PartitionAccessImplTest {
 
         List<ReadResult> versions = access.rowVersions(new RowId(1));
         assertThat(versions, is(equalTo(List.of(result1, result2))));
+    }
+
+    @Test
+    void delegatesTxDataScanToTxStorage() {
+        @SuppressWarnings("unchecked") Cursor<IgniteBiTuple<UUID, TxMeta>> cursor = mock(Cursor.class);
+
+        when(txStateStorage.scan()).thenReturn(cursor);
+
+        assertThat(access.scanTxData(), is(cursor));
     }
 }

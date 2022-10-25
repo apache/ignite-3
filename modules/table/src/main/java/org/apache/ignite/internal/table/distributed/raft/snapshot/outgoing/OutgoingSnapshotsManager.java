@@ -52,7 +52,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Outgoing snapshots manager. Manages a collection of all ougoing snapshots, currently present on the Ignite node.
  */
-public class OutgoingSnapshotsManager implements PartitionsSnapshots, OutgoingSnapshotRegistry, IgniteComponent {
+public class OutgoingSnapshotsManager implements PartitionsSnapshots, IgniteComponent {
     /**
      * Logger.
      */
@@ -103,17 +103,17 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, OutgoingSn
     }
 
     /**
-     * Registers an outgoing snapshot in the manager.
+     * Starts an outgoing snapshot and registers it in the manager. This is the point where snapshot is 'taken',
+     * that is, the immutable scope of the snapshot (what MV data and what TX data belongs to it) is cut.
      *
      * @param snapshotId       Snapshot id.
      * @param outgoingSnapshot Outgoing snapshot.
      */
-    @Override
-    public void registerOutgoingSnapshot(UUID snapshotId, OutgoingSnapshot outgoingSnapshot) {
+    void startOutgoingSnapshot(UUID snapshotId, OutgoingSnapshot outgoingSnapshot) {
         snapshots.put(snapshotId, outgoingSnapshot);
 
         PartitionSnapshotsImpl partitionSnapshots = getPartitionSnapshots(outgoingSnapshot.partitionKey());
-        partitionSnapshots.addUnderLock(outgoingSnapshot);
+        partitionSnapshots.freezeAndAddUnderLock(outgoingSnapshot);
     }
 
     private PartitionSnapshotsImpl getPartitionSnapshots(PartitionKey partitionKey) {
@@ -128,17 +128,15 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, OutgoingSn
      *
      * @param snapshotId Snapshot id.
      */
-    @Override
-    public void unregisterOutgoingSnapshot(UUID snapshotId) {
+    void finishOutgoingSnapshot(UUID snapshotId) {
         OutgoingSnapshot removedSnapshot = snapshots.remove(snapshotId);
 
         if (removedSnapshot != null) {
-            PartitionSnapshotsImpl partitionSnapshots = snapshotsByPartition.get(removedSnapshot.partitionKey());
-
-            assert partitionSnapshots != null : "Snapshot existed with ID=" + snapshotId
-                    + ", but nothing was found for its partition " + removedSnapshot.partitionKey();
+            PartitionSnapshotsImpl partitionSnapshots = getPartitionSnapshots(removedSnapshot.partitionKey());
 
             partitionSnapshots.removeUnderLock(removedSnapshot);
+
+            removedSnapshot.close();
         }
     }
 
@@ -212,12 +210,14 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, OutgoingSn
         private final List<OutgoingSnapshot> snapshots = new ArrayList<>();
 
         private final ReadWriteLock lock = new ReentrantReadWriteLock();
-        private final ReusableLockLockup readLockLockup = new ReusableLockLockup(lock.readLock());
+        private final ReusableLockLockup readLockLockup = ReusableLockLockup.forLock(lock.readLock());
 
-        private void addUnderLock(OutgoingSnapshot snapshot) {
+        private void freezeAndAddUnderLock(OutgoingSnapshot snapshot) {
             lock.writeLock().lock();
 
             try {
+                snapshot.freezeScope();
+
                 snapshots.add(snapshot);
             } finally {
                 lock.writeLock().unlock();
