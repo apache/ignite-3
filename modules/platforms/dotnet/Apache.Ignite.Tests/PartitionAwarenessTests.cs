@@ -150,18 +150,16 @@ public class PartitionAwarenessTests
         // Check.
         var expectedNode = node == 1 ? _server1 : _server2;
 
-        await AssertOpOnNode(async () => await recordView.GetAsync(null, key), ClientOp.TupleGet, expectedNode);
-        await AssertOpOnNode(async () => await recordView.GetAndDeleteAsync(null, key), ClientOp.TupleGetAndDelete, expectedNode);
-        await AssertOpOnNode(async () => await recordView.GetAndReplaceAsync(null, key), ClientOp.TupleGetAndReplace, expectedNode);
-        await AssertOpOnNode(async () => await recordView.GetAndUpsertAsync(null, key), ClientOp.TupleGetAndUpsert, expectedNode);
-        await AssertOpOnNode(async () => await recordView.UpsertAsync(null, key), ClientOp.TupleUpsert, expectedNode);
-        await AssertOpOnNode(async () => await recordView.InsertAsync(null, key), ClientOp.TupleInsert, expectedNode);
-        await AssertOpOnNode(async () => await recordView.ReplaceAsync(null, key), ClientOp.TupleReplace, expectedNode);
-        await AssertOpOnNode(async () => await recordView.ReplaceAsync(null, key, key), ClientOp.TupleReplaceExact, expectedNode);
-        await AssertOpOnNode(async () => await recordView.DeleteAsync(null, key), ClientOp.TupleDelete, expectedNode);
-        await AssertOpOnNode(async () => await recordView.DeleteExactAsync(null, key), ClientOp.TupleDeleteExact, expectedNode);
-
-        // TODO: All ops, including multi-key
+        await AssertOpOnNode(() => recordView.GetAsync(null, key), ClientOp.TupleGet, expectedNode);
+        await AssertOpOnNode(() => recordView.GetAndDeleteAsync(null, key), ClientOp.TupleGetAndDelete, expectedNode);
+        await AssertOpOnNode(() => recordView.GetAndReplaceAsync(null, key), ClientOp.TupleGetAndReplace, expectedNode);
+        await AssertOpOnNode(() => recordView.GetAndUpsertAsync(null, key), ClientOp.TupleGetAndUpsert, expectedNode);
+        await AssertOpOnNode(() => recordView.UpsertAsync(null, key), ClientOp.TupleUpsert, expectedNode);
+        await AssertOpOnNode(() => recordView.InsertAsync(null, key), ClientOp.TupleInsert, expectedNode);
+        await AssertOpOnNode(() => recordView.ReplaceAsync(null, key), ClientOp.TupleReplace, expectedNode);
+        await AssertOpOnNode(() => recordView.ReplaceAsync(null, key, key), ClientOp.TupleReplaceExact, expectedNode);
+        await AssertOpOnNode(() => recordView.DeleteAsync(null, key), ClientOp.TupleDelete, expectedNode);
+        await AssertOpOnNode(() => recordView.DeleteExactAsync(null, key), ClientOp.TupleDeleteExact, expectedNode);
     }
 
     [Test]
