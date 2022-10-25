@@ -93,7 +93,7 @@ public class PartitionAwarenessTests
         await recordView.UpsertAsync(tx, 3);
 
         Assert.AreEqual(
-            new[] { ClientOp.TableGet, ClientOp.TxBegin, ClientOp.SchemasGet, ClientOp.PartitionAssignmentGet, ClientOp.TupleUpsert, ClientOp.TupleUpsert },
+            new[] { ClientOp.TableGet, ClientOp.TxBegin, ClientOp.SchemasGet, ClientOp.TupleUpsert, ClientOp.TupleUpsert },
             defaultServer.ClientOps);
 
         CollectionAssert.IsEmpty(secondaryServer.ClientOps);
