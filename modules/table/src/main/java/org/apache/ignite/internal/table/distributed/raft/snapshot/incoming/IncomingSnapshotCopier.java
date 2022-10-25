@@ -43,7 +43,6 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.message.Snapsh
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMvDataResponse.ResponseEntry;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotTxDataResponse;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
-import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.error.RaftError;
@@ -64,10 +63,6 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
     private final PartitionSnapshotStorage partitionSnapshotStorage;
 
     private final SnapshotUri snapshotUri;
-
-    private final IgniteSpinBusyLock cancelBusyLock = new IgniteSpinBusyLock();
-
-    private final CompletableFuture<?> future0 = new CompletableFuture<>();
 
     /**
      * Snapshot meta read from the leader.
