@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Tests;
 
+using System;
 using System.Linq;
 using System.Threading.Tasks;
 using Internal.Proto;
@@ -67,19 +68,11 @@ public class PartitionAwarenessTests
             new[] { ClientOp.TableGet, ClientOp.SchemasGet, ClientOp.PartitionAssignmentGet },
             defaultServer.ClientOps.Take(3));
 
-        // First server.
-        ClearOps();
-        await recordView.UpsertAsync(null, 3);
-
-        Assert.AreEqual(new[] { ClientOp.TupleUpsert }, _server1.ClientOps);
-        CollectionAssert.IsEmpty(_server2.ClientOps);
-
-        // Second server.
-        ClearOps();
-        await recordView.UpsertAsync(null, 1);
-
-        Assert.AreEqual(new[] { ClientOp.TupleUpsert }, _server2.ClientOps);
-        CollectionAssert.IsEmpty(_server1.ClientOps);
+        // Check.
+        await AssertOpOnNode(async () => await recordView.UpsertAsync(null, 1), ClientOp.TupleUpsert, _server2);
+        await AssertOpOnNode(async () => await recordView.UpsertAsync(null, 3), ClientOp.TupleUpsert, _server1);
+        await AssertOpOnNode(async () => await recordView.UpsertAsync(null, 4), ClientOp.TupleUpsert, _server2);
+        await AssertOpOnNode(async () => await recordView.UpsertAsync(null, 5), ClientOp.TupleUpsert, _server1);
     }
 
     [Test]
@@ -160,6 +153,13 @@ public class PartitionAwarenessTests
     {
         // TODO
         await Task.Delay(1);
+    }
+
+    private static async Task AssertOpOnNode(Func<Task> action, ClientOp op, FakeServer node)
+    {
+        node.ClearOps();
+        await action();
+        Assert.AreEqual(new[] { op }, node.ClientOps);
     }
 
     private async Task<IIgniteClient> GetClient()
