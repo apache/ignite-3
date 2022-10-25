@@ -15,21 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.raft.snapshot.message;
+package org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing;
 
-import org.apache.ignite.internal.table.distributed.TableMessageGroup;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionKey;
 
 /**
- * Snapshot partition data request message.
+ * Allows to obtain {@link PartitionSnapshots} instances.
  */
-@Transferable(TableMessageGroup.SNAPSHOT_MV_DATA_REQUEST)
-public interface SnapshotMvDataRequest extends SnapshotRequestMessage {
+public interface PartitionsSnapshots {
     /**
-     * How many bytes the receiver is willing to receive. This corresponds to the sum of byte representations of row
-     * versions, so the overall size of the message might exceed the hint (due to metadata and other fields of row versions).
+     * Returns {@link PartitionSnapshots} corresponding to the given partition.
      *
-     * @return Batch size hint.
+     * @param partitionKey Partition key.
+     * @return PartitionSnapshots instance.
      */
-    long batchSizeHint();
+    PartitionSnapshots partitionSnapshots(PartitionKey partitionKey);
 }

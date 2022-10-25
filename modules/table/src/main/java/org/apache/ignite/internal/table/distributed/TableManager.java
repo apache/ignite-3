@@ -115,11 +115,15 @@ import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.message.HasDataRequest;
 import org.apache.ignite.internal.table.distributed.message.HasDataRequestBuilder;
 import org.apache.ignite.internal.table.distributed.message.HasDataResponse;
+import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.raft.RebalanceRaftGroupEventsListener;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionAccessImpl;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionKey;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionAccessImpl;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionSnapshotStorageFactory;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.SnapshotAwarePartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
@@ -285,6 +289,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     private final HybridClock clock;
 
+    private final OutgoingSnapshotsManager outgoingSnapshotsManager;
+
     /** Partitions storage path. */
     private final Path storagePath;
 
@@ -332,7 +338,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             MetaStorageManager metaStorageMgr,
             SchemaManager schemaManager,
             LogStorageFactoryCreator volatileLogStorageFactoryCreator,
-            HybridClock clock
+            HybridClock clock,
+            OutgoingSnapshotsManager outgoingSnapshotsManager
     ) {
         this.tablesCfg = tablesCfg;
         this.raftMgr = raftMgr;
@@ -347,6 +354,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         this.schemaManager = schemaManager;
         this.volatileLogStorageFactoryCreator = volatileLogStorageFactoryCreator;
         this.clock = clock;
+        this.outgoingSnapshotsManager = outgoingSnapshotsManager;
 
         placementDriver = new PlacementDriver(replicaSvc);
 
@@ -843,6 +851,18 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         CompletableFuture.allOf(futures).join();
     }
 
+    private PartitionDataStorage partitionDataStorage(MvPartitionStorage partitionStorage, InternalTable internalTbl, int partId) {
+        return new SnapshotAwarePartitionDataStorage(partitionStorage, outgoingSnapshotsManager, partitionKey(internalTbl, partId));
+    }
+
+    private PartitionKey partitionKey(InternalTable internalTbl, int partId) {
+        return new PartitionKey(internalTbl.tableId(), partId);
+    }
+
+    private static MvPartitionStorage getOrCreateMvPartition(InternalTable internalTbl, int partId) {
+        return internalTbl.storage().getOrCreateMvPartition(partId);
+    }
+
     /**
      * Calculates the quantity of the data nodes for the partition of the table.
      *
@@ -889,8 +909,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         raftGroupOptions.snapshotStorageFactory(new PartitionSnapshotStorageFactory(
                 raftMgr.topologyService(),
                 //TODO IGNITE-17302 Use miniumum from mv storage and tx state storage.
-                new OutgoingSnapshotsManager(raftMgr.messagingService()),
-                new PartitionAccessImpl(mvTableStorage, txStateTableStorage, partId),
+                outgoingSnapshotsManager,
+                new PartitionAccessImpl(partitionKey(internalTbl, partId), partitionStorage),
                 peers.stream().map(n -> new Peer(n.address())).map(PeerId::fromPeer).map(Object::toString).collect(Collectors.toList()),
                 List.of(),
                 incomingSnapshotsExecutor

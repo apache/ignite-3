@@ -54,7 +54,7 @@ public class TableSpoolExecutionTest extends AbstractExecutionTest {
     }
 
     /**
-     * Ensure eager spool reads underlying input till the end before emmitting the very first row.
+     * Ensure eager spool reads underlying input till the end before emitting the very first row.
      */
     @Test
     public void testEagerSpoolReadsWholeInput() {

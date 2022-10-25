@@ -17,18 +17,26 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.ReadResult;
+import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
+import org.apache.ignite.internal.util.Cursor;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * {@link PartitionAccess} implementation.
  */
 public class PartitionAccessImpl implements PartitionAccess {
+    private final PartitionKey partitionKey;
+
     private final MvTableStorage mvTableStorage;
 
     private final TxStateTableStorage txStateTableStorage;
@@ -38,18 +46,18 @@ public class PartitionAccessImpl implements PartitionAccess {
     /**
      * Constructor.
      *
+     * @param partitionKey Partition key.
      * @param mvTableStorage Multi version table storage.
      * @param txStateTableStorage Table transaction state storage.
-     * @param partId Partition ID.
      */
     public PartitionAccessImpl(
+            PartitionKey partitionKey,
             MvTableStorage mvTableStorage,
-            TxStateTableStorage txStateTableStorage,
-            int partId
+            TxStateTableStorage txStateTableStorage
     ) {
+        this.partitionKey = partitionKey;
         this.mvTableStorage = mvTableStorage;
         this.txStateTableStorage = txStateTableStorage;
-        this.partId = partId;
     }
 
     @Override
@@ -91,6 +99,33 @@ public class PartitionAccessImpl implements PartitionAccess {
         return txStateTableStorage
                 .destroyTxStateStorage(partId)
                 .thenApplyAsync(unused -> txStateTableStorage.getOrCreateTxStateStorage(partId), executor);
+    }
+
+    @Override
+    public PartitionKey key() {
+        return partitionKey;
+    }
+
+    @Override
+    public @Nullable RowId closestRowId(RowId lowerBound) {
+        return mvPartitionStorage().closestRowId(lowerBound);
+    }
+
+    @Override
+    public List<ReadResult> rowVersions(RowId rowId) {
+        try (Cursor<ReadResult> cursor = mvPartitionStorage().scanVersions(rowId)) {
+            List<ReadResult> versions = new ArrayList<>();
+
+            for (ReadResult version : cursor) {
+                versions.add(version);
+            }
+
+            return versions;
+        } catch (Exception e) {
+            // TODO: IGNITE-17935 - handle this
+
+            throw new RuntimeException(e);
+        }
     }
 
     private String tableName() {

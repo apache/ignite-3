@@ -17,18 +17,33 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing;
 
+import static java.util.Collections.unmodifiableList;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+import org.apache.ignite.internal.lock.AutoLockup;
+import org.apache.ignite.internal.lock.ReusableLockLockup;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionKey;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMetaRequest;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMvDataRequest;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotRequestMessage;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotTxDataRequest;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
@@ -37,15 +52,25 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Outgoing snapshots manager. Manages a collection of all ougoing snapshots, currently present on the Ignite node.
  */
-public class OutgoingSnapshotsManager implements IgniteComponent {
-    /** Logger. */
+public class OutgoingSnapshotsManager implements PartitionsSnapshots, OutgoingSnapshotRegistry, IgniteComponent {
+    /**
+     * Logger.
+     */
     private static final IgniteLogger LOG = Loggers.forClass(OutgoingSnapshotsManager.class);
 
-    /** Messaging service. */
+    /**
+     * Messaging service.
+     */
     private final MessagingService messagingService;
 
-    /** Map with outgoing snapshots. */
-    private final ConcurrentMap<UUID, OutgoingSnapshot> outgoingSnapshots = new ConcurrentHashMap<>();
+    /**
+     * Map with outgoing snapshots.
+     */
+    private final Map<UUID, OutgoingSnapshot> snapshots = new ConcurrentHashMap<>();
+    // TODO: IGNITE-17935 - remove partition from this map when partition is closed/destroyed
+    private final Map<PartitionKey, PartitionSnapshotsImpl> snapshotsByPartition = new ConcurrentHashMap<>();
+
+    private volatile ExecutorService executor;
 
     /**
      * Constructor.
@@ -65,21 +90,37 @@ public class OutgoingSnapshotsManager implements IgniteComponent {
 
     @Override
     public void start() {
-        messagingService.addMessageHandler(TableMessageGroup.class, this::messageHandler);
+        executor = new ThreadPoolExecutor(0, 4, 0L, TimeUnit.MILLISECONDS,
+                new LinkedBlockingQueue<>(), new NamedThreadFactory("outgoing-snapshots", LOG)
+        );
+
+        messagingService.addMessageHandler(TableMessageGroup.class, this::handleMessage);
     }
 
     @Override
     public void stop() throws Exception {
+        IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
     }
 
     /**
      * Registers an outgoing snapshot in the manager.
      *
-     * @param snapshotId Snapshot id.
+     * @param snapshotId       Snapshot id.
      * @param outgoingSnapshot Outgoing snapshot.
      */
-    void registerOutgoingSnapshot(UUID snapshotId, OutgoingSnapshot outgoingSnapshot) {
-        outgoingSnapshots.put(snapshotId, outgoingSnapshot);
+    @Override
+    public void registerOutgoingSnapshot(UUID snapshotId, OutgoingSnapshot outgoingSnapshot) {
+        snapshots.put(snapshotId, outgoingSnapshot);
+
+        PartitionSnapshotsImpl partitionSnapshots = getPartitionSnapshots(outgoingSnapshot.partitionKey());
+        partitionSnapshots.addUnderLock(outgoingSnapshot);
+    }
+
+    private PartitionSnapshotsImpl getPartitionSnapshots(PartitionKey partitionKey) {
+        return snapshotsByPartition.computeIfAbsent(
+                partitionKey,
+                key -> new PartitionSnapshotsImpl()
+        );
     }
 
     /**
@@ -87,11 +128,21 @@ public class OutgoingSnapshotsManager implements IgniteComponent {
      *
      * @param snapshotId Snapshot id.
      */
-    void finishOutgoingSnapshot(UUID snapshotId) {
-        outgoingSnapshots.remove(snapshotId);
+    @Override
+    public void unregisterOutgoingSnapshot(UUID snapshotId) {
+        OutgoingSnapshot removedSnapshot = snapshots.remove(snapshotId);
+
+        if (removedSnapshot != null) {
+            PartitionSnapshotsImpl partitionSnapshots = snapshotsByPartition.get(removedSnapshot.partitionKey());
+
+            assert partitionSnapshots != null : "Snapshot existed with ID=" + snapshotId
+                    + ", but nothing was found for its partition " + removedSnapshot.partitionKey();
+
+            partitionSnapshots.removeUnderLock(removedSnapshot);
+        }
     }
 
-    private void messageHandler(NetworkMessage networkMessage, NetworkAddress sender, @Nullable Long correlationId) {
+    private void handleMessage(NetworkMessage networkMessage, NetworkAddress sender, @Nullable Long correlationId) {
         // Ignore all messages that we can't handle.
         if (!(networkMessage instanceof SnapshotRequestMessage)) {
             return;
@@ -99,7 +150,7 @@ public class OutgoingSnapshotsManager implements IgniteComponent {
 
         assert correlationId != null;
 
-        OutgoingSnapshot outgoingSnapshot = outgoingSnapshots.get(((SnapshotRequestMessage) networkMessage).id());
+        OutgoingSnapshot outgoingSnapshot = snapshots.get(((SnapshotRequestMessage) networkMessage).id());
 
         if (outgoingSnapshot == null) {
             if (LOG.isWarnEnabled()) {
@@ -109,11 +160,17 @@ public class OutgoingSnapshotsManager implements IgniteComponent {
             return;
         }
 
-        CompletableFuture<? extends NetworkMessage> responseFuture = handleSnapshotRequestMessage(networkMessage, outgoingSnapshot);
-
-        if (responseFuture != null) {
-            responseFuture.whenComplete((response, throwable) -> respond(response, throwable, sender, correlationId));
-        }
+        CompletableFuture
+                .supplyAsync(() -> handleSnapshotRequestMessage(networkMessage, outgoingSnapshot), executor)
+                .thenAcceptAsync(responseFuture -> {
+                    if (responseFuture != null) {
+                        //TODO: IGNITE-17935 - whenComplete()? handle()? Should we analyze the first exception at all?
+                        responseFuture.whenCompleteAsync(
+                                (response, throwable) -> respond(response, throwable, sender, correlationId),
+                                executor
+                        );
+                    }
+                }, executor);
     }
 
     private static @Nullable CompletableFuture<? extends NetworkMessage> handleSnapshotRequestMessage(
@@ -141,8 +198,50 @@ public class OutgoingSnapshotsManager implements IgniteComponent {
             NetworkAddress sender,
             Long correlationId
     ) {
-        //TODO https://issues.apache.org/jira/browse/IGNITE-17262
+        //TODO https://issues.apache.org/jira/browse/IGNITE-17935
         // Handle offline sender and stopped manager.
         return messagingService.respond(sender, response, correlationId);
+    }
+
+    @Override
+    public PartitionSnapshots partitionSnapshots(PartitionKey partitionKey) {
+        return getPartitionSnapshots(partitionKey);
+    }
+
+    private static class PartitionSnapshotsImpl implements PartitionSnapshots {
+        private final List<OutgoingSnapshot> snapshots = new ArrayList<>();
+
+        private final ReadWriteLock lock = new ReentrantReadWriteLock();
+        private final ReusableLockLockup readLockLockup = new ReusableLockLockup(lock.readLock());
+
+        private void addUnderLock(OutgoingSnapshot snapshot) {
+            lock.writeLock().lock();
+
+            try {
+                snapshots.add(snapshot);
+            } finally {
+                lock.writeLock().unlock();
+            }
+        }
+
+        private void removeUnderLock(OutgoingSnapshot snapshot) {
+            lock.writeLock().lock();
+
+            try {
+                snapshots.remove(snapshot);
+            } finally {
+                lock.writeLock().unlock();
+            }
+        }
+
+        @Override
+        public AutoLockup acquireReadLock() {
+            return readLockLockup.acquireLock();
+        }
+
+        @Override
+        public List<OutgoingSnapshot> ongoingSnapshots() {
+            return unmodifiableList(snapshots);
+        }
     }
 }
