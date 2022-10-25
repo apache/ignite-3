@@ -158,6 +158,8 @@ public class PartitionAwarenessTests
         await AssertOpOnNode(async () => await recordView.InsertAsync(null, key), ClientOp.TupleInsert, expectedNode);
         await AssertOpOnNode(async () => await recordView.ReplaceAsync(null, key), ClientOp.TupleReplace, expectedNode);
         await AssertOpOnNode(async () => await recordView.ReplaceAsync(null, key, key), ClientOp.TupleReplaceExact, expectedNode);
+        await AssertOpOnNode(async () => await recordView.DeleteAsync(null, key), ClientOp.TupleDelete, expectedNode);
+        await AssertOpOnNode(async () => await recordView.DeleteExactAsync(null, key), ClientOp.TupleDeleteExact, expectedNode);
 
         // TODO: All ops, including multi-key
     }
