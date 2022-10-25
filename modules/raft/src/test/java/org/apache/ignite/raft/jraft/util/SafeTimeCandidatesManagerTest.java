@@ -19,6 +19,7 @@ package org.apache.ignite.raft.jraft.util;
 
 import java.time.Clock;
 import org.apache.ignite.hlc.HybridClock;
+import org.apache.ignite.hlc.HybridClockImpl;
 import org.apache.ignite.hlc.HybridTimestamp;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -47,7 +48,7 @@ public class SafeTimeCandidatesManagerTest {
     public void test() {
         clockMock = mockToEpochMilli(1);
 
-        HybridClock safeTimeClock = new HybridClock();
+        HybridClock safeTimeClock = new HybridClockImpl();
 
         SafeTimeCandidateManager safeTimeCandidateManager = new SafeTimeCandidateManager(safeTimeClock);
 

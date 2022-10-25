@@ -49,6 +49,7 @@ import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.hlc.HybridClock;
+import org.apache.ignite.hlc.HybridClockImpl;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
@@ -228,7 +229,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 nettyBootstrapFactory
         );
 
-        HybridClock hybridClock = new HybridClock();
+        HybridClock hybridClock = new HybridClockImpl();
 
         var raftMgr = new Loza(clusterSvc, raftConfiguration, dir, hybridClock);
 

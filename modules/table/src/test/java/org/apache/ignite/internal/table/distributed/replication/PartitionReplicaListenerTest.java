@@ -34,6 +34,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.hlc.HybridClock;
+import org.apache.ignite.hlc.HybridClockImpl;
 import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.hlc.TrackableHybridClock;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
@@ -96,7 +97,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     private static final ConcurrentHashMap<ByteBuffer, RowId> primaryIndex = new ConcurrentHashMap<>();
 
     /** Hybrid clock. */
-    private static final HybridClock clock = new HybridClock();
+    private static final HybridClock clock = new HybridClockImpl();
 
     /** The storage stores transaction states. */
     private static final TestConcurrentHashMapTxStateStorage txStateStorage = new TestConcurrentHashMapTxStateStorage();

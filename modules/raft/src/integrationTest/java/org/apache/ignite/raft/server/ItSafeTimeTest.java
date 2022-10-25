@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.hlc.HybridTimestamp;
+import org.apache.ignite.hlc.TestHybridClock;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.ReplicationGroupOptions;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
@@ -80,8 +81,8 @@ public class ItSafeTimeTest extends JraftAbstractTest {
      */
     private void startCluster() throws Exception {
         for (int i = 0; i < NODES; i++) {
-            HybridClock clock = new HybridClock(() -> 1L);
-            HybridClock safeTimeClock = new HybridClock(() -> 1L);
+            HybridClock clock = new TestHybridClock(() -> 1L);
+            HybridClock safeTimeClock = new TestHybridClock(() -> 1L);
 
             clocks.add(clock);
             safeTimeClocks.add(safeTimeClock);

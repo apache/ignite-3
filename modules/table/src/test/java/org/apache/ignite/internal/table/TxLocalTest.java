@@ -26,7 +26,7 @@ import static org.mockito.Mockito.when;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.hlc.HybridClock;
+import org.apache.ignite.hlc.HybridClockImpl;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
@@ -77,7 +77,7 @@ public class TxLocalTest extends TxAbstractTest {
             }
         ).when(replicaSvc).invoke(any(), any());
 
-        txManager = new TxManagerImpl(replicaSvc, lockManager, new HybridClock());
+        txManager = new TxManagerImpl(replicaSvc, lockManager, new HybridClockImpl());
 
         igniteTransactions = new IgniteTransactionsImpl(txManager);
 

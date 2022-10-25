@@ -45,7 +45,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-import org.apache.ignite.hlc.HybridClock;
+import org.apache.ignite.hlc.HybridClockImpl;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
@@ -120,7 +120,7 @@ public class ItLearnersTest extends IgniteAbstractTest {
 
             Path raftDir = workDir.resolve(clusterService.localConfiguration().getName());
 
-            loza = new Loza(clusterService, raftConfiguration, raftDir, new HybridClock());
+            loza = new Loza(clusterService, raftConfiguration, raftDir, new HybridClockImpl());
         }
 
         ClusterNode localMember() {

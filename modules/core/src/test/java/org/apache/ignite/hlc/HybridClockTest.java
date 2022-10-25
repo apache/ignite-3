@@ -48,7 +48,7 @@ class HybridClockTest {
     public void testNow() {
         clockMock = mockToEpochMilli(100);
 
-        HybridClock clock = new HybridClock();
+        HybridClock clock = new HybridClockImpl();
 
         assertTimestampEquals(100, new HybridTimestamp(100, 1), clock::now);
 
@@ -66,7 +66,7 @@ class HybridClockTest {
     public void testTick() {
         clockMock = mockToEpochMilli(100);
 
-        HybridClock clock = new HybridClock();
+        HybridClock clock = new HybridClockImpl();
 
         assertTimestampEquals(100, new HybridTimestamp(100, 1),
                 () -> clock.update(new HybridTimestamp(50, 1)));
@@ -97,7 +97,7 @@ class HybridClockTest {
     public void testSync() {
         clockMock = mockToEpochMilli(100);
 
-        HybridClock clock = new HybridClock();
+        HybridClock clock = new HybridClockImpl();
 
         assertTimestampEquals(100, new HybridTimestamp(100, 0),
                 () -> clock.sync(new HybridTimestamp(50, 1)));

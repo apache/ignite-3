@@ -19,6 +19,7 @@ package org.apache.ignite.raft.jraft.option;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import org.apache.ignite.hlc.HybridClock;
+import org.apache.ignite.hlc.HybridClockImpl;
 import org.apache.ignite.internal.raft.server.RaftGroupEventsListener;
 import org.apache.ignite.raft.jraft.JRaftServiceFactory;
 import org.apache.ignite.raft.jraft.StateMachine;
@@ -234,7 +235,7 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     private StripedDisruptor<LogManagerImpl.StableClosureEvent> logManagerDisruptor;
 
     /** A hybrid clock */
-    private HybridClock clock = new HybridClock();
+    private HybridClock clock = new HybridClockImpl();
 
     /** A hybrid clock for safe time. */
     private HybridClock safeTimeClock;

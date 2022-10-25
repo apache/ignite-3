@@ -29,7 +29,7 @@ import org.jetbrains.annotations.NotNull;
 /**
  * Hybrid clock that allows to wait for certain timestamp.
  */
-public class TrackableHybridClock extends HybridClock {
+public class TrackableHybridClock extends HybridClockImpl {
     /** Set of timestamp futures. */
     private final SortedSet<TimestampFuture> timestampFutures = new ConcurrentSkipListSet<>();
 

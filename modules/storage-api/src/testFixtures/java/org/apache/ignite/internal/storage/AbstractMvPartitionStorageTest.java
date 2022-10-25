@@ -42,6 +42,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.hlc.HybridClock;
+import org.apache.ignite.hlc.HybridClockImpl;
 import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.tx.Timestamp;
@@ -65,7 +66,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
     protected final UUID txId = newTransactionId();
 
     /** Hybrid clock to generate timestamps. */
-    protected final HybridClock clock = new HybridClock();
+    protected final HybridClock clock = new HybridClockImpl();
 
     protected final TestKey key = new TestKey(10, "foo");
     private final TestValue value = new TestValue(20, "bar");

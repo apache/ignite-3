@@ -41,6 +41,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.hlc.HybridClock;
+import org.apache.ignite.hlc.HybridClockImpl;
 import org.apache.ignite.hlc.TrackableHybridClock;
 import org.apache.ignite.internal.affinity.RendezvousAffinityFunction;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -217,7 +218,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
             assertTrue(waitForTopology(client, nodes + 1, 1000));
 
-            clientClock = new HybridClock();
+            clientClock = new HybridClockImpl();
 
             log.info("Replica manager has been started, node=[" + client.topologyService().localMember() + ']');
 
@@ -243,7 +244,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
         for (int i = 0; i < nodes; i++) {
             ClusterNode node = cluster.get(i).topologyService().localMember();
 
-            HybridClock clock = new HybridClock();
+            HybridClock clock = new HybridClockImpl();
 
             clocks.put(node, clock);
 
