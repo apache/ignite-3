@@ -134,6 +134,34 @@ public class PartitionAwarenessTests
             "Second request uses new assignment.");
     }
 
+    [Test]
+    public async Task TestAllRecordBinaryViewOperations()
+    {
+        // TODO
+        await Task.Delay(1);
+    }
+
+    [Test]
+    public async Task TestAllRecordViewOperations()
+    {
+        // TODO
+        await Task.Delay(1);
+    }
+
+    [Test]
+    public async Task TestAllKeyValueBinaryViewOperations()
+    {
+        // TODO
+        await Task.Delay(1);
+    }
+
+    [Test]
+    public async Task TestAllKeyValueViewOperations()
+    {
+        // TODO
+        await Task.Delay(1);
+    }
+
     private async Task<IIgniteClient> GetClient()
     {
         var cfg = new IgniteClientConfiguration
