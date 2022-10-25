@@ -21,7 +21,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_INSUFFICIENT_READ_WRITE_OPERATION;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_INSUFFICIENT_READ_WRITE_OPERATION_ERR;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
@@ -206,7 +206,7 @@ public class InternalTableImpl implements InternalTable {
         if (tx != null && tx.isReadOnly()) {
             return failedFuture(
                     new TransactionException(
-                            TX_INSUFFICIENT_READ_WRITE_OPERATION,
+                            TX_INSUFFICIENT_READ_WRITE_OPERATION_ERR,
                             "Failed to enlist read-write operation into read-only transaction txId={" + tx.id() + '}'
                     )
             );
@@ -269,7 +269,7 @@ public class InternalTableImpl implements InternalTable {
         if (tx != null && tx.isReadOnly()) {
             return failedFuture(
                     new TransactionException(
-                            TX_INSUFFICIENT_READ_WRITE_OPERATION,
+                            TX_INSUFFICIENT_READ_WRITE_OPERATION_ERR,
                             "Failed to enlist read-write operation into read-only transaction txId={" + tx.id() + '}'
                     )
             );
@@ -804,7 +804,7 @@ public class InternalTableImpl implements InternalTable {
         if (tx != null && tx.isReadOnly()) {
             throw new TransactionException(
                     new TransactionException(
-                            TX_INSUFFICIENT_READ_WRITE_OPERATION,
+                            TX_INSUFFICIENT_READ_WRITE_OPERATION_ERR,
                             "Failed to enlist read-write operation into read-only transaction txId={" + tx.id() + '}'
                     )
             );
@@ -1016,8 +1016,8 @@ public class InternalTableImpl implements InternalTable {
         RaftGroupService svc = partitionMap.get(partId);
         tx.assignCommitPartition(new TablePartitionId(tableId, partId));
 
-        // TODO: IGNITE-17256 Use a placement driver for getting a primary replica.
-        CompletableFuture<IgniteBiTuple<Peer, Long>> fut0 = svc.refreshAndGetLeaderWithTerm();
+            // TODO: IGNITE-17256 Use a placement driver for getting a primary replica.
+            CompletableFuture<IgniteBiTuple<Peer, Long>> fut0 = svc.refreshAndGetLeaderWithTerm();
 
         // TODO asch IGNITE-15091 fixme need to map to the same leaseholder.
         // TODO asch a leader race is possible when enlisting different keys from the same partition.

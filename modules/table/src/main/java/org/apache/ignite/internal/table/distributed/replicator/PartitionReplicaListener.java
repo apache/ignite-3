@@ -349,13 +349,14 @@ public class PartitionReplicaListener implements ReplicaListener {
         try (PartitionTimestampCursor scan = mvDataStorage.scan(readTimestamp)) {
             while (scan.hasNext()) {
                 ReadResult readResult = scan.next();
+                HybridTimestamp newestCommitTimestamp = readResult.newestCommitTimestamp();
+
                 if (readResult.binaryRow() == null) {
-                    HybridTimestamp newestCommitTimestamp = readResult.newestCommitTimestamp();
                     if (newestCommitTimestamp == null) {
                         throw new AssertionError("Unexpected null value of the newest committed timestamp.");
                     }
 
-                    BinaryRow candidate = scan.committed(readResult.newestCommitTimestamp());
+                    BinaryRow candidate = scan.committed(newestCommitTimestamp);
                     if (candidate == null) {
                         throw new AssertionError("Unexpected null value of the candidate binary row.");
                     }
@@ -365,7 +366,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                 resolveReadResult(
                                         readResult,
                                         readTimestamp,
-                                        () -> scan.committed(readResult.newestCommitTimestamp())
+                                        () -> scan.committed(newestCommitTimestamp)
                                 )
                         );
                     }
@@ -374,7 +375,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                             resolveReadResult(
                                     readResult,
                                     readTimestamp,
-                                    () -> scan.committed(readResult.newestCommitTimestamp())
+                                    () -> newestCommitTimestamp == null ? null : scan.committed(newestCommitTimestamp)
                             )
                     );
                 }
@@ -416,10 +417,10 @@ public class PartitionReplicaListener implements ReplicaListener {
         try (PartitionTimestampCursor scan = mvDataStorage.scan(readTimestamp)) {
             while (scan.hasNext()) {
                 ReadResult readResult = scan.next();
+                HybridTimestamp newestCommitTimestamp = readResult.newestCommitTimestamp();
 
                 for (ByteBuffer searchKey : keyRows) {
                     if (readResult.binaryRow() == null) {
-                        HybridTimestamp newestCommitTimestamp = readResult.newestCommitTimestamp();
                         if (newestCommitTimestamp == null) {
                             throw new AssertionError("Unexpected null value of the newest committed timestamp.");
                         }
@@ -443,7 +444,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                 resolveReadResult(
                                         readResult,
                                         readTimestamp,
-                                        () -> scan.committed(readResult.newestCommitTimestamp())
+                                        () -> newestCommitTimestamp == null ? null : scan.committed(readResult.newestCommitTimestamp())
                                 )
                         );
                     }
