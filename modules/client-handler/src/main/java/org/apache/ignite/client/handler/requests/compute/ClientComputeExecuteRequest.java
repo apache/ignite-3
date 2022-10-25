@@ -67,8 +67,7 @@ public class ClientComputeExecuteRequest {
      * @param in Unpacker.
      * @return Args array.
      */
-    @NotNull
-    public static Object[] unpackArgs(ClientMessageUnpacker in) {
+    static Object[] unpackArgs(ClientMessageUnpacker in) {
         return in.unpackObjectArrayFromBinaryTuple();
     }
 }
