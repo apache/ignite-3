@@ -23,7 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.tx.TxState;
-import org.apache.ignite.internal.tx.impl.TransactionImpl;
+import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
 import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -57,7 +57,7 @@ public class ItTxDistributedTestThreeNodesThreeReplicasCollocated extends ItTxDi
 
     @Test
     public void testTxStateReplication() {
-        TransactionImpl tx = (TransactionImpl) igniteTransactions.begin();
+        ReadWriteTransactionImpl tx = (ReadWriteTransactionImpl) igniteTransactions.begin();
 
         UUID txId = tx.id();
 
