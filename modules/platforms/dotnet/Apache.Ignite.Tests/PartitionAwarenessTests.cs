@@ -136,8 +136,8 @@ public class PartitionAwarenessTests
 
     [Test]
     [TestCase(1, 2)]
-    [TestCase(3, 1)]
     [TestCase(4, 2)]
+    [TestCase(3, 1)]
     [TestCase(5, 1)]
     public async Task TestAllRecordViewOperations(int key, int node)
     {
@@ -147,7 +147,7 @@ public class PartitionAwarenessTests
         // Warm up.
         await recordView.UpsertAsync(null, 1);
 
-        // Check.
+        // Single-key.
         var expectedNode = node == 1 ? _server1 : _server2;
 
         await AssertOpOnNode(() => recordView.GetAsync(null, key), ClientOp.TupleGet, expectedNode);
@@ -160,6 +160,10 @@ public class PartitionAwarenessTests
         await AssertOpOnNode(() => recordView.ReplaceAsync(null, key, key), ClientOp.TupleReplaceExact, expectedNode);
         await AssertOpOnNode(() => recordView.DeleteAsync(null, key), ClientOp.TupleDelete, expectedNode);
         await AssertOpOnNode(() => recordView.DeleteExactAsync(null, key), ClientOp.TupleDeleteExact, expectedNode);
+
+        // Multi-key operations use first key.
+        var keys = new[] { key, key - 1, key + 1 };
+        await AssertOpOnNode(() => recordView.GetAllAsync(null, keys), ClientOp.TupleGetAll, expectedNode);
     }
 
     [Test]

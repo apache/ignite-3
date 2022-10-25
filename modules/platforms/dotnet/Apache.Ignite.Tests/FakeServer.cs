@@ -405,6 +405,7 @@ namespace Apache.Ignite.Tests
                             continue;
 
                         case ClientOp.TupleGet:
+                        case ClientOp.TupleGetAll:
                         case ClientOp.TupleGetAndDelete:
                         case ClientOp.TupleGetAndReplace:
                         case ClientOp.TupleGetAndUpsert:
