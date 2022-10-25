@@ -118,7 +118,7 @@ namespace Apache.Ignite.Tests.Table.Serialization
 
         private static byte[] Write<T>(T obj, bool keyOnly = false)
         {
-            var handler = new ObjectSerializerHandler<T>();
+            IRecordSerializerHandler<T> handler = new ObjectSerializerHandler<T>();
 
             using var pooledWriter = new PooledArrayBufferWriter();
             var writer = pooledWriter.GetMessageWriter();

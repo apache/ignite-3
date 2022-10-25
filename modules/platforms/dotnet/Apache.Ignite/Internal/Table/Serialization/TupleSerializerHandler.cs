@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Internal.Table.Serialization
 {
+    using System;
     using Ignite.Table;
     using MessagePack;
     using Proto;
@@ -30,7 +31,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// <summary>
         /// Singleton instance.
         /// </summary>
-        public static readonly TupleSerializerHandler Instance = new();
+        public static readonly IRecordSerializerHandler<IIgniteTuple> Instance = new TupleSerializerHandler();
 
         /// <summary>
         /// Initializes a new instance of the <see cref="TupleSerializerHandler"/> class.
@@ -82,39 +83,21 @@ namespace Apache.Ignite.Internal.Table.Serialization
         }
 
         /// <inheritdoc/>
-        public int Write(ref MessagePackWriter writer, Schema schema, IIgniteTuple record, bool keyOnly = false, bool computeHash = false)
+        public void Write(ref BinaryTupleBuilder tupleBuilder, IIgniteTuple record, Schema schema, int columnCount, Span<byte> noValueSet)
         {
-            var columns = schema.Columns;
-            var count = keyOnly ? schema.KeyColumnCount : columns.Count;
-            var noValueSet = writer.WriteBitSet(count);
-
-            var tupleBuilder = new BinaryTupleBuilder(count, colocationHashPredicate: computeHash ? schema : null);
-
-            try
+            for (var index = 0; index < columnCount; index++)
             {
-                for (var index = 0; index < count; index++)
+                var col = schema.Columns[index];
+                var colIdx = record.GetOrdinal(col.Name);
+
+                if (colIdx >= 0)
                 {
-                    var col = columns[index];
-                    var colIdx = record.GetOrdinal(col.Name);
-
-                    if (colIdx >= 0)
-                    {
-                        tupleBuilder.AppendObject(record[colIdx], col.Type, col.Scale);
-                    }
-                    else
-                    {
-                        tupleBuilder.AppendNoValue(noValueSet);
-                    }
+                    tupleBuilder.AppendObject(record[colIdx], col.Type, col.Scale);
                 }
-
-                var binaryTupleMemory = tupleBuilder.Build();
-                writer.Write(binaryTupleMemory.Span);
-
-                return tupleBuilder.ColocationHash;
-            }
-            finally
-            {
-                tupleBuilder.Dispose();
+                else
+                {
+                    tupleBuilder.AppendNoValue(noValueSet);
+                }
             }
         }
     }

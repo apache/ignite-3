@@ -53,7 +53,7 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
 
         internal static readonly byte[] SerializedData = GetSerializedData();
 
-        internal static readonly ObjectSerializerHandler<Car> ObjectSerializerHandler = new();
+        internal static readonly IRecordSerializerHandler<Car> ObjectSerializerHandler = new ObjectSerializerHandler<Car>();
 
         protected Consumer Consumer { get; } = new();
 
