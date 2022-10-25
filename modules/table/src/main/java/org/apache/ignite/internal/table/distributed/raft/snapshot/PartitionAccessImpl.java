@@ -17,19 +17,13 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
-import org.apache.ignite.internal.storage.ReadResult;
-import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
-import org.apache.ignite.internal.util.Cursor;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * {@link PartitionAccess} implementation.
@@ -79,28 +73,6 @@ public class PartitionAccessImpl implements PartitionAccess {
         assert txStatePartitionStorage != null : "table=" + tableName() + ", part=" + partId();
 
         return txStatePartitionStorage;
-    }
-
-    @Override
-    public @Nullable RowId closestRowId(RowId lowerBound) {
-        return mvPartitionStorage().closestRowId(lowerBound);
-    }
-
-    @Override
-    public List<ReadResult> rowVersions(RowId rowId) {
-        try (Cursor<ReadResult> cursor = mvPartitionStorage().scanVersions(rowId)) {
-            List<ReadResult> versions = new ArrayList<>();
-
-            for (ReadResult version : cursor) {
-                versions.add(version);
-            }
-
-            return versions;
-        } catch (Exception e) {
-            // TODO: IGNITE-17935 - handle this
-
-            throw new RuntimeException(e);
-        }
     }
 
     @Override

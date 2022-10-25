@@ -17,15 +17,11 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot;
 
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
-import org.apache.ignite.internal.storage.ReadResult;
-import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Small abstractions for partition storages that includes only methods, mandatory for the snapshot storage.
@@ -45,24 +41,6 @@ public interface PartitionAccess {
      * Returns transaction state storage for the partition.
      */
     TxStateStorage txStatePartitionStorage();
-
-    /**
-     * Returns a row id, existing in the storage, that's greater or equal than the lower bound. {@code null} if not found.
-     *
-     * @param lowerBound Lower bound.
-     * @throws StorageException If failed to read data from the storage.
-     */
-    @Nullable
-    RowId closestRowId(RowId lowerBound);
-
-    /**
-     * Returns all versions of a row identified with the given {@link RowId}.
-     * The returned versions are in newest-to-oldest order.
-     *
-     * @param rowId Id of the row.
-     * @return All versions of the row.
-     */
-    List<ReadResult> rowVersions(RowId rowId);
 
     /**
      * Destroys and recreates the multi-versioned partition storage.

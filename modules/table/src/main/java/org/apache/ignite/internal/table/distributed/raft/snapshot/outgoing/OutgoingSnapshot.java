@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing;
 
+import static java.util.stream.Collectors.toList;
+
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.LinkedList;
@@ -221,11 +223,11 @@ public class OutgoingSnapshot {
         }
 
         if (!startedToReadPartition) {
-            lastRowId = partition.closestRowId(lastRowId);
+            lastRowId = partition.mvPartitionStorage().closestRowId(lastRowId);
 
             startedToReadPartition = true;
         } else {
-            lastRowId = partition.closestRowId(lastRowId.increment());
+            lastRowId = partition.mvPartitionStorage().closestRowId(lastRowId.increment());
         }
 
         if (!exhaustedPartition()) {
@@ -250,7 +252,7 @@ public class OutgoingSnapshot {
     }
 
     private SnapshotMvDataResponse.ResponseEntry rowEntry(RowId rowId) {
-        List<ReadResult> rowVersionsN2O = partition.rowVersions(rowId);
+        List<ReadResult> rowVersionsN2O = partition.mvPartitionStorage().scanVersions(rowId).stream().collect(toList());
 
         List<ByteBuffer> buffers = new ArrayList<>(rowVersionsN2O.size());
         List<HybridTimestamp> commitTimestamps = new ArrayList<>(rowVersionsN2O.size());
