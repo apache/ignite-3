@@ -372,7 +372,6 @@ namespace Apache.Ignite.Tests
                             writer.Flush();
 
                             Send(handler, requestId, arrayBufferWriter);
-
                             continue;
                         }
 
@@ -390,13 +389,17 @@ namespace Apache.Ignite.Tests
                             writer.Flush();
 
                             Send(handler, requestId, arrayBufferWriter);
-
                             continue;
                         }
 
                         case ClientOp.TupleUpsert:
                             Send(handler, requestId, ReadOnlyMemory<byte>.Empty);
+                            continue;
 
+                        case ClientOp.TupleInsert:
+                        case ClientOp.TupleReplace:
+                        case ClientOp.TupleReplaceExact:
+                            Send(handler, requestId, new[] { MessagePackCode.True }.AsMemory());
                             continue;
 
                         case ClientOp.TupleGet:
@@ -404,12 +407,10 @@ namespace Apache.Ignite.Tests
                         case ClientOp.TupleGetAndReplace:
                         case ClientOp.TupleGetAndUpsert:
                             Send(handler, requestId, new[] { MessagePackCode.Nil }.AsMemory());
-
                             continue;
 
                         case ClientOp.TxBegin:
                             Send(handler, requestId, new byte[] { 0 }.AsMemory());
-
                             continue;
 
                         case ClientOp.ComputeExecute:
@@ -420,7 +421,6 @@ namespace Apache.Ignite.Tests
                             writer.Flush();
 
                             Send(handler, requestId, arrayBufferWriter);
-
                             continue;
                         }
 
