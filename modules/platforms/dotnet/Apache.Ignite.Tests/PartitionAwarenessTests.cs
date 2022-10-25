@@ -19,6 +19,7 @@ namespace Apache.Ignite.Tests;
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Internal.Proto;
 using NUnit.Framework;
@@ -26,7 +27,6 @@ using NUnit.Framework;
 /// <summary>
 /// Tests partition awareness.
 /// TODO:
-/// * testClientReceivesPartitionAssignmentUpdates
 /// * testCustomColocationKey
 /// * testCompositeKey
 /// * testAllOperations (KV, Record)
@@ -105,24 +105,30 @@ public class PartitionAwarenessTests
         var recordView = (await client.Tables.GetTableAsync(FakeServer.ExistingTableName))!.GetRecordView<int>();
         var (defaultServer, secondaryServer) = GetServerPair();
 
-        // Default assignment.
+        // Check default assignment.
         await recordView.UpsertAsync(null, 1);
-
         CollectionAssert.IsEmpty(secondaryServer.ClientOps);
 
-        // Updated assignment.
-        foreach (var server in GetServers())
+        // Update assignment.
+        foreach (var server in new[] { defaultServer, secondaryServer })
         {
             server.ClearOps();
-            Array.Reverse(server.PartitionAssignment);
+            server.PartitionAssignment = server.PartitionAssignment.Reverse().ToArray();
             server.PartitionAssignmentChanged = true;
         }
 
         await recordView.UpsertAsync(null, 1);
         await recordView.UpsertAsync(null, 1);
 
-        Assert.AreEqual(new[] { ClientOp.TupleUpsert }, defaultServer.ClientOps);
-        Assert.AreEqual(new[] { ClientOp.TupleUpsert }, secondaryServer.ClientOps);
+        Assert.AreEqual(
+            new[] { ClientOp.PartitionAssignmentGet, ClientOp.TupleUpsert },
+            defaultServer.ClientOps,
+            "First request uses old assignment and receives update flag.");
+
+        Assert.AreEqual(
+            new[] { ClientOp.TupleUpsert },
+            secondaryServer.ClientOps,
+            "Second request uses new assignment.");
     }
 
     private async Task<IIgniteClient> GetClient()
@@ -143,12 +149,6 @@ public class PartitionAwarenessTests
     {
         _server1.ClearOps();
         _server2.ClearOps();
-    }
-
-    private IEnumerable<FakeServer> GetServers()
-    {
-        yield return _server1;
-        yield return _server2;
     }
 
     private (FakeServer Default, FakeServer Secondary) GetServerPair()
