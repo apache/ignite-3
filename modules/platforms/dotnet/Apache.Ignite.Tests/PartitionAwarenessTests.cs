@@ -38,8 +38,8 @@ public class PartitionAwarenessTests
     private FakeServer _server1 = null!;
     private FakeServer _server2 = null!;
 
-    [OneTimeSetUp]
-    public void OneTimeSetUp()
+    [SetUp]
+    public void SetUp()
     {
         _server1 = new FakeServer(nodeName: "srv1");
         _server2 = new FakeServer(nodeName: "srv2");
@@ -49,18 +49,11 @@ public class PartitionAwarenessTests
         _server2.PartitionAssignment = assignment;
     }
 
-    [OneTimeTearDown]
-    public void OneTimeTearDown()
+    [TearDown]
+    public void TearDown()
     {
         _server1.Dispose();
         _server2.Dispose();
-    }
-
-    [TearDown]
-    public void ClearOps()
-    {
-        _server1.ClearOps();
-        _server2.ClearOps();
     }
 
     [Test]
@@ -90,7 +83,7 @@ public class PartitionAwarenessTests
     {
         using var client = await GetClient();
         var recordView = (await client.Tables.GetTableAsync(FakeServer.ExistingTableName))!.GetRecordView<int>();
-        await using var tx = await client.Transactions.BeginAsync();
+        var tx = await client.Transactions.BeginAsync();
 
         // Second server.
         await recordView.UpsertAsync(tx, 1);
@@ -114,5 +107,11 @@ public class PartitionAwarenessTests
         };
 
         return await IgniteClient.StartAsync(cfg);
+    }
+
+    private void ClearOps()
+    {
+        _server1.ClearOps();
+        _server2.ClearOps();
     }
 }
