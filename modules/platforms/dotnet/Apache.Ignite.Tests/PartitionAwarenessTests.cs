@@ -20,6 +20,7 @@ namespace Apache.Ignite.Tests;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using Ignite.Table;
 using Internal.Proto;
 using NUnit.Framework;
 
@@ -33,6 +34,19 @@ using NUnit.Framework;
 /// </summary>
 public class PartitionAwarenessTests
 {
+    private static readonly object[] KeyNodeCases =
+    {
+        new object[] { 3, 1 },
+        new object[] { 5, 1 },
+        new object[] { 8, 1 },
+        new object[] { 1, 2 },
+        new object[] { 4, 2 },
+        new object[] { 0, 2 },
+        new object[] { int.MaxValue, 2 },
+        new object[] { int.MaxValue - 1, 1 },
+        new object[] { int.MinValue, 2 }
+    };
+
     private FakeServer _server1 = null!;
     private FakeServer _server2 = null!;
 
@@ -128,23 +142,47 @@ public class PartitionAwarenessTests
     }
 
     [Test]
-    public async Task TestAllRecordBinaryViewOperations()
+    [TestCaseSource(nameof(KeyNodeCases))]
+    public async Task TestAllRecordBinaryViewOperations(int keyId, int node)
     {
-        // TODO
-        await Task.Delay(1);
+        using var client = await GetClient();
+        var recordView = (await client.Tables.GetTableAsync(FakeServer.ExistingTableName))!.RecordBinaryView;
+
+        // Warm up (retrieve assignment).
+        var key = new IgniteTuple { ["ID"] = keyId };
+        await recordView.UpsertAsync(null, key);
+
+        // Single-key operations.
+        var expectedNode = node == 1 ? _server1 : _server2;
+
+        await AssertOpOnNode(() => recordView.GetAsync(null, key), ClientOp.TupleGet, expectedNode);
+        await AssertOpOnNode(() => recordView.GetAndDeleteAsync(null, key), ClientOp.TupleGetAndDelete, expectedNode);
+        await AssertOpOnNode(() => recordView.GetAndReplaceAsync(null, key), ClientOp.TupleGetAndReplace, expectedNode);
+        await AssertOpOnNode(() => recordView.GetAndUpsertAsync(null, key), ClientOp.TupleGetAndUpsert, expectedNode);
+        await AssertOpOnNode(() => recordView.UpsertAsync(null, key), ClientOp.TupleUpsert, expectedNode);
+        await AssertOpOnNode(() => recordView.InsertAsync(null, key), ClientOp.TupleInsert, expectedNode);
+        await AssertOpOnNode(() => recordView.ReplaceAsync(null, key), ClientOp.TupleReplace, expectedNode);
+        await AssertOpOnNode(() => recordView.ReplaceAsync(null, key, key), ClientOp.TupleReplaceExact, expectedNode);
+        await AssertOpOnNode(() => recordView.DeleteAsync(null, key), ClientOp.TupleDelete, expectedNode);
+        await AssertOpOnNode(() => recordView.DeleteExactAsync(null, key), ClientOp.TupleDeleteExact, expectedNode);
+
+        // Multi-key operations use the first key for colocation.
+        var keys = new[] { key, new IgniteTuple { ["ID"] = keyId - 1 }, new IgniteTuple { ["ID"] = keyId + 1 } };
+        await AssertOpOnNode(() => recordView.GetAllAsync(null, keys), ClientOp.TupleGetAll, expectedNode);
+        await AssertOpOnNode(() => recordView.InsertAllAsync(null, keys), ClientOp.TupleInsertAll, expectedNode);
+        await AssertOpOnNode(() => recordView.UpsertAllAsync(null, keys), ClientOp.TupleUpsertAll, expectedNode);
+        await AssertOpOnNode(() => recordView.DeleteAllAsync(null, keys), ClientOp.TupleDeleteAll, expectedNode);
+        await AssertOpOnNode(() => recordView.DeleteAllExactAsync(null, keys), ClientOp.TupleDeleteAllExact, expectedNode);
     }
 
     [Test]
-    [TestCase(1, 2)]
-    [TestCase(4, 2)]
-    [TestCase(3, 1)]
-    [TestCase(5, 1)]
+    [TestCaseSource(nameof(KeyNodeCases))]
     public async Task TestAllRecordViewOperations(int key, int node)
     {
         using var client = await GetClient();
         var recordView = (await client.Tables.GetTableAsync(FakeServer.ExistingTableName))!.GetRecordView<int>();
 
-        // Warm up.
+        // Warm up (retrieve assignment).
         await recordView.UpsertAsync(null, 1);
 
         // Single-key operations.
