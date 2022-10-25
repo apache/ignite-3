@@ -77,6 +77,8 @@ namespace Apache.Ignite.Tests
 
         public string[] PartitionAssignment { get; set; }
 
+        public bool PartitionAssignmentChanged { get; set; }
+
         public int Port => ((IPEndPoint)_listener.LocalEndPoint!).Port;
 
         internal IList<ClientOp> ClientOps => _ops?.ToList() ?? throw new Exception("Ops tracking is disabled");
@@ -127,17 +129,17 @@ namespace Apache.Ignite.Tests
             return new PooledBuffer(buf, 0, size);
         }
 
-        private static void Send(Socket socket, long requestId, PooledArrayBufferWriter writer, bool isError = false)
+        private void Send(Socket socket, long requestId, PooledArrayBufferWriter writer, bool isError = false)
             => Send(socket, requestId, writer.GetWrittenMemory(), isError);
 
-        private static void Send(Socket socket, long requestId, ReadOnlyMemory<byte> payload, bool isError = false)
+        private void Send(Socket socket, long requestId, ReadOnlyMemory<byte> payload, bool isError = false)
         {
             using var header = new PooledArrayBufferWriter();
             var writer = new MessagePackWriter(header);
 
             writer.Write(0); // Message type.
             writer.Write(requestId);
-            writer.Write(0); // Flags.
+            writer.Write(PartitionAssignmentChanged ? (int)ResponseFlags.PartitionAssignmentChanged : 0);
 
             if (!isError)
             {
@@ -158,7 +160,7 @@ namespace Apache.Ignite.Tests
             }
         }
 
-        private static void SqlCursorNextPage(Socket handler, long requestId)
+        private void SqlCursorNextPage(Socket handler, long requestId)
         {
             using var arrayBufferWriter = new PooledArrayBufferWriter();
             var writer = new MessagePackWriter(arrayBufferWriter);
@@ -177,7 +179,7 @@ namespace Apache.Ignite.Tests
             Send(handler, requestId, arrayBufferWriter);
         }
 
-        private static void SqlExec(Socket handler, long requestId, MessagePackReader reader)
+        private void SqlExec(Socket handler, long requestId, MessagePackReader reader)
         {
             var props = new Dictionary<string, object?>();
 

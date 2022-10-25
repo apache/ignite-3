@@ -17,6 +17,8 @@
 
 namespace Apache.Ignite.Tests;
 
+using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Internal.Proto;
 using NUnit.Framework;
@@ -58,7 +60,7 @@ public class PartitionAwarenessTests
     {
         using var client = await GetClient();
         var recordView = (await client.Tables.GetTableAsync(FakeServer.ExistingTableName))!.GetRecordView<int>();
-        var (defaultServer, secondaryServer) = GetServers();
+        var (defaultServer, secondaryServer) = GetServerPair();
 
         // Default server.
         await recordView.UpsertAsync(null, 1);
@@ -83,7 +85,7 @@ public class PartitionAwarenessTests
         using var client = await GetClient();
         var recordView = (await client.Tables.GetTableAsync(FakeServer.ExistingTableName))!.GetRecordView<int>();
         var tx = await client.Transactions.BeginAsync();
-        var (defaultServer, secondaryServer) = GetServers();
+        var (defaultServer, secondaryServer) = GetServerPair();
 
         // Second server.
         await recordView.UpsertAsync(tx, 1);
@@ -94,6 +96,33 @@ public class PartitionAwarenessTests
             defaultServer.ClientOps);
 
         CollectionAssert.IsEmpty(secondaryServer.ClientOps);
+    }
+
+    [Test]
+    public async Task TestClientReceivesPartitionAssignmentUpdates()
+    {
+        using var client = await GetClient();
+        var recordView = (await client.Tables.GetTableAsync(FakeServer.ExistingTableName))!.GetRecordView<int>();
+        var (defaultServer, secondaryServer) = GetServerPair();
+
+        // Default assignment.
+        await recordView.UpsertAsync(null, 1);
+
+        CollectionAssert.IsEmpty(secondaryServer.ClientOps);
+
+        // Updated assignment.
+        foreach (var server in GetServers())
+        {
+            server.ClearOps();
+            Array.Reverse(server.PartitionAssignment);
+            server.PartitionAssignmentChanged = true;
+        }
+
+        await recordView.UpsertAsync(null, 1);
+        await recordView.UpsertAsync(null, 1);
+
+        Assert.AreEqual(new[] { ClientOp.TupleUpsert }, defaultServer.ClientOps);
+        Assert.AreEqual(new[] { ClientOp.TupleUpsert }, secondaryServer.ClientOps);
     }
 
     private async Task<IIgniteClient> GetClient()
@@ -116,7 +145,13 @@ public class PartitionAwarenessTests
         _server2.ClearOps();
     }
 
-    private (FakeServer Default, FakeServer Secondary) GetServers()
+    private IEnumerable<FakeServer> GetServers()
+    {
+        yield return _server1;
+        yield return _server2;
+    }
+
+    private (FakeServer Default, FakeServer Secondary) GetServerPair()
     {
         // Any server can be primary due to round-robin balancing in ClientFailoverSocket.
         return _server1.ClientOps.Count > 0 ? (_server1, _server2) : (_server2, _server1);
