@@ -147,7 +147,7 @@ public class PartitionAwarenessTests
         // Warm up.
         await recordView.UpsertAsync(null, 1);
 
-        // Single-key.
+        // Single-key operations.
         var expectedNode = node == 1 ? _server1 : _server2;
 
         await AssertOpOnNode(() => recordView.GetAsync(null, key), ClientOp.TupleGet, expectedNode);
@@ -161,9 +161,13 @@ public class PartitionAwarenessTests
         await AssertOpOnNode(() => recordView.DeleteAsync(null, key), ClientOp.TupleDelete, expectedNode);
         await AssertOpOnNode(() => recordView.DeleteExactAsync(null, key), ClientOp.TupleDeleteExact, expectedNode);
 
-        // Multi-key operations use first key.
+        // Multi-key operations use the first key for colocation.
         var keys = new[] { key, key - 1, key + 1 };
         await AssertOpOnNode(() => recordView.GetAllAsync(null, keys), ClientOp.TupleGetAll, expectedNode);
+        await AssertOpOnNode(() => recordView.InsertAllAsync(null, keys), ClientOp.TupleInsertAll, expectedNode);
+        await AssertOpOnNode(() => recordView.UpsertAllAsync(null, keys), ClientOp.TupleUpsertAll, expectedNode);
+        await AssertOpOnNode(() => recordView.DeleteAllAsync(null, keys), ClientOp.TupleDeleteAll, expectedNode);
+        await AssertOpOnNode(() => recordView.DeleteAllExactAsync(null, keys), ClientOp.TupleDeleteAllExact, expectedNode);
     }
 
     [Test]
