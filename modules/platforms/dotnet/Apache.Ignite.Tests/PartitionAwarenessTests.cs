@@ -202,10 +202,40 @@ public class PartitionAwarenessTests
     }
 
     [Test]
-    public async Task TestAllKeyValueBinaryViewOperations()
+    [TestCaseSource(nameof(KeyNodeCases))]
+    public async Task TestAllKeyValueBinaryViewOperations(int keyId, int node)
     {
-        // TODO
-        await Task.Delay(1);
+        using var client = await GetClient();
+        var kvView = (await client.Tables.GetTableAsync(FakeServer.ExistingTableName))!.KeyValueBinaryView;
+
+        // Warm up (retrieve assignment).
+        var key = new IgniteTuple { ["ID"] = keyId };
+        var val = new IgniteTuple { ["VAL"] = 0 };
+        await kvView.PutAsync(null, key, val);
+
+        // Single-key operations.
+        var expectedNode = node == 1 ? _server1 : _server2;
+
+        await AssertOpOnNode(() => kvView.GetAsync(null, key), ClientOp.TupleGet, expectedNode);
+        await AssertOpOnNode(() => kvView.GetAndRemoveAsync(null, key), ClientOp.TupleGetAndDelete, expectedNode);
+        await AssertOpOnNode(() => kvView.GetAndReplaceAsync(null, key, val), ClientOp.TupleGetAndReplace, expectedNode);
+        await AssertOpOnNode(() => kvView.GetAndPutAsync(null, key, val), ClientOp.TupleGetAndUpsert, expectedNode);
+        await AssertOpOnNode(() => kvView.PutAsync(null, key, val), ClientOp.TupleUpsert, expectedNode);
+        await AssertOpOnNode(() => kvView.PutIfAbsentAsync(null, key, val), ClientOp.TupleInsert, expectedNode);
+        await AssertOpOnNode(() => kvView.ReplaceAsync(null, key, val), ClientOp.TupleReplace, expectedNode);
+        await AssertOpOnNode(() => kvView.ReplaceAsync(null, key, val, val), ClientOp.TupleReplaceExact, expectedNode);
+        await AssertOpOnNode(() => kvView.RemoveAsync(null, key), ClientOp.TupleDelete, expectedNode);
+        await AssertOpOnNode(() => kvView.RemoveAsync(null, key, val), ClientOp.TupleDeleteExact, expectedNode);
+        await AssertOpOnNode(() => kvView.ContainsAsync(null, key), ClientOp.TupleContainsKey, expectedNode);
+
+        // Multi-key operations use the first key for colocation.
+        var keys = new[] { key, new IgniteTuple { ["ID"] = keyId - 1 }, new IgniteTuple { ["ID"] = keyId + 1 } };
+        var pairs = keys.ToDictionary(x => (IIgniteTuple)x, _ => (IIgniteTuple)val);
+
+        await AssertOpOnNode(() => kvView.GetAllAsync(null, keys), ClientOp.TupleGetAll, expectedNode);
+        await AssertOpOnNode(() => kvView.PutAllAsync(null, pairs), ClientOp.TupleUpsertAll, expectedNode);
+        await AssertOpOnNode(() => kvView.RemoveAllAsync(null, keys), ClientOp.TupleDeleteAll, expectedNode);
+        await AssertOpOnNode(() => kvView.RemoveAllAsync(null, pairs), ClientOp.TupleDeleteAllExact, expectedNode);
     }
 
     [Test]
