@@ -46,7 +46,7 @@ public class TestConcurrentHashMapTxStateTableStorage implements TxStateTableSto
 
     /** {@inheritDoc} */
     @Override public CompletableFuture<Void> destroyTxStateStorage(int partitionId) throws StorageException {
-        TxStateStorage storage = storages.replace(partitionId, null);
+        TxStateStorage storage = storages.remove(partitionId);
 
         if (storage != null) {
             storage.destroy();

@@ -106,8 +106,6 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     /** {@inheritDoc} */
     @Override
     public void lastAppliedIndex(long lastAppliedIndex) throws StorageException {
-        assert lastAppliedIndex > this.lastAppliedIndex : "current=" + this.lastAppliedIndex + ", new=" + lastAppliedIndex;
-
         this.lastAppliedIndex = lastAppliedIndex;
     }
 

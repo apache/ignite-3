@@ -68,7 +68,7 @@ public class PartitionAccessImpl implements PartitionAccess {
 
     @Override
     public TxStateStorage txStatePartitionStorage() {
-        TxStateStorage txStatePartitionStorage = txStateTableStorage.getOrCreateTxStateStorage(partId);
+        TxStateStorage txStatePartitionStorage = txStateTableStorage.getTxStateStorage(partId);
 
         assert txStatePartitionStorage != null : "table=" + tableName() + ", part=" + partId;
 

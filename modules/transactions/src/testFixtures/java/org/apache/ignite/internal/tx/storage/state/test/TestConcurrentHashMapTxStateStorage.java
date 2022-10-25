@@ -108,8 +108,6 @@ public class TestConcurrentHashMapTxStateStorage implements TxStateStorage {
 
     @Override
     public void lastAppliedIndex(long lastAppliedIndex) {
-        assert lastAppliedIndex > this.lastAppliedIndex : "current=" + this.lastAppliedIndex + ", new=" + lastAppliedIndex;
-
         this.lastAppliedIndex = lastAppliedIndex;
     }
 
