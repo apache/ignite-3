@@ -15,21 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.raft.snapshot.message;
-
-import org.apache.ignite.internal.table.distributed.TableMessageGroup;
-import org.apache.ignite.network.annotations.Transferable;
+package org.apache.ignite.internal.lock;
 
 /**
- * Snapshot partition data request message.
+ * Represents a lockup (this is an aquisition and owning of a lock like {@link java.util.concurrent.locks.Lock})
+ * that plays nicely with try-with-resources clause. The underlying lock will be acquired on creation (or obtaining)
+ * a lockup, and the lock will be released when {@link AutoLockup#close()} method is called.
  */
-@Transferable(TableMessageGroup.SNAPSHOT_MV_DATA_REQUEST)
-public interface SnapshotMvDataRequest extends SnapshotRequestMessage {
+@FunctionalInterface
+public interface AutoLockup extends AutoCloseable {
     /**
-     * How many bytes the receiver is willing to receive. This corresponds to the sum of byte representations of row
-     * versions, so the overall size of the message might exceed the hint (due to metadata and other fields of row versions).
-     *
-     * @return Batch size hint.
+     * Releases the underlying lock.
+     * Does not declare any thrown exception to facilitate usage in try-with-resources clauses.
      */
-    long batchSizeHint();
+    @Override
+    void close();
 }
