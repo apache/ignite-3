@@ -399,6 +399,14 @@ namespace Apache.Ignite.Tests
 
                             continue;
 
+                        case ClientOp.TupleGet:
+                        case ClientOp.TupleGetAndDelete:
+                        case ClientOp.TupleGetAndReplace:
+                        case ClientOp.TupleGetAndUpsert:
+                            Send(handler, requestId, new[] { MessagePackCode.Nil }.AsMemory());
+
+                            continue;
+
                         case ClientOp.TxBegin:
                             Send(handler, requestId, new byte[] { 0 }.AsMemory());
 
