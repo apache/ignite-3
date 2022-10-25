@@ -336,7 +336,7 @@ public class InternalTableImpl implements InternalTable {
      * @param batchSize Size of batch.
      * @return Batch of retrieved rows.
      */
-    private CompletableFuture<Collection<BinaryRow>> enlistCursorInTx(
+    protected CompletableFuture<Collection<BinaryRow>> enlistCursorInTx(
             @NotNull InternalTransaction tx,
             int partId,
             long scanId,
@@ -1185,7 +1185,7 @@ public class InternalTableImpl implements InternalTable {
                     if (binaryRows.size() < n) {
                         cancel();
                     } else if (requestedItemsCnt.addAndGet(Math.negateExact(binaryRows.size())) > 0) {
-                        scanBatch(INTERNAL_BATCH_SIZE);
+                        scanBatch(Math.min(n, INTERNAL_BATCH_SIZE));
                     }
                 }).exceptionally(t -> {
                     cancel(t);

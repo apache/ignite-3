@@ -31,6 +31,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import javax.naming.OperationNotSupportedException;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.distributed.TestPartitionDataStorage;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
@@ -220,7 +221,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         );
 
         partitionListener = new PartitionListener(
-                mvPartStorage,
+                new TestPartitionDataStorage(mvPartStorage),
                 new TestConcurrentHashMapTxStateStorage(),
                 this.txManager,
                 primaryIndex
