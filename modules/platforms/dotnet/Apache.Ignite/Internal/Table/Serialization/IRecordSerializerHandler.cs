@@ -53,15 +53,15 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// <param name="schema">Schema.</param>
         /// <param name="record">Record.</param>
         /// <param name="keyOnly">Key only mode.</param>
-        /// <param name="computeHash">Whether to compute the colocation hash while writing the tuple.</param>
-        /// <returns>Colocation hash when <paramref name="computeHash"/> is <c>true</c>; 0 otherwise.</returns>
+        /// <param name="computeHash">Whether to compute key hash while writing the tuple.</param>
+        /// <returns>Key hash when <paramref name="computeHash"/> is <c>true</c>; 0 otherwise.</returns>
         int Write(ref MessagePackWriter writer, Schema schema, T record, bool keyOnly = false, bool computeHash = false)
         {
             var columns = schema.Columns;
             var count = keyOnly ? schema.KeyColumnCount : columns.Count;
             var noValueSet = writer.WriteBitSet(count);
 
-            var tupleBuilder = new BinaryTupleBuilder(count, colocationHashPredicate: computeHash ? schema : null);
+            var tupleBuilder = new BinaryTupleBuilder(count, hashedColumnsPredicate: computeHash ? schema : null);
 
             try
             {
@@ -70,7 +70,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 var binaryTupleMemory = tupleBuilder.Build();
                 writer.Write(binaryTupleMemory.Span);
 
-                return tupleBuilder.ColocationHash;
+                return tupleBuilder.Hash;
             }
             finally
             {

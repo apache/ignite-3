@@ -18,14 +18,14 @@
 namespace Apache.Ignite.Internal.Proto.BinaryTuple;
 
 /// <summary>
-/// Provides a value indicating whether the column at specified index is a colocation column.
+/// Provides a value indicating whether the column at specified index should be included in the hash.
 /// </summary>
-internal interface IColocationColumnIndexProvider
+internal interface IHashedColumnIndexProvider
 {
     /// <summary>
-    /// Gets a value indicating whether the column at specified index is a colocation column.
+    /// Gets a value indicating whether the value of a column at specified index should be hashed.
     /// </summary>
     /// <param name="index">Column index.</param>
-    /// <returns>True when colocation column; false otherwise.</returns>
-    bool IsColocationColumnIndex(int index);
+    /// <returns>True when hashed column; false otherwise.</returns>
+    bool IsHashedColumnIndex(int index);
 }

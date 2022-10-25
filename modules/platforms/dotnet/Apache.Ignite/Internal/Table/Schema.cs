@@ -29,7 +29,7 @@ namespace Apache.Ignite.Internal.Table
     internal sealed record Schema(
         int Version,
         int KeyColumnCount,
-        IReadOnlyList<Column> Columns) : IColocationColumnIndexProvider
+        IReadOnlyList<Column> Columns) : IHashedColumnIndexProvider
     {
         /// <summary>
         /// Gets the value column count.
@@ -37,6 +37,6 @@ namespace Apache.Ignite.Internal.Table
         public int ValueColumnCount => Columns.Count - KeyColumnCount;
 
         /// <inheritdoc/>
-        public bool IsColocationColumnIndex(int index) => index < KeyColumnCount && Columns[index].IsColocation;
+        public bool IsHashedColumnIndex(int index) => index < KeyColumnCount && Columns[index].IsColocation;
     }
 }
