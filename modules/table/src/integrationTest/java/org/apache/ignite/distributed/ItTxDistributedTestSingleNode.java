@@ -704,7 +704,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
         tx.commit();
 
         Collection<Tuple> retrievedKeys2 = accounts.recordView().getAll(readOnlyTx, List.of(makeKey(1), makeKey(2)));
-        validateBalance(retrievedKeys2,100., 300.);
+        validateBalance(retrievedKeys2, 100., 300.);
 
         Transaction readOnlyTx2 = igniteTransactions.readOnly().begin();
         Collection<Tuple> retrievedKeys3 = accounts.recordView().getAll(readOnlyTx2, List.of(makeKey(1), makeKey(2)));

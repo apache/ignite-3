@@ -462,8 +462,9 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<BinaryRow> get(BinaryRowEx keyRow, InternalTransaction tx) {
-        if (tx.isReadOnly()) {
-            return evaluateReadOnlyRecipientNode(partId(keyRow)).thenCompose(recipientNode -> get(keyRow, tx.readTimestamp(), recipientNode));
+        if (tx != null && tx.isReadOnly()) {
+            return evaluateReadOnlyRecipientNode(partId(keyRow))
+                    .thenCompose(recipientNode -> get(keyRow, tx.readTimestamp(), recipientNode));
         } else {
             return enlistInTx(
                     keyRow,
@@ -502,14 +503,14 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Collection<BinaryRow>> getAll(Collection<BinaryRowEx> keyRows, InternalTransaction tx) {
-        if (tx.isReadOnly()) {
+        if (tx != null && tx.isReadOnly()) {
             BinaryRowEx firstRow = keyRows.iterator().next();
 
             if (firstRow == null) {
                 return CompletableFuture.completedFuture(Collections.emptyList());
             } else {
-                return evaluateReadOnlyRecipientNode(partId(firstRow)).
-                        thenCompose(recipientNode -> getAll(keyRows, tx.readTimestamp(), recipientNode));
+                return evaluateReadOnlyRecipientNode(partId(firstRow))
+                        .thenCompose(recipientNode -> getAll(keyRows, tx.readTimestamp(), recipientNode));
             }
         } else {
             return enlistInTx(
