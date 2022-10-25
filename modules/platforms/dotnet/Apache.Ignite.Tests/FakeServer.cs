@@ -326,107 +326,101 @@ namespace Apache.Ignite.Tests
 
                     _ops?.Enqueue(opCode);
 
-                    if (opCode == ClientOp.TablesGet)
+                    switch (opCode)
                     {
-                        // Empty map.
-                        Send(handler, requestId, new byte[] { 128 }.AsMemory());
+                        case ClientOp.TablesGet:
+                            // Empty map.
+                            Send(handler, requestId, new byte[] { 128 }.AsMemory());
+                            continue;
 
-                        continue;
-                    }
+                        case ClientOp.TableGet:
+                        {
+                            var tableName = reader.ReadString();
 
-                    if (opCode == ClientOp.TableGet)
-                    {
-                        var tableName = reader.ReadString();
+                            if (tableName == ExistingTableName)
+                            {
+                                using var arrayBufferWriter = new PooledArrayBufferWriter();
+                                var writer = new MessagePackWriter(arrayBufferWriter);
+                                writer.Write(Guid.Empty);
+                                writer.Flush();
 
-                        if (tableName == ExistingTableName)
+                                Send(handler, requestId, arrayBufferWriter);
+
+                                continue;
+                            }
+
+                            break;
+                        }
+
+                        case ClientOp.SchemasGet:
                         {
                             using var arrayBufferWriter = new PooledArrayBufferWriter();
                             var writer = new MessagePackWriter(arrayBufferWriter);
-                            writer.Write(Guid.Empty);
+                            writer.WriteMapHeader(1);
+                            writer.Write(1); // Version.
+                            writer.WriteArrayHeader(1); // Columns.
+                            writer.WriteArrayHeader(6); // Column props.
+                            writer.Write("ID");
+                            writer.Write((int)ClientDataType.Int32);
+                            writer.Write(true); // Key.
+                            writer.Write(false); // Nullable.
+                            writer.Write(true); // Colocation.
+                            writer.Write(0); // Scale.
+
                             writer.Flush();
 
                             Send(handler, requestId, arrayBufferWriter);
 
                             continue;
                         }
-                    }
 
-                    if (opCode == ClientOp.SchemasGet)
-                    {
-                        using var arrayBufferWriter = new PooledArrayBufferWriter();
-                        var writer = new MessagePackWriter(arrayBufferWriter);
-                        writer.WriteMapHeader(1);
-                        writer.Write(1); // Version.
-                        writer.WriteArrayHeader(1); // Columns.
-                        writer.WriteArrayHeader(6); // Column props.
-                        writer.Write("ID");
-                        writer.Write((int)ClientDataType.Int32);
-                        writer.Write(true); // Key.
-                        writer.Write(false); // Nullable.
-                        writer.Write(true); // Colocation.
-                        writer.Write(0); // Scale.
-
-                        writer.Flush();
-
-                        Send(handler, requestId, arrayBufferWriter);
-
-                        continue;
-                    }
-
-                    if (opCode == ClientOp.PartitionAssignmentGet)
-                    {
-                        using var arrayBufferWriter = new PooledArrayBufferWriter();
-                        var writer = new MessagePackWriter(arrayBufferWriter);
-                        writer.WriteArrayHeader(PartitionAssignment.Length);
-
-                        foreach (var nodeId in PartitionAssignment)
+                        case ClientOp.PartitionAssignmentGet:
                         {
-                            writer.Write(nodeId);
+                            using var arrayBufferWriter = new PooledArrayBufferWriter();
+                            var writer = new MessagePackWriter(arrayBufferWriter);
+                            writer.WriteArrayHeader(PartitionAssignment.Length);
+
+                            foreach (var nodeId in PartitionAssignment)
+                            {
+                                writer.Write(nodeId);
+                            }
+
+                            writer.Flush();
+
+                            Send(handler, requestId, arrayBufferWriter);
+
+                            continue;
                         }
 
-                        writer.Flush();
+                        case ClientOp.TupleUpsert:
+                            Send(handler, requestId, ReadOnlyMemory<byte>.Empty);
 
-                        Send(handler, requestId, arrayBufferWriter);
+                            continue;
 
-                        continue;
-                    }
+                        case ClientOp.TxBegin:
+                            Send(handler, requestId, new byte[] { 0 }.AsMemory());
 
-                    if (opCode == ClientOp.TupleUpsert)
-                    {
-                        Send(handler, requestId, ReadOnlyMemory<byte>.Empty);
+                            continue;
 
-                        continue;
-                    }
+                        case ClientOp.ComputeExecute:
+                        {
+                            using var arrayBufferWriter = new PooledArrayBufferWriter();
+                            var writer = new MessagePackWriter(arrayBufferWriter);
+                            writer.WriteObjectAsBinaryTuple(Node.Name);
+                            writer.Flush();
 
-                    if (opCode == ClientOp.TxBegin)
-                    {
-                        Send(handler, requestId, new byte[] { 0 }.AsMemory());
+                            Send(handler, requestId, arrayBufferWriter);
 
-                        continue;
-                    }
+                            continue;
+                        }
 
-                    if (opCode == ClientOp.ComputeExecute)
-                    {
-                        using var arrayBufferWriter = new PooledArrayBufferWriter();
-                        var writer = new MessagePackWriter(arrayBufferWriter);
-                        writer.WriteObjectAsBinaryTuple(Node.Name);
-                        writer.Flush();
+                        case ClientOp.SqlExec:
+                            SqlExec(handler, requestId, reader);
+                            continue;
 
-                        Send(handler, requestId, arrayBufferWriter);
-
-                        continue;
-                    }
-
-                    if (opCode == ClientOp.SqlExec)
-                    {
-                        SqlExec(handler, requestId, reader);
-                        continue;
-                    }
-
-                    if (opCode == ClientOp.SqlCursorNextPage)
-                    {
-                        SqlCursorNextPage(handler, requestId);
-                        continue;
+                        case ClientOp.SqlCursorNextPage:
+                            SqlCursorNextPage(handler, requestId);
+                            continue;
                     }
 
                     // Fake error message for any other op code.
