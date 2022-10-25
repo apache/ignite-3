@@ -69,10 +69,10 @@ public class PartitionAwarenessTests
             defaultServer.ClientOps.Take(3));
 
         // Check.
-        await AssertOpOnNode(async () => await recordView.UpsertAsync(null, 1), ClientOp.TupleUpsert, _server2);
-        await AssertOpOnNode(async () => await recordView.UpsertAsync(null, 3), ClientOp.TupleUpsert, _server1);
-        await AssertOpOnNode(async () => await recordView.UpsertAsync(null, 4), ClientOp.TupleUpsert, _server2);
-        await AssertOpOnNode(async () => await recordView.UpsertAsync(null, 5), ClientOp.TupleUpsert, _server1);
+        await AssertOpOnNode(async () => await recordView.UpsertAsync(null, 1), ClientOp.TupleUpsert, _server2, _server1);
+        await AssertOpOnNode(async () => await recordView.UpsertAsync(null, 3), ClientOp.TupleUpsert, _server1, _server2);
+        await AssertOpOnNode(async () => await recordView.UpsertAsync(null, 4), ClientOp.TupleUpsert, _server2, _server1);
+        await AssertOpOnNode(async () => await recordView.UpsertAsync(null, 5), ClientOp.TupleUpsert, _server1, _server2);
     }
 
     [Test]
@@ -155,11 +155,19 @@ public class PartitionAwarenessTests
         await Task.Delay(1);
     }
 
-    private static async Task AssertOpOnNode(Func<Task> action, ClientOp op, FakeServer node)
+    private static async Task AssertOpOnNode(Func<Task> action, ClientOp op, FakeServer node, FakeServer? node2 = null)
     {
         node.ClearOps();
+        node2?.ClearOps();
+
         await action();
+
         Assert.AreEqual(new[] { op }, node.ClientOps);
+
+        if (node2 != null)
+        {
+            CollectionAssert.IsEmpty(node2.ClientOps);
+        }
     }
 
     private async Task<IIgniteClient> GetClient()
@@ -174,12 +182,6 @@ public class PartitionAwarenessTests
         };
 
         return await IgniteClient.StartAsync(cfg);
-    }
-
-    private void ClearOps()
-    {
-        _server1.ClearOps();
-        _server2.ClearOps();
     }
 
     private (FakeServer Default, FakeServer Secondary) GetServerPair()
