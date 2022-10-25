@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot;
 
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
@@ -76,21 +74,21 @@ public class PartitionAccessImpl implements PartitionAccess {
     }
 
     @Override
-    public CompletableFuture<MvPartitionStorage> reCreateMvPartitionStorage(Executor executor) throws StorageException {
+    public MvPartitionStorage reCreateMvPartitionStorage() throws StorageException {
         assert mvTableStorage.getMvPartition(partId()) != null : "table=" + tableName() + ", part=" + partId();
 
-        return mvTableStorage
-                .destroyPartition(partId())
-                .thenApplyAsync(unused -> mvTableStorage.getOrCreateMvPartition(partId()), executor);
+        mvTableStorage.destroyPartition(partId());
+
+        return mvTableStorage.getOrCreateMvPartition(partId());
     }
 
     @Override
-    public CompletableFuture<TxStateStorage> reCreateTxStatePartitionStorage(Executor executor) throws StorageException {
+    public TxStateStorage reCreateTxStatePartitionStorage() throws StorageException {
         assert txStateTableStorage.getTxStateStorage(partId()) != null : "table=" + tableName() + ", part=" + partId();
 
-        return txStateTableStorage
-                .destroyTxStateStorage(partId())
-                .thenApplyAsync(unused -> txStateTableStorage.getOrCreateTxStateStorage(partId()), executor);
+        txStateTableStorage.destroyTxStateStorage(partId());
+
+        return txStateTableStorage.getOrCreateTxStateStorage(partId());
     }
 
     private int partId() {

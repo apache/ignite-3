@@ -20,7 +20,7 @@ package org.apache.ignite.internal.table.distributed.raft.snapshot.incoming;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.table.distributed.TableManager.FULL_RABALANCING_STARTED;
 
-import java.io.IOException;
+import java.util.UUID;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -58,7 +58,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
 
     private static final TableMessagesFactory MSG_FACTORY = new TableMessagesFactory();
 
-    private static final long NETWORK_TIMEOUT = 10_000;
+    private static final long NETWORK_TIMEOUT = Long.MAX_VALUE;
 
     private final PartitionSnapshotStorage partitionSnapshotStorage;
 
@@ -92,7 +92,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
     public void start() {
         Executor executor = partitionSnapshotStorage.getIncomingSnapshotsExecutor();
 
-        LOG.info("Copier is started for the partition: " + partId());
+        LOG.info("Copier is started for the partition [partId={}, tableId={}]", partId(), tableId());
 
         future = prepareMvPartitionStorageForRebalance(executor)
                 .thenCompose(unused -> prepareTxStatePartitionStorageForRebalance(executor))
@@ -100,7 +100,12 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
                     ClusterNode snapshotSender = getSnapshotSender(snapshotUri.nodeName);
 
                     if (snapshotSender == null) {
-                        LOG.error("Snapshot sender not found [partId={}, nodeName={}]", partId(), snapshotUri.nodeName);
+                        LOG.error(
+                                "Snapshot sender not found [partId={}, tableId={}, nodeName={}]",
+                                partId(),
+                                tableId(),
+                                snapshotUri.nodeName
+                        );
 
                         if (!isOk()) {
                             setError(RaftError.UNKNOWN, "Sender node was not found or it is offline");
@@ -144,7 +149,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
     public void cancel() {
         canceled = true;
 
-        LOG.info("Copier is cancelled");
+        LOG.info("Copier is canceled for partition [partId={}, tableId={}]", partId(), tableId());
 
         if (!isOk()) {
             setError(RaftError.ECANCELED, "Copier is cancelled");
@@ -158,7 +163,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
     }
 
     @Override
-    public void close() throws IOException {
+    public void close() {
         cancel();
 
         try {
@@ -187,8 +192,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
             return completedFuture(null);
         }
 
-        return partitionSnapshotStorage.partition()
-                .reCreateMvPartitionStorage(executor)
+        return CompletableFuture.supplyAsync(() -> partitionSnapshotStorage.partition().reCreateMvPartitionStorage(), executor)
                 .thenCompose(mvPartitionStorage -> {
                     if (canceled) {
                         return completedFuture(null);
@@ -200,7 +204,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
                         return null;
                     });
 
-                    LOG.info("Copier prepared multi-versioned storage for the partition: " + partId());
+                    LOG.info("Copier prepared multi-versioned storage for the partition [partId={}, tableId={}]", partId());
 
                     return completedFuture(null);
                 });
@@ -218,8 +222,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
             return completedFuture(null);
         }
 
-        return partitionSnapshotStorage.partition()
-                .reCreateTxStatePartitionStorage(executor)
+        return CompletableFuture.supplyAsync(() -> partitionSnapshotStorage.partition().reCreateTxStatePartitionStorage(), executor)
                 .thenCompose(txStatePartitionStorage -> {
                     if (canceled) {
                         return completedFuture(null);
@@ -227,7 +230,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
 
                     txStatePartitionStorage.lastAppliedIndex(FULL_RABALANCING_STARTED);
 
-                    LOG.info("Copier prepared transaction state storage for the partition: " + partId());
+                    LOG.info("Copier prepared transaction state storage for the partition [partId={}, tableId={}]", partId());
 
                     return completedFuture(null);
                 });
@@ -252,7 +255,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
         ).thenAccept(response -> {
             snapshotMeta = ((SnapshotMetaResponse) response).meta();
 
-            LOG.info("Copier has loaded the snapshot meta for the partition: " + partId());
+            LOG.info("Copier has loaded the snapshot meta for the partition [partId={}, tableId={}]", partId(), tableId());
         });
     }
 
@@ -280,10 +283,10 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
 
                 // Let's write all versions for the row ID.
                 mvPartition.runConsistently(() -> {
-                    RowId rowId = new RowId(partId(), entry.rowId().getMostSignificantBits(), entry.rowId().getLeastSignificantBits());
+                    RowId rowId = new RowId(partId(), entry.rowId());
 
                     for (int i = 0; i < entry.rowVersions().size(); i++) {
-                        HybridTimestamp timestamp = i + 1 <= entry.timestamps().size() ? entry.timestamps().get(i) : null;
+                        HybridTimestamp timestamp = i < entry.timestamps().size() ? entry.timestamps().get(i) : null;
 
                         BinaryRow binaryRow = new ByteBufferRow(entry.rowVersions().get(i).rewind());
 
@@ -404,5 +407,9 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
 
     private int partId() {
         return partitionSnapshotStorage.partition().partitionKey().partitionId();
+    }
+
+    private UUID tableId() {
+        return partitionSnapshotStorage.partition().partitionKey().tableId();
     }
 }

@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot;
 
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
@@ -45,16 +43,14 @@ public interface PartitionAccess {
     /**
      * Destroys and recreates the multi-versioned partition storage.
      *
-     * @param executor Executor.
      * @throws StorageException If an error has occurred during the partition destruction.
      */
-    CompletableFuture<MvPartitionStorage> reCreateMvPartitionStorage(Executor executor) throws StorageException;
+    MvPartitionStorage reCreateMvPartitionStorage() throws StorageException;
 
     /**
      * Destroys and recreates the multi-versioned partition storage.
      *
-     * @param executor Executor.
      * @throws StorageException If an error has occurred during transaction state storage for the partition destruction.
      */
-    CompletableFuture<TxStateStorage> reCreateTxStatePartitionStorage(Executor executor) throws StorageException;
+    TxStateStorage reCreateTxStatePartitionStorage() throws StorageException;
 }

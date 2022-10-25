@@ -304,13 +304,12 @@ public class TxStateRocksDbStorage implements TxStateStorage {
 
     @Override
     public void lastAppliedIndex(long lastAppliedIndex) {
-        try (WriteBatch writeBatch = new WriteBatch()) {
+        if (!busyLock.enterBusy()) {
+            throwStorageStoppedException();
+        }
 
-            this.lastAppliedIndex = lastAppliedIndex;
-
-            writeBatch.put(lastAppliedIndexKey, longToBytes(lastAppliedIndex));
-
-            db.write(writeOptions, writeBatch);
+        try {
+            db.put(lastAppliedIndexKey, longToBytes(lastAppliedIndex));
         } catch (RocksDBException e) {
             throw new IgniteInternalException(
                     TX_STATE_STORAGE_ERR,
@@ -318,6 +317,8 @@ public class TxStateRocksDbStorage implements TxStateStorage {
                             + " of table " + tableStorage.configuration().value().name(),
                     e
             );
+        } finally {
+            busyLock.leaveBusy();
         }
     }
 

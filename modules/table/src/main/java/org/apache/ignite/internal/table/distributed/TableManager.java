@@ -55,7 +55,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -715,7 +714,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 ConcurrentHashMap<ByteBuffer, RowId> primaryIndex = new ConcurrentHashMap<>();
 
                 if (raftMgr.shouldHaveRaftGroupLocally(nodes)) {
-                    startGroupFut = getOrCreateMvPartition(internalTbl.storage(), partId, ioExecutor)
+                    startGroupFut = CompletableFuture.supplyAsync(() -> getOrCreateMvPartition(internalTbl.storage(), partId), ioExecutor)
                             .thenComposeAsync(mvPartitionStorage -> {
                                 boolean hasData = mvPartitionStorage.lastAppliedIndex() > 0;
 
@@ -754,7 +753,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                         return CompletableFuture.completedFuture(null);
                                     }
 
-                                    return getOrCreateTxStatePartitionStorage(internalTbl.txStateStorage(), partId, ioExecutor)
+                                    return CompletableFuture.supplyAsync(
+                                                    () -> getOrCreateTxStatePartitionStorage(internalTbl.txStateStorage(), partId),
+                                                    ioExecutor
+                                            )
                                             .thenComposeAsync(txStatePartitionStorage -> {
                                                 RaftGroupOptions groupOptions = groupOptionsForPartition(
                                                         internalTbl.storage(),
@@ -807,9 +809,15 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             ((InternalTableImpl) internalTbl).updateInternalTableRaftGroupService(partId, updatedRaftGroupService);
 
                             if (replicaMgr.shouldHaveReplicationGroupLocally(nodes)) {
-                                return getOrCreateMvPartition(internalTbl.storage(), partId, ioExecutor)
+                                return CompletableFuture.supplyAsync(
+                                        () -> getOrCreateMvPartition(internalTbl.storage(), partId),
+                                                ioExecutor
+                                        )
                                         .thenCombine(
-                                                getOrCreateTxStatePartitionStorage(internalTbl.txStateStorage(), partId, ioExecutor),
+                                                CompletableFuture.supplyAsync(
+                                                        () -> getOrCreateTxStatePartitionStorage(internalTbl.txStateStorage(), partId),
+                                                        ioExecutor
+                                                ),
                                                 (mvPartitionStorage, txStatePartitionStorage) -> {
                                                     try {
                                                         replicaMgr.startReplica(replicaGrpId,
@@ -1701,17 +1709,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 pendingAssignmentsWatchEvent.key(), partId, tbl.name(), localMember.address());
 
                         if (raftMgr.shouldHaveRaftGroupLocally(deltaPeers)) {
-                            MvPartitionStorage mvPartitionStorage = getOrCreateMvPartition(
-                                    internalTable.storage(),
-                                    partId,
-                                    ioExecutor
-                            ).join();
+                            MvPartitionStorage mvPartitionStorage = getOrCreateMvPartition(internalTable.storage(), partId);
 
                             TxStateStorage txStatePartitionStorage = getOrCreateTxStatePartitionStorage(
                                     internalTable.txStateStorage(),
-                                    partId,
-                                    ioExecutor
-                            ).join();
+                                    partId
+                            );
 
                             RaftGroupOptions groupOptions = groupOptionsForPartition(
                                     internalTable.storage(),
@@ -1748,17 +1751,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         }
 
                         if (replicaMgr.shouldHaveReplicationGroupLocally(deltaPeers)) {
-                            MvPartitionStorage mvPartitionStorage = getOrCreateMvPartition(
-                                    internalTable.storage(),
-                                    partId,
-                                    ioExecutor
-                            ).join();
+                            MvPartitionStorage mvPartitionStorage = getOrCreateMvPartition(internalTable.storage(), partId);
 
                             TxStateStorage txStatePartitionStorage = getOrCreateTxStatePartitionStorage(
                                     internalTable.txStateStorage(),
-                                    partId,
-                                    ioExecutor
-                            ).join();
+                                    partId
+                            );
 
                             replicaMgr.startReplica(replicaGrpId,
                                     new PartitionReplicaListener(
@@ -1973,25 +1971,19 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      *
      * @param mvTableStorage Multi-versioned table storage.
      * @param partId Partition ID.
-     * @param executor Executor.
      */
-    private static CompletableFuture<MvPartitionStorage> getOrCreateMvPartition(
-            MvTableStorage mvTableStorage,
-            int partId,
-            Executor executor
-    ) {
-        return CompletableFuture.supplyAsync(() -> mvTableStorage.getOrCreateMvPartition(partId), executor)
-                .thenCompose(mvPartitionStorage -> {
-                    // If a full rebalance did not happen, then we return the storage as is.
-                    if (mvPartitionStorage.persistedIndex() != FULL_RABALANCING_STARTED) {
-                        return completedFuture(mvPartitionStorage);
-                    }
+    private static MvPartitionStorage getOrCreateMvPartition(MvTableStorage mvTableStorage, int partId) {
+        MvPartitionStorage mvPartitionStorage = mvTableStorage.getOrCreateMvPartition(partId);
 
-                    // A full rebalance was started but not completed, so the partition must be recreated to remove the garbage.
-                    return mvTableStorage
-                            .destroyPartition(partId)
-                            .thenApplyAsync(unused -> mvTableStorage.getOrCreateMvPartition(partId), executor);
-                });
+        // If a full rebalance did not happen, then we return the storage as is.
+        if (mvPartitionStorage.persistedIndex() != FULL_RABALANCING_STARTED) {
+            return mvPartitionStorage;
+        }
+
+        // A full rebalance was started but not completed, so the partition must be recreated to remove the garbage.
+        mvTableStorage.destroyPartition(partId);
+
+        return mvTableStorage.getOrCreateMvPartition(partId);
     }
 
     /**
@@ -2002,24 +1994,20 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      *
      * @param txStateTableStorage Transaction state storage for a table.
      * @param partId Partition ID.
-     * @param executor Executor.
      */
-    private static CompletableFuture<TxStateStorage> getOrCreateTxStatePartitionStorage(
+    private static TxStateStorage getOrCreateTxStatePartitionStorage(
             TxStateTableStorage txStateTableStorage,
-            int partId,
-            Executor executor
+            int partId
     ) {
-        return CompletableFuture.supplyAsync(() -> txStateTableStorage.getOrCreateTxStateStorage(partId), executor)
-                .thenCompose(txStatePartitionStorage -> {
-                    // If a full rebalance did not happen, then we return the storage as is.
-                    if (txStatePartitionStorage.persistedIndex() != FULL_RABALANCING_STARTED) {
-                        return completedFuture(txStatePartitionStorage);
-                    }
+        TxStateStorage txStatePartitionStorage = txStateTableStorage.getOrCreateTxStateStorage(partId);
 
-                    // A full rebalance was started but not completed, so the partition must be recreated to remove the garbage.
-                    return txStateTableStorage
-                            .destroyTxStateStorage(partId)
-                            .thenApplyAsync(unused -> txStateTableStorage.getOrCreateTxStateStorage(partId), executor);
-                });
+        // If a full rebalance did not happen, then we return the storage as is.
+        if (txStatePartitionStorage.persistedIndex() != FULL_RABALANCING_STARTED) {
+            return txStatePartitionStorage;
+        }
+
+        txStateTableStorage.destroyTxStateStorage(partId);
+
+        return txStateTableStorage.getOrCreateTxStateStorage(partId);
     }
 }
