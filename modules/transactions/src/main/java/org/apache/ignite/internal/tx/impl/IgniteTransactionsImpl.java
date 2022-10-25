@@ -28,6 +28,8 @@ import org.apache.ignite.tx.Transaction;
 public class IgniteTransactionsImpl implements IgniteTransactions {
     private final TxManager txManager;
 
+    private boolean readOnly = false;
+
     /**
      * The constructor.
      *
@@ -35,6 +37,17 @@ public class IgniteTransactionsImpl implements IgniteTransactions {
      */
     public IgniteTransactionsImpl(TxManager txManager) {
         this.txManager = txManager;
+    }
+
+    /**
+     * The constructor.
+     *
+     * @param txManager The manager.
+     * @param readOnly Read-only
+     */
+    public IgniteTransactionsImpl(TxManager txManager, boolean readOnly) {
+        this(txManager);
+        this.readOnly = readOnly;
     }
 
     /** {@inheritDoc} */
@@ -46,13 +59,19 @@ public class IgniteTransactionsImpl implements IgniteTransactions {
 
     /** {@inheritDoc} */
     @Override
+    public IgniteTransactions readOnly() {
+        return new IgniteTransactionsImpl(txManager, true);
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public Transaction begin() {
-        return txManager.begin();
+        return txManager.begin(readOnly);
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Transaction> beginAsync() {
-        return CompletableFuture.completedFuture(txManager.begin());
+        return CompletableFuture.completedFuture(txManager.begin(readOnly));
     }
 }

@@ -21,10 +21,10 @@ import static org.apache.ignite.internal.pagememory.persistence.checkpoint.Check
 
 import java.nio.file.Path;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.RowId;
