@@ -71,6 +71,13 @@ public interface IgniteTransactions {
     IgniteTransactions withTimeout(long timeout);
 
     /**
+     * Returns a decorated {@code IgniteTransactions} instance that will start read-only transactions.
+     *
+     * @return Decorated {@code IgniteTransactions} instance that will start read-only transactions.
+     */
+    IgniteTransactions readOnly();
+
+    /**
      * Begins a transaction.
      *
      * @return The started transaction.

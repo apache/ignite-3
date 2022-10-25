@@ -338,10 +338,10 @@ public class JraftServerImpl implements RaftServer {
     public boolean startRaftGroup(
             ReplicationGroupId groupId,
             RaftGroupListener lsnr,
-            @Nullable List<Peer> initialConf,
+            List<Peer> peers,
             RaftGroupOptions groupOptions
     ) {
-        return startRaftGroup(groupId, RaftGroupEventsListener.noopLsnr, lsnr, initialConf, groupOptions);
+        return startRaftGroup(groupId, RaftGroupEventsListener.noopLsnr, lsnr, peers, List.of(), groupOptions);
     }
 
     /** {@inheritDoc} */
@@ -350,7 +350,8 @@ public class JraftServerImpl implements RaftServer {
             ReplicationGroupId replicaGrpId,
             RaftGroupEventsListener evLsnr,
             RaftGroupListener lsnr,
-            @Nullable List<Peer> initialConf,
+            List<Peer> peers,
+            List<Peer> learners,
             RaftGroupOptions groupOptions
     ) {
         String grpId = replicaGrpId.toString();
@@ -403,11 +404,11 @@ public class JraftServerImpl implements RaftServer {
 
             nodeOptions.setServiceFactory(serviceFactory);
 
-            if (initialConf != null) {
-                List<PeerId> mapped = initialConf.stream().map(PeerId::fromPeer).collect(Collectors.toList());
+            List<PeerId> peerIds = peers.stream().map(PeerId::fromPeer).collect(Collectors.toList());
 
-                nodeOptions.setInitialConf(new Configuration(mapped, null));
-            }
+            List<PeerId> learnerIds = learners.stream().map(PeerId::fromPeer).collect(Collectors.toList());
+
+            nodeOptions.setInitialConf(new Configuration(peerIds, learnerIds));
 
             IgniteRpcClient client = new IgniteRpcClient(service);
 

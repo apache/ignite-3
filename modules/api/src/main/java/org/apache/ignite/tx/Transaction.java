@@ -18,6 +18,7 @@
 package org.apache.ignite.tx;
 
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 
 /**
  * The transaction.
@@ -50,4 +51,18 @@ public interface Transaction {
      * @return The future.
      */
     CompletableFuture<Void> rollbackAsync();
+
+    /**
+     * Returns {code true} if given transaction is a read-only, {@code false otherwise}.
+     *
+     * @return {code true} if given transaction is a read-only, {@code false otherwise}.
+     */
+    boolean isReadOnly();
+
+    /**
+     * Returns read timestamp for the given transaction if it is a read-only one or {code null} otherwise.
+     *
+     * @return Read timestamp for the given transaction if it is a read-only one or {code null} otherwise.
+     */
+    HybridTimestamp readTimestamp();
 }

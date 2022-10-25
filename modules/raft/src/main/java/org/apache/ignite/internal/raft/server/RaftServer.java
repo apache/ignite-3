@@ -41,21 +41,27 @@ public interface RaftServer extends IgniteComponent {
     /**
      * Starts a raft group bound to this cluster node.
      *
-     * @param groupId     Group id.
-     * @param lsnr        The listener.
-     * @param initialConf Inititial group configuration.
+     * @param groupId Group id.
+     * @param lsnr The listener.
+     * @param peers Peers configuration.
      * @param groupOptions Options to apply to the group.
      * @return {@code True} if a group was successfully started, {@code False} when the group with given name is already exists.
      */
-    boolean startRaftGroup(ReplicationGroupId groupId, RaftGroupListener lsnr, List<Peer> initialConf, RaftGroupOptions groupOptions);
+    boolean startRaftGroup(
+            ReplicationGroupId groupId,
+            RaftGroupListener lsnr,
+            List<Peer> peers,
+            RaftGroupOptions groupOptions
+    );
 
     /**
      * Starts a raft group bound to this cluster node.
      *
-     * @param groupId     Group id.
-     * @param evLsnr      Listener for group membership and other events.
-     * @param lsnr        Listener for state machine events.
-     * @param initialConf Inititial group configuration.
+     * @param groupId Group id.
+     * @param evLsnr Listener for group membership and other events.
+     * @param lsnr Listener for state machine events.
+     * @param peers Peers configuration.
+     * @param learners Learners configuration.
      * @param groupOptions Options to apply to the group.
      * @return {@code True} if a group was successfully started, {@code False} when the group with given name is already exists.
      */
@@ -63,7 +69,8 @@ public interface RaftServer extends IgniteComponent {
             ReplicationGroupId groupId,
             RaftGroupEventsListener evLsnr,
             RaftGroupListener lsnr,
-            List<Peer> initialConf,
+            List<Peer> peers,
+            List<Peer> learners,
             RaftGroupOptions groupOptions
     );
 

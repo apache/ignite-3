@@ -136,6 +136,10 @@ public class PlatformTestNodeRunner {
         Thread.sleep(RUN_TIME_MINUTES * 60_000);
 
         System.out.println("Exiting after " + RUN_TIME_MINUTES + " minutes.");
+
+        for (Ignite node : startedNodes) {
+            IgnitionManager.stop(node.name());
+        }
     }
 
     private static void createTables(Ignite node) {
