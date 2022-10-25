@@ -31,6 +31,7 @@ internal static class HashUtils
     private const ulong C2 = 0x4cf5ad432745937fL;
     private const int R1 = 31;
 
+    // TODO IGNITE-17969 Partition Awareness - support all key types
     /*private const int R2 = 27;
     private const int R3 = 33;
     private const int M = 5;

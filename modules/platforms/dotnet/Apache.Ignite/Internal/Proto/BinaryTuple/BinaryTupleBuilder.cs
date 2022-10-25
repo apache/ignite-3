@@ -174,6 +174,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="value">Value.</param>
         public void AppendInt(int value)
         {
+            // TODO IGNITE-17969 Partition Awareness - support all key types
             if (_colocationHashPredicate?.IsColocationColumnIndex(_elementIndex) == true)
             {
                 _colocationHash = HashUtils.Hash32(value, _colocationHash);

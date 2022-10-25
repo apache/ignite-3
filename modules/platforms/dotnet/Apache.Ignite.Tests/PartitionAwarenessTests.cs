@@ -25,8 +25,6 @@ using NUnit.Framework;
 /// <summary>
 /// Tests partition awareness.
 /// TODO:
-/// * Put/get routing - use FakeServer
-/// * testNonNullTxDisablesPartitionAwareness
 /// * testClientReceivesPartitionAssignmentUpdates
 /// * testCustomColocationKey
 /// * testCompositeKey
