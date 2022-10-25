@@ -20,16 +20,17 @@ package org.apache.ignite.internal.sql.engine;
 import static org.apache.ignite.internal.sql.engine.util.Commons.IN_BUFFER_SIZE;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.jupiter.params.ParameterizedTest.ARGUMENTS_PLACEHOLDER;
 
 import java.util.List;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Index spool test.
@@ -55,14 +56,25 @@ public class ItIndexSpoolTest extends AbstractBasicIntegrationTest {
         }
     }
 
+    private static Stream<Arguments> rowsWithPartitionsArgs() {
+        return Stream.of(
+                Arguments.of(1, 1),
+                Arguments.of(10, 1),
+                Arguments.of(IN_BUFFER_SIZE, 1),
+                Arguments.of(IN_BUFFER_SIZE + 1, 1),
+                Arguments.of(2000, 1),
+                Arguments.of(IN_BUFFER_SIZE, 2),
+                Arguments.of(IN_BUFFER_SIZE + 1, 2));
+    };
+
     /**
      * Test.
      */
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-17959")
-    @ParameterizedTest(name = "tableSize=" + ARGUMENTS_PLACEHOLDER)
-    @ValueSource(ints = {1, 10, IN_BUFFER_SIZE * 1/**partitions count*/, IN_BUFFER_SIZE * 1 + 1, 2000})
-    public void test(int rows) {
-        prepareDataSet(rows, 1);
+    @ParameterizedTest(name = "tableSize={0}, partitions={1}")
+    @MethodSource("rowsWithPartitionsArgs")
+    public void test(int rows, int partitions) {
+        prepareDataSet(rows, partitions);
 
         var res = sql("SELECT /*+ DISABLE_RULE('NestedLoopJoinConverter', 'MergeJoinConverter') */"
                         + "T0.val, T1.val FROM TEST0 as T0 "
