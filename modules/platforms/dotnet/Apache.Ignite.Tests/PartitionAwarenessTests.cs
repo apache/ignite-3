@@ -17,8 +17,6 @@
 
 namespace Apache.Ignite.Tests;
 
-using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Internal.Proto;
@@ -121,7 +119,7 @@ public class PartitionAwarenessTests
         await recordView.UpsertAsync(null, 1);
 
         Assert.AreEqual(
-            new[] { ClientOp.PartitionAssignmentGet, ClientOp.TupleUpsert },
+            new[] { ClientOp.TupleUpsert, ClientOp.PartitionAssignmentGet },
             defaultServer.ClientOps,
             "First request uses old assignment and receives update flag.");
 
