@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.storage;
 
 import java.util.UUID;
-import org.apache.ignite.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.jetbrains.annotations.Nullable;
 
@@ -80,12 +80,12 @@ public class ReadResult {
         this.commitPartitionId = commitPartitionId;
     }
 
-    public static ReadResult createFromWriteIntent(BinaryRow binaryRow, UUID transactionId, UUID commitTableId,
+    public static ReadResult createFromWriteIntent(@Nullable BinaryRow binaryRow, UUID transactionId, UUID commitTableId,
             int commitPartitionId, @Nullable HybridTimestamp lastCommittedTimestamp) {
         return new ReadResult(binaryRow, transactionId, commitTableId, null, lastCommittedTimestamp, commitPartitionId);
     }
 
-    public static ReadResult createFromCommitted(BinaryRow binaryRow, HybridTimestamp commitTs) {
+    public static ReadResult createFromCommitted(@Nullable BinaryRow binaryRow, HybridTimestamp commitTs) {
         return new ReadResult(binaryRow, null, null, commitTs, null, UNDEFINED_COMMIT_PARTITION_ID);
     }
 

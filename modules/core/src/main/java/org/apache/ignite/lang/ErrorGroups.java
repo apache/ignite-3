@@ -276,6 +276,9 @@ public class ErrorGroups {
 
         /** Failed to rollback a transaction. */
         public static final int TX_ROLLBACK_ERR = TX_ERR_GROUP.registerErrorCode(8);
+
+        /** Failed to enlist read-write operation into read-only transaction. */
+        public static final int TX_INSUFFICIENT_READ_WRITE_OPERATION_ERR = TX_ERR_GROUP.registerErrorCode(9);
     }
 
     /** Replicator error group. */
@@ -300,6 +303,10 @@ public class ErrorGroups {
 
         /** The error happens when the replica is not the current primary replica. */
         public static final int REPLICA_MISS_ERR = REPLICATOR_ERR_GROUP.registerErrorCode(6);
+
+        /** Failed to close cursor. */
+        public static final int CURSOR_CLOSE_ERR = REPLICATOR_ERR_GROUP.registerErrorCode(7);
+
     }
 
     /** Storage error group. */

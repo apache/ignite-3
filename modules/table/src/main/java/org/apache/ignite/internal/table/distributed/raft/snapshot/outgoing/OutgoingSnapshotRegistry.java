@@ -15,33 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.hlc;
+package org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing;
 
-import static org.mockito.Mockito.mockStatic;
-import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.when;
-
-import java.time.Clock;
-import java.time.Instant;
-import org.mockito.MockedStatic;
+import java.util.UUID;
 
 /**
- * Utils for a Hybrid Logical Clock testing.
+ * Registry of {@link OutgoingSnapshot}s.
  */
-public class HybridClockTestUtils {
+public interface OutgoingSnapshotRegistry {
     /**
-     * Creates a mocked system clock.
+     * Register a snapshot with the registry.
      *
-     * @param expected Expected value which returns by system clock.
-     * @return The mocked clock.
+     * @param snapshotId ID of the snapshot.
+     * @param outgoingSnapshot Snapshot itself.
      */
-    public static MockedStatic<Clock> mockToEpochMilli(long expected) {
-        Clock spyClock = spy(Clock.class);
-        MockedStatic<Clock> clockMock = mockStatic(Clock.class);
+    void registerOutgoingSnapshot(UUID snapshotId, OutgoingSnapshot outgoingSnapshot);
 
-        clockMock.when(Clock::systemUTC).thenReturn(spyClock);
-        when(spyClock.instant()).thenReturn(Instant.ofEpochMilli(expected));
-
-        return clockMock;
-    }
+    /**
+     * Unregisters a snapshot with the given ID.
+     *
+     * @param snapshotId Snapshot ID.
+     */
+    void unregisterOutgoingSnapshot(UUID snapshotId);
 }
