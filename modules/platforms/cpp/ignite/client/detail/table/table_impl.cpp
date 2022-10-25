@@ -207,25 +207,14 @@ void table_impl::load_schema_async(ignite_callback<std::shared_ptr<schema>> call
 void table_impl::get_async(transaction *tx, ignite_tuple key, ignite_callback<std::optional<ignite_tuple>> callback) {
     transactions_not_implemented(tx);
 
-    get_latest_schema_async([this, callback = std::move(callback), key = std::move(key)]
-            (ignite_result<std::shared_ptr<schema>>&& res) mutable {
-        if (res.has_error()) {
-            callback(ignite_error{res.error()});
-            return;
-        }
-
-        auto schema = res.value();
-        if (!schema) {
-            callback(ignite_error{"Can not get a schema for the table " + m_name});
-            return;
-        }
-
-        auto writer_func = [this, &key, &schema] (protocol::writer &writer) {
+    with_latest_schema_async<std::optional<ignite_tuple>>(std::move(callback),
+        [this, key = std::move(key)] (const schema& sch, auto callback) {
+        auto writer_func = [this, &key, &sch] (protocol::writer &writer) {
             writer.write(m_id);
             writer.write_nil(); // TODO: IGNITE-17604: write transaction ID here
-            writer.write(schema->version);
+            writer.write(sch.version);
 
-            auto tuple_data = pack_tuple(*schema, key, true);
+            auto tuple_data = pack_tuple(sch, key, true);
             writer.write_binary(tuple_data);
         };
 

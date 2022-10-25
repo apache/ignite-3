@@ -62,9 +62,33 @@ public:
     /**
      * Gets the latest schema.
      *
-     * @return Latest schema.
+     * @param callback Callback which is going to be called with the latest schema.
      */
     void get_latest_schema_async(const ignite_callback<std::shared_ptr<schema>>& callback);
+
+    /**
+     * Gets the latest schema.
+     *
+     * @param handler Callback to call on error during retrieval of the latest schema.
+     */
+    template <typename T>
+    void with_latest_schema_async(ignite_callback<T> handler, std::function<void(const schema&, ignite_callback<T>)> callback) {
+        get_latest_schema_async(
+            [this, handler = std::move(handler), &callback] (ignite_result<std::shared_ptr<schema>>&& res) mutable {
+            if (res.has_error()) {
+                handler(ignite_error{res.error()});
+                return;
+            }
+
+            auto schema = res.value();
+            if (!schema) {
+                handler(ignite_error{"Can not get a schema for the table " + m_name});
+                return;
+            }
+
+            callback(*schema, std::move(handler));
+        });
+    }
 
     /**
      * Gets a record by key asynchronously.
