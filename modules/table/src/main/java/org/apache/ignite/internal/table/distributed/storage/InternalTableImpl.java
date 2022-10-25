@@ -1016,8 +1016,8 @@ public class InternalTableImpl implements InternalTable {
         RaftGroupService svc = partitionMap.get(partId);
         tx.assignCommitPartition(new TablePartitionId(tableId, partId));
 
-            // TODO: IGNITE-17256 Use a placement driver for getting a primary replica.
-            CompletableFuture<IgniteBiTuple<Peer, Long>> fut0 = svc.refreshAndGetLeaderWithTerm();
+        // TODO: IGNITE-17256 Use a placement driver for getting a primary replica.
+        CompletableFuture<IgniteBiTuple<Peer, Long>> fut0 = svc.refreshAndGetLeaderWithTerm();
 
         // TODO asch IGNITE-15091 fixme need to map to the same leaseholder.
         // TODO asch a leader race is possible when enlisting different keys from the same partition.
