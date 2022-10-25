@@ -18,7 +18,6 @@
 namespace Apache.Ignite.Tests;
 
 using System.Threading.Tasks;
-using Ignite.Table;
 using Internal.Proto;
 using NUnit.Framework;
 
@@ -103,8 +102,8 @@ public class PartitionAwarenessTests
         {
             Endpoints =
             {
-                "127.0.0.1: " + _server1!.Port,
-                "127.0.0.1: " + _server2!.Port
+                "127.0.0.1: " + _server1.Port,
+                "127.0.0.1: " + _server2.Port
             }
         };
 
