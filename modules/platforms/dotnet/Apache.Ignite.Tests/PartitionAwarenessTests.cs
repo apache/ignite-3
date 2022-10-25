@@ -239,6 +239,7 @@ public class PartitionAwarenessTests
         await AssertOpOnNode(() => kvView.ReplaceAsync(null, key, val, val), ClientOp.TupleReplaceExact, expectedNode);
         await AssertOpOnNode(() => kvView.RemoveAsync(null, key), ClientOp.TupleDelete, expectedNode);
         await AssertOpOnNode(() => kvView.RemoveAsync(null, key, val), ClientOp.TupleDeleteExact, expectedNode);
+        await AssertOpOnNode(() => kvView.ContainsAsync(null, key), ClientOp.TupleContainsKey, expectedNode);
 
         // Multi-key operations use the first key for colocation.
         var keys = new[] { key, key - 1, key + 1 };
