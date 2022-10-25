@@ -103,7 +103,7 @@ public class OutgoingSnapshot {
         this.partition = partition;
         this.outgoingSnapshotRegistry = outgoingSnapshotRegistry;
 
-        lastRowId = RowId.lowestRowId(partition.key().partitionId());
+        lastRowId = RowId.lowestRowId(partition.partitionKey().partitionId());
     }
 
     /**
@@ -119,7 +119,7 @@ public class OutgoingSnapshot {
      * @return Partition key.
      */
     public PartitionKey partitionKey() {
-        return partition.key();
+        return partition.partitionKey();
     }
 
     /**

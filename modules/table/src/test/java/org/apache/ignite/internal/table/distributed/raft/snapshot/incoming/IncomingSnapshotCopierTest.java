@@ -63,6 +63,7 @@ import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionAccessImpl;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionKey;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionSnapshotStorage;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.SnapshotUri;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMetaRequest;
@@ -238,7 +239,11 @@ public class IncomingSnapshotCopierTest {
                 outgoingSnapshotsManager,
                 SnapshotUri.toStringUri(snapshotId, NODE_NAME),
                 mock(RaftOptions.class),
-                new PartitionAccessImpl(incomingTableStorage, incomingTxStateTableStorage, TEST_PARTITION),
+                new PartitionAccessImpl(
+                        new PartitionKey(UUID.randomUUID(), TEST_PARTITION),
+                        incomingTableStorage,
+                        incomingTxStateTableStorage
+                ),
                 mock(SnapshotMeta.class),
                 executorService
         );

@@ -403,6 +403,6 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
     }
 
     private int partId() {
-        return partitionSnapshotStorage.partition().partitionId();
+        return partitionSnapshotStorage.partition().partitionKey().partitionId();
     }
 }

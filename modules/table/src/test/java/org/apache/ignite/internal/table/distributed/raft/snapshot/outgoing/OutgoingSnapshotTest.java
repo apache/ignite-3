@@ -78,7 +78,7 @@ class OutgoingSnapshotTest {
 
     @BeforeEach
     void createTestInstance() {
-        lenient().when(partitionAccess.key()).thenReturn(partitionKey);
+        lenient().when(partitionAccess.partitionKey()).thenReturn(partitionKey);
 
         snapshot = new OutgoingSnapshot(UUID.randomUUID(), partitionAccess, snapshotRegistry);
     }

@@ -41,8 +41,6 @@ public class PartitionAccessImpl implements PartitionAccess {
 
     private final TxStateTableStorage txStateTableStorage;
 
-    private final int partId;
-
     /**
      * Constructor.
      *
@@ -61,49 +59,26 @@ public class PartitionAccessImpl implements PartitionAccess {
     }
 
     @Override
-    public int partitionId() {
-        return partId;
+    public PartitionKey partitionKey() {
+        return partitionKey;
     }
 
     @Override
     public MvPartitionStorage mvPartitionStorage() {
-        MvPartitionStorage mvPartition = mvTableStorage.getMvPartition(partId);
+        MvPartitionStorage mvPartition = mvTableStorage.getMvPartition(partId());
 
-        assert mvPartition != null : "table=" + tableName() + ", part=" + partId;
+        assert mvPartition != null : "table=" + tableName() + ", part=" + partId();
 
         return mvPartition;
     }
 
     @Override
     public TxStateStorage txStatePartitionStorage() {
-        TxStateStorage txStatePartitionStorage = txStateTableStorage.getTxStateStorage(partId);
+        TxStateStorage txStatePartitionStorage = txStateTableStorage.getTxStateStorage(partId());
 
-        assert txStatePartitionStorage != null : "table=" + tableName() + ", part=" + partId;
+        assert txStatePartitionStorage != null : "table=" + tableName() + ", part=" + partId();
 
         return txStatePartitionStorage;
-    }
-
-    @Override
-    public CompletableFuture<MvPartitionStorage> reCreateMvPartitionStorage(Executor executor) throws StorageException {
-        assert mvTableStorage.getMvPartition(partId) != null : "table=" + tableName() + ", part=" + partId;
-
-        return mvTableStorage
-                .destroyPartition(partId)
-                .thenApplyAsync(unused -> mvTableStorage.getOrCreateMvPartition(partId), executor);
-    }
-
-    @Override
-    public CompletableFuture<TxStateStorage> reCreateTxStatePartitionStorage(Executor executor) throws StorageException {
-        assert txStateTableStorage.getTxStateStorage(partId) != null : "table=" + tableName() + ", part=" + partId;
-
-        return txStateTableStorage
-                .destroyTxStateStorage(partId)
-                .thenApplyAsync(unused -> txStateTableStorage.getOrCreateTxStateStorage(partId), executor);
-    }
-
-    @Override
-    public PartitionKey key() {
-        return partitionKey;
     }
 
     @Override
@@ -126,6 +101,28 @@ public class PartitionAccessImpl implements PartitionAccess {
 
             throw new RuntimeException(e);
         }
+    }
+
+    @Override
+    public CompletableFuture<MvPartitionStorage> reCreateMvPartitionStorage(Executor executor) throws StorageException {
+        assert mvTableStorage.getMvPartition(partId()) != null : "table=" + tableName() + ", part=" + partId();
+
+        return mvTableStorage
+                .destroyPartition(partId())
+                .thenApplyAsync(unused -> mvTableStorage.getOrCreateMvPartition(partId()), executor);
+    }
+
+    @Override
+    public CompletableFuture<TxStateStorage> reCreateTxStatePartitionStorage(Executor executor) throws StorageException {
+        assert txStateTableStorage.getTxStateStorage(partId()) != null : "table=" + tableName() + ", part=" + partId();
+
+        return txStateTableStorage
+                .destroyTxStateStorage(partId())
+                .thenApplyAsync(unused -> txStateTableStorage.getOrCreateTxStateStorage(partId()), executor);
+    }
+
+    private int partId() {
+        return partitionKey.partitionId();
     }
 
     private String tableName() {

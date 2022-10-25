@@ -18,16 +18,14 @@
 package org.apache.ignite.internal.table.distributed.raft.snapshot;
 
 import java.util.List;
-import org.apache.ignite.internal.storage.ReadResult;
-import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.storage.StorageException;
-import org.jetbrains.annotations.Nullable;
-
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.ReadResult;
+import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Small abstractions for partition storages that includes only methods, mandatory for the snapshot storage.
@@ -35,15 +33,8 @@ import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 public interface PartitionAccess {
     /**
      * Returns the key that uniquely identifies the corresponding partition.
-     *
-     * @return Partition key.
      */
-    PartitionKey key();
-
-    /**
-     * Returns the partition ID.
-     */
-    int partitionId();
+    PartitionKey partitionKey();
 
     /**
      * Returns the multi-versioned partition storage.
@@ -54,22 +45,6 @@ public interface PartitionAccess {
      * Returns transaction state storage for the partition.
      */
     TxStateStorage txStatePartitionStorage();
-
-    /**
-     * Destroys and recreates the multi-versioned partition storage.
-     *
-     * @param executor Executor.
-     * @throws StorageException If an error has occurred during the partition destruction.
-     */
-    CompletableFuture<MvPartitionStorage> reCreateMvPartitionStorage(Executor executor) throws StorageException;
-
-    /**
-     * Destroys and recreates the multi-versioned partition storage.
-     *
-     * @param executor Executor.
-     * @throws StorageException If an error has occurred during transaction state storage for the partition destruction.
-     */
-    CompletableFuture<TxStateStorage> reCreateTxStatePartitionStorage(Executor executor) throws StorageException;
 
     /**
      * Returns a row id, existing in the storage, that's greater or equal than the lower bound. {@code null} if not found.
@@ -88,4 +63,20 @@ public interface PartitionAccess {
      * @return All versions of the row.
      */
     List<ReadResult> rowVersions(RowId rowId);
+
+    /**
+     * Destroys and recreates the multi-versioned partition storage.
+     *
+     * @param executor Executor.
+     * @throws StorageException If an error has occurred during the partition destruction.
+     */
+    CompletableFuture<MvPartitionStorage> reCreateMvPartitionStorage(Executor executor) throws StorageException;
+
+    /**
+     * Destroys and recreates the multi-versioned partition storage.
+     *
+     * @param executor Executor.
+     * @throws StorageException If an error has occurred during transaction state storage for the partition destruction.
+     */
+    CompletableFuture<TxStateStorage> reCreateTxStatePartitionStorage(Executor executor) throws StorageException;
 }

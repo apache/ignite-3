@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table.distributed.raft.snapshot;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -29,6 +30,8 @@ import java.util.UUID;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.engine.MvTableStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.util.Cursor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -39,7 +42,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class PartitionAccessImplTest {
     @Mock
-    private MvPartitionStorage partitionStorage;
+    private MvPartitionStorage mvPartitionStorage;
+
+    @Mock
+    private TxStateTableStorage txStateTableStorage;
 
     private PartitionAccessImpl access;
 
@@ -47,19 +53,11 @@ class PartitionAccessImplTest {
 
     @BeforeEach
     void createTestInstance() {
-        access = new PartitionAccessImpl(key, partitionStorage);
-    }
+        MvTableStorage mvTableStorage = mock(MvTableStorage.class);
 
-    @Test
-    void returnsProvidedKey() {
-        assertThat(access.key(), is(key));
-    }
+        when(mvTableStorage.getMvPartition(anyInt())).thenReturn(mvPartitionStorage);
 
-    @Test
-    void persistedIndexDelegatesToStorage() {
-        when(partitionStorage.persistedIndex()).thenReturn(42L);
-
-        assertThat(access.persistedIndex(), is(42L));
+        access = new PartitionAccessImpl(key, mvTableStorage, txStateTableStorage);
     }
 
     @Test
@@ -67,7 +65,7 @@ class PartitionAccessImplTest {
         RowId argRowId = new RowId(1);
         RowId resultRowId = new RowId(1);
 
-        when(partitionStorage.closestRowId(any())).thenReturn(resultRowId);
+        when(mvPartitionStorage.closestRowId(any())).thenReturn(resultRowId);
 
         assertThat(access.closestRowId(argRowId), is(resultRowId));
     }
@@ -77,7 +75,7 @@ class PartitionAccessImplTest {
         ReadResult result1 = mock(ReadResult.class);
         ReadResult result2 = mock(ReadResult.class);
 
-        when(partitionStorage.scanVersions(any()))
+        when(mvPartitionStorage.scanVersions(any()))
                 .thenReturn(Cursor.fromIterator(List.of(result1, result2).iterator()));
 
         List<ReadResult> versions = access.rowVersions(new RowId(1));
