@@ -80,6 +80,7 @@ namespace Apache.Ignite.Internal
         /** Logger. */
         private readonly IIgniteLogger? _logger;
 
+        /** Partition assignment change callback. */
         private readonly Action<ClientSocket> _assignmentChangeCallback;
 
         /** Pre-allocated buffer for message size + op code + request id. To be used under <see cref="_sendLock"/>. */
