@@ -91,6 +91,8 @@ namespace Apache.Ignite.Tests
             return await IgniteClient.StartAsync(cfg);
         }
 
+        public void ClearOps() => _ops?.Clear();
+
         public void Dispose()
         {
             _cts.Cancel();

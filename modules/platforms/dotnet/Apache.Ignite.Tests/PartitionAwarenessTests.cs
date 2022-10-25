@@ -34,41 +34,66 @@ using NUnit.Framework;
 /// </summary>
 public class PartitionAwarenessTests
 {
+    private FakeServer _server1 = null!;
+    private FakeServer _server2 = null!;
+
+    [OneTimeSetUp]
+    public void OneTimeSetUp()
+    {
+        _server1 = new FakeServer(nodeName: "srv1");
+        _server2 = new FakeServer(nodeName: "srv2");
+
+        var assignment = new[] { _server1.Node.Id, _server2.Node.Id };
+        _server1.PartitionAssignment = assignment;
+        _server2.PartitionAssignment = assignment;
+    }
+
+    [OneTimeTearDown]
+    public void OneTimeTearDown()
+    {
+        _server1.Dispose();
+        _server2.Dispose();
+    }
+
+    [TearDown]
+    public void ClearOps()
+    {
+        _server1.ClearOps();
+        _server2.ClearOps();
+    }
+
     [Test]
     public async Task TestPutRoutesRequestToPrimaryNode()
     {
-        using var server1 = new FakeServer(nodeName: "srv1");
-        using var server2 = new FakeServer(nodeName: "srv2");
-
-        var assignment = new[] { server1.Node.Id, server2.Node.Id };
-        server1.PartitionAssignment = assignment;
-        server2.PartitionAssignment = assignment;
-
-        var cfg = new IgniteClientConfiguration
-        {
-            Endpoints =
-            {
-                "127.0.0.1: " + server1.Port,
-                "127.0.0.1: " + server2.Port
-            }
-        };
-
-        using var client = await IgniteClient.StartAsync(cfg);
+        using var client = await GetClient();
         var table = await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
         var recordView = table!.GetRecordView<int>();
 
         await recordView.UpsertAsync(null, 1);
 
-        Assert.AreEqual(0, server1.ClientOps.Count);
+        CollectionAssert.IsEmpty(_server1.ClientOps);
         Assert.AreEqual(
             new[] { ClientOp.TableGet, ClientOp.SchemasGet, ClientOp.PartitionAssignmentGet, ClientOp.TupleUpsert },
-            server2.ClientOps);
+            _server2.ClientOps);
 
+        ClearOps();
         await recordView.UpsertAsync(null, 3);
 
-        Assert.AreEqual(new[] { ClientOp.TupleUpsert }, server1.ClientOps);
-        Assert.AreEqual(
-            new[] { ClientOp.TableGet, ClientOp.SchemasGet, ClientOp.PartitionAssignmentGet, ClientOp.TupleUpsert },
-            server2.ClientOps);
+        Assert.AreEqual(new[] { ClientOp.TupleUpsert }, _server1.ClientOps);
+        CollectionAssert.IsEmpty(_server2.ClientOps);
+    }
+
+    private async Task<IIgniteClient> GetClient()
+    {
+        var cfg = new IgniteClientConfiguration
+        {
+            Endpoints =
+            {
+                "127.0.0.1: " + _server1!.Port,
+                "127.0.0.1: " + _server2!.Port
+            }
+        };
+
+        return await IgniteClient.StartAsync(cfg);
     }
 }
