@@ -19,6 +19,8 @@
 
 #include "ignite/client/detail/cluster_connection.h"
 #include "ignite/client/detail/table/schema.h"
+#include "ignite/client/table/ignite_tuple.h"
+#include "ignite/client/transaction/transaction.h"
 #include "ignite/common/uuid.h"
 
 #include <memory>
@@ -63,6 +65,16 @@ public:
      * @return Latest schema.
      */
     void get_latest_schema_async(const ignite_callback<std::shared_ptr<schema>>& callback);
+
+    /**
+     * Gets a record by key asynchronously.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *  single operation is used.
+     * @param key Key.
+     * @param callback Callback.
+     */
+    void get_async(transaction* tx, ignite_tuple key, ignite_callback<std::optional<ignite_tuple>> callback);
 
 private:
     /**

@@ -113,6 +113,15 @@ public:
     void write_binary_empty() { msgpack_pack_bin(m_packer.get(), 0); }
 
     /**
+     * Write binary data.
+     *
+     * @param data Binary data to pack.
+     */
+    void write_binary(bytes_view data) {
+        msgpack_pack_bin_with_body(m_packer.get(), data.data(), data.size());
+    }
+
+    /**
      * Write empty map.
      */
     void write_map_empty() { msgpack_pack_map(m_packer.get(), 0); }

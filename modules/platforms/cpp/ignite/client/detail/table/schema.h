@@ -19,6 +19,7 @@
 
 #include "ignite/common/ignite_error.h"
 #include "ignite/protocol/utils.h"
+#include "ignite/schema/ignite_type.h"
 
 #include <msgpack.h>
 
@@ -28,69 +29,15 @@
 namespace ignite::detail {
 
 /**
- * Client data types.
- */
-enum class client_data_type
-{
-    /// Byte.
-    INT8 = 1,
-
-    /// Short.
-    INT16 = 2,
-
-    /// Int.
-    INT32 = 3,
-
-    /// Long.
-    INT64 = 4,
-
-    /// Float.
-    FLOAT = 5,
-
-    /// Double.
-    DOUBLE = 6,
-
-    /// Decimal.
-    DECIMAL = 7,
-
-    /// UUID / Guid.
-    UUID = 8,
-
-    /// String.
-    STRING = 9,
-
-    /// Byte array.
-    BYTES = 10,
-
-    /// BitMask.
-    BITMASK = 11,
-
-    /// Local date.
-    DATE = 12,
-
-    /// Local time.
-    TIME = 13,
-
-    /// Local date and time.
-    DATE_TIME = 14,
-
-    /// Timestamp (instant).
-    TIMESTAMP = 15,
-
-    /// Number (BigInt).
-    NUMBER = 16,
-};
-
-/**
- * Get client data type from int value.
+ * Get Ignite type from int value.
  *
  * @param val Value.
  * @return Matching client data type.
  */
-inline client_data_type client_data_type_from_int(std::int32_t val) {
-    if (val > std::int32_t(client_data_type::NUMBER) || val < std::int32_t(client_data_type::INT8))
-        throw ignite_error("Value is out of range for client data type: " + std::to_string(val));
-    return client_data_type(val);
+inline ignite_type ignite_type_from_int(std::int32_t val) {
+    if (val < 1 || val >= std::int32_t(ignite_type::LAST))
+        throw ignite_error("Value is out of range for Ignite type: " + std::to_string(val));
+    return ignite_type(val);
 }
 
 /**
@@ -98,7 +45,7 @@ inline client_data_type client_data_type_from_int(std::int32_t val) {
  */
 struct column {
     std::string name;
-    client_data_type type{};
+    ignite_type type{};
     bool nullable{false};
     bool is_key{false};
     std::int32_t schema_index{0};
@@ -121,7 +68,7 @@ struct column {
 
         column res{};
         res.name = protocol::unpack_object<std::string>(arr.ptr[0]);
-        res.type = client_data_type_from_int(protocol::unpack_object<std::int32_t>(arr.ptr[1]));
+        res.type = ignite_type_from_int(protocol::unpack_object<std::int32_t>(arr.ptr[1]));
         res.is_key = protocol::unpack_object<bool>(arr.ptr[2]);
         res.nullable = protocol::unpack_object<bool>(arr.ptr[3]);
         res.scale = protocol::unpack_object<std::int32_t>(arr.ptr[5]);

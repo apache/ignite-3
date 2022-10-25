@@ -46,7 +46,7 @@ if (WIN32)
     set_target_properties(${TARGET} PROPERTIES OUTPUT_NAME "ignite-client")
 endif()
 
-target_link_libraries(${TARGET} ignite-common ignite-network ignite-protocol)
+target_link_libraries(${TARGET} ignite-common ignite-schema ignite-network ignite-protocol)
 
 install(TARGETS ${TARGET}
     RUNTIME DESTINATION bin

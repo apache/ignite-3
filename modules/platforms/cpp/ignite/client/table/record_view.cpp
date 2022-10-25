@@ -20,9 +20,9 @@
 
 namespace ignite {
 
-void record_view<ignite_tuple>::get_async(transaction *tx, const ignite_tuple &key,
-    const ignite_callback<std::optional<value_type>>& callback) {
-    m_impl->get_async(tx, key, callback);
+void record_view<ignite_tuple>::get_async(transaction *tx, ignite_tuple key,
+        ignite_callback<std::optional<value_type>> callback) {
+    m_impl->get_async(tx, std::move(key), std::move(callback));
 }
 
 } // namespace ignite

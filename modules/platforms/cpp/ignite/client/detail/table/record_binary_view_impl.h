@@ -25,6 +25,7 @@
 
 namespace ignite::detail {
 
+// TODO: remove this class as useless.
 /**
  * Record binary view provides methods to access table records.
  */
@@ -55,9 +56,8 @@ public:
      * @param key Key.
      * @param callback Callback.
      */
-    void get_async(transaction* tx, const ignite_tuple& key,
-        const ignite_callback<std::optional<ignite_tuple>>& callback) {
-        // TODO: Implement me.
+    void get_async(transaction* tx, ignite_tuple key, ignite_callback<std::optional<ignite_tuple>> callback) {
+        m_table->get_async(tx, std::move(key), std::move(callback));
     }
 
 private:
