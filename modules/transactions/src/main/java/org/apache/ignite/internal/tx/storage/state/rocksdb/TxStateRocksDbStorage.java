@@ -122,7 +122,6 @@ public class TxStateRocksDbStorage implements TxStateStorage {
         persistedIndex = lastAppliedIndex;
     }
 
-    /** {@inheritDoc} */
     @Override
     public TxMeta get(UUID txId) {
         if (!busyLock.enterBusy()) {
@@ -145,7 +144,6 @@ public class TxStateRocksDbStorage implements TxStateStorage {
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     public void put(UUID txId, TxMeta txMeta) {
         if (!busyLock.enterBusy()) {
@@ -166,7 +164,6 @@ public class TxStateRocksDbStorage implements TxStateStorage {
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     public boolean compareAndSet(UUID txId, TxState txStateExpected, TxMeta txMeta, long commandIndex) {
         requireNonNull(txMeta);
@@ -221,7 +218,6 @@ public class TxStateRocksDbStorage implements TxStateStorage {
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     public void remove(UUID txId) {
         if (!busyLock.enterBusy()) {
@@ -242,7 +238,6 @@ public class TxStateRocksDbStorage implements TxStateStorage {
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     public Cursor<IgniteBiTuple<UUID, TxMeta>> scan() {
         if (!busyLock.enterBusy()) {
@@ -297,19 +292,35 @@ public class TxStateRocksDbStorage implements TxStateStorage {
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> flush() {
         return tableStorage.awaitFlush(true);
     }
 
-    /** {@inheritDoc} */
     @Override
     public long lastAppliedIndex() {
         return lastAppliedIndex;
     }
 
-    /** {@inheritDoc} */
+    @Override
+    public void lastAppliedIndex(long lastAppliedIndex) {
+        try (WriteBatch writeBatch = new WriteBatch()) {
+
+            this.lastAppliedIndex = lastAppliedIndex;
+
+            writeBatch.put(lastAppliedIndexKey, longToBytes(lastAppliedIndex));
+
+            db.write(writeOptions, writeBatch);
+        } catch (RocksDBException e) {
+            throw new IgniteInternalException(
+                    TX_STATE_STORAGE_ERR,
+                    "Failed to write applied index value to transaction state storage, partition " + partitionId
+                            + " of table " + tableStorage.configuration().value().name(),
+                    e
+            );
+        }
+    }
+
     @Override
     public long persistedIndex() {
         return persistedIndex;
@@ -350,7 +361,6 @@ public class TxStateRocksDbStorage implements TxStateStorage {
         return appliedIndexBytes == null ? 0 : bytesToLong(appliedIndexBytes);
     }
 
-    /** {@inheritDoc} */
     @Override
     public void destroy() {
         try (WriteBatch writeBatch = new WriteBatch()) {
@@ -396,7 +406,6 @@ public class TxStateRocksDbStorage implements TxStateStorage {
         return new UUID(msb, lsb);
     }
 
-    /** {@inheritDoc} */
     @Override
     public void close() throws Exception {
         if (!closeGuard.compareAndSet(false, true)) {

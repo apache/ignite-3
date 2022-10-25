@@ -55,6 +55,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -1950,21 +1951,21 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     /**
-     * Returns or creates multi versioned partition storage.
+     * Returns or creates multi-versioned partition storage.
      *
      * <p>If a full rebalance has not been completed for a partition, it will be recreated to remove any garbage that might have been left
      * in when the rebalance was interrupted.
      *
-     * @param mvTableStorage Multi versioned table storage.
+     * @param mvTableStorage Multi-versioned table storage.
      * @param partId Partition ID.
-     * @param executorService Executor.
+     * @param executor Executor.
      */
     private static CompletableFuture<MvPartitionStorage> getOrCreateMvPartition(
             MvTableStorage mvTableStorage,
             int partId,
-            ExecutorService executorService
+            Executor executor
     ) {
-        return CompletableFuture.supplyAsync(() -> mvTableStorage.getOrCreateMvPartition(partId), executorService)
+        return CompletableFuture.supplyAsync(() -> mvTableStorage.getOrCreateMvPartition(partId), executor)
                 .thenCompose(mvPartitionStorage -> {
                     // If a full rebalance did not happen, then we return the storage as is.
                     if (mvPartitionStorage.persistedIndex() != FULL_RABALANCING_STARTED) {
@@ -1974,7 +1975,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     // A full rebalance was started but not completed, so the partition must be recreated to remove the garbage.
                     return mvTableStorage
                             .destroyPartition(partId)
-                            .thenApplyAsync(unused -> mvTableStorage.getOrCreateMvPartition(partId), executorService);
+                            .thenApplyAsync(unused -> mvTableStorage.getOrCreateMvPartition(partId), executor);
                 });
     }
 
@@ -1986,14 +1987,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      *
      * @param txStateTableStorage Transaction state storage for a table.
      * @param partId Partition ID.
-     * @param executorService Executor.
+     * @param executor Executor.
      */
     private static CompletableFuture<TxStateStorage> getOrCreateTxStatePartitionStorage(
             TxStateTableStorage txStateTableStorage,
             int partId,
-            ExecutorService executorService
+            Executor executor
     ) {
-        return CompletableFuture.supplyAsync(() -> txStateTableStorage.getOrCreateTxStateStorage(partId), executorService)
+        return CompletableFuture.supplyAsync(() -> txStateTableStorage.getOrCreateTxStateStorage(partId), executor)
                 .thenCompose(txStatePartitionStorage -> {
                     // If a full rebalance did not happen, then we return the storage as is.
                     if (txStatePartitionStorage.persistedIndex() != FULL_RABALANCING_STARTED) {
@@ -2003,7 +2004,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     // A full rebalance was started but not completed, so the partition must be recreated to remove the garbage.
                     return txStateTableStorage
                             .destroyTxStateStorage(partId)
-                            .thenApplyAsync(unused -> txStateTableStorage.getOrCreateTxStateStorage(partId), executorService);
+                            .thenApplyAsync(unused -> txStateTableStorage.getOrCreateTxStateStorage(partId), executor);
                 });
     }
 }

@@ -17,18 +17,23 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot.incoming;
 
-import static java.util.concurrent.CompletableFuture.runAsync;
-import static org.apache.ignite.internal.table.distributed.raft.snapshot.incoming.IncomingSnapshotCopier.SnapshotCopierException.copierException;
-import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.table.distributed.TableManager.FULL_RABALANCING_STARTED;
 
 import java.io.IOException;
-import java.util.List;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
+import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.ByteBufferRow;
+import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.ReadResult;
+import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionSnapshotStorage;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.SnapshotUri;
@@ -36,12 +41,10 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.message.Snapsh
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMetaResponse;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMvDataResponse;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMvDataResponse.ResponseEntry;
-import org.apache.ignite.internal.tostring.IgniteToStringInclude;
-import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotTxDataResponse;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotCopier;
@@ -64,7 +67,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
 
     private final IgniteSpinBusyLock cancelBusyLock = new IgniteSpinBusyLock();
 
-    private final CompletableFuture<?> future = new CompletableFuture<>();
+    private final CompletableFuture<?> future0 = new CompletableFuture<>();
 
     /**
      * Snapshot meta read from the leader.
@@ -73,6 +76,11 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
      */
     @Nullable
     private volatile SnapshotMeta snapshotMeta;
+
+    private volatile boolean canceled;
+
+    @Nullable
+    private volatile CompletableFuture<?> future;
 
     /**
      * Constructor.
@@ -87,47 +95,71 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
 
     @Override
     public void start() {
-        runAsync(this::start0, partitionSnapshotStorage.getIncomingSnapshotsExecutor());
+        Executor executor = partitionSnapshotStorage.getIncomingSnapshotsExecutor();
+
+        LOG.info("Copier is started for the partition: " + partId());
+
+        future = prepareMvPartitionStorageForRebalance(executor)
+                .thenCompose(unused -> prepareTxStatePartitionStorageForRebalance(executor))
+                .thenCompose(unused -> {
+                    ClusterNode snapshotSender = getSnapshotSender(snapshotUri.nodeName);
+
+                    if (snapshotSender == null) {
+                        LOG.error("Snapshot sender not found [partId={}, nodeName={}]", partId(), snapshotUri.nodeName);
+
+                        if (!isOk()) {
+                            setError(RaftError.UNKNOWN, "Sender node was not found or it is offline");
+                        }
+
+                        return completedFuture(null);
+                    }
+
+                    return loadSnapshotMeta(snapshotSender)
+                            .thenCompose(unused1 -> loadSnapshotMvData(snapshotSender, executor))
+                            .thenCompose(unused1 -> loadSnapshotTxData(snapshotSender, executor))
+                            .thenAcceptAsync(unused1 -> updateLastAppliedIndexFromSnapshotMetaForStorages(), executor);
+                });
     }
 
     @Override
     public void join() throws InterruptedException {
-        try {
-            future.get();
-        } catch (CancellationException e) {
-            LOG.info("Copier is cancelled");
+        CompletableFuture<?> fut = future;
 
-            if (!isOk()) {
-                setError(RaftError.ECANCELED, "Copier has been cancelled");
-            }
-        } catch (ExecutionException e) {
-            Throwable cause = e.getCause();
+        if (fut != null) {
+            try {
+                fut.get();
+            } catch (CancellationException e) {
+                // Ignored.
+            } catch (ExecutionException e) {
+                Throwable cause = e.getCause();
 
-            LOG.error("Error when completing the copier", cause);
+                LOG.error("Error when completing the copier", cause);
 
-            if (cause instanceof SnapshotCopierException) {
-                SnapshotCopierException snapshotCopierException = (SnapshotCopierException) cause;
-
-                if (!isOk()) {
-                    setError(snapshotCopierException.status.getRaftError(), snapshotCopierException.status.getErrorMsg());
-                }
-
-                cause = snapshotCopierException.getCause();
-            } else {
                 if (!isOk()) {
                     setError(RaftError.UNKNOWN, "Unknown error on completion the copier");
                 }
-            }
 
-            throw new IllegalStateException(cause);
+                // By analogy with LocalSnapshotCopier#join.
+                throw new IllegalStateException(cause);
+            }
         }
     }
 
     @Override
     public void cancel() {
-        cancelBusyLock.block();
+        canceled = true;
 
-        future.cancel(true);
+        LOG.info("Copier is cancelled");
+
+        if (!isOk()) {
+            setError(RaftError.ECANCELED, "Copier is cancelled");
+        }
+
+        CompletableFuture<?> fut = future;
+
+        if (fut != null) {
+            fut.cancel(true);
+        }
     }
 
     @Override
@@ -135,6 +167,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
         cancel();
 
         try {
+            // Because after closing nobody calls join().
             join();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -147,174 +180,234 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
         return new IncomingSnapshotReader(snapshotMeta);
     }
 
-    private void start0() {
-        if (!cancelBusyLock.enterBusy()) {
-            return;
+    /**
+     * Prepares the {@link MvPartitionStorage} for a full rebalance.
+     *
+     * <p>Recreates {@link MvPartitionStorage} and sets the last applied index to {@link TableManager#FULL_RABALANCING_STARTED} so that
+     * when the node is restarted, we can understand that the full rebalance has not completed, and we need to clean up the storage from
+     * garbage.
+     */
+    private CompletableFuture<?> prepareMvPartitionStorageForRebalance(Executor executor) {
+        if (canceled) {
+            return completedFuture(null);
         }
 
-        try {
-            partitionSnapshotStorage.partition().reCreatePartition()
-                    .whenComplete((unused, throwable) -> {
-                        if (throwable != null) {
-                            future.completeExceptionally(copierException(throwable, RaftError.EIO, "Error while recreating partition"));
-                        } else {
-                            ClusterNode snapshotSenderNode = partitionSnapshotStorage.topologyService()
-                                    .getByConsistentId(snapshotUri.nodeName);
-
-                            if (snapshotSenderNode == null) {
-                                future.completeExceptionally(copierException(
-                                        new IgniteException("Sender node was not found or it is offline: " + snapshotUri.nodeName),
-                                        RaftError.UNKNOWN,
-                                        "Sender node was not found or it is offline"
-                                ));
-                            } else {
-                                requestSnapshotMetaAsync(snapshotSenderNode);
-                            }
-                        }
-                    });
-        } catch (StorageException e) {
-            future.completeExceptionally(copierException(e, RaftError.EIO, "Error recreating partition"));
-        } catch (Throwable t) {
-            future.completeExceptionally(t);
-        } finally {
-            cancelBusyLock.leaveBusy();
-        }
-    }
-
-    private void requestSnapshotMetaAsync(ClusterNode snapshotSenderNode) {
-        if (!cancelBusyLock.enterBusy()) {
-            return;
-        }
-
-        try {
-            partitionSnapshotStorage.outgoingSnapshotsManager().messagingService().invoke(
-                    snapshotSenderNode,
-                    MSG_FACTORY.snapshotMetaRequest().id(snapshotUri.snapshotId).build(),
-                    NETWORK_TIMEOUT
-            ).whenComplete((networkMessage, throwable) -> {
-                if (throwable != null) {
-                    future.completeExceptionally(copierException(throwable, RaftError.EIO, "Failed to request snapshot meta"));
-                } else {
-                    snapshotMeta = ((SnapshotMetaResponse) networkMessage).meta();
-
-                    requestSnapshotMvDataAsync(snapshotSenderNode);
-                }
-            });
-        } catch (Throwable t) {
-            future.completeExceptionally(t);
-        } finally {
-            cancelBusyLock.leaveBusy();
-        }
-    }
-
-    private void requestSnapshotMvDataAsync(ClusterNode snapshotSenderNode) {
-        if (!cancelBusyLock.enterBusy()) {
-            return;
-        }
-
-        try {
-            partitionSnapshotStorage.outgoingSnapshotsManager().messagingService().invoke(
-                    snapshotSenderNode,
-                    MSG_FACTORY.snapshotMvDataRequest().id(snapshotUri.snapshotId).build(),
-                    NETWORK_TIMEOUT
-            ).whenComplete((networkMessage, throwable) -> {
-                if (throwable != null) {
-                    future.completeExceptionally(copierException(throwable, RaftError.EIO, "Failed to load mv partition data"));
-                } else {
-                    SnapshotMvDataResponse snapshotMvDataResponse = ((SnapshotMvDataResponse) networkMessage);
-
-                    handleVersionChains(snapshotMvDataResponse.rows());
-
-                    if (!snapshotMvDataResponse.finish()) {
-                        requestSnapshotMvDataAsync(snapshotSenderNode);
-                    } else {
-                        completeCopySnapshot();
+        return partitionSnapshotStorage.partition()
+                .reCreateMvPartitionStorage(executor)
+                .thenCompose(mvPartitionStorage -> {
+                    if (canceled) {
+                        return completedFuture(null);
                     }
-                }
-            });
-        } catch (Throwable t) {
-            future.completeExceptionally(t);
-        } finally {
-            cancelBusyLock.leaveBusy();
-        }
-    }
 
-    private void completeCopySnapshot() {
-        if (!cancelBusyLock.enterBusy()) {
-            return;
-        }
+                    mvPartitionStorage.runConsistently(() -> {
+                        mvPartitionStorage.lastAppliedIndex(FULL_RABALANCING_STARTED);
 
-        try {
-            SnapshotMeta snapshotMeta0 = snapshotMeta;
+                        return null;
+                    });
 
-            assert snapshotMeta0 != null;
+                    LOG.info("Copier prepared multi-versioned storage for the partition: " + partId());
 
-            partitionSnapshotStorage.partition().lastAppliedIndex(snapshotMeta0.lastIncludedIndex());
-
-            future.complete(null);
-        } catch (StorageException e) {
-            future.completeExceptionally(copierException(e, RaftError.EIO, "Error writing last applied index"));
-        } catch (Throwable t) {
-            future.completeExceptionally(t);
-        } finally {
-            cancelBusyLock.leaveBusy();
-        }
-    }
-
-    private void handleVersionChains(List<ResponseEntry> responseEntries) {
-        for (ResponseEntry entry : responseEntries) {
-            if (!cancelBusyLock.enterBusy()) {
-                return;
-            }
-
-            try {
-                partitionSnapshotStorage.partition().writeVersionChain(
-                        entry.rowId(),
-                        entry.rowVersions(),
-                        entry.timestamps(),
-                        entry.txId(),
-                        entry.commitTableId(),
-                        entry.commitPartitionId()
-                );
-            } catch (StorageException e) {
-                future.completeExceptionally(copierException(e, RaftError.EIO, "Error writing version chain"));
-            } catch (Throwable t) {
-                future.completeExceptionally(t);
-            } finally {
-                cancelBusyLock.leaveBusy();
-            }
-        }
+                    return completedFuture(null);
+                });
     }
 
     /**
-     * Exception along with its status for snapshot copier.
+     * Prepares the {@link TxStateStorage} for a full rebalance.
      *
-     * <p>The class is needed because the copier status is not thread-safe.
-     *
-     * @see #isOk()
-     * @see #setError(RaftError, String, Object...)
+     * <p>Recreates {@link TxStateStorage} and sets the last applied index to {@link TableManager#FULL_RABALANCING_STARTED} so that when
+     * the node is restarted, we can understand that the full rebalance has not completed, and we need to clean up the storage from
+     * garbage.
      */
-    static class SnapshotCopierException extends RuntimeException {
-        /** Should be immutable. */
-        @IgniteToStringInclude
-        private final Status status;
-
-        private SnapshotCopierException(Throwable cause, Status status) {
-            super(cause);
-
-            this.status = status;
+    private CompletableFuture<?> prepareTxStatePartitionStorageForRebalance(Executor executor) {
+        if (canceled) {
+            return completedFuture(null);
         }
 
-        @Override
-        public String toString() {
-            return S.toString(SnapshotCopierException.class, this, "super", super.toString());
+        return partitionSnapshotStorage.partition()
+                .reCreateTxStatePartitionStorage(executor)
+                .thenCompose(txStatePartitionStorage -> {
+                    if (canceled) {
+                        return completedFuture(null);
+                    }
+
+                    txStatePartitionStorage.lastAppliedIndex(FULL_RABALANCING_STARTED);
+
+                    LOG.info("Copier prepared transaction state storage for the partition: " + partId());
+
+                    return completedFuture(null);
+                });
+    }
+
+    private @Nullable ClusterNode getSnapshotSender(String nodeName) {
+        return partitionSnapshotStorage.topologyService().getByConsistentId(nodeName);
+    }
+
+    /**
+     * Requests and saves the snapshot meta in {@link #snapshotMeta}.
+     */
+    private CompletableFuture<?> loadSnapshotMeta(ClusterNode snapshotSender) {
+        if (canceled) {
+            return completedFuture(null);
         }
 
-        static SnapshotCopierException copierException(Throwable throwable, RaftError raftError, String errorMsg, Object... args) {
-            return new SnapshotCopierException(
-                    throwable,
-                    nullOrEmpty(args) ? new Status(raftError.getNumber(), errorMsg) : new Status(raftError, errorMsg, args)
-            );
+        return partitionSnapshotStorage.outgoingSnapshotsManager().messagingService().invoke(
+                snapshotSender,
+                MSG_FACTORY.snapshotMetaRequest().id(snapshotUri.snapshotId).build(),
+                NETWORK_TIMEOUT
+        ).thenAccept(response -> {
+            snapshotMeta = ((SnapshotMetaResponse) response).meta();
+
+            LOG.info("Copier has loaded the snapshot meta for the partition: " + partId());
+        });
+    }
+
+    /**
+     * Requests and stores data into {@link MvPartitionStorage}.
+     */
+    private CompletableFuture<?> loadSnapshotMvData(ClusterNode snapshotSender, Executor executor) {
+        if (canceled) {
+            return completedFuture(null);
         }
+
+        return partitionSnapshotStorage.outgoingSnapshotsManager().messagingService().invoke(
+                snapshotSender,
+                MSG_FACTORY.snapshotMvDataRequest().id(snapshotUri.snapshotId).build(),
+                NETWORK_TIMEOUT
+        ).thenComposeAsync(response -> {
+            SnapshotMvDataResponse snapshotMvDataResponse = ((SnapshotMvDataResponse) response);
+
+            MvPartitionStorage mvPartition = partitionSnapshotStorage.partition().mvPartitionStorage();
+
+            for (ResponseEntry entry : snapshotMvDataResponse.rows()) {
+                if (canceled) {
+                    return completedFuture(null);
+                }
+
+                // Let's write all versions for the row ID.
+                mvPartition.runConsistently(() -> {
+                    RowId rowId = new RowId(partId(), entry.rowId().getMostSignificantBits(), entry.rowId().getLeastSignificantBits());
+
+                    for (int i = 0; i < entry.rowVersions().size(); i++) {
+                        HybridTimestamp timestamp = i + 1 <= entry.timestamps().size() ? entry.timestamps().get(i) : null;
+
+                        BinaryRow binaryRow = new ByteBufferRow(entry.rowVersions().get(i).rewind());
+
+                        if (timestamp == null) {
+                            // Writes an intent to write (uncommitted version).
+                            assert entry.txId() != null;
+                            assert entry.commitTableId() != null;
+                            assert entry.commitPartitionId() != ReadResult.UNDEFINED_COMMIT_PARTITION_ID;
+
+                            mvPartition.addWrite(rowId, binaryRow, entry.txId(), entry.commitTableId(), entry.commitPartitionId());
+                        } else {
+                            // Writes committed version.
+                            mvPartition.addWriteCommitted(rowId, binaryRow, timestamp);
+                        }
+                    }
+
+                    return null;
+                });
+            }
+
+            if (snapshotMvDataResponse.finish()) {
+                LOG.info(
+                        "Copier has finished loading multi-versioned data [partId={}, rows={}]",
+                        partId(),
+                        snapshotMvDataResponse.rows().size()
+                );
+
+                return completedFuture(null);
+            } else {
+                LOG.info(
+                        "Copier has loaded a portion of multi-versioned data [partId={}, rows={}]",
+                        partId(),
+                        snapshotMvDataResponse.rows().size()
+                );
+
+                // Let's upload the rest.
+                return loadSnapshotMvData(snapshotSender, executor);
+            }
+        }, executor);
+    }
+
+    /**
+     * Requests and stores data into {@link TxStateStorage}.
+     */
+    private CompletableFuture<?> loadSnapshotTxData(ClusterNode snapshotSender, Executor executor) {
+        if (canceled) {
+            return completedFuture(null);
+        }
+
+        return partitionSnapshotStorage.outgoingSnapshotsManager().messagingService().invoke(
+                snapshotSender,
+                MSG_FACTORY.snapshotTxDataRequest().id(snapshotUri.snapshotId).build(),
+                NETWORK_TIMEOUT
+        ).thenComposeAsync(response -> {
+            SnapshotTxDataResponse snapshotTxDataResponse = (SnapshotTxDataResponse) response;
+
+            TxStateStorage txStatePartitionStorage = partitionSnapshotStorage.partition().txStatePartitionStorage();
+
+            assert snapshotTxDataResponse.txMeta().size() == snapshotTxDataResponse.txIds().size();
+
+            for (int i = 0; i < snapshotTxDataResponse.txMeta().size(); i++) {
+                if (canceled) {
+                    return completedFuture(null);
+                }
+
+                txStatePartitionStorage.put(snapshotTxDataResponse.txIds().get(i), snapshotTxDataResponse.txMeta().get(i));
+            }
+
+            if (snapshotTxDataResponse.finish()) {
+                LOG.info(
+                        "Copier has finished loading transaction meta [partId={}, metas={}]",
+                        partId(),
+                        snapshotTxDataResponse.txMeta().size()
+                );
+
+                return completedFuture(null);
+            } else {
+                LOG.info(
+                        "Copier has loaded a portion of transaction meta [partId={}, metas={}]",
+                        partId(),
+                        snapshotTxDataResponse.txMeta().size()
+                );
+
+                // Let's upload the rest.
+                return loadSnapshotTxData(snapshotSender, executor);
+            }
+        }, executor);
+    }
+
+    /**
+     * Updates the last applied index for {@link MvPartitionStorage} and {@link TxStateStorage} from the {@link #snapshotMeta}.
+     */
+    private void updateLastAppliedIndexFromSnapshotMetaForStorages() {
+        if (canceled) {
+            return;
+        }
+
+        TxStateStorage txStatePartitionStorage = partitionSnapshotStorage.partition().txStatePartitionStorage();
+        MvPartitionStorage mvPartitionStorage = partitionSnapshotStorage.partition().mvPartitionStorage();
+
+        SnapshotMeta meta = snapshotMeta;
+
+        assert meta != null;
+
+        mvPartitionStorage.runConsistently(() -> {
+            txStatePartitionStorage.lastAppliedIndex(meta.lastIncludedIndex());
+            mvPartitionStorage.lastAppliedIndex(meta.lastIncludedIndex());
+
+            return null;
+        });
+
+        LOG.info(
+                "Copier has finished updating last applied index for the partition [partId={}, lastAppliedIndex={}]",
+                partId(),
+                meta.lastIncludedIndex()
+        );
+    }
+
+    private int partId() {
+        return partitionSnapshotStorage.partition().partitionId();
     }
 }

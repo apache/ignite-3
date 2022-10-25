@@ -44,7 +44,7 @@ import org.jetbrains.annotations.Nullable;
 public class TestMvPartitionStorage implements MvPartitionStorage {
     private final ConcurrentNavigableMap<RowId, VersionChain> map = new ConcurrentSkipListMap<>();
 
-    private long lastAppliedIndex = 0;
+    private volatile long lastAppliedIndex;
 
     private final int partitionId;
 

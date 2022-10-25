@@ -56,7 +56,7 @@ public class PartitionSnapshotStorageFactory implements SnapshotStorageFactory {
     /** List of learners. */
     private final List<String> learners;
 
-    /** RAFT log index read from {@link PartitionAccess#persistedIndex()} during factory instantiation. */
+    /** RAFT log index read from {@link MvPartitionStorage#persistedIndex()} during factory instantiation. */
     private final long persistedRaftIndex;
 
     /** Incoming snapshots executor. */
@@ -89,7 +89,7 @@ public class PartitionSnapshotStorageFactory implements SnapshotStorageFactory {
         this.learners = learners;
         this.incomingSnapshotsExecutor = incomingSnapshotsExecutor;
 
-        persistedRaftIndex = partition.persistedIndex();
+        persistedRaftIndex = partition.mvPartitionStorage().persistedIndex();
     }
 
     @Override

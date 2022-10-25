@@ -37,19 +37,18 @@ public class TestConcurrentHashMapTxStateStorage implements TxStateStorage {
     /** Storage. */
     private final ConcurrentHashMap<UUID, TxMeta> storage = new ConcurrentHashMap<>();
 
-    /** {@inheritDoc} */
+    private volatile long lastAppliedIndex;
+
     @Override
     public TxMeta get(UUID txId) {
         return storage.get(txId);
     }
 
-    /** {@inheritDoc} */
     @Override
     public void put(UUID txId, TxMeta txMeta) {
         storage.put(txId, txMeta);
     }
 
-    /** {@inheritDoc} */
     @Override
     public boolean compareAndSet(UUID txId, TxState txStateExpected, @NotNull TxMeta txMeta, long commandIndex) {
         while (true) {
@@ -76,19 +75,16 @@ public class TestConcurrentHashMapTxStateStorage implements TxStateStorage {
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     public void remove(UUID txId) {
         storage.remove(txId);
     }
 
-    /** {@inheritDoc} */
     @Override
     public Cursor<IgniteBiTuple<UUID, TxMeta>> scan() {
         return Cursor.fromIterator(storage.entrySet().stream().map(e -> new IgniteBiTuple<>(e.getKey(), e.getValue())).iterator());
     }
 
-    /** {@inheritDoc} */
     @Override
     public void destroy() {
         try {
@@ -100,25 +96,28 @@ public class TestConcurrentHashMapTxStateStorage implements TxStateStorage {
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> flush() {
         return completedFuture(null);
     }
 
-    /** {@inheritDoc} */
     @Override
     public long lastAppliedIndex() {
-        return 0;
+        return lastAppliedIndex;
     }
 
-    /** {@inheritDoc} */
+    @Override
+    public void lastAppliedIndex(long lastAppliedIndex) {
+        assert lastAppliedIndex > this.lastAppliedIndex : "current=" + this.lastAppliedIndex + ", new=" + lastAppliedIndex;
+
+        this.lastAppliedIndex = lastAppliedIndex;
+    }
+
     @Override
     public long persistedIndex() {
-        return 0;
+        return lastAppliedIndex;
     }
 
-    /** {@inheritDoc} */
     @Override
     public void close() throws Exception {
         // No-op.

@@ -17,20 +17,13 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot;
 
-import java.nio.ByteBuffer;
-import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.hlc.HybridTimestamp;
-import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.ByteBufferRow;
+import java.util.concurrent.Executor;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
-import org.apache.ignite.internal.storage.ReadResult;
-import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * {@link PartitionAccess} implementation.
@@ -60,73 +53,47 @@ public class PartitionAccessImpl implements PartitionAccess {
     }
 
     @Override
-    public long persistedIndex() {
-        MvPartitionStorage mvPartition = mvTableStorage.getMvPartition(partId);
-
-        assert mvPartition != null;
-
-        return mvPartition.persistedIndex();
+    public int partitionId() {
+        return partId;
     }
 
     @Override
-    public CompletableFuture<Void> reCreatePartition() throws StorageException {
-        return mvTableStorage.destroyPartition(partId)
-                .thenAccept(unused -> {
-                    MvPartitionStorage partition = mvTableStorage.getOrCreateMvPartition(partId);
+    public MvPartitionStorage mvPartitionStorage() {
+        MvPartitionStorage mvPartition = mvTableStorage.getMvPartition(partId);
 
-                    assert partition.persistedIndex() == 0 : "table=" + mvTableStorage.configuration().name().key() + ", part=" + partId;
-                    assert partition.lastAppliedIndex() == 0 : "table=" + mvTableStorage.configuration().name().key() + ", part=" + partId;
-                });
+        assert mvPartition != null : "table=" + tableName() + ", part=" + partId;
+
+        return mvPartition;
     }
 
     @Override
-    public void lastAppliedIndex(long lastAppliedIndex) throws StorageException {
-        MvPartitionStorage mvPartition = mvTableStorage.getMvPartition(partId);
+    public TxStateStorage txStatePartitionStorage() {
+        TxStateStorage txStatePartitionStorage = txStateTableStorage.getOrCreateTxStateStorage(partId);
 
-        assert mvPartition != null;
+        assert txStatePartitionStorage != null : "table=" + tableName() + ", part=" + partId;
 
-        mvPartition.runConsistently(() -> {
-            mvPartition.lastAppliedIndex(lastAppliedIndex);
-
-            return null;
-        });
+        return txStatePartitionStorage;
     }
 
     @Override
-    public void writeVersionChain(
-            UUID rowId,
-            List<ByteBuffer> rowVersions,
-            List<HybridTimestamp> timestamps,
-            @Nullable UUID txId,
-            @Nullable UUID commitTableId,
-            int commitPartitionId
-    ) throws StorageException {
-        MvPartitionStorage mvPartition = mvTableStorage.getMvPartition(partId);
+    public CompletableFuture<MvPartitionStorage> reCreateMvPartitionStorage(Executor executor) throws StorageException {
+        assert mvTableStorage.getMvPartition(partId) != null : "table=" + tableName() + ", part=" + partId;
 
-        assert mvPartition != null;
+        return mvTableStorage
+                .destroyPartition(partId)
+                .thenApplyAsync(unused -> mvTableStorage.getOrCreateMvPartition(partId), executor);
+    }
 
-        mvPartition.runConsistently(() -> {
-            RowId rowId0 = new RowId(partId, rowId.getMostSignificantBits(), rowId.getLeastSignificantBits());
+    @Override
+    public CompletableFuture<TxStateStorage> reCreateTxStatePartitionStorage(Executor executor) throws StorageException {
+        assert txStateTableStorage.getTxStateStorage(partId) != null : "table=" + tableName() + ", part=" + partId;
 
-            for (int i = 0; i < rowVersions.size(); i++) {
-                HybridTimestamp timestamp = i + 1 <= timestamps.size() ? timestamps.get(i) : null;
+        return txStateTableStorage
+                .destroyTxStateStorage(partId)
+                .thenApplyAsync(unused -> txStateTableStorage.getOrCreateTxStateStorage(partId), executor);
+    }
 
-                BinaryRow binaryRow = new ByteBufferRow(rowVersions.get(i).rewind());
-
-                if (timestamp == null) {
-                    // Writes an intent to write (uncommitted version).
-                    assert txId != null;
-                    assert commitTableId != null;
-                    assert commitPartitionId != ReadResult.UNDEFINED_COMMIT_PARTITION_ID;
-
-                    mvPartition.addWrite(rowId0, binaryRow, txId, commitTableId, commitPartitionId);
-                } else {
-                    // Writes committed version.
-                    mvPartition.addWriteCommitted(rowId0, binaryRow, timestamp);
-                }
-            }
-
-            return null;
-        });
+    private String tableName() {
+        return mvTableStorage.configuration().name().value();
     }
 }
