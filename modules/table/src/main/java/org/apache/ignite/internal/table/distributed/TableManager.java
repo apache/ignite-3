@@ -1576,9 +1576,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      *
      * @param tableId A table id to register index in.
      * @param indexId An index id os the index to register.
+     * @param unique A flag indicating whether the given index unique or not.
      * @param searchRowResolver Function which converts given table row to an index key.
      */
-    public void registerHashIndex(UUID tableId, UUID indexId, Function<BinaryRow, BinaryTuple> searchRowResolver) {
+    public void registerHashIndex(UUID tableId, UUID indexId, boolean unique, Function<BinaryRow, BinaryTuple> searchRowResolver) {
         TableImpl table = tablesByIdVv.latest().get(tableId);
 
         if (table == null) {
@@ -1592,6 +1593,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 indexId,
                 partitionId -> new HashIndexLocker(
                         indexId,
+                        unique,
                         lockMgr,
                         searchRowResolver
                 )

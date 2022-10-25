@@ -225,7 +225,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 row2tuple
         ));
 
-        IndexLocker pkLocker = new HashIndexLocker(indexId, this.txManager.lockManager(), row2tuple);
+        IndexLocker pkLocker = new HashIndexLocker(indexId, true, this.txManager.lockManager(), row2tuple);
 
         replicaListener = new PartitionReplicaListener(
                 mvPartStorage,

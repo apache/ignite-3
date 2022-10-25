@@ -404,7 +404,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                         row2tuple
                 ));
 
-                IndexLocker pkLocker = new HashIndexLocker(indexId, txManagers.get(node).lockManager(), row2tuple);
+                IndexLocker pkLocker = new HashIndexLocker(indexId, true, txManagers.get(node).lockManager(), row2tuple);
 
                 CompletableFuture<Void> partitionReadyFuture = raftServers.get(node).prepareRaftGroup(
                         grpId,

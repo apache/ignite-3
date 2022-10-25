@@ -891,7 +891,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         TablePartitionId commitPartitionId = request.commitPartitionId();
 
         assert commitPartitionId != null || request.requestType() == RequestType.RW_GET :
-                "Commit partition partition is null [type=" + request.requestType() + ']';
+                "Commit partition is null [type=" + request.requestType() + ']';
 
         switch (request.requestType()) {
             case RW_GET: {

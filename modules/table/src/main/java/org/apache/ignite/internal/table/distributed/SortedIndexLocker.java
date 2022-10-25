@@ -20,20 +20,13 @@ package org.apache.ignite.internal.table.distributed;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
-import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
-import org.apache.ignite.internal.schema.BinaryTuplePrefix;
-import org.apache.ignite.internal.schema.BinaryTupleSchema;
-import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.storage.index.IndexRow;
-import org.apache.ignite.internal.storage.index.IndexRowImpl;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.LockMode;
-import org.apache.ignite.internal.util.Cursor;
 
 /**
  * Locker for a sorted indexes.
@@ -41,14 +34,14 @@ import org.apache.ignite.internal.util.Cursor;
  * <p>Simply acquires lock on a given row for lookup and remove, acquires lock on a next key for insert.
  */
 public class SortedIndexLocker implements IndexLocker {
-    private static final BinaryTuple POSITIVE_INF = new BinaryTuple(
-            BinaryTupleSchema.create(new Element[0]),
-            new BinaryTupleBuilder(0, false).build()
-    );
+    // private static final BinaryTuple POSITIVE_INF = new BinaryTuple(
+    //         BinaryTupleSchema.create(new Element[0]),
+    //         new BinaryTupleBuilder(0, false).build()
+    // );
 
     private final UUID indexId;
     private final LockManager lockManager;
-    private final SortedIndexStorage storage;
+    // private final SortedIndexStorage storage;
     private final Function<BinaryRow, BinaryTuple> indexRowResolver;
 
     /**
@@ -63,7 +56,7 @@ public class SortedIndexLocker implements IndexLocker {
             Function<BinaryRow, BinaryTuple> indexRowResolver) {
         this.indexId = indexId;
         this.lockManager = lockManager;
-        this.storage = storage;
+        // this.storage = storage;
         this.indexRowResolver = indexRowResolver;
     }
 
@@ -85,29 +78,29 @@ public class SortedIndexLocker implements IndexLocker {
     @Override
     public CompletableFuture<?> locksForInsert(UUID txId, BinaryRow tableRow, RowId rowId) {
         BinaryTuple key = indexRowResolver.apply(tableRow);
-        BinaryTuplePrefix prefix = BinaryTuplePrefix.fromBinaryTuple(key);
+        // BinaryTuplePrefix prefix = BinaryTuplePrefix.fromBinaryTuple(key);
 
         // find next key
-        Cursor<IndexRow> cursor = storage.scan(prefix, null, SortedIndexStorage.GREATER);
+        // Cursor<IndexRow> cursor = storage.scan(prefix, null, SortedIndexStorage.GREATER);
 
-        BinaryTuple nexKey;
-        if (cursor.hasNext()) {
-            nexKey = cursor.next().indexColumns();
-        } else { // otherwise INF
-            nexKey = POSITIVE_INF;
-        }
+        // BinaryTuple nexKey;
+        // if (cursor.hasNext()) {
+        //     nexKey = cursor.next().indexColumns();
+        // } else { // otherwise INF
+        //     nexKey = POSITIVE_INF;
+        // }
 
-        var nextLockKey = new LockKey(indexId, nexKey.byteBuffer());
+        // var nextLockKey = new LockKey(indexId, nexKey.byteBuffer());
 
-        return lockManager.acquire(txId, nextLockKey, LockMode.IX)
-                .thenCompose(shortLock ->
-                        lockManager.acquire(txId, new LockKey(indexId, key.byteBuffer()), LockMode.X)
-                                .thenRun(() -> {
-                                    storage.put(new IndexRowImpl(key, rowId));
+        // return lockManager.acquire(txId, nextLockKey, LockMode.IX)
+        //         .thenCompose(shortLock ->
+        return lockManager.acquire(txId, new LockKey(indexId, key.byteBuffer()), LockMode.X);
+        //                         .thenRun(() -> {
+        //                             storage.put(new IndexRowImpl(key, rowId));
 
-                                    lockManager.release(shortLock);
-                                })
-                );
+        //                             lockManager.release(shortLock);
+        //                         })
+        //         );
     }
 
     /** {@inheritDoc} */

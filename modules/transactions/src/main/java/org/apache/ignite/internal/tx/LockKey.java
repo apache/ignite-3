@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.tx;
 
 import java.util.UUID;
+import org.apache.ignite.internal.tostring.S;
 
 /** Lock key. */
 public class LockKey {
@@ -76,5 +77,10 @@ public class LockKey {
         int result = contextId != null ? contextId.hashCode() : 0;
         result = 31 * result + (key != null ? key.hashCode() : 0);
         return result;
+    }
+
+    @Override
+    public String toString() {
+        return S.toString(this);
     }
 }

@@ -208,7 +208,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                 indexListChange.create(indexName, chg);
             }).whenComplete((index, th) -> {
                 if (th != null) {
-                    LOG.info("Unable to create index [schema={}, table={}, index={}]",
+                    LOG.debug("Unable to create index [schema={}, table={}, index={}]",
                             th, schemaName, tableName, indexName);
 
                     if (!failIfExists && idxExist.get()) {
@@ -387,7 +387,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         );
 
         if (index instanceof HashIndex) {
-            tableManager.registerHashIndex(tableId, tableIndexView.id(), tableRowConverter::convert);
+            tableManager.registerHashIndex(tableId, tableIndexView.id(), tableIndexView.uniq(), tableRowConverter::convert);
         } else if (index instanceof SortedIndex) {
             tableManager.registerSortedIndex(tableId, tableIndexView.id(), tableRowConverter::convert);
         } else {
@@ -491,7 +491,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
 
             BinaryTupleSchema tupleSchema = BinaryTupleSchema.createSchema(descriptor, indexedColumns);
 
-            var rowConverter = new BinaryConverter(descriptor, tupleSchema);
+            var rowConverter = new BinaryConverter(descriptor, tupleSchema, false);
 
             return new VersionedConverter(descriptor.version(),
                     row -> new BinaryTuple(tupleSchema, rowConverter.toTuple(row)));

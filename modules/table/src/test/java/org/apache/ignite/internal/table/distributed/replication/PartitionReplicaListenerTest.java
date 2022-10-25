@@ -202,7 +202,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         LockManager lockManager = new HeapLockManager();
 
-        pkLocker = new HashIndexLocker(indexId, lockManager, row2tuple);
+        pkLocker = new HashIndexLocker(indexId, true, lockManager, row2tuple);
 
         partitionReplicaListener = new PartitionReplicaListener(
                 testMvPartitionStorage,
