@@ -62,7 +62,7 @@ public class NodeUrlMixin {
             if(nodeUrl != null) {
                 return nodeUrl;
             } else {
-                throw new IgniteCliException("Node " + options.nodeName + " not found. Try to reconnect.");
+                throw new IgniteCliException("Node " + options.nodeName + " not found. Use URL.");
             }
         }
     }
