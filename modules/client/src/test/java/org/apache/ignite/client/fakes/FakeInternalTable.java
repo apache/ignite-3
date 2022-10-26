@@ -321,28 +321,22 @@ public class FakeInternalTable implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public Publisher<BinaryRow> scan(int p, @Nullable InternalTransaction tx) {
-        throw new IgniteInternalException(new OperationNotSupportedException());
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Publisher<BinaryRow> scan(int partId, @Nullable InternalTransaction tx, UUID indexId, BinaryTuple key,
-            BitSet columnsToInclude) {
-        throw new IgniteInternalException(new OperationNotSupportedException());
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public Publisher<BinaryRow> scan(int partId, @Nullable InternalTransaction tx, UUID indexId, @Nullable BinaryTuple lowerBound,
             @Nullable BinaryTuple upperBound, int flags, BitSet columnsToInclude) {
+        throw new IgniteInternalException(new OperationNotSupportedException());
+    }
+
+    @Override
+    public Publisher<BinaryRow> scan(int partId, @NotNull HybridTimestamp readTimestamp, @NotNull ClusterNode recipientNode,
+            @NotNull UUID indexId, @Nullable BinaryTuple lowerBound, @Nullable BinaryTuple upperBound, int flags,
+            @Nullable BitSet columnsToInclude) {
         throw new IgniteInternalException(new OperationNotSupportedException());
     }
 
     /** {@inheritDoc} */
     @Override
     public Publisher<BinaryRow> scan(
-            int p,
+            int partId,
             @NotNull HybridTimestamp readTimestamp,
             @NotNull ClusterNode recipientNode
     ) {

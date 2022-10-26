@@ -243,28 +243,32 @@ public interface InternalTable extends AutoCloseable {
     /**
      * Scans given partition, providing {@link Publisher} that reactively notifies about partition rows.
      *
-     * @param p  The partition.
+     * @param partId  The partition.
      * @param tx The transaction.
      * @return {@link Publisher} that reactively notifies about partition rows.
      * @throws IllegalArgumentException If proposed partition index {@code p} is out of bounds.
      */
-    Publisher<BinaryRow> scan(int p, @Nullable InternalTransaction tx);
+    default Publisher<BinaryRow> scan(int partId, @Nullable InternalTransaction tx) {
+        return scan(partId, tx, null, null, null, 0, null);
+    }
 
     /**
      * Scans given partition with the proposed read timestamp, providing {@link Publisher} that reactively notifies about partition rows.
      *
-     * @param p             The partition.
+     * @param partId             The partition.
      * @param readTimestamp Read timestamp.
      * @param recipientNode Cluster node that will handle given get request.
      * @return {@link Publisher} that reactively notifies about partition rows.
      * @throws IllegalArgumentException If proposed partition index {@code p} is out of bounds.
      * @throws TransactionException If proposed {@code tx} is read-write. Transaction itself won't be automatically rolled back.
      */
-    Publisher<BinaryRow> scan(
-            int p,
+    default Publisher<BinaryRow> scan(
+            int partId,
             @NotNull HybridTimestamp readTimestamp,
             @NotNull ClusterNode recipientNode
-    );
+    ) {
+        return scan(partId,readTimestamp, recipientNode, null, null,null,0, null);
+    }
 
     /**
      * Scans given partition index, providing {@link Publisher} that reactively notifies about partition rows.
@@ -276,10 +280,39 @@ public interface InternalTable extends AutoCloseable {
      * @param columnsToInclude Row projection. // TODO: Drop parameter or pushdown converter with the schema registry.
      * @return {@link Publisher} that reactively notifies about partition rows.
      */
-    default Publisher<BinaryRow> scan(int partId, @Nullable InternalTransaction tx, @NotNull UUID indexId, BinaryTuple key,
-            @Nullable BitSet columnsToInclude) {
+    default Publisher<BinaryRow> scan(
+            int partId,
+            @Nullable InternalTransaction tx,
+            @NotNull UUID indexId,
+            BinaryTuple key,
+            @Nullable BitSet columnsToInclude
+    ) {
         return scan(partId, tx, indexId, key, key, SortedIndexStorage.GREATER_OR_EQUAL, columnsToInclude);
     }
+
+    /**
+     * Scans given partition index, providing {@link Publisher} that reactively notifies about partition rows.
+     *
+     * @param partId The partition.
+     * @param readTimestamp Read timestamp.
+     * @param recipientNode Cluster node that will handle given get request.
+     * @param indexId Index id.
+     * @param lowerBound Lower search bound.
+     * @param upperBound Upper search bound.
+     * @param flags Control flags. See {@link org.apache.ignite.internal.storage.index.SortedIndexStorage} constants.
+     * @param columnsToInclude Row projection.
+     * @return {@link Publisher} that reactively notifies about partition rows.
+     */
+    Publisher<BinaryRow> scan(
+            int partId,
+            @NotNull HybridTimestamp readTimestamp,
+            @NotNull ClusterNode recipientNode,
+            @NotNull UUID indexId,
+            @Nullable BinaryTuple lowerBound,
+            @Nullable BinaryTuple upperBound,
+            int flags,
+            @Nullable BitSet columnsToInclude
+    );
 
     /**
      * Scans given partition index, providing {@link Publisher} that reactively notifies about partition rows.
@@ -293,8 +326,15 @@ public interface InternalTable extends AutoCloseable {
      * @param columnsToInclude Row projection.
      * @return {@link Publisher} that reactively notifies about partition rows.
      */
-    Publisher<BinaryRow> scan(int partId, @Nullable InternalTransaction tx, @NotNull UUID indexId, @Nullable BinaryTuple lowerBound,
-            @Nullable BinaryTuple upperBound, int flags, @Nullable BitSet columnsToInclude);
+    Publisher<BinaryRow> scan(
+            int partId,
+            @Nullable InternalTransaction tx,
+            @NotNull UUID indexId,
+            @Nullable BinaryTuple lowerBound,
+            @Nullable BinaryTuple upperBound,
+            int flags,
+            @Nullable BitSet columnsToInclude
+    );
 
     /**
      * Gets a count of partitions of the table.

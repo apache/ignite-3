@@ -52,7 +52,6 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
-import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlyScanRetrieveBatchReplicaRequest;
@@ -347,7 +346,8 @@ public class InternalTableImpl implements InternalTable {
             @Nullable UUID indexId,
             @Nullable BinaryTuple lowerBound,
             @Nullable BinaryTuple upperBound,
-            int flags
+            int flags,
+            @Nullable BitSet columnsToInclude
     ) {
         TablePartitionId partGroupId = new TablePartitionId(tableId, partId);
 
@@ -363,6 +363,7 @@ public class InternalTableImpl implements InternalTable {
                 .lowerBound(lowerBound)
                 .upperBound(upperBound)
                 .flags(flags)
+                .columnsToInclude(columnsToInclude)
                 .batchSize(batchSize)
                 .timestamp(clock.now());
 
@@ -808,7 +809,52 @@ public class InternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public Publisher<BinaryRow> scan(int p, @Nullable InternalTransaction tx) {
+    public Publisher<BinaryRow> scan(
+            int partId,
+            @NotNull HybridTimestamp readTimestamp,
+            @NotNull ClusterNode recipientNode,
+            @NotNull UUID indexId,
+            @Nullable BinaryTuple lowerBound,
+            @Nullable BinaryTuple upperBound,
+            int flags,
+            @Nullable BitSet columnsToInclude
+    ) {
+        validatePartitionIndex(partId);
+
+        return new PartitionScanPublisher(
+                (scanId, batchSize) -> {
+                    ReplicationGroupId partGroupId = partitionMap.get(partId).groupId();
+
+                    ReadOnlyScanRetrieveBatchReplicaRequest request = tableMessagesFactory.readOnlyScanRetrieveBatchReplicaRequest()
+                            .groupId(partGroupId)
+                            .readTimestamp(readTimestamp)
+                            .scanId(scanId)
+                            .batchSize(batchSize)
+                            .indexToUse(indexId)
+                            .lowerBound(lowerBound)
+                            .upperBound(upperBound)
+                            .flags(flags)
+                            .columnsToInclude(columnsToInclude)
+                            .readTimestamp(clock.now())
+                            .build();
+
+                    return replicaSvc.invoke(recipientNode, request);
+                },
+                // TODO: IGNITE-17666 Close cursor tx finish.
+                Function.identity());
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Publisher<BinaryRow> scan(
+            int partId,
+            @Nullable InternalTransaction tx,
+            @NotNull UUID indexId,
+            @Nullable BinaryTuple lowerBound,
+            @Nullable BinaryTuple upperBound,
+            int flags,
+            @Nullable BitSet columnsToInclude
+    ) {
         // Check whether proposed tx is read-only. Complete future exceptionally if true.
         // Attempting to enlist a read-only in a read-write transaction does not corrupt the transaction itself, thus read-write transaction
         // won't be rolled back automatically - it's up to the user or outer engine.
@@ -821,58 +867,6 @@ public class InternalTableImpl implements InternalTable {
             );
         }
 
-        validatePartitionIndex(p);
-
-        final boolean implicit = tx == null;
-
-        final InternalTransaction tx0 = implicit ? txManager.begin() : tx;
-
-        return new PartitionScanPublisher(
-                (scanId, batchSize) -> enlistCursorInTx(tx0, p, scanId, batchSize, null, null, null,
-                        SortedIndexStorage.GREATER_OR_EQUAL), fut -> postEnlist(fut, implicit, tx0)
-        );
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Publisher<BinaryRow> scan(
-            int p,
-            @NotNull HybridTimestamp readTimestamp,
-            @NotNull ClusterNode recipientNode
-    ) {
-        validatePartitionIndex(p);
-
-        return new PartitionScanPublisher(
-                (scanId, batchSize) -> {
-                    ReplicationGroupId partGroupId = partitionMap.get(p).groupId();
-
-                    ReadOnlyScanRetrieveBatchReplicaRequest request = tableMessagesFactory.readOnlyScanRetrieveBatchReplicaRequest()
-                            .groupId(partGroupId)
-                            // TODO: IGNITE-17666 Close cursor tx finish.
-                            .transactionId(UUID.randomUUID())
-                            .scanId(scanId)
-                            .batchSize(batchSize)
-                            .readTimestamp(clock.now())
-                            .build();
-
-                    return replicaSvc.invoke(recipientNode, request);
-                },
-                // TODO: IGNITE-17666 Close cursor tx finish.
-                Function.identity());
-    }
-
-
-    /** {@inheritDoc} */
-    @Override
-    public Publisher<BinaryRow> scan(int partId, @Nullable InternalTransaction tx, @NotNull UUID indexId, BinaryTuple key,
-            @Nullable BitSet columnsToInclude) {
-        return scan(partId, tx, indexId, key, key, SortedIndexStorage.GREATER_OR_EQUAL, columnsToInclude);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Publisher<BinaryRow> scan(int partId, @Nullable InternalTransaction tx, @NotNull UUID indexId, @Nullable BinaryTuple lowerBound,
-            @Nullable BinaryTuple upperBound, int flags, @Nullable BitSet columnsToInclude) {
         validatePartitionIndex(partId);
 
         final boolean implicit = tx == null;
@@ -880,7 +874,7 @@ public class InternalTableImpl implements InternalTable {
         final InternalTransaction tx0 = implicit ? txManager.begin() : tx;
 
         return new PartitionScanPublisher(
-                (scanId, batchSize) -> enlistCursorInTx(tx0, partId, scanId, batchSize, indexId, lowerBound, upperBound, flags),
+                (scanId, batchSize) -> enlistCursorInTx(tx0, partId, scanId, batchSize, indexId, lowerBound, upperBound, flags, columnsToInclude),
                 fut -> postEnlist(fut, implicit, tx0)
         );
     }
