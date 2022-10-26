@@ -62,6 +62,7 @@ namespace Apache.Ignite.Internal.Proto
                 ClientOp.TxRollback => null,
                 ClientOp.Heartbeat => null,
                 ClientOp.ClusterGetNodes => null,
+                ClientOp.PartitionAssignmentGet => null,
 
                 // Do not return null from default arm intentionally so we don't forget to update this when new ClientOp values are added.
                 _ => throw new ArgumentOutOfRangeException(nameof(op), op, message: null)

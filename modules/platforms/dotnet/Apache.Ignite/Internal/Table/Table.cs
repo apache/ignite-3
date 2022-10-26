@@ -20,6 +20,7 @@ namespace Apache.Ignite.Internal.Table
     using System;
     using System.Collections.Concurrent;
     using System.Diagnostics;
+    using System.Threading;
     using System.Threading.Tasks;
     using Buffers;
     using Ignite.Table;
@@ -45,7 +46,16 @@ namespace Apache.Ignite.Internal.Table
         private readonly object _latestSchemaLock = new();
 
         /** */
+        private readonly SemaphoreSlim _partitionAssignmentSemaphore = new(1);
+
+        /** */
         private volatile int _latestSchemaVersion = -1;
+
+        /** */
+        private volatile int _partitionAssignmentVersion = -1;
+
+        /** */
+        private volatile string[]? _partitionAssignment;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Table"/> class.
@@ -162,6 +172,46 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <summary>
+        /// Gets the latest schema.
+        /// </summary>
+        /// <returns>Schema.</returns>
+        internal async ValueTask<string[]> GetPartitionAssignmentAsync()
+        {
+            var socketVer = _socket.PartitionAssignmentVersion;
+            var assignment = _partitionAssignment;
+
+            // Async double-checked locking. Assignment changes rarely, so we avoid the lock if possible.
+            if (_partitionAssignmentVersion == socketVer && assignment != null)
+            {
+                return assignment;
+            }
+
+            await _partitionAssignmentSemaphore.WaitAsync().ConfigureAwait(false);
+
+            try
+            {
+                socketVer = _socket.PartitionAssignmentVersion;
+                assignment = _partitionAssignment;
+
+                if (_partitionAssignmentVersion == socketVer && assignment != null)
+                {
+                    return assignment;
+                }
+
+                assignment = await LoadPartitionAssignmentAsync().ConfigureAwait(false);
+
+                _partitionAssignment = assignment;
+                _partitionAssignmentVersion = socketVer;
+
+                return assignment;
+            }
+            finally
+            {
+                _partitionAssignmentSemaphore.Release();
+            }
+        }
+
+        /// <summary>
         /// Loads the schema.
         /// </summary>
         /// <param name="version">Version.</param>
@@ -238,12 +288,12 @@ namespace Apache.Ignite.Internal.Table
                 var type = r.ReadInt32();
                 var isKey = r.ReadBoolean();
                 var isNullable = r.ReadBoolean();
-                r.ReadBoolean(); // IsColocation.
+                var isColocation = r.ReadBoolean(); // IsColocation.
                 var scale = r.ReadInt32();
 
                 r.Skip(propertyCount - expectedCount);
 
-                var column = new Column(name, (ClientDataType)type, isNullable, isKey, i, scale);
+                var column = new Column(name, (ClientDataType)type, isNullable, isColocation, isKey, i, scale);
 
                 columns[i] = column;
 
@@ -266,6 +316,40 @@ namespace Apache.Ignite.Internal.Table
             }
 
             return schema;
+        }
+
+        /// <summary>
+        /// Loads the partition assignment.
+        /// </summary>
+        /// <returns>Partition assignment.</returns>
+        private async Task<string[]> LoadPartitionAssignmentAsync()
+        {
+            using var writer = ProtoCommon.GetMessageWriter();
+            Write();
+
+            using var resBuf = await _socket.DoOutInOpAsync(ClientOp.PartitionAssignmentGet, writer).ConfigureAwait(false);
+            return Read();
+
+            void Write()
+            {
+                var w = writer.GetMessageWriter();
+                w.Write(Id);
+                w.Flush();
+            }
+
+            string[] Read()
+            {
+                var r = resBuf.GetReader();
+                var count = r.ReadArrayHeader();
+                var res = new string[count];
+
+                for (int i = 0; i < count; i++)
+                {
+                    res[i] = r.ReadString();
+                }
+
+                return res;
+            }
         }
     }
 }

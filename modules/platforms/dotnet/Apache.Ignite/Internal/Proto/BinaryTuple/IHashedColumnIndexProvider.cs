@@ -15,28 +15,17 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Internal.Table
+namespace Apache.Ignite.Internal.Proto.BinaryTuple;
+
+/// <summary>
+/// Provides a value indicating whether the column at specified index should be included in the hash.
+/// </summary>
+internal interface IHashedColumnIndexProvider
 {
-    using System.Collections.Generic;
-    using Proto.BinaryTuple;
-
     /// <summary>
-    /// Schema.
+    /// Gets a value indicating whether the value of a column at specified index should be hashed.
     /// </summary>
-    /// <param name="Version">Version.</param>
-    /// <param name="KeyColumnCount">Key column count.</param>
-    /// <param name="Columns">Columns in schema order.</param>
-    internal sealed record Schema(
-        int Version,
-        int KeyColumnCount,
-        IReadOnlyList<Column> Columns) : IHashedColumnIndexProvider
-    {
-        /// <summary>
-        /// Gets the value column count.
-        /// </summary>
-        public int ValueColumnCount => Columns.Count - KeyColumnCount;
-
-        /// <inheritdoc/>
-        public bool IsHashedColumnIndex(int index) => index < KeyColumnCount && Columns[index].IsColocation;
-    }
+    /// <param name="index">Column index.</param>
+    /// <returns>True when hashed column; false otherwise.</returns>
+    bool IsHashedColumnIndex(int index);
 }
