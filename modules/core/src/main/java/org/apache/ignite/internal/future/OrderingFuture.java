@@ -17,15 +17,20 @@
 
 package org.apache.ignite.internal.future;
 
-import org.jetbrains.annotations.Nullable;
-
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.util.ArrayDeque;
 import java.util.Deque;
-import java.util.concurrent.*;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * A little analogue of {@link CompletableFuture} that has the following property: callbacks (like {@link #whenComplete(BiConsumer)}
