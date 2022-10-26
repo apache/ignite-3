@@ -108,7 +108,7 @@ public class PendingComparableValuesTrackerTest {
                                 IgniteBiTuple<CompletableFuture<Void>, HybridTimestamp> t = it.next();
 
                                 if (t.get2().compareTo(now) <= 0) {
-                                    assertTrue(t.get1().isDone(), "now=" + now + ", ts=" + t.get2() + ", trackable=" + tracker.current.get());
+                                    assertTrue(t.get1().isDone(), "now=" + now + ", ts=" + t.get2() + ", trackerTs=" + tracker.current());
 
                                     it.remove();
                                 }
