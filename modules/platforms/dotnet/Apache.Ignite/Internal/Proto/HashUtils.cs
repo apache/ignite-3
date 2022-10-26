@@ -129,10 +129,7 @@ internal static class HashUtils // TODO: Unchecked everywhere?
     /// <param name="data">Input data.</param>
     /// <param name="seed">Current hash.</param>
     /// <returns>Resulting hash.</returns>
-    public static int Hash32(BigInteger data, int seed)
-    {
-        throw new NotImplementedException();
-    }
+    public static int Hash32(BigInteger data, int seed) => Hash32((double)data, seed);
 
     /// <summary>
     /// Generates 32-bit hash.

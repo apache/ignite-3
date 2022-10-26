@@ -351,6 +351,16 @@ public class PlatformTestNodeRunner {
                         tuple.set(colName, reader.uuidValue(valIdx));
                         break;
 
+                    case ClientDataType.NUMBER:
+                        columns[i] = new Column(i, colName, NativeTypes.numberOf(255), false);
+                        tuple.set(colName, reader.numberValue(valIdx));
+                        break;
+
+                    case ClientDataType.BITMASK:
+                        columns[i] = new Column(i, colName, NativeTypes.bitmaskOf(32), false);
+                        tuple.set(colName, reader.bitmaskValue(valIdx));
+                        break;
+
                     default:
                         throw new IllegalArgumentException("Unsupported type: " + type);
                 }
