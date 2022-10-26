@@ -43,7 +43,7 @@ import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.util.Pair;
-import org.apache.ignite.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.index.event.IndexEvent;
 import org.apache.ignite.internal.index.event.IndexEventParameters;
@@ -402,8 +402,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                             .cancel(queryCancel)
                             .parameters(params)
                             .transaction(outerTx)
-                            // use new implementation after ignite-17260
-                            .transactionTime(/*outerTx != null ? outerTx.readTimestamp() : */new HybridClock().now())
+                            .transactionTime(!rwTx ? (outerTx != null ? outerTx.readTimestamp() : new HybridClock().now()) : null)
                             .plannerTimeout(PLANNER_TIMEOUT)
                             .build();
 
@@ -414,7 +413,8 @@ public class SqlQueryProcessor implements QueryProcessor {
 
                                 // Transactional DDL is not supported as well as RO transactions, hence
                                 // only DML requiring RW transaction is covered
-                                boolean implicitTxRequired = (plan.type() == Type.DML || plan.type() == Type.QUERY) && outerTx == null;
+                                boolean implicitTxRequired = (plan.type() == Type.DML || plan.type() == Type.QUERY)
+                                        && outerTx == null && rwTx;
 
                                 InternalTransaction implicitTx = implicitTxRequired ? txManager.begin() : null;
 

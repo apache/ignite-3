@@ -321,6 +321,16 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
 
         rs.closeAsync();
 
+        outerTx = igniteTx().readOnly().begin();
+
+        rs = ses.executeAsync(outerTx, "SELECT VAL0 FROM TEST ORDER BY VAL0").get();
+
+        assertEquals(2 * ROW_COUNT, StreamSupport.stream(rs.currentPage().spliterator(), false).count());
+
+        rs.closeAsync();
+
+        outerTx.commit();
+
         checkDml(2 * ROW_COUNT, ses, "UPDATE TEST SET VAL0 = VAL0 + ?", 1);
 
         checkDml(2 * ROW_COUNT, ses, "DELETE FROM TEST WHERE VAL0 >= 0");
