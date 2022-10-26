@@ -1290,23 +1290,13 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
     @ParameterizedTest
     @EnumSource(ScanTimestampProvider.class)
     public void scanDoesNotSeeTombstonesWhenTombstoneIsCommitted(ScanTimestampProvider tsProvider) throws Exception {
-        testScanDoesNotSeeTombstones(tsProvider, true);
-    }
-
-    private void testScanDoesNotSeeTombstones(ScanTimestampProvider scantsProvider, boolean commitRemoval) throws Exception {
         RowId rowId = insert(binaryRow, txId);
         commitWrite(rowId, clock.now());
 
         addWrite(rowId, null, newTransactionId());
-        if (commitRemoval) {
-            commitWrite(rowId, clock.now());
-        }
+        commitWrite(rowId, clock.now());
 
-        assertScanSeesNothing(scantsProvider);
-    }
-
-    private void assertScanSeesNothing(ScanTimestampProvider scanTsProvider) throws Exception {
-        try (PartitionTimestampCursor cursor = scan(scanTsProvider.scanTimestamp(clock))) {
+        try (PartitionTimestampCursor cursor = scan(tsProvider.scanTimestamp(clock))) {
             assertFalse(cursor.hasNext());
         }
     }
