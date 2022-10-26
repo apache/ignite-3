@@ -122,14 +122,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
             createIndexAsync("PUBLIC", pkName, param.tableName(), false,
                     change -> change.changeUniq(true).convert(HashIndexChange.class)
                             .changeColumnNames(pkColumns.toArray(STRING_EMPTY_ARRAY))
-            ).thenRun(() -> {
-                TableIndexView indexView = tablesCfg.indexes().get(pkName).value();
-
-                UUID pkId = indexView.id();
-                UUID tableId = indexView.tableId();
-
-                tableManager.registerPk(param.causalityToken(), tableId, pkId);
-            });
+            );
 
             return CompletableFuture.completedFuture(false);
         });
@@ -171,7 +164,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
             Consumer<TableIndexChange> indexChange
     ) {
         if (!busyLock.enterBusy()) {
-            return CompletableFuture.failedFuture(new NodeStoppingException());
+            return failedFuture(new NodeStoppingException());
         }
 
         LOG.debug("Going to create index [schema={}, table={}, index={}]", schemaName, tableName, indexName);
@@ -394,6 +387,10 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                 .thenAccept(table -> {
                     if (index instanceof HashIndex) {
                         table.registerHashIndex(tableIndexView.id(), tableIndexView.uniq(), tableRowConverter::convert);
+
+                        if (tableIndexView.uniq()) {
+                            table.pkId(index.id());
+                        }
                     } else if (index instanceof SortedIndex) {
                         table.registerSortedIndex(tableIndexView.id(), tableRowConverter::convert);
                     } else {

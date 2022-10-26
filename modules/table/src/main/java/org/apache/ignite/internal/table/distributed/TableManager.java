@@ -414,11 +414,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 NamedThreadFactory.create(nodeName, "tableManager-io", LOG));
     }
 
-    /** Registers the primary key in a specified table. */
-    public void registerPk(long token, UUID tableId, UUID pkId) {
-        tablesByIdVv.get(token).thenAccept(tableMap -> tableMap.get(tableId).pkId(pkId));
-    }
-
     /** {@inheritDoc} */
     @Override
     public void start() {

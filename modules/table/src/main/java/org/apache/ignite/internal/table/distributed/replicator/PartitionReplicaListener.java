@@ -811,7 +811,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         insertLockFuts[idx++] = takeLocksForInsert(entry.getValue(), entry.getKey(), txId);
                     }
 
-                    return CompletableFuture.allOf(insertLockFuts)
+                    return allOf(insertLockFuts)
                             .thenCompose(ignored -> applyCmdWithExceptionHandling(
                                     new UpdateAllCommand(committedPartitionId, rowsToInsert, txId)))
                             .thenApply(ignored -> result);

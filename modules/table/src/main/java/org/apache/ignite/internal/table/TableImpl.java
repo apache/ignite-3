@@ -62,7 +62,7 @@ public class TableImpl implements Table {
 
     private final LockManager lockManager;
 
-    private final Supplier<List<UUID>> activeIndexIds;
+    // private final Supplier<List<UUID>> activeIndexIds;
 
     /** Schema registry. Should be set either in constructor or via {@link #schemaView(SchemaRegistry)} before start of using the table. */
     private volatile SchemaRegistry schemaReg;
@@ -84,7 +84,7 @@ public class TableImpl implements Table {
     public TableImpl(InternalTable tbl, LockManager lockManager, Supplier<List<UUID>> activeIndexIds) {
         this.tbl = tbl;
         this.lockManager = lockManager;
-        this.activeIndexIds = activeIndexIds;
+        // this.activeIndexIds = activeIndexIds;
     }
 
     /**
@@ -100,7 +100,7 @@ public class TableImpl implements Table {
         this.schemaReg = schemaReg;
         this.lockManager = lockManager;
 
-        activeIndexIds = List::of;
+        // activeIndexIds = List::of;
     }
 
     /**

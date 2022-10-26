@@ -35,6 +35,7 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -46,6 +47,7 @@ public class CorrelatedNestedLoopJoinPlannerTest extends AbstractPlannerTest {
      * Check equi-join. CorrelatedNestedLoopJoinTest is applicable for it.
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17748")
     public void testValidIndexExpressions() throws Exception {
         IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
         IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);

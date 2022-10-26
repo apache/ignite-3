@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.util;
 
 import java.util.function.Supplier;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Value which will be initialized at the moment of very first access.
@@ -30,29 +31,34 @@ public class Lazy<T> {
     };
 
     private volatile Supplier<T> supplier;
-    private T val;
+
+    // This is a safe race, because we follow two simple rules: single read and safe initialization
+    @SuppressWarnings("FieldAccessedSynchronizedAndUnsynchronized")
+    private @Nullable T val;
 
     /**
      * Creates the lazy value with the given value supplier.
      *
      * @param supplier A supplier of the value.
      */
-    public Lazy(Supplier<T> supplier) {
+    public Lazy(Supplier<@Nullable T> supplier) {
         this.supplier = supplier;
     }
 
     /** Returns the value. */
-    @SuppressWarnings("unchecked")
-    public T get() {
-        if (supplier != EMPTY) {
+    public @Nullable T get() {
+        T v = val; // RULE 1: Single read
+
+        if (v == null && supplier != EMPTY) {
             synchronized (this) {
-                if (val == null) {
-                    val = supplier.get();
-                    supplier = (Supplier<T>) EMPTY;
+                if (supplier != EMPTY) {
+                    v = supplier.get();
+                    val = v; // RULE 2: Safely initialized through local variable
+                    supplier = (Supplier<T>) EMPTY; // help GC collects objects acquired by supplier's closure
                 }
             }
         }
 
-        return val;
+        return v;
     }
 }
