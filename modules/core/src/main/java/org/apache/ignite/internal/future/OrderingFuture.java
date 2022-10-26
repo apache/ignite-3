@@ -28,7 +28,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 import org.jetbrains.annotations.Nullable;
@@ -38,7 +37,7 @@ import org.jetbrains.annotations.Nullable;
  * and {@link #thenComposeToCompletable(Function)}) are invoked in the same order in which they were registered.
  *
  * <p>For completion methods ({@link #complete(Object)} and {@link #completeExceptionally(Throwable)} it is guaranteed that,
- * upon returning, the caller will see the completion values (for example, using {@link #getNow(Object)}, UNLESS the
+ * upon returning, the caller will see the completion values (for example, using {@link #getNow(Object)}), UNLESS the
  * completion method is interrupted.
  *
  * <p>Callbacks are invoked asynchronously relative to completion. This means that completer may exit the completion method
@@ -48,6 +47,16 @@ import org.jetbrains.annotations.Nullable;
  * @see CompletableFuture
  */
 public class OrderingFuture<T> {
+    /**
+     * Integer representatin of {@code false}.
+     */
+    private static final int INT_FALSE = 0;
+
+    /**
+     * Integer representatin of {@code true}.
+     */
+    private static final int INT_TRUE = 1;
+
     private static final VarHandle STATE;
 
     static {
@@ -66,10 +75,21 @@ public class OrderingFuture<T> {
     @SuppressWarnings("FieldMayBeFinal")
     private volatile State<T> state = State.empty();
 
+    private static final VarHandle COMPLETION_STARTED;
+
+    static {
+        try {
+            COMPLETION_STARTED = MethodHandles.lookup().findVarHandle(OrderingFuture.class, "completionStarted", int.class);
+        } catch (NoSuchFieldException | IllegalAccessException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     /**
      * Used to make sure that at most one thread executes completion code.
      */
-    private final AtomicBoolean completionStarted = new AtomicBoolean(false);
+    @SuppressWarnings("FieldMayBeFinal")
+    private volatile int completionStarted = INT_FALSE;
 
     /**
      * Used by {@link #get(long, TimeUnit)} to wait for the moment when completion values are available.
@@ -151,7 +171,7 @@ public class OrderingFuture<T> {
     private void completeInternal(@Nullable T result, @Nullable Throwable ex) {
         assert ex == null || result == null;
 
-        if (!completionStarted.compareAndSet(false, true)) {
+        if (!COMPLETION_STARTED.compareAndSet(this, INT_FALSE, INT_TRUE)) {
             // Someone has already started the completion. We must leave as the following code can produce duplicate
             // notifications of dependents if executed by more than one thread.
 
@@ -205,7 +225,7 @@ public class OrderingFuture<T> {
 
             State<T> newState = prevState.switchToCompleted();
 
-            // We produce side-effects inside the retry loop, but it's ok as the queue can only grow, the queue
+            // We produce side effects inside the retry loop, but it's ok as the queue can only grow, the queue
             // state we see is always a prefix of a queue changed by a competitor (we only compete with operations
             // that enqueue elements to the queue as competition with other completers is ruled out with AtomicBoolean)
             // and we track what dependents have already been notified by us.
