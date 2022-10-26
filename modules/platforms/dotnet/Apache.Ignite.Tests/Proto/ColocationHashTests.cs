@@ -63,7 +63,9 @@ public class ColocationHashTests : IgniteTestsBase
         -1.1m,
         1.1m,
         123.45678m,
-        decimal.MaxValue
+        decimal.MaxValue,
+        string.Empty,
+        "abc ηρτ 🔥"
     };
 
     [Test]

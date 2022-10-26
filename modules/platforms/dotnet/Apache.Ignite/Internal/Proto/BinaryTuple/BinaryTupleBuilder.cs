@@ -897,10 +897,10 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                 return;
             }
 
-            var maxByteCount = BinaryTupleCommon.StringEncoding.GetMaxByteCount(value.Length);
+            var maxByteCount = ProtoCommon.StringEncoding.GetMaxByteCount(value.Length);
             var span = _buffer.GetSpan(maxByteCount);
 
-            var actualBytes = BinaryTupleCommon.StringEncoding.GetBytes(value, span);
+            var actualBytes = ProtoCommon.StringEncoding.GetBytes(value, span);
 
             _buffer.Advance(actualBytes);
         }
