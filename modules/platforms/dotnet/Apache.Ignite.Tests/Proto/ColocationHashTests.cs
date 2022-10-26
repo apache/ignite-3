@@ -58,7 +58,11 @@ public class ColocationHashTests : IgniteTestsBase
         -1.1d,
         1.1d,
         double.Epsilon,
-        double.MaxValue
+        double.MaxValue,
+        decimal.MinValue,
+        -1.1m,
+        1.1m,
+        decimal.MaxValue
     };
 
     [Test]

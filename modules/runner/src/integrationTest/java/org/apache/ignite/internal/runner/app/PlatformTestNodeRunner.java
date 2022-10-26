@@ -336,6 +336,11 @@ public class PlatformTestNodeRunner {
                         tuple.set(colName, reader.doubleValue(valIdx));
                         break;
 
+                    case ClientDataType.DECIMAL:
+                        columns[i] = new Column(i, colName, NativeTypes.decimalOf(100, scale), false);
+                        tuple.set(colName, reader.decimalValue(valIdx, scale));
+                        break;
+
                     default:
                         throw new IllegalArgumentException("Unsupported type: " + type);
                 }

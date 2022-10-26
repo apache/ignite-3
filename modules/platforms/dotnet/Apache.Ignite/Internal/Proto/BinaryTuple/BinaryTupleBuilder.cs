@@ -712,10 +712,9 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                     break;
 
                 case decimal dec:
-                    var (unscaled, scale) = DeconstructDecimal(dec);
+                    var scale = GetDecimalScale(dec);
                     AppendTypeAndScale(ClientDataType.Decimal, scale);
-                    PutDecimal(scale, unscaled, scale);
-                    OnWrite();
+                    AppendDecimal(dec, scale);
                     break;
 
                 case BigInteger bigInt:
@@ -848,6 +847,14 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             var unscaled = new BigInteger(bytes, true);
 
             return (sign < 0 ? -unscaled : unscaled, scale);
+        }
+
+        private static int GetDecimalScale(decimal value)
+        {
+            Span<int> bits = stackalloc int[4];
+            decimal.GetBits(value, bits);
+
+            return (bits[3] & 0x00FF0000) >> 16;
         }
 
         private void PutDecimal(int scale, BigInteger unscaledValue, int valueScale)
