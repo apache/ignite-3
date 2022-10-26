@@ -17,7 +17,6 @@
 
 package org.apache.ignite.distributed;
 
-import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.raft.jraft.test.TestUtils.waitForTopology;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
 import static org.junit.jupiter.api.Assertions.assertFalse;
