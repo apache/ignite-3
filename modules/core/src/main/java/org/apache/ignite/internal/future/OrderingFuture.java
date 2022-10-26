@@ -59,9 +59,12 @@ public class OrderingFuture<T> {
 
     private static final VarHandle STATE;
 
+    private static final VarHandle COMPLETION_STARTED;
+
     static {
         try {
             STATE = MethodHandles.lookup().findVarHandle(OrderingFuture.class, "state", State.class);
+            COMPLETION_STARTED = MethodHandles.lookup().findVarHandle(OrderingFuture.class, "completionStarted", int.class);
         } catch (ReflectiveOperationException e) {
             throw new ExceptionInInitializerError(e);
         }
@@ -74,16 +77,6 @@ public class OrderingFuture<T> {
      */
     @SuppressWarnings({"unused", "FieldMayBeFinal"})
     private volatile State<T> state = State.empty();
-
-    private static final VarHandle COMPLETION_STARTED;
-
-    static {
-        try {
-            COMPLETION_STARTED = MethodHandles.lookup().findVarHandle(OrderingFuture.class, "completionStarted", int.class);
-        } catch (ReflectiveOperationException e) {
-            throw new ExceptionInInitializerError(e);
-        }
-    }
 
     /**
      * Used to make sure that at most one thread executes completion code.
