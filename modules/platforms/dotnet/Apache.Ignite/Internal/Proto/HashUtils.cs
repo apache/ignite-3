@@ -17,7 +17,10 @@
 
 namespace Apache.Ignite.Internal.Proto;
 
+using System;
+using System.Collections;
 using System.Numerics;
+using NodaTime;
 
 /// <summary>
 /// Hash function based on MurmurHash3
@@ -44,7 +47,7 @@ internal static class HashUtils
     /// <param name="data">Input data.</param>
     /// <param name="seed">Current hash.</param>
     /// <returns>Resulting hash.</returns>
-    public static int Hash32(sbyte data, int seed) => Hash32(HashInternal((ulong)(data & 0xffL), (ulong)seed, 1));
+    public static int Hash32(sbyte data, int seed) => Hash32Internal((ulong)(data & 0xffL), (ulong)seed, 1);
 
     /// <summary>
     /// Generates 32-bit hash.
@@ -52,7 +55,7 @@ internal static class HashUtils
     /// <param name="data">Input data.</param>
     /// <param name="seed">Current hash.</param>
     /// <returns>Resulting hash.</returns>
-    public static int Hash32(short data, int seed) => Hash32(HashInternal((ulong)(data & 0xffffL), (ulong)seed, 2));
+    public static int Hash32(short data, int seed) => Hash32Internal((ulong)(data & 0xffffL), (ulong)seed, 2);
 
     /// <summary>
     /// Generates 32-bit hash.
@@ -60,7 +63,7 @@ internal static class HashUtils
     /// <param name="data">Input data.</param>
     /// <param name="seed">Current hash.</param>
     /// <returns>Resulting hash.</returns>
-    public static int Hash32(int data, int seed) => Hash32(HashInternal((ulong)(data & 0xffffffffL), (ulong)seed, 4));
+    public static int Hash32(int data, int seed) => Hash32Internal((ulong)(data & 0xffffffffL), (ulong)seed, 4);
 
     /// <summary>
     /// Generates 32-bit hash.
@@ -68,11 +71,170 @@ internal static class HashUtils
     /// <param name="data">Input data.</param>
     /// <param name="seed">Current hash.</param>
     /// <returns>Resulting hash.</returns>
-    public static int Hash32(long data, int seed) => Hash32(HashInternal((ulong)data, (ulong)seed, 8));
+    public static int Hash32(long data, int seed) => Hash32Internal((ulong)data, (ulong)seed, 8);
 
-    private static int Hash32(ulong hash64) => (int)(hash64 ^ (hash64 >> 32));
+    /// <summary>
+    /// Generates 32-bit hash.
+    /// </summary>
+    /// <param name="data">Input data.</param>
+    /// <param name="seed">Current hash.</param>
+    /// <returns>Resulting hash.</returns>
+    public static int Hash32(float data, int seed)
+    {
+        throw new NotImplementedException();
+    }
 
-    private static ulong HashInternal(ulong data, ulong seed, byte valueBytes)
+    /// <summary>
+    /// Generates 32-bit hash.
+    /// </summary>
+    /// <param name="data">Input data.</param>
+    /// <param name="seed">Current hash.</param>
+    /// <returns>Resulting hash.</returns>
+    public static int Hash32(double data, int seed)
+    {
+        throw new NotImplementedException();
+    }
+
+    /// <summary>
+    /// Generates 32-bit hash.
+    /// </summary>
+    /// <param name="data">Input data.</param>
+    /// <param name="seed">Current hash.</param>
+    /// <returns>Resulting hash.</returns>
+    public static int Hash32(string data, int seed)
+    {
+        throw new NotImplementedException();
+    }
+
+    /// <summary>
+    /// Generates 32-bit hash.
+    /// </summary>
+    /// <param name="data">Input data.</param>
+    /// <param name="seed">Current hash.</param>
+    /// <returns>Resulting hash.</returns>
+    public static int Hash32(Span<byte> data, int seed)
+    {
+        throw new NotImplementedException();
+    }
+
+    /// <summary>
+    /// Generates 32-bit hash.
+    /// </summary>
+    /// <param name="data">Input data.</param>
+    /// <param name="seed">Current hash.</param>
+    /// <returns>Resulting hash.</returns>
+    public static int Hash32(Guid data, int seed)
+    {
+        throw new NotImplementedException();
+    }
+
+    /// <summary>
+    /// Generates 32-bit hash.
+    /// </summary>
+    /// <param name="data">Input data.</param>
+    /// <param name="seed">Current hash.</param>
+    /// <returns>Resulting hash.</returns>
+    public static int Hash32(BitArray data, int seed)
+    {
+        throw new NotImplementedException();
+    }
+
+    /// <summary>
+    /// Generates 32-bit hash.
+    /// </summary>
+    /// <param name="data">Input data.</param>
+    /// <param name="seed">Current hash.</param>
+    /// <returns>Resulting hash.</returns>
+    public static int Hash32(decimal data, int seed)
+    {
+        throw new NotImplementedException();
+    }
+
+    /// <summary>
+    /// Generates 32-bit hash.
+    /// </summary>
+    /// <param name="data">Input data.</param>
+    /// <param name="seed">Current hash.</param>
+    /// <returns>Resulting hash.</returns>
+    public static int Hash32(BigInteger data, int seed)
+    {
+        throw new NotImplementedException();
+    }
+
+    /// <summary>
+    /// Generates 32-bit hash.
+    /// </summary>
+    /// <param name="data">Input data.</param>
+    /// <param name="seed">Current hash.</param>
+    /// <returns>Resulting hash.</returns>
+    public static int Hash32(LocalDate data, int seed)
+    {
+        throw new NotImplementedException();
+    }
+
+    /// <summary>
+    /// Generates 32-bit hash.
+    /// </summary>
+    /// <param name="data">Input data.</param>
+    /// <param name="seed">Current hash.</param>
+    /// <returns>Resulting hash.</returns>
+    public static int Hash32(LocalTime data, int seed)
+    {
+        throw new NotImplementedException();
+    }
+
+    /// <summary>
+    /// Generates 32-bit hash.
+    /// </summary>
+    /// <param name="data">Input data.</param>
+    /// <param name="seed">Current hash.</param>
+    /// <returns>Resulting hash.</returns>
+    public static int Hash32(LocalDateTime data, int seed)
+    {
+        throw new NotImplementedException();
+    }
+
+    /// <summary>
+    /// Generates 32-bit hash.
+    /// </summary>
+    /// <param name="data">Input data.</param>
+    /// <param name="seed">Current hash.</param>
+    /// <returns>Resulting hash.</returns>
+    public static int Hash32(Instant data, int seed)
+    {
+        throw new NotImplementedException();
+    }
+
+    /// <summary>
+    /// Generates 32-bit hash.
+    /// </summary>
+    /// <param name="data">Input data.</param>
+    /// <param name="seed">Current hash.</param>
+    /// <returns>Resulting hash.</returns>
+    public static int Hash32(Duration data, int seed)
+    {
+        throw new NotImplementedException();
+    }
+
+    /// <summary>
+    /// Generates 32-bit hash.
+    /// </summary>
+    /// <param name="data">Input data.</param>
+    /// <param name="seed">Current hash.</param>
+    /// <returns>Resulting hash.</returns>
+    public static int Hash32(Period data, int seed)
+    {
+        throw new NotImplementedException();
+    }
+
+    private static int Hash32Internal(ulong data, ulong seed, byte valueBytes)
+    {
+        var hash64 = Hash64Internal(data, seed, valueBytes);
+
+        return (int)(hash64 ^ (hash64 >> 32));
+    }
+
+    private static ulong Hash64Internal(ulong data, ulong seed, byte valueBytes)
     {
         ulong h1 = seed;
         ulong h2 = seed;
@@ -100,11 +262,12 @@ internal static class HashUtils
 
     private static ulong Fmix64(ulong hash)
     {
-        hash ^= (hash >> 33);
+        hash ^= hash >> 33;
         hash *= 0xff51afd7ed558ccdL;
-        hash ^= (hash >> 33);
+        hash ^= hash >> 33;
         hash *= 0xc4ceb9fe1a85ec53L;
-        hash ^= (hash >> 33);
+        hash ^= hash >> 33;
+
         return hash;
     }
 }
