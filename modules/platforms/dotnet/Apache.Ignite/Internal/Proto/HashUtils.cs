@@ -129,7 +129,11 @@ internal static class HashUtils // TODO: Unchecked everywhere?
     /// <param name="data">Input data.</param>
     /// <param name="seed">Current hash.</param>
     /// <returns>Resulting hash.</returns>
-    public static int Hash32(BigInteger data, int seed) => Hash32((double)data, seed);
+    public static int Hash32(BigInteger data, int seed)
+    {
+        // TODO: BigInteger -> double conversion is not consistent with Java for large values.
+        return Hash32((double)data, seed);
+    }
 
     /// <summary>
     /// Generates 32-bit hash.
