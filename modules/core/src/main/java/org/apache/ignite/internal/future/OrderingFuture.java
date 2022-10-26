@@ -447,7 +447,7 @@ public class OrderingFuture<T> {
          * @param ex     Exceptional completion cause ({@code null} if completed normally).
          * @param context Notification context used to cache CompletionException, if needed.
          */
-        void onCompletion(T result, Throwable ex, NotificationContext context);
+        void onCompletion(@Nullable T result, @Nullable Throwable ex, NotificationContext context);
     }
 
     private static class WhenComplete<T> implements DependentAction<T> {
@@ -458,7 +458,7 @@ public class OrderingFuture<T> {
         }
 
         @Override
-        public void onCompletion(T result, Throwable ex, NotificationContext context) {
+        public void onCompletion(@Nullable T result, @Nullable Throwable ex, NotificationContext context) {
             acceptQuietly(action, result, ex);
         }
     }
@@ -473,7 +473,7 @@ public class OrderingFuture<T> {
         }
 
         @Override
-        public void onCompletion(T result, Throwable ex, NotificationContext context) {
+        public void onCompletion(@Nullable T result, @Nullable Throwable ex, NotificationContext context) {
             if (ex != null) {
                 resultFuture.completeExceptionally(context.completionExceptionCaching(ex));
                 return;
@@ -539,9 +539,11 @@ public class OrderingFuture<T> {
 
     private static class ListNode<T> {
         private final DependentAction<T> dependent;
+
+        @Nullable
         private final ListNode<T> prev;
 
-        private ListNode(DependentAction<T> dependent, ListNode<T> prev) {
+        private ListNode(DependentAction<T> dependent, @Nullable ListNode<T> prev) {
             this.dependent = dependent;
             this.prev = prev;
         }
@@ -591,6 +593,7 @@ public class OrderingFuture<T> {
      * making sure it is instantiated lazily.
      */
     private static class NotificationContext {
+        @Nullable
         private CompletionException completionException;
 
         /**
