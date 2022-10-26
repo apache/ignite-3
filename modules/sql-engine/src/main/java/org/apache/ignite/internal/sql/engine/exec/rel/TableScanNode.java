@@ -95,7 +95,7 @@ public class TableScanNode<RowT> extends AbstractNode<RowT> {
 
         assert !nullOrEmpty(parts);
 
-        assert context().transaction() != null || context().transactionTime() != null;
+        //assert context().transaction() != null || context().transactionTime() != null;
 
         this.physTable = schemaTable.table();
         this.schemaTable = schemaTable;
