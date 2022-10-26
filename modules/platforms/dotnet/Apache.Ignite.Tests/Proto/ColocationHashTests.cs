@@ -17,7 +17,9 @@
 
 namespace Apache.Ignite.Tests.Proto;
 
+using System.Collections.Generic;
 using System.Threading.Tasks;
+using Internal.Proto.BinaryTuple;
 using NUnit.Framework;
 
 /// <summary>
@@ -30,9 +32,35 @@ public class ColocationHashTests : IgniteTestsBase
     [Test]
     public async Task TestColocationHashIsSameOnServerAndClient()
     {
-        var nodes = await Client.GetClusterNodesAsync();
-        var serverHash = await Client.Compute.ExecuteAsync<int>(nodes, ColocationHashJob, new byte[] { 1 });
+        var keys = new object[] { 1, "hello" };
+        var (bytes, hash) = WriteAsBinaryTuple(keys);
 
-        Assert.AreEqual(123, serverHash);
+        var serverHash = await GetServerHash(bytes, 2);
+
+        Assert.AreEqual(hash, serverHash);
+    }
+
+    private static (byte[] Bytes, int Hash) WriteAsBinaryTuple(IReadOnlyCollection<object> arr)
+    {
+        using var builder = new BinaryTupleBuilder(arr.Count * 3, hashedColumnsPredicate: new TestIndexProvider());
+
+        foreach (var obj in arr)
+        {
+            builder.AppendObjectWithType(obj);
+        }
+
+        return (builder.Build().ToArray(), builder.Hash);
+    }
+
+    private async Task<int> GetServerHash(byte[] bytes, int count)
+    {
+        var nodes = await Client.GetClusterNodesAsync();
+
+        return await Client.Compute.ExecuteAsync<int>(nodes, ColocationHashJob, count, bytes);
+    }
+
+    private class TestIndexProvider : IHashedColumnIndexProvider
+    {
+        public bool IsHashedColumnIndex(int index) => index % 3 == 2;
     }
 }
