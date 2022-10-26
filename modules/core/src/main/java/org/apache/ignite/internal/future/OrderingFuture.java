@@ -548,7 +548,7 @@ public class OrderingFuture<T> {
             this.prev = prev;
         }
 
-        public void notifyHeadToTail(T result, Throwable exception, ListNode<T> lastNotifiedNode) {
+        public void notifyHeadToTail(@Nullable T result, @Nullable Throwable exception, ListNode<T> lastNotifiedNode) {
             Deque<ListNode<T>> stack = new ArrayDeque<>();
 
             for (ListNode<T> node = this; node != null && node != lastNotifiedNode; node = node.prev) {
