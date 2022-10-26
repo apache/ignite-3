@@ -34,8 +34,6 @@ internal static class HashUtils // TODO: Unchecked everywhere?
     private const ulong C1 = 0x87c37b91114253d5L;
     private const ulong C2 = 0x4cf5ad432745937fL;
     private const int R1 = 31;
-
-    // TODO IGNITE-17969 Partition Awareness - support all key types
     private const int R2 = 27;
     private const int R3 = 33;
     private const int M = 5;
@@ -105,17 +103,6 @@ internal static class HashUtils // TODO: Unchecked everywhere?
     /// <param name="seed">Current hash.</param>
     /// <returns>Resulting hash.</returns>
     public static int Hash32(Span<byte> data, int seed) => Hash32Internal(data, (ulong)seed & 0xffffffffL);
-
-    /// <summary>
-    /// Generates 32-bit hash.
-    /// </summary>
-    /// <param name="data">Input data.</param>
-    /// <param name="seed">Current hash.</param>
-    /// <returns>Resulting hash.</returns>
-    public static int Hash32(Guid data, int seed)
-    {
-        throw new NotImplementedException();
-    }
 
     /// <summary>
     /// Generates 32-bit hash.
