@@ -47,14 +47,10 @@ import org.jetbrains.annotations.Nullable;
  * @see CompletableFuture
  */
 public class OrderingFuture<T> {
-    /**
-     * Integer representation of {@code false}.
-     */
+    /** Integer representation of {@code false}. */
     private static final int INT_FALSE = 0;
 
-    /**
-     * Integer representation of {@code true}.
-     */
+    /** Integer representation of {@code true}. */
     private static final int INT_TRUE = 1;
 
     private static final VarHandle STATE;
