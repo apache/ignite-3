@@ -78,6 +78,12 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
     private volatile CompletableFuture<?> future;
 
     /**
+     * It is necessary for the correct execution of {@link #cancel()}, when after calling {@link CompletableFuture#cancel(boolean)} at
+     * {@link #future}, we do not immediately return control by calling {@link #join()}, but honestly wait for completion of copier.
+     */
+    private final CompletableFuture<?> mainFuture = new CompletableFuture<>();
+
+    /**
      * Constructor.
      *
      * @param partitionSnapshotStorage Snapshot storage.
@@ -118,16 +124,21 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
                             .thenCompose(unused1 -> loadSnapshotMvData(snapshotSender, executor))
                             .thenCompose(unused1 -> loadSnapshotTxData(snapshotSender, executor))
                             .thenAcceptAsync(unused1 -> updateLastAppliedIndexFromSnapshotMetaForStorages(), executor);
+                }).whenComplete((unused, throwable) -> {
+                    if (throwable == null) {
+                        mainFuture.completeExceptionally(throwable);
+                    } else {
+                        mainFuture.complete(null);
+                    }
                 });
     }
 
     @Override
     public void join() throws InterruptedException {
-        CompletableFuture<?> fut = future;
-
-        if (fut != null) {
+        // If the #start was not called, then there is no need to wait.
+        if (future != null) {
             try {
-                fut.get();
+                mainFuture.get();
             } catch (CancellationException e) {
                 // Ignored.
             } catch (ExecutionException e) {
