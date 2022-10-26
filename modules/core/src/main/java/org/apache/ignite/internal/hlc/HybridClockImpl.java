@@ -70,8 +70,6 @@ public class HybridClockImpl implements HybridClock {
             }
 
             if (LATEST_TIME.compareAndSet(this, latestTime, newLatestTime)) {
-                onUpdate(newLatestTime);
-
                 return newLatestTime;
             }
         }
@@ -95,20 +93,9 @@ public class HybridClockImpl implements HybridClock {
             HybridTimestamp newLatestTime = maxLatestTime.addTicks(1);
 
             if (LATEST_TIME.compareAndSet(this, latestTime, newLatestTime)) {
-                onUpdate(newLatestTime);
-
                 return newLatestTime;
             }
         }
-    }
-
-    /**
-     * This method is called on every update of {@link HybridClockImpl#latestTime}.
-     *
-     * @param timestamp New value of {@link HybridClockImpl#latestTime}.
-     */
-    protected void onUpdate(HybridTimestamp timestamp) {
-        // No-op.
     }
 
     /** {@inheritDoc} */
