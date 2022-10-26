@@ -346,6 +346,11 @@ public class PlatformTestNodeRunner {
                         tuple.set(colName, reader.stringValue(valIdx));
                         break;
 
+                    case ClientDataType.UUID:
+                        columns[i] = new Column(i, colName, NativeTypes.UUID, false);
+                        tuple.set(colName, reader.uuidValue(valIdx));
+                        break;
+
                     default:
                         throw new IllegalArgumentException("Unsupported type: " + type);
                 }

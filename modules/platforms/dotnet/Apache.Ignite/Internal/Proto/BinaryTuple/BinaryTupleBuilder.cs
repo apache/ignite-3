@@ -366,14 +366,21 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="value">Value.</param>
         public void AppendGuid(Guid value)
         {
-            if (_hashedColumnsPredicate?.IsHashedColumnIndex(_elementIndex) == true)
-            {
-                _hash = HashUtils.Hash32(value, _hash);
-            }
-
             if (value != default)
             {
-                UuidSerializer.Write(value, GetSpan(16));
+                var span = GetSpan(16);
+                UuidSerializer.Write(value, span);
+
+                _hash = HashUtils.Hash32(BinaryPrimitives.ReadInt64LittleEndian(span[..8]), _hash);
+                _hash = HashUtils.Hash32(BinaryPrimitives.ReadInt64LittleEndian(span[8..]), _hash);
+            }
+            else
+            {
+                if (_hashedColumnsPredicate?.IsHashedColumnIndex(_elementIndex) == true)
+                {
+                    _hash = HashUtils.Hash32(0L, _hash);
+                    _hash = HashUtils.Hash32(0L, _hash);
+                }
             }
 
             OnWrite();

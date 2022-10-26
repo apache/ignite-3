@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Tests.Proto;
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -43,6 +44,7 @@ public class ColocationHashTests : IgniteTestsBase
         short.MaxValue,
         int.MinValue,
         1,
+        0,
         -1,
         int.MaxValue,
         long.MinValue,
@@ -65,7 +67,9 @@ public class ColocationHashTests : IgniteTestsBase
         123.45678m,
         decimal.MaxValue,
         string.Empty,
-        "abc ηρτ 🔥"
+        "abc ηρτ 🔥",
+        Guid.Empty,
+        Guid.NewGuid()
     };
 
     [Test]
