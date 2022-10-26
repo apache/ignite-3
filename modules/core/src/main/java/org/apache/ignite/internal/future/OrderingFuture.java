@@ -72,7 +72,7 @@ public class OrderingFuture<T> {
      * of exceptional completion (if any), dependents. The State class and all of its components are immutable.
      * We change the state using compare-and-set approach, next state is built from previous one.
      */
-    @SuppressWarnings("FieldMayBeFinal")
+    @SuppressWarnings({"unused", "FieldMayBeFinal"})
     private volatile State<T> state = State.empty();
 
     private static final VarHandle COMPLETION_STARTED;
@@ -88,7 +88,7 @@ public class OrderingFuture<T> {
     /**
      * Used to make sure that at most one thread executes completion code.
      */
-    @SuppressWarnings("FieldMayBeFinal")
+    @SuppressWarnings({"unused", "FieldMayBeFinal"})
     private volatile int completionStarted = INT_FALSE;
 
     /**
