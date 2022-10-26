@@ -32,6 +32,7 @@ import java.util.Map;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -476,6 +477,9 @@ public class SqlQueryProcessor implements QueryProcessor {
         CompletableFuture<Void> start = new CompletableFuture<>();
 
         for (SqlNode sqlNode : nodes) {
+            // Only rw transactions for now.
+            InternalTransaction implicitTx = txManager.begin();
+
             final BaseQueryContext ctx = BaseQueryContext.builder()
                     .cancel(new QueryCancel())
                     .frameworkConfig(
@@ -486,6 +490,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                     .logger(LOG)
                     .parameters(params)
                     .plannerTimeout(PLANNER_TIMEOUT)
+                    .transaction(implicitTx)
                     .build();
 
             // TODO https://issues.apache.org/jira/browse/IGNITE-17746 Fix query execution flow.
@@ -497,7 +502,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                         return new AsyncSqlCursorImpl<>(
                                 SqlQueryType.mapPlanTypeToSqlType(plan.type()),
                                 plan.metadata(),
-                                null,
+                                implicitTx,
                                 executionSrvc.executePlan(plan, ctx)
                         );
                     });
