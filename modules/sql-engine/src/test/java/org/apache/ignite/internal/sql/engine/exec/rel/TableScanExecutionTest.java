@@ -22,6 +22,7 @@ import static org.mockito.Mockito.mock;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.Collection;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -168,7 +169,8 @@ public class TableScanExecutionTest extends AbstractExecutionTest {
                 @Nullable UUID indexId,
                 @Nullable BinaryTuple lowerBound,
                 @Nullable BinaryTuple upperBound,
-                int flags
+                int flags,
+                @Nullable BitSet columnsToInclude
         ) {
             int fillAmount = Math.min(dataAmount - processedPerPart[partId], Commons.IN_BUFFER_SIZE);
 

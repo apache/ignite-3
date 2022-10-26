@@ -874,7 +874,17 @@ public class InternalTableImpl implements InternalTable {
         final InternalTransaction tx0 = implicit ? txManager.begin() : tx;
 
         return new PartitionScanPublisher(
-                (scanId, batchSize) -> enlistCursorInTx(tx0, partId, scanId, batchSize, indexId, lowerBound, upperBound, flags, columnsToInclude),
+                (scanId, batchSize) -> enlistCursorInTx(
+                        tx0,
+                        partId,
+                        scanId,
+                        batchSize,
+                        indexId,
+                        lowerBound,
+                        upperBound,
+                        flags,
+                        columnsToInclude
+                ),
                 fut -> postEnlist(fut, implicit, tx0)
         );
     }

@@ -267,7 +267,7 @@ public interface InternalTable extends AutoCloseable {
             @NotNull HybridTimestamp readTimestamp,
             @NotNull ClusterNode recipientNode
     ) {
-        return scan(partId,readTimestamp, recipientNode, null, null,null,0, null);
+        return scan(partId, readTimestamp, recipientNode, null, null, null, 0, null);
     }
 
     /**
