@@ -6,7 +6,8 @@ import java.util.concurrent.Flow.Subscriber;
 public interface SubscriptionManagementStrategy<T> extends Flow.Subscription {
     // todo combine in composite publisher constructor?
     void addSubscription(Flow.Subscription subscription);
-    void addSubscriber(Flow.Subscriber<T> subscriber);
+
+    Subscriber<T> subscriberProxy(int subscriberId);
 
     void onReceive(int subscriberId, T item);
 

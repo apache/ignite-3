@@ -35,8 +35,6 @@ public class CompositePublisher<T> implements Flow.Publisher<T> {
 
     private final Comparator<T> comp;
 
-    private SubscriptionManagementStrategy<T> subscriptionStrategy;
-
     public CompositePublisher(Collection<? extends Publisher<T>> publishers, @Nullable Comparator<T> comp) {
         this.publishers = publishers;
         this.comp = comp;
@@ -48,38 +46,28 @@ public class CompositePublisher<T> implements Flow.Publisher<T> {
             throw new IllegalStateException("Multiple subscribers are not supported.");
         }
 
-        int idx = 0;
+        SubscriptionManagementStrategy<T> subscriptionStrategy = comp != null ?
+                new MergeSortSubscriptionStrategy<>(comp, delegate) :
+                new SequentialSubscriptionStrategy<>(delegate);
 
-        if (comp != null)
-            subscriptionStrategy = new MergeSortSubscriptionStrategy<>(comp, delegate);
-        else
-            subscriptionStrategy = new SequentialSubscriptionStrategy<>(delegate);
+        int subscriberIdx = 0;
 
         for (Publisher<T> publisher : publishers) {
-            Subscriber<T> subscriber = subscriberProxy((Subscriber<T>) delegate, idx++);
-
-            subscriptionStrategy.addSubscriber(subscriber);
-            publisher.subscribe(subscriber);
+            publisher.subscribe(subscriptionStrategy.subscriberProxy(subscriberIdx++));
         }
 
+        // Subscribe delegated (target) subscriber to composite subscription.
         delegate.onSubscribe(subscriptionStrategy);
     }
 
-    public Subscriber<T> subscriberProxy(Subscriber<T> subscriber, int idx) {
-        if (comp != null)
-            return new SortingSubscriberProxy<>(subscriber, idx, subscriptionStrategy);
-        else
-            return new PlainSubscriberProxy<>(subscriber, subscriptionStrategy, publishers.size());
-    }
-
     private static class PlainSubscriberProxy<T> implements Subscriber<T> {
-        private final Subscriber<T> delegate;
+        private final Subscriber<? super T> delegate;
 
         private final SubscriptionManagementStrategy<T> subscriptionStrategy;
 
         private final int id;
 
-        PlainSubscriberProxy(Subscriber<T> delegate, SubscriptionManagementStrategy<T> subscriptionStrategy, int id) {
+        PlainSubscriberProxy(Subscriber<? super T> delegate, SubscriptionManagementStrategy<T> subscriptionStrategy, int id) {
             assert delegate != null;
 
             this.delegate = delegate;
@@ -173,9 +161,8 @@ public class CompositePublisher<T> implements Flow.Publisher<T> {
         }
 
         @Override
-        public void addSubscriber(Subscriber<T> subscriber) {
-            // No-op.
+        public Subscriber<T> subscriberProxy(int subscriberId) {
+            return new PlainSubscriberProxy<>(delegate, this, subscriberId);
         }
-
     }
 }

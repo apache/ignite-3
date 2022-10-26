@@ -6,7 +6,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 class SortingSubscriberProxy<T> implements Subscriber<T> {
-    private final Subscriber<T> delegate;
+    private final Subscriber<? super T> delegate;
 
     private final SubscriptionManagementStrategy<T> subscriptionStrategy;
 
@@ -18,7 +18,7 @@ class SortingSubscriberProxy<T> implements Subscriber<T> {
 
     private final AtomicBoolean finished = new AtomicBoolean();
 
-    SortingSubscriberProxy(Subscriber<T> delegate, int id, SubscriptionManagementStrategy<T> subscriptionStrategy) {
+    SortingSubscriberProxy(Subscriber<? super T> delegate, int id, SubscriptionManagementStrategy<T> subscriptionStrategy) {
         assert delegate != null;
 
         this.delegate = delegate;

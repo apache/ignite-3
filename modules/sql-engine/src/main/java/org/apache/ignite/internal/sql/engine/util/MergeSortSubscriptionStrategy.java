@@ -59,12 +59,6 @@ public class MergeSortSubscriptionStrategy<T> implements SubscriptionManagementS
     }
 
     @Override
-    public void addSubscriber(Subscriber<T> subscriber) {
-        // todo
-        subscribers.add((SortingSubscriberProxy<T>) subscriber);
-    }
-
-    @Override
     public void onReceive(int subscriberId, T item) {
         inBuf.offer(item);
     }
@@ -186,6 +180,15 @@ public class MergeSortSubscriptionStrategy<T> implements SubscriptionManagementS
         }
         else
             debug(">Xxx> onRequestCompleted " + waitResponse + ", cntr=" + waitResponseCnt.get() + ", id=" + subscriberId);
+    }
+
+    @Override
+    public Subscriber<T> subscriberProxy(int subscriberId) {
+        SortingSubscriberProxy<T> subscriber = new SortingSubscriberProxy<>(delegate, subscriberId, this);
+
+        subscribers.add(subscriber);
+
+        return subscriber;
     }
 
     // can be called from different threads
