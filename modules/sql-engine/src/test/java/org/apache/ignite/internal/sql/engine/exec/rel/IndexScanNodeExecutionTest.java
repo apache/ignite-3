@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
+import static org.apache.calcite.rel.RelFieldCollation.Direction.ASCENDING;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.IsEqual.equalTo;
 
@@ -27,6 +28,8 @@ import java.util.List;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscription;
 import java.util.stream.IntStream;
+import org.apache.calcite.rel.RelCollations;
+import org.apache.calcite.rel.RelFieldCollation;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory.Builder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
@@ -299,7 +302,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
                 index,
                 new TestTable(rowType),
                 new int[]{0, 2},
-                Comparator.comparingLong(v -> (long)((Object[])v)[0]),
+                RelCollations.of(new RelFieldCollation(0, ASCENDING)),
                 rangeIterable,
                 null,
                 null,
