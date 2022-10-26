@@ -97,6 +97,8 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
     /** {@inheritDoc} */
     @Override
     public void start() {
+        int regVer = 0;
+
         for (String tblName : tablesCfg.tables().value().namedListKeys()) {
             ExtendedTableConfiguration tblCfg = ((ExtendedTableConfiguration) tablesCfg.tables().get(tblName));
             UUID tblId = tblCfg.id().value();
@@ -111,10 +113,10 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
 
                     SchemaDescriptor desc = SchemaSerializerImpl.INSTANCE.deserialize(serialized);
 
-                    createSchema(0, tblId, tblName, desc).join();
+                    createSchema(regVer, tblId, tblName, desc).join();
                 }
 
-                registriesVv.complete(0);
+                registriesVv.complete(regVer++);
             } else {
                 serialized = schemas.get(INITIAL_SCHEMA_VERSION);
 
