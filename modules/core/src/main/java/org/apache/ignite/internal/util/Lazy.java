@@ -47,16 +47,20 @@ public class Lazy<T> {
 
     /** Returns the value. */
     public @Nullable T get() {
-        T v = val; // RULE 1: Single read
+        T v = val;
 
-        if (v == null && supplier != EMPTY) {
-            synchronized (this) {
-                if (supplier != EMPTY) {
-                    v = supplier.get();
-                    val = v; // RULE 2: Safely initialized through local variable
-                    supplier = (Supplier<T>) EMPTY; // help GC collects objects acquired by supplier's closure
+        if (v == null) {
+            if (supplier != EMPTY) {
+                synchronized (this) {
+                    if (supplier != EMPTY) {
+                        v = supplier.get();
+                        val = v;
+                        supplier = (Supplier<T>) EMPTY; // help GC collects objects acquired by supplier's closure
+                    }
                 }
             }
+
+            v = val;
         }
 
         return v;
