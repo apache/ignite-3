@@ -203,6 +203,47 @@ std::vector<std::byte> pack_tuple(const schema& sch, const ignite_tuple& tuple, 
     return builder.build();
 }
 
+
+/**
+ * Write tuple using table schema and writer.
+ *
+ * @param writer Writer.
+ * @param sch Schema.
+ * @param tuple Tuple.
+ * @param key_only Should only key fields be written or not.
+ */
+void write_tuple(protocol::writer& writer, const schema& sch, const ignite_tuple& tuple, bool key_only) {
+    auto tuple_data = pack_tuple(sch, tuple, key_only);
+    writer.write_binary(tuple_data);
+}
+
+void write_table_operation_header(protocol::writer &writer, uuid id, const schema& sch) {
+    writer.write(id);
+    writer.write_nil(); // TODO: IGNITE-17604: write transaction ID here
+    writer.write(sch.version);
+}
+
+std::optional<ignite_tuple> read_tuple(protocol::reader& reader, const schema* sch, const ignite_tuple& key) {
+    if (!sch)
+        return std::nullopt;
+
+    auto tuple_data = reader.read_binary();
+
+    auto columns_cnt = std::int32_t(sch->columns.size());
+    ignite_tuple res(columns_cnt);
+    binary_tuple_parser parser(columns_cnt - sch->key_column_count, tuple_data);
+
+    for (std::int32_t i = 0; i < columns_cnt; ++i) {
+        auto& column = sch->columns[i];
+        if (i < sch->key_column_count) {
+            res.set(column.name, key.get(column.name));
+        } else {
+            res.set(column.name, read_next_column(parser, column.type));
+        }
+    }
+    return std::move(res);
+}
+
 void table_impl::get_latest_schema_async(const ignite_callback<std::shared_ptr<schema>> &callback) {
     auto latest_schema_version = m_latest_schema_version;
 
@@ -250,40 +291,13 @@ void table_impl::get_async(transaction *tx, ignite_tuple key, ignite_callback<st
     with_latest_schema_async<std::optional<ignite_tuple>>(std::move(callback),
         [this, key = std::move(key)] (const schema& sch, auto callback) mutable {
         auto writer_func = [this, &key, &sch] (protocol::writer &writer) {
-            writer.write(m_id);
-            writer.write_nil(); // TODO: IGNITE-17604: write transaction ID here
-            writer.write(sch.version);
-
-            auto tuple_data = pack_tuple(sch, key, true);
-            writer.write_binary(tuple_data);
+            write_table_operation_header(writer, m_id, sch);
+            write_tuple(writer, sch, key, true);
         };
 
-        auto self = shared_from_this();
-        auto reader_func = [self = std::move(self), key = std::move(key)] (protocol::reader &reader) -> std::optional<ignite_tuple> {
-            auto schema_version = reader.read_object_nullable<std::int32_t>();
-            std::shared_ptr<schema> sch;
-            if (schema_version)
-                sch = self->get_schema(schema_version.value());
-
-            if (!sch)
-                return std::nullopt;
-
-            auto tuple_data = reader.read_binary();
-
-            auto columns_cnt = std::int32_t(sch->columns.size());
-            ignite_tuple res(columns_cnt);
-            binary_tuple_parser parser(columns_cnt - sch->key_column_count, tuple_data);
-
-            for (std::int32_t i = 0; i < columns_cnt; ++i) {
-                auto& column = sch->columns[i];
-                if (i < sch->key_column_count) {
-                    res.set(column.name, key.get(column.name));
-                } else {
-                    res.set(column.name, read_next_column(parser, column.type));
-                }
-            }
-
-            return res;
+        auto reader_func = [self = shared_from_this(), &key] (protocol::reader &reader) -> std::optional<ignite_tuple> {
+            std::shared_ptr<schema> sch = self->get_schema(reader);
+            return read_tuple(reader, sch.get(), key);
         };
 
         m_connection->perform_request<std::optional<ignite_tuple>>(
