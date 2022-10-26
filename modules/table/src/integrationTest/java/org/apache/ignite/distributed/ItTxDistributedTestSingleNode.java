@@ -42,7 +42,8 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.hlc.HybridClockImpl;
-import org.apache.ignite.hlc.TrackableHybridClock;
+import org.apache.ignite.hlc.HybridTimestamp;
+import org.apache.ignite.hlc.PendingComparableValuesTracker;
 import org.apache.ignite.internal.affinity.RendezvousAffinityFunction;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -404,7 +405,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 ).thenAccept(
                         raftSvc -> {
                             try {
-                                TrackableHybridClock safeTimeClock = new TrackableHybridClock();
+                                PendingComparableValuesTracker<HybridTimestamp> safeTime =
+                                        new PendingComparableValuesTracker<>(clocks.get(node).now());
 
                                 replicaManagers.get(node).startReplica(
                                         new TablePartitionId(tblId, partId),
@@ -417,7 +419,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                                                 tblId,
                                                 primaryIndex,
                                                 clocks.get(node),
-                                                safeTimeClock,
+                                                safeTime,
                                                 txSateStorage,
                                                 topologyServices.get(node),
                                                 placementDriver

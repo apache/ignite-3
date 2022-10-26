@@ -32,7 +32,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import javax.naming.OperationNotSupportedException;
 import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.hlc.HybridClockImpl;
-import org.apache.ignite.hlc.TrackableHybridClock;
+import org.apache.ignite.hlc.HybridTimestamp;
+import org.apache.ignite.hlc.PendingComparableValuesTracker;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
@@ -206,6 +207,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
         var primaryIndex = new ConcurrentHashMap<ByteBuffer, RowId>();
 
+        HybridClock clock = new HybridClockImpl();
+
         replicaListener = new PartitionReplicaListener(
                 mvPartStorage,
                 partitionMap.get(0),
@@ -214,8 +217,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 0,
                 tableId(),
                 primaryIndex,
-                new HybridClockImpl(),
-                new TrackableHybridClock(),
+                clock,
+                new PendingComparableValuesTracker<>(clock.now()),
                 null,
                 null,
                 null

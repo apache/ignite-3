@@ -36,7 +36,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.hlc.HybridClockImpl;
 import org.apache.ignite.hlc.HybridTimestamp;
-import org.apache.ignite.hlc.TrackableHybridClock;
+import org.apache.ignite.hlc.PendingComparableValuesTracker;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
@@ -177,7 +177,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             return CompletableFuture.completedFuture(txMeta);
         });
 
-        TrackableHybridClock safeTimeClock = mock(TrackableHybridClock.class);
+        PendingComparableValuesTracker safeTimeClock = mock(PendingComparableValuesTracker.class);
         when(safeTimeClock.waitFor(any())).thenReturn(CompletableFuture.completedFuture(null));
 
         partitionReplicaListener = new PartitionReplicaListener(

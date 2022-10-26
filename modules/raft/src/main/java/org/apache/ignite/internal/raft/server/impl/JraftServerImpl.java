@@ -415,7 +415,7 @@ public class JraftServerImpl implements RaftServer {
             nodeOptions.setRpcClient(client);
 
             if (groupOptions.replicationGroupOptions() != null) {
-                nodeOptions.setSafeTimeClock(groupOptions.replicationGroupOptions().safeTimeClock());
+                nodeOptions.setSafeTimeTracker(groupOptions.replicationGroupOptions().safeTime());
             }
 
             NetworkAddress addr = service.topologyService().localMember().address();

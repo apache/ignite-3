@@ -861,8 +861,8 @@ public class NodeImpl implements Node, RaftServerService {
         Requires.requireNonNull(opts.getServiceFactory(), "Null jraft service factory");
         this.serviceFactory = opts.getServiceFactory();
         this.clock = opts.getNodeOptions().getClock();
-        if (opts.getNodeOptions().getSafeTimeClock() != null) {
-            this.safeTimeCandidateManager = new SafeTimeCandidateManager(opts.getNodeOptions().getSafeTimeClock());
+        if (opts.getNodeOptions().getSafeTimeTracker() != null) {
+            this.safeTimeCandidateManager = new SafeTimeCandidateManager(opts.getNodeOptions().getSafeTimeTracker());
         }
         // Term is not an option since changing it is very dangerous
         final long bootstrapLogTerm = opts.getLastLogIndex() > 0 ? 1 : 0;
@@ -962,8 +962,8 @@ public class NodeImpl implements Node, RaftServerService {
         Requires.requireNonNull(opts.getServiceFactory(), "Null jraft service factory");
         this.serviceFactory = opts.getServiceFactory();
         this.clock = opts.getClock();
-        if (opts.getSafeTimeClock() != null) {
-            this.safeTimeCandidateManager = new SafeTimeCandidateManager(opts.getSafeTimeClock());
+        if (opts.getSafeTimeTracker() != null) {
+            this.safeTimeCandidateManager = new SafeTimeCandidateManager(opts.getSafeTimeTracker());
         }
         this.options = opts;
         this.raftOptions = opts.getRaftOptions();

@@ -17,30 +17,30 @@
 
 package org.apache.ignite.internal.raft.server;
 
-import org.apache.ignite.hlc.HybridClock;
+import org.apache.ignite.hlc.HybridTimestamp;import org.apache.ignite.hlc.PendingComparableValuesTracker;
 
 /**
  * Options that are specific for replication group.
  */
 public class ReplicationGroupOptions {
-    /** Safe time clock. */
-    private HybridClock safeTimeClock;
+    /** Safe time. */
+    private PendingComparableValuesTracker<HybridTimestamp> safeTime;
 
     /**
-     * Safe time clock.
+     * Safe time.
      */
-    public HybridClock safeTimeClock() {
-        return safeTimeClock;
+    public PendingComparableValuesTracker<HybridTimestamp> safeTime() {
+        return safeTime;
     }
 
     /**
      * Set the safe time clock.
      *
-     * @param safeTimeClock Safe time clock.
+     * @param safeTime Safe time.
      * @return This, for chaining.
      */
-    public ReplicationGroupOptions safeTimeClock(HybridClock safeTimeClock) {
-        this.safeTimeClock = safeTimeClock;
+    public ReplicationGroupOptions safeTime(PendingComparableValuesTracker<HybridTimestamp> safeTime) {
+        this.safeTime = safeTime;
 
         return this;
     }

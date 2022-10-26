@@ -74,7 +74,8 @@ import org.apache.ignite.configuration.ConfigurationProperty;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.hlc.HybridClock;
-import org.apache.ignite.hlc.TrackableHybridClock;
+import org.apache.ignite.hlc.HybridTimestamp;
+import org.apache.ignite.hlc.PendingComparableValuesTracker;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.causality.VersionedValue;
@@ -690,7 +691,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 ConcurrentHashMap<ByteBuffer, RowId> primaryIndex = new ConcurrentHashMap<>();
 
-                TrackableHybridClock safeTimeClock = new TrackableHybridClock();
+                PendingComparableValuesTracker<HybridTimestamp> safeTime = new PendingComparableValuesTracker<>(clock.now());
 
                 if (raftMgr.shouldHaveRaftGroupLocally(nodes)) {
                     startGroupFut = CompletableFuture
@@ -734,7 +735,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                     }
 
                                     RaftGroupOptions groupOptions = groupOptionsForPartition(internalTbl, partitionStorage,
-                                            newPartAssignment, safeTimeClock);
+                                            newPartAssignment, safeTime);
 
                                     try {
                                         raftMgr.startRaftGroupNode(
@@ -794,7 +795,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                             tblId,
                                                             primaryIndex,
                                                             clock,
-                                                            safeTimeClock,
+                                                            safeTime,
                                                             internalTbl.txStateStorage().getOrCreateTxStateStorage(partId),
                                                             topologyService,
                                                             placementDriver
@@ -848,7 +849,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             InternalTable internalTbl,
             MvPartitionStorage partitionStorage,
             Set<ClusterNode> peers,
-            HybridClock safeTimeClock
+            PendingComparableValuesTracker<HybridTimestamp> safeTime
     ) {
         RaftGroupOptions raftGroupOptions;
 
@@ -870,7 +871,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 List.of()
         ));
 
-        raftGroupOptions.replicationGroupOptions(new ReplicationGroupOptions().safeTimeClock(safeTimeClock));
+        raftGroupOptions.replicationGroupOptions(new ReplicationGroupOptions().safeTime(safeTime));
 
         return raftGroupOptions;
     }
@@ -1666,7 +1667,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                     ConcurrentHashMap<ByteBuffer, RowId> primaryIndex = new ConcurrentHashMap<>();
 
-                    TrackableHybridClock safeTimeClock = new TrackableHybridClock();
+                    PendingComparableValuesTracker<HybridTimestamp> safeTime = new PendingComparableValuesTracker<>(clock.now());
 
                     try {
                         LOG.info("Received update on pending assignments. Check if new raft group should be started"
@@ -1680,7 +1681,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                     tbl.internalTable(),
                                     partitionStorage,
                                     assignments,
-                                    safeTimeClock
+                                    safeTime
                             );
 
                             RaftGroupListener raftGrpLsnr = new PartitionListener(
@@ -1725,7 +1726,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                             tblId,
                                             primaryIndex,
                                             clock,
-                                            safeTimeClock,
+                                            safeTime,
                                             tbl.internalTable().txStateStorage().getOrCreateTxStateStorage(partId),
                                             raftMgr.topologyService(),
                                             placementDriver

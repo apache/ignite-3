@@ -39,7 +39,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.hlc.HybridTimestamp;
-import org.apache.ignite.hlc.TrackableHybridClock;
+import org.apache.ignite.hlc.PendingComparableValuesTracker;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
@@ -143,8 +143,8 @@ public class PartitionReplicaListener implements ReplicaListener {
     /** Hybrid clock. */
     private final HybridClock hybridClock;
 
-    /** Safe time clock. */
-    private final TrackableHybridClock safeTimeClock;
+    /** Safe time. */
+    private final PendingComparableValuesTracker<HybridTimestamp> safeTime;
 
     /** Placement Driver. */
     private final PlacementDriver placementDriver;
@@ -166,7 +166,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param tableId Table id.
      * @param primaryIndex Primary index.
      * @param hybridClock Hybrid clock.
-     * @param safeTimeClock Safe time clock.
+     * @param safeTime Safe time clock.
      * @param txStateStorage Transaction state storage.
      * @param topologyService Topology services.
      * @param placementDriver Placement driver.
@@ -180,7 +180,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             UUID tableId,
             ConcurrentHashMap<ByteBuffer, RowId> primaryIndex,
             HybridClock hybridClock,
-            TrackableHybridClock safeTimeClock,
+            PendingComparableValuesTracker<HybridTimestamp> safeTime,
             TxStateStorage txStateStorage,
             TopologyService topologyService,
             PlacementDriver placementDriver
@@ -193,7 +193,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         this.tableId = tableId;
         this.primaryIndex = primaryIndex;
         this.hybridClock = hybridClock;
-        this.safeTimeClock = safeTimeClock;
+        this.safeTime = safeTime;
         this.txStateStorage = txStateStorage;
         this.topologyService = topologyService;
         this.placementDriver = placementDriver;
@@ -329,7 +329,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         @SuppressWarnings("resource") PartitionTimestampCursor cursor = cursors.computeIfAbsent(cursorId,
                 id -> mvDataStorage.scan(HybridTimestamp.MAX_VALUE));
 
-        return safeTimeClock.waitFor(request.timestamp()).thenApplyAsync(v -> {
+        return safeTime.waitFor(request.timestamp()).thenApplyAsync(v -> {
             while (batchRows.size() < batchCount && cursor.hasNext()) {
                 BinaryRow resolvedReadResult = resolveReadResult(cursor.next(), timestamp, () -> cursor.committed(timestamp));
 
@@ -361,7 +361,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         //TODO: IGNITE-17868 Integrate indexes into rowIds resolution along with proper lock management on search rows.
         RowId rowId = rowIdByKey(indexId, searchKey);
 
-        return safeTimeClock.waitFor(request.timestamp()).thenApplyAsync(v -> {
+        return safeTime.waitFor(request.timestamp()).thenApplyAsync(v -> {
             ReadResult readResult = rowId == null ? null : mvDataStorage.read(rowId, request.timestamp());
 
             BinaryRow result = readResult == null ? null : resolveReadResult(readResult, request.timestamp(), () -> {
@@ -399,7 +399,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     IgniteStringFormatter.format("Unknown single request [actionType={}]", request.requestType()));
         }
 
-        return safeTimeClock.waitFor(request.timestamp()).thenApplyAsync(v -> {
+        return safeTime.waitFor(request.timestamp()).thenApplyAsync(v -> {
             ArrayList<BinaryRow> result = new ArrayList<>(keyRows.size());
 
             for (ByteBuffer searchKey : keyRows) {

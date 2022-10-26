@@ -26,7 +26,7 @@ import java.util.List;
 import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.hlc.TestHybridClock;
-import org.apache.ignite.internal.raft.server.RaftGroupOptions;
+import org.apache.ignite.hlc.PendingComparableValuesTracker;import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.ReplicationGroupOptions;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -54,7 +54,7 @@ public class ItSafeTimeTest extends JraftAbstractTest {
     private List<HybridClock> clocks = new ArrayList<>();
 
     /** Safe tims clocks. */
-    private List<HybridClock> safeTimeClocks = new ArrayList<>();
+    private List<PendingComparableValuesTracker<HybridTimestamp>> safeTimeContainers = new ArrayList<>();
 
     /** Before each. */
     @BeforeEach
@@ -82,21 +82,21 @@ public class ItSafeTimeTest extends JraftAbstractTest {
     private void startCluster() throws Exception {
         for (int i = 0; i < NODES; i++) {
             HybridClock clock = new TestHybridClock(() -> 1L);
-            HybridClock safeTimeClock = new TestHybridClock(() -> 1L);
+            PendingComparableValuesTracker<HybridTimestamp> safeTime = new PendingComparableValuesTracker<>(clock.now());
 
             clocks.add(clock);
-            safeTimeClocks.add(safeTimeClock);
+            safeTimeContainers.add(safeTime);
 
             startServer(i,
                     raftServer -> {
                         RaftGroupOptions groupOptions = defaults()
-                                .replicationGroupOptions(new ReplicationGroupOptions().safeTimeClock(safeTimeClock));
+                                .replicationGroupOptions(new ReplicationGroupOptions().safeTime(safeTime));
 
                         raftServer.startRaftGroup(RAFT_GROUP_ID, new CounterListener(), INITIAL_CONF, groupOptions);
                     },
                     opts -> {
                         opts.setClock(clock);
-                        opts.setSafeTimeClock(safeTimeClock);
+                        opts.setSafeTimeTracker(safeTime);
                     }
             );
         }
@@ -130,7 +130,7 @@ public class ItSafeTimeTest extends JraftAbstractTest {
             for (int i = 0; i < NODES; i++) {
                 // As current time provider for safe time clocks always returns 1,
                 // the only way for physical component to reach leaderPhysicalTime is safe time propagation mechanism.
-                if (i != leaderIndex && safeTimeClocks.get(i).now().getPhysical() != leaderPhysicalTime) {
+                if (i != leaderIndex && safeTimeContainers.get(i).current().getPhysical() != leaderPhysicalTime) {
                     return false;
                 }
             }

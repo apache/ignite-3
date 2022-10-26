@@ -20,7 +20,7 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.hlc.HybridClockImpl;
-import org.apache.ignite.internal.raft.server.RaftGroupEventsListener;
+import org.apache.ignite.hlc.HybridTimestamp;import org.apache.ignite.hlc.PendingComparableValuesTracker;import org.apache.ignite.internal.raft.server.RaftGroupEventsListener;
 import org.apache.ignite.raft.jraft.JRaftServiceFactory;
 import org.apache.ignite.raft.jraft.StateMachine;
 import org.apache.ignite.raft.jraft.conf.Configuration;
@@ -237,8 +237,8 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     /** A hybrid clock */
     private HybridClock clock = new HybridClockImpl();
 
-    /** A hybrid clock for safe time. */
-    private HybridClock safeTimeClock;
+    /** A container for safe time. */
+    private PendingComparableValuesTracker<HybridTimestamp> safeTimeTracker;
 
     /**
      * Amount of Disruptors that will handle the RAFT server.
@@ -601,12 +601,12 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
         this.clock = clock;
     }
 
-    public HybridClock getSafeTimeClock() {
-        return safeTimeClock;
+    public PendingComparableValuesTracker<HybridTimestamp> getSafeTimeTracker() {
+        return safeTimeTracker;
     }
 
-    public void setSafeTimeClock(HybridClock safeTimeClock) {
-        this.safeTimeClock = safeTimeClock;
+    public void setSafeTimeTracker(PendingComparableValuesTracker<HybridTimestamp> safeTimeTracker) {
+        this.safeTimeTracker = safeTimeTracker;
     }
 
     @Override
@@ -645,7 +645,7 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
         nodeOptions.setRpcConnectTimeoutMs(this.getRpcConnectTimeoutMs());
         nodeOptions.setElectionTimeoutStrategy(this.getElectionTimeoutStrategy());
         nodeOptions.setClock(this.getClock());
-        nodeOptions.setSafeTimeClock(this.getSafeTimeClock());
+        nodeOptions.setSafeTimeTracker(this.getSafeTimeTracker());
 
         return nodeOptions;
     }

@@ -20,8 +20,8 @@ package org.apache.ignite.raft.jraft.util;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.hlc.HybridTimestamp;
+import org.apache.ignite.hlc.PendingComparableValuesTracker;
 
 /**
  * This manager stores safe time candidates coming with appendEntries requests, and applies them after committing corresponding
@@ -29,13 +29,13 @@ import org.apache.ignite.hlc.HybridTimestamp;
  */
 public class SafeTimeCandidateManager {
     /** Safe time clock. */
-    private final HybridClock safeTimeClock;
+    private final PendingComparableValuesTracker<HybridTimestamp> safeTimeTracker;
 
     /** Candidates map. */
     private final Map<Long, Map<Long, HybridTimestamp>> safeTimeCandidates = new ConcurrentHashMap<>();
 
-    public SafeTimeCandidateManager(HybridClock safeTimeClock) {
-        this.safeTimeClock = safeTimeClock;
+    public SafeTimeCandidateManager(PendingComparableValuesTracker<HybridTimestamp> safeTimeTracker) {
+        this.safeTimeTracker = safeTimeTracker;
     }
 
     /**
@@ -81,7 +81,7 @@ public class SafeTimeCandidateManager {
 
                 assert safeTime != null;
 
-                safeTimeClock.sync(safeTime);
+                safeTimeTracker.update(safeTime);
             }
 
             currentIndex++;

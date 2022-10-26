@@ -18,10 +18,8 @@ package org.apache.ignite.raft.jraft.core;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
-import org.apache.ignite.hlc.HybridClock;
-import org.apache.ignite.hlc.HybridClockImpl;
 import org.apache.ignite.hlc.HybridTimestamp;
-import org.apache.ignite.raft.jraft.Iterator;
+import org.apache.ignite.hlc.PendingComparableValuesTracker;import org.apache.ignite.raft.jraft.Iterator;
 import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.StateMachine;
@@ -77,9 +75,9 @@ public class FSMCallerTest {
 
     private ExecutorService executor;
 
-    private HybridClock safeTimeClock = new HybridClockImpl();
+    private PendingComparableValuesTracker<HybridTimestamp> safeTimeTracker = new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0));
 
-    private SafeTimeCandidateManager safeTimeCandidateManager = new SafeTimeCandidateManager(safeTimeClock);
+    private SafeTimeCandidateManager safeTimeCandidateManager = new SafeTimeCandidateManager(safeTimeTracker);
 
     @BeforeEach
     public void setup() {
