@@ -113,7 +113,7 @@ public class MergeSortSubscriptionStrategy<T> extends AbstractCompositeSubscript
     @Override
     public synchronized void cancel() {
         for (int i = 0; i < subscriptions.size(); i++) {
-            if (!finished.contains(i)) {
+            if (finished.add(i)) {
                 subscriptions.get(i).cancel();
             }
         }
@@ -260,11 +260,11 @@ public class MergeSortSubscriptionStrategy<T> extends AbstractCompositeSubscript
         List<Integer> minIdxs = new ArrayList<>();
 
         for (int i = 0; i < subscribers.size(); i++) {
-            MergeSortStrategySubscriber subscriber = subscribers.get(i);
-
             if (finished.contains(i)) {
                 continue;
             }
+
+            MergeSortStrategySubscriber subscriber = subscribers.get(i);
 
             T item = subscriber.lastItem;
 
