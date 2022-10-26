@@ -222,7 +222,7 @@ public:
      * @param unpack_func Object unpack function.
      */
     template <typename T>
-    std::vector<T> read_array(const std::function<T(const msgpack_object&)>& unpack_func) {
+    [[nodiscard]] std::vector<T> read_array(const std::function<T(const msgpack_object&)>& unpack_func) {
         auto size = read_array_size();
         std::vector<T> res;
         res.reserve(size);
@@ -241,8 +241,19 @@ public:
      * @param handler Value handler.
      */
     template <typename T>
-    std::vector<T> read_array() {
+    [[nodiscard]] std::vector<T> read_array() {
         return read_array<T>(unpack_object<T>);
+    }
+
+    /**
+     * Read array.
+     *
+     * @return Binary data view.
+     */
+    [[nodiscard]] bytes_view read_binary() {
+        auto res = unpack_binary(m_current_val.data);
+        next();
+        return res;
     }
 
     /**

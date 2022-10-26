@@ -17,6 +17,7 @@
 
 #include "ignite/client/detail/table/table_impl.h"
 #include "ignite/schema/binary_tuple_builder.h"
+#include "ignite/schema/binary_tuple_parser.h"
 #include "ignite/common/ignite_error.h"
 
 #include <ignite/protocol/reader.h>
@@ -107,6 +108,45 @@ void append_column(binary_tuple_builder& builder, ignite_type typ, std::int32_t 
         case ignite_type::BINARY:
             builder.append(typ, tuple.get<const std::vector<std::byte>&>(index));
             break;
+        default:
+            // TODO: Support other types
+            throw ignite_error("Type with id " + std::to_string(int(typ)) + " is not yet supported");
+    }
+}
+
+/**
+ * Read column value from binary tuple.
+ *
+ * @param parser Binary tuple parser.
+ * @param typ Column type.
+ * @return Column value.
+ */
+std::any read_next_column(binary_tuple_parser& parser, ignite_type typ) {
+    auto val_opt = parser.get_next();
+    if (!val_opt)
+        return {};
+
+    auto val = val_opt.value();
+
+    switch (typ) {
+        case ignite_type::INT8:
+            return binary_tuple_parser::get_int8(val);
+        case ignite_type::INT16:
+            return binary_tuple_parser::get_int16(val);
+        case ignite_type::INT32:
+            return binary_tuple_parser::get_int32(val);
+        case ignite_type::INT64:
+            return binary_tuple_parser::get_int64(val);
+        case ignite_type::FLOAT:
+            return binary_tuple_parser::get_float(val);
+        case ignite_type::DOUBLE:
+            return binary_tuple_parser::get_double(val);
+        case ignite_type::UUID:
+            return binary_tuple_parser::get_uuid(val);
+        case ignite_type::STRING:
+            return std::string(reinterpret_cast<const char*>(val.data()), val.size());
+        case ignite_type::BINARY:
+            return std::vector<std::byte>(val);
         default:
             // TODO: Support other types
             throw ignite_error("Type with id " + std::to_string(int(typ)) + " is not yet supported");
@@ -208,7 +248,7 @@ void table_impl::get_async(transaction *tx, ignite_tuple key, ignite_callback<st
     transactions_not_implemented(tx);
 
     with_latest_schema_async<std::optional<ignite_tuple>>(std::move(callback),
-        [this, key = std::move(key)] (const schema& sch, auto callback) {
+        [this, key = std::move(key)] (const schema& sch, auto callback) mutable {
         auto writer_func = [this, &key, &sch] (protocol::writer &writer) {
             writer.write(m_id);
             writer.write_nil(); // TODO: IGNITE-17604: write transaction ID here
@@ -218,8 +258,32 @@ void table_impl::get_async(transaction *tx, ignite_tuple key, ignite_callback<st
             writer.write_binary(tuple_data);
         };
 
-        auto reader_func = [] (protocol::reader &reader) -> std::optional<ignite_tuple> {
-            return std::nullopt;
+        auto self = shared_from_this();
+        auto reader_func = [self = std::move(self), key = std::move(key)] (protocol::reader &reader) -> std::optional<ignite_tuple> {
+            auto schema_version = reader.read_object_nullable<std::int32_t>();
+            std::shared_ptr<schema> sch;
+            if (schema_version)
+                sch = self->get_schema(schema_version.value());
+
+            if (!sch)
+                return std::nullopt;
+
+            auto tuple_data = reader.read_binary();
+
+            auto columns_cnt = std::int32_t(sch->columns.size());
+            ignite_tuple res(columns_cnt);
+            binary_tuple_parser parser(columns_cnt - sch->key_column_count, tuple_data);
+
+            for (std::int32_t i = 0; i < columns_cnt; ++i) {
+                auto& column = sch->columns[i];
+                if (i < sch->key_column_count) {
+                    res.set(column.name, key.get(column.name));
+                } else {
+                    res.set(column.name, read_next_column(parser, column.type));
+                }
+            }
+
+            return res;
         };
 
         m_connection->perform_request<std::optional<ignite_tuple>>(

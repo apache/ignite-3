@@ -121,6 +121,14 @@ template <>
 void unpack_array_raw(const msgpack_object &object, const std::function<void(const msgpack_object&)>& read_func);
 
 /**
+ * Get binary data.
+ *
+ * @param object Object.
+ * @return Binary data view.
+ */
+[[nodiscard]] bytes_view unpack_binary(const msgpack_object &object);
+
+/**
  * Make random UUID.
  *
  * @return Random UUID instance.

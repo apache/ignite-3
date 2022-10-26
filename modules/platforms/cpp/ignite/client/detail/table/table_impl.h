@@ -121,6 +121,21 @@ private:
         m_schemas[val->version] = val;
     }
 
+    /**
+     * Get schema by version.
+     *
+     * @param version Schema version.
+     */
+    std::shared_ptr<schema> get_schema(std::int32_t version) {
+        std::lock_guard<std::mutex> lock(m_schemas_mutex);
+
+        auto it = m_schemas.find(version);
+        if (it == m_schemas.end())
+            return {};
+
+        return it->second;
+    }
+
     /** Table name. */
     const std::string m_name;
 

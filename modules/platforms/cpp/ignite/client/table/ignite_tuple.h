@@ -71,17 +71,27 @@ public:
     /**
      * Gets the value of the specified column.
      *
+     * @param idx The column index.
+     * @return Column value.
+     */
+    [[nodiscard]] const std::any& get(uint32_t idx) const {
+        if (idx > m_pairs.size()) {
+            throw ignite_error("Index is too large: idx=" + std::to_string(idx) +
+                ", columns_num=" + std::to_string(m_pairs.size()));
+        }
+        return m_pairs[idx].second;
+    }
+
+    /**
+     * Gets the value of the specified column.
+     *
      * @tparam T Column type.
      * @param idx The column index.
      * @return Column value.
      */
     template<typename T>
     [[nodiscard]] T get(uint32_t idx) const {
-        if (idx > m_pairs.size()) {
-            throw ignite_error("Index is too large: idx=" + std::to_string(idx) +
-                ", columns_num=" + std::to_string(m_pairs.size()));
-        }
-        return std::any_cast<T>(m_pairs[idx].second);
+        return std::any_cast<T>(get(idx));
     }
 
     /**
@@ -103,17 +113,27 @@ public:
     /**
      * Gets the value of the specified column.
      *
+     * @param name The column name.
+     * @return Column value.
+     */
+    [[nodiscard]] const std::any& get(std::string_view name) const {
+        auto it = m_indices.find(parse_name(name));
+        if (it == m_indices.end())
+            throw ignite_error("Can not find column with the name '" + std::string(name) + "' in the tuple");
+        auto idx = it->second;
+        return m_pairs[idx].second;
+    }
+
+    /**
+     * Gets the value of the specified column.
+     *
      * @tparam T Column type.
      * @param name The column name.
      * @return Column value.
      */
     template<typename T>
     [[nodiscard]] T get(std::string_view name) const {
-        auto it = m_indices.find(parse_name(name));
-        if (it == m_indices.end())
-            throw ignite_error("Can not find column with the name '" + std::string(name) + "' in the tuple");
-        auto idx = it->second;
-        return std::any_cast<T>(m_pairs[idx].second);
+        return std::any_cast<T>(get(name));
     }
 
     /**

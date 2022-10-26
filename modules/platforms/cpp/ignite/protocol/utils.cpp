@@ -107,6 +107,13 @@ void unpack_array_raw(const msgpack_object &object, const std::function<void(con
         read_func(object.via.array.ptr[i]);
 }
 
+bytes_view unpack_binary(const msgpack_object &object) {
+    if (object.type != MSGPACK_OBJECT_BIN)
+        throw ignite_error("The value in stream is not a Binary data");
+
+    return {reinterpret_cast<const std::byte*>(object.via.bin.ptr), object.via.bin.size};
+}
+
 uuid make_random_uuid() {
     static std::mutex randomMutex;
     static std::random_device rd;
