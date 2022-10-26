@@ -32,6 +32,8 @@ import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
+import org.apache.ignite.internal.client.proto.ClientDataType;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeType;
@@ -288,14 +290,47 @@ public class PlatformTestNodeRunner {
     private static class ColocationHashJob implements ComputeJob<Integer> {
         @Override
         public Integer execute(JobExecutionContext context, Object... args) {
-            // TODO:
-            // 1. Read schema and binary tuple from buffer
-            // 2. Convert to tuple
-            // 3. Marshal to BinaryRow
-            var buf = (byte[]) args[0];
-            var schema = new SchemaDescriptor(1, new Column[] {new Column("key", NativeTypes.INT64, false)}, new Column[0]);
+            var columnCount = (int)args[0];
+            var buf = (byte[]) args[1];
+            var columns = new Column[columnCount];
+            var tuple = Tuple.create(columnCount);
+            var reader = new BinaryTupleReader(columnCount, buf);
+
+            for (int i = 0; i < columnCount; i++) {
+                var type = reader.intValue(i * 3);
+                var scale = reader.intValue(i * 3 + 1);
+                var valIdx = i * 3 + 2;
+
+                String colName = "col" + i;
+
+                switch (type) {
+                    case ClientDataType.INT8:
+                        columns[i] = new Column(colName, NativeTypes.INT8, false);
+                        tuple.set(colName, reader.byteValue(valIdx));
+                        break;
+
+                    case ClientDataType.INT16:
+                        columns[i] = new Column(colName, NativeTypes.INT16, false);
+                        tuple.set(colName, reader.shortValue(valIdx));
+                        break;
+
+                    case ClientDataType.INT32:
+                        columns[i] = new Column(colName, NativeTypes.INT32, false);
+                        tuple.set(colName, reader.intValue(valIdx));
+                        break;
+
+                    case ClientDataType.INT64:
+                        columns[i] = new Column(colName, NativeTypes.INT32, false);
+                        tuple.set(colName, reader.longValue(valIdx));
+                        break;
+
+                    default:
+                        throw new IllegalArgumentException("Unsupported type: " + type);
+                }
+            }
+
+            var schema = new SchemaDescriptor(1, columns, new Column[0]);
             var marsh = new TupleMarshallerImpl(new TestSchemaRegistry(schema));
-            var tuple = Tuple.create().set("key", 1L);
 
             try {
                 Row row = marsh.marshal(tuple);
