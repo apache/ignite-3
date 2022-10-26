@@ -523,17 +523,17 @@ public class OrderingFuture<T> {
 
     private static class ListNode<T> {
         private final DependentAction<T> dependent;
-        private final ListNode<T> next;
+        private final ListNode<T> prev;
 
-        private ListNode(DependentAction<T> dependent, ListNode<T> next) {
+        private ListNode(DependentAction<T> dependent, ListNode<T> prev) {
             this.dependent = dependent;
-            this.next = next;
+            this.prev = prev;
         }
 
         public void notifyHeadToTail(T result, Throwable exception, ListNode<T> lastNotifiedNode) {
             Deque<ListNode<T>> stack = new ArrayDeque<>();
 
-            for (ListNode<T> node = this; node != null && node != lastNotifiedNode; node = node.next) {
+            for (ListNode<T> node = this; node != null && node != lastNotifiedNode; node = node.prev) {
                 stack.addFirst(node);
             }
 
