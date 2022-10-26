@@ -20,7 +20,6 @@ package org.apache.ignite.internal.table.impl;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import java.io.Serializable;
@@ -34,7 +33,6 @@ import javax.naming.OperationNotSupportedException;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
@@ -211,9 +209,6 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
         HybridClock clock = new HybridClockImpl();
 
-        PendingComparableValuesTracker<HybridTimestamp> safeTime = Mockito.mock(PendingComparableValuesTracker.class);
-        when(safeTime.waitFor(any())).thenReturn(CompletableFuture.completedFuture(null));
-
         replicaListener = new PartitionReplicaListener(
                 mvPartStorage,
                 partitionMap.get(0),
@@ -223,7 +218,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 tableId(),
                 primaryIndex,
                 clock,
-                safeTime,
+                new PendingComparableValuesTracker<>(clock.now()),
                 null,
                 null,
                 null,
