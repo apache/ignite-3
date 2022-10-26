@@ -159,19 +159,19 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
 
         if (fut != null) {
             fut.cancel(true);
+
+            try {
+                // Because after the cancellation, no one waits for #join.
+                join();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
         }
     }
 
     @Override
     public void close() {
-        cancel();
-
-        try {
-            // By analogy with LocalSnapshotCopier#close.
-            join();
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
+        // No-op.
     }
 
     @Override
