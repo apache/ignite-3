@@ -9,9 +9,11 @@ import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.calcite.util.Pair;
+import org.apache.ignite.internal.sql.engine.util.CompositePublisher.PlainSubscriberProxy;
 import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentHashSet;
 import org.jetbrains.annotations.Nullable;
 
@@ -184,7 +186,7 @@ public class MergeSortSubscriptionStrategy<T> implements SubscriptionManagementS
 
     @Override
     public Subscriber<T> subscriberProxy(int subscriberId) {
-        SortingSubscriberProxy<T> subscriber = new SortingSubscriberProxy<>(delegate, subscriberId, this);
+        SortingSubscriberProxy<T> subscriber = new SortingSubscriberProxy<>(delegate, this, subscriberId);
 
         subscribers.add(subscriber);
 
@@ -264,6 +266,54 @@ public class MergeSortSubscriptionStrategy<T> implements SubscriptionManagementS
         }
 
         return Pair.of(minItem, minIdxs);
+    }
+
+    public static class SortingSubscriberProxy<T> extends PlainSubscriberProxy<T> {
+        private volatile T lastItem;
+
+        private final AtomicLong remainingCnt = new AtomicLong();
+
+        private final AtomicBoolean finished = new AtomicBoolean();
+
+        public SortingSubscriberProxy(Subscriber<? super T> delegate, SubscriptionManagementStrategy<T> subscriptionStrategy, int id) {
+            super(delegate, subscriptionStrategy, id);
+        }
+
+        @Override
+        public void onNext(T item) {
+            lastItem = item;
+
+            subscriptionStrategy.onReceive(id, item);
+
+            long val = remainingCnt.decrementAndGet();
+
+            if (val <= 0) {
+                assert val == 0 : "remain=" + val
+                        + ", id=" + id
+                        + ", item=" + item
+                        + ", threadId=" + Thread.currentThread().getName();
+
+                subscriptionStrategy.onRequestCompleted(id);
+            }
+        }
+
+        @Override
+        public void onComplete() {
+            if (finished.compareAndSet(false, true)) {
+                subscriptionStrategy.onSubscriptionComplete(id);
+            }
+        }
+
+        T lastItem() {
+            return lastItem;
+        }
+
+        public void onDataRequested(long n) {
+            if (finished.get())
+                return;
+
+            remainingCnt.set(n);
+        }
     }
 
     private static boolean debug = false;

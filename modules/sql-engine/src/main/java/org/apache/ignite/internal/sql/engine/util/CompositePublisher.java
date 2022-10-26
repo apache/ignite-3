@@ -60,14 +60,14 @@ public class CompositePublisher<T> implements Flow.Publisher<T> {
         delegate.onSubscribe(subscriptionStrategy);
     }
 
-    private static class PlainSubscriberProxy<T> implements Subscriber<T> {
-        private final Subscriber<? super T> delegate;
+    public static class PlainSubscriberProxy<T> implements Subscriber<T> {
+        protected final Subscriber<? super T> delegate;
 
-        private final SubscriptionManagementStrategy<T> subscriptionStrategy;
+        protected final SubscriptionManagementStrategy<T> subscriptionStrategy;
 
-        private final int id;
+        protected final int id;
 
-        PlainSubscriberProxy(Subscriber<? super T> delegate, SubscriptionManagementStrategy<T> subscriptionStrategy, int id) {
+        public PlainSubscriberProxy(Subscriber<? super T> delegate, SubscriptionManagementStrategy<T> subscriptionStrategy, int id) {
             assert delegate != null;
 
             this.delegate = delegate;
