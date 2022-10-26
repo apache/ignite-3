@@ -20,6 +20,7 @@ namespace Apache.Ignite.Tests.Proto;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Numerics;
 using System.Threading.Tasks;
 using Internal.Proto.BinaryTuple;
 using NUnit.Framework;
@@ -69,7 +70,12 @@ public class ColocationHashTests : IgniteTestsBase
         string.Empty,
         "abc ηρτ 🔥",
         Guid.Empty,
-        Guid.NewGuid()
+        Guid.NewGuid(),
+        BigInteger.One,
+        BigInteger.Zero,
+        BigInteger.MinusOne,
+        (BigInteger)ulong.MaxValue,
+        BigInteger.Pow(123, 100)
     };
 
     [Test]
