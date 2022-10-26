@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
 
+import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Comparator;
 import java.util.Iterator;
@@ -254,13 +255,13 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
                 rangeConditionsProcessed = !rangeConditionIterator.hasNext();
             }
 
-            CompositePublisher<BinaryTuple> compPublisher = new CompositePublisher<>(cmp);
+            List<Flow.Publisher<BinaryTuple>> compPublisher = new ArrayList<>(parts.length);
 
             for (int p : parts) {
                 compPublisher.add(partPublisher(p, cond));
             }
 
-            compPublisher.subscribe(new SubscriberImpl());
+            new CompositePublisher<>(compPublisher, cmp).subscribe(new SubscriberImpl());
         } else {
             waiting = NOT_WAITING;
         }

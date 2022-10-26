@@ -15,7 +15,7 @@ import org.apache.calcite.util.Pair;
 import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentHashSet;
 import org.jetbrains.annotations.Nullable;
 
-public class OrderedInputSubscriptionStrategy<T> implements SubscriptionManagementStrategy<T>, Subscription {
+public class MergeSortSubscriptionStrategy<T> implements SubscriptionManagementStrategy<T>, Subscription {
     /** Items comparator. */
     private final Comparator<T> comp;
 
@@ -24,7 +24,7 @@ public class OrderedInputSubscriptionStrategy<T> implements SubscriptionManageme
 
     private final List<Subscription> subscriptions = new ArrayList<>();
 
-    private final List<SortingSubscriber<T>> subscribers = new ArrayList<>();
+    private final List<SortingSubscriberProxy<T>> subscribers = new ArrayList<>();
 
     private final ConcurrentHashSet<Integer> finished = new ConcurrentHashSet<>();
 
@@ -32,13 +32,13 @@ public class OrderedInputSubscriptionStrategy<T> implements SubscriptionManageme
 
     private final AtomicBoolean completed = new AtomicBoolean();
 
+    private final Subscriber<? super T> delegate;
+
     /** Count of remaining items. */
     private long remain = 0;
 
     /** Count of requested items. */
     private long requested = 0;
-
-    private Subscriber<? super T> delegate;
 
     /** The IDs of the subscribers we are waiting for. */
     private final Set<Integer> waitResponse = new ConcurrentHashSet<>();
@@ -46,9 +46,10 @@ public class OrderedInputSubscriptionStrategy<T> implements SubscriptionManageme
     /** Count of subscribers we are waiting for. */
     private final AtomicInteger waitResponseCnt = new AtomicInteger();
 
-    public OrderedInputSubscriptionStrategy(Comparator<T> comp) {
+    public MergeSortSubscriptionStrategy(Comparator<T> comp, Subscriber<? super T> delegate) {
         this.comp = comp;
         this.inBuf = new PriorityBlockingQueue<>(1, comp);
+        this.delegate = delegate;
     }
 
     @Override
@@ -60,14 +61,7 @@ public class OrderedInputSubscriptionStrategy<T> implements SubscriptionManageme
     @Override
     public void addSubscriber(Subscriber<T> subscriber) {
         // todo
-        subscribers.add((SortingSubscriber<T>) subscriber);
-    }
-
-    @Override
-    public void subscribe(Subscriber<? super T> delegate) {
-        this.delegate = delegate;
-
-        delegate.onSubscribe(this);
+        subscribers.add((SortingSubscriberProxy<T>) subscriber);
     }
 
     @Override
@@ -245,7 +239,7 @@ public class OrderedInputSubscriptionStrategy<T> implements SubscriptionManageme
         List<Integer> minIdxs = new ArrayList<>();
 
         for (int i = 0; i < subscribers.size(); i++) {
-            SortingSubscriber<T> subscriber = subscribers.get(i);
+            SortingSubscriberProxy<T> subscriber = subscribers.get(i);
 
             if (finished.contains(i)) {
                 continue;

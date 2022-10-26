@@ -29,28 +29,17 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.jetbrains.annotations.Nullable;
 
 public class CompositePublisher<T> implements Flow.Publisher<T> {
-    private final Collection<Publisher<T>> publishers = new ArrayList<>();
-
-    private final SubscriptionManagementStrategy<T> subscriptionStrategy;
+    private final Collection<? extends Publisher<T>> publishers;
 
     private final AtomicBoolean subscribed = new AtomicBoolean();
 
-    private final boolean ordered;
+    private final Comparator<T> comp;
 
-    public CompositePublisher(@Nullable Comparator<T> comp) {
-        ordered = comp != null;
+    private SubscriptionManagementStrategy<T> subscriptionStrategy;
 
-        if (ordered)
-            subscriptionStrategy = new OrderedInputSubscriptionStrategy<>(comp);
-        else
-            subscriptionStrategy = new SequentialSubscriptionStrategy<>();
-    }
-
-    public void add(Publisher<T> publisher) {
-        if (subscribed.get())
-            throw new IllegalStateException("Cannot add publisher after subscription.");
-
-        publishers.add(publisher);
+    public CompositePublisher(Collection<? extends Publisher<T>> publishers, @Nullable Comparator<T> comp) {
+        this.publishers = publishers;
+        this.comp = comp;
     }
 
     @Override
@@ -61,20 +50,24 @@ public class CompositePublisher<T> implements Flow.Publisher<T> {
 
         int idx = 0;
 
+        if (comp != null)
+            subscriptionStrategy = new MergeSortSubscriptionStrategy<>(comp, delegate);
+        else
+            subscriptionStrategy = new SequentialSubscriptionStrategy<>(delegate);
+
         for (Publisher<T> publisher : publishers) {
-            Subscriber<T> subscriber = wrap((Subscriber<T>) delegate, idx++);
+            Subscriber<T> subscriber = subscriberProxy((Subscriber<T>) delegate, idx++);
 
             subscriptionStrategy.addSubscriber(subscriber);
             publisher.subscribe(subscriber);
         }
 
-        // todo remove this
-        subscriptionStrategy.subscribe(delegate);
+        delegate.onSubscribe(subscriptionStrategy);
     }
 
-    public Subscriber<T> wrap(Subscriber<T> subscriber, int idx) {
-        if (ordered)
-            return new SortingSubscriber<>(subscriber, idx, subscriptionStrategy);
+    public Subscriber<T> subscriberProxy(Subscriber<T> subscriber, int idx) {
+        if (comp != null)
+            return new SortingSubscriberProxy<>(subscriber, idx, subscriptionStrategy);
         else
             return new PlainSubscriberProxy<>(subscriber, subscriptionStrategy, publishers.size());
     }
@@ -121,9 +114,13 @@ public class CompositePublisher<T> implements Flow.Publisher<T> {
         List<Subscription> subscriptions = new ArrayList<>();
         int subscriptionIdx = 0;
 
-        Subscriber<? super T> delegate;
+        private final Subscriber<? super T> delegate;
 
         private long remaining;
+
+        public SequentialSubscriptionStrategy(Subscriber<? super T> delegate) {
+            this.delegate = delegate;
+        }
 
         @Override
         public void addSubscription(Subscription subscription) {
@@ -147,13 +144,6 @@ public class CompositePublisher<T> implements Flow.Publisher<T> {
 
             if (remaining > 0)
                 requestInternal();
-        }
-
-        @Override
-        public void subscribe(Subscriber<? super T> delegate) {
-            this.delegate = delegate;
-
-            delegate.onSubscribe(this);
         }
 
         @Override

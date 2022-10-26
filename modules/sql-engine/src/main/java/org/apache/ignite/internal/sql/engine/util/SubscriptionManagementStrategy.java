@@ -14,7 +14,4 @@ public interface SubscriptionManagementStrategy<T> extends Flow.Subscription {
 
     // todo implementation can be reworked and this method should be removed
     void onRequestCompleted(int subscriberId);
-
-    // todo should be removed
-    void subscribe(Subscriber<? super T> delegate);
 }

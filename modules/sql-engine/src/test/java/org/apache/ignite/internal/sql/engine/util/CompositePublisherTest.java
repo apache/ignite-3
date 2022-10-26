@@ -87,20 +87,19 @@ public class CompositePublisherTest {
 
         Arrays.sort(expData);
 
-        CompositePublisher<Integer> compPublisher = new CompositePublisher<>(Comparator.comparingInt(v -> v));
+
         List<TestPublisher<Integer>> publishers = new ArrayList<>();
 
         for (int i = 0; i < threadCnt; i++) {
             TestPublisher<Integer> pub = new TestPublisher<>(data[i]);
 
             publishers.add(pub);
-            compPublisher.add(pub);
         }
 
         AtomicReference<Subscription> subscriptionRef =new AtomicReference<>();
         SubscriberListener<Integer> lsnr = new SubscriberListener<>();
 
-        compPublisher.subscribe(new Subscriber<>() {
+        new CompositePublisher<>(publishers, Comparator.comparingInt(v -> v)).subscribe(new Subscriber<>() {
                 @Override
                 public void onSubscribe(Subscription subscription) {
                     subscriptionRef.set(subscription);
