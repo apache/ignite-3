@@ -40,5 +40,6 @@ public class DynamicCompleterActivationPoint {
         registry.register(new String[]{"cluster", "config", "update"}, factory.clusterConfigCompleter(""));
         registry.register(new String[]{"node", "config", "show"}, factory.nodeConfigCompleter(""));
         registry.register(new String[]{"node", "config", "update"}, factory.nodeConfigCompleter(""));
+        registry.register(factory.clusterConfigCompleter("--node-name, -n"));
     }
 }

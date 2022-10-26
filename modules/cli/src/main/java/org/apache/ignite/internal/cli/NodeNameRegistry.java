@@ -1,6 +1,8 @@
 package org.apache.ignite.internal.cli;
 
 import jakarta.inject.Singleton;
+import java.util.ArrayList;
+import java.util.List;
 import org.apache.ignite.internal.cli.call.cluster.topology.PhysicalTopologyCall;
 import org.apache.ignite.internal.cli.core.call.UrlCallInput;
 import org.apache.ignite.rest.client.model.ClusterNode;
@@ -36,6 +38,10 @@ public class NodeNameRegistry {
 
     public String getNodeUrl(String nodeName) {
         return nodeNameToNodeUrl.get(nodeName);
+    }
+
+    public List<String> getAllNames() {
+        return new ArrayList<>(nodeNameToNodeUrl.keySet());
     }
 
     private void updateNodeNames(String nodeUrl) {

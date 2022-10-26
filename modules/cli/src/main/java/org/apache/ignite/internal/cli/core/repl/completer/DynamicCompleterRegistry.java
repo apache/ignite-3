@@ -39,6 +39,10 @@ public class DynamicCompleterRegistry {
                 .collect(Collectors.toList());
     }
 
+    public void register(DynamicCompleter completer) {
+        completionStrategiesList.add(new CompletionStrategy(ignored -> true, completer));
+    }
+
     /** Registers dynamic completer that can be found by given predicate. */
     public void register(Predicate<String[]> predicate, DynamicCompleter completer) {
         completionStrategiesList.add(new CompletionStrategy(predicate, completer));
