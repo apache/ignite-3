@@ -79,10 +79,7 @@ internal static class HashUtils
     /// <param name="data">Input data.</param>
     /// <param name="seed">Current hash.</param>
     /// <returns>Resulting hash.</returns>
-    public static int Hash32(float data, int seed)
-    {
-        throw new NotImplementedException();
-    }
+    public static int Hash32(float data, int seed) => Hash32(BitConverter.SingleToInt32Bits(data), seed);
 
     /// <summary>
     /// Generates 32-bit hash.
@@ -90,10 +87,7 @@ internal static class HashUtils
     /// <param name="data">Input data.</param>
     /// <param name="seed">Current hash.</param>
     /// <returns>Resulting hash.</returns>
-    public static int Hash32(double data, int seed)
-    {
-        throw new NotImplementedException();
-    }
+    public static int Hash32(double data, int seed) => Hash32(BitConverter.DoubleToInt64Bits(data), seed);
 
     /// <summary>
     /// Generates 32-bit hash.
