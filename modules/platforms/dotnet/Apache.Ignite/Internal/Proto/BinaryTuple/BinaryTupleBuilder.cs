@@ -148,6 +148,11 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="value">Value.</param>
         public void AppendByte(sbyte value)
         {
+            if (_hashedColumnsPredicate?.IsHashedColumnIndex(_elementIndex) == true)
+            {
+                _hash = HashUtils.Hash32(value, _hash);
+            }
+
             if (value != 0)
             {
                 PutByte(value);
@@ -162,6 +167,11 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="value">Value.</param>
         public void AppendShort(short value)
         {
+            if (_hashedColumnsPredicate?.IsHashedColumnIndex(_elementIndex) == true)
+            {
+                _hash = HashUtils.Hash32(value, _hash);
+            }
+
             if (value >= sbyte.MinValue && value <= sbyte.MaxValue)
             {
                 AppendByte((sbyte)value);
@@ -179,7 +189,6 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="value">Value.</param>
         public void AppendInt(int value)
         {
-            // TODO IGNITE-17969 Partition Awareness - support all key types
             if (_hashedColumnsPredicate?.IsHashedColumnIndex(_elementIndex) == true)
             {
                 _hash = HashUtils.Hash32(value, _hash);

@@ -33,10 +33,10 @@ public class ColocationHashTests : IgniteTestsBase
     private static readonly object[] TestCases =
     {
         // TODO: all supported types.
-        // sbyte.MinValue,
-        // sbyte.MaxValue,
-        // short.MinValue,
-        // short.MaxValue,
+        sbyte.MinValue,
+        sbyte.MaxValue,
+        short.MinValue,
+        short.MaxValue,
         int.MinValue,
         int.MaxValue,
         long.MinValue,
