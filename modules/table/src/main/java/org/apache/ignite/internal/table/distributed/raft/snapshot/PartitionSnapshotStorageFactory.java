@@ -89,10 +89,7 @@ public class PartitionSnapshotStorageFactory implements SnapshotStorageFactory {
         this.learners = learners;
         this.incomingSnapshotsExecutor = incomingSnapshotsExecutor;
 
-        persistedRaftIndex = Math.min(
-                partition.mvPartitionStorage().persistedIndex(),
-                partition.txStatePartitionStorage().persistedIndex()
-        );
+        persistedRaftIndex = partition.mvPartitionStorage().persistedIndex();
     }
 
     @Override
