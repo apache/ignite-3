@@ -50,10 +50,15 @@ public class ColocationHashTests : IgniteTestsBase
         -1L,
         long.MaxValue,
         float.MinValue,
-        -1f,
-        1f,
+        -1.1f,
+        1.1f,
         float.Epsilon,
         float.MaxValue,
+        double.MinValue,
+        -1.1d,
+        1.1d,
+        double.Epsilon,
+        double.MaxValue
     };
 
     [Test]
