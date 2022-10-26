@@ -15,12 +15,34 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Internal.Table
+namespace Apache.Ignite.Internal.Proto;
+
+/// <summary>
+/// Preferred node qualifier.
+/// </summary>
+internal record struct PreferredNode
 {
-    using Proto;
+    /// <summary>
+    /// Gets the id.
+    /// </summary>
+    public string? Id { get; private init; }
 
     /// <summary>
-    /// Schema column.
+    /// Gets the name.
     /// </summary>
-    internal record Column(string Name, ClientDataType Type, bool IsNullable, bool IsColocation, bool IsKey, int SchemaIndex, int Scale);
+    public string? Name { get; private init; }
+
+    /// <summary>
+    /// Creates an instance from name.
+    /// </summary>
+    /// <param name="name">Name.</param>
+    /// <returns>Preferred node.</returns>
+    public static PreferredNode FromName(string name) => new() { Id = null, Name = name };
+
+    /// <summary>
+    /// Creates an instance from id.
+    /// </summary>
+    /// <param name="id">Id.</param>
+    /// <returns>Preferred node.</returns>
+    public static PreferredNode FromId(string id) => new() { Id = id, Name = null };
 }

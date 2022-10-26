@@ -15,28 +15,20 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Internal.Table
+namespace Apache.Ignite.Internal.Proto;
+
+using System;
+using System.Diagnostics.CodeAnalysis;
+
+/// <summary>
+/// Response flags.
+/// </summary>
+[Flags]
+[SuppressMessage("Naming", "CA1711:Identifiers should not have incorrect suffix", Justification = "Reviewed.")]
+internal enum ResponseFlags
 {
-    using System.Collections.Generic;
-    using Proto.BinaryTuple;
-
     /// <summary>
-    /// Schema.
+    /// Indicates partition assignment update.
     /// </summary>
-    /// <param name="Version">Version.</param>
-    /// <param name="KeyColumnCount">Key column count.</param>
-    /// <param name="Columns">Columns in schema order.</param>
-    internal sealed record Schema(
-        int Version,
-        int KeyColumnCount,
-        IReadOnlyList<Column> Columns) : IHashedColumnIndexProvider
-    {
-        /// <summary>
-        /// Gets the value column count.
-        /// </summary>
-        public int ValueColumnCount => Columns.Count - KeyColumnCount;
-
-        /// <inheritdoc/>
-        public bool IsHashedColumnIndex(int index) => index < KeyColumnCount && Columns[index].IsColocation;
-    }
+    PartitionAssignmentChanged = 1
 }

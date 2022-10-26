@@ -110,6 +110,9 @@ namespace Apache.Ignite.Internal.Proto
         SqlCursorNextPage = 51,
 
         /** Close cursor. */
-        SqlCursorClose = 52
+        SqlCursorClose = 52,
+
+        /** Get partition assignment. */
+        PartitionAssignmentGet = 53
     }
 }
