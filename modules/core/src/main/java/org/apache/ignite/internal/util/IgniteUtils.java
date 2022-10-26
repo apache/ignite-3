@@ -634,8 +634,8 @@ public class IgniteUtils {
     public static void closeQuietly(AutoCloseable closeable) {
         try {
             closeable.close();
-        } catch (Exception e) {
-            // Ignore.
+        } catch (Exception ignored) {
+            // No-op.
         }
     }
 
