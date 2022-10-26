@@ -130,7 +130,8 @@ public class ReadResult {
     }
 
     /**
-     * Returns timestamp of the most recent commit of the row. Might be {@code null} for {@link MvPartitionStorage#scanVersions(RowId)}
+     * Returns timestamp of the most recent commit of the row. Not {@code null} if committed version exists, this is a
+     * write-intent and read was made with a timestamp. Might be {@code null} for {@link MvPartitionStorage#scanVersions(RowId)}
      * even for write intents having a preceding committed version.
      *
      * @return Timestamp of the most recent commit of the row.
