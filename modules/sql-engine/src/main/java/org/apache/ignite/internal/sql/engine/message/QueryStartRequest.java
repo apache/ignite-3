@@ -21,6 +21,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.sql.engine.metadata.FragmentDescription;
 import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * QueryStartRequest interface.
@@ -49,6 +50,9 @@ public interface QueryStartRequest extends ExecutionContextAwareMessage {
     @Marshallable
     Object[] parameters();
 
+    /**
+     * Read only transaction time or null if this is read write transaction.
+     */
     @Marshallable
-    HybridTimestamp txTime();
+    @Nullable HybridTimestamp txTime();
 }
