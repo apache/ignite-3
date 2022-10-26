@@ -908,7 +908,7 @@ public class ItMetaStorageServiceTest {
             return cursor;
         });
 
-        List<Peer> peers = List.of(new Peer(cluster.get(0).topologyService().localMember().address()));
+        List<Peer> peers = List.of(new Peer(cluster.get(0).topologyService().localMember().name()));
 
         RaftGroupService metaStorageRaftGrpSvc = RaftGroupServiceImpl.start(
                 INSTANCE,
@@ -1058,7 +1058,7 @@ public class ItMetaStorageServiceTest {
      * @return {@link MetaStorageService} instance.
      */
     private MetaStorageService prepareMetaStorage() throws Exception {
-        List<Peer> peers = List.of(new Peer(cluster.get(0).topologyService().localMember().address()));
+        List<Peer> peers = List.of(new Peer(cluster.get(0).topologyService().localMember().name()));
 
         metaStorageRaftSrv = new RaftServerImpl(cluster.get(0), FACTORY);
 

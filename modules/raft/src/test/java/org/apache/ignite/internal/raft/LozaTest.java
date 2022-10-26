@@ -23,7 +23,6 @@ import static org.mockito.Mockito.mock;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.UUID;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
@@ -31,10 +30,8 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterLocalConfiguration;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
-import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
 import org.junit.jupiter.api.Test;
@@ -74,12 +71,9 @@ public class LozaTest extends IgniteAbstractTest {
 
         TestReplicationGroupId raftGroupId = new TestReplicationGroupId("test_raft_group");
 
-        List<ClusterNode> nodes = List.of(
-                new ClusterNode(UUID.randomUUID().toString(), UUID.randomUUID().toString(), NetworkAddress.from("127.0.0.1:123")));
+        List<String> nodes = List.of("test1");
 
-        List<ClusterNode> newNodes = List.of(
-                new ClusterNode(UUID.randomUUID().toString(), UUID.randomUUID().toString(), NetworkAddress.from("127.0.0.1:124")),
-                new ClusterNode(UUID.randomUUID().toString(), UUID.randomUUID().toString(), NetworkAddress.from("127.0.0.1:125")));
+        List<String> newNodes = List.of("test2", "test3");
 
         Supplier<RaftGroupListener> lsnrSupplier = () -> null;
 

@@ -38,6 +38,7 @@ import static org.apache.ignite.raft.jraft.rpc.CliRequests.SnapshotRequest;
 import static org.apache.ignite.raft.jraft.rpc.CliRequests.TransferLeaderRequest;
 
 import java.io.IOException;
+import java.net.ConnectException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -57,8 +58,8 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.Peer;
@@ -471,19 +472,19 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     @Override public CompletableFuture<Void> snapshot(Peer peer) {
         SnapshotRequest req = factory.snapshotRequest().groupId(groupId).build();
 
-        // Disable the timeout for a snapshot request.
-        CompletableFuture<NetworkMessage> fut = cluster.messagingService().invoke(peer.address(), req, Integer.MAX_VALUE);
+        return resolvePeer(peer)
+            // Disable the timeout for a snapshot request.
+            .thenCompose(target -> cluster.messagingService().invoke(target, req, Integer.MAX_VALUE))
+            .thenCompose(resp -> {
+                if (resp != null) {
+                    RpcRequests.ErrorResponse resp0 = (RpcRequests.ErrorResponse) resp;
 
-        return fut.thenCompose(resp -> {
-            if (resp != null) {
-                RpcRequests.ErrorResponse resp0 = (RpcRequests.ErrorResponse) resp;
+                    if (resp0.errorCode() != RaftError.SUCCESS.getNumber())
+                        return CompletableFuture.failedFuture(new RaftException(RaftError.forNumber(resp0.errorCode()), resp0.errorMsg()));
+                }
 
-                if (resp0.errorCode() != RaftError.SUCCESS.getNumber())
-                    return CompletableFuture.failedFuture(new RaftException(RaftError.forNumber(resp0.errorCode()), resp0.errorMsg()));
-            }
-
-            return CompletableFuture.completedFuture(null);
-        });
+                return CompletableFuture.completedFuture(null);
+            });
     }
 
     /** {@inheritDoc} */
@@ -544,21 +545,24 @@ public class RaftGroupServiceImpl implements RaftGroupService {
      * @param <R> Response type.
      */
     private <R> void sendWithRetry(Peer peer, Object req, long stopTime, CompletableFuture<R> fut) {
-        if (LOG.isTraceEnabled()) {
-            LOG.trace("sendWithRetry peers={} req={} from={} to={}",
-                    peers,
-                    S.toString(req),
-                    cluster.topologyService().localMember().address(),
-                    peer.address());
-        }
-
         if (currentTimeMillis() >= stopTime) {
             fut.completeExceptionally(new TimeoutException());
 
             return;
         }
 
-        CompletableFuture<?> fut0 = cluster.messagingService().invoke(peer.address(), (NetworkMessage) req, rpcTimeout);
+        CompletableFuture<?> fut0 = resolvePeer(peer)
+            .thenCompose(target -> {
+                if (LOG.isTraceEnabled()) {
+                    LOG.trace("sendWithRetry peers={} req={} from={} to={}",
+                            peers,
+                            S.toString(req),
+                            cluster.topologyService().localMember().address(),
+                            target.address());
+                }
+
+                return cluster.messagingService().invoke(target, (NetworkMessage) req, rpcTimeout);
+            });
 
         //TODO: IGNITE-15389 org.apache.ignite.internal.metastorage.client.CursorImpl has potential deadlock inside
         fut0.whenCompleteAsync(new BiConsumer<Object, Throwable>() {
@@ -567,7 +571,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                     LOG.trace("sendWithRetry resp={} from={} to={} err={}",
                             S.toString(resp),
                             cluster.topologyService().localMember().address(),
-                            peer.address(),
+                            peer.consistentId(),
                             err == null ? null : err.getMessage());
                 }
 
@@ -746,7 +750,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         if (peer == null)
             return null;
         else
-            return new Peer(NetworkAddress.from(peer.getEndpoint().getIp() + ":" + peer.getEndpoint().getPort()));
+            return new Peer(peer.getConsistentId());
     }
 
     /**
@@ -765,5 +769,15 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             res.add(parsePeer(peer));
 
         return res;
+    }
+
+    private CompletableFuture<ClusterNode> resolvePeer(Peer peer) {
+        ClusterNode node = cluster.topologyService().getByConsistentId(peer.consistentId());
+
+        if (node == null) {
+            return CompletableFuture.failedFuture(new ConnectException("Peer " + peer.consistentId() + " is unavailable"));
+        }
+
+        return CompletableFuture.completedFuture(node);
     }
 }

@@ -37,6 +37,9 @@
     <option name="DO_NOT_FORMAT">
       <list>
         <fileSet type="globPattern" pattern="modules/raft/src/main/java/org/apache/ignite/raft/jraft/**" />
+        <fileSet type="globPattern" pattern="modules/raft/src/test/java/org/apache/ignite/raft/jraft/**" />
+        <fileSet type="globPattern" pattern="modules/raft/src/testFixtures/java/org/apache/ignite/raft/jraft/**" />
+        <fileSet type="globPattern" pattern="modules/raft/src/integrationTest/java/org/apache/ignite/raft/jraft/**" />
       </list>
     </option>
     <AndroidXmlCodeStyleSettings>

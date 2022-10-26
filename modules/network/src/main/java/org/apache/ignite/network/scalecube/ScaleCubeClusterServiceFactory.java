@@ -115,7 +115,7 @@ public class ScaleCubeClusterServiceFactory {
                 connectionMgr.start();
 
                 var transport = new ScaleCubeDirectMarshallerTransport(
-                        connectionMgr.getLocalAddress(),
+                        connectionMgr.localAddress(),
                         messagingService,
                         topologyService,
                         messageFactory

@@ -92,7 +92,6 @@ import org.apache.ignite.lang.ErrorGroups.Replicator;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.Peer;
@@ -283,16 +282,16 @@ public class PartitionReplicaListener implements ReplicaListener {
     private CompletableFuture<Object> processTxStateReplicaRequest(TxStateReplicaRequest request) {
         return raftClient.refreshAndGetLeaderWithTerm()
                 .thenCompose(replicaAndTerm -> {
-                            NetworkAddress leaderAddress = replicaAndTerm.get1().address();
+                            String leaderId = replicaAndTerm.get1().consistentId();
 
-                            if (topologyService.localMember().address().equals(leaderAddress)) {
+                            if (topologyService.localMember().name().equals(leaderId)) {
 
                                 CompletableFuture<TxMeta> txStateFut = getTxStateConcurrently(request);
 
                                 return txStateFut.thenApply(txMeta -> new IgniteBiTuple<>(txMeta, null));
                             } else {
                                 return completedFuture(
-                                        new IgniteBiTuple<>(null, topologyService.getByAddress(leaderAddress)));
+                                        new IgniteBiTuple<>(null, topologyService.getByConsistentId(leaderId)));
                             }
                         }
                 );

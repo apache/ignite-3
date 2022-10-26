@@ -620,7 +620,6 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * Restarts a node with changing configuration.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16865")
     public void changeConfigurationOnStartTest(TestInfo testInfo) {
         IgniteImpl ignite = startNode(testInfo, 0);
 
@@ -714,7 +713,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * @param testInfo Test information object.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17814")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18065")
     public void testTwoNodesRestartReverse(TestInfo testInfo) {
         twoNodesRestart(testInfo, false);
     }

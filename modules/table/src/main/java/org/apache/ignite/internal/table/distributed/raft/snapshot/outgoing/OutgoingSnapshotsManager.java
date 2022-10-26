@@ -44,8 +44,8 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.message.Snapsh
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotTxDataRequest;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.MessagingService;
-import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
 import org.jetbrains.annotations.Nullable;
 
@@ -140,7 +140,7 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, IgniteComp
         }
     }
 
-    private void handleMessage(NetworkMessage networkMessage, NetworkAddress sender, @Nullable Long correlationId) {
+    private void handleMessage(NetworkMessage networkMessage, ClusterNode sender, @Nullable Long correlationId) {
         // Ignore all messages that we can't handle.
         if (!(networkMessage instanceof SnapshotRequestMessage)) {
             return;
@@ -187,7 +187,7 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, IgniteComp
     private CompletableFuture<Void> respond(
             NetworkMessage response,
             Throwable throwable,
-            NetworkAddress sender,
+            ClusterNode sender,
             Long correlationId
     ) {
         //TODO https://issues.apache.org/jira/browse/IGNITE-17935

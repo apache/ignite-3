@@ -152,17 +152,17 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     private static void beforeAll() {
         when(mockRaftClient.refreshAndGetLeaderWithTerm()).thenAnswer(invocationOnMock -> {
             if (!localLeader) {
-                return CompletableFuture.completedFuture(new IgniteBiTuple<>(new Peer(anotherNode.address()), 1L));
+                return CompletableFuture.completedFuture(new IgniteBiTuple<>(new Peer(anotherNode.name()), 1L));
             }
 
-            return CompletableFuture.completedFuture(new IgniteBiTuple<>(new Peer(localNode.address()), 1L));
+            return CompletableFuture.completedFuture(new IgniteBiTuple<>(new Peer(localNode.name()), 1L));
         });
 
-        when(topologySrv.getByAddress(any())).thenAnswer(invocationOnMock -> {
-            NetworkAddress addr = invocationOnMock.getArgument(0);
-            if (addr.equals(anotherNode.address())) {
+        when(topologySrv.getByConsistentId(any())).thenAnswer(invocationOnMock -> {
+            String consistentId = invocationOnMock.getArgument(0);
+            if (consistentId.equals(anotherNode.name())) {
                 return anotherNode;
-            } else if (addr.equals(localNode.address())) {
+            } else if (consistentId.equals(localNode.name())) {
                 return localNode;
             } else {
                 return null;

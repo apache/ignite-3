@@ -502,7 +502,6 @@ components:
           type: boolean
     NetworkAddress:
       required:
-      - consistentId
       - host
       - port
       type: object
@@ -512,9 +511,6 @@ components:
         port:
           type: integer
           format: int32
-        consistentId:
-          type: string
-          nullable: true
     NodeState:
       required:
       - name

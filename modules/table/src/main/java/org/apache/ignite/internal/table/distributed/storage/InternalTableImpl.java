@@ -66,7 +66,6 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.IgniteTetraFunction;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.tx.TransactionException;
@@ -96,11 +95,11 @@ public class InternalTableImpl implements InternalTable {
     /** Table identifier. */
     private final UUID tableId;
 
-    /** Resolver that resolves a network address to node id. */
-    private final Function<NetworkAddress, String> netAddrResolver;
+    /** Resolver that resolves a node consistent ID to node ID. */
+    private final Function<String, String> nodeIdResolver;
 
-    /** Resolver that resolves a network address to cluster node. */
-    private final Function<NetworkAddress, ClusterNode> clusterNodeResolver;
+    /** Resolver that resolves a node consistent ID to cluster node. */
+    private final Function<String, ClusterNode> clusterNodeResolver;
 
     /** Transactional manager. */
     protected final TxManager txManager;
@@ -141,8 +140,8 @@ public class InternalTableImpl implements InternalTable {
             UUID tableId,
             Int2ObjectMap<RaftGroupService> partMap,
             int partitions,
-            Function<NetworkAddress, String> netAddrResolver,
-            Function<NetworkAddress, ClusterNode> clusterNodeResolver,
+            Function<String, String> nodeIdResolver,
+            Function<String, ClusterNode> clusterNodeResolver,
             TxManager txManager,
             MvTableStorage tableStorage,
             TxStateTableStorage txStateStorage,
@@ -153,7 +152,7 @@ public class InternalTableImpl implements InternalTable {
         this.tableId = tableId;
         this.partitionMap = partMap;
         this.partitions = partitions;
-        this.netAddrResolver = netAddrResolver;
+        this.nodeIdResolver = nodeIdResolver;
         this.clusterNodeResolver = clusterNodeResolver;
         this.txManager = txManager;
         this.tableStorage = tableStorage;
@@ -895,8 +894,8 @@ public class InternalTableImpl implements InternalTable {
                 .sorted(Comparator.comparingInt(Int2ObjectOpenHashMap.Entry::getIntKey))
                 .map(Map.Entry::getValue)
                 .map(RaftGroupService::leader)
-                .map(Peer::address)
-                .map(netAddrResolver)
+                .map(Peer::consistentId)
+                .map(nodeIdResolver)
                 .collect(Collectors.toList());
     }
 
@@ -909,7 +908,7 @@ public class InternalTableImpl implements InternalTable {
             throw new IgniteInternalException("No such partition " + partition + " in table " + tableName);
         }
 
-        return clusterNodeResolver.apply(raftGroupService.leader().address());
+        return clusterNodeResolver.apply(raftGroupService.leader().consistentId());
     }
 
     /** {@inheritDoc} */
@@ -1029,7 +1028,7 @@ public class InternalTableImpl implements InternalTable {
             TablePartitionId partGroupId = new TablePartitionId(tableId, partId);
 
             return tx.enlist(partGroupId,
-                    new IgniteBiTuple<>(clusterNodeResolver.apply(primaryPeerAndTerm.get1().address()), primaryPeerAndTerm.get2()));
+                    new IgniteBiTuple<>(clusterNodeResolver.apply(primaryPeerAndTerm.get1().consistentId()), primaryPeerAndTerm.get2()));
         });
     }
 
@@ -1221,7 +1220,7 @@ public class InternalTableImpl implements InternalTable {
                 if (res == null || res.getKey() == null) {
                     throw withCause(TransactionException::new, REPLICA_UNAVAILABLE_ERR, e);
                 } else {
-                    return clusterNodeResolver.apply(res.get1().address());
+                    return clusterNodeResolver.apply(res.get1().consistentId());
                 }
             }
         });

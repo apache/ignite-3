@@ -24,15 +24,12 @@ import static org.apache.ignite.lang.ErrorGroups.Sql.NODE_LEFT_ERR;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.MessagingService;
-import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.TopologyService;
 import org.jetbrains.annotations.Nullable;
@@ -42,8 +39,6 @@ import org.jetbrains.annotations.Nullable;
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class MessageServiceImpl implements MessageService {
-    private static final IgniteLogger LOG = Loggers.forClass(MessageServiceImpl.class);
-
     private final TopologyService topSrvc;
 
     private final MessagingService messagingSrvc;
@@ -132,7 +127,7 @@ public class MessageServiceImpl implements MessageService {
                 .anyMatch(id -> id.equals(nodeId));
     }
 
-    protected void onMessage(String nodeId, NetworkMessage msg) {
+    private void onMessage(String nodeId, NetworkMessage msg) {
         if (msg instanceof ExecutionContextAwareMessage) {
             ExecutionContextAwareMessage msg0 = (ExecutionContextAwareMessage) msg;
             taskExecutor.execute(msg0.queryId(), msg0.fragmentId(), () -> onMessageInternal(nodeId, msg));
@@ -141,7 +136,7 @@ public class MessageServiceImpl implements MessageService {
         }
     }
 
-    private void onMessage(NetworkMessage msg, NetworkAddress addr, @Nullable Long correlationId) {
+    private void onMessage(NetworkMessage msg, ClusterNode sender, @Nullable Long correlationId) {
         if (!busyLock.enterBusy()) {
             return;
         }
@@ -149,15 +144,7 @@ public class MessageServiceImpl implements MessageService {
         try {
             assert msg.groupType() == GROUP_TYPE : "unexpected message group grpType=" + msg.groupType();
 
-            ClusterNode node = topSrvc.getByAddress(addr);
-            if (node == null) {
-                LOG.debug("Received a message from a node that has not yet"
-                        + " joined the cluster [addr={}, msg={}]", addr, msg);
-
-                return;
-            }
-
-            onMessage(node.id(), msg);
+            onMessage(sender.id(), msg);
         } finally {
             busyLock.leaveBusy();
         }

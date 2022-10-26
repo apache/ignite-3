@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.network.netty;
 
 import io.netty.bootstrap.Bootstrap;
-import java.net.SocketAddress;
+import java.net.InetSocketAddress;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -71,7 +71,7 @@ public class ConnectionManager {
     private final Map<String, NettySender> channels = new ConcurrentHashMap<>();
 
     /** Clients. */
-    private final Map<SocketAddress, NettyClient> clients = new ConcurrentHashMap<>();
+    private final Map<InetSocketAddress, NettyClient> clients = new ConcurrentHashMap<>();
 
     /** Serialization service. */
     private final SerializationService serializationService;
@@ -193,8 +193,8 @@ public class ConnectionManager {
      *
      * @return Server local address.
      */
-    public SocketAddress getLocalAddress() {
-        return server.address();
+    public InetSocketAddress localAddress() {
+        return (InetSocketAddress) server.address();
     }
 
     /**
@@ -204,7 +204,7 @@ public class ConnectionManager {
      * @param address      Another node's address.
      * @return Sender.
      */
-    public OrderingFuture<NettySender> channel(@Nullable String consistentId, SocketAddress address) {
+    public OrderingFuture<NettySender> channel(@Nullable String consistentId, InetSocketAddress address) {
         if (consistentId != null) {
             // If consistent id is known, try looking up a channel by consistent id. There can be an outbound connection
             // or an inbound connection associated with that consistent id.
@@ -222,12 +222,16 @@ public class ConnectionManager {
         // when the client is ready for write operations, so previously started client, that didn't establish connection
         // or didn't perform the handshake operation, can be reused.
         // TODO: IGNITE-16948 Connection id may be different from 0
-        NettyClient client = clients.compute(address, (addr, existingClient) ->
-                existingClient != null && !existingClient.failedToConnect() && !existingClient.isDisconnected()
-                        ? existingClient : connect(addr, (short) 0)
+        NettyClient client = clients.compute(
+                address,
+                (addr, existingClient) -> isClientConnected(existingClient) ? existingClient : connect(addr, (short) 0)
         );
 
         return client.sender();
+    }
+
+    private static boolean isClientConnected(@Nullable NettyClient client) {
+        return client != null && !client.failedToConnect() && !client.isDisconnected();
     }
 
     /**
@@ -258,7 +262,7 @@ public class ConnectionManager {
      * @param address Target address.
      * @return New netty client.
      */
-    private NettyClient connect(SocketAddress address, short connectionId) {
+    private NettyClient connect(InetSocketAddress address, short connectionId) {
         var client = new NettyClient(
                 address,
                 serializationService,

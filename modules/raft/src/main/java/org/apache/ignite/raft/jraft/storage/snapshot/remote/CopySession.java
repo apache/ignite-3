@@ -29,6 +29,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.core.Scheduler;
+import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.option.CopyOptions;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
@@ -41,7 +42,6 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequests.GetFileResponse;
 import org.apache.ignite.raft.jraft.rpc.RpcResponseClosureAdapter;
 import org.apache.ignite.raft.jraft.storage.SnapshotThrottle;
 import org.apache.ignite.raft.jraft.util.ByteBufferCollector;
-import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.apache.ignite.raft.jraft.util.OnlyForTest;
 import org.apache.ignite.raft.jraft.util.Requires;
 import org.apache.ignite.raft.jraft.util.Utils;
@@ -58,7 +58,7 @@ public class CopySession implements Session {
     private final GetFileResponseClosure done = new GetFileResponseClosure();
     private final RaftClientService rpcService;
     private final GetFileRequestBuilder requestBuilder;
-    private final Endpoint endpoint;
+    private final PeerId peerId;
     private final Scheduler timerManager;
     private final SnapshotThrottle snapshotThrottle;
     private final RaftOptions raftOptions;
@@ -117,14 +117,14 @@ public class CopySession implements Session {
 
     public CopySession(final RaftClientService rpcService, final Scheduler timerManager,
         final SnapshotThrottle snapshotThrottle, final RaftOptions raftOptions,
-        NodeOptions nodeOptions, final GetFileRequestBuilder rb, final Endpoint ep) {
+        NodeOptions nodeOptions, final GetFileRequestBuilder rb, final PeerId peerId) {
         super();
         this.snapshotThrottle = snapshotThrottle;
         this.raftOptions = raftOptions;
         this.timerManager = timerManager;
         this.rpcService = rpcService;
         this.requestBuilder = rb;
-        this.endpoint = ep;
+        this.peerId = peerId;
         this.nodeOptions = nodeOptions;
     }
 
@@ -290,8 +290,8 @@ public class CopySession implements Session {
             }
             this.requestBuilder.count(newMaxCount);
             final GetFileRequest request = this.requestBuilder.build();
-            LOG.debug("Send get file request {} to peer {}", request, this.endpoint);
-            this.rpcCall = this.rpcService.getFile(this.endpoint, request, this.copyOptions.getTimeoutMs(), this.done);
+            LOG.debug("Send get file request {} to peer {}", request, this.peerId);
+            this.rpcCall = this.rpcService.getFile(this.peerId, request, this.copyOptions.getTimeoutMs(), this.done);
         }
         finally {
             this.lock.unlock();

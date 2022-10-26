@@ -16,8 +16,7 @@
  */
 package org.apache.ignite.raft.jraft.rpc.impl;
 
-import static org.apache.ignite.raft.jraft.JRaftUtils.addressFromEndpoint;
-
+import java.net.ConnectException;
 import java.util.ArrayList;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
@@ -29,10 +28,11 @@ import java.util.function.BiPredicate;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.TopologyEventHandler;
+import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.InvokeTimeoutException;
 import org.apache.ignite.raft.jraft.error.RemotingException;
 import org.apache.ignite.raft.jraft.option.RpcOptions;
@@ -40,7 +40,6 @@ import org.apache.ignite.raft.jraft.rpc.InvokeCallback;
 import org.apache.ignite.raft.jraft.rpc.InvokeContext;
 import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.rpc.RpcClientEx;
-import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.apache.ignite.raft.jraft.util.Utils;
 
 public class IgniteRpcClient implements RpcClientEx {
@@ -68,10 +67,8 @@ public class IgniteRpcClient implements RpcClientEx {
     }
 
     /** {@inheritDoc} */
-    @Override public boolean checkConnection(Endpoint endpoint) {
-        NetworkAddress addr = addressFromEndpoint(endpoint);
-
-        return service.topologyService().getByAddress(addr) != null;
+    @Override public boolean checkConnection(PeerId peerId) {
+        return service.topologyService().getByConsistentId(peerId.getConsistentId()) != null;
     }
 
     /** {@inheritDoc} */
@@ -81,7 +78,7 @@ public class IgniteRpcClient implements RpcClientEx {
 
     /** {@inheritDoc} */
     @Override public CompletableFuture<Message> invokeAsync(
-        Endpoint endpoint,
+        PeerId peerId,
         Object request,
         InvokeContext ctx,
         InvokeCallback callback,
@@ -108,42 +105,50 @@ public class IgniteRpcClient implements RpcClientEx {
             });
 
         // Future hashcode used as corellation id.
-        if (recordPred != null && recordPred.test(request, endpoint.toString()))
-            recordedMsgs.add(new Object[] {request, endpoint.toString(), fut.hashCode(), System.currentTimeMillis(), null});
+        if (recordPred != null && recordPred.test(request, peerId.toString()))
+            recordedMsgs.add(new Object[] {request, peerId.toString(), fut.hashCode(), System.currentTimeMillis(), null});
 
         synchronized (this) {
-            if (blockPred != null && blockPred.test(request, endpoint.toString())) {
+            if (blockPred != null && blockPred.test(request, peerId.toString())) {
                 Object[] msgData = {
                         request,
-                        endpoint.toString(),
+                        peerId.toString(),
                         fut.hashCode(),
                         System.currentTimeMillis(),
-                        (Runnable) () -> send(endpoint, request, fut, timeoutMs)
+                        (Runnable) () -> send(peerId, request, fut, timeoutMs)
                 };
                 
                 blockedMsgs.add(msgData);
     
-                LOG.info("Blocked message to={} id={} msg={}", endpoint.toString(), msgData[2], S.toString(request));
+                LOG.info("Blocked message to={} id={} msg={}", peerId.toString(), msgData[2], S.toString(request));
 
                 return fut;
             }
         }
 
-        send(endpoint, request, fut, timeoutMs);
+        send(peerId, request, fut, timeoutMs);
 
         return fut;
     }
 
-    public void send(Endpoint endpoint, Object request, CompletableFuture<Message> fut, long timeout) {
-        CompletableFuture<NetworkMessage> fut0 = service.messagingService()
-            .invoke(addressFromEndpoint(endpoint), (NetworkMessage) request, timeout);
+    public void send(PeerId peerId, Object request, CompletableFuture<Message> fut, long timeout) {
+        ClusterNode targetNode = service.topologyService().getByConsistentId(peerId.getConsistentId());
 
-        fut0.whenComplete((resp, err) -> {
-            if (err != null)
-                fut.completeExceptionally(err);
-            else
-                fut.complete((Message) resp);
-        });
+        if (targetNode == null) {
+            // ConnectException will force a retry by the enclosing components.
+            fut.completeExceptionally(new ConnectException());
+
+            return;
+        }
+
+        service.messagingService()
+            .invoke(targetNode, (NetworkMessage) request, timeout)
+            .whenComplete((resp, err) -> {
+                if (err != null)
+                    fut.completeExceptionally(err);
+                else
+                    fut.complete((Message) resp);
+            });
     }
 
     /** {@inheritDoc} */
