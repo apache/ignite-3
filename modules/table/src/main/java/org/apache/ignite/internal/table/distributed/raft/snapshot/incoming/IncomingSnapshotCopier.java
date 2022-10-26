@@ -167,7 +167,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
         cancel();
 
         try {
-            // Because after closing nobody calls join().
+            // By analogy with LocalSnapshotCopier#close.
             join();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();

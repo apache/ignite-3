@@ -32,8 +32,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.function.IntSupplier;
 import org.apache.ignite.internal.configuration.storage.StorageException;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.rocksdb.flush.RocksDbFlusher;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.tostring.S;
@@ -55,9 +53,6 @@ import org.rocksdb.WriteOptions;
  * RocksDb implementation of {@link TxStateTableStorage}.
  */
 public class TxStateRocksDbTableStorage implements TxStateTableStorage {
-    /** Logger. */
-    private static final IgniteLogger LOG = Loggers.forClass(TxStateRocksDbTableStorage.class);
-
     static {
         RocksDB.loadLibrary();
     }
