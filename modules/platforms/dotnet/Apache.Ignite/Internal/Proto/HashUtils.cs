@@ -44,7 +44,7 @@ internal static class HashUtils
     /// <param name="data">Input data.</param>
     /// <param name="seed">Current hash.</param>
     /// <returns>Resulting hash.</returns>
-    public static int Hash32(sbyte data, int seed) => Hash32(HashInternal((ulong)data, (ulong)seed, 1));
+    public static int Hash32(sbyte data, int seed) => Hash32(HashInternal((ulong)(data & 0xffL), (ulong)seed, 1));
 
     /// <summary>
     /// Generates 32-bit hash.
@@ -52,7 +52,7 @@ internal static class HashUtils
     /// <param name="data">Input data.</param>
     /// <param name="seed">Current hash.</param>
     /// <returns>Resulting hash.</returns>
-    public static int Hash32(short data, int seed) => Hash32(HashInternal((ulong)data, (ulong)seed, 2));
+    public static int Hash32(short data, int seed) => Hash32(HashInternal((ulong)(data & 0xffffL), (ulong)seed, 2));
 
     /// <summary>
     /// Generates 32-bit hash.
@@ -60,7 +60,7 @@ internal static class HashUtils
     /// <param name="data">Input data.</param>
     /// <param name="seed">Current hash.</param>
     /// <returns>Resulting hash.</returns>
-    public static int Hash32(int data, int seed) => Hash32(HashInternal((ulong)data, (ulong)seed, 4));
+    public static int Hash32(int data, int seed) => Hash32(HashInternal((ulong)(data & 0xffffffffL), (ulong)seed, 4));
 
     /// <summary>
     /// Generates 32-bit hash.
