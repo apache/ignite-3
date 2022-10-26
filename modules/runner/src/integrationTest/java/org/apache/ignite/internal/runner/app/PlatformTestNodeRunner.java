@@ -22,7 +22,9 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -305,32 +307,32 @@ public class PlatformTestNodeRunner {
 
                 switch (type) {
                     case ClientDataType.INT8:
-                        columns[i] = new Column(colName, NativeTypes.INT8, false);
+                        columns[i] = new Column(i, colName, NativeTypes.INT8, false);
                         tuple.set(colName, reader.byteValue(valIdx));
                         break;
 
                     case ClientDataType.INT16:
-                        columns[i] = new Column(colName, NativeTypes.INT16, false);
+                        columns[i] = new Column(i, colName, NativeTypes.INT16, false);
                         tuple.set(colName, reader.shortValue(valIdx));
                         break;
 
                     case ClientDataType.INT32:
-                        columns[i] = new Column(colName, NativeTypes.INT32, false);
+                        columns[i] = new Column(i, colName, NativeTypes.INT32, false);
                         tuple.set(colName, reader.intValue(valIdx));
                         break;
 
                     case ClientDataType.INT64:
-                        columns[i] = new Column(colName, NativeTypes.INT64, false);
+                        columns[i] = new Column(i, colName, NativeTypes.INT64, false);
                         tuple.set(colName, reader.longValue(valIdx));
                         break;
 
                     case ClientDataType.FLOAT:
-                        columns[i] = new Column(colName, NativeTypes.FLOAT, false);
+                        columns[i] = new Column(i, colName, NativeTypes.FLOAT, false);
                         tuple.set(colName, reader.floatValue(valIdx));
                         break;
 
                     case ClientDataType.DOUBLE:
-                        columns[i] = new Column(colName, NativeTypes.DOUBLE, false);
+                        columns[i] = new Column(i, colName, NativeTypes.DOUBLE, false);
                         tuple.set(colName, reader.doubleValue(valIdx));
                         break;
 
@@ -340,6 +342,10 @@ public class PlatformTestNodeRunner {
             }
 
             var schema = new SchemaDescriptor(1, columns, new Column[0]);
+
+            // Override default schema sorting to match platform tests.
+            Arrays.sort(schema.keyColumns().columns(), Comparator.comparingInt(Column::columnOrder));
+
             var marsh = new TupleMarshallerImpl(new TestSchemaRegistry(schema));
 
             try {
