@@ -377,8 +377,6 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
             List<Peer> conf = partNodes.stream().map(n -> n.address()).map(Peer::new)
                     .collect(Collectors.toList());
 
-            Map<NetworkAddress, ClusterNode> addressToNodeMap = partNodes.stream().collect(toMap(ClusterNode::address, n -> n));
-
             for (ClusterNode node : partNodes) {
                 var testMpPartStorage = new TestMvPartitionStorage(0);
                 var txSateStorage = new TestConcurrentHashMapTxStateStorage();

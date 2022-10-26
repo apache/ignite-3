@@ -23,7 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
-import org.apache.ignite.hlc.TestHybridClock;
+import org.apache.ignite.internal.TestHybridClock;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
@@ -123,7 +123,7 @@ public class ItSafeTimeTest extends JraftAbstractTest {
 
         final long leaderPhysicalTime = 100;
 
-        clocks.get(leaderIndex).sync(new HybridTimestamp(leaderPhysicalTime, 0));
+        clocks.get(leaderIndex).update(new HybridTimestamp(leaderPhysicalTime, 0));
 
         client1.run(new IncrementAndGetCommand(1)).get();
 

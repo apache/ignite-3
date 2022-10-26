@@ -15,13 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.hlc;
+package org.apache.ignite.internal;
 
 import static org.apache.ignite.internal.hlc.HybridClockTestUtils.mockToEpochMilli;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.time.Clock;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
@@ -88,37 +91,6 @@ class HybridClockTest {
 
         assertTimestampEquals(500, new HybridTimestamp(600, 2),
                 () -> clock.update(new HybridTimestamp(600, 0)));
-    }
-
-    /**
-     * Tests a {@link HybridClock#sync(HybridTimestamp)}.
-     */
-    @Test
-    public void testSync() {
-        clockMock = mockToEpochMilli(100);
-
-        HybridClock clock = new HybridClockImpl();
-
-        assertTimestampEquals(100, new HybridTimestamp(100, 0),
-                () -> clock.sync(new HybridTimestamp(50, 1)));
-
-        assertTimestampEquals(100, new HybridTimestamp(100, 0),
-                () -> clock.sync(new HybridTimestamp(60, 1000)));
-
-        assertTimestampEquals(200, new HybridTimestamp(100, 0),
-                () -> clock.sync(new HybridTimestamp(70, 1)));
-
-        assertTimestampEquals(50, new HybridTimestamp(100, 0),
-                () -> clock.sync(new HybridTimestamp(70, 1)));
-
-        assertTimestampEquals(500, new HybridTimestamp(100, 0),
-                () -> clock.sync(new HybridTimestamp(70, 1)));
-
-        assertTimestampEquals(500, new HybridTimestamp(600, 0),
-                () -> clock.sync(new HybridTimestamp(600, 0)));
-
-        assertTimestampEquals(500, new HybridTimestamp(600, 0),
-                () -> clock.sync(new HybridTimestamp(600, 0)));
     }
 
     private void assertTimestampEquals(long sysTime, HybridTimestamp expTs, Supplier<HybridTimestamp> clo) {

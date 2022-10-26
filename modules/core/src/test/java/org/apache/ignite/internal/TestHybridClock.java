@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.hlc;
+package org.apache.ignite.internal;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
@@ -70,22 +70,6 @@ public class TestHybridClock implements HybridClock {
 
             if (LATEST_TIME.compareAndSet(this, latestTime, newLatestTime)) {
                 return newLatestTime;
-            }
-        }
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public HybridTimestamp sync(HybridTimestamp requestTime) {
-        while (true) {
-            HybridTimestamp latestTime = this.latestTime;
-
-            if (requestTime.compareTo(latestTime) > 0) {
-                if (LATEST_TIME.compareAndSet(this, latestTime, requestTime)) {
-                    return requestTime;
-                }
-            } else {
-                return latestTime;
             }
         }
     }

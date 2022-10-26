@@ -29,14 +29,6 @@ public interface HybridClock {
     HybridTimestamp now();
 
     /**
-     * Synchronizes this timestamp with a timestamp from request, if the latter is greater.
-     *
-     * @param requestTime Timestamp from request.
-     * @return The hybrid timestamp.
-     */
-    HybridTimestamp sync(HybridTimestamp requestTime);
-
-    /**
      * Creates a timestamp for a received event.
      *
      * @param requestTime Timestamp from request.

@@ -78,28 +78,6 @@ public class HybridClockImpl implements HybridClock {
     }
 
     /**
-     * Synchronizes this timestamp with a timestamp from request, if the latter is greater.
-     *
-     * @param requestTime Timestamp from request.
-     * @return The hybrid timestamp.
-     */
-    public HybridTimestamp sync(HybridTimestamp requestTime) {
-        while (true) {
-            HybridTimestamp latestTime = this.latestTime;
-
-            if (requestTime.compareTo(latestTime) > 0) {
-                if (LATEST_TIME.compareAndSet(this, latestTime, requestTime)) {
-                    onUpdate(requestTime);
-
-                    return requestTime;
-                }
-            } else {
-                return latestTime;
-            }
-        }
-    }
-
-    /**
      * Creates a timestamp for a received event.
      *
      * @param requestTime Timestamp from request.
