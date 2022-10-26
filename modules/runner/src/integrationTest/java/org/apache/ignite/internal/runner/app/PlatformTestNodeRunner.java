@@ -341,15 +341,8 @@ public class PlatformTestNodeRunner {
                 }
             }
 
-            var schema = new SchemaDescriptor(1, columns, new Column[0]);
-
-            // Override default schema sorting to match platform tests.
-            // TODO: This does not work correctly - foldingTbl gets corrupted.
-            Column[] keyColumns = schema.keyColumns().columns();
-            Arrays.sort(keyColumns, Comparator.comparingInt(Column::columnOrder));
-
-            for (int i = 0; i < keyColumns.length; i++)
-                keyColumns[i] = keyColumns[i].copy(i);
+            var colocationColumns = Arrays.stream(columns).map(Column::name).toArray(String[]::new);
+            var schema = new SchemaDescriptor(1, columns, colocationColumns, new Column[0]);
 
             var marsh = new TupleMarshallerImpl(new TestSchemaRegistry(schema));
 
