@@ -22,6 +22,7 @@ import static org.hamcrest.core.IsEqual.equalTo;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscription;
@@ -71,23 +72,26 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
         );
 
         Object[][] tableData = {
+                // 1st partition
                 {1L, null, 1, "Roman"},
-                {2L, 4, 2, "Igor"},
                 {3L, 3, 1, "Taras"},
+                {6L, 2, 1, "Andrey"},
+                // 2nd partition
+                {2L, 4, 2, "Igor"},
                 {4L, 2, null, "Alexey"},
                 {5L, 4, 1, "Ivan"},
-                {6L, 2, 1, "Andrey"}
         };
 
-        // TODO: sort data, once IndexScanNode will support merging.
-        Object[][] result = tableData;
+        Object[][] expected = Arrays.stream(tableData).map(Object[]::clone).toArray(Object[][]::new);
+
+        Arrays.sort(expected, Comparator.comparingLong(v -> (long)((Object[])v)[0]));
 
         // Validate sort order.
         validateSortedIndexScan(
                 tableData,
                 null,
                 null,
-                result
+                expected
         );
 
         // Validate bounds.
@@ -95,14 +99,14 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
                 tableData,
                 new Object[]{2, 1},
                 new Object[]{3, 0},
-                result
+                expected
         );
 
         validateSortedIndexScan(
                 tableData,
                 new Object[]{2, 1},
                 new Object[]{4},
-                result
+                expected
 
         );
 
@@ -110,7 +114,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
                 tableData,
                 new Object[]{null},
                 null,
-                result
+                expected
         );
 
         // Validate failure due to incorrect bounds.
@@ -295,7 +299,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
                 index,
                 new TestTable(rowType),
                 new int[]{0, 2},
-                null,
+                Comparator.comparingLong(v -> (long)((Object[])v)[0]),
                 rangeIterable,
                 null,
                 null,
@@ -358,7 +362,11 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
             s.onSubscribe(new Subscription() {
                 @Override
                 public void request(long n) {
-                    // No-op.
+                    for (int i = 0; i < rows.length; ++i) {
+                        s.onNext(rows[i]);
+                    }
+
+                    s.onComplete();
                 }
 
                 @Override
@@ -366,12 +374,6 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
                     // No-op.
                 }
             });
-
-            for (int i = 0; i < rows.length; ++i) {
-                s.onNext(rows[i]);
-            }
-
-            s.onComplete();
         };
     }
 

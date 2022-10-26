@@ -41,6 +41,7 @@ import org.apache.ignite.internal.sql.engine.exec.exp.RangeIterable;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
+import org.apache.ignite.internal.sql.engine.util.CompositePublisher;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.Nullable;
 
@@ -120,7 +121,15 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
         this.rowTransformer = rowTransformer;
         this.requiredColumns = requiredColumns;
         this.rangeConditions = rangeConditions;
+
         this.cmp = cmp == null ? null : (o1, o2) -> cmp.compare(convert(o1), convert(o2));
+
+        // todo unified for hash index
+        if (schemaIndex.type() == Type.SORTED) {
+            assert cmp != null;
+
+            rangeConditionIterator = rangeConditions == null ? null : rangeConditions.iterator();
+        }
 
         factory = ctx.rowHandler().factory(ctx.getTypeFactory(), rowType);
 
@@ -240,22 +249,14 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
             subscription.request(waiting);
         } else if (curPartIdx < parts.length) {
             if (schemaIndex.type() == Type.SORTED) {
-                //TODO: https://issues.apache.org/jira/browse/IGNITE-17813
-                // Introduce new publisher using merge-sort algo to merge partition index publishers.
-                int part = curPartIdx;
-
                 int flags = 0;
                 BinaryTuple lowerBound = null;
                 BinaryTuple upperBound = null;
 
-                if (rangeConditions == null) {
+                if (rangeConditionIterator == null) {
                     flags = SortedIndex.INCLUDE_LEFT | SortedIndex.INCLUDE_RIGHT;
-                    curPartIdx++;
+                    curPartIdx = parts.length; // end marker
                 } else {
-                    if (rangeConditionIterator == null) {
-                        rangeConditionIterator = rangeConditions.iterator();
-                    }
-
                     RangeCondition<RowT> cond = rangeConditionIterator.next();
 
                     lowerBound = toBinaryTuplePrefix(cond.lower());
@@ -264,20 +265,26 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
                     flags |= (cond.lowerInclude()) ? SortedIndex.INCLUDE_LEFT : 0;
                     flags |= (cond.upperInclude()) ? SortedIndex.INCLUDE_RIGHT : 0;
 
-                    if (!rangeConditionIterator.hasNext()) { // Switch to next partition and reset range index.
-                        rangeConditionIterator = null;
-                        curPartIdx++;
+                    if (!rangeConditionIterator.hasNext()) {
+                        curPartIdx = parts.length; // end marker
                     }
                 }
 
-                ((SortedIndex) schemaIndex.index()).scan(
-                        parts[part],
-                        context().transaction(),
-                        lowerBound,
-                        upperBound,
-                        flags,
-                        requiredColumns
-                ).subscribe(new SubscriberImpl());
+                CompositePublisher<BinaryTuple> compPublisher = new CompositePublisher<>(cmp);
+
+                for (int p : parts) {
+                    compPublisher.add(
+                            ((SortedIndex) schemaIndex.index()).scan(
+                                    p,
+                                    context().transaction(),
+                                    lowerBound,
+                                    upperBound,
+                                    flags,
+                                    requiredColumns
+                            ));
+                }
+
+                compPublisher.subscribe(new SubscriberImpl());
             } else {
                 assert schemaIndex.type() == Type.HASH;
 
