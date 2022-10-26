@@ -34,13 +34,26 @@ public class ColocationHashTests : IgniteTestsBase
     {
         // TODO: all supported types.
         sbyte.MinValue,
+        (sbyte)1,
+        (sbyte)-1,
         sbyte.MaxValue,
         short.MinValue,
+        (short)1,
+        (short)-1,
         short.MaxValue,
         int.MinValue,
+        1,
+        -1,
         int.MaxValue,
         long.MinValue,
-        long.MaxValue
+        1L,
+        -1L,
+        long.MaxValue,
+        float.MinValue,
+        -1f,
+        1f,
+        float.Epsilon,
+        float.MaxValue,
     };
 
     [Test]
