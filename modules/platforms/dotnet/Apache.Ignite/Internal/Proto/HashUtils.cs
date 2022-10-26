@@ -51,9 +51,27 @@ internal static class HashUtils
         return (int)(hash ^ (hash >> 32));
     }
 
+    /// <summary>
+    /// Generates 32-bit hash from the long value.
+    /// </summary>
+    /// <param name="data">Input data.</param>
+    /// <param name="seed">Current hash.</param>
+    /// <returns>Resulting hash.</returns>
+    public static int Hash32(long data, int seed)
+    {
+        ulong hash = Hash64(data, seed);
+
+        return (int)(hash ^ (hash >> 32));
+    }
+
     private static ulong Hash64(int data, long seed)
     {
         return HashInternal((uint)data, (ulong)seed);
+    }
+
+    private static ulong Hash64(long data, long seed)
+    {
+        return HashInternal((ulong)data, (ulong)seed);
     }
 
     private static ulong HashInternal(uint data, ulong seed)
@@ -72,6 +90,32 @@ internal static class HashUtils
         // finalization
         h1 ^= 4;
         h2 ^= 4;
+
+        h1 += h2;
+        h2 += h1;
+
+        h1 = Fmix64(h1);
+        h2 = Fmix64(h2);
+
+        return h1 + h2;
+    }
+
+    private static ulong HashInternal(ulong data, ulong seed)
+    {
+        ulong h1 = seed;
+        ulong h2 = seed;
+
+        ulong k1 = 0;
+
+        k1 ^= data;
+        k1 *= C1;
+        k1 = BitOperations.RotateLeft(k1, R1);
+        k1 *= C2;
+        h1 ^= k1;
+
+        // finalization
+        h1 ^= 8;
+        h2 ^= 8;
 
         h1 += h2;
         h2 += h1;

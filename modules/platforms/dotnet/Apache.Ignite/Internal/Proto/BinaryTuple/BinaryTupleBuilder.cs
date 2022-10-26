@@ -209,6 +209,11 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="value">Value.</param>
         public void AppendLong(long value)
         {
+            if (_hashedColumnsPredicate?.IsHashedColumnIndex(_elementIndex) == true)
+            {
+                _hash = HashUtils.Hash32(value, _hash);
+            }
+
             if (value >= short.MinValue && value <= short.MaxValue)
             {
                 AppendShort((short)value);
