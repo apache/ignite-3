@@ -252,7 +252,13 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
             clocks.put(node, clock);
 
-            var raftSrv = new Loza(cluster.get(i), raftConfiguration, workDir.resolve("node" + i), clock);
+            var raftSrv = new Loza(
+                    cluster.get(i),
+                    raftConfiguration,
+                    workDir.resolve("node" + i),
+                    clock,
+                    new PendingComparableValuesTracker<>(clock.now())
+            );
 
             raftSrv.start();
 
@@ -423,7 +429,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                                                 safeTime,
                                                 txSateStorage,
                                                 topologyServices.get(node),
-                                                placementDriver
+                                                placementDriver,
+                                                peer -> true
                                         )
                                 );
                             } catch (NodeStoppingException e) {

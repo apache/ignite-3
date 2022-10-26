@@ -60,4 +60,13 @@ public class Replica {
 
         return listener.invoke(request);
     }
+
+    /**
+     * Replica group identity, this id is the same as the considered partition's id.
+     *
+     * @return Group id.
+     */
+    public ReplicationGroupId groupId() {
+        return replicaGrpId;
+    }
 }

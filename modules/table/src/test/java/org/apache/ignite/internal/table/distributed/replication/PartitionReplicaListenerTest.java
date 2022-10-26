@@ -192,7 +192,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 safeTimeClock,
                 txStateStorage,
                 topologySrv,
-                placementDriver
+                placementDriver,
+                peer -> true
         );
 
         marshallerFactory = new ReflectionMarshallerFactory();
