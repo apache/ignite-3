@@ -31,7 +31,80 @@ include::../includes/prereqs.adoc[]
 
 == Installing Ignite CLI Tool
 
-//add install
+To download and install the Ignite CLI Tool, follow the steps below:
+
+. Download the archive with the Ignite CLI tool:
++
+[tabs]
+--
+tab:Unix[]
+[source,shell]
+----
+curl -L "https://www.apache.org/dyn/mirrors/mirrors.cgi?action=download&filename=ignite/3.0.0-alpha5/apache-ignite-3.0.0-alpha5.zip" -o apache-ignite-3.0.0-alpha5.zip
+----
+
+tab:Windows (PowerShell)[]
+[source,shell]
+----
+include::../includes/ignite-cli-download-windows.adoc[tag=command,indent=0]
+----
+
+tab:Windows (CMD)[]
+[source,shell]
+----
+include::../includes/ignite-cli-download-windows.adoc[tag=command,indent=0]
+----
+--
+
+. Unpack the archive:
++
+[tabs]
+--
+tab:Unix[]
+[source,shell]
+----
+unzip apache-ignite-3.0.0-alpha5.zip && cd apache-ignite-3.0.0-alpha5
+----
+
+tab:Windows (PowerShell)[]
+[source,shell]
+----
+Expand-Archive apache-ignite-3.0.0-alpha5.zip -DestinationPath . ; cd apache-ignite-3.0.0-alpha5
+----
+
+tab:Windows (CMD)[]
+[source,shell]
+----
+tar -xf apache-ignite-3.0.0-alpha5.zip & cd apache-ignite-3.0.0-alpha5
+----
+--
+
+. Add your installation directory to the PATH environment variable:
++
+[tabs]
+--
+tab:Unix[]
+[source,shell]
+----
+echo 'export PATH="'`pwd`':$PATH"' >> ~/.bash_profile && source ~/.bash_profile  && source ignite_completion.sh
+----
+
+tab:Windows (PowerShell)[]
+[source,shell]
+----
+$ENV:PATH += ";."
+----
+
+tab:Windows (CMD)[]
+[source,text]
+----
+set PATH=%cd%;%PATH%
+----
+--
+
+NOTE: On Windows, this latter change is not permanent and only affects the current terminal session. If you want the
+`ignite` command to be available after terminal or system restart, use the `System Properties` dialog to
+permanently update the `PATH` environment variable by adding a full path to the Ignite installation directory.
 
 == Using Ignite CLI Tool
 
@@ -68,7 +141,7 @@ WARNING: If you have installed one of the Ignite 3 Alpha releases before, please
 +
 [source, shell]
 ----
-ignite bootstrap
+ignite init
 ----
 
 . Use the `module add` command to download Guava from Maven and add it to the Ignite classpath:

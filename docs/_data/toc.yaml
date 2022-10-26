@@ -16,15 +16,6 @@
   url: index
 - title: Getting Started Guide
   url: quick-start/getting-started-guide
-- title: Installation
-  url: installation
-  items:
-    - title: Installing Using ZIP Archive
-      url: installation/installing-using-zip
-    - title: Installing Using Docker
-      url: installation/installing-using-docker
-    - title: Installing DEB or RPM package
-      url: installation/deb-rpm
 - title: Ignite CLI Tool
   url: ignite-cli-tool
 - title: Working with SQL
