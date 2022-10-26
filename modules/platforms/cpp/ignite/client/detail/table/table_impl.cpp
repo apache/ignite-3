@@ -244,7 +244,7 @@ std::optional<ignite_tuple> read_tuple(protocol::reader& reader, const schema* s
     return std::move(res);
 }
 
-void table_impl::get_latest_schema_async(const ignite_callback<std::shared_ptr<schema>> &callback) {
+void table_impl::get_latest_schema_async(ignite_callback<std::shared_ptr<schema>> callback) {
     auto latest_schema_version = m_latest_schema_version;
 
     if (latest_schema_version >= 0) {
@@ -257,7 +257,7 @@ void table_impl::get_latest_schema_async(const ignite_callback<std::shared_ptr<s
         return;
     }
 
-    load_schema_async(callback);
+    load_schema_async(std::move(callback));
 }
 
 void table_impl::load_schema_async(ignite_callback<std::shared_ptr<schema>> callback) {
@@ -285,11 +285,12 @@ void table_impl::load_schema_async(ignite_callback<std::shared_ptr<schema>> call
             client_operation::SCHEMAS_GET, writer_func, std::move(reader_func), std::move(callback));
 }
 
-void table_impl::get_async(transaction *tx, ignite_tuple key, ignite_callback<std::optional<ignite_tuple>> callback) {
+void table_impl::get_async(transaction *tx, const ignite_tuple& key, ignite_callback<std::optional<ignite_tuple>> callback) {
     transactions_not_implemented(tx);
 
+    // TODO: eliminate copying of key for most cases
     with_latest_schema_async<std::optional<ignite_tuple>>(std::move(callback),
-        [this, key = std::move(key)] (const schema& sch, auto callback) mutable {
+        [this, key = ignite_tuple(key)] (const schema& sch, auto callback) mutable {
         auto writer_func = [this, &key, &sch] (protocol::writer &writer) {
             write_table_operation_header(writer, m_id, sch);
             write_tuple(writer, sch, key, true);
@@ -302,6 +303,20 @@ void table_impl::get_async(transaction *tx, ignite_tuple key, ignite_callback<st
 
         m_connection->perform_request<std::optional<ignite_tuple>>(
                 client_operation::TUPLE_GET, writer_func, std::move(reader_func), std::move(callback));
+    });
+}
+
+void table_impl::upsert_async(transaction *tx, const ignite_tuple &record, ignite_callback<void> callback) {
+    transactions_not_implemented(tx);
+
+    with_latest_schema_async<void>(std::move(callback),
+    [this, record = ignite_tuple(record)] (const schema& sch, auto callback) mutable {
+      auto writer_func = [this, &record, &sch] (protocol::writer &writer) {
+          write_table_operation_header(writer, m_id, sch);
+          write_tuple(writer, sch, record, false);
+      };
+
+      m_connection->perform_request_wr<void>(client_operation::TUPLE_UPSERT, writer_func, std::move(callback));
     });
 }
 

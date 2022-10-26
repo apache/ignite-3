@@ -56,8 +56,20 @@ public:
      * @param key Key.
      * @param callback Callback.
      */
-    void get_async(transaction* tx, ignite_tuple key, ignite_callback<std::optional<ignite_tuple>> callback) {
-        m_table->get_async(tx, std::move(key), std::move(callback));
+    void get_async(transaction* tx, const ignite_tuple& key, ignite_callback<std::optional<ignite_tuple>> callback) {
+        m_table->get_async(tx, key, std::move(callback));
+    }
+
+    /**
+     * Inserts a record into the table if does not exist or replaces the existed one.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *  single operation is used.
+     * @param record A record to insert into the table. The record cannot be @c nullptr.
+     * @param callback Callback.
+     */
+    void upsert_async(transaction* tx, const ignite_tuple& record, ignite_callback<void> callback) {
+        m_table->upsert_async(tx, record, std::move(callback));
     }
 
 private:

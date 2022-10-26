@@ -57,7 +57,7 @@ void tables_impl::get_tables_async(ignite_callback<std::vector<table>> callback)
         return tables;
     };
 
-    m_connection->perform_request<std::vector<table>>(
+    m_connection->perform_request_rd<std::vector<table>>(
         client_operation::TABLES_GET, std::move(reader_func), std::move(callback));
 }
 

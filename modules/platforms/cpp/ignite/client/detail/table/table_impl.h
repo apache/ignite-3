@@ -64,7 +64,7 @@ public:
      *
      * @param callback Callback which is going to be called with the latest schema.
      */
-    void get_latest_schema_async(const ignite_callback<std::shared_ptr<schema>>& callback);
+    void get_latest_schema_async(ignite_callback<std::shared_ptr<schema>> callback);
 
     /**
      * Gets the latest schema.
@@ -98,7 +98,17 @@ public:
      * @param key Key.
      * @param callback Callback.
      */
-    void get_async(transaction* tx, ignite_tuple key, ignite_callback<std::optional<ignite_tuple>> callback);
+    void get_async(transaction* tx, const ignite_tuple& key, ignite_callback<std::optional<ignite_tuple>> callback);
+
+    /**
+     * Inserts a record into the table if does not exist or replaces the existed one.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *  single operation is used.
+     * @param record A record to insert into the table. The record cannot be @c nullptr.
+     * @param callback Callback.
+     */
+    void upsert_async(transaction* tx, const ignite_tuple& record, ignite_callback<void> callback);
 
 private:
     /**

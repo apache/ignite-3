@@ -81,7 +81,7 @@ public:
      * @param key Key.
      * @param callback Callback.
      */
-    IGNITE_API void get_async(transaction* tx, value_type key, ignite_callback<std::optional<value_type>> callback);
+    IGNITE_API void get_async(transaction* tx, const value_type& key, ignite_callback<std::optional<value_type>> callback);
 
     /**
      * Gets a record by key.
@@ -91,9 +91,32 @@ public:
      * @param key Key.
      * @param callback Callback.
      */
-    IGNITE_API std::optional<value_type> get(transaction* tx, value_type key) {
+    IGNITE_API std::optional<value_type> get(transaction* tx, const value_type& key) {
         return sync<std::optional<value_type>>([this, &tx, &key] (auto callback) {
-            get_async(tx, std::move(key), std::move(callback));
+            get_async(tx, key, std::move(callback));
+        });
+    }
+
+    /**
+     * Inserts a record into the table if does not exist or replaces the existed one.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *  single operation is used.
+     * @param record A record to insert into the table. The record cannot be @c nullptr.
+     * @param callback Callback.
+     */
+    IGNITE_API void upsert_async(transaction* tx, const value_type& record, ignite_callback<void> callback);
+
+    /**
+     * Inserts a record into the table if does not exist or replaces the existed one.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *  single operation is used.
+     * @param record A record to insert into the table. The record cannot be @c nullptr.
+     */
+    IGNITE_API void upsert(transaction* tx, const value_type& record) {
+        sync<void>([this, &tx, &record] (auto callback) {
+            upsert_async(tx, record, std::move(callback));
         });
     }
 

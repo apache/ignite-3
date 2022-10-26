@@ -114,15 +114,29 @@ public:
     }
 
     /**
-     * Perform request.
+     * Perform request without input data.
      *
      * @tparam T Result type.
      * @param op Operation code.
-     * @param handler Response handler.
+     * @param rd Response reader function.
+     * @param callback Callback to call on result.
      */
     template <typename T>
-    void perform_request(client_operation op, std::function<T(protocol::reader&)> rd, ignite_callback<T> callback) {
-        perform_request(op, [](protocol::writer &) {}, std::move(rd), std::move(callback));
+    void perform_request_rd(client_operation op, std::function<T(protocol::reader&)> rd, ignite_callback<T> callback) {
+        perform_request<T>(op, [](protocol::writer &) {}, std::move(rd), std::move(callback));
+    }
+
+    /**
+     * Perform request without output data.
+     *
+     * @tparam T Result type.
+     * @param op Operation code.
+     * @param wr Request writer function.
+     * @param callback Callback to call on result.
+     */
+    template <typename T>
+    void perform_request_wr(client_operation op, const std::function<void(protocol::writer &)> &wr, ignite_callback<T> callback) {
+        perform_request<T>(op, wr, [](protocol::reader &) {}, std::move(callback));
     }
 
 private:

@@ -97,7 +97,7 @@ protected:
 };
 
 TEST_F(record_binary_view_test, tables_get_table) {
-//    tuple_view.upsert(nullptr, get_tuple(1, "foo"));
+    tuple_view.upsert(nullptr, get_tuple(1, "foo"));
 
     auto key_tuple = get_tuple(1);
     auto res_tuple = tuple_view.get(nullptr, key_tuple);
