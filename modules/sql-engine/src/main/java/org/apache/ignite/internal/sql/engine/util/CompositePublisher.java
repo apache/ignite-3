@@ -46,7 +46,7 @@ public class CompositePublisher<T> implements Flow.Publisher<T> {
             throw new IllegalStateException("Multiple subscribers are not supported.");
         }
 
-        SubscriptionManagementStrategy<T> subscriptionStrategy = comp != null ?
+        AbstractCompositeSubscriptionStrategy<T> subscriptionStrategy = comp != null ?
                 new MergeSortSubscriptionStrategy<>(comp, delegate) :
                 new SequentialSubscriptionStrategy<>(delegate);
 
@@ -60,59 +60,70 @@ public class CompositePublisher<T> implements Flow.Publisher<T> {
         delegate.onSubscribe(subscriptionStrategy);
     }
 
-    public static class PlainSubscriberProxy<T> implements Subscriber<T> {
+    protected abstract static class AbstractCompositeSubscriptionStrategy<T> implements Subscription {
+        protected List<Subscription> subscriptions = new ArrayList<>();
+
         protected final Subscriber<? super T> delegate;
 
-        protected final SubscriptionManagementStrategy<T> subscriptionStrategy;
-
-        protected final int id;
-
-        public PlainSubscriberProxy(Subscriber<? super T> delegate, SubscriptionManagementStrategy<T> subscriptionStrategy, int id) {
-            assert delegate != null;
-
+        protected AbstractCompositeSubscriptionStrategy(Subscriber<? super T> delegate) {
             this.delegate = delegate;
-            this.subscriptionStrategy = subscriptionStrategy;
-            this.id = id;
         }
 
-        @Override
-        public void onSubscribe(Subscription subscription) {
-            subscriptionStrategy.addSubscription(subscription);
+        public void addSubscription(Subscription subscription) {
+            subscriptions.add(subscription);
         }
 
-        @Override
-        public void onNext(T item) {
-            subscriptionStrategy.onReceive(id, item);
+        public Subscriber<T> subscriberProxy(int subscriberId) {
+            return new PlainSubscriberProxy(delegate, subscriberId);
         }
 
-        @Override
-        public void onError(Throwable throwable) {
-            subscriptionStrategy.cancel();
+        public abstract void onSubscriptionComplete(int subscriberId);
 
-            delegate.onError(throwable);
-        }
+        public abstract void onReceive(int subscriberId, T item);
 
-        @Override
-        public void onComplete() {
-            subscriptionStrategy.onSubscriptionComplete(id);
+        protected class PlainSubscriberProxy implements Subscriber<T> {
+            protected final Subscriber<? super T> delegate;
+
+            protected final int id;
+
+            public PlainSubscriberProxy(Subscriber<? super T> delegate, int id) {
+                assert delegate != null;
+
+                this.delegate = delegate;
+                this.id = id;
+            }
+
+            @Override
+            public void onSubscribe(Subscription subscription) {
+                addSubscription(subscription);
+            }
+
+            @Override
+            public void onNext(T item) {
+                onReceive(id, item);
+            }
+
+            @Override
+            public void onError(Throwable throwable) {
+                cancel();
+
+                delegate.onError(throwable);
+            }
+
+            @Override
+            public void onComplete() {
+                onSubscriptionComplete(id);
+            }
         }
     }
 
-    private static class SequentialSubscriptionStrategy<T> implements SubscriptionManagementStrategy<T> {
-        List<Subscription> subscriptions = new ArrayList<>();
+    public static class SequentialSubscriptionStrategy<T> extends AbstractCompositeSubscriptionStrategy<T> {
         int subscriptionIdx = 0;
-
-        private final Subscriber<? super T> delegate;
 
         private long remaining;
 
         public SequentialSubscriptionStrategy(Subscriber<? super T> delegate) {
-            this.delegate = delegate;
-        }
-
-        @Override
-        public void addSubscription(Subscription subscription) {
-            subscriptions.add(subscription);
+            super(delegate);
         }
 
         @Override
@@ -141,28 +152,17 @@ public class CompositePublisher<T> implements Flow.Publisher<T> {
             requestInternal();
         }
 
-        private void requestInternal() {
-            activeSubscription().request(remaining);
-        }
-
-
         @Override
         public void cancel() {
             activeSubscription().cancel();
         }
 
+        private void requestInternal() {
+            activeSubscription().request(remaining);
+        }
+
         private Subscription activeSubscription() {
             return subscriptions.get(subscriptionIdx);
-        }
-
-        @Override
-        public void onRequestCompleted(int subscriberId) {
-            // No-op.
-        }
-
-        @Override
-        public Subscriber<T> subscriberProxy(int subscriberId) {
-            return new PlainSubscriberProxy<>(delegate, this, subscriberId);
         }
     }
 }

@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.ignite.internal.sql.engine.util;
 
 import java.util.ArrayList;
@@ -5,7 +22,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.Flow.Subscriber;
-import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -13,28 +29,24 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.calcite.util.Pair;
-import org.apache.ignite.internal.sql.engine.util.CompositePublisher.PlainSubscriberProxy;
+import org.apache.ignite.internal.sql.engine.util.CompositePublisher.AbstractCompositeSubscriptionStrategy;
 import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentHashSet;
 import org.jetbrains.annotations.Nullable;
 
-public class MergeSortSubscriptionStrategy<T> implements SubscriptionManagementStrategy<T>, Subscription {
+public class MergeSortSubscriptionStrategy<T> extends AbstractCompositeSubscriptionStrategy<T> {
     /** Items comparator. */
     private final Comparator<T> comp;
 
     /** Internal ordered buffer. */
     private final PriorityBlockingQueue<T> inBuf;
 
-    private final List<Subscription> subscriptions = new ArrayList<>();
-
-    private final List<SortingSubscriberProxy<T>> subscribers = new ArrayList<>();
+    private final List<SortingSubscriberProxy> subscribers = new ArrayList<>();
 
     private final ConcurrentHashSet<Integer> finished = new ConcurrentHashSet<>();
 
     private final AtomicInteger finishedCnt = new AtomicInteger();
 
     private final AtomicBoolean completed = new AtomicBoolean();
-
-    private final Subscriber<? super T> delegate;
 
     /** Count of remaining items. */
     private long remain = 0;
@@ -49,15 +61,10 @@ public class MergeSortSubscriptionStrategy<T> implements SubscriptionManagementS
     private final AtomicInteger waitResponseCnt = new AtomicInteger();
 
     public MergeSortSubscriptionStrategy(Comparator<T> comp, Subscriber<? super T> delegate) {
+        super(delegate);
+
         this.comp = comp;
         this.inBuf = new PriorityBlockingQueue<>(1, comp);
-        this.delegate = delegate;
-    }
-
-    @Override
-    public void addSubscription(Subscription subscription) {
-        // todo subscriptions and subscribers must be in the same order
-        subscriptions.add(subscription);
     }
 
     @Override
@@ -95,9 +102,10 @@ public class MergeSortSubscriptionStrategy<T> implements SubscriptionManagementS
 
     /** {@inheritDoc} */
     @Override
-    public void cancel() {
-        for (Subscription subscription : subscriptions) {
-            subscription.cancel();
+    public synchronized void cancel() {
+        for (int i = 0; i < subscriptions.size(); i++) {
+            if (!finished.contains(i))
+                subscriptions.get(i).cancel();
         }
     }
 
@@ -175,7 +183,6 @@ public class MergeSortSubscriptionStrategy<T> implements SubscriptionManagementS
         return remain;
     }
 
-    @Override
     public void onRequestCompleted(int subscriberId) {
         if (waitResponse.remove(subscriberId) && waitResponseCnt.decrementAndGet() == 0) {
             requestNext();
@@ -186,14 +193,13 @@ public class MergeSortSubscriptionStrategy<T> implements SubscriptionManagementS
 
     @Override
     public Subscriber<T> subscriberProxy(int subscriberId) {
-        SortingSubscriberProxy<T> subscriber = new SortingSubscriberProxy<>(delegate, this, subscriberId);
+        SortingSubscriberProxy subscriber = new SortingSubscriberProxy(delegate, subscriberId);
 
         subscribers.add(subscriber);
 
         return subscriber;
     }
 
-    // can be called from different threads
     public synchronized void requestNext() {
         Pair<T, List<Integer>> minItemAndIds = chooseRequestedSubscriptionsIds();
         T minItem = minItemAndIds.left;
@@ -228,8 +234,9 @@ public class MergeSortSubscriptionStrategy<T> implements SubscriptionManagementS
         for (Integer id : waitResponse) {
             debug(">xxx> idx=" + id + " requested=" + dataAmount);
 
-            // todo remove this usage
-            subscribers.get(id).onDataRequested(dataAmount);
+            SortingSubscriberProxy subscriber = subscribers.get(id);
+
+            subscriber.remainingCnt.set(dataAmount);
             subscriptions.get(id).request(dataAmount);
         }
     }
@@ -244,13 +251,13 @@ public class MergeSortSubscriptionStrategy<T> implements SubscriptionManagementS
         List<Integer> minIdxs = new ArrayList<>();
 
         for (int i = 0; i < subscribers.size(); i++) {
-            SortingSubscriberProxy<T> subscriber = subscribers.get(i);
+            SortingSubscriberProxy subscriber = subscribers.get(i);
 
             if (finished.contains(i)) {
                 continue;
             }
 
-            T item = subscriber.lastItem();
+            T item = subscriber.lastItem;
 
             int cmpRes = 0;
 
@@ -268,22 +275,22 @@ public class MergeSortSubscriptionStrategy<T> implements SubscriptionManagementS
         return Pair.of(minItem, minIdxs);
     }
 
-    public static class SortingSubscriberProxy<T> extends PlainSubscriberProxy<T> {
-        private volatile T lastItem;
-
+    public class SortingSubscriberProxy extends AbstractCompositeSubscriptionStrategy<T>.PlainSubscriberProxy {
         private final AtomicLong remainingCnt = new AtomicLong();
 
         private final AtomicBoolean finished = new AtomicBoolean();
 
-        public SortingSubscriberProxy(Subscriber<? super T> delegate, SubscriptionManagementStrategy<T> subscriptionStrategy, int id) {
-            super(delegate, subscriptionStrategy, id);
+        private volatile T lastItem;
+
+        public SortingSubscriberProxy(Subscriber<? super T> delegate, int id) {
+            super(delegate, id);
         }
 
         @Override
         public void onNext(T item) {
             lastItem = item;
 
-            subscriptionStrategy.onReceive(id, item);
+            onReceive(id, item);
 
             long val = remainingCnt.decrementAndGet();
 
@@ -293,26 +300,15 @@ public class MergeSortSubscriptionStrategy<T> implements SubscriptionManagementS
                         + ", item=" + item
                         + ", threadId=" + Thread.currentThread().getName();
 
-                subscriptionStrategy.onRequestCompleted(id);
+                onRequestCompleted(id);
             }
         }
 
         @Override
         public void onComplete() {
             if (finished.compareAndSet(false, true)) {
-                subscriptionStrategy.onSubscriptionComplete(id);
+                onSubscriptionComplete(id);
             }
-        }
-
-        T lastItem() {
-            return lastItem;
-        }
-
-        public void onDataRequested(long n) {
-            if (finished.get())
-                return;
-
-            remainingCnt.set(n);
         }
     }
 
