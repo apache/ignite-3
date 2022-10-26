@@ -32,10 +32,10 @@ public class ColocationHashTests : IgniteTestsBase
     [Test]
     public async Task TestColocationHashIsSameOnServerAndClient()
     {
-        var keys = new object[] { 1, 2L };
+        var keys = new object[] { 1 };
         var (bytes, hash) = WriteAsBinaryTuple(keys);
 
-        var serverHash = await GetServerHash(bytes, 2);
+        var serverHash = await GetServerHash(bytes, 1);
 
         Assert.AreEqual(hash, serverHash);
     }
