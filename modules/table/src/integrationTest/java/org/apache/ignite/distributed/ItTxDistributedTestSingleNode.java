@@ -392,7 +392,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                                     testMpPartStorage,
                                     txSateStorage,
                                     txManagers.get(node),
-                                    primaryIndex
+                                    primaryIndex,
+                                    partId
                             );
                         },
                         RaftGroupOptions.defaults()

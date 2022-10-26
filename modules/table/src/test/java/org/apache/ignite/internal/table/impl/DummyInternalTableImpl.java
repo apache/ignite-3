@@ -223,7 +223,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 mvPartStorage,
                 new TestConcurrentHashMapTxStateStorage(),
                 this.txManager,
-                primaryIndex
+                primaryIndex,
+                0
         );
     }
 

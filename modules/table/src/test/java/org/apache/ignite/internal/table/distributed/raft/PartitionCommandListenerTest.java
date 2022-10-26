@@ -47,9 +47,6 @@ import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
-import org.apache.ignite.internal.table.distributed.command.RowIdMessage;
-import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
-import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
@@ -115,7 +112,8 @@ public class PartitionCommandListenerTest {
                 mvPartitionStorage,
                 new TestConcurrentHashMapTxStateStorage(),
                 new TxManagerImpl(replicaService, new HeapLockManager(), new HybridClock()),
-                primaryIndex
+                primaryIndex,
+                PARTITION_ID
         );
     }
 
@@ -265,15 +263,13 @@ public class PartitionCommandListenerTest {
                 return null;
             }).when(clo).result(any());
 
-            HashMap<RowIdMessage, ByteBuffer> rows = new HashMap<>(KEY_COUNT);
+            HashMap<UUID, ByteBuffer> rows = new HashMap<>(KEY_COUNT);
             UUID txId = Timestamp.nextVersion().toUuid();
-            var commitPartId = new TablePartitionId(txId, PARTITION_ID);
 
             for (int i = 0; i < KEY_COUNT; i++) {
                 Row row = getTestRow(i, i);
 
-                rows.put(RowIdMessage.fromRowId(msgFactory, new RowId(PARTITION_ID)),
-                        row.byteBuffer());
+                rows.put(Timestamp.nextVersion().toUuid(), row.byteBuffer());
 
                 txs.add(new IgniteBiTuple<>(row, txId));
             }
@@ -282,9 +278,11 @@ public class PartitionCommandListenerTest {
                     msgFactory.updateAllCommand()
                             .rowsToUpdate(rows)
                             .txId(txId)
+                            .replicationGroupId(msgFactory.tablePartitionIdMessage()
+                                    .tableId(txId)
+                                    .partitionId(PARTITION_ID).build())
                             .build()
             );
-            when(clo.command()).thenReturn(new UpdateAllCommand(commitPartId, rows, txId));
         }));
 
         txs.forEach(tuple -> mvPartitionStorage.commitWrite(primaryIndex.get(tuple.getKey().keySlice()), CLOCK.now()));
@@ -307,7 +305,7 @@ public class PartitionCommandListenerTest {
                 return null;
             }).when(clo).result(any());
 
-            HashMap<RowIdMessage, ByteBuffer> rows = new HashMap<>(KEY_COUNT);
+            HashMap<UUID, ByteBuffer> rows = new HashMap<>(KEY_COUNT);
 
             UUID txId = Timestamp.nextVersion().toUuid();
             var commitPartId = new TablePartitionId(txId, PARTITION_ID);
@@ -315,7 +313,9 @@ public class PartitionCommandListenerTest {
             for (int i = 0; i < KEY_COUNT; i++) {
                 Row row = getTestRow(i, keyValueMapper.apply(i));
 
-                rows.put(RowIdMessage.fromRowId(msgFactory, primaryIndex.get(row.keySlice())), row.byteBuffer());
+                RowId rowId = primaryIndex.get(row.keySlice());
+
+                rows.put(new UUID(rowId.mostSignificantBits(), rowId.leastSignificantBits()), row.byteBuffer());
 
                 txs.add(new IgniteBiTuple<>(row, txId));
             }
@@ -324,9 +324,13 @@ public class PartitionCommandListenerTest {
                     msgFactory.updateAllCommand()
                         .rowsToUpdate(rows)
                         .txId(txId)
+                        .replicationGroupId(
+                                msgFactory.tablePartitionIdMessage()
+                                        .tableId(txId)
+                                        .partitionId(PARTITION_ID).build()
+                        )
                         .build()
             );
-            when(clo.command()).thenReturn(new UpdateAllCommand(commitPartId, rows, txId));
         }));
 
         txs.forEach(tuple -> mvPartitionStorage.commitWrite(primaryIndex.get(tuple.getKey().keySlice()), CLOCK.now()));
@@ -347,7 +351,7 @@ public class PartitionCommandListenerTest {
                 return null;
             }).when(clo).result(any());
 
-            Map<RowIdMessage, ByteBuffer> keyRows = new HashMap<>(KEY_COUNT);
+            Map<UUID, ByteBuffer> keyRows = new HashMap<>(KEY_COUNT);
 
             UUID txId = Timestamp.nextVersion().toUuid();
             var commitPartId = new TablePartitionId(txId, PARTITION_ID);
@@ -355,17 +359,26 @@ public class PartitionCommandListenerTest {
             for (int i = 0; i < KEY_COUNT; i++) {
                 Row row = getTestRow(i, i);
 
-                keyRows.put(RowIdMessage.fromRowId(msgFactory, primaryIndex.get(row.keySlice())), null);
+                RowId rowId = primaryIndex.get(row.keySlice());
+
+                keyRows.put(new UUID(rowId.mostSignificantBits(), rowId.leastSignificantBits()), null);
 
                 txs.add(new IgniteBiTuple<>(row, txId));
             }
 
             when(clo.command()).thenReturn(
                     msgFactory.updateAllCommand()
+                            .replicationGroupId(msgFactory.tablePartitionIdMessage()
+                                    .tableId(commitPartId.getTableId())
+                                    .partitionId(commitPartId.getPartId())
+                                    .build()
+                            )
                             .rowsToUpdate(keyRows)
                             .txId(txId)
+                            .replicationGroupId(msgFactory.tablePartitionIdMessage()
+                                    .tableId(txId)
+                                    .partitionId(PARTITION_ID).build())
                             .build());
-            when(clo.command()).thenReturn(new UpdateAllCommand(commitPartId, keyRows, txId));
         }));
 
         txs.forEach(
@@ -394,11 +407,18 @@ public class PartitionCommandListenerTest {
 
             when(clo.command()).thenReturn(
                     msgFactory.updateCommand()
-                        .rowId(RowIdMessage.fromRowId(msgFactory, rowId))
-                        .rowBuffer(row.byteBuffer())
-                        .txId(txId)
-                        .build());
-            when(clo.command()).thenReturn(new UpdateCommand(commitPartId, rowId, row, txId));
+                            .commitReplicationGroupId(msgFactory.tablePartitionIdMessage()
+                                    .tableId(commitPartId.getTableId())
+                                    .partitionId(commitPartId.getPartId())
+                                    .build()
+                            )
+                            .rowUuid(new UUID(rowId.mostSignificantBits(), rowId.leastSignificantBits()))
+                            .rowBuffer(row.byteBuffer())
+                            .txId(txId)
+                            .commitReplicationGroupId(msgFactory.tablePartitionIdMessage()
+                                    .tableId(txId)
+                                    .partitionId(PARTITION_ID).build())
+                            .build());
 
             doAnswer(invocation -> {
                 assertNull(invocation.getArgument(0));
@@ -430,10 +450,18 @@ public class PartitionCommandListenerTest {
 
             when(clo.command()).thenReturn(
                     msgFactory.updateCommand()
-                            .rowId(RowIdMessage.fromRowId(msgFactory, rowId))
+                            .commitReplicationGroupId(
+                                    msgFactory.tablePartitionIdMessage()
+                                            .tableId(commitPartId.getTableId())
+                                            .partitionId(commitPartId.getPartId())
+                                            .build()
+                            )
+                            .rowUuid(new UUID(rowId.mostSignificantBits(), rowId.leastSignificantBits()))
                             .txId(txId)
+                            .commitReplicationGroupId(msgFactory.tablePartitionIdMessage()
+                                    .tableId(txId)
+                                    .partitionId(PARTITION_ID).build())
                             .build());
-            when(clo.command()).thenReturn(new UpdateCommand(commitPartId, rowId, txId));
 
             doAnswer(invocation -> {
                 assertNull(invocation.getArgument(0));
@@ -496,11 +524,19 @@ public class PartitionCommandListenerTest {
 
             when(clo.command()).thenReturn(
                     msgFactory.updateCommand()
-                            .rowId(RowIdMessage.fromRowId(msgFactory, new RowId(PARTITION_ID)))
+                            .commitReplicationGroupId(
+                                    msgFactory.tablePartitionIdMessage()
+                                            .tableId(commitPartId.getTableId())
+                                            .partitionId(commitPartId.getPartId())
+                                            .build()
+                            )
+                            .rowUuid(Timestamp.nextVersion().toUuid())
                             .rowBuffer(row.byteBuffer())
                             .txId(txId)
+                            .commitReplicationGroupId(msgFactory.tablePartitionIdMessage()
+                                    .tableId(txId)
+                                    .partitionId(PARTITION_ID).build())
                             .build());
-            when(clo.command()).thenReturn(new UpdateCommand(commitPartId, new RowId(PARTITION_ID), row, txId));
 
             doAnswer(invocation -> {
                 assertNull(invocation.getArgument(0));

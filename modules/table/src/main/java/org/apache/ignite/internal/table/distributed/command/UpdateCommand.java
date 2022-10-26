@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table.distributed.command;
 
 import java.nio.ByteBuffer;
+import java.util.UUID;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.network.annotations.Transferable;
 
@@ -28,7 +29,7 @@ import org.apache.ignite.network.annotations.Transferable;
 public interface UpdateCommand extends PartitionCommand {
     TablePartitionIdMessage commitReplicationGroupId();
 
-    RowIdMessage rowId();
+    UUID rowUuid();
 
     ByteBuffer rowBuffer();
 }

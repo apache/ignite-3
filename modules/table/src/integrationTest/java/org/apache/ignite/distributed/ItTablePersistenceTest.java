@@ -238,7 +238,8 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                             testMpPartStorage,
                             new TestConcurrentHashMapTxStateStorage(),
                             txManager,
-                            new ConcurrentHashMap<>());
+                            new ConcurrentHashMap<>(),
+                            0);
 
                     paths.put(listener, workDir);
 

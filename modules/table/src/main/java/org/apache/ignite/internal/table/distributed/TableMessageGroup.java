@@ -150,8 +150,6 @@ public interface TableMessageGroup {
         /** Message type for {@link HybridTimestampMessage} */
         short HYBRID_TIMESTAMP = 60;
 
-        short ROW_ID = 61;
-
-        short TABLE_PARTITION_ID = 62;
+        short TABLE_PARTITION_ID = 61;
     }
 }

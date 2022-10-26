@@ -60,10 +60,8 @@ import org.apache.ignite.internal.schema.*;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
-import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
-import org.apache.ignite.internal.table.distributed.command.RowIdMessage;
 import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
 import org.apache.ignite.internal.table.distributed.command.response.MultiRowsResponse;
@@ -73,6 +71,7 @@ import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
+import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
@@ -182,31 +181,34 @@ public class ItColocationTest {
             RaftGroupService r = groupRafts.get(request.groupId());
 
             if (request instanceof ReadWriteMultiRowReplicaRequest) {
-                Map<RowIdMessage, ByteBuffer> rows = ((ReadWriteMultiRowReplicaRequest) request).binaryRows()
+                Map<UUID, ByteBuffer> rows = ((ReadWriteMultiRowReplicaRequest) request).binaryRows()
                         .stream()
                         .collect(toMap(
-                                row -> RowIdMessage.fromRowId(MSG_FACTORY,
-                                        new RowId(0)), row -> row.byteBuffer()));
+                                row -> Timestamp.nextVersion().toUuid(), row -> row.byteBuffer()));
 
                 return r.run(MSG_FACTORY.updateAllCommand()
-                        .rowsToUpdate(rows)
-                        .txId(UUID.randomUUID())
-                        .build());
-                return r.run(new UpdateAllCommand(commitPartId, rows, UUID.randomUUID()));
+                                .replicationGroupId(MSG_FACTORY.tablePartitionIdMessage()
+                                        .tableId(commitPartId.getTableId())
+                                        .partitionId(commitPartId.getPartId())
+                                        .build()
+                                )
+                            .rowsToUpdate(rows)
+                            .txId(UUID.randomUUID())
+                            .build());
             } else {
                 assertThat(request, is(instanceOf(ReadWriteSingleRowReplicaRequest.class)));
 
                 return r.run(MSG_FACTORY.updateCommand()
-                        .rowId(RowIdMessage.fromRowId(MSG_FACTORY, new RowId(0)))
+                        .commitReplicationGroupId(
+                                MSG_FACTORY.tablePartitionIdMessage()
+                                        .tableId(commitPartId.getTableId())
+                                        .partitionId(commitPartId.getPartId())
+                                        .build()
+                        )
+                        .rowUuid(Timestamp.nextVersion().toUuid())
                         .rowBuffer(((ReadWriteSingleRowReplicaRequest) request).binaryRow().byteBuffer())
                         .txId(UUID.randomUUID())
                         .build());
-                return r.run(new UpdateCommand(
-                        commitPartId,
-                        new RowId(0),
-                        ((ReadWriteSingleRowReplicaRequest) request).binaryRow(),
-                        UUID.randomUUID())
-                );
             }
         });
 
