@@ -26,8 +26,10 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -193,6 +195,16 @@ public class PartitionReplicaListener implements ReplicaListener {
         this.indexScanId = new UUID(tableId.getMostSignificantBits(), tableId.getLeastSignificantBits() + 1);
         this.indexPkId = new UUID(tableId.getMostSignificantBits(), tableId.getLeastSignificantBits() + 2);
         this.replicationGroupId = new TablePartitionId(tableId, partId);
+
+        Set<RowId> ids = new HashSet<>();
+
+        //TODO: https://issues.apache.org/jira/browse/IGNITE-17205 Temporary solution for recovery purposes
+        // until the implementation of the primary index is done.
+        mvDataStorage.forEach((rowId, binaryRow) -> {
+            if (ids.add(rowId)) {
+                primaryIndex.put(binaryRow.keySlice(), rowId);
+            }
+        });
 
         cursors = new ConcurrentSkipListMap<>((o1, o2) -> {
             if (o1 == o2) {
