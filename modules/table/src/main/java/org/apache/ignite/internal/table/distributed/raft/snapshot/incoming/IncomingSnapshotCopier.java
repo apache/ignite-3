@@ -78,12 +78,6 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
     private volatile CompletableFuture<?> future;
 
     /**
-     * It is necessary for the correct execution of {@link #cancel()}, when after calling {@link CompletableFuture#cancel(boolean)} at
-     * {@link #future}, we do not immediately return control by calling {@link #join()}, but honestly wait for completion of copier.
-     */
-    private final CompletableFuture<?> mainFuture = new CompletableFuture<>();
-
-    /**
      * Constructor.
      *
      * @param partitionSnapshotStorage Snapshot storage.
@@ -124,21 +118,20 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
                             .thenCompose(unused1 -> loadSnapshotMvData(snapshotSender, executor))
                             .thenCompose(unused1 -> loadSnapshotTxData(snapshotSender, executor))
                             .thenAcceptAsync(unused1 -> updateLastAppliedIndexFromSnapshotMetaForStorages(), executor);
-                }).whenComplete((unused, throwable) -> {
-                    if (throwable == null) {
-                        mainFuture.completeExceptionally(throwable);
-                    } else {
-                        mainFuture.complete(null);
-                    }
                 });
     }
 
     @Override
     public void join() throws InterruptedException {
-        // If the #start was not called, then there is no need to wait.
-        if (future != null) {
+        CompletableFuture<?> fut = future;
+
+        if (fut != null) {
             try {
-                mainFuture.get();
+                fut.get();
+
+                if (canceled && !isOk()) {
+                    setError(RaftError.ECANCELED, "Copier is cancelled");
+                }
             } catch (CancellationException e) {
                 // Ignored.
             } catch (ExecutionException e) {
@@ -162,15 +155,9 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
 
         LOG.info("Copier is canceled for partition [partId={}, tableId={}]", partId(), tableId());
 
-        if (!isOk()) {
-            setError(RaftError.ECANCELED, "Copier is cancelled");
-        }
-
         CompletableFuture<?> fut = future;
 
         if (fut != null) {
-            fut.cancel(true);
-
             try {
                 // Because after the cancellation, no one waits for #join.
                 join();
