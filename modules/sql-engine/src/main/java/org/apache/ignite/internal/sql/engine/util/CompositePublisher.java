@@ -26,7 +26,6 @@ import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 import org.jetbrains.annotations.Nullable;
 
 public class CompositePublisher<T> implements Flow.Publisher<T> {
@@ -44,7 +43,7 @@ public class CompositePublisher<T> implements Flow.Publisher<T> {
         if (ordered)
             subscriptionStrategy = new OrderedInputSubscriptionStrategy<>(comp);
         else
-            subscriptionStrategy = new PlainSubscriptionManagementStrategy<>();
+            subscriptionStrategy = new SequentialSubscriptionStrategy<>();
     }
 
     public void add(Publisher<T> publisher) {
@@ -77,17 +76,17 @@ public class CompositePublisher<T> implements Flow.Publisher<T> {
         if (ordered)
             return new SortingSubscriber<>(subscriber, idx, subscriptionStrategy);
         else
-            return new PlainSubscriber<>(subscriber, subscriptionStrategy, publishers.size());
+            return new PlainSubscriberProxy<>(subscriber, subscriptionStrategy, publishers.size());
     }
 
-    private static class PlainSubscriber<T> implements Subscriber<T> {
+    private static class PlainSubscriberProxy<T> implements Subscriber<T> {
         private final Subscriber<T> delegate;
 
         private final SubscriptionManagementStrategy<T> subscriptionStrategy;
 
         private final int id;
 
-        PlainSubscriber(Subscriber<T> delegate, SubscriptionManagementStrategy<T> subscriptionStrategy, int id) {
+        PlainSubscriberProxy(Subscriber<T> delegate, SubscriptionManagementStrategy<T> subscriptionStrategy, int id) {
             assert delegate != null;
 
             this.delegate = delegate;
@@ -102,7 +101,7 @@ public class CompositePublisher<T> implements Flow.Publisher<T> {
 
         @Override
         public void onNext(T item) {
-            delegate.onNext(item);
+            subscriptionStrategy.onReceive(id, item);
         }
 
         @Override
@@ -115,17 +114,16 @@ public class CompositePublisher<T> implements Flow.Publisher<T> {
         @Override
         public void onComplete() {
             subscriptionStrategy.onSubscriptionComplete(id);
-//            if (completed.incrementAndGet() == compSubscription.subscriptions().size())
-//                delegate.onComplete();
         }
     }
 
-    private static class PlainSubscriptionManagementStrategy<T> implements SubscriptionManagementStrategy<T> {
+    private static class SequentialSubscriptionStrategy<T> implements SubscriptionManagementStrategy<T> {
         List<Subscription> subscriptions = new ArrayList<>();
-        List<Subscriber<T>> subscribers = new ArrayList<>();
-        AtomicInteger completed = new AtomicInteger();
+        int subscriptionIdx = 0;
 
         Subscriber<? super T> delegate;
+
+        private long remaining;
 
         @Override
         public void addSubscription(Subscription subscription) {
@@ -133,24 +131,22 @@ public class CompositePublisher<T> implements Flow.Publisher<T> {
         }
 
         @Override
-        public void addSubscriber(Subscriber<T> subscriber) {
-            subscribers.add(subscriber);
-        }
-
-        @Override
         public void onReceive(int subscriberId, T item) {
+            --remaining;
+
             delegate.onNext(item);
         }
 
         @Override
         public void onSubscriptionComplete(int subscriberId) {
-            if (completed.incrementAndGet() == subscriptions.size())
+            if (++subscriptionIdx == subscriptions.size()) {
                 delegate.onComplete();
-        }
 
-        @Override
-        public void onRequestCompleted(int subscriberId) {
-            // No-op.
+                return;
+            }
+
+            if (remaining > 0)
+                requestInternal();
         }
 
         @Override
@@ -162,16 +158,34 @@ public class CompositePublisher<T> implements Flow.Publisher<T> {
 
         @Override
         public void request(long n) {
-            for (Subscription sub : subscriptions) {
-                sub.request(n/subscriptions.size());
-            }
+            remaining = n;
+
+            requestInternal();
         }
+
+        private void requestInternal() {
+            activeSubscription().request(remaining);
+        }
+
 
         @Override
         public void cancel() {
-            for (Subscription sub : subscriptions) {
-                sub.cancel();
-            }
+            activeSubscription().cancel();
         }
+
+        private Subscription activeSubscription() {
+            return subscriptions.get(subscriptionIdx);
+        }
+
+        @Override
+        public void onRequestCompleted(int subscriberId) {
+            // No-op.
+        }
+
+        @Override
+        public void addSubscriber(Subscriber<T> subscriber) {
+            // No-op.
+        }
+
     }
 }

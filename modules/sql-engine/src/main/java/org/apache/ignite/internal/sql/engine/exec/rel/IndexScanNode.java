@@ -72,7 +72,7 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
     /** Participating columns. */
     private final @Nullable BitSet requiredColumns;
 
-    private final RangeIterable<RowT> rangeConditions;
+//    private final RangeIterable<RowT> rangeConditions;
 
     private Iterator<RangeCondition<RowT>> rangeConditionIterator;
 
@@ -120,16 +120,18 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
         this.filters = filters;
         this.rowTransformer = rowTransformer;
         this.requiredColumns = requiredColumns;
-        this.rangeConditions = rangeConditions;
+//        this.rangeConditions = rangeConditions;
 
         this.cmp = cmp == null ? null : (o1, o2) -> cmp.compare(convert(o1), convert(o2));
 
-        // todo unified for hash index
-        if (schemaIndex.type() == Type.SORTED) {
-            assert cmp != null;
+        rangeConditionIterator = rangeConditions == null ? null : rangeConditions.iterator();
 
-            rangeConditionIterator = rangeConditions == null ? null : rangeConditions.iterator();
-        }
+//        // todo unified for hash index
+//        if (schemaIndex.type() == Type.SORTED) {
+//            assert cmp != null;
+//
+//            rangeConditionIterator = rangeConditions == null ? null : rangeConditions.iterator();
+//        }
 
         factory = ctx.rowHandler().factory(ctx.getTypeFactory(), rowType);
 
@@ -287,35 +289,64 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
                 compPublisher.subscribe(new SubscriberImpl());
             } else {
                 assert schemaIndex.type() == Type.HASH;
-
-                int part = curPartIdx;
                 BinaryTuple key = null;
 
-                if (rangeConditions == null) {
-                    curPartIdx++;
+                if (rangeConditionIterator == null) {
+                    curPartIdx = parts.length; // end marker
                 } else {
-                    if (rangeConditionIterator == null) {
-                        rangeConditionIterator = rangeConditions.iterator();
-                    }
-
                     RangeCondition<RowT> cond = rangeConditionIterator.next();
 
                     assert cond.lower() == cond.upper();
 
                     key = toBinaryTuple(cond.lower());
 
-                    if (!rangeConditionIterator.hasNext()) { // Switch to next partition and reset range index.
-                        rangeConditionIterator = null;
-                        curPartIdx++;
+                    if (!rangeConditionIterator.hasNext()) {
+                        curPartIdx = parts.length; // end marker
                     }
                 }
 
-                schemaIndex.index().scan(
-                        parts[part],
-                        context().transaction(),
-                        key,
-                        requiredColumns
-                ).subscribe(new SubscriberImpl());
+                CompositePublisher<BinaryTuple> compPublisher = new CompositePublisher<>(null);
+
+                for (int p : parts) {
+                    compPublisher.add(
+                            schemaIndex.index().scan(
+                                    p,
+                                    context().transaction(),
+                                    key,
+                                    requiredColumns
+                            ));
+                }
+
+                compPublisher.subscribe(new SubscriberImpl());
+
+//                int part = curPartIdx;
+//                BinaryTuple key = null;
+//
+//                if (rangeConditions == null) {
+//                    curPartIdx++;
+//                } else {
+//                    if (rangeConditionIterator == null) {
+//                        rangeConditionIterator = rangeConditions.iterator();
+//                    }
+//
+//                    RangeCondition<RowT> cond = rangeConditionIterator.next();
+//
+//                    assert cond.lower() == cond.upper();
+//
+//                    key = toBinaryTuple(cond.lower());
+//
+//                    if (!rangeConditionIterator.hasNext()) { // Switch to next partition and reset range index.
+//                        rangeConditionIterator = null;
+//                        curPartIdx++;
+//                    }
+//                }
+//
+//                schemaIndex.index().scan(
+//                        parts[part],
+//                        context().transaction(),
+//                        key,
+//                        requiredColumns
+//                ).subscribe(new SubscriberImpl());
             }
         } else {
             waiting = NOT_WAITING;
