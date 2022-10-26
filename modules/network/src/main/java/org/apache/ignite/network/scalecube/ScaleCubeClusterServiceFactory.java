@@ -31,14 +31,10 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 
-import org.apache.ignite.configuration.schemas.network.ClusterMembershipView;
-import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
-import org.apache.ignite.configuration.schemas.network.NetworkView;
-import org.apache.ignite.configuration.schemas.network.ScaleCubeView;
-import org.apache.ignite.configuration.schemas.rest.RestConfiguration;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
+import org.apache.ignite.internal.network.configuration.RestConfiguration;
 import org.apache.ignite.network.NodeMetadata;
 import org.apache.ignite.internal.network.configuration.ClusterMembershipView;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;

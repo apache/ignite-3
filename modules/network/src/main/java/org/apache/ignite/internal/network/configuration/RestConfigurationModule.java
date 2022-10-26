@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.rest.configuration;
+package org.apache.ignite.internal.network.configuration;
 
 import java.util.Collection;
 import java.util.Collections;
