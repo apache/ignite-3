@@ -68,13 +68,10 @@ public class ColocationHashTests : IgniteTestsBase
     [Test]
     public async Task TestMultiKeyColocationHashIsSameOnServerAndClient()
     {
+        // TODO: Random permutations?
         for (var i = 0; i < TestCases.Length; i++)
         {
-            var keys1 = TestCases.Skip(i).ToArray();
-            var keys2 = TestCases.Take(i + 1).ToArray();
-
-            await AssertClientAndServerHashesAreEqual(keys1);
-            await AssertClientAndServerHashesAreEqual(keys2);
+            await AssertClientAndServerHashesAreEqual(TestCases.Take(i + 1).ToArray());
         }
     }
 
@@ -96,7 +93,7 @@ public class ColocationHashTests : IgniteTestsBase
 
         var serverHash = await GetServerHash(bytes, keys.Length);
 
-        Assert.AreEqual(serverHash, hash);
+        Assert.AreEqual(serverHash, hash, string.Join(", ", keys));
     }
 
     private async Task<int> GetServerHash(byte[] bytes, int count)

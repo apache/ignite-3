@@ -324,6 +324,16 @@ public class PlatformTestNodeRunner {
                         tuple.set(colName, reader.longValue(valIdx));
                         break;
 
+                    case ClientDataType.FLOAT:
+                        columns[i] = new Column(colName, NativeTypes.FLOAT, false);
+                        tuple.set(colName, reader.floatValue(valIdx));
+                        break;
+
+                    case ClientDataType.DOUBLE:
+                        columns[i] = new Column(colName, NativeTypes.DOUBLE, false);
+                        tuple.set(colName, reader.doubleValue(valIdx));
+                        break;
+
                     default:
                         throw new IllegalArgumentException("Unsupported type: " + type);
                 }
