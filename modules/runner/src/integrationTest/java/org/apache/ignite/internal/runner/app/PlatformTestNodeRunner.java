@@ -344,7 +344,11 @@ public class PlatformTestNodeRunner {
             var schema = new SchemaDescriptor(1, columns, new Column[0]);
 
             // Override default schema sorting to match platform tests.
-            Arrays.sort(schema.keyColumns().columns(), Comparator.comparingInt(Column::columnOrder));
+            Column[] keyColumns = schema.keyColumns().columns();
+            Arrays.sort(keyColumns, Comparator.comparingInt(Column::columnOrder));
+
+            for (int i = 0; i < keyColumns.length; i++)
+                keyColumns[i] = keyColumns[i].copy(i);
 
             var marsh = new TupleMarshallerImpl(new TestSchemaRegistry(schema));
 
