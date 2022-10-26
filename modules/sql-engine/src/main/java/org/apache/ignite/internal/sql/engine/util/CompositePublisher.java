@@ -28,6 +28,9 @@ import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.jetbrains.annotations.Nullable;
 
+/**
+ * Composite publisher.
+ */
 public class CompositePublisher<T> implements Flow.Publisher<T> {
     private final Collection<? extends Publisher<T>> publishers;
 
@@ -46,9 +49,9 @@ public class CompositePublisher<T> implements Flow.Publisher<T> {
             throw new IllegalStateException("Multiple subscribers are not supported.");
         }
 
-        AbstractCompositeSubscriptionStrategy<T> subscriptionStrategy = comp != null ?
-                new MergeSortSubscriptionStrategy<>(comp, delegate) :
-                new SequentialSubscriptionStrategy<>(delegate);
+        AbstractCompositeSubscriptionStrategy<T> subscriptionStrategy = comp != null
+                ? new MergeSortSubscriptionStrategy<>(comp, delegate)
+                : new SequentialSubscriptionStrategy<>(delegate);
 
         int subscriberIdx = 0;
 
@@ -60,6 +63,9 @@ public class CompositePublisher<T> implements Flow.Publisher<T> {
         delegate.onSubscribe(subscriptionStrategy);
     }
 
+    /**
+     * Composite subscription strategy template.
+     */
     protected abstract static class AbstractCompositeSubscriptionStrategy<T> implements Subscription {
         protected List<Subscription> subscriptions = new ArrayList<>();
 
@@ -81,6 +87,9 @@ public class CompositePublisher<T> implements Flow.Publisher<T> {
 
         public abstract void onReceive(int subscriberId, T item);
 
+        /**
+         * Plain subscriber.
+         */
         protected class PlainSubscriberProxy implements Subscriber<T> {
             protected final Subscriber<? super T> delegate;
 
@@ -117,6 +126,9 @@ public class CompositePublisher<T> implements Flow.Publisher<T> {
         }
     }
 
+    /**
+     * Sequential subscription strategy.
+     */
     public static class SequentialSubscriptionStrategy<T> extends AbstractCompositeSubscriptionStrategy<T> {
         int subscriptionIdx = 0;
 
@@ -141,8 +153,9 @@ public class CompositePublisher<T> implements Flow.Publisher<T> {
                 return;
             }
 
-            if (remaining > 0)
+            if (remaining > 0) {
                 requestInternal();
+            }
         }
 
         @Override

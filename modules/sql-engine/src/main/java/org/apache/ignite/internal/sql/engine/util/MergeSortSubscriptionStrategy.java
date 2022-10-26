@@ -33,6 +33,9 @@ import org.apache.ignite.internal.sql.engine.util.CompositePublisher.AbstractCom
 import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentHashSet;
 import org.jetbrains.annotations.Nullable;
 
+/**
+ * Merge sort subscription strategy.
+ */
 public class MergeSortSubscriptionStrategy<T> extends AbstractCompositeSubscriptionStrategy<T> {
     /** Items comparator. */
     private final Comparator<T> comp;
@@ -40,7 +43,7 @@ public class MergeSortSubscriptionStrategy<T> extends AbstractCompositeSubscript
     /** Internal ordered buffer. */
     private final PriorityBlockingQueue<T> inBuf;
 
-    private final List<SortingSubscriberProxy> subscribers = new ArrayList<>();
+    private final List<MergeSortStrategySubscriber> subscribers = new ArrayList<>();
 
     private final ConcurrentHashSet<Integer> finished = new ConcurrentHashSet<>();
 
@@ -60,6 +63,12 @@ public class MergeSortSubscriptionStrategy<T> extends AbstractCompositeSubscript
     /** Count of subscribers we are waiting for. */
     private final AtomicInteger waitResponseCnt = new AtomicInteger();
 
+    /**
+     * Constructor.
+     *
+     * @param comp Items comparator.
+     * @param delegate Delegated subscriber.
+     */
     public MergeSortSubscriptionStrategy(Comparator<T> comp, Subscriber<? super T> delegate) {
         super(delegate);
 
@@ -85,10 +94,10 @@ public class MergeSortSubscriptionStrategy<T> extends AbstractCompositeSubscript
         // Perhaps we can return something from internal buffer?
         if (inBuf.size() > 0) {
             if (finished.size() == subscriptions.size()) { // all data has been received?
-                if (pushQueue(n, null, null) == 0)
+                if (pushQueue(n, null, null) == 0) {
                     return;
-            }
-            else { // Someone still alive.
+                }
+            } else { // Someone still alive.
                 requestNext();
 
                 return;
@@ -104,8 +113,9 @@ public class MergeSortSubscriptionStrategy<T> extends AbstractCompositeSubscript
     @Override
     public synchronized void cancel() {
         for (int i = 0; i < subscriptions.size(); i++) {
-            if (!finished.contains(i))
+            if (!finished.contains(i)) {
                 subscriptions.get(i).cancel();
+            }
         }
     }
 
@@ -183,34 +193,32 @@ public class MergeSortSubscriptionStrategy<T> extends AbstractCompositeSubscript
         return remain;
     }
 
-    public void onRequestCompleted(int subscriberId) {
+    private void onRequestCompleted(int subscriberId) {
         if (waitResponse.remove(subscriberId) && waitResponseCnt.decrementAndGet() == 0) {
             requestNext();
         }
-        else
-            debug(">Xxx> onRequestCompleted " + waitResponse + ", cntr=" + waitResponseCnt.get() + ", id=" + subscriberId);
     }
 
+    /** {@inheritDoc} */
     @Override
     public Subscriber<T> subscriberProxy(int subscriberId) {
-        SortingSubscriberProxy subscriber = new SortingSubscriberProxy(delegate, subscriberId);
+        MergeSortStrategySubscriber subscriber = new MergeSortStrategySubscriber(delegate, subscriberId);
 
         subscribers.add(subscriber);
 
         return subscriber;
     }
 
-    public synchronized void requestNext() {
+    private synchronized void requestNext() {
         Pair<T, List<Integer>> minItemAndIds = chooseRequestedSubscriptionsIds();
         T minItem = minItemAndIds.left;
         List<Integer> subsIds = minItemAndIds.right;
 
-        if (minItem == null)
+        if (minItem == null) {
             return;
+        }
 
         remain = pushQueue(remain, comp, minItem);
-
-        debug(">xxx> pushQueue :: end");
 
         if (remain > 0) {
             requestInternal(subsIds, requested);
@@ -221,8 +229,9 @@ public class MergeSortSubscriptionStrategy<T> extends AbstractCompositeSubscript
         long dataAmount = estimateSubscriptionRequestAmount(cnt);
 
         for (Integer id : subsIds) {
-            if (finished.contains(id))
+            if (finished.contains(id)) {
                 continue;
+            }
 
             boolean added = waitResponse.add(id);
 
@@ -234,7 +243,7 @@ public class MergeSortSubscriptionStrategy<T> extends AbstractCompositeSubscript
         for (Integer id : waitResponse) {
             debug(">xxx> idx=" + id + " requested=" + dataAmount);
 
-            SortingSubscriberProxy subscriber = subscribers.get(id);
+            MergeSortStrategySubscriber subscriber = subscribers.get(id);
 
             subscriber.remainingCnt.set(dataAmount);
             subscriptions.get(id).request(dataAmount);
@@ -251,7 +260,7 @@ public class MergeSortSubscriptionStrategy<T> extends AbstractCompositeSubscript
         List<Integer> minIdxs = new ArrayList<>();
 
         for (int i = 0; i < subscribers.size(); i++) {
-            SortingSubscriberProxy subscriber = subscribers.get(i);
+            MergeSortStrategySubscriber subscriber = subscribers.get(i);
 
             if (finished.contains(i)) {
                 continue;
@@ -275,14 +284,17 @@ public class MergeSortSubscriptionStrategy<T> extends AbstractCompositeSubscript
         return Pair.of(minItem, minIdxs);
     }
 
-    public class SortingSubscriberProxy extends AbstractCompositeSubscriptionStrategy<T>.PlainSubscriberProxy {
+    /**
+     * Merge sort subscription strategy subscriber.
+     */
+    public class MergeSortStrategySubscriber extends AbstractCompositeSubscriptionStrategy<T>.PlainSubscriberProxy {
         private final AtomicLong remainingCnt = new AtomicLong();
 
         private final AtomicBoolean finished = new AtomicBoolean();
 
         private volatile T lastItem;
 
-        public SortingSubscriberProxy(Subscriber<? super T> delegate, int id) {
+        public MergeSortStrategySubscriber(Subscriber<? super T> delegate, int id) {
             super(delegate, id);
         }
 
@@ -315,7 +327,8 @@ public class MergeSortSubscriptionStrategy<T> extends AbstractCompositeSubscript
     private static boolean debug = false;
 
     private static void debug(String msg) {
-        if (debug)
+        if (debug) {
             System.out.println(Thread.currentThread().getId() + " " + msg);
+        }
     }
 }

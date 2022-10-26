@@ -87,7 +87,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
 
         Object[][] expected = Arrays.stream(tableData).map(Object[]::clone).toArray(Object[][]::new);
 
-        Arrays.sort(expected, Comparator.comparingLong(v -> (long)((Object[])v)[0]));
+        Arrays.sort(expected, Comparator.comparingLong(v -> (long) ((Object[]) v)[0]));
 
         // Validate sort order.
         validateSortedIndexScan(

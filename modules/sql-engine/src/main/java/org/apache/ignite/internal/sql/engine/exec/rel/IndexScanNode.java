@@ -74,7 +74,7 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
     /** Participating columns. */
     private final @Nullable BitSet requiredColumns;
 
-    private final @Nullable Comparator<BinaryTuple> cmp;
+    private final @Nullable Comparator<BinaryTuple> comp;
 
     private Iterator<RangeCondition<RowT>> rangeConditionIterator;
 
@@ -124,7 +124,7 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
 
         Comparator<RowT> rowCmp = schemaIndex.type() == Type.SORTED ? ctx.expressionFactory().comparator(collation) : null;
 
-        cmp = rowCmp ==  null ? null : (o1, o2) -> rowCmp.compare(convert(o1), convert(o2));
+        comp = rowCmp ==  null ? null : (o1, o2) -> rowCmp.compare(convert(o1), convert(o2));
 
         rangeConditionIterator = rangeConditions == null ? null : rangeConditions.iterator();
 
@@ -261,7 +261,7 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
                 compPublisher.add(partPublisher(p, cond));
             }
 
-            new CompositePublisher<>(compPublisher, cmp).subscribe(new SubscriberImpl());
+            new CompositePublisher<>(compPublisher, comp).subscribe(new SubscriberImpl());
         } else {
             waiting = NOT_WAITING;
         }

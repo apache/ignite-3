@@ -40,6 +40,9 @@ import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+/**
+ * Composite publisher test.
+ */
 public class CompositePublisherTest {
     @Test
     public void testEnoughData() throws InterruptedException {
@@ -69,7 +72,7 @@ public class CompositePublisherTest {
         doTestPublisher(30, 30, 3, false, false);
     }
 
-    public void doTestPublisher(int requestCnt, int totalCnt, int threadCnt, boolean random, boolean split) throws InterruptedException {
+    private void doTestPublisher(int requestCnt, int totalCnt, int threadCnt, boolean random, boolean split) throws InterruptedException {
         int dataCnt = totalCnt / threadCnt;
         Integer[][] data = new Integer[threadCnt][dataCnt];
         int[] expData = new int[totalCnt];
@@ -96,7 +99,7 @@ public class CompositePublisherTest {
             publishers.add(pub);
         }
 
-        AtomicReference<Subscription> subscriptionRef =new AtomicReference<>();
+        AtomicReference<Subscription> subscriptionRef = new AtomicReference<>();
         SubscriberListener<Integer> lsnr = new SubscriberListener<>();
 
         new CompositePublisher<>(publishers, Comparator.comparingInt(v -> v)).subscribe(new Subscriber<>() {
@@ -277,8 +280,9 @@ public class CompositePublisherTest {
 
             res.add(item);
 
-            if (receivedCnt.incrementAndGet() == requestedCnt.get())
+            if (receivedCnt.incrementAndGet() == requestedCnt.get()) {
                 waitLatch.countDown();
+            }
         }
 
         boolean awaitComplete(int timeout) throws InterruptedException {
@@ -294,7 +298,8 @@ public class CompositePublisherTest {
     private static boolean debug = false;
 
     private static void debug(String msg) {
-        if (debug)
+        if (debug) {
             System.out.println(Thread.currentThread().getId() + " " + msg);
+        }
     }
 }
