@@ -34,7 +34,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import org.apache.ignite.internal.lang.IgniteExceptionUtils;
 import org.apache.ignite.internal.sql.engine.AsyncCursor;
 import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
@@ -176,7 +175,7 @@ public class SessionImpl implements Session {
             );
 
             result.whenComplete((rs, th) -> {
-                if (IgniteExceptionUtils.getIgniteErrorCode(th) == SESSION_NOT_FOUND_ERR) {
+                if (IgniteException.getIgniteErrorCode(th) == SESSION_NOT_FOUND_ERR) {
                     closeInternal();
                 }
             });

@@ -47,7 +47,7 @@ import java.util.BitSet;
 import java.util.Random;
 import org.apache.ignite.internal.marshaller.testobjects.TestObjectWithAllTypes;
 import org.apache.ignite.internal.marshaller.testobjects.TestSimpleObject;
-import org.apache.ignite.internal.util.Pair;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -109,10 +109,10 @@ public class FieldAccessorTest {
                 new MarshallerColumn("decimalCol", DECIMAL),
         };
 
-        final Pair<MarshallerWriter, MarshallerReader> mocks = createMocks();
+        final IgniteBiTuple<MarshallerWriter, MarshallerReader> mocks = createMocks();
 
-        final MarshallerWriter writer = mocks.getFirst();
-        final MarshallerReader reader = mocks.getSecond();
+        final MarshallerWriter writer = mocks.get1();
+        final MarshallerReader reader = mocks.get2();
 
         final TestObjectWithAllTypes obj = TestObjectWithAllTypes.randomObject(rnd);
 
@@ -151,10 +151,10 @@ public class FieldAccessorTest {
                 new MarshallerColumn("bytesCol", BYTE_ARR),
         };
 
-        final Pair<MarshallerWriter, MarshallerReader> mocks = createMocks();
+        final IgniteBiTuple<MarshallerWriter, MarshallerReader> mocks = createMocks();
 
-        final MarshallerWriter writer = mocks.getFirst();
-        final MarshallerReader reader = mocks.getSecond();
+        final MarshallerWriter writer = mocks.get1();
+        final MarshallerReader reader = mocks.get2();
 
         final TestSimpleObject obj = TestSimpleObject.randomObject(rnd);
 
@@ -192,10 +192,10 @@ public class FieldAccessorTest {
 
         assertEquals("Some string", accessor.value("Some string"));
 
-        final Pair<MarshallerWriter, MarshallerReader> mocks = createMocks();
+        final IgniteBiTuple<MarshallerWriter, MarshallerReader> mocks = createMocks();
 
-        accessor.write(mocks.getFirst(), "Other string");
-        assertEquals("Other string", accessor.read(mocks.getSecond()));
+        accessor.write(mocks.get1(), "Other string");
+        assertEquals("Other string", accessor.read(mocks.get2()));
     }
 
     /**
@@ -211,21 +211,21 @@ public class FieldAccessorTest {
 
         assertEquals("Some string", accessor.value("Some string"));
 
-        final Pair<MarshallerWriter, MarshallerReader> mocks = createMocks();
+        final IgniteBiTuple<MarshallerWriter, MarshallerReader> mocks = createMocks();
 
         assertThrows(
                 MarshallerException.class,
-                () -> accessor.write(mocks.getFirst(), "Other string"),
+                () -> accessor.write(mocks.get1(), "Other string"),
                 "Failed to write field [id=42]"
         );
     }
 
     /**
-     * Creates mock pair for {@link MarshallerWriter} and {@link MarshallerReader}.
+     * Creates mock IgniteBiTuple for {@link MarshallerWriter} and {@link MarshallerReader}.
      *
-     * @return Pair of mocks.
+     * @return IgniteBiTuple of mocks.
      */
-    private Pair<MarshallerWriter, MarshallerReader> createMocks() {
+    private IgniteBiTuple<MarshallerWriter, MarshallerReader> createMocks() {
         final ArrayList<Object> vals = new ArrayList<>();
 
         final MarshallerWriter mockedAsm = Mockito.mock(MarshallerWriter.class);
@@ -298,6 +298,6 @@ public class FieldAccessorTest {
         Mockito.doAnswer(rowAnswer).when(mockedRow).readBigInt();
         Mockito.doAnswer(rowAnswer).when(mockedRow).readBigDecimal(0);
 
-        return new Pair<>(mockedAsm, mockedRow);
+        return new IgniteBiTuple<>(mockedAsm, mockedRow);
     }
 }
