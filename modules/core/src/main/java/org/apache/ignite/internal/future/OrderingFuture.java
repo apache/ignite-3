@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.future;
 
-import static java.util.concurrent.atomic.AtomicReferenceFieldUpdater.newUpdater;
-
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.concurrent.CancellationException;
@@ -29,7 +29,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 import org.jetbrains.annotations.Nullable;
@@ -49,14 +48,22 @@ import org.jetbrains.annotations.Nullable;
  * @see CompletableFuture
  */
 public class OrderingFuture<T> {
-    @SuppressWarnings("rawtypes")
-    private static final AtomicReferenceFieldUpdater<OrderingFuture, State> STATE = newUpdater(OrderingFuture.class, State.class, "state");
+    private static final VarHandle STATE;
+
+    static {
+        try {
+            STATE = MethodHandles.lookup().findVarHandle(OrderingFuture.class, "state", State.class);
+        } catch (NoSuchFieldException | IllegalAccessException e) {
+            throw new RuntimeException(e);
+        }
+    }
 
     /**
      * Stores all the state of this future: whether it is completed, normal completion result (if any), cause
      * of exceptional completion (if any), dependents. The State class and all of its components are immutable.
      * We change the state using compare-and-set approach, next state is built from previous one.
      */
+    @SuppressWarnings("FieldMayBeFinal")
     private volatile State<T> state = State.empty();
 
     /**
