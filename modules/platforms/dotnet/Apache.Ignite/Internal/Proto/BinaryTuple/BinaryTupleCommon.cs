@@ -18,7 +18,6 @@
 namespace Apache.Ignite.Internal.Proto.BinaryTuple
 {
     using System.Diagnostics;
-    using System.Text;
 
     /// <summary>
     /// Common binary tuple constants and utils.

@@ -104,10 +104,7 @@ internal static class HashUtils // TODO: Unchecked everywhere?
     /// <param name="data">Input data.</param>
     /// <param name="seed">Current hash.</param>
     /// <returns>Resulting hash.</returns>
-    public static int Hash32(Span<byte> data, int seed)
-    {
-        throw new NotImplementedException();
-    }
+    public static int Hash32(Span<byte> data, int seed) => Hash32Internal(data, (ulong)seed);
 
     /// <summary>
     /// Generates 32-bit hash.
@@ -247,6 +244,13 @@ internal static class HashUtils // TODO: Unchecked everywhere?
         h2 = Fmix64(h2);
 
         return h1 + h2;
+    }
+
+    private static int Hash32Internal(Span<byte> data, ulong seed)
+    {
+        var hash64 = Hash64Internal(data, seed);
+
+        return (int)(hash64 ^ (hash64 >> 32));
     }
 
     private static ulong Hash64Internal(Span<byte> data, ulong seed)
