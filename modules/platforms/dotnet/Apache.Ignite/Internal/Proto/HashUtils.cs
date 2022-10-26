@@ -139,10 +139,7 @@ internal static class HashUtils
     /// <param name="data">Input data.</param>
     /// <param name="seed">Current hash.</param>
     /// <returns>Resulting hash.</returns>
-    public static int Hash32(decimal data, int seed)
-    {
-        throw new NotImplementedException();
-    }
+    public static int Hash32(decimal data, int seed) => Hash32(decimal.ToDouble(data), seed);
 
     /// <summary>
     /// Generates 32-bit hash.
