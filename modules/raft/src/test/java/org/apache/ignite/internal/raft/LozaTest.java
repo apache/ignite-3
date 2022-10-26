@@ -25,7 +25,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Supplier;
-import org.apache.ignite.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;

@@ -20,7 +20,9 @@ package org.apache.ignite.distributed;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.raft.jraft.test.TestUtils.waitForTopology;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -40,13 +42,12 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.apache.ignite.hlc.HybridClock;
-import org.apache.ignite.hlc.HybridClockImpl;
-import org.apache.ignite.hlc.HybridTimestamp;
-import org.apache.ignite.hlc.PendingComparableValuesTracker;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.affinity.RendezvousAffinityFunction;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.Loza;
@@ -78,6 +79,7 @@ import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestConcurrentHashMapTxStateStorage;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
@@ -90,9 +92,11 @@ import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupServiceImpl;
 import org.apache.ignite.table.Table;
+import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mockito;
@@ -395,7 +399,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                         partNodes,
                         () -> {
                             return new PartitionListener(
-                                    testMpPartStorage,
+                                    new TestPartitionDataStorage(testMpPartStorage),
                                     txSateStorage,
                                     txManagers.get(node),
                                     primaryIndex
@@ -579,13 +583,13 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
         int hash = 0;
 
         for (Map.Entry<ClusterNode, Loza> entry : raftServers.entrySet()) {
-            Loza svc = (Loza) entry.getValue();
+            Loza svc = entry.getValue();
             JraftServerImpl server = (JraftServerImpl) svc.server();
             org.apache.ignite.raft.jraft.RaftGroupService grp = server.raftGroupService(new TablePartitionId(table.tableId(), partId));
             JraftServerImpl.DelegatingStateMachine fsm = (JraftServerImpl.DelegatingStateMachine) grp
                     .getRaftNode().getOptions().getFsm();
             PartitionListener listener = (PartitionListener) fsm.getListener();
-            MvPartitionStorage storage = listener.getStorage();
+            MvPartitionStorage storage = listener.getMvStorage();
 
             if (hash == 0) {
                 hash = storage.hashCode();
@@ -595,5 +599,21 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
         }
 
         return true;
+    }
+
+    @Test
+    public void testIgniteTransactionsAndReadTimestamp() {
+        Transaction readWriteTx = igniteTransactions.begin();
+        assertFalse(readWriteTx.isReadOnly());
+        assertNull(readWriteTx.readTimestamp());
+
+        Transaction readOnlyTx = igniteTransactions.readOnly().begin();
+        assertTrue(readOnlyTx.isReadOnly());
+        assertNotNull(readOnlyTx.readTimestamp());
+
+        readWriteTx.commit();
+
+        Transaction readOnlyTx2 = igniteTransactions.readOnly().begin();
+        readOnlyTx2.rollback();
     }
 }

@@ -18,8 +18,9 @@ package org.apache.ignite.raft.jraft.core;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
-import org.apache.ignite.hlc.HybridTimestamp;
-import org.apache.ignite.hlc.PendingComparableValuesTracker;import org.apache.ignite.raft.jraft.Iterator;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.util.PendingComparableValuesTracker;
+import org.apache.ignite.raft.jraft.Iterator;
 import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.StateMachine;

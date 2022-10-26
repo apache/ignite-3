@@ -17,7 +17,8 @@
 
 package org.apache.ignite.internal.raft.server;
 
-import org.apache.ignite.hlc.HybridTimestamp;import org.apache.ignite.hlc.PendingComparableValuesTracker;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 
 /**
  * Options that are specific for replication group.

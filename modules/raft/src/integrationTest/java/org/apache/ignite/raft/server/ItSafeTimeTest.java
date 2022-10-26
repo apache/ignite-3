@@ -23,13 +23,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
-import org.apache.ignite.hlc.HybridClock;
-import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.hlc.TestHybridClock;
-import org.apache.ignite.hlc.PendingComparableValuesTracker;import org.apache.ignite.internal.raft.server.RaftGroupOptions;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.ReplicationGroupOptions;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.server.counter.CounterListener;

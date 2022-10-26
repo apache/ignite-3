@@ -73,13 +73,12 @@ import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.ConfigurationProperty;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
-import org.apache.ignite.hlc.HybridClock;
-import org.apache.ignite.hlc.HybridTimestamp;
-import org.apache.ignite.hlc.PendingComparableValuesTracker;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.causality.VersionedValue;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.EventListener;
@@ -117,10 +116,14 @@ import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.message.HasDataRequest;
 import org.apache.ignite.internal.table.distributed.message.HasDataRequestBuilder;
 import org.apache.ignite.internal.table.distributed.message.HasDataResponse;
+import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.raft.RebalanceRaftGroupEventsListener;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionAccessImpl;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionKey;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionSnapshotStorageFactory;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.SnapshotAwarePartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
@@ -135,6 +138,7 @@ import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbTableSt
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteNameUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.utils.RebalanceUtil;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteBiTuple;
@@ -277,6 +281,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     private final HybridClock clock;
 
+    private final OutgoingSnapshotsManager outgoingSnapshotsManager;
+
     /** Partitions storage path. */
     private final Path storagePath;
 
@@ -321,7 +327,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             MetaStorageManager metaStorageMgr,
             SchemaManager schemaManager,
             LogStorageFactoryCreator volatileLogStorageFactoryCreator,
-            HybridClock clock
+            HybridClock clock,
+            OutgoingSnapshotsManager outgoingSnapshotsManager
     ) {
         this.tablesCfg = tablesCfg;
         this.raftMgr = raftMgr;
@@ -336,6 +343,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         this.schemaManager = schemaManager;
         this.volatileLogStorageFactoryCreator = volatileLogStorageFactoryCreator;
         this.clock = clock;
+        this.outgoingSnapshotsManager = outgoingSnapshotsManager;
 
         placementDriver = new PlacementDriver(replicaSvc);
 
@@ -695,7 +703,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 if (raftMgr.shouldHaveRaftGroupLocally(nodes)) {
                     startGroupFut = CompletableFuture
-                            .supplyAsync(() -> internalTbl.storage().getOrCreateMvPartition(partId), ioExecutor)
+                            .supplyAsync(() -> getOrCreateMvPartition(internalTbl, partId), ioExecutor)
                             .thenComposeAsync((partitionStorage) -> {
                                 boolean hasData = partitionStorage.lastAppliedIndex() > 0;
 
@@ -734,7 +742,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                         return CompletableFuture.completedFuture(null);
                                     }
 
-                                    RaftGroupOptions groupOptions = groupOptionsForPartition(internalTbl, partitionStorage,
+                                    RaftGroupOptions groupOptions = groupOptionsForPartition(internalTbl, partId, partitionStorage,
                                             newPartAssignment, safeTime);
 
                                     try {
@@ -742,11 +750,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                 replicaGrpId,
                                                 newPartAssignment,
                                                 new PartitionListener(
-                                                    partitionStorage,
-                                                    internalTbl.txStateStorage().getOrCreateTxStateStorage(partId),
-                                                    txManager,
-                                                    primaryIndex
-                                            ),
+                                                        partitionDataStorage(partitionStorage, internalTbl, partId),
+                                                        internalTbl.txStateStorage().getOrCreateTxStateStorage(partId),
+                                                        txManager,
+                                                        primaryIndex
+                                                ),
                                                 new RebalanceRaftGroupEventsListener(
                                                         metaStorageMgr,
                                                         tablesCfg.tables().get(tablesById.get(tblId).name()),
@@ -782,7 +790,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                             .updateInternalTableRaftGroupService(partId, updatedRaftGroupService);
 
                                     if (replicaMgr.shouldHaveReplicationGroupLocally(nodes)) {
-                                        MvPartitionStorage partitionStorage = internalTbl.storage().getOrCreateMvPartition(partId);
+                                        MvPartitionStorage partitionStorage = getOrCreateMvPartition(internalTbl, partId);
 
                                         try {
                                             replicaMgr.startReplica(replicaGrpId,
@@ -819,6 +827,18 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         CompletableFuture.allOf(futures).join();
     }
 
+    private PartitionDataStorage partitionDataStorage(MvPartitionStorage partitionStorage, InternalTable internalTbl, int partId) {
+        return new SnapshotAwarePartitionDataStorage(partitionStorage, outgoingSnapshotsManager, partitionKey(internalTbl, partId));
+    }
+
+    private PartitionKey partitionKey(InternalTable internalTbl, int partId) {
+        return new PartitionKey(internalTbl.tableId(), partId);
+    }
+
+    private static MvPartitionStorage getOrCreateMvPartition(InternalTable internalTbl, int partId) {
+        return internalTbl.storage().getOrCreateMvPartition(partId);
+    }
+
     /**
      * Calculates the quantity of the data nodes for the partition of the table.
      *
@@ -847,6 +867,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     private RaftGroupOptions groupOptionsForPartition(
             InternalTable internalTbl,
+            int partId,
             MvPartitionStorage partitionStorage,
             Set<ClusterNode> peers,
             PendingComparableValuesTracker<HybridTimestamp> safeTime
@@ -865,8 +886,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         raftGroupOptions.snapshotStorageFactory(new PartitionSnapshotStorageFactory(
                 raftMgr.topologyService(),
                 //TODO IGNITE-17302 Use miniumum from mv storage and tx state storage.
-                new OutgoingSnapshotsManager(raftMgr.messagingService()),
-                partitionStorage::persistedIndex,
+                outgoingSnapshotsManager,
+                new PartitionAccessImpl(partitionKey(internalTbl, partId), partitionStorage),
                 peers.stream().map(n -> new Peer(n.address())).map(PeerId::fromPeer).map(Object::toString).collect(Collectors.toList()),
                 List.of()
         ));
@@ -1675,17 +1696,18 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 pendingAssignmentsWatchEvent.key(), partId, tbl.name(), localMember.address());
 
                         if (raftMgr.shouldHaveRaftGroupLocally(deltaPeers)) {
-                            MvPartitionStorage partitionStorage = tbl.internalTable().storage().getOrCreateMvPartition(partId);
+                            MvPartitionStorage partitionStorage = getOrCreateMvPartition(tbl.internalTable(), partId);
 
                             RaftGroupOptions groupOptions = groupOptionsForPartition(
                                     tbl.internalTable(),
+                                    partId,
                                     partitionStorage,
                                     assignments,
                                     safeTime
                             );
 
                             RaftGroupListener raftGrpLsnr = new PartitionListener(
-                                    partitionStorage,
+                                    partitionDataStorage(partitionStorage, tbl.internalTable(), partId),
                                     tbl.internalTable().txStateStorage().getOrCreateTxStateStorage(partId),
                                     txManager,
                                     primaryIndex
@@ -1712,7 +1734,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         }
 
                         if (replicaMgr.shouldHaveReplicationGroupLocally(deltaPeers)) {
-                            MvPartitionStorage partitionStorage = tbl.internalTable().storage().getOrCreateMvPartition(partId);
+                            MvPartitionStorage partitionStorage = getOrCreateMvPartition(tbl.internalTable(), partId);
 
                             RaftGroupService raftGroupService = tbl.internalTable().partitionRaftGroupService(partId);
 

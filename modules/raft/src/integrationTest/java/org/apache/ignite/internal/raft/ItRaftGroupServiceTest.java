@@ -32,7 +32,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
-import org.apache.ignite.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;

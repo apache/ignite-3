@@ -30,10 +30,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import javax.naming.OperationNotSupportedException;
-import org.apache.ignite.hlc.HybridClock;
-import org.apache.ignite.hlc.HybridClockImpl;
-import org.apache.ignite.hlc.HybridTimestamp;
-import org.apache.ignite.hlc.PendingComparableValuesTracker;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.distributed.TestPartitionDataStorage;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
@@ -53,6 +52,7 @@ import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestConcurrentHashMapTxStateStorage;
+import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
@@ -138,7 +138,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 mock(MvTableStorage.class),
                 mock(TxStateTableStorage.class),
                 replicaSvc,
-                mock(HybridClock.class)
+                new HybridClockImpl()
         );
         RaftGroupService svc = partitionMap.get(0);
 
@@ -225,7 +225,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         );
 
         partitionListener = new PartitionListener(
-                mvPartStorage,
+                new TestPartitionDataStorage(mvPartStorage),
                 new TestConcurrentHashMapTxStateStorage(),
                 this.txManager,
                 primaryIndex
@@ -272,5 +272,11 @@ public class DummyInternalTableImpl extends InternalTableImpl {
     @Override
     public int partition(BinaryRowEx keyRow) {
         return 0;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<ClusterNode> evaluateReadOnlyRecipientNode(int partId) {
+        return CompletableFuture.completedFuture(mock(ClusterNode.class));
     }
 }

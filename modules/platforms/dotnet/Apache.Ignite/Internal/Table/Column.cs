@@ -22,5 +22,5 @@ namespace Apache.Ignite.Internal.Table
     /// <summary>
     /// Schema column.
     /// </summary>
-    internal record Column(string Name, ClientDataType Type, bool Nullable, bool IsKey, int SchemaIndex, int Scale);
+    internal record Column(string Name, ClientDataType Type, bool IsNullable, bool IsColocation, bool IsKey, int SchemaIndex, int Scale);
 }

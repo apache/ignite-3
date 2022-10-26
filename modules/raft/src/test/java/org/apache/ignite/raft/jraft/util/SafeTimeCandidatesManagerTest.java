@@ -17,8 +17,8 @@
 
 package org.apache.ignite.raft.jraft.util;
 
-import org.apache.ignite.hlc.HybridTimestamp;
-import org.apache.ignite.hlc.PendingComparableValuesTracker;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;

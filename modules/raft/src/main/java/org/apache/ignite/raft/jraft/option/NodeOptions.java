@@ -18,9 +18,11 @@ package org.apache.ignite.raft.jraft.option;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;
-import org.apache.ignite.hlc.HybridClock;
-import org.apache.ignite.hlc.HybridClockImpl;
-import org.apache.ignite.hlc.HybridTimestamp;import org.apache.ignite.hlc.PendingComparableValuesTracker;import org.apache.ignite.internal.raft.server.RaftGroupEventsListener;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.raft.server.RaftGroupEventsListener;
+import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.raft.jraft.JRaftServiceFactory;
 import org.apache.ignite.raft.jraft.StateMachine;
 import org.apache.ignite.raft.jraft.conf.Configuration;

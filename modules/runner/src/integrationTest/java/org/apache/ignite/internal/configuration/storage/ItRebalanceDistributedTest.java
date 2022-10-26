@@ -38,14 +38,14 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
-import org.apache.ignite.hlc.HybridClock;
-import org.apache.ignite.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -85,6 +85,7 @@ import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbSt
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.tx.LockManager;
@@ -557,7 +558,8 @@ public class ItRebalanceDistributedTest {
                     metaStorageManager,
                     schemaManager,
                     view -> new LocalLogStorageFactory(),
-                    new HybridClockImpl()
+                    new HybridClockImpl(),
+                    new OutgoingSnapshotsManager(clusterService.messagingService())
             );
         }
 

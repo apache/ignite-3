@@ -84,6 +84,15 @@ public final class RowId implements Serializable, Comparable<RowId> {
         return uuid.getLeastSignificantBits();
     }
 
+    /**
+     * Returns the UUID equivalent of {@link #mostSignificantBits()} and {@link #leastSignificantBits()}.
+     *
+     * @return UUID.
+     */
+    public UUID uuid() {
+        return uuid;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) {

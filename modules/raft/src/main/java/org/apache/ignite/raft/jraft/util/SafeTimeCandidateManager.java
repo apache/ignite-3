@@ -20,8 +20,8 @@ package org.apache.ignite.raft.jraft.util;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import org.apache.ignite.hlc.HybridTimestamp;
-import org.apache.ignite.hlc.PendingComparableValuesTracker;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 
 /**
  * This manager stores safe time candidates coming with appendEntries requests, and applies them after committing corresponding

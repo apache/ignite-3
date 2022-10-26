@@ -20,6 +20,8 @@ package org.apache.ignite.internal.table.distributed.replicator;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
+import static org.apache.ignite.lang.ErrorGroups.Replicator.CURSOR_CLOSE_ERR;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -37,9 +39,8 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import org.apache.ignite.hlc.HybridClock;
-import org.apache.ignite.hlc.HybridTimestamp;
-import org.apache.ignite.hlc.PendingComparableValuesTracker;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
@@ -80,6 +81,7 @@ import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxStateReplicaRequest;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
+import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.lang.ErrorGroups.Replicator;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -320,7 +322,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     private CompletableFuture<Object> processReadOnlyScanRetrieveBatchAction(ReadOnlyScanRetrieveBatchReplicaRequest request) {
         UUID txId = request.transactionId();
         int batchCount = request.batchSize();
-        HybridTimestamp timestamp = request.timestamp();
+        HybridTimestamp readTimestamp = request.readTimestamp();
 
         IgniteUuid cursorId = new IgniteUuid(txId, request.scanId());
 
@@ -329,17 +331,17 @@ public class PartitionReplicaListener implements ReplicaListener {
         @SuppressWarnings("resource") PartitionTimestampCursor cursor = cursors.computeIfAbsent(cursorId,
                 id -> mvDataStorage.scan(HybridTimestamp.MAX_VALUE));
 
-        return safeTime.waitFor(request.timestamp()).thenApplyAsync(v -> {
-            while (batchRows.size() < batchCount && cursor.hasNext()) {
-                BinaryRow resolvedReadResult = resolveReadResult(cursor.next(), timestamp, () -> cursor.committed(timestamp));
+        safeTime.waitFor(readTimestamp).join();
 
-                if (resolvedReadResult != null) {
-                    batchRows.add(resolvedReadResult);
-                }
+        while (batchRows.size() < batchCount && cursor.hasNext()) {
+            BinaryRow resolvedReadResult = resolveReadResult(cursor.next(), readTimestamp, () -> cursor.committed(readTimestamp));
+
+            if (resolvedReadResult != null) {
+                batchRows.add(resolvedReadResult);
             }
+        }
 
-            return batchRows;
-        });
+        return completedFuture(batchRows);
     }
 
     /**
@@ -351,35 +353,62 @@ public class PartitionReplicaListener implements ReplicaListener {
     private CompletableFuture<Object> processReadOnlySingleEntryAction(ReadOnlySingleRowReplicaRequest request) {
         ByteBuffer searchKey = request.binaryRow().keySlice();
 
-        UUID indexId = indexIdOrDefault(indexScanId/*request.indexToUse()*/);
-
         if (request.requestType() != RequestType.RO_GET) {
             throw new IgniteInternalException(Replicator.REPLICA_COMMON_ERR,
                     IgniteStringFormatter.format("Unknown single request [actionType={}]", request.requestType()));
         }
 
         //TODO: IGNITE-17868 Integrate indexes into rowIds resolution along with proper lock management on search rows.
-        RowId rowId = rowIdByKey(indexId, searchKey);
+        HybridTimestamp readTimestamp = request.readTimestamp();
 
-        return safeTime.waitFor(request.timestamp()).thenApplyAsync(v -> {
-            ReadResult readResult = rowId == null ? null : mvDataStorage.read(rowId, request.timestamp());
+        safeTime.waitFor(readTimestamp).join();
 
-            BinaryRow result = readResult == null ? null : resolveReadResult(readResult, request.timestamp(), () -> {
-                if (readResult.newestCommitTimestamp() == null) {
-                    return null;
+        try (PartitionTimestampCursor scan = mvDataStorage.scan(readTimestamp)) {
+            while (scan.hasNext()) {
+                ReadResult readResult = scan.next();
+                HybridTimestamp newestCommitTimestamp = readResult.newestCommitTimestamp();
+
+                if (readResult.binaryRow() == null) {
+                    if (newestCommitTimestamp == null) {
+                        throw new AssertionError("Unexpected null value of the newest committed timestamp.");
+                    }
+
+                    BinaryRow candidate = scan.committed(newestCommitTimestamp);
+                    if (candidate == null) {
+                        throw new AssertionError("Unexpected null value of the candidate binary row.");
+                    }
+
+                    if (candidate.keySlice().equals(searchKey)) {
+                        return CompletableFuture.completedFuture(
+                                resolveReadResult(
+                                        readResult,
+                                        readTimestamp,
+                                        () -> scan.committed(newestCommitTimestamp)
+                                )
+                        );
+                    }
+                } else if (readResult.binaryRow().keySlice().equals(searchKey)) {
+                    return CompletableFuture.completedFuture(
+                            resolveReadResult(
+                                    readResult,
+                                    readTimestamp,
+                                    () -> newestCommitTimestamp == null ? null : scan.committed(newestCommitTimestamp)
+                            )
+                    );
                 }
+            }
+        } catch (Exception e) {
+            return failedFuture(
+                    withCause(
+                            ReplicationException::new,
+                            CURSOR_CLOSE_ERR,
+                            "Failed to close cursor.",
+                            e
+                    )
+            );
+        }
 
-                ReadResult committedReadResult = mvDataStorage.read(rowId, readResult.newestCommitTimestamp());
-
-                assert !committedReadResult.isWriteIntent() :
-                        "The result is not committed [rowId=" + rowId + ", timestamp="
-                            + readResult.newestCommitTimestamp() + ']';
-
-                return committedReadResult.binaryRow();
-            });
-
-            return result;
-        });
+        return CompletableFuture.completedFuture(null);
     }
 
     /**
@@ -392,39 +421,66 @@ public class PartitionReplicaListener implements ReplicaListener {
         Collection<ByteBuffer> keyRows = request.binaryRows().stream().map(br -> br.keySlice()).collect(
                 Collectors.toList());
 
-        UUID indexId = indexIdOrDefault(indexScanId/*request.indexToUse()*/);
-
-        if (request.requestType() != RequestType.RO_GET_ALL) {
+        if (request.requestType() !=  RequestType.RO_GET_ALL) {
             throw new IgniteInternalException(Replicator.REPLICA_COMMON_ERR,
                     IgniteStringFormatter.format("Unknown single request [actionType={}]", request.requestType()));
         }
 
-        return safeTime.waitFor(request.timestamp()).thenApplyAsync(v -> {
-            ArrayList<BinaryRow> result = new ArrayList<>(keyRows.size());
+        safeTime.waitFor(request.readTimestamp()).join();
 
-            for (ByteBuffer searchKey : keyRows) {
-                //TODO: IGNITE-17868 Integrate indexes into rowIds resolution along with proper lock management on search rows.
-                RowId rowId = rowIdByKey(indexId, searchKey);
+        ArrayList<BinaryRow> result = new ArrayList<>(keyRows.size());
 
-                ReadResult readResult = rowId == null ? null : mvDataStorage.read(rowId, request.timestamp());
+        //TODO: IGNITE-17868 Integrate indexes into rowIds resolution along with proper lock management on search rows.
+        HybridTimestamp readTimestamp = request.readTimestamp();
 
-                result.add(readResult == null ? null : resolveReadResult(readResult, request.timestamp(), () -> {
-                    if (readResult.newestCommitTimestamp() == null) {
-                        return null;
+        try (PartitionTimestampCursor scan = mvDataStorage.scan(readTimestamp)) {
+            while (scan.hasNext()) {
+                ReadResult readResult = scan.next();
+                HybridTimestamp newestCommitTimestamp = readResult.newestCommitTimestamp();
+
+                for (ByteBuffer searchKey : keyRows) {
+                    if (readResult.binaryRow() == null) {
+                        if (newestCommitTimestamp == null) {
+                            throw new AssertionError("Unexpected null value of the newest committed timestamp.");
+                        }
+
+                        BinaryRow candidate = scan.committed(readResult.newestCommitTimestamp());
+                        if (candidate == null) {
+                            throw new AssertionError("Unexpected null value of the candidate binary row.");
+                        }
+
+                        if (candidate.keySlice().equals(searchKey)) {
+                            result.add(
+                                    resolveReadResult(
+                                            readResult,
+                                            readTimestamp,
+                                            () -> scan.committed(readResult.newestCommitTimestamp())
+                                    )
+                            );
+                        }
+                    } else if (readResult.binaryRow().keySlice().equals(searchKey)) {
+                        result.add(
+                                resolveReadResult(
+                                        readResult,
+                                        readTimestamp,
+                                        () -> newestCommitTimestamp == null ? null : scan.committed(readResult.newestCommitTimestamp())
+                                )
+                        );
                     }
-
-                    ReadResult committedReadResult = mvDataStorage.read(rowId, readResult.newestCommitTimestamp());
-
-                    assert !committedReadResult.isWriteIntent() :
-                            "The result is not committed [rowId=" + rowId + ", timestamp="
-                                    + readResult.newestCommitTimestamp() + ']';
-
-                    return committedReadResult.binaryRow();
-                }));
+                }
             }
+        } catch (Exception e) {
+            return failedFuture(
+                    withCause(
+                            ReplicationException::new,
+                            CURSOR_CLOSE_ERR,
+                            "Failed to close cursor.",
+                            e
+                    )
+            );
+        }
 
-            return result;
-        });
+        return CompletableFuture.completedFuture(result);
     }
 
     /**
@@ -1373,6 +1429,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Resolved binary row.
      */
     private BinaryRow resolveReadResult(ReadResult readResult, HybridTimestamp timestamp, Supplier<BinaryRow> lastCommitted) {
+
         return resolveReadResult(readResult, null, timestamp, lastCommitted);
     }
 
