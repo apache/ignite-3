@@ -423,12 +423,16 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     /** Registers the primary key in a specified table. */
-    public void registerPk(UUID tableId, UUID pkId) {
-        CompletableFuture<?> pkFut = pkIdRegistrationFut.remove(tableId);
+    public void registerPk(long token, UUID tableId, UUID pkId) {
+        tablesByIdVv.get(token).thenAccept(tableMap -> {
+            tableMap.get(tableId).pkId(pkId);
 
-        tablesByIdVv.latest().get(tableId).pkId(pkId);
+            CompletableFuture<?> pkFut = pkIdRegistrationFut.remove(tableId);
 
-        pkFut.complete(null);
+            if (pkFut != null) {
+                pkFut.complete(null);
+            }
+        });
     }
 
     /** {@inheritDoc} */
@@ -2046,6 +2050,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     private Supplier<Map<UUID, TableSchemaAwareIndexStorage>> indexStorageAdapters(UUID tableId, int partId) {
         return () -> {
+            CompletableFuture<?> pkFut = pkIdRegistrationFut.get(tableId);
+
+            if (pkFut != null) {
+                pkFut.join();
+            }
+
             List<IndexStorageAdapterFactory> factories = new ArrayList<>(indexStorageAdapterFactories
                     .getOrDefault(tableId, Map.of()).values());
 
@@ -2062,6 +2072,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     private Supplier<Map<UUID, IndexLocker>> indexesLockers(UUID tableId, int partId) {
         return () -> {
+            CompletableFuture<?> pkFut = pkIdRegistrationFut.get(tableId);
+
+            if (pkFut != null) {
+                pkFut.join();
+            }
+
             List<IndexLockerFactory> factories = new ArrayList<>(indexLockerFactories.getOrDefault(tableId, Map.of()).values());
 
             Map<UUID, IndexLocker> lockers = new HashMap<>(factories.size());

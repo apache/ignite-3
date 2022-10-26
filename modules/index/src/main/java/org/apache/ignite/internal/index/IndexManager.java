@@ -128,7 +128,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                 UUID pkId = indexView.id();
                 UUID tableId = indexView.tableId();
 
-                tableManager.registerPk(tableId, pkId);
+                tableManager.registerPk(param.causalityToken(), tableId, pkId);
             });
 
             return CompletableFuture.completedFuture(false);
