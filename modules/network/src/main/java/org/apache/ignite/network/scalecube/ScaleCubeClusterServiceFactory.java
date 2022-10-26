@@ -17,14 +17,12 @@
 
 package org.apache.ignite.network.scalecube;
 
-import static io.scalecube.cluster.membership.MembershipEvent.createAdded;
-import static io.scalecube.cluster.membership.MembershipEvent.createUpdated;
-
 import io.scalecube.cluster.ClusterConfig;
 import io.scalecube.cluster.ClusterImpl;
 import io.scalecube.cluster.ClusterMessageHandler;
 import io.scalecube.cluster.membership.MembershipEvent;
 import io.scalecube.net.Address;
+
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -32,13 +30,15 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
+
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
+import org.apache.ignite.internal.network.configuration.RestConfiguration;
+import org.apache.ignite.network.NodeMetadata;
 import org.apache.ignite.internal.network.configuration.ClusterMembershipView;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkView;
-import org.apache.ignite.internal.network.configuration.RestConfiguration;
 import org.apache.ignite.internal.network.configuration.ScaleCubeView;
 import org.apache.ignite.internal.network.netty.ConnectionManager;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorFactory;
@@ -55,17 +55,15 @@ import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeFinder;
 import org.apache.ignite.network.NodeFinderFactory;
-import org.apache.ignite.network.NodeMetadata;
 
 /**
  * Cluster service factory that uses ScaleCube for messaging and topology services.
  */
 public class ScaleCubeClusterServiceFactory {
-    /** Logger. */
+    /**
+     * Logger.
+     */
     private static final IgniteLogger LOG = Loggers.forClass(ScaleCubeClusterServiceFactory.class);
-
-    /** Metadata codec. */
-    private static final NodeMetadataCodec METADATA_CODEC = NodeMetadataCodec.INSTANCE;
 
     /**
      * Creates a new {@link ClusterService} using the provided context. The created network will not be in the "started" state.
@@ -78,6 +76,7 @@ public class ScaleCubeClusterServiceFactory {
     public ClusterService createClusterService(
             ClusterLocalConfiguration context,
             NetworkConfiguration networkConfiguration,
+            RestConfiguration restConfiguration,
             NettyBootstrapFactory nettyBootstrapFactory
     ) {
         var messageFactory = new NetworkMessagesFactory();
@@ -130,6 +129,7 @@ public class ScaleCubeClusterServiceFactory {
                 );
 
                 NodeFinder finder = NodeFinderFactory.createNodeFinder(configView.nodeFinder());
+
                 cluster = new ClusterImpl(clusterConfig(configView.membership()))
                         .handler(cl -> new ClusterMessageHandler() {
                             /** {@inheritDoc} */
@@ -138,7 +138,7 @@ public class ScaleCubeClusterServiceFactory {
                                 topologyService.onMembershipEvent(event);
                             }
                         })
-                        .config(opts -> opts.memberAlias(consistentId).metadataCodec(METADATA_CODEC))
+                        .config(opts -> opts.memberAlias(consistentId).metadata(new NodeMetadata(restConfiguration.port().value())))
                         .transport(opts -> opts.transportFactory(transportConfig -> transport))
                         .membership(opts -> opts.seedMembers(parseAddresses(finder.findNodes())));
 
@@ -151,7 +151,8 @@ public class ScaleCubeClusterServiceFactory {
                 cluster.startAwait();
 
                 // emit an artificial event as if the local member has joined the topology (ScaleCube doesn't do that)
-                var localMembershipEvent = createAdded(cluster.member(), null, System.currentTimeMillis());
+                NodeMetadata nodeMetadata = new NodeMetadata(restConfiguration.port().value());
+                var localMembershipEvent = MembershipEvent.createAdded(cluster.member(), nodeMetadata.toByteBuffer(), System.currentTimeMillis());
 
                 topologyService.onMembershipEvent(localMembershipEvent);
             }
@@ -196,17 +197,6 @@ public class ScaleCubeClusterServiceFactory {
             @Override
             public boolean isStopped() {
                 return shutdownFuture.isDone();
-            }
-
-            @Override
-            public void updateMetadata(NodeMetadata metadata) {
-                cluster.updateMetadata(metadata).block();
-                MembershipEvent membershipEvent = createUpdated(cluster.member(),
-                        cluster.<NodeMetadata>metadata().map(METADATA_CODEC::serialize).orElse(null),
-                        METADATA_CODEC.serialize(metadata),
-                        System.currentTimeMillis()
-                );
-                topologyService.onMembershipEvent(membershipEvent);
             }
         };
     }
