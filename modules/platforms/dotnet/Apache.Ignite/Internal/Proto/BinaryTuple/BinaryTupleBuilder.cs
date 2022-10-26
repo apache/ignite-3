@@ -172,15 +172,19 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                 _hash = HashUtils.Hash32(value, _hash);
             }
 
-            if (value >= sbyte.MinValue && value <= sbyte.MaxValue)
+            if (value != 0)
             {
-                AppendByte((sbyte)value);
+                if (value >= sbyte.MinValue && value <= sbyte.MaxValue)
+                {
+                    PutByte((sbyte)value);
+                }
+                else
+                {
+                    PutShort(value);
+                }
             }
-            else
-            {
-                PutShort(value);
-                OnWrite();
-            }
+
+            OnWrite();
         }
 
         /// <summary>
@@ -194,19 +198,20 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                 _hash = HashUtils.Hash32(value, _hash);
             }
 
-            if (value >= sbyte.MinValue && value <= sbyte.MaxValue)
+            if (value != 0)
             {
-                AppendByte((sbyte)value);
-                return;
-            }
-
-            if (value >= short.MinValue && value <= short.MaxValue)
-            {
-                PutShort((short)value);
-            }
-            else
-            {
-                PutInt(value);
+                if (value >= sbyte.MinValue && value <= sbyte.MaxValue)
+                {
+                    PutByte((sbyte)value);
+                }
+                else if (value >= short.MinValue && value <= short.MaxValue)
+                {
+                    PutShort((short)value);
+                }
+                else
+                {
+                    PutInt(value);
+                }
             }
 
             OnWrite();
@@ -223,19 +228,24 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                 _hash = HashUtils.Hash32(value, _hash);
             }
 
-            if (value >= short.MinValue && value <= short.MaxValue)
+            if (value != 0)
             {
-                AppendShort((short)value);
-                return;
-            }
-
-            if (value >= int.MinValue && value <= int.MaxValue)
-            {
-                PutInt((int)value);
-            }
-            else
-            {
-                PutLong(value);
+                if (value >= sbyte.MinValue && value <= sbyte.MaxValue)
+                {
+                    PutByte((sbyte)value);
+                }
+                else if (value >= short.MinValue && value <= short.MaxValue)
+                {
+                    PutShort((short)value);
+                }
+                else if (value >= int.MinValue && value <= int.MaxValue)
+                {
+                    PutInt((int)value);
+                }
+                else
+                {
+                    PutLong(value);
+                }
             }
 
             OnWrite();
@@ -261,14 +271,19 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="value">Value.</param>
         public void AppendDouble(double value)
         {
-            // ReSharper disable once CompareOfFloatsByEqualityOperator
-            if (value == (float)value)
+            if (value != 0.0d)
             {
-                AppendFloat((float)value);
-                return;
+                // ReSharper disable once CompareOfFloatsByEqualityOperator
+                if (value == (float)value)
+                {
+                    PutFloat((float)value);
+                }
+                else
+                {
+                    PutDouble(value);
+                }
             }
 
-            PutDouble(value);
             OnWrite();
         }
 
