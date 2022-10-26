@@ -1118,6 +1118,8 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             ByteBuffer currentKeyBuffer = MV_KEY_BUFFER.get().position(0);
 
             while (true) {
+                currentKeyBuffer.position(0);
+
                 // At this point, seekKeyBuf should contain row id that's above the one we already scanned, but not greater than any
                 // other row id in partition. When we start, row id is filled with zeroes. Value during the iteration is described later
                 // in this code. Now let's describe what we'll find, assuming that iterator found something:
@@ -1146,9 +1148,11 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
                 currentKeyBuffer.limit(ROW_PREFIX_SIZE);
 
+                RowId rowId = getRowId(currentKeyBuffer);
+
                 // Copy actual row id into a "seekKeyBuf" buffer.
-                seekKeyBuf.putLong(ROW_ID_OFFSET, currentKeyBuffer.getLong(ROW_ID_OFFSET));
-                seekKeyBuf.putLong(ROW_ID_OFFSET + Long.BYTES, currentKeyBuffer.getLong(ROW_ID_OFFSET + Long.BYTES));
+                seekKeyBuf.putLong(ROW_ID_OFFSET, normalize(rowId.mostSignificantBits()));
+                seekKeyBuf.putLong(ROW_ID_OFFSET + Long.BYTES, normalize(rowId.leastSignificantBits()));
 
                 // This one might look tricky. We finished processing next row. There are three options:
                 //  - "found" flag is false - there's no fitting version of the row. We'll continue to next iteration;
@@ -1168,7 +1172,6 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                 // Cache row and return "true" if it's found and not a tombstone.
                 byte[] valueBytes = it.value();
 
-                RowId rowId = getRowId(currentKeyBuffer);
                 HybridTimestamp nextCommitTimestamp = null;
 
                 if (isWriteIntent) {
