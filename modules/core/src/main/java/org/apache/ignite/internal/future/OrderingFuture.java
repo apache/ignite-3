@@ -48,12 +48,12 @@ import org.jetbrains.annotations.Nullable;
  */
 public class OrderingFuture<T> {
     /**
-     * Integer representatin of {@code false}.
+     * Integer representation of {@code false}.
      */
     private static final int INT_FALSE = 0;
 
     /**
-     * Integer representatin of {@code true}.
+     * Integer representation of {@code true}.
      */
     private static final int INT_TRUE = 1;
 
@@ -103,7 +103,7 @@ public class OrderingFuture<T> {
     }
 
     /**
-     * Creates a future that is alredy completed with the given value.
+     * Creates a future that is already completed with the given value.
      *
      * @param result Value with which the future is completed.
      * @param <T> Payload type.
@@ -116,7 +116,7 @@ public class OrderingFuture<T> {
     }
 
     /**
-     * Creates a future that is alredy completed exceptionally (i.e. failed) with the given exception.
+     * Creates a future that is already completed exceptionally (i.e. failed) with the given exception.
      *
      * @param ex Exception with which the future is failed.
      * @param <T> Payload type.
