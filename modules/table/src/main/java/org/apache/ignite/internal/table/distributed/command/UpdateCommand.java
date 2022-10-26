@@ -26,6 +26,8 @@ import org.apache.ignite.network.annotations.Transferable;
  */
 @Transferable(TableMessageGroup.Commands.UPDATE)
 public interface UpdateCommand extends PartitionCommand {
+    TablePartitionIdMessage commitReplicationGroupId();
+
     RowIdMessage rowId();
 
     ByteBuffer rowBuffer();

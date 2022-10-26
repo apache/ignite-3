@@ -40,7 +40,6 @@ import static org.apache.ignite.raft.jraft.rpc.CliRequests.TransferLeaderRequest
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -54,6 +53,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteException;
@@ -62,7 +62,6 @@ import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.Peer;
-import org.apache.ignite.raft.client.ReadCommand;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.entity.PeerId;
@@ -89,6 +88,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
     /** */
     private final String groupId;
+
+    private final ReplicationGroupId realGroupId;
 
     /** */
     private final RaftMessagesFactory factory;
@@ -124,23 +125,25 @@ public class RaftGroupServiceImpl implements RaftGroupService {
      * @param executor Executor for retrying requests.
      */
     private RaftGroupServiceImpl(
-        String groupId,
+        ReplicationGroupId groupId,
         ClusterService cluster,
         RaftMessagesFactory factory,
         int timeout,
         int rpcTimeout,
         List<Peer> peers,
+        List<Peer> learners,
         Peer leader,
         long retryDelay,
         ScheduledExecutorService executor
     ) {
         this.cluster = requireNonNull(cluster);
-        this.peers = requireNonNull(peers);
-        this.learners = Collections.emptyList();
+        this.peers = List.copyOf(peers);
+        this.learners = List.copyOf(learners);
         this.factory = factory;
         this.timeout = timeout;
         this.rpcTimeout = rpcTimeout;
-        this.groupId = groupId;
+        this.groupId = groupId.toString();
+        this.realGroupId = groupId;
         this.retryDelay = retryDelay;
         this.leader = leader;
         this.executor = executor;
@@ -161,17 +164,18 @@ public class RaftGroupServiceImpl implements RaftGroupService {
      * @return Future representing pending completion of the operation.
      */
     public static CompletableFuture<RaftGroupService> start(
-        String groupId,
+        ReplicationGroupId groupId,
         ClusterService cluster,
         RaftMessagesFactory factory,
         int timeout,
         int rpcTimeout,
         List<Peer> peers,
+        List<Peer> learners,
         boolean getLeader,
         long retryDelay,
         ScheduledExecutorService executor
     ) {
-        var service = new RaftGroupServiceImpl(groupId, cluster, factory, timeout, rpcTimeout, peers, null, retryDelay, executor);
+        var service = new RaftGroupServiceImpl(groupId, cluster, factory, timeout, rpcTimeout, peers, learners, null, retryDelay, executor);
 
         if (!getLeader)
             return CompletableFuture.completedFuture(service);
@@ -206,7 +210,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
      * @return Future representing pending completion of the operation.
      */
     public static CompletableFuture<RaftGroupService> start(
-        String groupId,
+        ReplicationGroupId groupId,
         ClusterService cluster,
         RaftMessagesFactory factory,
         int timeout,
@@ -215,12 +219,12 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         long retryDelay,
         ScheduledExecutorService executor
     ) {
-        return start(groupId, cluster, factory, timeout, timeout, peers, getLeader, retryDelay, executor);
+        return start(groupId, cluster, factory, timeout, timeout, peers, List.of(), getLeader, retryDelay, executor);
     }
 
     /** {@inheritDoc} */
-    @Override public @NotNull String groupId() {
-        return groupId;
+    @Override public @NotNull ReplicationGroupId groupId() {
+        return realGroupId;
     }
 
     /** {@inheritDoc} */
@@ -518,16 +522,6 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         sendWithRetry(leader, req, currentTimeMillis() + timeout, fut);
 
         return fut.thenApply(resp -> (R) resp.result());
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override public <R> CompletableFuture<R> run(Peer peer, ReadCommand cmd) {
-        ActionRequest req = factory.actionRequest().command(cmd).groupId(groupId).readOnlySafe(false).build();
-
-        return cluster.messagingService().invoke(peer.address(), req, rpcTimeout)
-                .thenApply(resp -> (R) ((ActionResponse) resp).result());
     }
 
     /** {@inheritDoc} */

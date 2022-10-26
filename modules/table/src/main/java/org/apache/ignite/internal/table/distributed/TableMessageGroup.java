@@ -151,5 +151,7 @@ public interface TableMessageGroup {
         short HYBRID_TIMESTAMP = 60;
 
         short ROW_ID = 61;
+
+        short TABLE_PARTITION_ID = 62;
     }
 }

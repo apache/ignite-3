@@ -163,9 +163,10 @@ public class PartitionListener implements RaftGroupListener {
             BinaryRow row = rowBuf != null ? new ByteBufferRow(rowBuf) : null;
             RowId rowId = cmd.rowId().asRowId();
             UUID txId = cmd.txId();
+            UUID commitTblId = cmd.commitReplicationGroupId().tableId();
+            int commitPartId = cmd.commitReplicationGroupId().partitionId();
 
-            // TODO: IGNITE-17759 Need pass appropriate commitTableId and commitPartitionId.
-            storage.addWrite(rowId, row, txId, UUID.randomUUID(), 0);
+            storage.addWrite(rowId, row, txId, commitTblId, commitPartId);
 
             txsPendingRowIds.computeIfAbsent(txId, entry -> new HashSet<>()).add(rowId);
 
@@ -207,6 +208,9 @@ public class PartitionListener implements RaftGroupListener {
         storage.runConsistently(() -> {
             UUID txId = cmd.txId();
             Map<RowIdMessage, ByteBuffer> rowsToUpdate = cmd.rowsToUpdate();
+            Map<RowId, BinaryRow> rowsToUpdate = cmd.rowsToUpdate();
+            UUID commitTblId = cmd.replicationGroupId().tableId();
+            int commitPartId = cmd.replicationGroupId().partId();
 
             if (!CollectionUtils.nullOrEmpty(rowsToUpdate)) {
                 for (Map.Entry<RowIdMessage, ByteBuffer> entry : rowsToUpdate.entrySet()) {
@@ -215,6 +219,11 @@ public class PartitionListener implements RaftGroupListener {
                     BinaryRow row = rowBuf != null ? new ByteBufferRow(rowBuf) : null;
                     // TODO: IGNITE-17759 Need pass appropriate commitTableId and commitPartitionId.
                     storage.addWrite(rowId, row, txId, UUID.randomUUID(), 0);
+//                for (Map.Entry<RowId, BinaryRow> entry : rowsToUpdate.entrySet()) {
+//                    RowId rowId = entry.getKey();
+//                    BinaryRow row = entry.getValue();
+//
+//                    storage.addWrite(rowId, row, txId, commitTblId, commitPartId);
 
                     txsPendingRowIds.computeIfAbsent(txId, entry0 -> new HashSet<>()).add(rowId);
 
