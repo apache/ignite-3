@@ -15,14 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.raft.messages;
+package org.apache.ignite.raft;
 
-import org.apache.ignite.network.annotations.MessageGroup;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.raft.client.WriteCommand;
+import org.apache.ignite.raft.messages.TestRaftMessagesFactory;
 
 /**
- * Message group for integration tests.
- * todo: https://issues.apache.org/jira/browse/IGNITE-17982
- */
-@MessageGroup(groupType = 4, groupName = "TestRaftMessages")
-public interface TestMessageGroupIt {
+ * Test WriteCommand.
+*/
+@Transferable(10)
+public interface TestWriteCommand extends NetworkMessage, WriteCommand {
+    static final TestRaftMessagesFactory MESSAGES_FACTORY = new TestRaftMessagesFactory();
+
+    String value();
+
+    static TestWriteCommand create(String value) {
+        return MESSAGES_FACTORY.testWriteCommand().value(value).build();
+    }
 }

@@ -56,16 +56,14 @@ import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.StaticNodeFinder;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.raft.TestWriteCommand;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.ReadCommand;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.apache.ignite.raft.client.service.CommandClosure;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
 import org.apache.ignite.raft.client.service.RaftGroupService;
-import org.apache.ignite.raft.messages.TestRaftMessagesFactory;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -90,24 +88,10 @@ public class ItLearnersTest extends IgniteAbstractTest {
             new NetworkAddress("localhost", 5002)
     );
 
-    private static final TestRaftMessagesFactory MESSAGES_FACTORY = new TestRaftMessagesFactory();
-
     @InjectConfiguration
     private static RaftConfiguration raftConfiguration;
 
     private final List<RaftNode> nodes = new ArrayList<>(ADDRS.size());
-
-    /**
-     * Test WriteCommand.
-     */
-    @Transferable(10)
-    public interface TestWriteCommand extends NetworkMessage, WriteCommand {
-        String value();
-
-        static TestWriteCommand create(String value) {
-            return MESSAGES_FACTORY.testWriteCommand().value(value).build();
-        }
-    }
 
     /** Mock Raft node. */
     private class RaftNode implements AutoCloseable {
