@@ -597,9 +597,23 @@ public class OrderingFuture<T> {
         COMPLETED
     }
 
+    /**
+     * Context of notification which happens during completion. Currently only used to cache {@link CompletionException}
+     * making sure it is instantiated lazily.
+     */
     private static class NotificationContext {
         private CompletionException completionException;
 
+        /**
+         * Wraps the completion cause with a {@link CompletionException} (or just leaves it as is if the completion
+         * cause is a CompletionException itself.
+         *
+         * <p>This method caches the exception, so if this method is called more than once, the exception is still
+         * created once.
+         *
+         * @param cause Exception with which this future is being completed.
+         * @return CompletionException.
+         */
         CompletionException completionExceptionCaching(Throwable cause) {
             if (completionException == null) {
                 completionException = wrapWithCompletionException(cause);
