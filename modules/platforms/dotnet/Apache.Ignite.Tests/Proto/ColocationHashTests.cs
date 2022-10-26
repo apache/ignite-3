@@ -31,7 +31,7 @@ public class ColocationHashTests : IgniteTestsBase
     public async Task TestColocationHashIsSameOnServerAndClient()
     {
         var nodes = await Client.GetClusterNodesAsync();
-        var serverHash = await Client.Compute.ExecuteAsync<int>(nodes, ColocationHashJob);
+        var serverHash = await Client.Compute.ExecuteAsync<int>(nodes, ColocationHashJob, new byte[] { 1 });
 
         Assert.AreEqual(123, serverHash);
     }
