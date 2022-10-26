@@ -350,7 +350,7 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
         return tx;
     }
 
-    /** Transaction for current context. */
+    /** Read only transaction time. */
     public HybridTimestamp transactionTime() {
         return qctx.transactionTime();
     }

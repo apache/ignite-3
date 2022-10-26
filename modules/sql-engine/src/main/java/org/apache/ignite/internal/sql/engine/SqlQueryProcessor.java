@@ -413,8 +413,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
                                 // Transactional DDL is not supported as well as RO transactions, hence
                                 // only DML requiring RW transaction is covered
-                                boolean implicitTxRequired = (plan.type() == Type.DML || plan.type() == Type.QUERY)
-                                        && outerTx == null && rwTx;
+                                boolean implicitTxRequired = outerTx == null && rwTx;
 
                                 InternalTransaction implicitTx = implicitTxRequired ? txManager.begin() : null;
 
@@ -475,9 +474,18 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         CompletableFuture<Void> start = new CompletableFuture<>();
 
+        boolean needStartTx = false;
+
+        for (SqlNode sqlNode : nodes) {
+           if (SqlKind.DML.contains(sqlNode.getKind()) || SqlKind.QUERY.contains(sqlNode.getKind())) {
+               needStartTx = true;
+               break;
+           }
+        }
+
         for (SqlNode sqlNode : nodes) {
             // Only rw transactions for now.
-            InternalTransaction implicitTx = txManager.begin();
+            InternalTransaction implicitTx = needStartTx ? txManager.begin() : null;
 
             final BaseQueryContext ctx = BaseQueryContext.builder()
                     .cancel(new QueryCancel())
