@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Tests.Proto;
 
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Internal.Proto.BinaryTuple;
 using NUnit.Framework;
@@ -29,15 +30,35 @@ public class ColocationHashTests : IgniteTestsBase
 {
     private const string ColocationHashJob = "org.apache.ignite.internal.runner.app.PlatformTestNodeRunner$ColocationHashJob";
 
-    [Test]
-    public async Task TestColocationHashIsSameOnServerAndClient()
+    private static readonly object[] TestCases =
     {
-        var keys = new object[] { 1 };
-        var (bytes, hash) = WriteAsBinaryTuple(keys);
+        // TODO: all supported types.
+        sbyte.MinValue,
+        sbyte.MaxValue,
+        short.MinValue,
+        short.MaxValue,
+        int.MinValue,
+        int.MaxValue,
+        long.MinValue,
+        long.MaxValue
+    };
 
-        var serverHash = await GetServerHash(bytes, 1);
+    [Test]
+    [TestCaseSource(nameof(TestCases))]
+    public async Task TestSingleKeyColocationHashIsSameOnServerAndClient(object key) =>
+        await AssertClientAndServerHashesAreEqual(key);
 
-        Assert.AreEqual(hash, serverHash);
+    [Test]
+    public async Task TestMultiKeyColocationHashIsSameOnServerAndClient()
+    {
+        for (var i = 0; i < TestCases.Length; i++)
+        {
+            var keys1 = TestCases.Skip(i).ToArray();
+            var keys2 = TestCases.Take(i + 1).ToArray();
+
+            await AssertClientAndServerHashesAreEqual(keys1);
+            await AssertClientAndServerHashesAreEqual(keys2);
+        }
     }
 
     private static (byte[] Bytes, int Hash) WriteAsBinaryTuple(IReadOnlyCollection<object> arr)
@@ -50,6 +71,15 @@ public class ColocationHashTests : IgniteTestsBase
         }
 
         return (builder.Build().ToArray(), builder.Hash);
+    }
+
+    private async Task AssertClientAndServerHashesAreEqual(params object[] keys)
+    {
+        var (bytes, hash) = WriteAsBinaryTuple(keys);
+
+        var serverHash = await GetServerHash(bytes, 1);
+
+        Assert.AreEqual(serverHash, hash);
     }
 
     private async Task<int> GetServerHash(byte[] bytes, int count)

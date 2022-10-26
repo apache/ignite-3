@@ -294,7 +294,7 @@ public class PlatformTestNodeRunner {
             var buf = (byte[]) args[1];
             var columns = new Column[columnCount];
             var tuple = Tuple.create(columnCount);
-            var reader = new BinaryTupleReader(columnCount, buf);
+            var reader = new BinaryTupleReader(columnCount * 3, buf);
 
             for (int i = 0; i < columnCount; i++) {
                 var type = reader.intValue(i * 3);
@@ -320,7 +320,7 @@ public class PlatformTestNodeRunner {
                         break;
 
                     case ClientDataType.INT64:
-                        columns[i] = new Column(colName, NativeTypes.INT32, false);
+                        columns[i] = new Column(colName, NativeTypes.INT64, false);
                         tuple.set(colName, reader.longValue(valIdx));
                         break;
 
