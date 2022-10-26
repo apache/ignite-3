@@ -329,9 +329,13 @@ public class PartitionReplicaListener implements ReplicaListener {
      * Processes retrieve batch for read only transaction.
      *
      * @param request Read only retrieve batch request.
+     * @param isPrimary Whether the given replica is primary.
      * @return Result future.
      */
-    private CompletableFuture<Object> processReadOnlyScanRetrieveBatchAction(ReadOnlyScanRetrieveBatchReplicaRequest request, Boolean isPrimary) {
+    private CompletableFuture<Object> processReadOnlyScanRetrieveBatchAction(
+            ReadOnlyScanRetrieveBatchReplicaRequest request,
+            Boolean isPrimary
+    ) {
         requireNonNull(isPrimary);
 
         UUID txId = request.transactionId();
@@ -364,6 +368,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * Processes single entry request for read only transaction.
      *
      * @param request Read only single entry request.
+     * @param isPrimary Whether the given replica is primary.
      * @return Result future.
      */
     private CompletableFuture<Object> processReadOnlySingleEntryAction(ReadOnlySingleRowReplicaRequest request, Boolean isPrimary) {
@@ -435,6 +440,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * Processes multiple entries request for read only transaction.
      *
      * @param request Read only multiple entries request.
+     * @param isPrimary Whether the given replica is primary.
      * @return Result future.
      */
     private CompletableFuture<Object> processReadOnlyMultiEntryAction(ReadOnlyMultiRowReplicaRequest request, Boolean isPrimary) {

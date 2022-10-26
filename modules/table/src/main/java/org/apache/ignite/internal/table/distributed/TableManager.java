@@ -807,7 +807,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                             internalTbl.txStateStorage().getOrCreateTxStateStorage(partId),
                                                             topologyService,
                                                             placementDriver,
-                                                            peer -> clusterNodeResolver.apply(peer.address()).equals(topologyService.localMember())
+                                                            peer -> clusterNodeResolver.apply(peer.address())
+                                                                    .equals(topologyService.localMember())
                                                     )
                                             );
                                         } catch (NodeStoppingException ex) {
@@ -1753,7 +1754,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                             tbl.internalTable().txStateStorage().getOrCreateTxStateStorage(partId),
                                             raftMgr.topologyService(),
                                             placementDriver,
-                                            peer -> clusterNodeResolver.apply(peer.address()).equals(raftMgr.topologyService().localMember())
+                                            peer -> clusterNodeResolver.apply(peer.address())
+                                                    .equals(raftMgr.topologyService().localMember())
                                     )
                             );
                         }
