@@ -330,7 +330,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 Mockito.mock(TxStateTableStorage.class),
                 startClient() ? clientReplicaSvc : replicaServices.get(localNode),
                 startClient() ? clientClock : clocks.get(localNode)
-        ), new DummySchemaManagerImpl(ACCOUNTS_SCHEMA));
+        ), new DummySchemaManagerImpl(ACCOUNTS_SCHEMA), txMgr.lockManager());
 
         this.customers = new TableImpl(new InternalTableImpl(
                 customersName,
@@ -344,7 +344,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 Mockito.mock(TxStateTableStorage.class),
                 startClient() ? clientReplicaSvc : replicaServices.get(localNode),
                 startClient() ? clientClock : clocks.get(localNode)
-        ), new DummySchemaManagerImpl(CUSTOMERS_SCHEMA));
+        ), new DummySchemaManagerImpl(CUSTOMERS_SCHEMA), txMgr.lockManager());
 
         log.info("Tables have been started");
     }

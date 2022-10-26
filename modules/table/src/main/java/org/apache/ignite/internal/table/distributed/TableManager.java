@@ -92,8 +92,6 @@ import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.storage.impl.LogStorageFactoryCreator;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableChange;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableConfiguration;
@@ -139,7 +137,6 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.utils.RebalanceUtil;
 import org.apache.ignite.lang.ByteArray;
-import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -242,16 +239,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      */
     private final Map<UUID, TableImpl> tablesToStopInCaseOfError = new ConcurrentHashMap<>();
 
-    private final Map<UUID, CompletableFuture<?>> pkIdRegistrationFut = new ConcurrentHashMap<>();
-
     /** Resolver that resolves a network address to node id. */
     private final Function<NetworkAddress, String> netAddrResolver;
 
     /** Resolver that resolves a network address to cluster node. */
     private final Function<NetworkAddress, ClusterNode> clusterNodeResolver;
-
-    private final Map<UUID, Map<UUID, IndexStorageAdapterFactory>> indexStorageAdapterFactories = new ConcurrentHashMap<>();
-    private final Map<UUID, Map<UUID, IndexLockerFactory>> indexLockerFactories = new ConcurrentHashMap<>();
 
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -424,15 +416,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     /** Registers the primary key in a specified table. */
     public void registerPk(long token, UUID tableId, UUID pkId) {
-        tablesByIdVv.get(token).thenAccept(tableMap -> {
-            tableMap.get(tableId).pkId(pkId);
-
-            CompletableFuture<?> pkFut = pkIdRegistrationFut.remove(tableId);
-
-            if (pkFut != null) {
-                pkFut.complete(null);
-            }
-        });
+        tablesByIdVv.get(token).thenAccept(tableMap -> tableMap.get(tableId).pkId(pkId));
     }
 
     /** {@inheritDoc} */
@@ -767,7 +751,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                         partitionDataStorage(partitionStorage, internalTbl, partId),
                                                         internalTbl.txStateStorage().getOrCreateTxStateStorage(partId),
                                                         txManager,
-                                                        indexStorageAdapters(tblId, partId)
+                                                        table.indexStorageAdapters(partId)
                                                 ),
                                                 new RebalanceRaftGroupEventsListener(
                                                         metaStorageMgr,
@@ -815,8 +799,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                             lockMgr,
                                                             partId,
                                                             tblId,
-                                                            indexesLockers(tblId, partId),
-                                                            new Lazy<>(() -> indexStorageAdapters(tblId, partId).get().get(table.pkId())),
+                                                            table.indexesLockers(partId),
+                                                            new Lazy<>(() -> table.indexStorageAdapters(partId).get().get(table.pkId())),
                                                             clock,
                                                             internalTbl.txStateStorage().getOrCreateTxStateStorage(partId),
                                                             topologyService,
@@ -1009,7 +993,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         InternalTableImpl internalTable = new InternalTableImpl(name, tblId, new Int2ObjectOpenHashMap<>(partitions),
                 partitions, netAddrResolver, clusterNodeResolver, txManager, tableStorage, txStateStorage, replicaSvc, clock);
 
-        var table = new TableImpl(internalTable);
+        var table = new TableImpl(internalTable, lockMgr, this::directIndexIds);
 
         tablesByIdVv.update(causalityToken, (previous, e) -> inBusyLock(busyLock, () -> {
             if (e != null) {
@@ -1029,15 +1013,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         v -> inBusyLock(busyLock, () -> fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, table)))
                 );
 
-        var pkFut = new CompletableFuture<UUID>();
-
-        pkIdRegistrationFut.put(tblId, pkFut);
         beforeTablesVvComplete.add(schemaFut);
 
         tablesToStopInCaseOfError.put(tblId, table);
 
         tablesByIdVv.get(causalityToken)
-                .thenCompose(ignored -> pkFut)
                 .thenRun(() -> inBusyLock(busyLock, () -> completeApiCreateFuture(table)));
 
         // TODO should be reworked in IGNITE-16763
@@ -1452,6 +1432,15 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     /**
+     * Collects a list of direct index ids.
+     *
+     * @return A list of direct index ids.
+     */
+    private List<UUID> directIndexIds() {
+        return ConfigurationUtil.internalIds(directProxy(tablesCfg.indexes()));
+    }
+
+    /**
      * Gets direct id of table with {@code tblName}.
      *
      * @param tblName Name of the table.
@@ -1597,105 +1586,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     /**
-     * Register the index with given id in a table.
-     *
-     * @param tableId A table id to register index in.
-     * @param indexId An index id os the index to register.
-     * @param unique A flag indicating whether the given index unique or not.
-     * @param searchRowResolver Function which converts given table row to an index key.
-     */
-    public void registerHashIndex(UUID tableId, UUID indexId, boolean unique, Function<BinaryRow, BinaryTuple> searchRowResolver) {
-        TableImpl table = tablesByIdVv.latest().get(tableId);
-
-        if (table == null) {
-            throw new IgniteInternalException(Common.UNEXPECTED_ERR, "Table was concurrently deleted [tableId=" + tableId + "]");
-        }
-
-        indexLockerFactories.computeIfAbsent(
-                tableId,
-                key -> new ConcurrentHashMap<>()
-        ).put(
-                indexId,
-                partitionId -> new HashIndexLocker(
-                        indexId,
-                        unique,
-                        lockMgr,
-                        searchRowResolver
-                )
-        );
-        indexStorageAdapterFactories.computeIfAbsent(
-                tableId,
-                key -> new ConcurrentHashMap<>()
-        ).put(
-                indexId,
-                partitionId -> new TableSchemaAwareIndexStorage(
-                        indexId,
-                        table.internalTable().storage().getOrCreateHashIndex(partitionId, indexId),
-                        searchRowResolver
-                )
-        );
-    }
-
-    /**
-     * Register the index with given id in a table.
-     *
-     * @param tableId A table id to register index in.
-     * @param indexId An index id os the index to register.
-     * @param searchRowResolver Function which converts given table row to an index key.
-     */
-    public void registerSortedIndex(UUID tableId, UUID indexId, Function<BinaryRow, BinaryTuple> searchRowResolver) {
-        TableImpl table = tablesByIdVv.latest().get(tableId);
-
-        if (table == null) {
-            throw new IgniteInternalException(Common.UNEXPECTED_ERR, "Table was concurrently deleted [tableId=" + tableId + "]");
-        }
-
-        indexLockerFactories.computeIfAbsent(
-                tableId,
-                key -> new ConcurrentHashMap<>()
-        ).put(
-                indexId,
-                partitionId -> new SortedIndexLocker(
-                        indexId,
-                        lockMgr,
-                        table.internalTable().storage().getOrCreateSortedIndex(partitionId, indexId),
-                        searchRowResolver
-                )
-        );
-        indexStorageAdapterFactories.computeIfAbsent(
-                tableId,
-                key -> new ConcurrentHashMap<>()
-        ).put(
-                indexId,
-                partitionId -> new TableSchemaAwareIndexStorage(
-                        indexId,
-                        table.internalTable().storage().getOrCreateSortedIndex(partitionId, indexId),
-                        searchRowResolver
-                )
-        );
-    }
-
-    /**
-     * Unregister given index from table.
-     *
-     * @param tableId A table id to unregister index from.
-     * @param indexId An index id to unregister.
-     */
-    public void unregisterIndex(UUID tableId, UUID indexId) {
-        Map<UUID, ?> lockerFactories = indexLockerFactories.get(tableId);
-
-        if (lockerFactories != null) {
-            lockerFactories.remove(indexId);
-        }
-
-        Map<UUID, ?> adapterFactories = indexStorageAdapterFactories.get(tableId);
-
-        if (adapterFactories != null) {
-            adapterFactories.remove(indexId);
-        }
-    }
-
-    /**
      * Checks that the table is configured with specific id.
      *
      * @param id Table id.
@@ -1824,7 +1714,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                     partitionDataStorage(partitionStorage, tbl.internalTable(), partId),
                                     tbl.internalTable().txStateStorage().getOrCreateTxStateStorage(partId),
                                     txManager,
-                                    indexStorageAdapters(tblId, partId)
+                                    tbl.indexStorageAdapters(partId)
                             );
 
                             RaftGroupEventsListener raftGrpEvtsLsnr = new RebalanceRaftGroupEventsListener(
@@ -1858,8 +1748,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                             lockMgr,
                                             partId,
                                             tblId,
-                                            indexesLockers(tblId, partId),
-                                            new Lazy<>(() -> indexStorageAdapters(tblId, partId).get().get(tbl.pkId())),
+                                            tbl.indexesLockers(partId),
+                                            new Lazy<>(() -> tbl.indexStorageAdapters(partId).get().get(tbl.pkId())),
                                             clock,
                                             tbl.internalTable().txStateStorage().getOrCreateTxStateStorage(partId),
                                             raftMgr.topologyService(),
@@ -2046,60 +1936,5 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      */
     private <T extends ConfigurationProperty<?>> T directProxy(T property) {
         return getMetadataLocallyOnly ? property : ConfigurationUtil.directProxy(property);
-    }
-
-    private Supplier<Map<UUID, TableSchemaAwareIndexStorage>> indexStorageAdapters(UUID tableId, int partId) {
-        return () -> {
-            CompletableFuture<?> pkFut = pkIdRegistrationFut.get(tableId);
-
-            if (pkFut != null) {
-                pkFut.join();
-            }
-
-            List<IndexStorageAdapterFactory> factories = new ArrayList<>(indexStorageAdapterFactories
-                    .getOrDefault(tableId, Map.of()).values());
-
-            Map<UUID, TableSchemaAwareIndexStorage> adapters = new HashMap<>();
-
-            for (IndexStorageAdapterFactory factory : factories) {
-                TableSchemaAwareIndexStorage storage = factory.create(partId);
-                adapters.put(storage.id(), storage);
-            }
-
-            return adapters;
-        };
-    }
-
-    private Supplier<Map<UUID, IndexLocker>> indexesLockers(UUID tableId, int partId) {
-        return () -> {
-            CompletableFuture<?> pkFut = pkIdRegistrationFut.get(tableId);
-
-            if (pkFut != null) {
-                pkFut.join();
-            }
-
-            List<IndexLockerFactory> factories = new ArrayList<>(indexLockerFactories.getOrDefault(tableId, Map.of()).values());
-
-            Map<UUID, IndexLocker> lockers = new HashMap<>(factories.size());
-
-            for (IndexLockerFactory factory : factories) {
-                IndexLocker locker = factory.create(partId);
-                lockers.put(locker.id(), locker);
-            }
-
-            return lockers;
-        };
-    }
-
-    @FunctionalInterface
-    private interface IndexLockerFactory {
-        /** Creates the index decorator for given partition. */
-        IndexLocker create(int partitionId);
-    }
-
-    @FunctionalInterface
-    private interface IndexStorageAdapterFactory {
-        /** Creates the index decorator for given partition. */
-        TableSchemaAwareIndexStorage create(int partitionId);
     }
 }

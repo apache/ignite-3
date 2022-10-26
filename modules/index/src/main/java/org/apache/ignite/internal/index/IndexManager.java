@@ -332,15 +332,19 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
             return failedFuture(new NodeStoppingException());
         }
 
-        tableManager.unregisterIndex(evt.oldValue().tableId(), idxId);
-
-        try {
-            fireEvent(IndexEvent.DROP, new IndexEventParameters(evt.storageRevision(), idxId), null);
-        } finally {
-            busyLock.leaveBusy();
-        }
-
-        return CompletableFuture.completedFuture(null);
+        return tableManager.tableAsync(evt.oldValue().tableId())
+                .thenAccept(table -> {
+                    if (table != null) { // in case of DROP TABLE the table will be removed first
+                        table.unregisterIndex(idxId);
+                    }
+                })
+                .thenRun(() -> {
+                    try {
+                        fireEvent(IndexEvent.DROP, new IndexEventParameters(evt.storageRevision(), idxId), null);
+                    } finally {
+                        busyLock.leaveBusy();
+                    }
+                });
     }
 
     /**
@@ -386,17 +390,18 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                 index.descriptor().columns().toArray(STRING_EMPTY_ARRAY)
         );
 
-        if (index instanceof HashIndex) {
-            tableManager.registerHashIndex(tableId, tableIndexView.id(), tableIndexView.uniq(), tableRowConverter::convert);
-        } else if (index instanceof SortedIndex) {
-            tableManager.registerSortedIndex(tableId, tableIndexView.id(), tableRowConverter::convert);
-        } else {
-            throw new AssertionError("Unknown index type [type=" + index.getClass() + ']');
-        }
+        return tableManager.tableAsync(tableId)
+                .thenAccept(table -> {
+                    if (index instanceof HashIndex) {
+                        table.registerHashIndex(tableIndexView.id(), tableIndexView.uniq(), tableRowConverter::convert);
+                    } else if (index instanceof SortedIndex) {
+                        table.registerSortedIndex(tableIndexView.id(), tableRowConverter::convert);
+                    } else {
+                        throw new AssertionError("Unknown index type [type=" + index.getClass() + ']');
+                    }
 
-        fireEvent(IndexEvent.CREATE, new IndexEventParameters(causalityToken, index), null);
-
-        return CompletableFuture.completedFuture(null);
+                    fireEvent(IndexEvent.CREATE, new IndexEventParameters(causalityToken, index), null);
+                });
     }
 
     private Index<?> newIndex(UUID tableId, TableIndexView indexView) {
