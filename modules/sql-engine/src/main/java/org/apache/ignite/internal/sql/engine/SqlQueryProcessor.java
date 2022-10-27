@@ -476,10 +476,10 @@ public class SqlQueryProcessor implements QueryProcessor {
         boolean needStartTx = false;
 
         for (SqlNode sqlNode : nodes) {
-           if (SqlKind.DML.contains(sqlNode.getKind()) || SqlKind.QUERY.contains(sqlNode.getKind())) {
-               needStartTx = true;
-               break;
-           }
+            if (SqlKind.DML.contains(sqlNode.getKind()) || SqlKind.QUERY.contains(sqlNode.getKind())) {
+                needStartTx = true;
+                break;
+            }
         }
 
         for (SqlNode sqlNode : nodes) {
