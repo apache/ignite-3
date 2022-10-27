@@ -35,6 +35,8 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Merge sort subscription strategy.
+ * <br>
+ * Merges ordered streams.
  */
 public class MergeSortSubscriptionStrategy<T> extends AbstractCompositeSubscriptionStrategy<T> {
     /** Items comparator. */
@@ -93,11 +95,11 @@ public class MergeSortSubscriptionStrategy<T> extends AbstractCompositeSubscript
         // Perhaps we can return something from internal buffer?
         if (!inBuf.isEmpty()) {
             if (finished.size() == subscriptions.size()) { // all data has been received?
-                if (pushQueue(n, null, null) == 0) {
+                if (pushData(n, null, null) == 0) {
                     return;
                 }
             } else { // Someone still alive.
-                requestNext();
+                processReceivedData();
 
                 return;
             }
@@ -105,7 +107,7 @@ public class MergeSortSubscriptionStrategy<T> extends AbstractCompositeSubscript
 
         List<Integer> subsIds = IntStream.range(0, subscriptions.size()).boxed().collect(Collectors.toList());
 
-        requestInternal(subsIds, n);
+        requestNext(subsIds, n);
     }
 
     /** {@inheritDoc} */
@@ -141,7 +143,7 @@ public class MergeSortSubscriptionStrategy<T> extends AbstractCompositeSubscript
             waitResponse.remove(subscribeId);
 
             if (completed.compareAndSet(false, true)) {
-                pushQueue(remain, null, null);
+                pushData(remain, null, null);
             }
 
             // all work done
@@ -158,7 +160,7 @@ public class MergeSortSubscriptionStrategy<T> extends AbstractCompositeSubscript
      */
     private void onRequestCompleted(int subscriberId) {
         if (waitResponse.remove(subscriberId) && waitResponseCnt.decrementAndGet() == 0) {
-            requestNext();
+            processReceivedData();
         }
     }
 
@@ -183,14 +185,14 @@ public class MergeSortSubscriptionStrategy<T> extends AbstractCompositeSubscript
     }
 
     /**
-     * Push the available internal data to the delegated subscriber.
+     * Push available internal data to the delegated subscriber.
      *
      * @param cnt Maximum number of items to push.
      * @param comp Items comparator.
      * @param minBound Minimum bound up to which we can return data.
      * @return Number of remaining items.
      */
-    private long pushQueue(long cnt, @Nullable Comparator<T> comp, @Nullable T minBound) {
+    private long pushData(long cnt, @Nullable Comparator<T> comp, @Nullable T minBound) {
         boolean done = false;
         T r;
 
@@ -229,7 +231,7 @@ public class MergeSortSubscriptionStrategy<T> extends AbstractCompositeSubscript
         return cnt;
     }
 
-    private synchronized void requestNext() {
+    private synchronized void processReceivedData() {
         Pair<T, List<Integer>> minItemAndIds = chooseRequestedSubscriptionsIds();
         T minItem = minItemAndIds.left;
         List<Integer> subsIds = minItemAndIds.right;
@@ -238,14 +240,14 @@ public class MergeSortSubscriptionStrategy<T> extends AbstractCompositeSubscript
             return;
         }
 
-        remain = pushQueue(remain, comp, minItem);
+        remain = pushData(remain, comp, minItem);
 
         if (remain > 0) {
-            requestInternal(subsIds, requested);
+            requestNext(subsIds, requested);
         }
     }
 
-    private void requestInternal(List<Integer> subsIds, long cnt) {
+    private void requestNext(List<Integer> subsIds, long cnt) {
         long dataAmount = estimateSingleSubscriptionRequestAmount(cnt);
 
         for (Integer id : subsIds) {
