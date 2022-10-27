@@ -27,7 +27,6 @@ import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
-import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -42,7 +41,6 @@ import org.jetbrains.annotations.TestOnly;
  * {@link RowId#compareTo} comparison order.
  *
  * @see org.apache.ignite.internal.storage.MvPartitionStorage
- * @see TxStateStorage
  */
 public interface PartitionDataStorage extends AutoCloseable {
     /**
