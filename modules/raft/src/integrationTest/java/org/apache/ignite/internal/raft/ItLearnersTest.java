@@ -83,9 +83,9 @@ public class ItLearnersTest extends IgniteAbstractTest {
         }
     };
 
-    static final TestRaftMessagesFactory MESSAGES_FACTORY = new TestRaftMessagesFactory();
+    private static final TestRaftMessagesFactory MESSAGES_FACTORY = new TestRaftMessagesFactory();
 
-    static TestWriteCommand createWriteCommand(String value) {
+    private static TestWriteCommand createWriteCommand(String value) {
         return MESSAGES_FACTORY.testWriteCommand().value(value).build();
     }
 
