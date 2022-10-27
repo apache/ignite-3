@@ -18,6 +18,7 @@
 apply from: "$rootDir/buildscripts/java-core.gradle"
 apply from: "$rootDir/buildscripts/publishing.gradle"
 apply from: "$rootDir/buildscripts/java-junit5.gradle"
+apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
 apply from: "$rootDir/buildscripts/java-integration-test.gradle"
 
 dependencies {
@@ -72,6 +73,12 @@ dependencies {
     integrationTestImplementation(testFixtures(project(':ignite-raft')))
     integrationTestImplementation(testFixtures(project(':ignite-storage-api')))
     integrationTestImplementation(testFixtures(project(':ignite-transactions')))
+
+    testFixturesImplementation libs.jetbrains.annotations
+    testFixturesImplementation project(':ignite-storage-api')
+    testFixturesImplementation project(':ignite-core')
+    testFixturesImplementation project(':ignite-schema')
+    testFixturesImplementation project(':ignite-api')
 }
 
 description = 'ignite-table'
