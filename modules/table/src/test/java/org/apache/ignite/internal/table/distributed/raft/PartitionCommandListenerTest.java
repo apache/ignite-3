@@ -26,15 +26,14 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -44,6 +43,9 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.BinaryTupleSchema;
+import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -53,6 +55,9 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
+import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
+import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
+import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
@@ -61,10 +66,11 @@ import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestConcurrentHashMapTxStateStorage;
-import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.Command;
+import org.apache.ignite.raft.client.WriteCommand;
 import org.apache.ignite.raft.client.service.CommandClosure;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeEach;
@@ -95,13 +101,22 @@ public class PartitionCommandListenerTest {
     private PartitionListener commandListener;
 
     /** RAFT index. */
-    private AtomicLong raftIndex = new AtomicLong();
+    private final AtomicLong raftIndex = new AtomicLong();
 
     /** Primary index. */
-    private ConcurrentHashMap<ByteBuffer, RowId> primaryIndex = new ConcurrentHashMap<>();
+    private final TableSchemaAwareIndexStorage pkStorage = new TableSchemaAwareIndexStorage(
+            UUID.randomUUID(),
+            new TestHashIndexStorage(null),
+            tableRow -> new BinaryTuple(
+                    BinaryTupleSchema.create(new Element[]{
+                            new Element(NativeTypes.BYTES, false)
+                    }),
+                    tableRow.keySlice()
+            )
+    );
 
     /** Partition storage. */
-    private MvPartitionStorage mvPartitionStorage = new TestMvPartitionStorage(PARTITION_ID);
+    private final MvPartitionStorage mvPartitionStorage = new TestMvPartitionStorage(PARTITION_ID);
 
     /** Transaction meta storage. */
     private TxStateStorage txStateStorage = new TestConcurrentHashMapTxStateStorage();
@@ -121,7 +136,7 @@ public class PartitionCommandListenerTest {
                 new TestPartitionDataStorage(mvPartitionStorage, txStateStorage),
                 new TestConcurrentHashMapTxStateStorage(),
                 new TxManagerImpl(replicaService, new HeapLockManager(), new HybridClock()),
-                primaryIndex
+                () -> Map.of(pkStorage.id(), pkStorage)
         );
     }
 
@@ -260,33 +275,18 @@ public class PartitionCommandListenerTest {
      * Inserts all rows.
      */
     private void insertAll() {
-        List<IgniteBiTuple<Row, UUID>> txs = new ArrayList<>();
+        HashMap<RowId, BinaryRow> rows = new HashMap<>(KEY_COUNT);
+        UUID txId = Timestamp.nextVersion().toUuid();
+        var commitPartId = new TablePartitionId(txId, PARTITION_ID);
 
-        commandListener.onWrite(batchIterator(clo -> {
-            when(clo.index()).thenReturn(raftIndex.incrementAndGet());
+        for (int i = 0; i < KEY_COUNT; i++) {
+            Row row = getTestRow(i, i);
 
-            doAnswer(invocation -> {
-                assertNull(invocation.getArgument(0));
+            rows.put(new RowId(PARTITION_ID), row);
+        }
 
-                return null;
-            }).when(clo).result(any());
-
-            HashMap<RowId, BinaryRow> rows = new HashMap<>(KEY_COUNT);
-            UUID txId = Timestamp.nextVersion().toUuid();
-            var commitPartId = new TablePartitionId(txId, PARTITION_ID);
-
-            for (int i = 0; i < KEY_COUNT; i++) {
-                Row row = getTestRow(i, i);
-
-                rows.put(new RowId(PARTITION_ID), row);
-
-                txs.add(new IgniteBiTuple<>(row, txId));
-            }
-
-            when(clo.command()).thenReturn(new UpdateAllCommand(commitPartId, rows, txId));
-        }));
-
-        txs.forEach(tuple -> mvPartitionStorage.commitWrite(primaryIndex.get(tuple.getKey().keySlice()), CLOCK.now()));
+        invokeBatchedCommand(new UpdateAllCommand(commitPartId, rows, txId));
+        invokeBatchedCommand(new TxCleanupCommand(txId, true, CLOCK.now()));
     }
 
     /**
@@ -295,69 +295,36 @@ public class PartitionCommandListenerTest {
      * @param keyValueMapper Mep a value to update to the iter number.
      */
     private void updateAll(Function<Integer, Integer> keyValueMapper) {
-        List<IgniteBiTuple<Row, UUID>> txs = new ArrayList<>();
+        UUID txId = Timestamp.nextVersion().toUuid();
+        var commitPartId = new TablePartitionId(txId, PARTITION_ID);
+        HashMap<RowId, BinaryRow> rows = new HashMap<>(KEY_COUNT);
 
-        commandListener.onWrite(batchIterator(clo -> {
-            when(clo.index()).thenReturn(raftIndex.incrementAndGet());
+        for (int i = 0; i < KEY_COUNT; i++) {
+            Row row = getTestRow(i, keyValueMapper.apply(i));
 
-            doAnswer(invocation -> {
-                assertNull(invocation.getArgument(0));
+            rows.put(readRow(row), row);
+        }
 
-                return null;
-            }).when(clo).result(any());
-
-            HashMap<RowId, BinaryRow> rows = new HashMap<>(KEY_COUNT);
-
-            UUID txId = Timestamp.nextVersion().toUuid();
-            var commitPartId = new TablePartitionId(txId, PARTITION_ID);
-
-            for (int i = 0; i < KEY_COUNT; i++) {
-                Row row = getTestRow(i, keyValueMapper.apply(i));
-
-                rows.put(primaryIndex.get(row.keySlice()), row);
-
-                txs.add(new IgniteBiTuple<>(row, txId));
-            }
-
-            when(clo.command()).thenReturn(new UpdateAllCommand(commitPartId, rows, txId));
-        }));
-
-        txs.forEach(tuple -> mvPartitionStorage.commitWrite(primaryIndex.get(tuple.getKey().keySlice()), CLOCK.now()));
+        invokeBatchedCommand(new UpdateAllCommand(commitPartId, rows, txId));
+        invokeBatchedCommand(new TxCleanupCommand(txId, true, CLOCK.now()));
     }
 
     /**
      * Deletes all rows.
      */
     private void deleteAll() {
-        List<IgniteBiTuple<Row, UUID>> txs = new ArrayList<>();
+        UUID txId = Timestamp.nextVersion().toUuid();
+        var commitPartId = new TablePartitionId(txId, PARTITION_ID);
+        Set<RowId> keyRows = new HashSet<>(KEY_COUNT);
 
-        commandListener.onWrite(batchIterator(clo -> {
-            when(clo.index()).thenReturn(raftIndex.incrementAndGet());
+        for (int i = 0; i < KEY_COUNT; i++) {
+            Row row = getTestRow(i, i);
 
-            doAnswer(invocation -> {
-                assertNull(invocation.getArgument(0));
+            keyRows.add(readRow(row));
+        }
 
-                return null;
-            }).when(clo).result(any());
-
-            Set<RowId> keyRows = new HashSet<>(KEY_COUNT);
-
-            UUID txId = Timestamp.nextVersion().toUuid();
-            var commitPartId = new TablePartitionId(txId, PARTITION_ID);
-
-            for (int i = 0; i < KEY_COUNT; i++) {
-                Row row = getTestRow(i, i);
-
-                keyRows.add(primaryIndex.get(row.keySlice()));
-
-                txs.add(new IgniteBiTuple<>(row, txId));
-            }
-
-            when(clo.command()).thenReturn(new UpdateAllCommand(commitPartId, keyRows, txId));
-        }));
-
-        txs.forEach(
-                tuple -> mvPartitionStorage.commitWrite(primaryIndex.remove(tuple.getKey().keySlice()), CLOCK.now()));
+        invokeBatchedCommand(new UpdateAllCommand(commitPartId, keyRows, txId));
+        invokeBatchedCommand(new TxCleanupCommand(txId, true, CLOCK.now()));
     }
 
     /**
@@ -366,17 +333,17 @@ public class PartitionCommandListenerTest {
      * @param keyValueMapper Mep a value to update to the iter number.
      */
     private void update(Function<Integer, Integer> keyValueMapper) {
-        List<IgniteBiTuple<Row, UUID>> txs = new ArrayList<>();
+        List<UUID> txIds = new ArrayList<>();
 
         commandListener.onWrite(iterator((i, clo) -> {
             UUID txId = Timestamp.nextVersion().toUuid();
             Row row = getTestRow(i, keyValueMapper.apply(i));
-            RowId rowId = primaryIndex.get(row.keySlice());
+            RowId rowId = readRow(row);
             var commitPartId = new TablePartitionId(txId, PARTITION_ID);
 
             assertNotNull(rowId);
 
-            txs.add(new IgniteBiTuple<>(row, txId));
+            txIds.add(txId);
 
             when(clo.index()).thenReturn(raftIndex.incrementAndGet());
 
@@ -389,24 +356,24 @@ public class PartitionCommandListenerTest {
             }).when(clo).result(any());
         }));
 
-        txs.forEach(tuple -> mvPartitionStorage.commitWrite(primaryIndex.get(tuple.getKey().keySlice()), CLOCK.now()));
+        txIds.forEach(txId -> invokeBatchedCommand(new TxCleanupCommand(txId, true, CLOCK.now())));
     }
 
     /**
      * Deletes row.
      */
     private void delete() {
-        List<IgniteBiTuple<Row, UUID>> txs = new ArrayList<>();
+        List<UUID> txIds = new ArrayList<>();
 
         commandListener.onWrite(iterator((i, clo) -> {
             UUID txId = Timestamp.nextVersion().toUuid();
             Row row = getTestRow(i, i);
-            RowId rowId = primaryIndex.get(row.keySlice());
+            RowId rowId = readRow(row);
             var commitPartId = new TablePartitionId(txId, PARTITION_ID);
 
             assertNotNull(rowId);
 
-            txs.add(new IgniteBiTuple<>(row, txId));
+            txIds.add(txId);
 
             when(clo.index()).thenReturn(raftIndex.incrementAndGet());
 
@@ -419,8 +386,7 @@ public class PartitionCommandListenerTest {
             }).when(clo).result(any());
         }));
 
-        txs.forEach(
-                tuple -> mvPartitionStorage.commitWrite(primaryIndex.remove(tuple.getKey().keySlice()), CLOCK.now()));
+        txIds.forEach(txId -> invokeBatchedCommand(new TxCleanupCommand(txId, true, CLOCK.now())));
     }
 
     /**
@@ -442,7 +408,7 @@ public class PartitionCommandListenerTest {
         for (int i = 0; i < KEY_COUNT; i++) {
             Row keyRow = getTestKey(i);
 
-            RowId rowId = primaryIndex.get(keyRow.keySlice());
+            RowId rowId = readRow(keyRow);
 
             if (existed) {
                 ReadResult readResult = mvPartitionStorage.read(rowId, HybridTimestamp.MAX_VALUE);
@@ -461,13 +427,13 @@ public class PartitionCommandListenerTest {
      * Inserts row.
      */
     private void insert() {
-        List<IgniteBiTuple<Row, UUID>> txs = new ArrayList<>();
+        List<UUID> txIds = new ArrayList<>();
 
         commandListener.onWrite(iterator((i, clo) -> {
             UUID txId = Timestamp.nextVersion().toUuid();
             Row row = getTestRow(i, i);
             var commitPartId = new TablePartitionId(txId, PARTITION_ID);
-            txs.add(new IgniteBiTuple<>(row, txId));
+            txIds.add(txId);
 
             when(clo.index()).thenReturn(raftIndex.incrementAndGet());
 
@@ -480,7 +446,7 @@ public class PartitionCommandListenerTest {
             }).when(clo).result(any());
         }));
 
-        txs.forEach(tuple -> mvPartitionStorage.commitWrite(primaryIndex.get(tuple.getKey().keySlice()), CLOCK.now()));
+        txIds.forEach(txId -> invokeBatchedCommand(new TxCleanupCommand(txId, true, CLOCK.now())));
     }
 
     /**
@@ -510,5 +476,37 @@ public class PartitionCommandListenerTest {
         rowBuilder.appendInt(val);
 
         return new Row(SCHEMA, rowBuilder.build());
+    }
+
+    private void invokeBatchedCommand(WriteCommand cmd) {
+        commandListener.onWrite(batchIterator(clo -> {
+            when(clo.index()).thenReturn(raftIndex.incrementAndGet());
+
+            doAnswer(invocation -> {
+                assertNull(invocation.getArgument(0));
+
+                return null;
+            }).when(clo).result(any());
+
+            when(clo.command()).thenReturn(cmd);
+        }));
+    }
+
+    private RowId readRow(BinaryRow tableRow) {
+        try (Cursor<RowId> cursor = pkStorage.get(tableRow)) {
+            while (cursor.hasNext()) {
+                RowId rowId = cursor.next();
+
+                ReadResult readResult = mvPartitionStorage.read(rowId, HybridTimestamp.MAX_VALUE);
+
+                if (!readResult.isEmpty() && readResult.binaryRow() != null) {
+                    return rowId;
+                }
+            }
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+
+        return null;
     }
 }

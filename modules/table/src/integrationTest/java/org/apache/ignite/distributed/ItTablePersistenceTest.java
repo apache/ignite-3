@@ -197,7 +197,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
     @Override
     public BooleanSupplier snapshotCheckClosure(JraftServerImpl restarted, boolean interactedAfterSnapshot) {
         MvPartitionStorage storage = getListener(restarted, raftGroupId()).getMvStorage();
-        Map<ByteBuffer, RowId> primaryIndex = getListener(restarted, raftGroupId()).getPk();
+        Map<ByteBuffer, RowId> primaryIndex = null; // getListener(restarted, raftGroupId()).getPk();
 
         Row key = interactedAfterSnapshot ? SECOND_KEY : FIRST_KEY;
         Row value = interactedAfterSnapshot ? SECOND_VALUE : FIRST_VALUE;
@@ -236,7 +236,8 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                             new TestPartitionDataStorage(new TestMvPartitionStorage(0), new TestConcurrentHashMapTxStateStorage()),
                             new TestConcurrentHashMapTxStateStorage(),
                             txManager,
-                            new ConcurrentHashMap<>());
+                            Map::of
+                    );
 
                     paths.put(listener, workDir);
 

@@ -29,12 +29,12 @@ import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.hlc.HybridClock;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
@@ -44,9 +44,9 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
-import org.apache.ignite.internal.storage.PartitionTimestampCursor;
-import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlyMultiRowReplicaRequest;
+import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlySingleRowReplicaRequest;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -59,7 +59,6 @@ import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.function.Executable;
 import org.mockito.Mock;
-import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
@@ -92,6 +91,9 @@ public class ItInternalTableReadOnlyOperationsTest extends IgniteAbstractTest {
     @Mock
     private InternalTransaction readOnlyTx;
 
+    @Mock
+    private ReplicaService replicaService;
+
     /** Internal table to test. */
     private InternalTable internalTbl;
 
@@ -100,9 +102,7 @@ public class ItInternalTableReadOnlyOperationsTest extends IgniteAbstractTest {
      */
     @BeforeEach
     public void setUp(TestInfo testInfo) {
-        internalTbl = new DummyInternalTableImpl(Mockito.mock(ReplicaService.class), mockPartitionStorage, mockTxStateStorage);
-
-        mockStorage(List.of(ROW_1, ROW_2));
+        internalTbl = new DummyInternalTableImpl(replicaService, mockPartitionStorage, mockTxStateStorage);
 
         lenient().when(readOnlyTx.isReadOnly()).thenReturn(true);
         lenient().when(readOnlyTx.readTimestamp()).thenReturn(CLOCK.now());
@@ -110,27 +110,37 @@ public class ItInternalTableReadOnlyOperationsTest extends IgniteAbstractTest {
 
     @Test
     public void testReadOnlyGetNonExistingKeyWithReadTimestamp() {
+        mockReadOnlySingleRowRequest();
+
         assertNull(internalTbl.get(createKeyRow(0), CLOCK.now(), mock(ClusterNode.class)).join());
     }
 
     @Test
     public void testReadOnlyGetNonExistingKeyWithTx() {
+        mockReadOnlySingleRowRequest();
+
         assertNull(internalTbl.get(createKeyRow(0), readOnlyTx).join());
     }
 
     @Test
     public void testReadOnlyGetExistingKeyWithReadTimestamp() {
+        mockReadOnlySingleRowRequest();
+
         assertEquals(ROW_2, internalTbl.get(createKeyRow(2), CLOCK.now(), mock(ClusterNode.class)).join());
     }
 
     @Test
     public void testReadOnlyGetExistingKeyWithTx() {
+        mockReadOnlySingleRowRequest();
+
         assertEquals(ROW_2, internalTbl.get(createKeyRow(2), readOnlyTx).join());
     }
 
 
     @Test
     public void testReadOnlyGetAllNonExistingKeysWithReadTimestamp() {
+        mockReadOnlyMultiRowRequest();
+
         assertEquals(0,
                 internalTbl.getAll(Collections.singleton(createKeyRow(0)), CLOCK.now(), mock(ClusterNode.class)).join().size()
         );
@@ -138,6 +148,8 @@ public class ItInternalTableReadOnlyOperationsTest extends IgniteAbstractTest {
 
     @Test
     public void testReadOnlyGetAllNonExistingKeysWithTx() {
+        mockReadOnlyMultiRowRequest();
+
         assertEquals(0,
                 internalTbl.getAll(Collections.singleton(createKeyRow(0)), readOnlyTx).join().size()
         );
@@ -145,6 +157,8 @@ public class ItInternalTableReadOnlyOperationsTest extends IgniteAbstractTest {
 
     @Test
     public void testReadOnlyGetAllPartiallyExistingKeysWithReadTimestamp() {
+        mockReadOnlyMultiRowRequest();
+
         assertEquals(
                 Collections.singletonList(ROW_2),
                 internalTbl.getAll(Collections.singleton(createKeyRow(2)), CLOCK.now(), mock(ClusterNode.class)).join()
@@ -153,6 +167,8 @@ public class ItInternalTableReadOnlyOperationsTest extends IgniteAbstractTest {
 
     @Test
     public void testReadOnlyGetAllPartiallyExistingKeysWithTx() {
+        mockReadOnlyMultiRowRequest();
+
         assertEquals(
                 Collections.singletonList(ROW_2),
                 internalTbl.getAll(Collections.singleton(createKeyRow(2)), readOnlyTx).join()
@@ -161,6 +177,8 @@ public class ItInternalTableReadOnlyOperationsTest extends IgniteAbstractTest {
 
     @Test
     public void testReadOnlyGetAllExistingKeysWithReadTimestamp() {
+        mockReadOnlyMultiRowRequest();
+
         assertEquals(
                 List.of(ROW_1, ROW_2),
                 internalTbl.getAll(List.of(createKeyRow(1), createKeyRow(2)), CLOCK.now(), mock(ClusterNode.class)).join()
@@ -169,6 +187,8 @@ public class ItInternalTableReadOnlyOperationsTest extends IgniteAbstractTest {
 
     @Test
     public void testReadOnlyGetAllExistingKeysWithTx() {
+        mockReadOnlyMultiRowRequest();
+
         assertEquals(
                 List.of(ROW_1, ROW_2),
                 internalTbl.getAll(List.of(createKeyRow(1), createKeyRow(2)), readOnlyTx).join()
@@ -211,28 +231,6 @@ public class ItInternalTableReadOnlyOperationsTest extends IgniteAbstractTest {
                 containsString("Failed to enlist read-write operation into read-only transaction"));
     }
 
-    private void mockStorage(List<BinaryRow> submittedItems) {
-        // TODO: IGNITE-17859 After index integration get and getAll methods should be used instead of scan.
-        AtomicInteger cursorTouchCnt = new AtomicInteger(0);
-
-        lenient().when(mockPartitionStorage.scan(any(HybridTimestamp.class))).thenAnswer(invocation -> {
-            var cursor = mock(PartitionTimestampCursor.class);
-
-            lenient().when(cursor.hasNext()).thenAnswer(hnInvocation -> cursorTouchCnt.get() < submittedItems.size());
-
-            lenient().when(cursor.next()).thenAnswer(
-                    ninvocation ->
-                            ReadResult.createFromCommitted(submittedItems.get(
-                                    cursorTouchCnt.getAndIncrement()),
-                                    new HybridTimestamp(1, 0)
-                            )
-            );
-
-            return cursor;
-        });
-
-    }
-
     /**
      * Creates a {@link Row} with the supplied key.
      *
@@ -261,5 +259,41 @@ public class ItInternalTableReadOnlyOperationsTest extends IgniteAbstractTest {
         rowBuilder.appendLong(value);
 
         return new Row(SCHEMA, new ByteBufferRow(rowBuilder.toBytes()));
+    }
+
+    private void mockReadOnlyMultiRowRequest() {
+        List<BinaryRow> rowStore = List.of(ROW_1, ROW_2);
+
+        when(replicaService.invoke(any(), any(ReadOnlyMultiRowReplicaRequest.class))).thenAnswer(args -> {
+            List<BinaryRow> result = new ArrayList<>();
+
+            for (BinaryRow row : rowStore) {
+                for (BinaryRow searchRow : args.getArgument(1, ReadOnlyMultiRowReplicaRequest.class).binaryRows()) {
+                    if (row.keySlice().equals(searchRow.keySlice())) {
+                        result.add(row);
+
+                        break;
+                    }
+                }
+            }
+
+            return CompletableFuture.completedFuture(result);
+        });
+    }
+
+    private void mockReadOnlySingleRowRequest() {
+        List<BinaryRow> rowStore = List.of(ROW_1, ROW_2);
+
+        when(replicaService.invoke(any(), any(ReadOnlySingleRowReplicaRequest.class))).thenAnswer(args -> {
+            for (BinaryRow row : rowStore) {
+                BinaryRow searchRow = args.getArgument(1, ReadOnlySingleRowReplicaRequest.class).binaryRow();
+
+                if (row.keySlice().equals(searchRow.keySlice())) {
+                    return CompletableFuture.completedFuture(row);
+                }
+            }
+
+            return CompletableFuture.completedFuture(null);
+        });
     }
 }

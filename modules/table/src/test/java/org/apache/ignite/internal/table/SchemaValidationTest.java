@@ -30,6 +30,7 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaMismatchException;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
+import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
@@ -190,7 +191,7 @@ public class SchemaValidationTest {
     }
 
     private TableImpl createTableImpl(SchemaDescriptor schema) {
-        return new TableImpl(createTable(), new DummySchemaManagerImpl(schema));
+        return new TableImpl(createTable(), new DummySchemaManagerImpl(schema), new HeapLockManager());
     }
 
     private <T extends Throwable> void assertThrowsWithCause(Class<T> expectedType, Executable executable) {

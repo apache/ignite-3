@@ -26,7 +26,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -35,7 +34,6 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -54,13 +52,21 @@ import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.BinaryTupleSchema;
+import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
+import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
-import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
+import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TxAbstractTest;
+import org.apache.ignite.internal.table.distributed.HashIndexLocker;
+import org.apache.ignite.internal.table.distributed.IndexLocker;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
+import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
@@ -76,6 +82,7 @@ import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestConcurrentHashMapTxStateStorage;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
@@ -323,7 +330,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 Mockito.mock(TxStateTableStorage.class),
                 startClient() ? clientReplicaSvc : replicaServices.get(localNode),
                 startClient() ? clientClock : clocks.get(localNode)
-        ), new DummySchemaManagerImpl(ACCOUNTS_SCHEMA));
+        ), new DummySchemaManagerImpl(ACCOUNTS_SCHEMA), txMgr.lockManager());
 
         this.customers = new TableImpl(new InternalTableImpl(
                 customersName,
@@ -337,7 +344,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 Mockito.mock(TxStateTableStorage.class),
                 startClient() ? clientReplicaSvc : replicaServices.get(localNode),
                 startClient() ? clientClock : clocks.get(localNode)
-        ), new DummySchemaManagerImpl(CUSTOMERS_SCHEMA));
+        ), new DummySchemaManagerImpl(CUSTOMERS_SCHEMA), txMgr.lockManager());
 
         log.info("Tables have been started");
     }
@@ -386,7 +393,22 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
                 int partId = p;
 
-                ConcurrentHashMap<ByteBuffer, RowId> primaryIndex = new ConcurrentHashMap<>();
+                UUID indexId = UUID.randomUUID();
+
+                BinaryTupleSchema pkSchema = BinaryTupleSchema.create(new Element[]{
+                        new Element(NativeTypes.BYTES, false)
+                });
+
+                Function<BinaryRow, BinaryTuple> row2tuple =
+                        tableRow -> new BinaryTuple(pkSchema, tableRow.keySlice());
+
+                Lazy<TableSchemaAwareIndexStorage> pkStorage = new Lazy<>(() -> new TableSchemaAwareIndexStorage(
+                        indexId,
+                        new TestHashIndexStorage(null),
+                        row2tuple
+                ));
+
+                IndexLocker pkLocker = new HashIndexLocker(indexId, true, txManagers.get(node).lockManager(), row2tuple);
 
                 CompletableFuture<Void> partitionReadyFuture = raftServers.get(node).prepareRaftGroup(
                         grpId,
@@ -395,7 +417,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                                 new org.apache.ignite.distributed.TestPartitionDataStorage(testMpPartStorage, txSateStorage),
                                 txSateStorage,
                                 txManagers.get(node),
-                                primaryIndex
+                                () -> Map.of(pkStorage.get().id(), pkStorage.get())
                         ),
                         RaftGroupOptions.defaults()
                 ).thenAccept(
@@ -410,7 +432,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                                                 txManagers.get(node).lockManager(),
                                                 partId,
                                                 tblId,
-                                                primaryIndex,
+                                                () -> Map.of(pkLocker.id(), pkLocker),
+                                                pkStorage,
                                                 clocks.get(node),
                                                 txSateStorage,
                                                 topologyServices.get(node),
