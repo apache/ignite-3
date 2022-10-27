@@ -43,6 +43,8 @@ import org.apache.ignite.internal.affinity.RendezvousAffinityFunction;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.Loza;
@@ -83,6 +85,7 @@ import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestConcurrentHashMapTxStateStorage;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.Lazy;
+import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
@@ -226,7 +229,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
             assertTrue(waitForTopology(client, nodes + 1, 1000));
 
-            clientClock = new HybridClock();
+            clientClock = new HybridClockImpl();
 
             log.info("Replica manager has been started, node=[" + client.topologyService().localMember() + ']');
 
@@ -252,11 +255,17 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
         for (int i = 0; i < nodes; i++) {
             ClusterNode node = cluster.get(i).topologyService().localMember();
 
-            HybridClock clock = new HybridClock();
+            HybridClock clock = new HybridClockImpl();
 
             clocks.put(node, clock);
 
-            var raftSrv = new Loza(cluster.get(i), raftConfiguration, workDir.resolve("node" + i), clock);
+            var raftSrv = new Loza(
+                    cluster.get(i),
+                    raftConfiguration,
+                    workDir.resolve("node" + i),
+                    clock,
+                    new PendingComparableValuesTracker<>(clock.now())
+            );
 
             raftSrv.start();
 
@@ -367,6 +376,16 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 null
         );
 
+        Map<ClusterNode, Function<Peer, Boolean>> isLocalPeerCheckerList = cluster.stream().collect(Collectors.toMap(
+                node -> node.topologyService().localMember(),
+                node -> {
+                        TopologyService ts = node.topologyService();
+
+                        Function<Peer, Boolean> f = peer -> ts.getByAddress(peer.address()).equals(ts.localMember());
+
+                        return f;
+                }
+        ));
 
         Int2ObjectOpenHashMap<RaftGroupService> clients = new Int2ObjectOpenHashMap<>();
 
@@ -425,6 +444,9 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 ).thenAccept(
                         raftSvc -> {
                             try {
+                                PendingComparableValuesTracker<HybridTimestamp> safeTime =
+                                        new PendingComparableValuesTracker<>(clocks.get(node).now());
+
                                 replicaManagers.get(node).startReplica(
                                         new TablePartitionId(tblId, partId),
                                         new PartitionReplicaListener(
@@ -437,10 +459,13 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                                                 () -> Map.of(pkLocker.id(), pkLocker),
                                                 pkStorage,
                                                 clocks.get(node),
+                                                safeTime,
                                                 txSateStorage,
                                                 topologyServices.get(node),
-                                                placementDriver
-                                        ));
+                                                placementDriver,
+                                                isLocalPeerCheckerList.get(node)
+                                        )
+                                );
                             } catch (NodeStoppingException e) {
                                 fail("Unexpected node stopping", e);
                             }

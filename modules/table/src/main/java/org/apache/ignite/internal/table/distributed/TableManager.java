@@ -78,6 +78,7 @@ import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.causality.VersionedValue;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.EventListener;
@@ -90,6 +91,7 @@ import org.apache.ignite.internal.metastorage.client.WatchListener;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.server.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
+import org.apache.ignite.internal.raft.server.ReplicationGroupOptions;
 import org.apache.ignite.internal.raft.storage.impl.LogStorageFactoryCreator;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
@@ -135,6 +137,7 @@ import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteNameUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.Lazy;
+import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.utils.RebalanceUtil;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteBiTuple;
@@ -690,6 +693,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 CompletableFuture<Void> startGroupFut = CompletableFuture.completedFuture(null);
 
+                PendingComparableValuesTracker<HybridTimestamp> safeTime = new PendingComparableValuesTracker<>(clock.now());
+
                 if (raftMgr.shouldHaveRaftGroupLocally(nodes)) {
                     startGroupFut = CompletableFuture
                             .supplyAsync(() -> internalTbl.storage().getOrCreateMvPartition(partId), ioExecutor)
@@ -731,8 +736,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                         return CompletableFuture.completedFuture(null);
                                     }
 
-                                    RaftGroupOptions groupOptions = groupOptionsForPartition(internalTbl, tblCfg, partitionStorage,
-                                            newPartAssignment);
+                                    RaftGroupOptions groupOptions = groupOptionsForPartition(
+                                            internalTbl,
+                                            tblCfg,
+                                            partitionStorage,
+                                            newPartAssignment,
+                                            safeTime
+                                    );
 
                                     try {
                                         raftMgr.startRaftGroupNode(
@@ -794,9 +804,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                             new Lazy<>(() -> table.indexStorageAdapters(partId)
                                                                     .get().get(table.pkId())),
                                                             clock,
+                                                            safeTime,
                                                             internalTbl.txStateStorage().getOrCreateTxStateStorage(partId),
                                                             topologyService,
-                                                            placementDriver
+                                                            placementDriver,
+                                                            peer -> clusterNodeResolver.apply(peer.address())
+                                                                    .equals(topologyService.localMember())
                                                     )
                                             );
                                         } catch (NodeStoppingException ex) {
@@ -847,7 +860,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             InternalTable internalTbl,
             ExtendedTableConfiguration tableConfig,
             MvPartitionStorage partitionStorage,
-            Set<ClusterNode> peers
+            Set<ClusterNode> peers,
+            PendingComparableValuesTracker<HybridTimestamp> safeTime
     ) {
         RaftGroupOptions raftGroupOptions;
 
@@ -868,6 +882,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 peers.stream().map(n -> new Peer(n.address())).map(PeerId::fromPeer).map(Object::toString).collect(Collectors.toList()),
                 List.of()
         ));
+
+        raftGroupOptions.replicationGroupOptions(new ReplicationGroupOptions().safeTime(safeTime));
 
         return raftGroupOptions;
     }
@@ -1721,6 +1737,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             .filter(p -> !assignments.contains(p))
                             .collect(Collectors.toList());
 
+                    PendingComparableValuesTracker<HybridTimestamp> safeTime = new PendingComparableValuesTracker<>(clock.now());
+
                     try {
                         LOG.info("Received update on pending assignments. Check if new raft group should be started"
                                         + " [key={}, partition={}, table={}, localMemberAddress={}]",
@@ -1733,7 +1751,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                     tbl.internalTable(),
                                     tblCfg,
                                     partitionStorage,
-                                    assignments
+                                    assignments,
+                                    safeTime
                             );
 
                             RaftGroupListener raftGrpLsnr = new PartitionListener(
@@ -1777,9 +1796,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                             tbl.indexesLockers(partId),
                                             new Lazy<>(() -> tbl.indexStorageAdapters(partId).get().get(tbl.pkId())),
                                             clock,
+                                            safeTime,
                                             tbl.internalTable().txStateStorage().getOrCreateTxStateStorage(partId),
                                             raftMgr.topologyService(),
-                                            placementDriver
+                                            placementDriver,
+                                            peer -> clusterNodeResolver.apply(peer.address())
+                                                    .equals(raftMgr.topologyService().localMember())
                                     )
                             );
                         }

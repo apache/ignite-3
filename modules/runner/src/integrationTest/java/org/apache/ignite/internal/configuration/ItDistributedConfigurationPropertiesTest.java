@@ -43,7 +43,7 @@ import org.apache.ignite.internal.configuration.storage.ConfigurationStorageList
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
@@ -118,7 +118,7 @@ public class ItDistributedConfigurationPropertiesTest {
                     new StaticNodeFinder(memberAddrs)
             );
 
-            raftManager = new Loza(clusterService, raftConfiguration, workDir, new HybridClock());
+            raftManager = new Loza(clusterService, raftConfiguration, workDir, new HybridClockImpl());
 
             cmgManager = new ClusterManagementGroupManager(
                     vaultManager,
