@@ -15,28 +15,16 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Internal.Table
-{
-    using System.Collections.Generic;
-    using Proto.BinaryTuple;
+package org.apache.ignite.raft;
 
-    /// <summary>
-    /// Schema.
-    /// </summary>
-    /// <param name="Version">Version.</param>
-    /// <param name="KeyColumnCount">Key column count.</param>
-    /// <param name="Columns">Columns in schema order.</param>
-    internal sealed record Schema(
-        int Version,
-        int KeyColumnCount,
-        IReadOnlyList<Column> Columns) : IHashedColumnIndexProvider
-    {
-        /// <summary>
-        /// Gets the value column count.
-        /// </summary>
-        public int ValueColumnCount => Columns.Count - KeyColumnCount;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.raft.client.WriteCommand;
 
-        /// <inheritdoc/>
-        public bool IsHashedColumnIndex(int index) => index < KeyColumnCount && Columns[index].IsColocation;
-    }
+/**
+ * Test WriteCommand.
+*/
+@Transferable(10)
+public interface TestWriteCommand extends NetworkMessage, WriteCommand {
+    String value();
 }

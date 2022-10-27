@@ -97,14 +97,15 @@ class OrderingFutureConcurrencyTest {
         assertThat(counter.get(), is(20_000));
     }
 
-    @Timeout(value = 10, unit = TimeUnit.SECONDS)
+    // Normally, each test completes in 1.5 seconds. 60 is to accomodate for possible TC-side issues.
+    @Timeout(value = 60, unit = TimeUnit.SECONDS)
     @ParameterizedTest
     @MethodSource("completionsAndOperations")
     void noDeadlockBetweenCompletionAndOtherOperations(Completion completion, Operation operation) throws Exception {
         for (int i = 0; i < 10; i++) {
             OrderingFuture<Void> future = futureThatLocksMonitorViaCallbackOnCompletion();
 
-            Runnable isCompletedExceptionallyTask = () -> {
+            Runnable otherOperationTask = () -> {
                 synchronized (lockMonitor) {
                     long started = System.nanoTime();
                     while (System.nanoTime() < started + TimeUnit.MILLISECONDS.toNanos(100)) {
@@ -113,7 +114,7 @@ class OrderingFutureConcurrencyTest {
                 }
             };
 
-            executeInParallel(completion.completionTask(future), isCompletedExceptionallyTask);
+            executeInParallel(completion.completionTask(future), otherOperationTask);
         }
     }
 
