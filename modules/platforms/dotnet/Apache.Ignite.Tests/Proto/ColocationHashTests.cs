@@ -108,8 +108,8 @@ public class ColocationHashTests : IgniteTestsBase
         await AssertClientAndServerHashesAreEqual(key);
 
     [Test]
-    public async Task TestTwoKeyColocationHashIsSameOnServerAndClient() =>
-        await AssertClientAndServerHashesAreEqual(LocalTime.FromNanosecondsSinceMidnight(123));
+    public async Task TestTwoKeyColocationHashIsSameOnServerAndClient() => // TODO: Remove me
+        await AssertClientAndServerHashesAreEqual(1m);
 
     [Test]
     public async Task TestMultiKeyColocationHashIsSameOnServerAndClient()

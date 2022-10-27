@@ -429,16 +429,19 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="scale">Decimal scale from schema.</param>
         public void AppendDecimal(decimal value, int scale)
         {
-            if (_hashedColumnsPredicate?.IsHashedColumnIndex(_elementIndex) == true)
-            {
-                _hash = HashUtils.Hash32(value, _hash);
-            }
-
             if (value != decimal.Zero)
             {
                 var (unscaledValue, valueScale) = DeconstructDecimal(value);
 
                 PutDecimal(scale, unscaledValue, valueScale);
+            }
+            else
+            {
+                if (_hashedColumnsPredicate?.IsHashedColumnIndex(_elementIndex) == true)
+                {
+                    Span<byte> span = stackalloc byte[0];
+                    _hash = HashUtils.Hash32(span, _hash);
+                }
             }
 
             OnWrite();
@@ -898,6 +901,11 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             var size = unscaledValue.GetByteCount();
             var destination = GetSpan(size);
             var success = unscaledValue.TryWriteBytes(destination, out int written, isBigEndian: true);
+
+            if (_hashedColumnsPredicate?.IsHashedColumnIndex(_elementIndex) == true)
+            {
+                _hash = HashUtils.Hash32(destination, _hash);
+            }
 
             Debug.Assert(success, "success");
             Debug.Assert(written == size, "written == size");
