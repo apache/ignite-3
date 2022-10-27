@@ -351,7 +351,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
                     VersionChain chain = iterator.next();
                     ReadResult readResult = read(chain, timestamp, null);
 
-                    if (!readResult.isEmpty()) {
+                    if (!readResult.isEmpty() || readResult.isWriteIntent()) {
                         currentChain = chain;
                         currentReadResult = readResult;
 
