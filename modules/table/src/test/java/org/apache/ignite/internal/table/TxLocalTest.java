@@ -26,8 +26,9 @@ import static org.mockito.Mockito.when;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
@@ -64,7 +65,7 @@ public class TxLocalTest extends TxAbstractTest {
 
         ReplicaService replicaSvc = mock(ReplicaService.class, RETURNS_DEEP_STUBS);
 
-        Map<String, DummyInternalTableImpl> tables = new HashMap<>();
+        Map<ReplicationGroupId, DummyInternalTableImpl> tables = new HashMap<>();
 
         lenient().doAnswer(
             invocationOnMock -> {
@@ -111,7 +112,7 @@ public class TxLocalTest extends TxAbstractTest {
     }
 
     @Override
-    protected boolean assertPartitionsSame(Table table, int partId) {
+    protected boolean assertPartitionsSame(TableImpl table, int partId) {
         return true;
     }
 }

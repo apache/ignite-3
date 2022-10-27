@@ -57,6 +57,7 @@ import org.apache.ignite.internal.metastorage.client.Update;
 import org.apache.ignite.internal.raft.server.RaftGroupEventsListener;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableChange;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
+import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.ByteArray;
@@ -112,7 +113,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
     private final TableConfiguration tblConfiguration;
 
     /** Unique partition id. */
-    private final String partId;
+    private final TablePartitionId partId;
 
     /** Partition number. */
     private final int partNum;
@@ -147,7 +148,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
     public RebalanceRaftGroupEventsListener(
             MetaStorageManager metaStorageMgr,
             TableConfiguration tblConfiguration,
-            String partId,
+            TablePartitionId partId,
             int partNum,
             IgniteSpinBusyLock busyLock,
             BiFunction<List<Peer>, Long, CompletableFuture<Void>> movePartitionFn,

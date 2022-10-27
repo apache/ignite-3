@@ -17,8 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.replication.request;
 
-import java.util.UUID;
-import org.apache.ignite.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.network.annotations.Marshallable;
 
@@ -26,8 +25,6 @@ import org.apache.ignite.network.annotations.Marshallable;
  * Read only replica request.
  */
 public interface ReadOnlyReplicaRequest extends ReplicaRequest {
-    UUID transactionId();
-
     @Marshallable
-    HybridTimestamp timestamp();
+    HybridTimestamp readTimestamp();
 }

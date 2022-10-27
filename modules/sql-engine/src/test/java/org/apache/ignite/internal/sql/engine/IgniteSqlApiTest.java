@@ -34,6 +34,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -663,6 +664,16 @@ public class IgniteSqlApiTest {
         public CompletableFuture<Void> rollbackAsync() {
             rollback();
             return CompletableFuture.completedFuture(null);
+        }
+
+        @Override
+        public boolean isReadOnly() {
+            return false;
+        }
+
+        @Override
+        public HybridTimestamp readTimestamp() {
+            return null;
         }
     }
 }

@@ -32,13 +32,15 @@ import static org.mockito.Mockito.when;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
-import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.network.ClusterNode;
@@ -74,7 +76,7 @@ public class ItLozaTest {
      *
      * @return Raft group service.
      */
-    private RaftGroupService startClient(String groupId, ClusterNode node, Loza loza) throws Exception {
+    private RaftGroupService startClient(TestReplicationGroupId groupId, ClusterNode node, Loza loza) throws Exception {
         Supplier<RaftGroupListener> raftGroupListenerSupplier = () -> {
             RaftGroupListener raftGroupListener = mock(RaftGroupListener.class);
 
@@ -141,7 +143,7 @@ public class ItLozaTest {
                         .doCallRealMethod()
                         .when(messagingServiceMock).invoke(any(NetworkAddress.class), any(), anyLong());
 
-                grpSrvcs[i] = startClient(Integer.toString(i), service.topologyService().localMember(), loza);
+                grpSrvcs[i] = startClient(new TestReplicationGroupId(Integer.toString(i)), service.topologyService().localMember(), loza);
 
                 verify(messagingServiceMock, times(3 * (i + 1)))
                         .invoke(any(NetworkAddress.class), any(), anyLong());
@@ -160,6 +162,39 @@ public class ItLozaTest {
             if (service != null) {
                 service.stop();
             }
+        }
+    }
+
+    /**
+     * Test replication group id.
+     */
+    private static class TestReplicationGroupId implements ReplicationGroupId {
+        private final String name;
+
+        public TestReplicationGroupId(String name) {
+            this.name = name;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            TestReplicationGroupId that = (TestReplicationGroupId) o;
+            return Objects.equals(name, that.name);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(name);
+        }
+
+        @Override
+        public String toString() {
+            return name;
         }
     }
 }

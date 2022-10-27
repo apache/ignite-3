@@ -19,7 +19,9 @@ package org.apache.ignite.distributed;
 
 import static org.apache.ignite.raft.jraft.test.TestUtils.waitForTopology;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -39,10 +41,10 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.internal.affinity.RendezvousAffinityFunction;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.Loza;
@@ -51,6 +53,7 @@ import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
@@ -61,6 +64,7 @@ import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
+import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -84,9 +88,11 @@ import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupServiceImpl;
 import org.apache.ignite.table.Table;
+import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mockito;
@@ -362,7 +368,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
         for (int p = 0; p < assignment.size(); p++) {
             List<ClusterNode> partNodes = assignment.get(p);
 
-            String grpId = name + "-part-" + p;
+            TablePartitionId grpId = new TablePartitionId(tblId, p);
 
             List<Peer> conf = partNodes.stream().map(n -> n.address()).map(Peer::new)
                     .collect(Collectors.toList());
@@ -373,7 +379,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 var placementDriver = new PlacementDriver(replicaServices.get(node));
 
                 for (int part = 0; part < assignment.size(); part++) {
-                    String replicaGrpId = name + "-part-" + part;
+                    ReplicationGroupId replicaGrpId = new TablePartitionId(tblId, part);
 
                     placementDriver.updateAssignment(replicaGrpId, assignment.get(part));
                 }
@@ -387,7 +393,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                         partNodes,
                         () -> {
                             return new PartitionListener(
-                                    testMpPartStorage,
+                                    new TestPartitionDataStorage(testMpPartStorage),
                                     txSateStorage,
                                     txManagers.get(node),
                                     primaryIndex
@@ -398,14 +404,13 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                         raftSvc -> {
                             try {
                                 replicaManagers.get(node).startReplica(
-                                        grpId,
+                                        new TablePartitionId(tblId, partId),
                                         new PartitionReplicaListener(
                                                 testMpPartStorage,
                                                 raftSvc,
                                                 txManagers.get(node),
                                                 txManagers.get(node).lockManager(),
                                                 partId,
-                                                grpId,
                                                 tblId,
                                                 primaryIndex,
                                                 clocks.get(node),
@@ -494,11 +499,15 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
             ReplicaManager replicaMgr = replicaManagers.get(entry.getKey());
 
-            Set<String> grps = rs.startedGroups();
+            Set<ReplicationGroupId> replicaGrps = replicaMgr.startedGroups();
 
-            for (String grp : grps) {
+            for (ReplicationGroupId grp : replicaGrps) {
                 replicaMgr.stopReplica(grp);
+            }
 
+            Set<ReplicationGroupId> grps = rs.startedGroups();
+
+            for (ReplicationGroupId grp : grps) {
                 rs.stopRaftGroup(grp);
             }
 
@@ -559,17 +568,17 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
     /** {@inheritDoc} */
     @Override
-    protected boolean assertPartitionsSame(Table table, int partId) {
+    protected boolean assertPartitionsSame(TableImpl table, int partId) {
         int hash = 0;
 
         for (Map.Entry<ClusterNode, Loza> entry : raftServers.entrySet()) {
-            Loza svc = (Loza) entry.getValue();
+            Loza svc = entry.getValue();
             JraftServerImpl server = (JraftServerImpl) svc.server();
-            org.apache.ignite.raft.jraft.RaftGroupService grp = server.raftGroupService(table.name() + "-part-" + partId);
+            org.apache.ignite.raft.jraft.RaftGroupService grp = server.raftGroupService(new TablePartitionId(table.tableId(), partId));
             JraftServerImpl.DelegatingStateMachine fsm = (JraftServerImpl.DelegatingStateMachine) grp
                     .getRaftNode().getOptions().getFsm();
             PartitionListener listener = (PartitionListener) fsm.getListener();
-            MvPartitionStorage storage = listener.getStorage();
+            MvPartitionStorage storage = listener.getMvStorage();
 
             if (hash == 0) {
                 hash = storage.hashCode();
@@ -579,5 +588,21 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
         }
 
         return true;
+    }
+
+    @Test
+    public void testIgniteTransactionsAndReadTimestamp() {
+        Transaction readWriteTx = igniteTransactions.begin();
+        assertFalse(readWriteTx.isReadOnly());
+        assertNull(readWriteTx.readTimestamp());
+
+        Transaction readOnlyTx = igniteTransactions.readOnly().begin();
+        assertTrue(readOnlyTx.isReadOnly());
+        assertNotNull(readOnlyTx.readTimestamp());
+
+        readWriteTx.commit();
+
+        Transaction readOnlyTx2 = igniteTransactions.readOnly().begin();
+        readOnlyTx2.rollback();
     }
 }

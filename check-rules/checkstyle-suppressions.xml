@@ -22,4 +22,5 @@
     "https://checkstyle.org/dtds/suppressions_1_2.dtd">
 <suppressions>
     <suppress files="[/\\]target[/\\]" checks=".*" />
+    <suppress files="[/\\]modules/raft[/\\]src[/\\]main[/\\]java[/\\]org[/\\]apache[/\\]ignite[/\\]raft[/\\]jraft[/\\]" checks=".*" />
 </suppressions>

@@ -19,12 +19,17 @@ namespace Apache.Ignite.Internal.Buffers
 {
     using System;
     using System.Diagnostics;
+    using System.Diagnostics.CodeAnalysis;
     using MessagePack;
 
     /// <summary>
     /// Pooled byte buffer. Wraps a byte array rented from <see cref="ByteArrayPool"/>,
     /// returns it to the pool on <see cref="Dispose"/>.
     /// </summary>
+    [SuppressMessage(
+        "Microsoft.Performance",
+        "CA1815:OverrideEqualsAndOperatorEqualsOnValueTypes",
+        Justification = "Not used in comparisons")]
     internal readonly struct PooledBuffer : IDisposable
     {
         /// <summary>

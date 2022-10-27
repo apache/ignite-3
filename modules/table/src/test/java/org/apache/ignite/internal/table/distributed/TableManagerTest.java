@@ -35,7 +35,6 @@ import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
@@ -97,6 +96,8 @@ import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageChange;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
+import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -436,14 +437,14 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         mockManagersAndCreateTable(scmTbl, tblManagerFut);
 
-        verify(rm, times(PARTITIONS)).startRaftGroupService(anyString(), any());
+        verify(rm, times(PARTITIONS)).startRaftGroupService(any(), any());
 
         TableManager tableManager = tblManagerFut.join();
 
         tableManager.stop();
 
-        verify(rm, times(PARTITIONS)).stopRaftGroup(anyString());
-        verify(replicaMgr, times(PARTITIONS)).stopReplica(anyString());
+        verify(rm, times(PARTITIONS)).stopRaftGroup(any());
+        verify(replicaMgr, times(PARTITIONS)).stopReplica(any());
     }
 
     /**
@@ -663,7 +664,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         ScheduledExecutorService executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME, LOG));
 
-        String groupId = "test";
+        TablePartitionId groupId = new TablePartitionId(UUID.randomUUID(), 0);
 
         List<String> shrunkPeers = peersToIds(nodes.subList(0, 1));
 
@@ -677,7 +678,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                 eq(factory.changePeersAsyncRequest()
                         .newPeersList(shrunkPeers)
                         .term(1L)
-                        .groupId(groupId).build()), anyLong()))
+                        .groupId(groupId.toString()).build()), anyLong()))
                 .then(invocation -> {
                     if (firstInvocationOfChangePeersAsync.get() == 0) {
                         firstInvocationOfChangePeersAsync.set(System.currentTimeMillis());
@@ -718,7 +719,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                 eq(factory.changePeersAsyncRequest()
                         .newPeersList(shrunkPeers)
                         .term(1L)
-                        .groupId(groupId).build()), anyLong()))
+                        .groupId(groupId.toString()).build()), anyLong()))
                 .then(invocation -> {
                     if (secondInvocationOfChangePeersAsync.get() == 0) {
                         secondInvocationOfChangePeersAsync.set(System.currentTimeMillis());
@@ -768,7 +769,8 @@ public class TableManagerTest extends IgniteAbstractTest {
                 msm,
                 sm = new SchemaManager(revisionUpdater, tblsCfg, msm),
                 budgetView -> new LocalLogStorageFactory(),
-                null
+                null,
+                new OutgoingSnapshotsManager(messagingService)
         );
 
         sm.start();

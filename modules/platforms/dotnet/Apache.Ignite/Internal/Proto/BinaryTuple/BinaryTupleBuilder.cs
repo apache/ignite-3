@@ -43,6 +43,9 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /** Starting position of variable-length values. */
         private readonly int _valueBase;
 
+        /** Colocation column index provider. When not null, used to compute colocation hash on the fly. */
+        private readonly IHashedColumnIndexProvider? _hashedColumnsPredicate;
+
         /** Buffer for tuple content. */
         private readonly PooledArrayBufferWriter _buffer;
 
@@ -52,17 +55,28 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /** Current element. */
         private int _elementIndex;
 
+        /** Current element. */
+        private int _hash;
+
         /// <summary>
         /// Initializes a new instance of the <see cref="BinaryTupleBuilder"/> struct.
         /// </summary>
         /// <param name="numElements">Capacity.</param>
         /// <param name="allowNulls">Whether nulls are allowed.</param>
         /// <param name="totalValueSize">Total value size, -1 when unknown.</param>
-        public BinaryTupleBuilder(int numElements, bool allowNulls = true, int totalValueSize = -1)
+        /// <param name="hashedColumnsPredicate">A predicate that returns true for colocation column indexes.
+        /// Pass null when colocation hash is not needed.</param>
+        public BinaryTupleBuilder(
+            int numElements,
+            bool allowNulls = true,
+            int totalValueSize = -1,
+            IHashedColumnIndexProvider? hashedColumnsPredicate = null)
         {
             Debug.Assert(numElements >= 0, "numElements >= 0");
 
             _numElements = numElements;
+            _hashedColumnsPredicate = hashedColumnsPredicate;
+            _hash = 0;
             _buffer = new();
             _elementIndex = 0;
             _hasNullValues = false;
@@ -94,6 +108,11 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// Gets the current element index.
         /// </summary>
         public int ElementIndex => _elementIndex;
+
+        /// <summary>
+        /// Gets the hash from column values according to specified <see cref="IHashedColumnIndexProvider"/>.
+        /// </summary>
+        public int Hash => _hash;
 
         /// <summary>
         /// Appends a null value.
@@ -160,6 +179,12 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="value">Value.</param>
         public void AppendInt(int value)
         {
+            // TODO IGNITE-17969 Partition Awareness - support all key types
+            if (_hashedColumnsPredicate?.IsHashedColumnIndex(_elementIndex) == true)
+            {
+                _hash = HashUtils.Hash32(value, _hash);
+            }
+
             if (value >= sbyte.MinValue && value <= sbyte.MaxValue)
             {
                 AppendByte((sbyte)value);

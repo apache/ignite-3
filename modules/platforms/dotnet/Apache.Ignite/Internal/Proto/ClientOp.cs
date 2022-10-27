@@ -22,6 +22,9 @@ namespace Apache.Ignite.Internal.Proto
     /// </summary>
     internal enum ClientOp
     {
+        /** None */
+        None = 0,
+
         /** Heartbeat. */
         Heartbeat = 1,
 
@@ -107,6 +110,9 @@ namespace Apache.Ignite.Internal.Proto
         SqlCursorNextPage = 51,
 
         /** Close cursor. */
-        SqlCursorClose = 52
+        SqlCursorClose = 52,
+
+        /** Get partition assignment. */
+        PartitionAssignmentGet = 53
     }
 }

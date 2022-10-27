@@ -22,14 +22,13 @@ namespace Apache.Ignite.Internal.Proto
     /// </summary>
     internal enum ClientMessagePackType
     {
-        /// <summary>
-        /// UUID / Guid.
-        /// </summary>
+        /// <summary> None. </summary>
+        None = 0,
+
+        /// <summary> UUID / Guid. </summary>
         Uuid = 3,
 
-        /// <summary>
-        /// Bitmask.
-        /// </summary>
+        /// <summary> Bitmask. </summary>
         Bitmask = 8,
     }
 }
