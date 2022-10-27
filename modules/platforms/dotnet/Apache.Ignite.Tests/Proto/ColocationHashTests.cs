@@ -109,7 +109,7 @@ public class ColocationHashTests : IgniteTestsBase
 
     [Test]
     public async Task TestTwoKeyColocationHashIsSameOnServerAndClient() => // TODO: Remove me
-        await AssertClientAndServerHashesAreEqual(1m);
+        await AssertClientAndServerHashesAreEqual(default(decimal));
 
     [Test]
     public async Task TestMultiKeyColocationHashIsSameOnServerAndClient()
