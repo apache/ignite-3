@@ -20,8 +20,6 @@ package org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.sameInstance;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyInt;
 import static org.mockito.Mockito.doReturn;
@@ -41,9 +39,6 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionKey;
-import org.apache.ignite.internal.tx.TxMeta;
-import org.apache.ignite.internal.tx.TxState;
-import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -60,9 +55,6 @@ class SnapshotAwarePartitionDataStorageTest {
 
     @Mock
     private MvPartitionStorage partitionStorage;
-
-    @Mock
-    private TxStateStorage txStateStorage;
 
     @Mock
     private PartitionsSnapshots partitionsSnapshots;
@@ -242,29 +234,6 @@ class SnapshotAwarePartitionDataStorageTest {
 
         verify(snapshot).enqueueForSending(rowId);
         verify(snapshot2).enqueueForSending(rowId);
-    }
-
-    @Test
-    void delegatesGetTxMeta() {
-        TxMeta txMeta = mock(TxMeta.class);
-
-        when(txStateStorage.get(any())).thenReturn(txMeta);
-
-        UUID txId = UUID.randomUUID();
-
-        assertThat(testedStorage.getTxMeta(txId), is(txMeta));
-        verify(txStateStorage).get(txId);
-    }
-
-    @Test
-    void delegatesCompareAndSetTxMeta() {
-        when(txStateStorage.compareAndSet(any(), any(), any(), anyLong())).thenReturn(true);
-
-        UUID txId = UUID.randomUUID();
-        TxMeta txMeta = mock(TxMeta.class);
-
-        assertTrue(testedStorage.compareAndSetTxMeta(txId, TxState.COMMITED, txMeta, 42));
-        verify(txStateStorage).compareAndSet(txId, TxState.COMMITED, txMeta, 42);
     }
 
     private enum MvWriteAction {

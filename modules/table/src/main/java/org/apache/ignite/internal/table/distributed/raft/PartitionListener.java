@@ -49,6 +49,7 @@ import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.raft.client.Command;
@@ -65,8 +66,11 @@ public class PartitionListener implements RaftGroupListener {
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(PartitionListener.class);
 
-    /** Partition storage with access to both MV and TX data of a partition. */
-    private final PartitionDataStorage storage;
+    /** Partition storage with access to MV data of a partition. */
+    private final PartitionDataStorage partitionDataStorage;
+
+    /** Storage of transaction metadata. */
+    private final TxStateStorage txStateStorage;
 
     /** Transaction manager. */
     private final TxManager txManager;
@@ -87,16 +91,18 @@ public class PartitionListener implements RaftGroupListener {
     /**
      * The constructor.
      *
-     * @param store  The storage.
+     * @param partitionDataStorage  The storage.
      * @param txManager Transaction manager.
      * @param primaryIndex Primary index map.
      */
     public PartitionListener(
-            PartitionDataStorage store,
+            PartitionDataStorage partitionDataStorage,
+            TxStateStorage txStateStorage,
             TxManager txManager,
             ConcurrentHashMap<ByteBuffer, RowId> primaryIndex
     ) {
-        this.storage = store;
+        this.partitionDataStorage = partitionDataStorage;
+        this.txStateStorage = txStateStorage;
         this.txManager = txManager;
         this.primaryIndex = primaryIndex;
     }
@@ -119,13 +125,13 @@ public class PartitionListener implements RaftGroupListener {
 
             long commandIndex = clo.index();
 
-            long storageAppliedIndex = storage.lastAppliedIndex();
+            long storageAppliedIndex = partitionDataStorage.lastAppliedIndex();
 
             assert storageAppliedIndex < commandIndex
                     : "Pending write command has a higher index than already processed commands [commandIndex=" + commandIndex
                     + ", storageAppliedIndex=" + storageAppliedIndex + ']';
 
-            try (AutoLockup ignoredPartitionSnapshotsReadLockup = storage.acquirePartitionSnapshotsReadLock()) {
+            try (AutoLockup ignoredPartitionSnapshotsReadLockup = partitionDataStorage.acquirePartitionSnapshotsReadLock()) {
                 if (command instanceof UpdateCommand) {
                     handleUpdateCommand((UpdateCommand) command, commandIndex);
                 } else if (command instanceof UpdateAllCommand) {
@@ -150,14 +156,14 @@ public class PartitionListener implements RaftGroupListener {
      * @param cmd Command.
      */
     private void handleUpdateCommand(UpdateCommand cmd, long commandIndex) {
-        storage.runConsistently(() -> {
+        partitionDataStorage.runConsistently(() -> {
             BinaryRow row = cmd.getRow();
             RowId rowId = cmd.getRowId();
             UUID txId = cmd.txId();
             UUID commitTblId = cmd.getCommitReplicationGroupId().getTableId();
             int commitPartId = cmd.getCommitReplicationGroupId().getPartId();
 
-            storage.addWrite(rowId, row, txId, commitTblId, commitPartId);
+            partitionDataStorage.addWrite(rowId, row, txId, commitTblId, commitPartId);
 
             txsPendingRowIds.computeIfAbsent(txId, entry -> new HashSet<>()).add(rowId);
 
@@ -184,7 +190,7 @@ public class PartitionListener implements RaftGroupListener {
                 txsRemovedKeys.computeIfAbsent(txId, entry -> new HashSet<>()).remove(row.keySlice());
             }
 
-            storage.lastAppliedIndex(commandIndex);
+            partitionDataStorage.lastAppliedIndex(commandIndex);
 
             return null;
         });
@@ -196,7 +202,7 @@ public class PartitionListener implements RaftGroupListener {
      * @param cmd Command.
      */
     private void handleUpdateAllCommand(UpdateAllCommand cmd, long commandIndex) {
-        storage.runConsistently(() -> {
+        partitionDataStorage.runConsistently(() -> {
             UUID txId = cmd.txId();
             Map<RowId, BinaryRow> rowsToUpdate = cmd.getRowsToUpdate();
             UUID commitTblId = cmd.getReplicationGroupId().getTableId();
@@ -207,7 +213,7 @@ public class PartitionListener implements RaftGroupListener {
                     RowId rowId = entry.getKey();
                     BinaryRow row = entry.getValue();
 
-                    storage.addWrite(rowId, row, txId, commitTblId, commitPartId);
+                    partitionDataStorage.addWrite(rowId, row, txId, commitTblId, commitPartId);
 
                     txsPendingRowIds.computeIfAbsent(txId, entry0 -> new HashSet<>()).add(rowId);
 
@@ -235,7 +241,7 @@ public class PartitionListener implements RaftGroupListener {
                     }
                 }
             }
-            storage.lastAppliedIndex(commandIndex);
+            partitionDataStorage.lastAppliedIndex(commandIndex);
 
             return null;
         });
@@ -259,9 +265,9 @@ public class PartitionListener implements RaftGroupListener {
                 cmd.commitTimestamp()
         );
 
-        TxMeta txMetaBeforeCas = storage.getTxMeta(txId);
+        TxMeta txMetaBeforeCas = txStateStorage.get(txId);
 
-        boolean txStateChangeRes = storage.compareAndSetTxMeta(
+        boolean txStateChangeRes = txStateStorage.compareAndSet(
                 txId,
                 null,
                 txMetaToSet,
@@ -296,7 +302,7 @@ public class PartitionListener implements RaftGroupListener {
      * @param cmd Command.
      */
     private void handleTxCleanupCommand(TxCleanupCommand cmd, long commandIndex) {
-        storage.runConsistently(() -> {
+        partitionDataStorage.runConsistently(() -> {
             UUID txId = cmd.txId();
 
             Set<ByteBuffer> removedKeys = txsRemovedKeys.getOrDefault(txId, Collections.emptySet());
@@ -306,9 +312,9 @@ public class PartitionListener implements RaftGroupListener {
             Set<RowId> pendingRowIds = txsPendingRowIds.getOrDefault(txId, Collections.emptySet());
 
             if (cmd.commit()) {
-                pendingRowIds.forEach(rowId -> storage.commitWrite(rowId, cmd.commitTimestamp()));
+                pendingRowIds.forEach(rowId -> partitionDataStorage.commitWrite(rowId, cmd.commitTimestamp()));
             } else {
-                pendingRowIds.forEach(rowId -> storage.abortWrite(rowId));
+                pendingRowIds.forEach(rowId -> partitionDataStorage.abortWrite(rowId));
             }
 
             if (cmd.commit()) {
@@ -328,7 +334,7 @@ public class PartitionListener implements RaftGroupListener {
             // TODO: IGNITE-17638 TestOnly code, let's consider using Txn state map instead of states.
             txManager.changeState(txId, null, cmd.commit() ? COMMITED : ABORTED);
 
-            storage.lastAppliedIndex(commandIndex);
+            partitionDataStorage.lastAppliedIndex(commandIndex);
 
             return null;
         });
@@ -337,7 +343,7 @@ public class PartitionListener implements RaftGroupListener {
     /** {@inheritDoc} */
     @Override
     public void onSnapshotSave(Path path, Consumer<Throwable> doneClo) {
-        storage.flush();
+        partitionDataStorage.flush();
     }
 
     /** {@inheritDoc} */
@@ -351,7 +357,7 @@ public class PartitionListener implements RaftGroupListener {
     public void onShutdown() {
         // TODO: IGNITE-17958 - probably, we should not close the storage here as PartitionListener did not create the storage.
         try {
-            storage.close();
+            partitionDataStorage.close();
         } catch (Exception e) {
             throw new IgniteInternalException("Failed to close storage: " + e.getMessage(), e);
         }
@@ -362,7 +368,7 @@ public class PartitionListener implements RaftGroupListener {
      */
     @TestOnly
     public MvPartitionStorage getMvStorage() {
-        return storage.getMvStorage();
+        return partitionDataStorage.getStorage();
     }
 
     /**

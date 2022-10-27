@@ -235,7 +235,8 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                     var testMpPartStorage = new TestMvPartitionStorage(0);
 
                     PartitionListener listener = new PartitionListener(
-                            new TestPartitionDataStorage(testMpPartStorage, new TestTxStateStorage()),
+                            new TestPartitionDataStorage(testMpPartStorage),
+                            new TestTxStateStorage(),
                             txManager,
                             new ConcurrentHashMap<>());
 

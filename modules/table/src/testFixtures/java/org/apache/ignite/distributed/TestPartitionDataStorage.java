@@ -30,9 +30,6 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
-import org.apache.ignite.internal.tx.TxMeta;
-import org.apache.ignite.internal.tx.TxState;
-import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -41,13 +38,10 @@ import org.jetbrains.annotations.Nullable;
 public class TestPartitionDataStorage implements PartitionDataStorage {
     private final MvPartitionStorage partitionStorage;
 
-    private final TxStateStorage txStateStorage;
-
     private final Lock partitionSnapshotsLock = new ReentrantLock();
 
-    public TestPartitionDataStorage(MvPartitionStorage partitionStorage, TxStateStorage txStateStorage) {
+    public TestPartitionDataStorage(MvPartitionStorage partitionStorage) {
         this.partitionStorage = partitionStorage;
-        this.txStateStorage = txStateStorage;
     }
 
     @Override
@@ -94,17 +88,7 @@ public class TestPartitionDataStorage implements PartitionDataStorage {
     }
 
     @Override
-    public TxMeta getTxMeta(UUID txId) {
-        return txStateStorage.get(txId);
-    }
-
-    @Override
-    public boolean compareAndSetTxMeta(UUID txId, TxState txStateExpected, TxMeta txMeta, long commandIndex) {
-        return txStateStorage.compareAndSet(txId, txStateExpected, txMeta, commandIndex);
-    }
-
-    @Override
-    public MvPartitionStorage getMvStorage() {
+    public MvPartitionStorage getStorage() {
         return partitionStorage;
     }
 

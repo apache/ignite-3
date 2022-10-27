@@ -221,7 +221,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         );
 
         partitionListener = new PartitionListener(
-                new TestPartitionDataStorage(mvPartStorage, new TestTxStateStorage()),
+                new TestPartitionDataStorage(mvPartStorage),
+                new TestTxStateStorage(),
                 this.txManager,
                 primaryIndex
         );

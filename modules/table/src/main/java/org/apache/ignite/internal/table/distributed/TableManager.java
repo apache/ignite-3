@@ -771,6 +771,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                             newPartAssignment,
                                                             new PartitionListener(
                                                                     partitionDataStorage(mvPartitionStorage, internalTbl, partId),
+                                                                    getOrCreateTxStateStorage(internalTbl, partId),
                                                                     txManager,
                                                                     primaryIndex
                                                             ),
@@ -860,7 +861,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private PartitionDataStorage partitionDataStorage(MvPartitionStorage partitionStorage, InternalTable internalTbl, int partId) {
         return new SnapshotAwarePartitionDataStorage(
                 partitionStorage,
-                getOrCreateTxStateStorage(internalTbl, partId),
                 outgoingSnapshotsManager,
                 partitionKey(internalTbl, partId)
         );
@@ -868,10 +868,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     private PartitionKey partitionKey(InternalTable internalTbl, int partId) {
         return new PartitionKey(internalTbl.tableId(), partId);
-    }
-
-    private MvPartitionStorage getOrCreateMvPartition(InternalTable internalTbl, int partId) {
-        return internalTbl.storage().getOrCreateMvPartition(partId);
     }
 
     private TxStateStorage getOrCreateTxStateStorage(InternalTable internalTbl, int partId) {
@@ -1745,6 +1741,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                             RaftGroupListener raftGrpLsnr = new PartitionListener(
                                     partitionDataStorage(mvPartitionStorage, internalTable, partId),
+                                    getOrCreateTxStateStorage(internalTable, partId),
                                     txManager,
                                     primaryIndex
                             );

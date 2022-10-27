@@ -393,7 +393,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                         partNodes,
                         () -> {
                             return new PartitionListener(
-                                    new TestPartitionDataStorage(testMpPartStorage, txStateStorage),
+                                    new TestPartitionDataStorage(testMpPartStorage),
+                                    new TestTxStateStorage(),
                                     txManagers.get(node),
                                     primaryIndex
                             );

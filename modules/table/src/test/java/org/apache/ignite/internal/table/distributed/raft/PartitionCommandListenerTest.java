@@ -114,7 +114,8 @@ public class PartitionCommandListenerTest {
         ReplicaService replicaService = Mockito.mock(ReplicaService.class, RETURNS_DEEP_STUBS);
 
         commandListener = new PartitionListener(
-                new TestPartitionDataStorage(mvPartitionStorage, new TestTxStateStorage()),
+                new TestPartitionDataStorage(mvPartitionStorage),
+                new TestTxStateStorage(),
                 new TxManagerImpl(replicaService, new HeapLockManager(), new HybridClock()),
                 primaryIndex
         );
