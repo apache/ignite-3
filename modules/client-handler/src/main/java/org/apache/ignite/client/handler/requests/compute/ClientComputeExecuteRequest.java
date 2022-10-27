@@ -24,7 +24,6 @@ import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterService;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Compute execute request.
@@ -67,8 +66,7 @@ public class ClientComputeExecuteRequest {
      * @param in Unpacker.
      * @return Args array.
      */
-    @NotNull
-    public static Object[] unpackArgs(ClientMessageUnpacker in) {
+    static Object[] unpackArgs(ClientMessageUnpacker in) {
         return in.unpackObjectArrayFromBinaryTuple();
     }
 }

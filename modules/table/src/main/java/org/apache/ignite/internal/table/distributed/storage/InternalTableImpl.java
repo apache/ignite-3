@@ -390,24 +390,24 @@ public class InternalTableImpl implements InternalTable {
         CompletableFuture<R> result = new CompletableFuture();
 
         enlist(partId, tx).<R>thenCompose(
-                        primaryReplicaAndTerm -> {
-                            try {
-                                return replicaSvc.invoke(
-                                        primaryReplicaAndTerm.get1(),
-                                        requestFunction.apply((TablePartitionId) tx.commitPartition(), primaryReplicaAndTerm.get2())
-                                );
-                            } catch (PrimaryReplicaMissException e) {
-                                throw new TransactionException(e);
-                            } catch (Throwable e) {
-                                throw new TransactionException(
-                                        IgniteStringFormatter.format(
-                                                "Failed to enlist partition[tableName={}, partId={}] into a transaction",
-                                                tableName,
-                                                partId
-                                                )
-                                );
-                            }
-                        })
+                primaryReplicaAndTerm -> {
+                    try {
+                        return replicaSvc.invoke(
+                                primaryReplicaAndTerm.get1(),
+                                requestFunction.apply((TablePartitionId) tx.commitPartition(), primaryReplicaAndTerm.get2())
+                        );
+                    } catch (PrimaryReplicaMissException e) {
+                        throw new TransactionException(e);
+                    } catch (Throwable e) {
+                        throw new TransactionException(
+                                IgniteStringFormatter.format(
+                                        "Failed to enlist partition[tableName={}, partId={}] into a transaction",
+                                        tableName,
+                                        partId
+                                )
+                        );
+                    }
+                })
                 .handle((res0, e) -> {
                     if (e != null) {
                         if (e.getCause() instanceof PrimaryReplicaMissException && attempts > 0) {

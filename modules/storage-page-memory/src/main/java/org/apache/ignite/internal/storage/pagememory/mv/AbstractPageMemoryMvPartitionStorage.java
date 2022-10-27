@@ -296,7 +296,14 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         if (versionChain.isUncommitted()) {
             assert versionChain.transactionId() != null;
 
-            return writeIntentToResult(versionChain, rowVersion, null);
+            HybridTimestamp newestCommitTs = null;
+
+            if (versionChain.hasCommittedVersions()) {
+                long newestCommitLink = versionChain.newestCommittedLink();
+                newestCommitTs = readRowVersion(newestCommitLink, ALWAYS_LOAD_VALUE).timestamp();
+            }
+
+            return writeIntentToResult(versionChain, rowVersion, newestCommitTs);
         } else {
             ByteBufferRow row = rowVersionToBinaryRow(rowVersion);
 
@@ -798,7 +805,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                 VersionChain chain = treeCursor.next();
                 ReadResult result = findRowVersionByTimestamp(chain, timestamp);
 
-                if (result.isEmpty()) {
+                if (result.isEmpty() && !result.isWriteIntent()) {
                     continue;
                 }
 
@@ -841,7 +848,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                 VersionChain chain = treeCursor.next();
                 ReadResult result = findLatestRowVersion(chain);
 
-                if (result.isEmpty()) {
+                if (result.isEmpty() && !result.isWriteIntent()) {
                     continue;
                 }
 
