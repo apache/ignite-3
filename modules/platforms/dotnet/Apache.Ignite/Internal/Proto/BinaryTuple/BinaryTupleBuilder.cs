@@ -124,7 +124,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                 throw new InvalidOperationException("Appending a NULL value in binary tuple builder with disabled NULLs");
             }
 
-            if (_hashedColumnsPredicate?.IsHashedColumnIndex(_elementIndex) == true)
+            if (ShouldHash())
             {
                 _hash = HashUtils.Hash32((sbyte)0, _hash);
             }
@@ -144,7 +144,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// </summary>
         public void AppendDefault()
         {
-            if (_hashedColumnsPredicate?.IsHashedColumnIndex(_elementIndex) == true)
+            if (ShouldHash())
             {
                 _hash = HashUtils.Hash32((sbyte)0, _hash);
             }
@@ -158,7 +158,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="value">Value.</param>
         public void AppendByte(sbyte value)
         {
-            if (_hashedColumnsPredicate?.IsHashedColumnIndex(_elementIndex) == true)
+            if (ShouldHash())
             {
                 _hash = HashUtils.Hash32(value, _hash);
             }
@@ -177,7 +177,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="value">Value.</param>
         public void AppendShort(short value)
         {
-            if (_hashedColumnsPredicate?.IsHashedColumnIndex(_elementIndex) == true)
+            if (ShouldHash())
             {
                 _hash = HashUtils.Hash32(value, _hash);
             }
@@ -203,7 +203,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="value">Value.</param>
         public void AppendInt(int value)
         {
-            if (_hashedColumnsPredicate?.IsHashedColumnIndex(_elementIndex) == true)
+            if (ShouldHash())
             {
                 _hash = HashUtils.Hash32(value, _hash);
             }
@@ -233,7 +233,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="value">Value.</param>
         public void AppendLong(long value)
         {
-            if (_hashedColumnsPredicate?.IsHashedColumnIndex(_elementIndex) == true)
+            if (ShouldHash())
             {
                 _hash = HashUtils.Hash32(value, _hash);
             }
@@ -267,7 +267,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="value">Value.</param>
         public void AppendFloat(float value)
         {
-            if (_hashedColumnsPredicate?.IsHashedColumnIndex(_elementIndex) == true)
+            if (ShouldHash())
             {
                 _hash = HashUtils.Hash32(value, _hash);
             }
@@ -286,7 +286,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="value">Value.</param>
         public void AppendDouble(double value)
         {
-            if (_hashedColumnsPredicate?.IsHashedColumnIndex(_elementIndex) == true)
+            if (ShouldHash())
             {
                 _hash = HashUtils.Hash32(value, _hash);
             }
@@ -340,7 +340,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="value">Value.</param>
         public void AppendBytes(Span<byte> value)
         {
-            if (_hashedColumnsPredicate?.IsHashedColumnIndex(_elementIndex) == true)
+            if (ShouldHash())
             {
                 _hash = HashUtils.Hash32(value, _hash);
             }
@@ -366,7 +366,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                 var span = GetSpan(16);
                 UuidSerializer.Write(value, span);
 
-                if (_hashedColumnsPredicate?.IsHashedColumnIndex(_elementIndex) == true)
+                if (ShouldHash())
                 {
                     _hash = HashUtils.Hash32(BinaryPrimitives.ReadInt64LittleEndian(span[..8]), _hash);
                     _hash = HashUtils.Hash32(BinaryPrimitives.ReadInt64LittleEndian(span[8..]), _hash);
@@ -374,7 +374,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             }
             else
             {
-                if (_hashedColumnsPredicate?.IsHashedColumnIndex(_elementIndex) == true)
+                if (ShouldHash())
                 {
                     _hash = HashUtils.Hash32(0L, _hash);
                     _hash = HashUtils.Hash32(0L, _hash);
@@ -405,7 +405,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
                 var resBytes = arr.AsSpan()[..size];
 
-                if (_hashedColumnsPredicate?.IsHashedColumnIndex(_elementIndex) == true)
+                if (ShouldHash())
                 {
                     _hash = HashUtils.Hash32(resBytes, _hash);
                 }
@@ -435,7 +435,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             }
             else
             {
-                if (_hashedColumnsPredicate?.IsHashedColumnIndex(_elementIndex) == true)
+                if (ShouldHash())
                 {
                     _hash = HashUtils.Hash32(stackalloc byte[1] { 0 }, _hash);
                 }
@@ -456,7 +456,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                 var destination = GetSpan(size);
                 var success = value.TryWriteBytes(destination, out int written, isBigEndian: true);
 
-                if (_hashedColumnsPredicate?.IsHashedColumnIndex(_elementIndex) == true)
+                if (ShouldHash())
                 {
                     _hash = HashUtils.Hash32(destination[..written], _hash);
                 }
@@ -466,7 +466,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             }
             else
             {
-                if (_hashedColumnsPredicate?.IsHashedColumnIndex(_elementIndex) == true)
+                if (ShouldHash())
                 {
                     _hash = HashUtils.Hash32(stackalloc byte[1] { 0 }, _hash);
                 }
@@ -481,7 +481,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="value">Value.</param>
         public void AppendDate(LocalDate value)
         {
-            if (_hashedColumnsPredicate?.IsHashedColumnIndex(_elementIndex) == true)
+            if (ShouldHash())
             {
                 _hash = HashUtils.Hash32(value, _hash);
             }
@@ -500,7 +500,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="value">Value.</param>
         public void AppendTime(LocalTime value)
         {
-            if (_hashedColumnsPredicate?.IsHashedColumnIndex(_elementIndex) == true)
+            if (ShouldHash())
             {
                 _hash = HashUtils.Hash32(value, _hash);
             }
@@ -519,7 +519,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="value">Value.</param>
         public void AppendDateTime(LocalDateTime value)
         {
-            if (_hashedColumnsPredicate?.IsHashedColumnIndex(_elementIndex) == true)
+            if (ShouldHash())
             {
                 _hash = HashUtils.Hash32(value, _hash);
             }
@@ -543,7 +543,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             {
                 var (seconds, nanos) = PutTimestamp(value);
 
-                if (_hashedColumnsPredicate?.IsHashedColumnIndex(_elementIndex) == true)
+                if (ShouldHash())
                 {
                     _hash = HashUtils.Hash32(seconds, _hash);
                     _hash = HashUtils.Hash32((long)nanos, _hash);
@@ -551,7 +551,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             }
             else
             {
-                if (_hashedColumnsPredicate?.IsHashedColumnIndex(_elementIndex) == true)
+                if (ShouldHash())
                 {
                     _hash = HashUtils.Hash32(0L, _hash);
                     _hash = HashUtils.Hash32(0L, _hash);
@@ -567,7 +567,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="value">Value.</param>
         public void AppendDuration(Duration value)
         {
-            if (_hashedColumnsPredicate?.IsHashedColumnIndex(_elementIndex) == true)
+            if (ShouldHash())
             {
                 // Colocation keys can't include Duration.
                 throw new NotSupportedException("Duration hashing is not supported.");
@@ -587,7 +587,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="value">Value.</param>
         public void AppendPeriod(Period value)
         {
-            if (_hashedColumnsPredicate?.IsHashedColumnIndex(_elementIndex) == true)
+            if (ShouldHash())
             {
                 // Colocation keys can't include Period.
                 throw new NotSupportedException("Period hashing is not supported.");
@@ -906,7 +906,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             var destination = GetSpan(size);
             var success = unscaledValue.TryWriteBytes(destination, out int written, isBigEndian: true);
 
-            if (_hashedColumnsPredicate?.IsHashedColumnIndex(_elementIndex) == true)
+            if (ShouldHash())
             {
                 _hash = HashUtils.Hash32(destination[..written], _hash);
             }
@@ -933,7 +933,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         {
             if (value.Length == 0)
             {
-                if (_hashedColumnsPredicate?.IsHashedColumnIndex(_elementIndex) == true)
+                if (ShouldHash())
                 {
                     _hash = HashUtils.Hash32(Span<byte>.Empty, _hash);
                 }
@@ -946,7 +946,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
             var actualBytes = ProtoCommon.StringEncoding.GetBytes(value, span);
 
-            if (_hashedColumnsPredicate?.IsHashedColumnIndex(_elementIndex) == true)
+            if (ShouldHash())
             {
                 _hash = HashUtils.Hash32(span[..actualBytes], _hash);
             }
@@ -1115,5 +1115,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
             return span;
         }
+
+        private bool ShouldHash() => _hashedColumnsPredicate?.IsHashedColumnIndex(_elementIndex) == true;
     }
 }
