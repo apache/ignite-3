@@ -40,13 +40,18 @@ public class NodeMetadata {
      * @return {@link NodeMetadata}
      */
     public static NodeMetadata fromByteBuffer(ByteBuffer metadata) {
-        int version = metadata.getInt(0);
-        if (version == VERSION) {
-            byte port = metadata.get(1);
-            return new NodeMetadata(port);
-        } else {
+        try {
+            int version = readInt(metadata, 0);
+            if (version == VERSION) {
+                int port = readInt(metadata, 4);
+                return new NodeMetadata(port);
+            } else {
+                return null;
+            }
+        } catch (Exception e) {
             return null;
         }
+
     }
 
     /**
@@ -61,22 +66,40 @@ public class NodeMetadata {
         return buffer;
     }
 
+    /**
+     * Reads a specific integer byte value (4 bytes) from the input byte buffer at the given offset.
+     *
+     * @param buf input byte buffer
+     * @param pos offset into the byte buffer to read
+     * @return the int value read
+     */
+    private static int readInt(ByteBuffer buf, int pos) {
+        return (((buf.get(pos) & 0xff) << 24)
+                | ((buf.get(pos + 1) & 0xff) << 16)
+                | ((buf.get(pos + 2) & 0xff) << 8) | (buf.get(pos + 3) & 0xff));
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) {
             return true;
         }
-        if (o == null || getClass() != o.getClass()) {
+        if (!(o instanceof NodeMetadata)) {
             return false;
         }
-
         NodeMetadata that = (NodeMetadata) o;
-
         return restPort == that.restPort;
     }
 
     @Override
     public int hashCode() {
         return restPort;
+    }
+
+    @Override
+    public String toString() {
+        return "NodeMetadata{" +
+                "restPort=" + restPort +
+                '}';
     }
 }

@@ -35,7 +35,7 @@ class NodeMetadataTest {
 
     @Test
     void testFromByteBufferWithWrongContent() {
-        ByteBuffer buffer = ByteBuffer.allocate(1);
+        ByteBuffer buffer = ByteBuffer.allocate(8);
         NodeMetadata fromByteBuffer = NodeMetadata.fromByteBuffer(buffer);
         assertNull(fromByteBuffer);
     }
