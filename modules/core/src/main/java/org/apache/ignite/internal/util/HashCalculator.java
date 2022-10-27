@@ -19,6 +19,7 @@ package org.apache.ignite.internal.util;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -39,7 +40,7 @@ public class HashCalculator {
      *
      * @param v Value to update hash.
      */
-    public void append(Object v) {
+    public void append(Object v, int scale) {
         if (v == null) {
             appendNull();
             return;
@@ -60,7 +61,7 @@ public class HashCalculator {
         } else if (v.getClass() == BigInteger.class) {
             appendNumber((BigInteger) v);
         } else if (v.getClass() == BigDecimal.class) {
-            appendDecimal((BigDecimal) v);
+            appendDecimal((BigDecimal) v, scale);
         } else if (v.getClass() == UUID.class) {
             appendUuid((UUID) v);
         } else if (v.getClass() == LocalDate.class) {
@@ -148,8 +149,8 @@ public class HashCalculator {
      *
      * @param v Value to update hash.
      */
-    public void appendDecimal(BigDecimal v) {
-        appendBytes(v.unscaledValue().toByteArray());
+    public void appendDecimal(BigDecimal v, int columnScale) {
+        appendBytes(v.setScale(columnScale, RoundingMode.HALF_UP).unscaledValue().toByteArray());
     }
 
     /**
