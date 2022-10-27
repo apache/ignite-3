@@ -932,7 +932,6 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      */
     @Test
     @WithSystemProperty(key = CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY, value = "0")
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17987")
     public void testMetastorageStop(TestInfo testInfo) throws NodeStoppingException {
         final int nodes = 3;
         final int cfgGap = 4;

@@ -198,7 +198,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         Set<RowId> ids = new HashSet<>();
 
-        //TODO: https://issues.apache.org/jira/browse/IGNITE-17205 Temporary solution for recovery purposes
+        //TODO: IGNITE-17859 Temporary solution for recovery purposes
         // until the implementation of the primary index is done.
         mvDataStorage.forEach((rowId, binaryRow) -> {
             if (ids.add(rowId)) {
@@ -621,7 +621,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         txTimestampUpdateMap.put(txId, fut);
 
-        HybridTimestamp commitTimestamp = hybridClock.now();
+        HybridTimestamp commitTimestamp = commit ? hybridClock.now() : null;
 
         CompletableFuture<Object> changeStateFuture = raftClient.run(
                 new FinishTxCommand(
