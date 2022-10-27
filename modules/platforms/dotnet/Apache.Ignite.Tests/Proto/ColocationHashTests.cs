@@ -83,7 +83,17 @@ public class ColocationHashTests : IgniteTestsBase
         new BitArray(17, true),
         new LocalDate(9876, 7, 30),
         new LocalDate(2, 1, 1),
-        new LocalDate(1, 1, 1)
+        new LocalDate(1, 1, 1),
+        default(LocalDate),
+        new LocalTime(9, 8, 7),
+        LocalTime.Midnight,
+        LocalTime.Noon,
+        default(LocalTime),
+        new LocalDateTime(1, 1, 1, 1, 1, 1),
+        default(LocalDateTime),
+        LocalDateTime.FromDateTime(DateTime.UtcNow),
+        Instant.FromUnixTimeSeconds(0),
+        default(Instant)
 
         // TODO
         // (BigInteger)ulong.MaxValue,
