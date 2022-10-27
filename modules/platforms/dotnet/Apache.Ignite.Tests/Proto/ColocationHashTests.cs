@@ -24,6 +24,7 @@ using System.Linq;
 using System.Numerics;
 using System.Threading.Tasks;
 using Internal.Proto.BinaryTuple;
+using NodaTime;
 using NUnit.Framework;
 
 /// <summary>
@@ -80,6 +81,8 @@ public class ColocationHashTests : IgniteTestsBase
         new BitArray(1, false),
         new BitArray(new byte[] {0, 5, 0}),
         new BitArray(17, true),
+        new LocalDate(9876, 7, 30),
+        new LocalDate(1, 1, 1)
 
         // TODO
         // (BigInteger)ulong.MaxValue,
