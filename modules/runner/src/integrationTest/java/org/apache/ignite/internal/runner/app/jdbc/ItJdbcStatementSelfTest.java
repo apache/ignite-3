@@ -119,7 +119,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
 
             int val = rs.getInt(1);
 
-            assertEquals(5, val, "Invalid val: " + val);
+            assertEquals(5, val);
         }
 
         stmt.close();

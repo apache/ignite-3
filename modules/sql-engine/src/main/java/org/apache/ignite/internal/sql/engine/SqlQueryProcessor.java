@@ -44,6 +44,7 @@ import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.index.event.IndexEvent;
 import org.apache.ignite.internal.index.event.IndexEventParameters;
@@ -389,19 +390,23 @@ public class SqlQueryProcessor implements QueryProcessor {
                 })
                 .thenCompose(sqlNode -> {
                     final boolean rwTx = dataModificationOp(sqlNode);
+                    final HybridTimestamp txTime = outerTx != null && !outerTx.isReadOnly() ? null :
+                            (outerTx != null ? outerTx.readTimestamp() : null);
 
                     BaseQueryContext ctx = BaseQueryContext.builder()
                             .frameworkConfig(
                                     Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
                                             .defaultSchema(schema)
-                                            .traitDefs(rwTx ? Commons.LOCAL_TRAITS_SET : Commons.DISTRIBUTED_TRAITS_SET)
+                                            .traitDefs(rwTx || (outerTx != null && !outerTx.isReadOnly()) ? Commons.LOCAL_TRAITS_SET :
+                                                    Commons.DISTRIBUTED_TRAITS_SET)
                                             .build()
                             )
                             .logger(LOG)
                             .cancel(queryCancel)
                             .parameters(params)
                             .transaction(outerTx)
-                            .transactionTime(!rwTx ? (outerTx != null ? outerTx.readTimestamp() : new HybridClock().now()) : null)
+                            .transactionTime(rwTx || (outerTx != null && !outerTx.isReadOnly()) ? null :
+                                    (txTime != null ? txTime : new HybridClock().now()))
                             .plannerTimeout(PLANNER_TIMEOUT)
                             .build();
 
