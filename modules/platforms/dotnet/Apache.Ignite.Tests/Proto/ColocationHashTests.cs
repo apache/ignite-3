@@ -82,6 +82,7 @@ public class ColocationHashTests : IgniteTestsBase
         new BitArray(new byte[] {0, 5, 0}),
         new BitArray(17, true),
         new LocalDate(9876, 7, 30),
+        new LocalDate(2, 1, 1),
         new LocalDate(1, 1, 1)
 
         // TODO
