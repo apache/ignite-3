@@ -367,12 +367,12 @@ public class PlatformTestNodeRunner {
                         break;
 
                     case ClientDataType.TIME:
-                        columns[i] = new Column(i, colName, NativeTypes.time(), false);
+                        columns[i] = new Column(i, colName, NativeTypes.time(9), false);
                         tuple.set(colName, reader.timeValue(valIdx));
                         break;
 
                     case ClientDataType.DATETIME:
-                        columns[i] = new Column(i, colName, NativeTypes.datetime(), false);
+                        columns[i] = new Column(i, colName, NativeTypes.datetime(9), false);
                         tuple.set(colName, reader.dateTimeValue(valIdx));
                         break;
 
