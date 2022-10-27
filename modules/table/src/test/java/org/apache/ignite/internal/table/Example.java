@@ -28,6 +28,7 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
+import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
@@ -50,7 +51,8 @@ public class Example {
      * Returns table implementation.
      */
     private static List<Table> tableFactory() {
-        return Collections.singletonList(new TableImpl(new DummyInternalTableImpl(Mockito.mock(ReplicaService.class)), null));
+        return Collections.singletonList(
+                new TableImpl(new DummyInternalTableImpl(Mockito.mock(ReplicaService.class)), new HeapLockManager(), List::of));
     }
 
     /**

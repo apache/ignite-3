@@ -18,17 +18,17 @@
 package org.apache.ignite.internal.runner.app;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -38,11 +38,12 @@ import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.Session;
-import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -50,6 +51,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * There is a test of table schema synchronization.
  */
 @ExtendWith(WorkDirectoryExtension.class)
+@Disabled
 public class ItDataSchemaSyncTest extends IgniteAbstractTest {
     /**
      * Table name.
@@ -166,64 +168,22 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
             IgniteTestUtils.waitForCondition(() -> tableOnNode.schemaView().lastSchemaVersion() == 2, 10_000);
         }
 
-        TableImpl table1 = (TableImpl) ignite1.tables().table(TABLE_NAME);
+        CompletableFuture<?> insertFut = IgniteTestUtils.runAsync(() -> {
+                    for (int i = 10; i < 20; i++) {
+                        table.recordView().insert(
+                                null,
+                                Tuple.create()
+                                        .set("key", (long) i)
+                                        .set("valInt", i)
+                                        .set("valStr", "str_" + i)
+                                        .set("valStr2", "str2_" + i)
+                        );
+                    }
+                }
+        );
 
-        for (int i = 10; i < 20; i++) {
-            table.recordView().insert(
-                    null,
-                    Tuple.create()
-                            .set("key", (long) i)
-                            .set("valInt", i)
-                            .set("valStr", "str_" + i)
-                            .set("valStr2", "str2_" + i)
-            );
-        }
-
-        CompletableFuture<?> insertFut = IgniteTestUtils.runAsync(() ->
-                table1.recordView().insert(
-                        null,
-                        Tuple.create()
-                                .set("key", 0L)
-                                .set("valInt", 0)
-                                .set("valStr", "str_" + 0)
-                                .set("valStr2", "str2_" + 0)
-                ));
-
-        CompletableFuture<?> getFut = IgniteTestUtils.runAsync(() -> {
-            table1.recordView().get(null, Tuple.create().set("key", 10L));
-        });
-
-        CompletableFuture<?> checkDefaultFut = IgniteTestUtils.runAsync(() -> {
-            assertEquals("default",
-                    table1.recordView().get(null, Tuple.create().set("key", 0L))
-                            .value("valStr2"));
-        });
-
-        assertEquals(1, table1.schemaView().lastSchemaVersion());
-
-        assertFalse(getFut.isDone());
-        assertFalse(insertFut.isDone());
-        assertFalse(checkDefaultFut.isDone());
-
-        listenerInhibitor.stopInhibit();
-
-        getFut.get(10, TimeUnit.SECONDS);
-        insertFut.get(10, TimeUnit.SECONDS);
-        checkDefaultFut.get(10, TimeUnit.SECONDS);
-
-        for (Ignite node : clusterNodes) {
-            Table tableOnNode = node.tables().table(TABLE_NAME);
-
-            for (int i = 0; i < 20; i++) {
-                Tuple row = tableOnNode.recordView().get(null, Tuple.create().set("key", (long) i));
-
-                assertNotNull(row);
-
-                assertEquals(i, row.intValue("valInt"));
-                assertEquals("str_" + i, row.value("valStr"));
-                assertEquals(i < 10 ? "default" : ("str2_" + i), row.value("valStr2"));
-            }
-        }
+        IgniteException ex = assertThrows(IgniteException.class, () -> await(insertFut));
+        assertThat(ex.getMessage(), containsString("Replication is timed out"));
     }
 
     /**
