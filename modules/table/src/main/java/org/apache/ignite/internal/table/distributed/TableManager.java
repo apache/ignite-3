@@ -769,7 +769,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                             newPartAssignment,
                                                             new PartitionListener(
                                                                     partitionDataStorage(mvPartitionStorage, internalTbl, partId),
-                                                                    getOrCreateTxStateStorage(internalTbl, partId),
+                                                                    txStatePartitionStorage,
                                                                     txManager,
                                                                     table.indexStorageAdapters(partId)
                                                             ),
@@ -868,10 +868,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     private PartitionKey partitionKey(InternalTable internalTbl, int partId) {
         return new PartitionKey(internalTbl.tableId(), partId);
-    }
-
-    private TxStateStorage getOrCreateTxStateStorage(InternalTable internalTbl, int partId) {
-        return internalTbl.txStateStorage().getOrCreateTxStateStorage(partId);
     }
 
     /**
@@ -1751,7 +1747,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                             RaftGroupListener raftGrpLsnr = new PartitionListener(
                                     partitionDataStorage(mvPartitionStorage, internalTable, partId),
-                                    getOrCreateTxStateStorage(internalTable, partId),
+                                    txStatePartitionStorage,
                                     txManager,
                                     tbl.indexStorageAdapters(partId)
                             );
