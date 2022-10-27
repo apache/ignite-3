@@ -679,6 +679,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * Restarts the node which stores some data.
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17986")
     public void nodeWithDataTest(TestInfo testInfo) {
         Ignite ignite = startNode(testInfo, 0);
 
@@ -697,6 +698,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * @param testInfo Test information object.
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17986")
     public void testTwoNodesRestartDirect(TestInfo testInfo) {
         twoNodesRestart(testInfo, true);
     }
@@ -824,6 +826,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * @param testInfo Test info.
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17986 ")
     public void testRecoveryOnOneNode(TestInfo testInfo) throws NodeStoppingException {
         Ignite ignite = startNode(testInfo, 0);
 
@@ -850,6 +853,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * @param testInfo Test info.
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17986")
     public void testRestartDiffConfig(TestInfo testInfo) throws NodeStoppingException {
         Ignite ignite0 = startNode(testInfo, 0);
         Ignite ignite1 = startNode(testInfo, 1);
@@ -928,6 +932,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      */
     @Test
     @WithSystemProperty(key = CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY, value = "0")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17987")
     public void testMetastorageStop(TestInfo testInfo) throws NodeStoppingException {
         final int nodes = 3;
         final int cfgGap = 4;
