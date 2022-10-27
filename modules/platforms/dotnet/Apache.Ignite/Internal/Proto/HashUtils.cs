@@ -93,14 +93,6 @@ internal static class HashUtils
     /// <param name="data">Input data.</param>
     /// <param name="seed">Current hash.</param>
     /// <returns>Resulting hash.</returns>
-    public static int Hash32(string data, int seed) => Hash32(ProtoCommon.StringEncoding.GetBytes(data), seed);
-
-    /// <summary>
-    /// Generates 32-bit hash.
-    /// </summary>
-    /// <param name="data">Input data.</param>
-    /// <param name="seed">Current hash.</param>
-    /// <returns>Resulting hash.</returns>
     public static int Hash32(Span<byte> data, int seed) => Hash32Internal(data, (ulong)seed & 0xffffffffL);
 
     /// <summary>

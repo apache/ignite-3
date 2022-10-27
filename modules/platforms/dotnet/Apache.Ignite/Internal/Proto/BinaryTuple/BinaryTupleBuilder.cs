@@ -313,11 +313,6 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="value">Value.</param>
         public void AppendString(string value)
         {
-            if (_hashedColumnsPredicate?.IsHashedColumnIndex(_elementIndex) == true)
-            {
-                _hash = HashUtils.Hash32(value, _hash);
-            }
-
             PutString(value);
 
             OnWrite();
@@ -938,6 +933,11 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         {
             if (value.Length == 0)
             {
+                if (_hashedColumnsPredicate?.IsHashedColumnIndex(_elementIndex) == true)
+                {
+                    _hash = HashUtils.Hash32(Span<byte>.Empty, _hash);
+                }
+
                 return;
             }
 
@@ -945,6 +945,11 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             var span = _buffer.GetSpan(maxByteCount);
 
             var actualBytes = ProtoCommon.StringEncoding.GetBytes(value, span);
+
+            if (_hashedColumnsPredicate?.IsHashedColumnIndex(_elementIndex) == true)
+            {
+                _hash = HashUtils.Hash32(span[..actualBytes], _hash);
+            }
 
             _buffer.Advance(actualBytes);
         }
