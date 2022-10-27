@@ -23,7 +23,6 @@ using System.Threading.Tasks;
 using Ignite.Table;
 using Internal.Proto;
 using NUnit.Framework;
-using NUnit.Framework.Internal;
 
 /// <summary>
 /// Tests partition awareness.
@@ -293,10 +292,12 @@ public class PartitionAwarenessTests
         using var client = await GetClient();
         var view = (await client.Tables.GetTableAsync(FakeServer.CustomColocationKeyTableName))!.GetRecordView<CompositeKey>();
 
-        await view.UpsertAsync(null, new CompositeKey("1", Guid.Empty)); // Warm up.
+        // Warm up.
+        await view.UpsertAsync(null, new CompositeKey("1", Guid.Empty));
 
-        await Test("1", Guid.NewGuid(), _server1);
-        await Test("a", Guid.NewGuid(), _server2);
+        // Both columns are part of key, but only string column is colocation key, so random Guid does not affect the hash.
+        await Test("1", Guid.NewGuid(), _server2);
+        await Test("a", Guid.NewGuid(), _server1);
 
         async Task Test(string idStr, Guid idGuid, FakeServer node) =>
             await AssertOpOnNode(() => view.UpsertAsync(null, new CompositeKey(idStr, idGuid)), ClientOp.TupleUpsert, node);
@@ -349,5 +350,6 @@ public class PartitionAwarenessTests
         return _server1.ClientOps.Count > 0 ? (_server1, _server2) : (_server2, _server1);
     }
 
+    // ReSharper disable NotAccessedPositionalProperty.Local
     private record CompositeKey(string IdStr, Guid IdGuid);
 }

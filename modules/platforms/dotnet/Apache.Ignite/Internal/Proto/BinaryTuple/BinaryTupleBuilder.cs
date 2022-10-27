@@ -371,8 +371,11 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                 var span = GetSpan(16);
                 UuidSerializer.Write(value, span);
 
-                _hash = HashUtils.Hash32(BinaryPrimitives.ReadInt64LittleEndian(span[..8]), _hash);
-                _hash = HashUtils.Hash32(BinaryPrimitives.ReadInt64LittleEndian(span[8..]), _hash);
+                if (_hashedColumnsPredicate?.IsHashedColumnIndex(_elementIndex) == true)
+                {
+                    _hash = HashUtils.Hash32(BinaryPrimitives.ReadInt64LittleEndian(span[..8]), _hash);
+                    _hash = HashUtils.Hash32(BinaryPrimitives.ReadInt64LittleEndian(span[8..]), _hash);
+                }
             }
             else
             {
