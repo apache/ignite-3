@@ -130,14 +130,10 @@ public class MergeSortSubscriptionStrategy<T> extends AbstractCompositeSubscript
     //
     @Override
     public synchronized void onSubscriptionComplete(int subscriberId) {
-        debug(">xxx> onComplete " + subscriberId);
-
         if (finished.add(subscriberId) && finishedCnt.incrementAndGet() == subscriptions.size() && (remain > 0 || inBuf.size() == 0)) {
             waitResponse.remove(subscriberId);
 
             if (completed.compareAndSet(false, true)) {
-                debug(">xxx> push queue, remain=" + remain + " queue=" + inBuf.size());
-
                 pushQueue(remain, null, null);
             }
 
@@ -146,8 +142,6 @@ public class MergeSortSubscriptionStrategy<T> extends AbstractCompositeSubscript
         }
 
         onRequestCompleted(subscriberId);
-
-        debug(">xxx> finished " + subscriberId + " t=" + Thread.currentThread().getId());
     }
 
     private long estimateSubscriptionRequestAmount(long total) {
@@ -241,8 +235,6 @@ public class MergeSortSubscriptionStrategy<T> extends AbstractCompositeSubscript
         }
 
         for (Integer id : waitResponse) {
-            debug(">xxx> idx=" + id + " requested=" + dataAmount);
-
             MergeSortStrategySubscriber subscriber = subscribers.get(id);
 
             subscriber.remainingCnt.set(dataAmount);
@@ -321,14 +313,6 @@ public class MergeSortSubscriptionStrategy<T> extends AbstractCompositeSubscript
             if (finished.compareAndSet(false, true)) {
                 onSubscriptionComplete(id);
             }
-        }
-    }
-
-    private static boolean debug = false;
-
-    private static void debug(String msg) {
-        if (debug) {
-            System.out.println(Thread.currentThread().getId() + " " + msg);
         }
     }
 }

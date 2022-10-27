@@ -120,8 +120,6 @@ public class CompositePublisherTest {
 
                 @Override
                 public void onComplete() {
-                    debug(">[xxx]> subscription complete");
-
                     lsnr.onComplete();
                 }
         });
@@ -129,8 +127,6 @@ public class CompositePublisherTest {
         if (!split) {
             checkSubscriptionRequest(subscriptionRef.get(), new InputParameters(expData, requestCnt), lsnr);
         } else {
-            debug("Initial data: " + Arrays.toString(expData));
-
             InputParameters params = new InputParameters(expData, 1);
 
             for (int off = 0; off < Math.min(requestCnt, totalCnt); off++) {
@@ -146,10 +142,6 @@ public class CompositePublisherTest {
 
     private void checkSubscriptionRequest(Subscription subscription, InputParameters params, SubscriberListener<Integer> lsnr)
             throws InterruptedException {
-        debug(">xxxx> --------------------------------------------------------------------------------");
-        debug(">xxxx> request next [off=" + params.offset + ", requested=" + params.requested + ", total=" + params.total + ']');
-        debug(">xxxx> --------------------------------------------------------------------------------");
-
         lsnr.reset(params.requested);
 
         subscription.request(params.requested);
@@ -217,10 +209,6 @@ public class CompositePublisherTest {
                     int startIdx = idx.getAndAdd((int) n);
                     int endIdx = Math.min(startIdx + (int) n, data.length);
 
-                    T[] subArr = Arrays.copyOfRange(data, startIdx, endIdx);
-
-                    debug(">xxx> push " + Arrays.toString(subArr) + " subscr=" + subscriber);
-
                     for (int n0 = startIdx; n0 < endIdx; n0++) {
                         subscriber.onNext(data[n0]);
                     }
@@ -254,7 +242,7 @@ public class CompositePublisherTest {
             this.total = data.length;
         }
 
-        public InputParameters offset(int offset) {
+        InputParameters offset(int offset) {
             this.offset = offset;
 
             return this;
@@ -268,7 +256,7 @@ public class CompositePublisherTest {
         volatile CountDownLatch waitLatch = new CountDownLatch(1);
         AtomicReference<Integer> requestedCnt = new AtomicReference<>();
 
-        public void reset(int requested) {
+        void reset(int requested) {
             receivedCnt.set(0);
             waitLatch = new CountDownLatch(1);
             requestedCnt.set(requested);
@@ -276,8 +264,6 @@ public class CompositePublisherTest {
         }
 
         void onNext(T item) {
-            debug(">[xxx]> " + item);
-
             res.add(item);
 
             if (receivedCnt.incrementAndGet() == requestedCnt.get()) {
@@ -289,17 +275,9 @@ public class CompositePublisherTest {
             return waitLatch.await(timeout, TimeUnit.SECONDS);
         }
 
-        public void onComplete() {
+        void onComplete() {
             waitLatch.countDown();
             onCompleteCntr.incrementAndGet();
-        }
-    }
-
-    private static boolean debug = false;
-
-    private static void debug(String msg) {
-        if (debug) {
-            System.out.println(Thread.currentThread().getId() + " " + msg);
         }
     }
 }
