@@ -43,6 +43,7 @@ import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.util.Pair;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.index.IndexManager;
@@ -141,6 +142,8 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** Transaction manager. */
     private final TxManager txManager;
 
+    private HybridClock clock;
+
     /** Constructor. */
     public SqlQueryProcessor(
             Consumer<Function<Long, CompletableFuture<?>>> registry,
@@ -150,7 +153,8 @@ public class SqlQueryProcessor implements QueryProcessor {
             SchemaManager schemaManager,
             DataStorageManager dataStorageManager,
             TxManager txManager,
-            Supplier<Map<String, Map<String, Class<?>>>> dataStorageFieldsSupplier
+            Supplier<Map<String, Map<String, Class<?>>>> dataStorageFieldsSupplier,
+            HybridClock clock
     ) {
         this.registry = registry;
         this.clusterSrvc = clusterSrvc;
@@ -160,6 +164,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         this.dataStorageManager = dataStorageManager;
         this.txManager = txManager;
         this.dataStorageFieldsSupplier = dataStorageFieldsSupplier;
+        this.clock = clock;
     }
 
     /** {@inheritDoc} */
@@ -390,7 +395,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                 })
                 .thenCompose(sqlNode -> {
                     final boolean rwOp = dataModificationOp(sqlNode);
-                    final HybridTimestamp txTime = outerTx != null ? outerTx.readTimestamp() : rwOp ? null : new HybridClockImpl().now();
+                    final HybridTimestamp txTime = outerTx != null ? outerTx.readTimestamp() : rwOp ? null : clock.now();
 
                     BaseQueryContext ctx = BaseQueryContext.builder()
                             .frameworkConfig(

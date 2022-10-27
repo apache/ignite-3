@@ -399,7 +399,8 @@ public class IgniteImpl implements Ignite {
                 schemaManager,
                 dataStorageMgr,
                 txManager,
-                () -> dataStorageModules.collectSchemasFields(modules.distributed().polymorphicSchemaExtensions())
+                () -> dataStorageModules.collectSchemasFields(modules.distributed().polymorphicSchemaExtensions()),
+                clock
         );
 
         sql = new IgniteSqlImpl(qryEngine);
