@@ -392,17 +392,18 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="value">Value.</param>
         public void AppendBitmask(BitArray value)
         {
-            if (_hashedColumnsPredicate?.IsHashedColumnIndex(_elementIndex) == true)
-            {
-                _hash = HashUtils.Hash32(value, _hash);
-            }
-
             var size = (value.Length + 7) / 8; // Ceiling division.
             var arr = ByteArrayPool.Rent(size);
 
             try
             {
                 value.CopyTo(arr, 0);
+
+                if (_hashedColumnsPredicate?.IsHashedColumnIndex(_elementIndex) == true)
+                {
+                    _hash = HashUtils.Hash32(arr, _hash);
+                }
+
                 PutBytes(arr.AsSpan()[..size]);
 
                 OnWrite();
