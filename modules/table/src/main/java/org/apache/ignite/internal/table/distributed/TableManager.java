@@ -763,28 +763,28 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                         newPartAssignment
                                                 );
 
-                                    try {
-                                        raftMgr.startRaftGroupNode(
-                                                replicaGrpId,
-                                                newPartAssignment,
-                                                new PartitionListener(
-                                                        partitionDataStorage(mvPartitionStorage, internalTbl, partId),
-                                                        txStatePartitionStorage,
-                                                        txManager,
-                                                        table.indexStorageAdapters(partId)
-                                                ),
-                                                new RebalanceRaftGroupEventsListener(
-                                                        metaStorageMgr,
-                                                        tablesCfg.tables().get(tablesById.get(tblId).name()),
-                                                        replicaGrpId,
-                                                        partId,
-                                                        busyLock,
-                                                        movePartition(() -> internalTbl.partitionRaftGroupService(partId)),
-                                                        this::calculateAssignments,
-                                                        rebalanceScheduler
-                                                ),
-                                                groupOptions
-                                        );
+                                                try {
+                                                    raftMgr.startRaftGroupNode(
+                                                            replicaGrpId,
+                                                            newPartAssignment,
+                                                            new PartitionListener(
+                                                                    partitionDataStorage(mvPartitionStorage, internalTbl, partId),
+                                                                    txStatePartitionStorage,
+                                                                    txManager,
+                                                                    table.indexStorageAdapters(partId)
+                                                            ),
+                                                            new RebalanceRaftGroupEventsListener(
+                                                                    metaStorageMgr,
+                                                                    tablesCfg.tables().get(tablesById.get(tblId).name()),
+                                                                    replicaGrpId,
+                                                                    partId,
+                                                                    busyLock,
+                                                                    movePartition(() -> internalTbl.partitionRaftGroupService(partId)),
+                                                                    this::calculateAssignments,
+                                                                    rebalanceScheduler
+                                                            ),
+                                                            groupOptions
+                                                    );
 
                                                     return CompletableFuture.completedFuture(null);
                                                 } catch (NodeStoppingException ex) {
@@ -827,7 +827,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                                         partId,
                                                                         tblId,
                                                                         table.indexesLockers(partId),
-                                                                        new Lazy<>(() -> table.indexStorageAdapters(partId).get().get(table.pkId())),
+                                                                        new Lazy<>(() -> table.indexStorageAdapters(partId)
+                                                                                .get().get(table.pkId())),
                                                                         clock,
                                                                         txStatePartitionStorage,
                                                                         topologyService,

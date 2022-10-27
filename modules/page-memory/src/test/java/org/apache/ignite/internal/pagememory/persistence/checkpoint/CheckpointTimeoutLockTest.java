@@ -161,7 +161,7 @@ public class CheckpointTimeoutLockTest {
 
             ExecutionException exception = assertThrows(ExecutionException.class, () -> readLockFuture1.get(100, MILLISECONDS));
 
-            assertThat(exception.getCause().getCause(), instanceOf(CheckpointReadLockTimeoutException.class));
+            assertThat(exception.getCause(), instanceOf(CheckpointReadLockTimeoutException.class));
         } finally {
             writeUnlock(readWriteLock0);
             writeUnlock(readWriteLock1);
@@ -215,7 +215,7 @@ public class CheckpointTimeoutLockTest {
 
             ExecutionException exception = assertThrows(ExecutionException.class, () -> readLockFuture1.get(100, MILLISECONDS));
 
-            assertThat(exception.getCause().getCause(), instanceOf(CheckpointReadLockTimeoutException.class));
+            assertThat(exception.getCause(), instanceOf(CheckpointReadLockTimeoutException.class));
 
             writeUnlock(readWriteLock0);
             writeUnlock(readWriteLock1);
