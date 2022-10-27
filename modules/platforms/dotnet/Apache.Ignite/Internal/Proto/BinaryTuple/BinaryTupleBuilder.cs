@@ -473,6 +473,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             {
                 if (_hashedColumnsPredicate?.IsHashedColumnIndex(_elementIndex) == true)
                 {
+                    // TODO: Simplify this.
                     Span<byte> span = stackalloc byte[1];
                     span[0] = 0;
 

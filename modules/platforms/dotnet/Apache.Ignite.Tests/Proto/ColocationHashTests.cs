@@ -36,7 +36,6 @@ public class ColocationHashTests : IgniteTestsBase
 
     private static readonly object[] TestCases =
     {
-        // TODO: all supported types.
         sbyte.MinValue,
         (sbyte)1,
         (sbyte)-1,
@@ -70,7 +69,7 @@ public class ColocationHashTests : IgniteTestsBase
         123.45678m,
         decimal.MaxValue,
         string.Empty,
-        "abc ηρτ 🔥",
+        "abc αβγ 🔥",
         Guid.Empty,
         Guid.NewGuid(),
         BigInteger.One,
@@ -78,6 +77,8 @@ public class ColocationHashTests : IgniteTestsBase
         BigInteger.MinusOne,
         (BigInteger)int.MaxValue,
         (BigInteger)int.MinValue,
+        (BigInteger)ulong.MaxValue,
+        BigInteger.Pow(123, 100),
         new BitArray(1, false),
         new BitArray(new byte[] {0, 5, 0}),
         new BitArray(17, true),
@@ -96,10 +97,6 @@ public class ColocationHashTests : IgniteTestsBase
         default(LocalDateTime),
         Instant.FromUnixTimeSeconds(0),
         default(Instant)
-
-        // TODO
-        // (BigInteger)ulong.MaxValue,
-        // BigInteger.Pow(123, 100)
     };
 
     [Test]
