@@ -52,12 +52,12 @@ TEST_F(tables_test, tables_get_table) {
     auto client = ignite_client::start(cfg, std::chrono::seconds(5));
     auto tables = client.get_tables();
 
-    auto tableUnknown = tables.get_table("PUB.some_unknown");
+    auto tableUnknown = tables.get_table("some_unknown");
     EXPECT_FALSE(tableUnknown.has_value());
 
-    auto table = tables.get_table("PUB.tbl1");
+    auto table = tables.get_table("tbl1");
     ASSERT_TRUE(table.has_value());
-    EXPECT_EQ(table->name(), "PUB.tbl1");
+    EXPECT_EQ(table->name(), "tbl1");
 }
 
 TEST_F(tables_test, tables_get_table_async_promises) {
@@ -72,17 +72,17 @@ TEST_F(tables_test, tables_get_table_async_promises) {
     auto tables = client.get_tables();
 
     auto tablePromise = std::make_shared<std::promise<std::optional<table>>>();
-    tables.get_table_async("PUB.some_unknown", result_promise_setter(tablePromise));
+    tables.get_table_async("some_unknown", result_promise_setter(tablePromise));
 
     auto tableUnknown = tablePromise->get_future().get();
     EXPECT_FALSE(tableUnknown.has_value());
 
     tablePromise = std::make_shared<std::promise<std::optional<table>>>();
-    tables.get_table_async("PUB.tbl1", result_promise_setter(tablePromise));
+    tables.get_table_async("tbl1", result_promise_setter(tablePromise));
 
     auto table = tablePromise->get_future().get();
     ASSERT_TRUE(table.has_value());
-    EXPECT_EQ(table->name(), "PUB.tbl1");
+    EXPECT_EQ(table->name(), "tbl1");
 }
 
 TEST_F(tables_test, tables_get_table_async_callbacks) {
@@ -103,7 +103,7 @@ TEST_F(tables_test, tables_get_table_async_callbacks) {
         auto tables = client.get_tables();
 
         operation0->set_value();
-        tables.get_table_async("PUB.some_unknown", [&](auto tableRes) {
+        tables.get_table_async("some_unknown", [&](auto tableRes) {
             if (!check_and_set_operation_error(*operation1, tableRes))
                 return;
 
@@ -116,7 +116,7 @@ TEST_F(tables_test, tables_get_table_async_callbacks) {
             operation1->set_value();
         });
 
-        tables.get_table_async("PUB.tbl1", [&](auto tableRes) {
+        tables.get_table_async("tbl1", [&](auto tableRes) {
             if (!check_and_set_operation_error(*operation2, tableRes))
                 return;
 
@@ -125,7 +125,7 @@ TEST_F(tables_test, tables_get_table_async_callbacks) {
                 operation2->set_exception(std::make_exception_ptr(ignite_error("Table should not be null")));
                 return;
             }
-            if (table->name() != "PUB.tbl1") {
+            if (table->name() != "tbl1") {
                 operation2->set_exception(
                     std::make_exception_ptr(ignite_error("Table has unexpected name: " + table->name())));
                 return;
@@ -152,7 +152,7 @@ TEST_F(tables_test, tables_get_tables) {
     auto tables = tablesApi.get_tables();
     ASSERT_GT(tables.size(), 0);
 
-    auto it = std::find_if(tables.begin(), tables.end(), [](auto &table) { return table.name() == "PUB.TBL1"; });
+    auto it = std::find_if(tables.begin(), tables.end(), [](auto &table) { return table.name() == "TBL1"; });
 
     ASSERT_NE(it, tables.end());
 }
@@ -171,7 +171,7 @@ TEST_F(tables_test, tables_get_tables_async_promises) {
     auto tables = tablesPromise->get_future().get();
     ASSERT_GT(tables.size(), 0);
 
-    auto it = std::find_if(tables.begin(), tables.end(), [](auto &table) { return table.name() == "PUB.TBL1"; });
+    auto it = std::find_if(tables.begin(), tables.end(), [](auto &table) { return table.name() == "TBL1"; });
 
     ASSERT_NE(it, tables.end());
 }

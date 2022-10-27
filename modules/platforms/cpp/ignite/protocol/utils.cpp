@@ -48,7 +48,7 @@ T unpack_int(const msgpack_object &object) {
 template <>
 std::int64_t unpack_object(const msgpack_object &object) {
     if (object.type != MSGPACK_OBJECT_NEGATIVE_INTEGER && object.type != MSGPACK_OBJECT_POSITIVE_INTEGER)
-        throw ignite_error("The value in stream is not an integer number");
+        throw ignite_error("The value in stream is not an integer number : " + std::to_string(object.type));
 
     return object.via.i64;
 }
@@ -66,7 +66,7 @@ std::int16_t unpack_object(const msgpack_object &object) {
 template <>
 std::string unpack_object(const msgpack_object &object) {
     if (object.type != MSGPACK_OBJECT_STR)
-        throw ignite_error("The value in stream is not a string");
+        throw ignite_error("The value in stream is not a string : " + std::to_string(object.type));
 
     return {object.via.str.ptr, object.via.str.size};
 }
@@ -74,7 +74,7 @@ std::string unpack_object(const msgpack_object &object) {
 template <>
 uuid unpack_object(const msgpack_object &object) {
     if (object.type != MSGPACK_OBJECT_EXT && object.via.ext.type != std::int8_t(extension_type::UUID))
-        throw ignite_error("The value in stream is not a UUID");
+        throw ignite_error("The value in stream is not a UUID : " + std::to_string(object.type));
 
     if (object.via.ext.size != 16)
         throw ignite_error("Unexpected UUID size: " + std::to_string(object.via.ext.size));
@@ -90,14 +90,14 @@ uuid unpack_object(const msgpack_object &object) {
 template <>
 bool unpack_object(const msgpack_object &object) {
     if (object.type != MSGPACK_OBJECT_BOOLEAN)
-        throw ignite_error("The value in stream is not a bool");
+        throw ignite_error("The value in stream is not a bool : " + std::to_string(object.type));
 
     return object.via.boolean;
 }
 
 std::uint32_t unpack_array_size(const msgpack_object &object) {
     if (object.type != MSGPACK_OBJECT_ARRAY)
-        throw ignite_error("The value in stream is not an Array");
+        throw ignite_error("The value in stream is not an Array : " + std::to_string(object.type));
     return object.via.array.size;
 }
 
@@ -109,7 +109,7 @@ void unpack_array_raw(const msgpack_object &object, const std::function<void(con
 
 bytes_view unpack_binary(const msgpack_object &object) {
     if (object.type != MSGPACK_OBJECT_BIN)
-        throw ignite_error("The value in stream is not a Binary data");
+        throw ignite_error("The value in stream is not a Binary data : " + std::to_string(object.type));
 
     return {reinterpret_cast<const std::byte*>(object.via.bin.ptr), object.via.bin.size};
 }

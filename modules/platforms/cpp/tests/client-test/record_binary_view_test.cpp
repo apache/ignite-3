@@ -52,8 +52,8 @@ protected:
         ignite_client_configuration cfg{NODE_ADDRS};
         cfg.set_logger(get_logger());
 
-        auto client = ignite_client::start(cfg, std::chrono::seconds(5));
-        auto table = client.get_tables().get_table("PUB.tbl1");
+        m_client = ignite_client::start(cfg, std::chrono::minutes(5));
+        auto table = m_client.get_tables().get_table("tbl1");
 
         tuple_view = table->record_binary_view();
     }
@@ -92,11 +92,14 @@ protected:
         return {{VAL_COLUMN, val}};
     }
 
+    /** Ignite client. */
+    ignite_client m_client;
+
     /** Record binary view. */
     record_view<ignite_tuple> tuple_view;
 };
 
-TEST_F(record_binary_view_test, tables_get_table) {
+TEST_F(record_binary_view_test, upsert_get) {
     tuple_view.upsert(nullptr, get_tuple(1, "foo"));
 
     auto key_tuple = get_tuple(1);

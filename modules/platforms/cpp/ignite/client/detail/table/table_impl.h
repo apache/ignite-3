@@ -32,7 +32,7 @@ namespace ignite::detail {
 /**
  * Table view implementation.
  */
-class table_impl : std::enable_shared_from_this<table_impl> {
+class table_impl : public std::enable_shared_from_this<table_impl> {
 public:
     // Deleted
     table_impl(table_impl &&) = delete;
