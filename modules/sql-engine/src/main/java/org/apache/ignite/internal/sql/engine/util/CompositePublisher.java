@@ -67,20 +67,20 @@ public class CompositePublisher<T> implements Flow.Publisher<T> {
      * Composite subscription strategy template.
      */
     protected abstract static class AbstractCompositeSubscriptionStrategy<T> implements Subscription {
-        protected List<Subscription> subscriptions = new ArrayList<>();
+        protected final List<Subscription> subscriptions = new ArrayList<>();
 
         protected final Subscriber<? super T> delegate;
 
-        protected AbstractCompositeSubscriptionStrategy(Subscriber<? super T> delegate) {
+        AbstractCompositeSubscriptionStrategy(Subscriber<? super T> delegate) {
             this.delegate = delegate;
         }
 
-        public void addSubscription(Subscription subscription) {
+        void addSubscription(Subscription subscription) {
             subscriptions.add(subscription);
         }
 
         public Subscriber<T> subscriberProxy(int subscriberId) {
-            return new PlainSubscriberProxy(delegate, subscriberId);
+            return new PlainSubscriberProxy(subscriberId);
         }
 
         public abstract void onSubscriptionComplete(int subscriberId);
@@ -91,14 +91,9 @@ public class CompositePublisher<T> implements Flow.Publisher<T> {
          * Plain subscriber.
          */
         protected class PlainSubscriberProxy implements Subscriber<T> {
-            protected final Subscriber<? super T> delegate;
-
             protected final int id;
 
-            public PlainSubscriberProxy(Subscriber<? super T> delegate, int id) {
-                assert delegate != null;
-
-                this.delegate = delegate;
+            public PlainSubscriberProxy(int id) {
                 this.id = id;
             }
 

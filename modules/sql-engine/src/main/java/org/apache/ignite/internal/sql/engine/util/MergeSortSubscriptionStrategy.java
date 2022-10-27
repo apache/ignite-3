@@ -69,7 +69,7 @@ public class MergeSortSubscriptionStrategy<T> extends AbstractCompositeSubscript
      * @param comp Items comparator.
      * @param delegate Delegated subscriber.
      */
-    public MergeSortSubscriptionStrategy(Comparator<T> comp, Subscriber<? super T> delegate) {
+    MergeSortSubscriptionStrategy(Comparator<T> comp, Subscriber<? super T> delegate) {
         super(delegate);
 
         this.comp = comp;
@@ -92,7 +92,7 @@ public class MergeSortSubscriptionStrategy<T> extends AbstractCompositeSubscript
         }
 
         // Perhaps we can return something from internal buffer?
-        if (inBuf.size() > 0) {
+        if (!inBuf.isEmpty()) {
             if (finished.size() == subscriptions.size()) { // all data has been received?
                 if (pushQueue(n, null, null) == 0) {
                     return;
@@ -130,7 +130,7 @@ public class MergeSortSubscriptionStrategy<T> extends AbstractCompositeSubscript
     //
     @Override
     public synchronized void onSubscriptionComplete(int subscriberId) {
-        if (finished.add(subscriberId) && finishedCnt.incrementAndGet() == subscriptions.size() && (remain > 0 || inBuf.size() == 0)) {
+        if (finished.add(subscriberId) && finishedCnt.incrementAndGet() == subscriptions.size() && (remain > 0 || inBuf.isEmpty())) {
             waitResponse.remove(subscriberId);
 
             if (completed.compareAndSet(false, true)) {
@@ -196,7 +196,7 @@ public class MergeSortSubscriptionStrategy<T> extends AbstractCompositeSubscript
     /** {@inheritDoc} */
     @Override
     public Subscriber<T> subscriberProxy(int subscriberId) {
-        MergeSortStrategySubscriber subscriber = new MergeSortStrategySubscriber(delegate, subscriberId);
+        MergeSortStrategySubscriber subscriber = new MergeSortStrategySubscriber(subscriberId);
 
         subscribers.add(subscriber);
 
@@ -282,12 +282,12 @@ public class MergeSortSubscriptionStrategy<T> extends AbstractCompositeSubscript
     public class MergeSortStrategySubscriber extends AbstractCompositeSubscriptionStrategy<T>.PlainSubscriberProxy {
         private final AtomicLong remainingCnt = new AtomicLong();
 
-        private final AtomicBoolean finished = new AtomicBoolean();
+        private final AtomicBoolean completed = new AtomicBoolean();
 
         private volatile T lastItem;
 
-        public MergeSortStrategySubscriber(Subscriber<? super T> delegate, int id) {
-            super(delegate, id);
+        MergeSortStrategySubscriber(int id) {
+            super(id);
         }
 
         @Override
@@ -310,7 +310,7 @@ public class MergeSortSubscriptionStrategy<T> extends AbstractCompositeSubscript
 
         @Override
         public void onComplete() {
-            if (finished.compareAndSet(false, true)) {
+            if (completed.compareAndSet(false, true)) {
                 onSubscriptionComplete(id);
             }
         }

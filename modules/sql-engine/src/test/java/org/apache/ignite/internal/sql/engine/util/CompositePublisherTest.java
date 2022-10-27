@@ -90,7 +90,6 @@ public class CompositePublisherTest {
 
         Arrays.sort(expData);
 
-
         List<TestPublisher<Integer>> publishers = new ArrayList<>();
 
         for (int i = 0; i < threadCnt; i++) {
@@ -114,8 +113,8 @@ public class CompositePublisherTest {
                 }
 
                 @Override
-                public void onError(Throwable throwable) {
-                    throwable.printStackTrace();
+                public void onError(Throwable t) {
+                    t.printStackTrace();
                 }
 
                 @Override
@@ -181,7 +180,7 @@ public class CompositePublisherTest {
             this.data = data;
         }
 
-        public void waitSuppliersTermination() {
+        void waitSuppliersTermination() {
             CompletableFuture<?> fut;
 
             while ((fut = futs.poll()) != null) {

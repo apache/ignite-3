@@ -255,19 +255,19 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
                 rangeConditionsProcessed = !rangeConditionIterator.hasNext();
             }
 
-            List<Flow.Publisher<BinaryTuple>> compPublisher = new ArrayList<>(parts.length);
+            List<Flow.Publisher<BinaryTuple>> partPublishers = new ArrayList<>(parts.length);
 
             for (int p : parts) {
-                compPublisher.add(partPublisher(p, cond));
+                partPublishers.add(partPublisher(p, cond));
             }
 
-            new CompositePublisher<>(compPublisher, comp).subscribe(new SubscriberImpl());
+            new CompositePublisher<>(partPublishers, comp).subscribe(new SubscriberImpl());
         } else {
             waiting = NOT_WAITING;
         }
     }
 
-    private Flow.Publisher<BinaryTuple> partPublisher(int part, RangeCondition<RowT> cond) {
+    private Flow.Publisher<BinaryTuple> partPublisher(int part, @Nullable RangeCondition<RowT> cond) {
         if (schemaIndex.type() == Type.SORTED) {
             int flags = 0;
             BinaryTuple lower = null;
@@ -288,7 +288,7 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
             assert schemaIndex.type() == Type.HASH;
             BinaryTuple key = null;
 
-            if (rangeConditionIterator != null) {
+            if (cond != null) {
                 assert cond.lower() == cond.upper();
 
                 key = toBinaryTuple(cond.lower());
