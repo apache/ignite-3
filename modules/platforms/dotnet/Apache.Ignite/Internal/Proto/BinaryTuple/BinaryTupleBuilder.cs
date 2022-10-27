@@ -455,19 +455,29 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="value">Value.</param>
         public void AppendNumber(BigInteger value)
         {
-            if (_hashedColumnsPredicate?.IsHashedColumnIndex(_elementIndex) == true)
-            {
-                _hash = HashUtils.Hash32(value, _hash);
-            }
-
             if (value != default)
             {
                 var size = value.GetByteCount();
                 var destination = GetSpan(size);
                 var success = value.TryWriteBytes(destination, out int written, isBigEndian: true);
 
+                if (_hashedColumnsPredicate?.IsHashedColumnIndex(_elementIndex) == true)
+                {
+                    _hash = HashUtils.Hash32(destination[..written], _hash);
+                }
+
                 Debug.Assert(success, "success");
                 Debug.Assert(written == size, "written == size");
+            }
+            else
+            {
+                if (_hashedColumnsPredicate?.IsHashedColumnIndex(_elementIndex) == true)
+                {
+                    Span<byte> span = stackalloc byte[1];
+                    span[0] = 0;
+
+                    _hash = HashUtils.Hash32(span, _hash);
+                }
             }
 
             OnWrite();
