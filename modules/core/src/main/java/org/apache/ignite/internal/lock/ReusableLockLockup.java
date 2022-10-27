@@ -29,12 +29,8 @@ import java.util.concurrent.locks.Lock;
 public class ReusableLockLockup implements AutoLockup {
     private final Lock lock;
 
-    private ReusableLockLockup(Lock lock) {
+    public ReusableLockLockup(Lock lock) {
         this.lock = lock;
-    }
-
-    public static ReusableLockLockup forLock(Lock lock) {
-        return new ReusableLockLockup(lock);
     }
 
     /**

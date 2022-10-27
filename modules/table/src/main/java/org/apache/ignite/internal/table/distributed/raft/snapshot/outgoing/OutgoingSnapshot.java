@@ -66,7 +66,7 @@ public class OutgoingSnapshot {
      */
     private final ReentrantLock mvOperationsLock = new ReentrantLock();
 
-    private final ReusableLockLockup mvOperationsLockup = ReusableLockLockup.forLock(mvOperationsLock);
+    private final ReusableLockLockup mvOperationsLockup = new ReusableLockLockup(mvOperationsLock);
 
     /**
      * {@link RowId}s for which the corresponding rows were sent out of order (relative to the order in which this

@@ -204,7 +204,7 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, IgniteComp
         private final List<OutgoingSnapshot> snapshots = new ArrayList<>();
 
         private final ReadWriteLock lock = new ReentrantReadWriteLock();
-        private final ReusableLockLockup readLockLockup = ReusableLockLockup.forLock(lock.readLock());
+        private final ReusableLockLockup readLockLockup = new ReusableLockLockup(lock.readLock());
 
         private void freezeAndAddUnderLock(OutgoingSnapshot snapshot) {
             lock.writeLock().lock();
