@@ -1651,9 +1651,10 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return {@link HybridTimestampMessage} object obtained from {@link HybridTimestamp}.
      */
     private HybridTimestampMessage hybridTimestamp(HybridTimestamp tmstmp) {
-        return msgFactory.hybridTimestampMessage()
+        return tmstmp != null ? msgFactory.hybridTimestampMessage()
                 .physical(tmstmp.getPhysical())
                 .logical(tmstmp.getLogical())
-                .build();
+                .build()
+                : null;
     }
 }
