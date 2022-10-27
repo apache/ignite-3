@@ -83,11 +83,11 @@ public class TxLocalTest extends TxAbstractTest {
 
         DummyInternalTableImpl table = new DummyInternalTableImpl(replicaSvc, txManager, true);
 
-        accounts = new TableImpl(table, new DummySchemaManagerImpl(ACCOUNTS_SCHEMA));
+        accounts = new TableImpl(table, new DummySchemaManagerImpl(ACCOUNTS_SCHEMA), lockManager);
 
         DummyInternalTableImpl table2 = new DummyInternalTableImpl(replicaSvc, txManager, true);
 
-        customers = new TableImpl(table2, new DummySchemaManagerImpl(CUSTOMERS_SCHEMA));
+        customers = new TableImpl(table2, new DummySchemaManagerImpl(CUSTOMERS_SCHEMA), lockManager);
 
         when(clusterService.messagingService()).thenReturn(mock(MessagingService.class, RETURNS_DEEP_STUBS));
 

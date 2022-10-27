@@ -409,4 +409,9 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     public void close() throws Exception {
         // No-op.
     }
+
+    /** Removes all entries from this storage. */
+    public void clear() {
+        map.clear();
+    }
 }
