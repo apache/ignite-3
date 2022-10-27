@@ -439,10 +439,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             {
                 if (_hashedColumnsPredicate?.IsHashedColumnIndex(_elementIndex) == true)
                 {
-                    Span<byte> span = stackalloc byte[1];
-                    span[0] = 0;
-
-                    _hash = HashUtils.Hash32(span, _hash);
+                    _hash = HashUtils.Hash32(stackalloc byte[1] { 0 }, _hash);
                 }
             }
 
@@ -473,11 +470,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             {
                 if (_hashedColumnsPredicate?.IsHashedColumnIndex(_elementIndex) == true)
                 {
-                    // TODO: Simplify this.
-                    Span<byte> span = stackalloc byte[1];
-                    span[0] = 0;
-
-                    _hash = HashUtils.Hash32(span, _hash);
+                    _hash = HashUtils.Hash32(stackalloc byte[1] { 0 }, _hash);
                 }
             }
 
