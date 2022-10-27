@@ -78,6 +78,7 @@ public class ColocationHashTests : IgniteTestsBase
         (BigInteger)int.MaxValue,
         (BigInteger)int.MinValue,
         new BitArray(1, false),
+        new BitArray(new byte[] {0, 5, 0}),
         new BitArray(17, true),
 
         // TODO
