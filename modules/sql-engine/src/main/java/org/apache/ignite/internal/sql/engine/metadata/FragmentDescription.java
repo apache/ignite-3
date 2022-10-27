@@ -82,7 +82,7 @@ public class FragmentDescription implements Serializable {
     }
 
     /**
-     * Get mappring.
+     * Get mapping.
      */
     public FragmentMapping mapping() {
         return mapping;
