@@ -796,7 +796,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         }
                     }
 
-                    CompletableFuture raftFut = rowIdsToDelete.isEmpty() ? CompletableFuture.completedFuture(null)
+                    CompletableFuture<Object> raftFut = rowIdsToDelete.isEmpty() ? CompletableFuture.completedFuture(null)
                             : applyCmdWithExceptionHandling(
                                     msgFactory.updateAllCommand()
                                             .tablePartitionId(msgFactory.tablePartitionIdMessage()
@@ -836,7 +836,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         }
                     }
 
-                    CompletableFuture raftFut = rowIdsToDelete.isEmpty() ? CompletableFuture.completedFuture(null)
+                    CompletableFuture<Object> raftFut = rowIdsToDelete.isEmpty() ? CompletableFuture.completedFuture(null)
                             : applyCmdWithExceptionHandling(
                                     msgFactory.updateAllCommand()
                                             .tablePartitionId(msgFactory.tablePartitionIdMessage()
@@ -883,7 +883,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         }
                     }
 
-                    CompletableFuture raftFut = rowsToInsert.isEmpty() ? CompletableFuture.completedFuture(null)
+                    CompletableFuture<Object> raftFut = rowsToInsert.isEmpty() ? CompletableFuture.completedFuture(null)
                             : applyCmdWithExceptionHandling(
                                     msgFactory.updateAllCommand()
                                             .tablePartitionId(msgFactory.tablePartitionIdMessage()
@@ -922,7 +922,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         }
                     }
 
-                    CompletableFuture raftFut = rowsToUpdate.isEmpty() ? CompletableFuture.completedFuture(null)
+                    CompletableFuture<Object> raftFut = rowsToUpdate.isEmpty() ? CompletableFuture.completedFuture(null)
                             : applyCmdWithExceptionHandling(
                                     msgFactory.updateAllCommand()
                                             .tablePartitionId(msgFactory.tablePartitionIdMessage()
@@ -1002,7 +1002,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 return lockFut.thenCompose(lockedRowId -> {
                     boolean removed = lockedRowId != null;
 
-                    CompletableFuture raftFut = removed ? applyCmdWithExceptionHandling(
+                    CompletableFuture<Object> raftFut = removed ? applyCmdWithExceptionHandling(
                             msgFactory.updateCommand()
                                     .tablePartitionId(msgFactory.tablePartitionIdMessage()
                                             .tableId(commitPartitionId.getTableId())
@@ -1023,7 +1023,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     BinaryRow lockedRow = lockedRowId != null
                             ? resolveReadResult(mvDataStorage.read(lockedRowId, HybridTimestamp.MAX_VALUE), txId) : null;
 
-                    CompletableFuture raftFut = lockedRowId != null ? applyCmdWithExceptionHandling(
+                    CompletableFuture<Object> raftFut = lockedRowId != null ? applyCmdWithExceptionHandling(
                             msgFactory.updateCommand()
                                     .tablePartitionId(msgFactory.tablePartitionIdMessage()
                                             .tableId(commitPartitionId.getTableId())
@@ -1043,7 +1043,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 return lockFut.thenCompose(lockedRow -> {
                     boolean removed = lockedRow != null;
 
-                    CompletableFuture raftFut = removed ? applyCmdWithExceptionHandling(
+                    CompletableFuture<Object> raftFut = removed ? applyCmdWithExceptionHandling(
                             msgFactory.updateCommand()
                                     .tablePartitionId(msgFactory.tablePartitionIdMessage()
                                             .tableId(commitPartitionId.getTableId())
@@ -1063,7 +1063,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 return lockFut.thenCompose(lockedRowId -> {
                     boolean inserted = lockedRowId == null;
 
-                    CompletableFuture raftFut =
+                    CompletableFuture<Object> raftFut =
                             lockedRowId == null ? applyCmdWithExceptionHandling(
                                     msgFactory.updateCommand()
                                             .tablePartitionId(msgFactory.tablePartitionIdMessage()
@@ -1086,7 +1086,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     UUID rowUuid = lockedRowId != null ? new UUID(lockedRowId.mostSignificantBits(), lockedRowId.leastSignificantBits()) :
                             Timestamp.nextVersion().toUuid();
 
-                    CompletableFuture raftFut = applyCmdWithExceptionHandling(
+                    CompletableFuture<Object> raftFut = applyCmdWithExceptionHandling(
                                     msgFactory.updateCommand()
                                             .tablePartitionId(msgFactory.tablePartitionIdMessage()
                                                     .tableId(commitPartitionId.getTableId())
@@ -1118,7 +1118,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                                             RowId locRowId = (rowId != null) ? rowId : new RowId(partId);
 
-                                            CompletableFuture raftFut =
+                                            CompletableFuture<Object> raftFut =
                                                     applyCmdWithExceptionHandling(
                                                             msgFactory.updateCommand()
                                                                     .tablePartitionId(msgFactory.tablePartitionIdMessage()
@@ -1166,7 +1166,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                 }
 
                                 return rowLockFut.thenCompose(lockedRow -> {
-                                    CompletableFuture raftFut = lockedRow == null ? CompletableFuture.completedFuture(null) :
+                                    CompletableFuture<Object> raftFut = lockedRow == null ? CompletableFuture.completedFuture(null) :
                                             applyCmdWithExceptionHandling(
                                                     msgFactory.updateCommand()
                                                             .tablePartitionId(
@@ -1192,7 +1192,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 return lockFut.thenCompose(lockedRowId -> {
                     boolean replaced = lockedRowId != null;
 
-                    CompletableFuture raftFut = replaced ? applyCmdWithExceptionHandling(
+                    CompletableFuture<Object> raftFut = replaced ? applyCmdWithExceptionHandling(
                             msgFactory.updateCommand()
                                     .tablePartitionId(msgFactory.tablePartitionIdMessage()
                                             .tableId(commitPartitionId.getTableId())
@@ -1415,7 +1415,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 return lockFut.thenCompose(lockedRowId -> {
                     boolean replaced = lockedRowId != null;
 
-                    CompletableFuture raftFut = replaced ? applyCmdWithExceptionHandling(
+                    CompletableFuture<Object> raftFut = replaced ? applyCmdWithExceptionHandling(
                             msgFactory.updateCommand()
                                     .tablePartitionId(msgFactory.tablePartitionIdMessage()
                                             .tableId(commitPartitionId.getTableId())
