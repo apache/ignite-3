@@ -31,12 +31,11 @@ import java.util.stream.IntStream;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.sql.engine.util.CompositePublisher.AbstractCompositeSubscriptionStrategy;
 import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentHashSet;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Merge sort subscription strategy.
  * <br>
- * Merges ordered streams.
+ * Merges multiple concurrent sorted data streams into one.
  */
 public class MergeSortSubscriptionStrategy<T> extends AbstractCompositeSubscriptionStrategy<T> {
     /** Items comparator. */
@@ -94,15 +93,13 @@ public class MergeSortSubscriptionStrategy<T> extends AbstractCompositeSubscript
 
         // Perhaps we can return something from internal buffer?
         if (!inBuf.isEmpty()) {
-            if (finished.size() == subscriptions.size()) { // all data has been received?
-                if (pushData(n, null, null) == 0) {
-                    return;
-                }
+            if (finished.size() == subscriptions.size()) { // all possible data has been received?
+                pushData(n);
             } else { // Someone still alive.
                 processReceivedData();
-
-                return;
             }
+
+            return;
         }
 
         List<Integer> subsIds = IntStream.range(0, subscriptions.size()).boxed().collect(Collectors.toList());
@@ -139,14 +136,15 @@ public class MergeSortSubscriptionStrategy<T> extends AbstractCompositeSubscript
          *                                |-------> can be executed in parallel
          *      user-thread: request(1) -/
          */
-        if (finished.add(subscribeId) && finishedCnt.incrementAndGet() == subscriptions.size() && (remain > 0 || inBuf.isEmpty())) {
+        if (finished.add(subscribeId) && finishedCnt.incrementAndGet() == subscribers.size()) {
+            // It could be a completely dummy request (no data),in which case
+            // the wait-set must be also updated.
             waitResponse.remove(subscribeId);
 
             if (completed.compareAndSet(false, true)) {
-                pushData(remain, null, null);
+                pushData(remain);
             }
 
-            // all work done
             return;
         }
 
@@ -188,47 +186,17 @@ public class MergeSortSubscriptionStrategy<T> extends AbstractCompositeSubscript
      * Push available internal data to the delegated subscriber.
      *
      * @param cnt Maximum number of items to push.
-     * @param comp Items comparator.
-     * @param minBound Minimum bound up to which we can return data.
-     * @return Number of remaining items.
      */
-    private long pushData(long cnt, @Nullable Comparator<T> comp, @Nullable T minBound) {
-        boolean done = false;
-        T r;
+    private void pushData(long cnt) {
+        T item;
 
-        while (cnt > 0 && (r = inBuf.peek()) != null) {
-            int cmpRes = comp == null ? 0 : comp.compare(minBound, r);
-
-            if (cmpRes < 0) {
-                return cnt;
-            }
-
-            boolean same = comp != null && cmpRes == 0;
-
-            if (!done && same) {
-                done = true;
-            }
-
-            if (!done || same) {
-                T r0 = inBuf.poll();
-
-                assert r == r0;
-
-                delegate.onNext(r);
-
-                --cnt;
-            }
-
-            if (done && !same) {
-                break;
-            }
+        while (cnt-- > 0 && (item = inBuf.poll()) != null) {
+            delegate.onNext(item);
         }
 
-        if (comp == null && inBuf.isEmpty()) {
+        if (inBuf.isEmpty()) {
             delegate.onComplete();
         }
-
-        return cnt;
     }
 
     private synchronized void processReceivedData() {
@@ -240,7 +208,17 @@ public class MergeSortSubscriptionStrategy<T> extends AbstractCompositeSubscript
             return;
         }
 
-        remain = pushData(remain, comp, minItem);
+        T item;
+        // Pass the data from the internal buffer to the delegate.
+        while (remain > 0 && (item = inBuf.peek()) != null && comp.compare(minItem, item) >= 0) {
+            T item0 = inBuf.poll();
+
+            assert item == item0;
+
+            delegate.onNext(item);
+
+            --remain;
+        }
 
         if (remain > 0) {
             requestNext(subsIds, requested);

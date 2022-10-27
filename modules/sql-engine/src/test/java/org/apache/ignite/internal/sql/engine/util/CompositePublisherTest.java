@@ -205,6 +205,9 @@ public class CompositePublisherTest {
                     }
 
                     return n;
+                }).whenComplete((res, err) -> {
+                    if (err != null)
+                        err.printStackTrace();
                 });
 
                 futs.add(fut);
