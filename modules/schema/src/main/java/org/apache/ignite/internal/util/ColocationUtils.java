@@ -27,7 +27,6 @@ import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.internal.schema.DecimalNativeType;
 import org.apache.ignite.internal.schema.NativeType;
-import org.apache.ignite.internal.schema.NativeTypeSpec;
 
 /**
  * Colocation hash utilities.
@@ -79,7 +78,7 @@ public class ColocationUtils {
                 return;
 
             case DECIMAL:
-                calc.appendDecimal((BigDecimal) v, ((DecimalNativeType)type).scale());
+                calc.appendDecimal((BigDecimal) v, ((DecimalNativeType) type).scale());
                 return;
 
             case UUID:
