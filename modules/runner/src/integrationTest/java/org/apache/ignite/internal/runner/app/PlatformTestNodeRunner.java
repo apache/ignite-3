@@ -361,6 +361,26 @@ public class PlatformTestNodeRunner {
                         tuple.set(colName, reader.bitmaskValue(valIdx));
                         break;
 
+                    case ClientDataType.DATE:
+                        columns[i] = new Column(i, colName, NativeTypes.DATE, false);
+                        tuple.set(colName, reader.dateValue(valIdx));
+                        break;
+
+                    case ClientDataType.TIME:
+                        columns[i] = new Column(i, colName, NativeTypes.time(), false);
+                        tuple.set(colName, reader.timeValue(valIdx));
+                        break;
+
+                    case ClientDataType.DATETIME:
+                        columns[i] = new Column(i, colName, NativeTypes.datetime(), false);
+                        tuple.set(colName, reader.dateTimeValue(valIdx));
+                        break;
+
+                    case ClientDataType.TIMESTAMP:
+                        columns[i] = new Column(i, colName, NativeTypes.timestamp(), false);
+                        tuple.set(colName, reader.timestampValue(valIdx));
+                        break;
+
                     default:
                         throw new IllegalArgumentException("Unsupported type: " + type);
                 }
