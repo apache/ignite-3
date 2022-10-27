@@ -105,16 +105,12 @@ public class ColocationHashTests : IgniteTestsBase
         await AssertClientAndServerHashesAreEqual(key);
 
     [Test]
-    public async Task TestTwoKeyColocationHashIsSameOnServerAndClient() => // TODO: Remove me
-        await AssertClientAndServerHashesAreEqual(default(decimal));
-
-    [Test]
     public async Task TestMultiKeyColocationHashIsSameOnServerAndClient()
     {
-        // TODO: Random permutations?
         for (var i = 0; i < TestCases.Length; i++)
         {
             await AssertClientAndServerHashesAreEqual(TestCases.Take(i + 1).ToArray());
+            await AssertClientAndServerHashesAreEqual(TestCases.Skip(i).ToArray());
         }
     }
 
