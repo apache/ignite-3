@@ -70,6 +70,7 @@ import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.table.event.TableEventParameters;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -219,6 +220,7 @@ public class StopCalciteModuleTest {
 
         when(tbl.tableId()).thenReturn(UUID.randomUUID());
 
+        when(txManager.begin()).thenReturn(mock(InternalTransaction.class));
         when(tbl.storage()).thenReturn(mock(MvTableStorage.class));
         when(tbl.storage().configuration()).thenReturn(mock(TableConfiguration.class));
         when(tbl.storage().configuration().partitions()).thenReturn(mock(ConfigurationValue.class));
