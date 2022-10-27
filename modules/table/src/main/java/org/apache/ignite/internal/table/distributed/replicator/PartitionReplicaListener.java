@@ -371,7 +371,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
             BinaryRow candidate = newestCommitTimestamp == null ? null : cursor.committed(newestCommitTimestamp);
 
-            resolutionFuts.add(resolveReadResult(cursor.next(), readTimestamp, () -> candidate));
+            resolutionFuts.add(resolveReadResult(readResult, readTimestamp, () -> candidate));
         }
 
         return allOf(resolutionFuts.toArray(new CompletableFuture[0])).thenCompose(unused -> {
